@@ -76,6 +76,7 @@ import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -378,10 +379,8 @@ public class LeaseUpdater {
 
     /** Runnable to update lease in Meta storage. */
     private class Updater implements Runnable {
-        private LeaseStats leaseUpdateStatistics = new LeaseStats();
-
         /** This field should be accessed only from updater thread. */
-        private int statisticsLogCounter;
+        private LeaseStats leaseUpdateStatistics = new LeaseStats();
 
         @Override
         public void run() {
@@ -416,8 +415,6 @@ public class LeaseUpdater {
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
             HybridTimestamp currentTime = clockService.current();
-
-            leaseUpdateStatistics = new LeaseStats();
 
             long leaseExpirationInterval = replicationConfiguration.leaseExpirationIntervalMillis().value();
 
@@ -545,17 +542,11 @@ public class LeaseUpdater {
 
             ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
 
-            if (shouldLogLeaseStatistics()) {
-                LOG.info(
-                        "Leases updated (printed once per {} iteration(s)): [inCurrentIteration={}, active={}, "
-                                + "currentStableAssignmentsSize={}, currentPendingAssignmentsSize={}].",
-                        LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS,
-                        leaseUpdateStatistics,
-                        activeLeasesCount,
-                        currentStableAssignmentsSize,
-                        currentPendingAssignmentsSize
-                );
-            }
+            leaseUpdateStatistics.logLeaseStatisticsIfNeeded(
+                    activeLeasesCount,
+                    currentStableAssignmentsSize,
+                    currentPendingAssignmentsSize
+            );
 
             // This condition allows to skip the meta storage invoke when there are no leases to update (renewedLeases.isEmpty()).
             // However there is the case when we need to save empty leases collection: when the assignments are empty and
@@ -725,20 +716,6 @@ public class LeaseUpdater {
             return clockService.after(now, lease.getExpirationTime());
         }
 
-        private boolean shouldLogLeaseStatistics() {
-            if (LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS < 0) {
-                return false;
-            }
-
-            boolean result = ++statisticsLogCounter >= LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
-
-            if (result) {
-                statisticsLogCounter = 0;
-            }
-
-            return result;
-        }
-
         private Set<Assignment> getAssignmentsFromTokenizedAssignmentsMap(
                 ReplicationGroupId grpId,
                 Map<ReplicationGroupId, TokenizedAssignments> tokenizedAssignmentsMap
@@ -764,6 +741,9 @@ public class LeaseUpdater {
         @IgniteToStringInclude
         int leasesWithoutCandidates;
 
+        @IgniteToStringExclude
+        private int statisticsLogCounter;
+
         private void onLeaseCreate() {
             leasesCreated++;
         }
@@ -778,6 +758,57 @@ public class LeaseUpdater {
 
         private void onLeaseWithoutCandidate() {
             leasesWithoutCandidates++;
+        }
+
+        private boolean leaseCreateActivity() {
+            return leasesCreated > 0 || leasesPublished > 0;
+        }
+
+        private boolean shouldLogLeaseStatistics(int currentStableOrPendingAssignmentsSize) {
+            if (LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS < 0) {
+                return true;
+            }
+
+            return ++statisticsLogCounter >= LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS
+                    // Log statistics only if there are assignments
+                    && currentStableOrPendingAssignmentsSize > 0
+                    // And something goes wrong
+                    && (
+                            // There are leases without candidates
+                            leasesWithoutCandidates > 0
+                            // Or no lease create/prolong activity
+                            || (!leaseCreateActivity() && leasesProlonged == 0)
+                    );
+        }
+
+        void logLeaseStatisticsIfNeeded(
+                int activeLeasesCount,
+                int currentStableAssignmentsSize,
+                int currentPendingAssignmentsSize
+        ) {
+            if (!shouldLogLeaseStatistics(currentStableAssignmentsSize + currentPendingAssignmentsSize)) {
+                return;
+            }
+
+            LOG.info(
+                    "Leases updated [sinceLastTimePrinted={}, active={}, "
+                            + "currentStableAssignmentsSize={}, currentPendingAssignmentsSize={}].",
+                    this,
+                    activeLeasesCount,
+                    currentStableAssignmentsSize,
+                    currentPendingAssignmentsSize
+            );
+
+            reset();
+        }
+
+        private void reset() {
+            leasesCreated = 0;
+            leasesPublished = 0;
+            leasesProlonged = 0;
+            leasesWithoutCandidates = 0;
+
+            statisticsLogCounter = 0;
         }
 
         @Override
