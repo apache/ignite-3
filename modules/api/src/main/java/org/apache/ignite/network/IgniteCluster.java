@@ -26,21 +26,21 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface IgniteCluster {
     /**
-     * Gets the cluster nodes.
+     * Gets the cluster nodes that are members of the logical topology, including the local node (if applicable).
      *
      * @return Collection of cluster nodes.
      */
     Collection<ClusterNode> nodes();
 
     /**
-     * Gets the cluster nodes.
+     * Gets the cluster nodes that are members of the logical topology, including the local node (if applicable).
      *
      * @return Collection of cluster nodes.
      */
     CompletableFuture<Collection<ClusterNode>> nodesAsync();
 
     /**
-     * Gets the local cluster node.
+     * Gets the local cluster node, if applicable.
      *
      * @return Local cluster node (embedded mode), or {@code null} if not applicable (client side).
      */
