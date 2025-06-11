@@ -106,7 +106,6 @@ INSERT INTO timestamp_t VALUES (timestamp '10000-01-01 01:01:01')
 statement error: Timestamp literal 'TIMESTAMP '10000-01-01'' out of range.
 INSERT INTO timestamp_t VALUES (timestamp '10000-01-01')
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-25010 This should be parser error
 statement error: Invalid value for MonthOfYear
 INSERT INTO timestamp_t VALUES (CAST('9999-99-99' AS TIMESTAMP FORMAT 'YYYY-MM-DD'))
 

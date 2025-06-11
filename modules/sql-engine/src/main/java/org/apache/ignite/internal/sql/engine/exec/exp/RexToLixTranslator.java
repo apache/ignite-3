@@ -117,6 +117,8 @@ import org.locationtech.jts.geom.Geometry;
  *      Removed original casts to numeric types and used own ConverterUtils.convert
  *      Added pad-truncate from CHARACTER to INTERVAL types
  *      Added time-zone dependency for cast from CHARACTER types to TIMESTAMP WITH LOCAL TIMEZONE (see point 3)
+ *      Cast VARCHAR to TIME is updated to use our implementation (see IgniteMethod.TIME_STRING_TO_TIME).
+ *      Cast VARCHAR to DATE is updated to use our implementation (see IgniteMethod.DATE_STRING_TO_DATE).
  *      Cast TIMESTAMP to TIMESTAMP WITH LOCAL TIMEZONE use our implementation, see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
  *      Cast TIMESTAMP LTZ accepts FORMAT. (See IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  * 6. Translate literals changes:
@@ -612,10 +614,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       // If format string is supplied, parse formatted string into date
       return Expressions.isConstantNull(format)
               ? Expressions.call(BuiltInMethod.STRING_TO_DATE.method, operand)
-              : Expressions.call(
-                      // TODO https://issues.apache.org/jira/browse/IGNITE-25010 Remove redundant call to TO_DATE_EXACT
-                      IgniteMethod.DATE_STRING_TO_DATE.method(), operand, format
-              );
+              : Expressions.call(IgniteMethod.DATE_STRING_TO_DATE.method(), operand, format);
 
     case TIMESTAMP:
       return
