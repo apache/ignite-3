@@ -126,7 +126,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     private final OnSnapshotSaveHandler onSnapshotSaveHandler;
 
     /* Feature flag for zone based collocation track */
-    // TODO IGNITE-22115 remove it
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 remove it
     private final boolean enabledColocationFeature = enabledColocation();
 
     private final RaftTxFinishMarker txFinishMarker;
