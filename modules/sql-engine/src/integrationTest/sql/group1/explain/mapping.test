@@ -5,7 +5,9 @@ statement ok
 CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
 
 explain mapping
-SELECT COUNT(*) FROM SYSTEM.SYSTEM_VIEWS;
+SELECT /*+ DISABLE_RULE('MapReduceSortAggregateConverterRule',
+                        'ColocatedSortAggregateConverterRule',
+                        'MapReduceHashAggregateConverterRule') */ COUNT(*) FROM SYSTEM.SYSTEM_VIEWS;
 ----
 Fragment#0 root
   executionNodes: [sqllogic0]
