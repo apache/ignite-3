@@ -87,6 +87,7 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
         }
     }
 
+    @SuppressWarnings("DataFlowIssue")
     @Test
     public void testLocalNode() {
         ClusterNode localNode = ignite().cluster().localNode();
