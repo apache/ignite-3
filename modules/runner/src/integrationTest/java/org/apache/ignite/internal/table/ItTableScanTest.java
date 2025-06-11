@@ -793,8 +793,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
                     ignite.placementDriver().awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
-            ClusterNode recipientNode = ignite.cluster().nodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
-                    .findFirst().get();
+            ClusterNode recipientNode = ignite.cluster().nodes().stream()
+                    .filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
+                    .findFirst()
+                    .get();
+
             tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true));
 
             publisher = internalTable.scan(PART_ID, tx.id(), ignite.clock().now(), recipientNode, tx.coordinatorId());
