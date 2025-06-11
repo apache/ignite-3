@@ -34,22 +34,23 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
-import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Unit test for {@link ColumnFamilyUtils}.
  */
 public class ColumnFamilyUtilsTest {
-    @SuppressWarnings("unused")
-    public static final List<NativeType> ALL_TYPES = SchemaTestUtils.ALL_TYPES;
+    private static List<NativeType> allNativeTypes() {
+        return SchemaTestUtils.ALL_TYPES;
+    }
 
     @ParameterizedTest
-    @VariableSource("ALL_TYPES")
+    @MethodSource("allNativeTypes")
     void testSortedIndexCfNameSingleType(NativeType nativeType) {
         var descriptor = new StorageSortedIndexColumnDescriptor("<unused>", nativeType, false, false, false);
 
