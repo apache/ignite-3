@@ -43,14 +43,11 @@ SELECT id FROM t WHERE col1 = '1';
 And possible EXPLAIN output:
 [source,sql]
 ----
-Exchange
-    distribution: single
+TableScan
+    table: PUBLIC.T
+    predicate: =(COL1, _UTF-8'1')
+    fieldNames: [ID]
     est: (rows=1)
-  TableScan
-      table: PUBLIC.T
-      predicate: =(COL1, _UTF-8'1')
-      fieldNames: [ID]
-      est: (rows=1)
 ----
 We can see a full scan (*TableScan* operator) with predicate.
 The choice which scan implementation (**TableScan** or **IndexScan**) need to be used is relates into planner decision.
@@ -62,18 +59,15 @@ SELECT /*+ FORCE_INDEX(t_col1_idx) */ id FROM t WHERE col1 = '1';
 Will show a different plan, like:
 [source,sql]
 ----
-Exchange
-    distribution: single
+IndexScan
+    table: PUBLIC.T
+    index: T_COL1_IDX
+    type: SORTED
+    predicate: =(COL1, _UTF-8'1')
+    searchBounds: [ExactBounds [bound=_UTF-8'1']]
+    fieldNames: [ID]
+    collation: []
     est: (rows=1)
-  IndexScan
-      table: PUBLIC.T
-      index: T_COL1_IDX
-      type: SORTED
-      predicate: =(COL1, _UTF-8'1')
-      searchBounds: [ExactBounds [bound=_UTF-8'1']]
-      fieldNames: [ID]
-      collation: []
-      est: (rows=1)
 ----
 
 == Not optimal indexes are involved
@@ -88,11 +82,9 @@ SELECT id FROM t WHERE col1 = '1' AND col2 = '2';
 and possible plan:
 [source,sql]
 ----
-Exchange
-    ...
-  IndexScan
-      table: PUBLIC.T
-      index: T_COL1_IDX
+IndexScan
+    table: PUBLIC.T
+    index: T_COL1_IDX
 
 -- ...cut (here and below all unrelated explain info will be trimmed)
 ----
@@ -100,12 +92,10 @@ We can see that picked index is **T_COL1_IDX** through both predicates **COL1 = 
 Optimal plan need to be like:
 [source,sql]
 ----
-Exchange
+IndexScan
+    table: PUBLIC.T
+    index: T_COL1_COL2_IDX
     ...
-  IndexScan
-      table: PUBLIC.T
-      index: T_COL1_COL2_IDX
-      ...
 ----
 We can also use **HINTS** to achieve it:
 [source,sql]
@@ -127,23 +117,17 @@ SELECT t1.id as t1id, t2.id as t2id FROM t1 JOIN t2 USING (col1);
 And possible plan:
 [source,sql]
 ----
-Project
+MergeJoin
     ...
-  MergeJoin
+  Sort
+      collation: [COL1 ASC]
       ...
-    Exchange
+    IndexScan
+        index: T1_COL1_DESC_IDX
         ...
-      Sort
-          collation: [COL1 ASC]
-          ...
-        IndexScan
-            index: T1_COL1_DESC_IDX
-            ...
-    Exchange
-        ...
-      IndexScan
-          index: T2_COL1_IDX
-          ...
+  IndexScan
+      index: T2_COL1_IDX
+      ...
 ----
 We can found here **Sort** operator over **IndexScan** it passed here for changing not satisfying ordering from near source (index), it needs to be ASC ordered.
 Extra **Sort** operator brings additional performance costs, we can avoid it by appending an index with satisfying sort ordering:
@@ -156,20 +140,14 @@ And plan will become like:
 
 [source,sql]
 ----
-Project
+MergeJoin
     ...
-  MergeJoin
+  IndexScan
+      index: T1_COL1_IDX
       ...
-    Exchange
-        ...
-      IndexScan
-          index: T1_COL1_IDX
-          ...
-    Exchange
-        ...
-      IndexScan
-          index: T2_COL1_IDX
-          ...
+  IndexScan
+      index: T2_COL1_IDX
+      ...
 ----
 == Performance impact of correlated subqueries
 SQL-99 allows for nested subqueries at nearly all places within a query.
@@ -186,24 +164,18 @@ WHERE emp.salary > 1000;
 We can see nested correlated subquery here, lets check the plan:
 [source,sql]
 ----
-Project
+CorrelatedNestedLoopJoin
     ...
-  CorrelatedNestedLoopJoin
+  TableScan
+      table: PUBLIC.EMP
+      filters: >(SALARY, 1000)
       ...
-    Exchange
-        ...
+  ColocatedHashAggregate
+      ...
       TableScan
-          table: PUBLIC.EMP
-          filters: >(SALARY, 1000)
+          table: PUBLIC.DEPT
+          filters: =($cor1.DEPT_ID, ID)
           ...
-    ColocatedHashAggregate
-        ...
-      Exchange
-          ...
-        TableScan
-            table: PUBLIC.DEPT
-            filters: =($cor1.DEPT_ID, ID)
-            ...
 ----
 In Ignite 3 there is present some performance issues related to correlated subqueries and as a result:
 
@@ -223,20 +195,16 @@ WHERE emp.salary > 1000 AND emp.dept_id=dept.id;
 And new plan becomes:
 [source,sql]
 ----
-Exchange
-    ...
-  Project
-      ...
-    HashJoin
-        condition: =(DEPT_ID, ID)
-        ....
-      TableScan
-          table: PUBLIC.EMP
-          filters: >(SALARY, 1000)
-          ....
-      TableScan
-          table: PUBLIC.DEPT
-          ....
+HashJoin
+    condition: =(DEPT_ID, ID)
+    ....
+  TableScan
+      table: PUBLIC.EMP
+      filters: >(SALARY, 1000)
+      ....
+  TableScan
+      table: PUBLIC.DEPT
+      ....
 ----
 Which performs match better than previous one.
 
@@ -256,18 +224,14 @@ Expectations:
 But plan can shows:
 [source,sql]
 ----
-Project
+Sort
+    collation: [NAME ASC]
     ...
-  Exchange
+  IndexScan
+      table: PUBLIC.T
+      index: EMP_SALARY_NAME_IDX
+      filters: =(SALARY, 1)
       ...
-    Sort
-        collation: [NAME ASC]
-        ...
-      IndexScan
-          table: PUBLIC.T
-          index: EMP_SALARY_NAME_IDX
-          filters: =(SALARY, 1)
-          ...
 ----
 We can see - additional **Sort** operator which is redundant here.
 A bit query refactoring can help to avoid excessive sort:
@@ -278,15 +242,11 @@ SELECT dept_id FROM emp WHERE salary = 1 ORDER BY salary, name;
 And the plan becomes as follows:
 [source,sql]
 ----
-Project
+IndexScan
+    table: PUBLIC.T
+    index: EMP_SALARY_NAME_IDX
+    filters: =(SALARY, 1)
     ...
-  Exchange
-      ...
-    IndexScan
-        table: PUBLIC.T
-        index: EMP_SALARY_NAME_IDX
-        filters: =(SALARY, 1)
-        ...
 ----
 == Colocated data miss
 In many cases it is beneficial to colocate different entries if they are often accessed together.
@@ -305,21 +265,17 @@ SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id;
 Expect colocated join here, but plan shows that it`s not true:
 [source,sql]
 ----
-Exchange
+HashJoin
     ...
-  Project
+  TableScan
+      table: PUBLIC.EMP
       ...
-    HashJoin
+  Exchange
+      distribution: affinity
+      ...
+    TableScan
+        table: PUBLIC.DEPT
         ...
-      TableScan
-          table: PUBLIC.EMP
-          ...
-      Exchange
-          distribution: affinity
-          ...
-        TableScan
-            table: PUBLIC.DEPT
-            ...
 ----
 We can see **Exchange** operator between two table scans, which means that predicate involved rows belonging to the same table will be transferred into different nodes, which holds corresponding predicate involved columns but have a different distribution.
 
@@ -337,18 +293,14 @@ SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id;
 Possible plan will show correct colocated join:
 [source,sql]
 ----
-Exchange
+HashJoin
     ...
-  Project
+  TableScan
+      table: PUBLIC.EMP
       ...
-    HashJoin
-        ...
-      TableScan
-          table: PUBLIC.EMP
-          ...
-      TableScan
-          table: PUBLIC.DEPT
-          ...
+  TableScan
+      table: PUBLIC.DEPT
+      ...
 ----
 Now, both tables are colocated by predicate involved columns. No more intermediate **Exchange** contained in plan,
 thus no additional cross nodes data transfer is raised in such a case.
@@ -371,18 +323,16 @@ But there are numerous cases where such optimization is not applicable (transact
 The same query as above, but with explicit transaction may produce a different plan like:
 [source,sql]
 ----
-Project
+ReduceSortAggregate
     ...
-  ReduceSortAggregate
+  Exchange
       ...
-    Exchange
+    MapSortAggregate
         ...
-      MapSortAggregate
+      TableScan
+          table: PUBLIC.EMP
+          est: (rows=43)
           ...
-        TableScan
-            table: PUBLIC.EMP
-            est: (rows=43)
-            ...
 ----
 == Index scan without exact search bounds
 Table scans are available in two implementations: direct table scan and scan through index, index scan containing 'predicate' and so-called: 'search bounds'.
@@ -399,13 +349,11 @@ SELECT id FROM t WHERE col1 = 43;
 And possible plan like:
 [source,sql]
 ----
-Exchange
+IndexScan
+    table: PUBLIC.T
+    index: T_COL1_IDX
+    predicate: =(CAST(COL1):DECIMAL(13, 3), 43.000)
     ...
-  IndexScan
-      table: PUBLIC.T
-      index: T_COL1_IDX
-      predicate: =(CAST(COL1):DECIMAL(13, 3), 43.000)
-      ...
 ----
 We can see here - only **predicate** which means that **all** rows from index will go through predicate and bring additional performance penalty.
 
@@ -423,12 +371,10 @@ SELECT /*+ NO_INDEX(t_col1_idx) */ id FROM t WHERE col1 = 43
 Will give possible plan like:
 [source,sql]
 ----
-Exchange
+TableScan
+    table: PUBLIC.T
+    predicate: =(CAST(COL1):DECIMAL(13, 3), 43.000)
     ...
-  TableScan
-      table: PUBLIC.T
-      predicate: =(CAST(COL1):DECIMAL(13, 3), 43.000)
-      ...
 ----
 
 Or append additional cast to the same query:
@@ -440,14 +386,12 @@ SELECT id FROM t WHERE col1 = 43::DECIMAL(5, 3);
 
 [source,sql]
 ----
-Exchange
+IndexScan
+    table: PUBLIC.T
+    index: T_COL1_IDX
+    predicate: =(COL1, 43.000)
+    searchBounds: [ExactBounds [bound=43.000:DECIMAL(5, 3)]]
     ...
-  IndexScan
-      table: PUBLIC.T
-      index: T_COL1_IDX
-      predicate: =(COL1, 43.000)
-      searchBounds: [ExactBounds [bound=43.000:DECIMAL(5, 3)]]
-      ...
 ----
 We can see here both **searchBounds** and **predicate** which means that only exact lookup through index will be involved.
 
@@ -464,13 +408,11 @@ SELECT * FROM t WHERE col1::varchar = SUBSTR(CURRENT_DATE::varchar, 4);
 Possible plan:
 [source,sql]
 ----
-Exchange
+IndexScan
+    table: PUBLIC.T
+    index: T_VAL_ASC_IDX
+    predicate: =(CAST(COL1):VARCHAR CHARACTER SET "UTF-8", SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4))
     ...
-  IndexScan
-      table: PUBLIC.T
-      index: T_VAL_ASC_IDX
-      predicate: =(CAST(COL1):VARCHAR CHARACTER SET "UTF-8", SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4))
-      ...
 ----
 And we also can see that no **search bounds** are involved here.
 
@@ -484,14 +426,12 @@ SELECT * FROM t WHERE col1 = SUBSTR(CURRENT_DATE::varchar, 4)::int;
 And the possible plan will become:
 [source,sql]
 ----
-Exchange
+IndexScan
+    table: PUBLIC.T
+    index: T_COL1_ASC_IDX
+    predicate: =(COL1, CAST(SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)):INTEGER NOT NULL)
+    searchBounds: [ExactBounds [bound=CAST(SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)):INTEGER]]
     ...
-  IndexScan
-      table: PUBLIC.T
-      index: T_COL1_ASC_IDX
-      predicate: =(COL1, CAST(SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)):INTEGER NOT NULL)
-      searchBounds: [ExactBounds [bound=CAST(SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)):INTEGER]]
-      ...
 ----
 We can see that **searchBounds** are present - thus more productive execution flow is expected here.
 
@@ -515,20 +455,18 @@ SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id AND emp.s
 Bring plan like:
 [source,sql]
 ----
-Project
+HashJoin
     ...
-  HashJoin
+  Exchange
       ...
-    Exchange
+    TableScan
+        table: PUBLIC.EMP
         ...
-      TableScan
-          table: PUBLIC.EMP
-          ...
-    Exchange
+  Exchange
+      ...
+    TableScan
+        table: PUBLIC.DEPT
         ...
-      TableScan
-          table: PUBLIC.DEPT
-          ...
 ----
 We can see here two **Exchange** operators which means that all rows are transferred into single node and then joins.
 Obviously such execution flow brings sufficient performance penalty and therefore slow query execution. Let`s try to improve it:
@@ -541,21 +479,17 @@ Now we can see that dependent rows from **emp** table are transferred into appro
 node where **dept** holds the rows according **DEPT.ID** distribution:
 [source,sql]
 ----
-Exchange
+HashJoin
+    predicate: =(DEPT_ID, ID)
     ...
-  Project
+  Exchange
       ...
-    HashJoin
-        predicate: =(DEPT_ID, ID)
+    TableScan
+        table: PUBLIC.EMP
         ...
-      Exchange
-          ...
-        TableScan
-            table: PUBLIC.EMP
-            ...
-      TableScan
-          table: PUBLIC.DEPT
-          ...
+  TableScan
+      table: PUBLIC.DEPT
+      ...
 ----
 Only one **Exchange** operator for now, which, once again, mean only rows transferring
 from **Emp** table to appropriate **DEPT** one.
@@ -574,18 +508,14 @@ Now we have emp and dept tables colocated by ID`s also they belong to the same z
 And plan can look like:
 [source,sql]
 ----
-Exchange
+HashJoin
+    predicate: =(DEPT_ID, ID)
     ...
-  Project
+  TableScan
+      table: PUBLIC.EMP
       ...
-    HashJoin
-        predicate: =(DEPT_ID, ID)
-        ...
-      TableScan
-          table: PUBLIC.EMP
-          ...
-      TableScan
-          table: PUBLIC.DEPT
-          ...
+  TableScan
+      table: PUBLIC.DEPT
+      ...
 ----
 No **Exchange** operators are involved which means - no excessive rows transfer is occurred.
