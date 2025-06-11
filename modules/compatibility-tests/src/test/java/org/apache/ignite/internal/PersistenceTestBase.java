@@ -65,7 +65,8 @@ public abstract class PersistenceTestBase extends BaseIgniteAbstractTest {
     void startCluster(String baseVersion, TestInfo testInfo) {
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR).build();
 
-        int nodesCount = 3;
+        int nodesCount = nodesCount();
+
         cluster = new IgniteCluster(clusterConfiguration);
         cluster.start(baseVersion, nodesCount);
 
@@ -86,6 +87,10 @@ public abstract class PersistenceTestBase extends BaseIgniteAbstractTest {
         if (cluster != null) {
             cluster.stop();
         }
+    }
+
+    protected int nodesCount() {
+        return 3;
     }
 
     protected abstract void setupBaseVersion(Ignite baseIgnite);
