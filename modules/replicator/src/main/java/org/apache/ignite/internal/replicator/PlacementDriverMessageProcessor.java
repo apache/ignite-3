@@ -43,6 +43,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -151,7 +152,9 @@ public class PlacementDriverMessageProcessor {
                                     TimeoutException.class,
                                     ReplicationException.class,
                                     ReplicationTimeoutException.class,
-                                    ReplicaReservationFailedException.class
+                                    ReplicaReservationFailedException.class,
+                                    // TODO https://issues.apache.org/jira/browse/IGNITE-25653
+                                    GroupOverloadedException.class
                             )) {
                                 String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
                                 failureProcessor.process(new FailureContext(e, errorMessage));
