@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.rebalance;
 
 import static java.util.Optional.ofNullable;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
-import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -27,12 +27,15 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColo
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.rebalance.ItRebalanceByPendingAssignmentsQueueTest.AssignmentsRecorder.recordAssignmentsEvents;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 
 import java.util.Deque;
 import java.util.HashSet;
@@ -42,8 +45,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestRebalanceUtil;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -58,18 +63,24 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.disaster.TestDisasterRecoveryUtils;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for rebalance - handling pending {@link AssignmentsQueue} by {@link RaftGroupEventsListener}.
  */
 class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegrationTest {
+    private static final int AUTO_SCALE_TIMEOUT_SECONDS = 2;
+    private static final String ZONE_NAME = "TEST_ZONE";
+    private static final String TABLE_NAME = "TEST_TABLE";
 
     @Override
     protected int initialNodes() {
@@ -80,7 +91,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     void testDoStableKeySwitchWhenPendingQueueIsOne() {
         createZoneAndTable(4, 2);
 
-        Set<Assignment> stableAssignments = getPartitionStableAssignments("TEST_TABLE");
+        Set<Assignment> stableAssignments = stablePartitionAssignments(TABLE_NAME);
 
         // update pending assignments by remove some in stable
         AssignmentsQueue expectedPendingAssignmentsQueue = assignmentsReduce(stableAssignments);
@@ -88,11 +99,11 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
 
         recordAssignmentsEvents(cluster.aliveNode(), recorder -> {
 
-            putPendingAssignments(cluster.aliveNode(), "TEST_TABLE", expectedPendingAssignmentsQueue);
+            putPendingAssignments(cluster.aliveNode(), TABLE_NAME, expectedPendingAssignmentsQueue);
 
             await().untilAsserted(() -> {
-                Deque<AssignmentsQueue> pendingEvents = recorder.pendingAssignmentsEvents("TEST_TABLE");
-                Deque<Assignments> stableEvents = recorder.stableAssignmentsEvents("TEST_TABLE");
+                Deque<AssignmentsQueue> pendingEvents = recorder.pendingAssignmentsEvents(TABLE_NAME);
+                Deque<Assignments> stableEvents = recorder.stableAssignmentsEvents(TABLE_NAME);
 
                 assertThat("pending assignment events N=1", pendingEvents, hasSize(1));
                 assertThat(pendingEvents.peekFirst(), equalTo(expectedPendingAssignmentsQueue));
@@ -107,7 +118,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     void testDoStableKeySwitchWhenPendingQueueIsGreaterThanOne() {
         createZoneAndTable(4, 2);
 
-        Set<Assignment> stableAssignments = getPartitionStableAssignments("TEST_TABLE");
+        Set<Assignment> stableAssignments = stablePartitionAssignments(TABLE_NAME);
 
         // update pending assignments by promote/demote some in stable
         AssignmentsQueue expectedPendingAssignmentsQueue = assignmentsPromoteDemote(stableAssignments);
@@ -115,11 +126,11 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
 
         recordAssignmentsEvents(cluster.aliveNode(), recorder -> {
 
-            putPendingAssignments(cluster.aliveNode(), "TEST_TABLE", expectedPendingAssignmentsQueue);
+            putPendingAssignments(cluster.aliveNode(), TABLE_NAME, expectedPendingAssignmentsQueue);
 
             await().untilAsserted(() -> {
-                Deque<AssignmentsQueue> pendingEvents = recorder.pendingAssignmentsEvents("TEST_TABLE");
-                Deque<Assignments> stableEvents = recorder.stableAssignmentsEvents("TEST_TABLE");
+                Deque<AssignmentsQueue> pendingEvents = recorder.pendingAssignmentsEvents(TABLE_NAME);
+                Deque<Assignments> stableEvents = recorder.stableAssignmentsEvents(TABLE_NAME);
 
                 assertThat("pending assignment events N=queue size", pendingEvents, hasSize(expectedPendingAssignmentsQueue.size()));
                 assertThat(pendingEvents.peekFirst(), equalTo(expectedPendingAssignmentsQueue));
@@ -134,41 +145,70 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     void testScaleUp() {
         createZoneAndTable(2, 2);
 
-        var stable0 = PeersAndLearners.fromAssignments(getPartitionStableAssignments("TEST_TABLE"));
+        var stable0 = PeersAndLearners.fromAssignments(stablePartitionAssignments(TABLE_NAME));
         assertThat(stable0.peers(), hasSize(2));
         assertThat(stable0.learners(), hasSize(0));
 
         // new peer should be started
         alterZone(3, 2);
-        var stable1 = PeersAndLearners.fromAssignments(getPartitionStableAssignments("TEST_TABLE"));
+        var stable1 = PeersAndLearners.fromAssignments(stablePartitionAssignments(TABLE_NAME));
         assertThat(stable1.peers().size(), equalTo(3));
         assertThat(stable1.learners().size(), equalTo(0));
 
         // new learner should be started
         alterZone(4, 2);
-        var stable2 = PeersAndLearners.fromAssignments(getPartitionStableAssignments("TEST_TABLE"));
+        var stable2 = PeersAndLearners.fromAssignments(stablePartitionAssignments(TABLE_NAME));
         assertThat(stable2.peers().size(), equalTo(3));
         assertThat(stable2.learners().size(), equalTo(1));
     }
 
+    @Test
+    void testScaleDown() {
+        createZoneAndTable(4, 2);
+
+        var stable0 = PeersAndLearners.fromAssignments(stablePartitionAssignments(TABLE_NAME));
+        assertThat(stable0.peers().size(), equalTo(3));
+        assertThat(stable0.learners().size(), equalTo(1));
+
+        String leaseholder = awaitPrimaryReplica(TABLE_NAME).getLeaseholder();
+
+        // peer goes offline
+        String stopNodeName = stable0.peers().stream()
+                .filter(p -> !p.consistentId().equals(leaseholder))
+                .findFirst().map(Peer::consistentId).orElseThrow();
+        cluster.stopNode(stopNodeName);
+        await().atMost(30, SECONDS).untilAsserted(() -> {
+            var stableNames = stablePartitionAssignments(TABLE_NAME).stream()
+                    .map(Assignment::consistentId)
+                    .collect(Collectors.toSet());
+            assertThat(stableNames, not(hasItem(stopNodeName)));
+        });
+
+        // learner promoted to peer
+        var stable1 = PeersAndLearners.fromAssignments(stablePartitionAssignments(TABLE_NAME));
+        assertThat("learner promoted to peer", stable1.peers(), hasItem(stable0.learners().iterator().next()));
+        assertThat(stable1.peers().size(), equalTo(3));
+        assertThat(stable1.learners().size(), equalTo(0));
+    }
+
     private void createZoneAndTable(int replicas, int quorum) {
-        executeSql(format("CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS={}, QUORUM_SIZE={}, STORAGE_PROFILES='default'",
-                replicas, quorum));
-        executeSql("CREATE TABLE TEST_TABLE (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
-        executeSql("INSERT INTO TEST_TABLE VALUES (0, 0)");
+        executeSql(format("CREATE ZONE {} (PARTITIONS 1, REPLICAS {}, QUORUM SIZE {}, AUTO SCALE DOWN {}, AUTO SCALE UP {}) STORAGE PROFILES ['default']",
+                ZONE_NAME, replicas, quorum, AUTO_SCALE_TIMEOUT_SECONDS, AUTO_SCALE_TIMEOUT_SECONDS));
+        executeSql(format("CREATE TABLE {} (id INT PRIMARY KEY, name INT) ZONE {}", TABLE_NAME, ZONE_NAME));
+        executeSql(format("INSERT INTO {} VALUES (0, 0)", TABLE_NAME));
 
         await().untilAsserted(this::assertPartitionAssignments);
     }
 
     private void alterZone(int replicas, int quorum) {
-        executeSql(format("ALTER ZONE TEST_ZONE SET REPLICAS={}, QUORUM_SIZE={}", replicas, quorum));
+        executeSql(format("ALTER ZONE {} SET (REPLICAS {}, QUORUM SIZE {})", ZONE_NAME, replicas, quorum));
         await().untilAsserted(this::assertPartitionAssignments);
     }
 
     private void assertPartitionAssignments() {
-        CatalogZoneDescriptor zone = latestCatalog().zone("TEST_ZONE");
+        CatalogZoneDescriptor zone = latestCatalog().zone(ZONE_NAME);
 
-        Set<Assignment> stableAssignments = getPartitionStableAssignments("TEST_TABLE");
+        Set<Assignment> stableAssignments = stablePartitionAssignments(TABLE_NAME);
 
         if (zone.replicas() > cluster.runningNodes().count()) {
             assertThat(stableAssignments, hasSize((int) cluster.runningNodes().count()));
@@ -180,27 +220,44 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         assertThat(stablePeerCount, equalTo((long) zone.consensusGroupSize()));
     }
 
-    private Set<Assignment> getPartitionStableAssignments(String tableName) {
+    private Set<Assignment> stablePartitionAssignments(String tableName) {
         IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
-        TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.distributedTableManager().table(tableName));
-        var fut = stablePartitionAssignments(ignite.metaStorageManager(), tableViewInternal, 0);
+        TableViewInternal table = unwrapTableViewInternal(ignite.distributedTableManager().table(tableName));
+        var fut = TestRebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), table, 0);
         assertThat(fut, willCompleteSuccessfully());
         return ofNullable(fut.join()).orElse(Set.of());
     }
 
-    private static PartitionGroupId partitionId(Ignite ignite, String tableName) {
+    private static PartitionGroupId partitionId(Ignite ignite, String tableName, int partId) {
         IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
         TableViewInternal tableViewInternal = unwrapTableViewInternal(igniteImpl.distributedTableManager().table(tableName));
         // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId, remove.
         return enabledColocation()
-                ? new ZonePartitionId(tableViewInternal.zoneId(), 0)
-                : new TablePartitionId(tableViewInternal.tableId(), 0);
+                ? new ZonePartitionId(tableViewInternal.zoneId(), partId)
+                : new TablePartitionId(tableViewInternal.tableId(), partId);
     }
 
     private static void putPendingAssignments(Ignite ignite, String tableName, AssignmentsQueue pendingAssignmentsQueue) {
-        ByteArray pendingKey = pendingPartitionAssignmentsKey(partitionId(ignite, tableName));
+        ByteArray pendingKey = pendingPartitionAssignmentsKey(partitionId(ignite, tableName, 0));
         byte[] pendingVal = pendingAssignmentsQueue.toBytes();
         unwrapIgniteImpl(ignite).metaStorageManager().put(pendingKey, pendingVal).join();
+    }
+
+    private ReplicaMeta awaitPrimaryReplica(String tableName) {
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
+        PartitionGroupId partitionId = partitionId(ignite, tableName, 0);
+        CompletableFuture<ReplicaMeta> fut = ignite.placementDriver()
+                .awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, SECONDS);
+
+        assertThat(fut, willSucceedIn(60, SECONDS));
+        return fut.join();
+    }
+
+    private Set<String> realAssignments(String tableName) {
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
+        TableViewInternal table = unwrapTableViewInternal(ignite.distributedTableManager().table(tableName));
+        return TestDisasterRecoveryUtils.getRealAssignments(
+                ignite.disasterRecoveryManager(), ZONE_NAME, table.zoneId(), table.tableId(), 0);
     }
 
     private AssignmentsQueue assignmentsPromoteDemote(Set<Assignment> stableAssignments) {
@@ -288,7 +345,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         }
 
         <T> Deque<T> assignments(Map<String, Deque<T>> assignments, String tableName) {
-            PartitionGroupId partitionId = partitionId(ignite, tableName);
+            PartitionGroupId partitionId = partitionId(ignite, tableName, 0);
 
             for (Map.Entry<String, Deque<T>> entry : assignments.entrySet()) {
                 if (entry.getKey().endsWith(partitionId.toString())
