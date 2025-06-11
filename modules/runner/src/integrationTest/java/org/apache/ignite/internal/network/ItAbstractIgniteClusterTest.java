@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.network;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -39,6 +41,11 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
 
     protected abstract Ignite ignite();
 
+    protected boolean hasNodeMeta(){
+        return true;
+    }
+
+    @SuppressWarnings("DataFlowIssue")
     @Test
     public void testNodes() {
         Collection<ClusterNode> nodes = ignite().cluster().nodes();
@@ -52,5 +59,17 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
 
         assertEquals(3344, nodes0.get(0).address().port());
         assertEquals(3345, nodes0.get(1).address().port());
+
+        if (hasNodeMeta()) {
+            assertNotNull(nodes0.get(0).nodeMetadata());
+            assertNotNull(nodes0.get(1).nodeMetadata());
+
+            assertEquals(10300, nodes0.get(0).nodeMetadata().httpPort());
+            assertEquals(10301, nodes0.get(1).nodeMetadata().httpPort());
+        } else {
+            assertNull(nodes0.get(0).nodeMetadata());
+            assertNull(nodes0.get(1).nodeMetadata());
+        }
     }
 }
+

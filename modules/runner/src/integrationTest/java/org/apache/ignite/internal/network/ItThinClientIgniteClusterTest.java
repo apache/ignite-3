@@ -29,6 +29,11 @@ import org.junit.jupiter.api.BeforeEach;
 public class ItThinClientIgniteClusterTest extends ItAbstractIgniteClusterTest {
     private IgniteClient client;
 
+    @Override
+    protected boolean hasNodeMeta() {
+        return false;
+    }
+
     @BeforeEach
     public void setUp() {
         client = IgniteClient.builder()
