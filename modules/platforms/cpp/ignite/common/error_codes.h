@@ -213,6 +213,7 @@ enum class code : underlying_t {
     NODES_NOT_FOUND = 0x140002,
     PARTITION_STATE = 0x140003,
     CLUSTER_NOT_IDLE = 0x140004,
+    RESTART_WITH_CLEAN_UP = 0x140005,
 
     // Embedded group. Group code: 21
     CLUSTER_NOT_INITIALIZED = 0x150001,
