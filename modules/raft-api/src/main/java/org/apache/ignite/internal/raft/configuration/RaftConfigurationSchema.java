@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
@@ -32,6 +33,7 @@ public class RaftConfigurationSchema {
      * a recipient and installed.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "installSnapshotTimeout")
     public int installSnapshotTimeoutMillis = Integer.MAX_VALUE;
 
     /** Configuration for Raft groups corresponding to table partitions. */
@@ -43,18 +45,21 @@ public class RaftConfigurationSchema {
      * Timeout value (in milliseconds) for which the Raft client will try to receive a successful response from a remote peer.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "retryTimeout")
     public long retryTimeoutMillis = 10_000;
 
     /**
      * Delay (in milliseconds) used by the Raft client between re-sending a failed request.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "retryDelay")
     public long retryDelayMillis = 200;
 
     /**
      * Timeout value (in milliseconds) for which the Raft client will try to receive a response from a remote peer.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "responseTimeout")
     public long responseTimeoutMillis = 3_000;
 
     /**

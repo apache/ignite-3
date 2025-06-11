@@ -19,6 +19,7 @@ package org.apache.ignite.internal.failure.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerConfigurationSchema;
@@ -34,6 +35,7 @@ public class FailureProcessorConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 0)
+    @PublicName(legacyNames = "oomBufferSizeBites")
     public int oomBufferSizeBytes = 16 * 1024;
 
     /** Enables threads dumping on critical node failure. */

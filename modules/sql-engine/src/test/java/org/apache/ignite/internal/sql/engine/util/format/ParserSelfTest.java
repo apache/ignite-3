@@ -20,15 +20,6 @@ package org.apache.ignite.internal.sql.engine.util.format;
 import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.AM;
 import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.DD;
 import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FF4;
-import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind.DAY_OF_MONTH;
-import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind.DAY_OF_YEAR;
-import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind.FRACTION;
-import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind.HOUR_24;
-import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind.MINUTE;
-import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind.MONTH;
-import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind.SECOND_OF_MINUTE;
-import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind.TIMEZONE;
-import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind.YEAR;
 import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.HH;
 import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.MI;
 import static org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.MM;
@@ -42,17 +33,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.time.Clock;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -63,78 +60,85 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 class ParserSelfTest extends BaseIgniteAbstractTest {
 
+    // Fix the clock, because the results of parsing year fields are time dependent.
+    private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2025-01-01T00:00:00.000Z"), ZoneId.of("UTC"));
+
     @ParameterizedTest
     @MethodSource("basicPatterns")
-    public void testBasicPatterns(String pattern, String value, Map<FieldKind, Object> fields) {
+    public void testBasicPatterns(String pattern, String value, LocalDateTime dateTime, ZoneOffset offset) {
         Scanner scanner = new Scanner(pattern);
         Parser parser = new Parser(scanner.scan());
         ParsedFields parsedFields = parser.parse(value);
-        assertEquals(fields, parsedFields.values());
+
+        assertEquals(dateTime, parsedFields.getDateTime(FIXED_CLOCK));
+        assertEquals(offset, parsedFields.toZoneOffset());
     }
 
     private static Stream<Arguments> basicPatterns() {
         return Stream.of(
-                Arguments.of("YYYY MM DD", "2024 10 01", Map.of(YEAR, 2024, MONTH, 10, DAY_OF_MONTH, 1)),
-                Arguments.of("YYYY-MM-DD", "2024-10-01", Map.of(YEAR, 2024, MONTH, 10, DAY_OF_MONTH, 1)),
-                Arguments.of("YYYY DDD", "2024 1", Map.of(YEAR, 2024, DAY_OF_YEAR, 1)),
-                Arguments.of("YYYY DDD", "2024 50", Map.of(YEAR, 2024, DAY_OF_YEAR, 50)),
-                Arguments.of("YYYY:DDD", "2024:100", Map.of(YEAR, 2024, DAY_OF_YEAR, 100)),
-                Arguments.of("YYYY/DDD", "2024/365", Map.of(YEAR, 2024, DAY_OF_YEAR, 365)),
-                Arguments.of("YYYYDDD", "20243", Map.of(YEAR, 2024, DAY_OF_YEAR, 3)),
-                Arguments.of("YYYYDDD", "202436", Map.of(YEAR, 2024, DAY_OF_YEAR, 36)),
+                Arguments.of("YYYY MM DD", "2024 10 01", LocalDateTime.of(LocalDate.of(2024, 10, 1), LocalTime.ofSecondOfDay(0)), null),
+                Arguments.of("YYYY-MM-DD", "2024-10-01", LocalDateTime.of(LocalDate.of(2024, 10, 1), LocalTime.ofSecondOfDay(0)), null),
+                Arguments.of("YYYY DDD", "2024 1", LocalDateTime.of(LocalDate.of(2024, 1, 1), LocalTime.ofSecondOfDay(0)), null),
+                Arguments.of("YYYY DDD", "2024 50", LocalDateTime.of(LocalDate.of(2024, 2, 19), LocalTime.ofSecondOfDay(0)), null),
+                Arguments.of("YYYY:DDD", "2024:100", LocalDateTime.of(LocalDate.of(2024, 4, 9), LocalTime.ofSecondOfDay(0)), null),
+                Arguments.of("YYYY/DDD", "2024/365", LocalDateTime.of(LocalDate.of(2024, 12, 30), LocalTime.ofSecondOfDay(0)), null),
+                Arguments.of("YYYYDDD", "20243", LocalDateTime.of(LocalDate.of(2024, 1, 3), LocalTime.ofSecondOfDay(0)), null),
+                Arguments.of("YYYYDDD", "202436", LocalDateTime.of(LocalDate.of(2024, 2, 5), LocalTime.ofSecondOfDay(0)), null),
 
                 // TIME
                 Arguments.of("HH24:MI:SS.FF3", "3:7:9.12",
-                        Map.of(HOUR_24, 3, MINUTE, 7, SECOND_OF_MINUTE, 9, FRACTION, 120_000_000)),
+                        LocalDateTime.of(LocalDate.of(2025, 1, 1), LocalTime.of(3, 7, 9, 120_000_000)), null),
 
                 Arguments.of("HH24:MI:SS.FF3 TZH:TZM", "3:7:9.12 +3:30",
-                        Map.of(HOUR_24, 3, MINUTE, 7, SECOND_OF_MINUTE, 9, FRACTION, 120_000_000,
-                                TIMEZONE, ZoneOffset.ofHoursMinutes(3, 30))),
+                        LocalDateTime.of(LocalDate.of(2025, 1, 1), LocalTime.of(3, 7, 9, 120_000_000)),
+                        ZoneOffset.ofHoursMinutes(3, 30)),
 
                 Arguments.of("HH24:MI:SS.FF5 TZH:TZM", "3:7:9.9995 -10:50",
-                        Map.of(HOUR_24, 3, MINUTE, 7, SECOND_OF_MINUTE, 9, FRACTION, 999_500_000,
-                                TIMEZONE, ZoneOffset.ofHoursMinutes(-10, -50))),
+                        LocalDateTime.of(LocalDate.of(2025, 1, 1), LocalTime.of(3, 7, 9, 999_500_000)),
+                        ZoneOffset.ofHoursMinutes(-10, -50)),
 
                 // YEAR + TIME
                 Arguments.of("YYYY-MM-DD HH24:MI:SS.FF3", "2024-10-01 3:7:9.12",
-                        Map.of(YEAR, 2024, MONTH, 10, DAY_OF_MONTH, 1,
-                                HOUR_24, 3, MINUTE, 7, SECOND_OF_MINUTE, 9, FRACTION, 120_000_000)),
+                        LocalDateTime.of(LocalDate.of(2024, 10, 1), LocalTime.of(3, 7, 9, 120_000_000)), null),
 
                 Arguments.of("YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM", "2024-10-01 3:7:9.12 +3:30",
-                        Map.of(YEAR, 2024, MONTH, 10, DAY_OF_MONTH, 1,
-                                HOUR_24, 3, MINUTE, 7, SECOND_OF_MINUTE, 9, FRACTION, 120_000_000,
-                                TIMEZONE, ZoneOffset.ofHoursMinutes(3, 30))),
+                        LocalDateTime.of(LocalDate.of(2024, 10, 1), LocalTime.of(3, 7, 9, 120_000_000)),
+                        ZoneOffset.ofHoursMinutes(3, 30)),
 
                 Arguments.of("YYYY-MM-DD/HH12:MI:SS.FF3 A.M.", "2024-10-01/3:7:9.12 A.M.",
-                        Map.of(YEAR, 2024, MONTH, 10, DAY_OF_MONTH, 1,
-                                HOUR_24, 3, MINUTE, 7, SECOND_OF_MINUTE, 9, FRACTION, 120_000_000))
+                        LocalDateTime.of(LocalDate.of(2024, 10, 1), LocalTime.of(3, 7, 9, 120_000_000)), null)
 
         );
     }
 
     @ParameterizedTest
     @MethodSource("basicPatterns")
-    public void testBasicPatternsCaseInsensitivity(String pattern, String value, Map<FieldKind, Object> fields) {
+    public void testBasicPatternsCaseInsensitivity(String pattern, String value, LocalDateTime fields, ZoneOffset offset) {
         Scanner scanner = new Scanner(pattern);
         Parser parser = new Parser(scanner.scan());
         ParsedFields parsedFields = parser.parse(value.toLowerCase(Locale.US));
-        assertEquals(fields, parsedFields.values());
+
+        assertEquals(fields, parsedFields.getDateTime(FIXED_CLOCK));
+        assertEquals(offset, parsedFields.toZoneOffset());
     }
 
     @ParameterizedTest
     @MethodSource("hour12Patterns")
-    public void testHour12Patterns(String pattern, String value, Map<FieldKind, Object> fields) {
+    public void testHour12Patterns(String pattern, String value, LocalTime expected) {
         Scanner scanner = new Scanner(pattern);
         Parser parser = new Parser(scanner.scan());
-        if (fields != null) {
+
+        if (expected != null) {
             ParsedFields parsedFields = parser.parse(value);
-            assertEquals(fields, parsedFields.values());
+
+            assertEquals(expected, parsedFields.getTime());
         } else {
             try {
                 ParsedFields parsedFields = parser.parse(value);
-                fail("Unexpected fields: " + parsedFields.values());
-            } catch (DateTimeFormatException e) {
-                assertThat(e.getMessage(), containsString("Value out of range for field"));
+                LocalTime time = parsedFields.getTime();
+                fail("Unexpected fields: " + time + " offset: " + time);
+            } catch (DateTimeException e) {
+                assertThat(e.getMessage(), containsString("Invalid value for"));
             }
         }
     }
@@ -145,32 +149,34 @@ class ParserSelfTest extends BaseIgniteAbstractTest {
                 Arguments.of("HH12:MI:SS.FF3 A.M.", "0:7:9.12 A.M.", null),
 
                 // A.M.
-                Arguments.of("HH12:MI:SS.FF3 A.M.", "3:7:9.12 A.M.",
-                        Map.of(HOUR_24, 3, MINUTE, 7, SECOND_OF_MINUTE, 9, FRACTION, 120_000_000)),
-
-                Arguments.of("HH12:MI:SS.FF3 A.M.", "11:59:9.12 A.M.",
-                        Map.of(HOUR_24, 11, MINUTE, 59, SECOND_OF_MINUTE, 9, FRACTION, 120_000_000)),
+                Arguments.of("HH12:MI:SS.FF3 A.M.", "3:7:9.12 A.M.", LocalTime.of(3, 7, 9, 120_000_000)),
+                Arguments.of("HH12:MI:SS.FF3 A.M.", "11:59:9.12 A.M.", LocalTime.of(11, 59, 9, 120_000_000)),
 
                 // P.M.
 
                 // Out of range
                 Arguments.of("HH12:MI:SS.FF3 P.M.", "0:7:9.12 A.M.", null),
-
-                Arguments.of("HH12:MI:SS.FF3 P.M.", "12:59:9.12 P.M.",
-                        Map.of(HOUR_24, 12, MINUTE, 59, SECOND_OF_MINUTE, 9, FRACTION, 120_000_000)),
-
-                Arguments.of("HH12:MI:SS.FF3 P.M.", "11:59:9.12 P.M.",
-                        Map.of(HOUR_24, 23, MINUTE, 59, SECOND_OF_MINUTE, 9, FRACTION, 120_000_000))
+                Arguments.of("HH12:MI:SS.FF3 P.M.", "12:59:9.12 P.M.", LocalTime.of(12, 59, 9, 120_000_000)),
+                Arguments.of("HH12:MI:SS.FF3 P.M.", "11:59:9.12 P.M.", LocalTime.of(23, 59, 9, 120_000_000))
         );
     }
 
     @ParameterizedTest
     @MethodSource("basicInvalidPatterns")
     public void testBasicInvalidPatterns(String pattern, String text, String error) {
+        DateTimeException err = parseAndThrow(pattern, text);
+        assertThat(err.getMessage(), containsString(error));
+    }
+
+    private DateTimeException parseAndThrow(String pattern, String text) {
         Scanner scanner = new Scanner(pattern);
         Parser parser = new Parser(scanner.scan());
-        DateTimeFormatException err = assertThrows(DateTimeFormatException.class, () -> parser.parse(text));
-        assertThat(err.getMessage(), containsString(error));
+
+        return assertThrows(DateTimeException.class, () -> {
+            ParsedFields fields = parser.parse(text);
+            fields.getDateTime(FIXED_CLOCK);
+            fields.toZoneOffset();
+        });
     }
 
     private static Stream<Arguments> basicInvalidPatterns() {
@@ -186,9 +192,9 @@ class ParserSelfTest extends BaseIgniteAbstractTest {
                 Arguments.of("YYYY/MM", "g2000/20", "Expected field YYYY but got <g>"),
                 Arguments.of("YYYY/MM", "2000[20", "Invalid format. Expected literal </> but got <[>"),
 
-                Arguments.of("YYYYMM", "200013", "Value out of range for field MM"),
-                Arguments.of("HH24:MI", "25:50", "Value out of range for field HH24"),
-                Arguments.of("HH24:MI", "22:60", "Value out of range for field MI"),
+                Arguments.of("YYYYMM", "200013", "Invalid value for MonthOfYear"),
+                Arguments.of("HH24:MI", "25:50", "Invalid value for HourOfDay"),
+                Arguments.of("HH24:MI", "22:60", "Invalid value for MinuteOfHour"),
 
                 Arguments.of("HH24:MI TZH:TZM", "22:40 +:0", "Expected field TZH but got <+>"),
                 Arguments.of("HH24:MI TZMTZH", "22:40 0+", "Expected field TZH but got <+>"),
@@ -201,7 +207,7 @@ class ParserSelfTest extends BaseIgniteAbstractTest {
     public void testUnexpectedLeadingDelimiters(String pattern, String value) {
         Scanner scanner = new Scanner(pattern);
         Parser parser = new Parser(scanner.scan());
-        DateTimeFormatException e = assertThrows(DateTimeFormatException.class, () -> parser.parse("/" + value));
+        DateTimeException e = assertThrows(DateTimeException.class, () -> parser.parse("/" + value));
         assertThat(e.getMessage(), containsString("Expected field " + pattern + " but got </>"));
     }
 
@@ -210,8 +216,8 @@ class ParserSelfTest extends BaseIgniteAbstractTest {
     public void testUnexpectedTrailingDelimiters(String pattern, String value) {
         Scanner scanner = new Scanner(pattern);
         Parser parser = new Parser(scanner.scan());
-        DateTimeFormatException e = assertThrows(DateTimeFormatException.class, () -> parser.parse(value + "/"));
-        assertThat(e.getMessage(), containsString("Unexpected trailing characters after"));
+        DateTimeException e = assertThrows(DateTimeException.class, () -> parser.parse(value + "/"));
+        assertThat(e.getMessage(), containsString("Unexpected trailing characters after field"));
     }
 
     private static Stream<Arguments> simpleValuesValid() {
@@ -236,17 +242,25 @@ class ParserSelfTest extends BaseIgniteAbstractTest {
     public void testFixedLengthPatterNoDelimitersShuffled(
             List<DateTimeFormatElement> elements,
             String text,
-            Map<Object, Object> fields
+            LocalDate expectedDate,
+            LocalTime expectedTime,
+            ZoneOffset expectedOffset
     ) {
 
         log.info("Elements: {}", elements);
         log.info("Text: {}", text);
-        log.info("Values: {}", fields);
+        log.info("Values: {}", Arrays.asList(expectedDate, expectedTime, expectedOffset));
 
         Parser parser = new Parser(elements);
-        ParsedFields parsedText = parser.parse(text);
+        ParsedFields parsedFields = parser.parse(text);
 
-        assertEquals(fields, parsedText.values());
+        LocalDate date = parsedFields.getDate(Clock.systemDefaultZone());
+        LocalTime time = parsedFields.getTime();
+        ZoneOffset offset = parsedFields.toZoneOffset();
+
+        assertEquals(expectedDate, date);
+        assertEquals(expectedTime, time);
+        assertEquals(expectedOffset, offset);
     }
 
     private static Stream<Arguments> shuffledPatterns() {
@@ -258,17 +272,25 @@ class ParserSelfTest extends BaseIgniteAbstractTest {
     public void fixedLengthPatterWithDelimitersShuffled(
             List<DateTimeFormatElement> elements,
             String text,
-            Map<Object, Object> fields
+            LocalDate expectedDate,
+            LocalTime expectedTime,
+            ZoneOffset expectedOffset
     ) {
 
         log.info("Elements: {}", elements);
         log.info("Text: {}", text);
-        log.info("Values: {}", fields);
+        log.info("Values: {}", Arrays.asList(expectedDate, expectedTime, expectedOffset));
 
         Parser parser = new Parser(elements);
-        ParsedFields parsedText = parser.parse(text);
+        ParsedFields parsedFields = parser.parse(text);
 
-        assertEquals(fields, parsedText.values());
+        LocalDate date = parsedFields.getDate(Clock.systemDefaultZone());
+        LocalTime time = parsedFields.getTime();
+        ZoneOffset offset = parsedFields.toZoneOffset();
+
+        assertEquals(expectedDate, date);
+        assertEquals(expectedTime, time);
+        assertEquals(expectedOffset, offset);
     }
 
     private static Stream<Arguments> shuffledPatternsWithDelimiters() {
@@ -283,16 +305,9 @@ class ParserSelfTest extends BaseIgniteAbstractTest {
                 "2025", "05", "30", "04", "23", "59", "1234", "P.M.", "+03", "30"
         );
 
-        Map<Object, Object> values = Map.of(
-                YEAR, 2025,
-                MONTH, 5,
-                DAY_OF_MONTH, 30,
-                HOUR_24, 16,
-                MINUTE, 23,
-                SECOND_OF_MINUTE, 59,
-                FRACTION, 123_400_000,
-                TIMEZONE, ZoneOffset.ofHoursMinutes(3, 30)
-        );
+        LocalDate date = LocalDate.of(2025, 5, 30);
+        LocalTime time = LocalTime.of(16, 23, 59, 123_400_000);
+        ZoneOffset offset = ZoneOffset.ofHoursMinutes(3, 30);
 
         Random random = new Random();
         long seed = System.nanoTime();
@@ -320,7 +335,7 @@ class ParserSelfTest extends BaseIgniteAbstractTest {
                 text.append(textValues.get(i));
             }
 
-            return Arguments.of(elements, text.toString(), values);
+            return Arguments.of(elements, text.toString(), date, time, offset);
         });
     }
 }

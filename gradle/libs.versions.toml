@@ -18,7 +18,7 @@
 [versions]
 assertj = "3.27.3"
 asm = "9.8"
-bouncycastle = "1.80"
+bouncycastle = "1.81"
 compileTesting = "0.21.0"
 commons-collections4 = "4.5.0"
 commons-lang3 = "3.14.0"

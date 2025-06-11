@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <ignite/common/ignite_error.h>
+#include "ignite_error.h"
 
 #include <functional>
 #include <future>

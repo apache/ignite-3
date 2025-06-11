@@ -132,7 +132,6 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -354,10 +353,7 @@ public class TestBuilders {
      * @return Affinity distribution.
      */
     public static IgniteDistribution affinity(int key, int tableId, int zoneId) {
-        return IgniteDistributions.hash(
-                ImmutableIntList.of(key),
-                DistributionFunction.affinity(tableId, zoneId, affinityDistributionLabel(tableId, zoneId))
-        );
+        return affinity(ImmutableIntList.of(key), tableId, zoneId);
     }
 
     /**

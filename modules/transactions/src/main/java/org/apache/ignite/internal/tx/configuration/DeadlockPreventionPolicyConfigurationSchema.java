@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util.format;
+package org.apache.ignite.internal.tx.configuration;
+
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 
 /**
- * Exception indicating an error with a date/time formatting.
+ * Configuration schema for deadlock prevention policy.
  */
-final class DateTimeFormatException extends RuntimeException {
-    private static final long serialVersionUID = 7351496651746646434L;
+@Config
+public class DeadlockPreventionPolicyConfigurationSchema {
+    @OneOf({"NATURAL", "REVERSED", "NONE"})
+    @Value(hasDefault = true)
+    public String txIdComparator = "NATURAL";
 
-    DateTimeFormatException(String message) {
-        super(message);
-    }
-
-    DateTimeFormatException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    @Value(hasDefault = true)
+    public long waitTimeout = 0;
 }

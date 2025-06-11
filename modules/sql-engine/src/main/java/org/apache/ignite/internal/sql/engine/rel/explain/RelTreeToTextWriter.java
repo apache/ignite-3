@@ -49,7 +49,6 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -436,11 +435,7 @@ class RelTreeToTextWriter {
 
     private static String beautifyDistribution(IgniteDistribution distribution, RelDataType rowType) {
         StringBuilder sb = new StringBuilder();
-        if (distribution.function().affinity()) {
-            sb.append(((AffinityDistribution) distribution.function()).label());
-        } else {
-            sb.append(distribution.function().name());
-        }
+        sb.append(distribution.label());
 
         if (!distribution.getKeys().isEmpty()) {
             sb.append(" by [");
