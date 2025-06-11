@@ -190,7 +190,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         );
     }
 
-    // TIME,
+    // TIME
 
     @ParameterizedTest
     @MethodSource("time")
