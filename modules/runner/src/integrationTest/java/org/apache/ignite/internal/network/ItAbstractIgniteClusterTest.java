@@ -55,7 +55,7 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
     @SuppressWarnings({"DataFlowIssue", "deprecation"})
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testNodes(boolean deprecated) {
+    public void testNodes(boolean deprecated, boolean async) {
         Collection<ClusterNode> nodes = deprecated
                 ? ignite().clusterNodes()
                 : ignite().cluster().nodes();
@@ -83,7 +83,7 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
     }
 
     @Test
-    public void testLocalNode(boolean deprecated) {
+    public void testLocalNode() {
         ClusterNode localNode = ignite().cluster().localNode();
         assertNotNull(localNode);
 
