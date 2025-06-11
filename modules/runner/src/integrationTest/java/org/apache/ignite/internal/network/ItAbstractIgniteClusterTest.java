@@ -31,7 +31,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Tests for {@link org.apache.ignite.network.IgniteCluster} API.
@@ -52,13 +52,18 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
         return IgniteTestUtils.shortTestMethodName(this.getClass().getSimpleName()) + "_n_";
     }
 
-    @SuppressWarnings({"DataFlowIssue", "deprecation"})
+    @SuppressWarnings({"DataFlowIssue", "deprecation", "NestedConditionalExpression"})
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    @CsvSource({
+        "true, true",
+        "true, false",
+        "false, true",
+        "false, false"
+    })
     public void testNodes(boolean deprecated, boolean async) {
         Collection<ClusterNode> nodes = deprecated
-                ? ignite().clusterNodes()
-                : ignite().cluster().nodes();
+                ? (async ? ignite().clusterNodesAsync().join() : ignite().clusterNodes())
+                : (async ? ignite().cluster().nodesAsync().join() : ignite().cluster().nodes());
 
         assertEquals(2, nodes.size());
 
