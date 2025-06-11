@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 
@@ -45,6 +46,10 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
         return true;
     }
 
+    private String nodeNamePrefix() {
+        return IgniteTestUtils.shortTestMethodName(this.getClass().getSimpleName()) + "_n_";
+    }
+
     @SuppressWarnings("DataFlowIssue")
     @Test
     public void testNodes() {
@@ -54,8 +59,8 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
 
         List<ClusterNode> nodes0 = nodes.stream().sorted(Comparator.comparing(ClusterNode::name)).collect(Collectors.toList());
 
-        assertEquals("ieict_n_3344", nodes0.get(0).name());
-        assertEquals("ieict_n_3345", nodes0.get(1).name());
+        assertEquals(nodeNamePrefix() + "3344", nodes0.get(0).name());
+        assertEquals(nodeNamePrefix() + "3345", nodes0.get(1).name());
 
         assertEquals(3344, nodes0.get(0).address().port());
         assertEquals(3345, nodes0.get(1).address().port());
@@ -77,7 +82,7 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
         ClusterNode localNode = ignite().cluster().localNode();
         assertNotNull(localNode);
 
-        assertEquals("ieict_n_3344", localNode.name());
+        assertEquals(nodeNamePrefix() + "3344", localNode.name());
         assertEquals(3344, localNode.address().port());
 
         if (hasNodeMeta()) {
