@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -126,37 +127,32 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     private static Stream<DateTimeArgs<LocalDate>> date() {
         return Stream.of(
                 dateTime("2000-01-01", "yyyy-MM-dd", LocalDate.of(2000, 1, 1), null),
-                dateTime("2-01-01", "y-MM-dd", LocalDate.of(2, 1, 1), null),
-                dateTime("02-01-01", "y-MM-dd", LocalDate.of(2002, 1, 1), null),
+                dateTime("2-01-01", "y-MM-dd", LocalDate.of(2022, 1, 1), null),
+                dateTime("02-01-01", "y-MM-dd", null, "Invalid format. Expected literal <-> but got"),
                 dateTime("20-01-01", "yy-MM-dd", LocalDate.of(2020, 1, 1), null),
-                dateTime("020-01-01", "yyy-MM-dd", LocalDate.of(20, 1, 1), null),
-                dateTime("002-01-01", "yyy-MM-dd", LocalDate.of(2, 1, 1), null),
-                dateTime("200-01-01", "yyy-MM-dd", LocalDate.of(200, 1, 1), null),
+                dateTime("020-01-01", "yyy-MM-dd", LocalDate.of(2020, 1, 1), null),
+                dateTime("002-01-01", "yyy-MM-dd", LocalDate.of(2002, 1, 1), null),
+                dateTime("200-01-01", "yyy-MM-dd", LocalDate.of(2200, 1, 1), null),
                 dateTime("20-01-01", "yyyy-MM-dd", LocalDate.of(20, 1, 1), null),
                 dateTime("9999-01-01", "yyyy-MM-dd", LocalDate.of(9999, 1, 1), null),
 
                 dateTime("2000/01-01", "yyyy/MM-dd", LocalDate.of(2000, 1, 1), null),
 
-                dateTime("10000-01-01", "yyyy-MM-dd", null, "DATE out of range"),
-                dateTime("10000000-01-01", "yyyy-MM-dd", null, "DATE out of range"),
+                dateTime("10000-01-01", "yyyy-MM-dd", null, "Invalid format. Expected literal <-> but got"),
+                dateTime("10000000-01-01", "yyyy-MM-dd", null, "Invalid format. Expected literal <-> but got"),
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25339 Incorrect parsing of RR/RRRR
-                /*
                 dateTime("01-01-01", "RR-MM-dd", LocalDate.of(2001, 1, 1), null),
                 dateTime("33-01-01", "RR-MM-dd", LocalDate.of(2033, 1, 1), null),
                 dateTime("49-01-01", "RR-MM-dd", LocalDate.of(2049, 1, 1), null),
-                */
+
                 dateTime("51-01-01", "RR-MM-dd", LocalDate.of(1951, 1, 1), null),
                 dateTime("77-01-01", "RR-MM-dd", LocalDate.of(1977, 1, 1), null),
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25339 Incorrect parsing of RR/RRRR
-                /*
                 dateTime("01-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
                 dateTime("33-01-01", "RRRR-MM-dd", LocalDate.of(2033, 1, 1), null),
                 dateTime("49-01-01", "RRRR-MM-dd", LocalDate.of(2049, 1, 1), null),
                 dateTime("51-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null),
                 dateTime("77-01-01", "RRRR-MM-dd", LocalDate.of(1977, 1, 1), null),
-                */
 
                 dateTime("2001-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
                 dateTime("2033-01-01", "RRRR-MM-dd", LocalDate.of(2033, 1, 1), null),
@@ -164,68 +160,49 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 dateTime("2051-01-01", "RRRR-MM-dd", LocalDate.of(2051, 1, 1), null),
                 dateTime("1951-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null),
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25339 Incorrect parsing of RR/RRRR
-                /*
                 dateTime("001-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
                 dateTime("1-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
                 dateTime("33-01-01", "RRRR-MM-dd", LocalDate.of(2033, 1, 1), null),
                 dateTime("033-01-01", "RRRR-MM-dd", LocalDate.of(2033, 1, 1), null),
                 dateTime("51-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null),
                 dateTime("051-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null),
-                dateTime("077-01-01", "RRRR-MM-dd", LocalDate.of(1973, 1, 1), null),
-                */
+                dateTime("077-01-01", "RRRR-MM-dd", LocalDate.of(1977, 1, 1), null),
 
                 dateTime("151-01-01", "RRRR-MM-dd", LocalDate.of(151, 1, 1), null),
-                dateTime("177-01-01", "RRRR-MM-dd", LocalDate.of(177, 1, 1), null)
+                dateTime("177-01-01", "RRRR-MM-dd", LocalDate.of(177, 1, 1), null),
+
+                dateTime("2000-05-07", "yyyy-MM-dddd", null, "Unexpected element <D> in pattern"),
+                dateTime("2000-05-07", "yyyy-MM-dddd", null, "Unexpected element <D> in pattern"),
+                dateTime("2000-5-07", "yyyyy-M-dd", null, "Element is already present: YEAR"),
+                dateTime("2000-005-07", "yyyyy-MMM-dddd", null, "Element is already present: YEAR"),
+
+                dateTime("100-05-07", "R-MM-dd", null, "Unexpected element <R> in pattern"),
+                dateTime("100-05-07", "RRR-MM-dd", null, "Unexpected element <R> in pattern"),
+                dateTime("100-05-07", "RRRRR-MM-dd", null, "Unexpected element <R> in pattern "),
+                dateTime("201-01-01", "RR-MM-dd", null, "Invalid format. Expected literal <-> but got"),
+
+                // Different error combination with ff/ff0 TIMESTAMP/ TIMESTAMP LTZ: Illegal pattern character 'f'
+                dateTime("2000-005-07", "yyyy-MMM-dd", null, "Unexpected element <M> in pattern"),
+
+                dateTime("0-0-0", "yyyy-MM-dd", null, "Invalid value for Year"),
+                dateTime("0000-01-01", "yyyy-MM-dd", null, "Invalid value for Year"),
+                dateTime("-01-01-01", "yyyy-MM-dd", null, "Expected field YYYY but got")
         );
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25319 parse accepts incorrect year, month, day fields.
-        /*
-        dateTime("2000-05-07", "yyyy-MM-dddd", null, "Invalid format"),
-        dateTime("2000-05-07", "yyyy-MM-dddd", null, "Invalid format"),
-        dateTime("2000-5-07", "yyyyy-M-dd", null, "Invalid format"),
-        dateTime("2000-005-07", "yyyyy-MMM-dddd", null, "Invalid format"),
-
-        dateTime("100-05-07", "R-MM-dd", null, "Invalid format"),
-        dateTime("100-05-07", "RRR-MM-dd", null, "Invalid format"),
-        dateTime("100-05-07", "RRRRR-MM-dd", null, "Invalid format"),
-        dateTime("201-01-01", "RR-MM-dd", null, "Invalid format"),
-
-        // Different error for in combination with ff/ff0 TIMESTAMP/ TIMESTAMP LTZ: Illegal pattern character 'f'
-        dateTime("2000-005-07", "yyyy-MMM-dd", null, "Invalid format")
-        */
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25010
-        /*
-        dateTime("0-0-0", "yyyy-MM-dd", null, "DATE out of range"),
-        dateTime("0000-01-01", "yyyy-MM-dd", null, "DATE out of range"),
-        dateTime("-01-01-01", "yyyy-MM-dd", null, "DATE out of range")
-        */
     }
 
-    // TIME
+    // TIME,
 
     @ParameterizedTest
     @MethodSource("time")
     public void timeLiterals(DateTimeArgs<LocalTime> args) {
-        String sqlCast = format("SELECT CAST('{}' AS TIME FORMAT '{}')", args.str, args.format);
-
-        // TIME has 0 precision by default
-        boolean subMillis = args.value != null && args.value.getNano() != 0 && args.format.contains("ff");
-        Assumptions.assumeFalse(subMillis);
-
-        checkQuery(sqlCast,  args.value, args.error);
+        String sqlCast = format("SELECT CAST('{}' AS TIME(3) FORMAT '{}')", args.str, args.format);
+        checkQuery(sqlCast, args.value, args.error);
     }
 
     @ParameterizedTest
     @MethodSource("time")
     public void timeDynamicParams(DateTimeArgs<LocalTime> args) {
-        String sqlCast = format("SELECT CAST(? AS TIME FORMAT '{}')", args.format);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25313
-        // Nothing but ff3 works due to SimpleDateFormat
-        Assumptions.assumeTrue(!args.format.contains("ff") || args.format.contains("ff3"));
-
+        String sqlCast = format("SELECT CAST(? AS TIME(3) FORMAT '{}')", args.format);
         checkQuery(sqlCast, args.value, args.error, args.str);
     }
 
@@ -233,15 +210,11 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     @MethodSource("time")
     public void timeUpdateFromLiteral(DateTimeArgs<LocalTime> args) {
         String sqlCast = format(
-                "UPDATE datetime_cols SET time0_col=CAST(? AS TIME FORMAT '{}') WHERE id = 1",
+                "UPDATE datetime_cols SET time0_col=CAST(? AS TIME(4) FORMAT '{}') WHERE id = 1",
                 args.format
         );
 
         checkDml(sqlCast, args.error, args.str);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25313
-        // Nothing but ff3 works due to SimpleDateFormat
-        Assumptions.assumeTrue(!args.format.contains("ff") || args.format.contains("ff3"));
 
         if (args.value != null) {
             assertQuery("SELECT time0_col FROM datetime_cols WHERE id = 1")
@@ -254,12 +227,13 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     @MethodSource("time")
     public void timeUpdateFromDynamicParam(DateTimeArgs<LocalTime> args) {
         String sqlCast = format(
-                "UPDATE datetime_cols SET time0_col=CAST('{}' AS TIME FORMAT '{}') WHERE id = 1",
+                "UPDATE datetime_cols SET time0_col=CAST('{}' AS TIME(3) FORMAT '{}') WHERE id = 1",
                 args.str,
                 args.format
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25045 Insert/Update RexToLix cast translation bug
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25045
+        // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
         Assumptions.assumeTrue(args.value == null || args.value.getNano() == 0);
 
         checkDml(sqlCast, args.error);
@@ -273,19 +247,15 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     private static Stream<DateTimeArgs<LocalTime>> time() {
         return Stream.of(
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25314
-                //  Sql. Cast FORMAT. Parsing of hh/h12 format is incorrect
-                /*
                 dateTime("05:02 a.m.", "hh12:mi a.m.", LocalTime.of(5, 2), null),
                 dateTime("11:02 a.m.", "hh12:mi a.m.", LocalTime.of(11, 2), null),
                 dateTime("12:02 a.m.", "hh12:mi a.m.", LocalTime.of(0, 2), null),
-                dateTime("13:02 a.m.", "hh12:mi a.m.", null, "TIME out of range"),
+                dateTime("13:02 a.m.", "hh12:mi a.m.", null, "Invalid value for HourAmPm"),
 
                 dateTime("05:02 p.m.", "hh12:mi p.m.", LocalTime.of(17, 2), null),
                 dateTime("11:02 p.m.", "hh12:mi p.m.", LocalTime.of(23, 2), null),
                 dateTime("12:02 p.m.", "hh12:mi p.m.", LocalTime.of(12, 2), null),
-                dateTime("13:02 p.m.", "hh12:mi p.m.", null, "TIME out of range"),
-                 */
+                dateTime("13:02 p.m.", "hh12:mi p.m.", null, "Invalid value for HourAmPm"),
 
                 // hh24
                 dateTime("12:02:03", "hh24:mi:ss", LocalTime.of(12, 2, 3), null),
@@ -297,38 +267,29 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 dateTime("23:02:03.999", "hh24:mi:ss.ff3", LocalTime.of(23, 2, 3, 999_000_000), null),
                 dateTime("23:02:03.123", "hh24:mi:ss.ff3", LocalTime.of(23, 2, 3, 123_000_000), null),
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25317 Sub-millsecond fractional format is broken (SimpleDateFormat)
-                /*
-                dateTime("23:02:03.1234", "hh24:mi:ss.ff3", LocalTime.of(23, 2, 3, 123_400_000), null),
-                dateTime("23:02:03.1234", "hh24:mi:ss.ff4", LocalTime.of(23, 2, 3, 123_400_000), null),
-                 */
+                dateTime("23:02:03.1234", "hh24:mi:ss.ff3", null, "Unexpected trailing characters after field FF3"),
+                dateTime("23:02:03.1234", "hh24:mi:ss.ff4", LocalTime.of(23, 2, 3, 123_000_000), null),
 
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25313  (SimpleDateFormat)
-                /*
-                dateTime("24:02:03", "hh24:mi:ss", null, "TIME out of range"),
-                dateTime("123:02:03", "hh24:mi:ss", null, "TIME out of range"),
-                dateTime("23:60:03", "hh24:mi:ss", null, "TIME out of range"),
-                dateTime("23:123:03", "hh24:mi:ss", null, "TIME out of range"),
-                dateTime("23:02:60", "hh24:mi:ss", null, "TIME out of range"),
-                dateTime("23:02:123", "hh24:mi:ss", null, "TIME out of range"),
-                */
+                dateTime("24:02:03", "hh24:mi:ss", null, "Invalid value for HourOfDay"),
+                dateTime("123:02:03", "hh24:mi:ss", null, "Invalid format. Expected literal <:> but got <3>"),
+                dateTime("23:60:03", "hh24:mi:ss", null, "Invalid value for MinuteOfHour"),
+                dateTime("23:123:03", "hh24:mi:ss", null, "Invalid format. Expected literal <:> but got <3>"),
+                dateTime("23:02:60", "hh24:mi:ss", null, "Invalid value for SecondOfMinute"),
+                dateTime("23:02:123", "hh24:mi:ss", null, "Unexpected trailing characters after field SS"),
 
-                dateTime("22:02:03", "hX:mi:ss", null, "Invalid format"),
-                dateTime("22:02:03", "hh:mX:ss", null, "Invalid format"),
-                dateTime("22:02:03", "hh:mm:sX", null, "Invalid format"),
+                dateTime("22:02:03", "hX:mi:ss", null, "Unexpected element <HX> in pattern"),
+                dateTime("22:02:03", "hh:mX:ss", null, "Unexpected element <MX> in pattern"),
+                dateTime("22:02:03", "hh:mi:sX", null, "Unexpected element <SX> in pattern"),
+                dateTime("22:02:03", "hh:mm:ss", null, "Illegal field <MM> for format TIME"),
 
-                dateTime("22:02:03", "hh:mm:ss.ff", null, "Illegal pattern character 'f'"),
-                dateTime("22:02:03", "hh:mm:ss.ff0", null, "Illegal pattern character 'f'"),
-                dateTime("22:02:03", "hh:mm:ss.ff10", null, "Invalid format"),
+                dateTime("22:02:03", "hh:mi:ss.ff", null, "Unexpected element <FF> in pattern"),
+                dateTime("22:02:03", "hh:mi:ss.ff0", null, "Unexpected element <FF0> in pattern"),
+                dateTime("22:02:03", "hh:mi:ss.ff10", null, "Unexpected character <0> in pattern"),
 
-                dateTime("23:02:03.123", "hh24:mi:ss", null, "Invalid format")
+                dateTime("23:02:03.123", "hh24:mi:ss", null, "Unexpected trailing characters after field SS"),
+                dateTime("23:02:03.12", "hh24:mi:ss.ff3",  LocalTime.of(23, 2, 3, 120_000_000), null),
+                dateTime("23:02:03.1234", "hh24:mi:ss.ff3", null, "Unexpected trailing characters after field FF3")
         );
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25315 Max length of a fractional part is ignored
-        /*
-        dateTime("23:02:03.12", "hh24:mi:ss.ff3", null, "Invalid format"),
-        dateTime("23:02:03.1234", "hh24:mi:ss.ff3", null, "Invalid format")
-        */
     }
 
     @ParameterizedTest
@@ -336,7 +297,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     public void timeWithPrecisionLiterals(int precision, DateTimeArgs<LocalTime> args) {
         String sqlCast = format("SELECT CAST('{}' AS TIME({}) FORMAT '{}')", args.str, precision, args.format);
 
-        checkQuery(sqlCast,  args.value, args.error);
+        checkQuery(sqlCast, args.value, args.error);
     }
 
     // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
@@ -355,7 +316,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         String col = format("time{}_col", precision);
 
         String sqlCast = format(
-                "UPDATE datetime_cols SET {}=CAST(? AS TIME FORMAT '{}') WHERE id = 1",
+                "UPDATE datetime_cols SET {}=CAST(? AS TIME(3) FORMAT '{}') WHERE id = 1",
                 col, args.format
         );
 
@@ -377,16 +338,17 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     public void timeWithPrecisionUpdateFromDynamicParam(int precision, DateTimeArgs<LocalTime> args) {
         String col = format("time{}_col", precision);
 
+        // Use TIME(3) to preserve fractional part
         String sqlCast = format(
-                "UPDATE datetime_cols SET {}=CAST('{}' AS TIME FORMAT '{}') WHERE id = 1",
+                "UPDATE datetime_cols SET {}=CAST('{}' AS TIME(3) FORMAT '{}') WHERE id = 1",
                 col,
                 args.str,
                 args.format
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25313 confusing submillis parsing
-        boolean subMillis = args.value != null && args.value.getNano() != 0 && args.format.contains("ff");
-        Assumptions.assumeFalse(subMillis);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25045
+        // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
+        Assumptions.assumeTrue(precision == 3);
 
         checkDml(sqlCast, args.error);
 
@@ -399,7 +361,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     private static Stream<Arguments> timeWithPrecision() {
         return Stream.of(
-                /* TODO https://issues.apache.org/jira/browse/IGNITE-25313 CAST FORMAT confusing behaviour when translating milliseconds
                 // FF1
 
                 Arguments.of(0,
@@ -421,7 +382,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                         dateTime("15:32:17.12", "hh24:mi:ss.ff2", LocalTime.of(15, 32, 17).withNano(120_000_000), null)),
                 Arguments.of(3,
                         dateTime("15:32:17.12", "hh24:mi:ss.ff2", LocalTime.of(15, 32, 17).withNano(120_000_000), null)),
-                 */
 
                 // FF3
                 Arguments.of(0,
@@ -451,7 +411,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                         dateTime("15:32:17.500", "hh24:mi:ss.ff3", LocalTime.of(15, 32, 17).withNano(500_000_000), null)),
                 Arguments.of(3,
                         dateTime("15:32:17.999", "hh24:mi:ss.ff3", LocalTime.of(15, 32, 17).withNano(999_000_000), null))
-                );
+        );
     }
 
     // TIMESTAMP
@@ -460,10 +420,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     @MethodSource("timestamp")
     public void timestampLiterals(DateTimeArgs<LocalDateTime> args) {
         String sqlCast = format("SELECT CAST('{}' AS TIMESTAMP FORMAT '{}')", args.str, args.format);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25313 confusing submills parsing
-        boolean subMillis = args.value != null && args.value.getNano() != 0 && args.format.contains("ff");
-        Assumptions.assumeFalse(subMillis);
 
         checkQuery(sqlCast, args.value, args.error);
     }
@@ -482,22 +438,19 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 if (d.value != null && t.value != null) {
                     LocalDateTime tsExpected = LocalDateTime.of(d.value, t.value);
                     result.add(dateTime(tsStr, tsFmt, tsExpected, null));
-                } else if (isFormatError(d.error)) {
-                    result.add(dateTime(tsStr, tsFmt, null, d.error));
-                } else if (isFormatError(t.error)) {
-                    result.add(dateTime(tsStr, tsFmt, null, t.error));
                 } else {
-                    // TIMESTAMP out of range
-                    result.add(dateTime(tsStr, tsFmt, null, "TIMESTAMP out of range"));
+                    result.add(dateTime(tsStr, tsFmt, null, " "));
                 }
             }
         }
 
-        return result.stream();
-    }
+        result.add(new DateTimeArgs<>("2025-10-02 22:15 +02:30", "YYYY-MM-DD HH24:MI TZH:TZM",
+                LocalDateTime.of(2025, 10, 2, 19, 45), null));
 
-    private static boolean isFormatError(@Nullable String message) {
-        return message != null && (message.contains("Invalid format") || message.contains("Illegal pattern character"));
+        result.add(new DateTimeArgs<>("2025-10-02 22:15 -02:30", "YYYY-MM-DD HH24:MI TZH:TZM",
+                LocalDateTime.of(2025, 10, 3, 0, 45), null));
+
+        return result.stream();
     }
 
     @ParameterizedTest
@@ -508,14 +461,17 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 args.format
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25313 confusing submills parsing
-        Assumptions.assumeTrue(args.value == null || !args.format.contains("ff2"));
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25045
+        // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
+        boolean subMillis = args.value != null && args.value.getNano() != 0 && args.format.contains("ff");
+        Assumptions.assumeFalse(subMillis);
 
         checkDml(sqlCast, args.error, args.str);
 
         if (args.value != null) {
             assertQuery("SELECT timestamp0_col FROM datetime_cols WHERE id = 1")
-                    .returns(args.value)
+                    // We are writing to timestamp_0, so we should expect a timestamp w/o a fractional part.
+                    .returns(args.value.withNano(0))
                     .check();
         }
     }
@@ -528,17 +484,12 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 args.str, args.format
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25313
-        // Nothing but ff3 works due to SimpleDateFormat
-        Assumptions.assumeTrue(!args.format.contains("ff"));
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24889
-        // FF3 does not work due to cast transaction error
-
         checkDml(sqlCast, args.error);
 
         if (args.value != null) {
             assertQuery("SELECT timestamp0_col FROM datetime_cols WHERE id = 1")
-                    .returns(args.value)
+                    // We are writing to timestamp_0, so we should expect a timestamp w/o a fractional part.
+                    .returns(args.value.withNano(0))
                     .check();
         }
     }
@@ -551,9 +502,8 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         checkQuery(sqlCast, args.value, args.error);
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-25313 SimpleDateFormat problems
-    // Cast translation errors
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24889")
+    // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25045")
     @ParameterizedTest
     @MethodSource("timestampWithPrecision")
     public void timestampWithPrecisionUpdateFromLiteral(int precision, DateTimeArgs<LocalDateTime> args) {
@@ -595,7 +545,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     private static Stream<Arguments> timestampWithPrecision() {
         LocalDate date = LocalDate.of(2020, 2, 5);
         return Stream.of(
-                /* TODO https://issues.apache.org/jira/browse/IGNITE-25313 CAST FORMAT confusing behaviour when translating milliseconds
                 // FF1
                 Arguments.of(0,
                         dateTime("2020-02-05 15:32:17.1", "yyyy-MM-dd hh24:mi:ss.ff1",
@@ -624,8 +573,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 Arguments.of(3,
                         dateTime("2020-02-05 15:32:17.12", "yyyy-MM-dd hh24:mi:ss.ff2",
                                 LocalDateTime.of(date, LocalTime.of(15, 32, 17).withNano(120_000_000)), null)),
-
-                 */
 
                 // FF3
 
@@ -681,10 +628,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 args.str, args.format
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25313 confusing submillis parsing
-        boolean subMillis = args.value != null && args.value.getNano() != 0 && args.format.contains("ff");
-        Assumptions.assumeFalse(subMillis);
-
         checkQuery(sqlCast, args.value, args.error);
     }
 
@@ -697,15 +640,11 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 args.format
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25313 confusing submillis parsing
-        boolean subMillis = args.value != null && args.value.getNano() != 0 && args.format.contains("ff");
-        Assumptions.assumeFalse(subMillis);
-
         checkDml(sqlCast, args.error, args.str);
 
         if (args.value != null) {
             assertQuery("SELECT timestamp_with_local_time_zone0_col FROM datetime_cols WHERE id = 1")
-                    .returns(args.value)
+                    .returns(args.value.truncatedTo(ChronoUnit.MILLIS))
                     .check();
         }
     }
@@ -719,15 +658,11 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 args.str, args.format
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25313 confusing submillis parsing
-        boolean subMillis = args.value != null && args.value.getNano() != 0 && args.format.contains("ff");
-        Assumptions.assumeFalse(subMillis);
-
         checkDml(sqlCast, args.error);
 
         if (args.value != null) {
             assertQuery("SELECT timestamp_with_local_time_zone0_col FROM datetime_cols WHERE id = 1")
-                    .returns(args.value)
+                    .returns(args.value.truncatedTo(ChronoUnit.MILLIS))
                     .check();
         }
     }
@@ -737,17 +672,14 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
             if (dt.value != null) {
                 Instant expectedInstant = ZonedDateTime.of(dt.value, TIME_ZONE_ID).toInstant();
                 return dateTime(dt.str, dt.format, expectedInstant, null);
-            } else if (dt.error != null && dt.error.contains("out of range")) {
-                // TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range
-                return dateTime(dt.str, dt.format, null, "TIMESTAMP_WITH_LOCAL_TIME_ZONE out of range");
             } else {
-                return dateTime(dt.str, dt.format, null, dt.error);
+                return dateTime(dt.str, dt.format, null, " ");
             }
         });
     }
 
-    // CAST FORMAT confusing behaviour when translating milliseconds
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25313")
+    // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25045")
     @ParameterizedTest
     @MethodSource("timestampLtzWithPrecision")
     public void timestampLtzWithPrecisionLiterals(int precision, DateTimeArgs<Instant> args) {
@@ -759,8 +691,8 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         checkQuery(sqlCast, args.value, args.error);
     }
 
-    // CAST FORMAT confusing behaviour when translating milliseconds
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25313")
+    // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25045")
     @ParameterizedTest
     @MethodSource("timestampLtzWithPrecision")
     public void timestampLtzWithPrecisionUpdateFromLiteral(int precision, DateTimeArgs<Instant> args) {
@@ -781,9 +713,8 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         }
     }
 
-    // CAST FORMAT confusing behaviour when translating milliseconds
-    // TODO https://issues.apache.org/jira/browse/IGNITE-25045
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25313")
+    // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25045")
     @ParameterizedTest
     @MethodSource("timestampLtzWithPrecision")
     public void timestampLtzWithPrecisionUpdateFromDynamicParam(int precision, DateTimeArgs<Instant> args) {
