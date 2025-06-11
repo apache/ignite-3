@@ -191,6 +191,11 @@ public class JdbcMetadataCatalog {
         boolean[] includedTypes = new boolean[2];
 
         for (String tblType : tblTypes) {
+            // In ODBC, SQL_ALL_TABLE_TYPES is defined as "%", so we need to support it.
+            if ("%".equals(tblType)) {
+                return new boolean[]{true, true};
+            }
+
             if (TYPE_TABLE.equals(tblType)) {
                 includedTypes[TYPE_TABLE_IDX] = true;
 
