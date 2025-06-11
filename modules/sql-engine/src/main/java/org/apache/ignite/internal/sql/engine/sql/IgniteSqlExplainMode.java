@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.sql.engine.sql;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfigurationSchema;
+import org.apache.calcite.sql.Symbolizable;
 
-/** Extension for local system configuration schema. */
-@ConfigurationExtension
-public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public SystemLocalConfigurationSchema system;
-
-    @ConfigValue
-    @Deprecated
-    public CriticalWorkersConfigurationSchema criticalWorkers;
+/**
+ * Explain mode.
+ */
+public enum IgniteSqlExplainMode implements Symbolizable {
+    PLAN,
+    MAPPING
 }

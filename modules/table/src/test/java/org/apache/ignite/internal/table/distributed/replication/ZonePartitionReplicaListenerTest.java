@@ -229,6 +229,7 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1452,6 +1453,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    @Disabled("IGNITE-25654")
     void writeIntentSwitchForCompactedCatalogTimestampWorks(boolean commit) {
         int earliestVersion = 999;
         Catalog mockEarliestCatalog = mock(Catalog.class);

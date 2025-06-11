@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -46,6 +47,7 @@ public class NetworkConfigurationSchema {
      */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "shutdownQuietPeriod")
     public final long shutdownQuietPeriodMillis = 0;
 
     /**
@@ -54,6 +56,7 @@ public class NetworkConfigurationSchema {
      */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "shutdownTimeout")
     public final long shutdownTimeoutMillis = 15_000;
 
     /** Inbound (TCP server) configuration. */
