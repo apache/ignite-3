@@ -1706,6 +1706,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * Lease agreement message should be the first message sent after reset.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25644")
     @ZoneParams(nodes = 3, replicas = 3, partitions = 1)
     void testLeaseResendOnManualReset() throws Exception {
         int partId = 0;
@@ -1726,14 +1727,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         AtomicBoolean thisMessageShouldBeLease = new AtomicBoolean(false);
 
         blockMessage((nodeName, msg) -> {
+            logger().info("Received message {}", msg);
+
             if (msg instanceof ActionResponse) {
                 return false;
             }
 
             if (thisMessageShouldBeLease.getAndSet(false) && !isLeaseMessage(msg)) {
                 // Not working at the moment.
-                // fail("Lease message expected. Received " + msg + " instead");
                 logger().info("Lease message expected. Received " + msg + " instead");
+                fail("Lease message expected. Received " + msg + " instead");
             }
 
             if (isResetMessage(msg, partId)) {
@@ -1763,7 +1766,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         logger().info("Primary before startTime: {}, after startTime: {}",
                 primaryBeforeReset.getStartTime(), primaryAfterReset.getStartTime());
         // Should be a new lease after the reset.
-        //        assertTrue(primaryAfterReset.getStartTime().compareTo(primaryBeforeReset.getStartTime()) > 0);
+        assertTrue(primaryAfterReset.getStartTime().compareTo(primaryBeforeReset.getStartTime()) > 0);
     }
 
     private boolean isResetMessage(NetworkMessage msg, int partId) {
