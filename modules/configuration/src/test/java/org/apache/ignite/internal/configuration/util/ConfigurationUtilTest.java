@@ -470,13 +470,14 @@ public class ConfigurationUtilTest {
 
         assertThat(flattenedMap(superRoot, ParentConfiguration.KEY, emptyNavigableMap(), node -> {}), is(anEmptyMap()));
 
-        Map<String, Serializable> flattenedMap = flattenedMap(superRoot, ParentConfiguration.KEY, emptyNavigableMap(), node -> ((ParentChange) node)
-                .changeElements(elements -> elements
-                        .create("name", element -> element
-                                .changeChild(child -> child.changeStr("foo"))
+        Map<String, Serializable> flattenedMap =
+                flattenedMap(superRoot, ParentConfiguration.KEY, emptyNavigableMap(), node -> ((ParentChange) node)
+                        .changeElements(elements -> elements
+                                .create("name", element -> element
+                                        .changeChild(child -> child.changeStr("foo"))
+                                )
                         )
-                )
-        );
+                );
 
         assertThat(
                 flattenedMap,
