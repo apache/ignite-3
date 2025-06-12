@@ -314,7 +314,9 @@ class ReplicaStateManager {
         // These is some probability that the replica would be reserved after the previous lease is expired and before this method
         // is called, so reservation state needs to be checked again.
         if (context.reservedForPrimary) {
-            return planDeferredReplicaStop(groupId, context, stopOperation);
+            LOG.info("Retrying planDeferredReplicaStop, groupId={}", groupId);
+            return replicaManager.stopLeaseProlongation(groupId, null)
+                    .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
         }
 
         context.replicaState = ReplicaState.STOPPING;
