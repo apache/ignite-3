@@ -29,7 +29,7 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAM
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -53,6 +53,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -122,7 +123,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 clusterService,
                 placementDriver,
                 clockService,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new SystemPropertiesNodeProperties()
         );
 
         indexBuildController.start();
@@ -289,7 +291,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME + "_other", randomUUID(), clock.now());
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             verify(indexBuilder).stopBuildingZoneIndexes(zoneId(), PARTITION_ID);
         } else {
             verify(indexBuilder).stopBuildingTableIndexes(tableId(), PARTITION_ID);
@@ -377,7 +379,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     private ReplicationGroupId replicaId(int partitionId) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return new ZonePartitionId(zoneId(), partitionId);
         } else {
             return new TablePartitionId(tableId(), partitionId);
@@ -390,7 +392,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 leaseholderId,
                 startTime,
                 startTime.addPhysicalTime(1_000),
-                enabledColocation() ? new ZonePartitionId(zoneId(), PARTITION_ID) : new TablePartitionId(tableId(), PARTITION_ID)
+                colocationEnabled() ? new ZonePartitionId(zoneId(), PARTITION_ID) : new TablePartitionId(tableId(), PARTITION_ID)
         );
     }
 }

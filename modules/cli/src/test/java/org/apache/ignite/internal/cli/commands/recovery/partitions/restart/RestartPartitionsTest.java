@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
@@ -41,7 +41,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
 
     @BeforeAll
     public static void beforeAll() {
-        PARTITIONS_RESTART_ENDPOINT = enabledColocation() ? "zone/partitions/restart" : "partitions/restart";
+        PARTITIONS_RESTART_ENDPOINT = colocationEnabled() ? "zone/partitions/restart" : "partitions/restart";
     }
 
     @Test
@@ -49,7 +49,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
     void restartAllPartitions() {
         String expectedSentContent;
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             expectedSentContent = "{"
                     + "     \"zoneName\" : \"zone_NAME\","
                     + "}";

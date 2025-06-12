@@ -87,10 +87,6 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         this.parameterMetadata = parameterMetadata;
     }
 
-    public IgniteSelectCount selectCountNode() {
-        return selectCountNode;
-    }
-
     @Override
     public <RowT> AsyncDataCursor<InternalSqlRow> execute(ExecutionContext<RowT> ctx,
             InternalTransaction ignored, ExecutableTableRegistry tableRegistry) {
@@ -135,6 +131,11 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public ResultSetMetadata metadata() {
         return metadata;
+    }
+
+    @Override
+    public IgniteSelectCount getRel() {
+        return selectCountNode;
     }
 
     @Override

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.index.IndexManagementUtils.isLocalNode;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
@@ -87,6 +87,8 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
     private final LowWatermark lowWatermark;
 
+    private final NodeProperties nodeProperties;
+
     private final ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
 
     /** Tables IDs for which the local node is the primary replica for the partition with ID {@code 0}. */
@@ -107,12 +109,14 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
             PlacementDriver placementDriver,
             ClusterService clusterService,
             LowWatermark lowWatermark,
+            NodeProperties nodeProperties,
             ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler
     ) {
         this.catalogService = catalogManager;
         this.placementDriver = placementDriver;
         this.clusterService = clusterService;
         this.lowWatermark = lowWatermark;
+        this.nodeProperties = nodeProperties;
         this.changeIndexStatusTaskScheduler = changeIndexStatusTaskScheduler;
     }
 
@@ -139,7 +143,7 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
         catalogService.listen(CatalogEvent.INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             catalogService.listen(CatalogEvent.TABLE_CREATE, EventListener.fromConsumer(this::onTableCreated));
             catalogService.listen(CatalogEvent.TABLE_DROP, EventListener.fromConsumer(this::onTableDropped));
 
@@ -271,21 +275,21 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
                 getTableIdsForPrimaryReplicaElected(catalog, partitionGroupId, localNodeIsPrimaryReplicaForTableIds::contains);
 
         localNodeIsPrimaryReplicaForTableIds.removeAll(tableIds);
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             localNodeIsPrimaryReplicaForZoneIds.remove(((ZonePartitionId) partitionGroupId).zoneId());
         }
 
         tableIds.forEach(changeIndexStatusTaskScheduler::stopTasksForTable);
     }
 
-    private static IntArrayList getTableIdsForPrimaryReplicaElected(
+    private IntArrayList getTableIdsForPrimaryReplicaElected(
             Catalog catalog,
             PartitionGroupId partitionGroupId,
             IntPredicate predicate
     ) {
         var tableIds = new IntArrayList();
 
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
 
             for (CatalogTableDescriptor table : catalog.tables(zonePartitionId.zoneId())) {
@@ -305,7 +309,7 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
     }
 
     private List<Integer> getZoneIdsForPrimaryReplicaElected(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             ZonePartitionId zonePartitionId = (ZonePartitionId) partitionGroupId;
 
             if (!localNodeIsPrimaryReplicaForZoneIds.contains(zonePartitionId.zoneId())) {

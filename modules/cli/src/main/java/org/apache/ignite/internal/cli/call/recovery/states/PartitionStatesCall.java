@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cli.call.recovery.states;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
 import jakarta.inject.Singleton;
 import java.util.List;
@@ -72,12 +72,13 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
         }
     }
 
-    private static DefaultCallOutput<Table> getGlobalPartitionStatesOutput(
+    private DefaultCallOutput<Table> getGlobalPartitionStatesOutput(
             PartitionStatesCallInput input,
             RecoveryApi client,
             List<String> zoneNames
     ) throws ApiException {
-        if (enabledColocation()) {
+        // TODO: IGNITE-25637 - remove this.
+        if (colocationEnabled()) {
             GlobalZonePartitionStatesResponse globalStates = client.getZoneGlobalPartitionStates(
                     zoneNames,
                     input.partitionIds()
@@ -115,12 +116,13 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
         return DefaultCallOutput.success(new Table(GLOBAL_HEADERS, content));
     }
 
-    private static DefaultCallOutput<Table> getLocalPartitionStatesOutput(
+    private DefaultCallOutput<Table> getLocalPartitionStatesOutput(
             RecoveryApi client,
             List<String> zoneNames,
             PartitionStatesCallInput input
     ) throws ApiException {
-        if (enabledColocation()) {
+        // TODO: IGNITE-25637 - remove this.
+        if (colocationEnabled()) {
             LocalZonePartitionStatesResponse localStates = client.getZoneLocalPartitionStates(
                     zoneNames,
                     input.nodeNames(),

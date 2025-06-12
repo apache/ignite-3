@@ -20,13 +20,12 @@ package org.apache.ignite.internal.sql.engine.util.format;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.Year;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -81,13 +80,13 @@ final class Parser {
         parseElements(text);
 
         if (hh12 != null) {
-            int hours = hh12.toHourOfDay();
-            parsedFields.add(FieldKind.HOUR_24, hours);
+            assert hh12.clock != 0;
+            parsedFields.addHours12(hh12.clock == Hours12.PM, hh12.value);
         }
 
         if (tz != null) {
-            ZoneOffset zoneOffset = tz.toZoneOffset();
-            parsedFields.add(FieldKind.TIMEZONE, zoneOffset);
+            assert tz.parsed != 0;
+            parsedFields.addTz(tz.hours * tz.sign, tz.minutes * tz.sign);
         }
 
         return parsedFields;
@@ -219,7 +218,7 @@ final class Parser {
         }
 
         if (matchSign()) {
-            tz.sign =  buf.charAt(0) == '+' ? 1 : -1;
+            tz.sign = buf.charAt(0) == '+' ? 1 : -1;
         } else {
             return false;
         }
@@ -313,123 +312,104 @@ final class Parser {
 
         switch (field) {
             case YYYY:
-                parseYear(field, value, 1, 9999, 0);
+                parseYear(field, value, 0);
                 break;
             case YYY:
                 int baseYyy = Year.now(clock).getValue() / 1000 * 1000;
-                parseYear(field, value, 0, 999, baseYyy);
+                parseYear(field, value, baseYyy);
                 break;
             case YY:
                 int baseYy = Year.now(clock).getValue() / 100 * 100;
-                parseYear(field, value, 0, 99, baseYy);
+                parseYear(field, value, baseYy);
                 break;
             case Y:
                 int baseY = Year.now(clock).getValue() / 10 * 10;
-                parseYear(field, value, 0, 9, baseY);
+                parseYear(field, value, baseY);
                 break;
             case MM:
-                parseNumber(field, value, 1, 12);
+                parseNumber(field, value);
                 break;
             case DD:
-                parseNumber(field, value, 1, 31);
+                parseNumber(field, value);
                 break;
             case DDD:
-                parseNumber(field, value, 1, 365);
+                parseNumber(field, value);
                 break;
             case HH:
             case HH12:
                 parse12Hour(field, value);
                 break;
             case HH24:
-                parseNumber(field, value, 0, 23);
+                parseNumber(field, value);
                 break;
             case MI:
-                parseNumber(field, value, 0, 59);
+                parseNumber(field, value);
                 break;
             case SS:
-                parseNumber(field, value, 0, 59);
+                parseNumber(field, value);
                 break;
             case SSSSS:
-                parseNumber(field, value, 0, 24 * 60 * 60);
+                parseNumber(field, value);
                 break;
             case RRRR:
-                parseRoundedYear(field, value, 0, 9999);
-                break;
             case RR:
-                parseRoundedYear(field, value, 0, 99);
+                parseRoundedYear(field, value);
                 break;
             case FF1:
             case FF3:
             case FF2:
-                parseFaction(field, value, 3, 0, 999, 1_000_000);
+                parseFaction(field, value, 3, 1_000_000);
                 break;
             case FF4:
             case FF5:
             case FF6:
-                parseFaction(field, value, 6, 0, 999_999, 1_000);
+                parseFaction(field, value, 6, 1_000);
                 break;
             case FF7:
             case FF8:
             case FF9:
-                parseFaction(field, value, 9, 0, 999_999_999, 1);
+                parseFaction(field, value, 9, 1);
                 break;
             case PM:
             case AM:
                 parseAmPm(value);
                 break;
             case TZH:
-                parseTimeZone(field, TimeZoneFields.HOURS, value, 0, 23);
+                parseTimeZone(field, TimeZoneFields.HOURS, value);
                 break;
             case TZM:
-                parseTimeZone(field, TimeZoneFields.MINUTES, value, 0, 59);
+                parseTimeZone(field, TimeZoneFields.MINUTES, value);
                 break;
             default:
                 throw new IllegalStateException("Unexpected field: " + field);
         }
     }
 
-    private void parseYear(DateTimeTemplateField field, String value, int min, int max, int base) {
-        int v = parseInt(field.name(), value, min, max) + base;
-        parsedFields.add(field.kind(), v);
+    private void parseYear(DateTimeTemplateField field, String value, int base) {
+        int v = parseInt(field, value);
+        parsedFields.addYear(base, v);
     }
 
-    private void parseRoundedYear(DateTimeTemplateField field, String value, int min, int max) {
-        int v = parseInt(field.name(), value, min, max);
-
-        int now = Year.now(clock).getValue();
-        int year2digits = now % 100;
-        int base = now - year2digits;
-
-        int year;
-        if (v <= 49) {
-            year = (year2digits <= 49) ? base + v   // same century
-                    : base + 100 + v; // next century
-        } else if (v < 100) { // 50-99
-            year =  (year2digits <= 49) ? base - 100 + v // previous century
-                    : base + v;       // same century
-        } else {
-            year = v;
-        }
-
-        // Store rounded year as year.
-        parsedFields.add(FieldKind.YEAR, year);
+    private void parseRoundedYear(DateTimeTemplateField field, String value) {
+        int v = parseInt(field, value);
+        parsedFields.addRoundedYear(v);
     }
 
-    private void parseFaction(DateTimeTemplateField field, String value, int len, int min, int max, int multiplier) {
+    private void parseFaction(DateTimeTemplateField field, String value, int len, int multiplier) {
         if (value.length() < len) {
             value = value + "0".repeat(len - value.length());
         }
-        int v = parseInt(field.name(), value, min, max) * multiplier;
+        int v = parseInt(field, value) * multiplier;
         parsedFields.add(field.kind(), v);
     }
 
-    private void parseNumber(DateTimeTemplateField field, String value, int min, int max) {
-        int v = parseInt(field.name(), value, min, max);
+    private void parseNumber(DateTimeTemplateField field, String value) {
+        int v = parseInt(field, value);
         parsedFields.add(field.kind(), v);
     }
 
     private void parse12Hour(DateTimeTemplateField field, String value) {
-        int v = parseInt(field.name(), value, 1, 12);
+        int v = parseInt(field, value);
 
         assert hh12 != null : "hh12 should have been initialized";
         hh12.value = v;
@@ -442,23 +422,18 @@ final class Parser {
         hh12.setFlag("P.M.".equalsIgnoreCase(value));
     }
 
-    private void parseTimeZone(DateTimeTemplateField field, int f, String value, int min, int max) {
-        int num = parseInt(field.name(), value, min, max);
-
+    private void parseTimeZone(DateTimeTemplateField field, int f, String value) {
+        int v = parseInt(field, value);
         assert tz != null : "tz should have been initialized";
-        tz.setField(f, num);
+        tz.setField(f, v);
     }
 
-    private static int parseInt(String field, String text, int min, int max) {
+    private static int parseInt(DateTimeTemplateField field, String text) {
         int num;
         try {
             num = Integer.parseInt(text);
         } catch (NumberFormatException ignore) {
-            throw parseError("Invalid value for field {}", field);
-        }
-
-        if (num < min || num > max) {
-            throw parseError("Value out of range for field {}", field);
+            throw parseError("Invalid value for {}", field.displayName());
         }
         return num;
     }
@@ -471,21 +446,6 @@ final class Parser {
 
         void setFlag(boolean pm) {
             clock = pm ? PM : AM;
-        }
-
-        int toHourOfDay() {
-            assert clock != 0 : "AM/PM flag has not been set";
-            assert value >= 0 : "12-hour value has not been set";
-
-            if (clock == PM) {
-                if (value == 12) {
-                    return value;
-                } else {
-                    return value % 12 + 12;
-                }
-            } else {
-                return value % 12;
-            }
         }
     }
 
@@ -508,20 +468,9 @@ final class Parser {
             }
             parsed |= field;
         }
-
-        ZoneOffset toZoneOffset() {
-            assert parsed != 0 : "Time zones has not been parsed";
-            assert sign != 0 : "No sign character";
-
-            try {
-                return ZoneOffset.ofHoursMinutes(sign * hours, sign * minutes);
-            } catch (Exception e) {
-                throw new DateTimeFormatException("Time zone field value is not valid", e);
-            }
-        }
     }
 
-    private static DateTimeFormatException parseError(String message, Object... elements) {
-        return new DateTimeFormatException(format(message, elements));
+    private static DateTimeException parseError(String message, Object... elements) {
+        return new DateTimeException(format(message, elements));
     }
 }

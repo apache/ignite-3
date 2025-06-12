@@ -59,6 +59,7 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -78,6 +79,11 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
     private static QueryCheckerFactory queryCheckerFactory;
 
     private TestCluster cluster;
+
+    @BeforeAll
+    static void warmUpCluster() throws Exception {
+        TestBuilders.warmupTestCluster();
+    }
 
     @BeforeEach
     void startCluster() {

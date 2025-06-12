@@ -79,6 +79,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -132,7 +133,6 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -354,10 +354,7 @@ public class TestBuilders {
      * @return Affinity distribution.
      */
     public static IgniteDistribution affinity(int key, int tableId, int zoneId) {
-        return IgniteDistributions.hash(
-                ImmutableIntList.of(key),
-                DistributionFunction.affinity(tableId, zoneId, affinityDistributionLabel(tableId, zoneId))
-        );
+        return affinity(ImmutableIntList.of(key), tableId, zoneId);
     }
 
     /**
@@ -873,7 +870,8 @@ public class TestBuilders {
                                 0,
                                 partitionPruner,
                                 () -> 1L,
-                                executionProvider
+                                executionProvider,
+                                new SystemPropertiesNodeProperties()
                         );
 
                         systemViewManager.register(() -> systemViews);
@@ -983,7 +981,13 @@ public class TestBuilders {
             return tablesSize.getOrDefault(descriptor.name(), 10_000L);
         };
 
-        return new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 0);
+        return new SqlSchemaManagerImpl(
+                catalogManager,
+                sqlStatisticManager,
+                new SystemPropertiesNodeProperties(),
+                CaffeineCacheFactory.INSTANCE,
+                0
+        );
     }
 
     private static class TableBuilderImpl implements TableBuilder {
@@ -1979,6 +1983,33 @@ public class TestBuilders {
         @Override
         public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
             return nullCompletedFuture();
+        }
+    }
+
+    /**
+     * Creates a cluster and runs a simple query to facilitate loading of necessary classes to prepare and execute sql queries.
+     *
+     * @throws Exception An exception if something goes wrong.
+     */
+    public static void warmupTestCluster() throws Exception {
+        TestCluster cluster = cluster()
+                .nodes("N1")
+                .defaultDataProvider(tableName -> tableScan(DataProvider.fromCollection(List.of())))
+                .defaultAssignmentsProvider(tableName -> (partitionsCount, includeBackups) -> IntStream.range(0, partitionsCount)
+                        .mapToObj(i -> List.of("N1"))
+                        .collect(Collectors.toList()))
+                .build();
+
+        cluster.start();
+
+        try {
+            TestNode node = cluster.node("N1");
+
+            node.initSchema("CREATE TABLE t (id INT PRIMARY KEY, val INT)");
+
+            await(node.executeQuery("SELECT * FROM t").requestNextAsync(1));
+        } finally {
+            cluster.stop();
         }
     }
 }

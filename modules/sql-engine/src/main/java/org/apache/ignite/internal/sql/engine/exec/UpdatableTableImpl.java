@@ -38,8 +38,8 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.Static;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -86,6 +86,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final ClockService clockService;
 
+    private final NodeProperties nodeProperties;
+
     private final InternalTable table;
 
     private final ReplicaService replicaService;
@@ -93,8 +95,6 @@ public final class UpdatableTableImpl implements UpdatableTable {
     private final PartitionExtractor partitionExtractor;
 
     private final TableRowConverter rowConverter;
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     private RowSchema rowSchema;
 
@@ -107,6 +107,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             InternalTable table,
             ReplicaService replicaService,
             ClockService clockService,
+            NodeProperties nodeProperties,
             TableRowConverter rowConverter
     ) {
         this.tableId = tableId;
@@ -115,6 +116,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         this.desc = desc;
         this.replicaService = replicaService;
         this.clockService = clockService;
+        this.nodeProperties = nodeProperties;
         this.partitionExtractor = (row) -> IgniteUtils.safeAbs(row.colocationHash()) % partitions;
         this.rowConverter = rowConverter;
     }
@@ -197,7 +199,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     }
 
     private ReplicationGroupId targetReplicationGroupId(int partitionId) {
-        if (enabledColocation) {
+        if (nodeProperties.colocationEnabled()) {
             return new ZonePartitionId(zoneId, partitionId);
         } else {
             return new TablePartitionId(tableId, partitionId);

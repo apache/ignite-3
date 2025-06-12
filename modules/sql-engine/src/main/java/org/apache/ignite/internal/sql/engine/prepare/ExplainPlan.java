@@ -21,6 +21,7 @@ import java.util.List;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -36,16 +37,22 @@ public class ExplainPlan implements QueryPlan {
 
     private final PlanId id;
     private final ExplainablePlan plan;
+    private final IgniteSqlExplainMode mode;
 
-    ExplainPlan(PlanId id, ExplainablePlan plan) {
+    ExplainPlan(PlanId id, ExplainablePlan plan, IgniteSqlExplainMode mode) {
         this.id = id;
         this.plan = plan;
+        this.mode = mode;
     }
 
     /** {@inheritDoc} */
     @Override
     public PlanId id() {
         return id;
+    }
+
+    public IgniteSqlExplainMode mode() {
+        return mode;
     }
 
     /** {@inheritDoc} */

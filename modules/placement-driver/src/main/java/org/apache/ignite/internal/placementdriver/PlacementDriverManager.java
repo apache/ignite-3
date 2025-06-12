@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -128,6 +129,7 @@ public class PlacementDriverManager implements IgniteComponent {
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             ClockService clockService,
             FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
             ReplicationConfiguration replicationConfiguration
     ) {
         this.replicationGroupId = replicationGroupId;
@@ -142,7 +144,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.leaseTracker = new LeaseTracker(metastore, clusterService.topologyService(), clockService);
 
-        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor);
+        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor, nodeProperties);
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,

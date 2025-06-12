@@ -31,10 +31,26 @@ final class Plan extends Command {
 
     private final String expectedPlan;
 
+    private final boolean mapping;
+
     Plan(Script script, ScriptContext ctx, String[] cmd) throws IOException {
         super(script.scriptPosition());
 
         var sqlString = new IgniteStringBuilder();
+
+        assert cmd.length == 2 : "unexpected line: " + cmd;
+
+        String explainType = cmd[1];
+        switch (explainType) {
+            case "mapping":
+                mapping = true;
+                break;
+            case "plan":
+                mapping = false;
+                break;
+            default:
+                throw script.reportInvalidCommand("Unsupported explain type", cmd);
+        }
 
         // Read SQL query
         while (script.ready()) {
@@ -64,24 +80,31 @@ final class Plan extends Command {
         do {
             String s = script.nextLineWithoutTrim();
 
-            if (Strings.isNullOrEmpty(s)) {
-                break;
+            if (mapping) {
+                if ("----".equals(s)) {
+                    break;
+                }
+            } else {
+                if (Strings.isNullOrEmpty(s)) {
+                    break;
+                }
             }
 
             expectedResultBuilder.app(s).nl();
         } while (true);
 
-        expectedPlan = expectedResultBuilder.toString();
+        expectedPlan = expectedResultBuilder.toString().strip();
     }
 
     @Override
     void execute(ScriptContext ctx) {
-        List<List<?>> res = ctx.executeQuery("EXPLAIN PLAN FOR " + sql);
+        List<List<?>> res = ctx.executeQuery((mapping ? "EXPLAIN MAPPING FOR " : "EXPLAIN ") + sql);
 
         String actualPlan = (String) res.get(0).get(0);
+        actualPlan = actualPlan.strip();
         if (!expectedPlan.equals(actualPlan)) {
             throw new AssertionError("Invalid plan at: " + posDesc + "." + System.lineSeparator()
-                    + "Expected: " + System.lineSeparator() + expectedPlan 
+                    + "Expected: " + System.lineSeparator() + expectedPlan + System.lineSeparator()
                     + "Actual: " + System.lineSeparator() + actualPlan);
         }
     }

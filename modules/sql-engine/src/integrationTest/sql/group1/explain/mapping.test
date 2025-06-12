@@ -1,0 +1,54 @@
+# description: Tests for: 'explain mapping for' command.
+# Mapped fragments need to be placed inside "----" divisors.
+
+statement ok
+CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
+
+explain mapping
+SELECT /*+ DISABLE_RULE('MapReduceSortAggregateConverterRule',
+                        'ColocatedSortAggregateConverterRule',
+                        'MapReduceHashAggregateConverterRule') */ COUNT(*) FROM SYSTEM.SYSTEM_VIEWS;
+----
+Fragment#0 root
+  executionNodes: [sqllogic0]
+  systemViews: [SYSTEM_VIEWS]
+  tree:
+    ColocatedHashAggregate
+      SystemViewScan(name=SYSTEM.SYSTEM_VIEWS, distribution=single)
+----
+
+explain mapping
+SELECT * FROM test_table WHERE c1 = 1
+----
+Fragment#0 root
+  executionNodes: [sqllogic0]
+  tree:
+    KeyValueGet(name=PUBLIC.TEST_TABLE, partitions=25, distribution=single)
+----
+
+explain mapping
+SELECT COUNT(*) FROM test_table
+----
+Fragment#0 root
+  executionNodes: [sqllogic0]
+  tree:
+    SelectCount(name=PUBLIC.TEST_TABLE, partitions=25, distribution=any)
+----
+
+explain mapping
+INSERT INTO test_table VALUES (1, 2, 3)
+----
+Fragment#0 root
+  executionNodes: [sqllogic0]
+  tree:
+    KeyValueModify(name=PUBLIC.TEST_TABLE, partitions=25, distribution=any)
+----
+
+explain mapping
+SELECT c1 FROM (VALUES(1), (2)) t(c1)
+----
+Fragment#0 root
+  executionNodes: [sqllogic0]
+  tree:
+    Values
+----
