@@ -230,7 +230,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1456,7 +1455,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
-    @Disabled("IGNITE-25654")
     void writeIntentSwitchForCompactedCatalogTimestampWorks(boolean commit) {
         int earliestVersion = 999;
         Catalog mockEarliestCatalog = mock(Catalog.class);
@@ -1465,6 +1463,11 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID txId = newTxId();
         HybridTimestamp beginTs = beginTimestamp(txId);
         HybridTimestamp commitTs = clock.now();
+
+        // We have to force push clock forward because we will invoke listener directly bypass ReplicaManager or MessageinService, so clock
+        // won't be updated if the test will compute too fast for physical clock ticking and then we may have equal clock#current and the
+        // given above commit timestamp.
+        clock.update(clock.now().addPhysicalTime(10));
 
         HybridTimestamp reliableCatalogVersionTs = commit ? commitTs : beginTs;
         when(catalogService.activeCatalog(reliableCatalogVersionTs.longValue())).thenThrow(new CatalogNotFoundException("Oops"));
