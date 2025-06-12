@@ -25,7 +25,11 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.sql.Date;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.time.zone.ZoneRules;
@@ -35,12 +39,12 @@ import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.runtime.SqlFunctions;
-import org.apache.calcite.runtime.SqlFunctions.DateParseFunction;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.format.SqlDateTimeParser;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -57,6 +61,8 @@ public class IgniteSqlFunctions {
 
     private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, ColumnType.DATE);
     private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, ColumnType.DATE);
+    /** java.sql.Time is stored as the number of milliseconds since 1970/01/01 */
+    private static final LocalDate JAVA_SQL_TIME_DATE = LocalDate.of(1970, 1, 1);
 
     /**
      * Default constructor.
@@ -560,15 +566,49 @@ public class IgniteSqlFunctions {
         Objects.requireNonNull(timeZone, "timeZone");
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
-        DateParseFunction function = new DateParseFunction();
-        long ts = function.parseTimestamp(format, v);
-        Instant instant = Instant.ofEpochMilli(ts);
+        LocalDateTime dateTime = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(v);
+        Instant instant = dateTime.toInstant(ZoneOffset.UTC);
 
         // Adjust instant millis
         ZoneRules rules = timeZone.toZoneId().getRules();
         ZoneOffset offset = rules.getOffset(instant);
         Instant adjusted = instant.minus(offset.getTotalSeconds(), ChronoUnit.SECONDS);
         return adjusted.toEpochMilli();
+    }
+
+    /** Converts a date string into a date value. */
+    public static @Nullable Integer toDate(@Nullable String v, String format) {
+        if (v == null) {
+            return null;
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalDate date = SqlDateTimeParser.dateFormatter(format).parseDate(v);
+        return SqlFunctions.toInt(Date.valueOf(date));
+    }
+
+    /** Converts a time string into a time value. */
+    public static @Nullable Integer toTime(@Nullable String v, String format) {
+        if (v == null) {
+            return null;
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalTime time = SqlDateTimeParser.timeFormatter(format).parseTime(v);
+        Instant instant = time.atDate(JAVA_SQL_TIME_DATE).toInstant(ZoneOffset.UTC);
+        return (int) instant.toEpochMilli();
+    }
+
+    /** Converts a timestamp string into a timestamp value. */
+    public static @Nullable Long toTimestamp(@Nullable String v, String format) {
+        if (v == null) {
+            return null;
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalDateTime ts = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(v);
+        Instant instant = ts.toInstant(ZoneOffset.UTC);
+        return instant.toEpochMilli();
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {
