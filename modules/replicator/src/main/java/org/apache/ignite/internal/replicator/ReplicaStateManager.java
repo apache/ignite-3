@@ -33,7 +33,6 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -56,8 +55,6 @@ class ReplicaStateManager {
 
     private final Executor replicaStartStopExecutor;
 
-    private final ClockService clockService;
-
     private final PlacementDriver placementDriver;
 
     private final ReplicaManager replicaManager;
@@ -70,13 +67,11 @@ class ReplicaStateManager {
 
     ReplicaStateManager(
             Executor replicaStartStopExecutor,
-            ClockService clockService,
             PlacementDriver placementDriver,
             ReplicaManager replicaManager,
             FailureProcessor failureProcessor
     ) {
         this.replicaStartStopExecutor = replicaStartStopExecutor;
-        this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.replicaManager = replicaManager;
         this.failureProcessor = failureProcessor;
@@ -349,9 +344,6 @@ class ReplicaStateManager {
             Supplier<CompletableFuture<Void>> deferredStopOperation
     ) {
         synchronized (context) {
-            // TODO IGNITE-23702: proper sync with waiting of expiration event, and proper deferred stop after cancellation of
-            //     reservation made by a lease that was not negotiated.
-
             // No parallel actions affected this, continue.
             if (context.reservedForPrimary) {
                 context.deferredStopReadyFuture = new CompletableFuture<>();
@@ -523,8 +515,8 @@ class ReplicaStateManager {
             leaseStartTime = null;
 
             // Unblock the deferred replica stop, if needed.
-            if (deferredStopReadyFuture != null &&
-                    (replicaState == ReplicaState.PRIMARY_ONLY || replicaState == ReplicaState.RESTART_PLANNED)) {
+            if (deferredStopReadyFuture != null
+                    && (replicaState == ReplicaState.PRIMARY_ONLY || replicaState == ReplicaState.RESTART_PLANNED)) {
                 deferredStopReadyFuture.complete(null);
                 deferredStopReadyFuture = null;
             }
