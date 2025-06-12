@@ -6,7 +6,7 @@
 
 # hash join
 # inner
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 10)),
   t2(y) AS (SELECT * FROM system_range(1, 5))
@@ -28,7 +28,7 @@ HashJoin
       est: (rows=100)
 
 # left
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 10)),
   t2(y) AS (SELECT * FROM system_range(1, 5))
@@ -50,7 +50,7 @@ HashJoin
       est: (rows=100)
 
 # right
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 10)),
   t2(y) AS (SELECT * FROM system_range(1, 5))
@@ -72,7 +72,7 @@ HashJoin
       est: (rows=100)
 
 # full
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 10)),
   t2(y) AS (SELECT * FROM system_range(1, 5))
@@ -95,7 +95,7 @@ HashJoin
 
 # sort merge join
 # inner
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 15)),
   t2(y) AS (SELECT * FROM system_range(1, 25))
@@ -123,7 +123,7 @@ MergeJoin
         est: (rows=100)
 
 # left
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 15)),
   t2(y) AS (SELECT * FROM system_range(1, 25))
@@ -151,7 +151,7 @@ MergeJoin
         est: (rows=100)
 
 # right
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 15)),
   t2(y) AS (SELECT * FROM system_range(1, 25))
@@ -182,7 +182,7 @@ Sort
           est: (rows=100)
 
 # full
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 15)),
   t2(y) AS (SELECT * FROM system_range(1, 25))
@@ -213,7 +213,7 @@ Sort
           est: (rows=100)
 
 # correlated nested loop join
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 20)),
   t2(y) AS (SELECT * FROM system_range(1, 15))
@@ -252,7 +252,7 @@ CorrelatedNestedLoopJoin
 
 # nested loop join
 
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 20)),
   t2(y) AS (SELECT * FROM system_range(1, 15))
@@ -274,7 +274,7 @@ NestedLoopJoin
 
 # cross join
 
-plan
+explain plan
 WITH
   t1(x) AS (SELECT * FROM system_range(1, 25)),
   t2(y) AS (SELECT * FROM system_range(1, 35))
