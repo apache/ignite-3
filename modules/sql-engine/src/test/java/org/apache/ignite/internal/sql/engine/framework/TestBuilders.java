@@ -1779,7 +1779,17 @@ public class TestBuilders {
                             throw new AssertionError("Assignments are not configured for table " + tableName);
                         }
 
-                        return assignments;
+                        if (includeBackups) {
+                            return assignments;
+                        } else {
+                            List<List<String>> primaryAssignments = new ArrayList<>();
+
+                            for (List<String> assign : assignments) {
+                                primaryAssignments.add(List.of(assign.get(0)));
+                            }
+
+                            return primaryAssignments;
+                        }
                     };
 
             return new TestExecutionDistributionProvider(
