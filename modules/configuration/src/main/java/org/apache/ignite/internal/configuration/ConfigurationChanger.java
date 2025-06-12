@@ -175,7 +175,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
          * @param changeId Change ID that corresponds to this state.
          * @param storageData Full storage data.
          */
-        private StorageRoots(SuperRoot rootsWithoutDefaults, SuperRoot roots, long changeId, NavigableMap<String, ? extends Serializable> storageData) {
+        private StorageRoots(
+                SuperRoot rootsWithoutDefaults,
+                SuperRoot roots,
+                long changeId,
+                NavigableMap<String, ? extends Serializable> storageData
+        ) {
             this.rootsWithoutDefaults = rootsWithoutDefaults;
             this.roots = roots;
             this.changeId = changeId;
