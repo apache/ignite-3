@@ -10,7 +10,7 @@ CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
 ## Tests on KeyValueGet node
 
 # select all, no renames
-plan
+explain plan
 SELECT * FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
@@ -20,7 +20,7 @@ KeyValueGet
     est: (rows=1)
 
 # select with trimming projection, no renames
-plan
+explain plan
 SELECT c1, c2 FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
@@ -30,7 +30,7 @@ KeyValueGet
     est: (rows=1)
 
 # select with trimming projection and renames
-plan
+explain plan
 SELECT c1 AS renamed_c1, c2 FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
@@ -40,7 +40,7 @@ KeyValueGet
     est: (rows=1)
 
 # select with expression projection, no renames
-plan
+explain plan
 SELECT c1 + c3, c2 FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
@@ -51,7 +51,7 @@ KeyValueGet
     est: (rows=1)
 
 # select with expression projection and renames
-plan
+explain plan
 SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
@@ -62,7 +62,7 @@ KeyValueGet
     est: (rows=1)
 
 # kvGet with an extra condition and functional source expression
-plan
+explain plan
 SELECT * FROM test_table WHERE c1 = EXTRACT(DAY FROM CURRENT_DATE) AND c3 > 10;
 ----
 KeyValueGet
@@ -76,7 +76,7 @@ KeyValueGet
 ## Tests on KeyValueModify node
 
 # insert single tuple with literals
-plan
+explain plan
 INSERT INTO test_table VALUES (1, 2, 3)
 ----
 KeyValueModify
@@ -87,7 +87,7 @@ KeyValueModify
     est: (rows=1)
 
 # insert single tuple with literals different order
-plan
+explain plan
 INSERT INTO test_table (c2, c3, c1) VALUES (1, 2, 3)
 ----
 KeyValueModify
@@ -98,7 +98,7 @@ KeyValueModify
     est: (rows=1)
 
 # insert single tuple mixed
-plan
+explain plan
 INSERT INTO test_table VALUES (1, LENGTH(rand_uuid()::VARCHAR), 3)
 ----
 KeyValueModify
@@ -111,7 +111,7 @@ KeyValueModify
 ## Tests on SelectCount node
 
 # count all
-plan
+explain plan
 SELECT COUNT(*) FROM test_table;
 ----
 SelectCount
@@ -121,7 +121,7 @@ SelectCount
     est: (rows=1)
 
 # count with literal
-plan
+explain plan
 SELECT COUNT(1) FROM test_table;
 ----
 SelectCount
@@ -131,7 +131,7 @@ SelectCount
     est: (rows=1)
 
 # complex case including literals in project list
-plan
+explain plan
 SELECT 1, 2, COUNT(*), COUNT(1) FROM test_table;
 ----
 SelectCount

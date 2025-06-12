@@ -63,6 +63,8 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.EventListener;
@@ -74,7 +76,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -239,6 +240,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final FailureProcessor failureProcessor;
 
+    private final NodeProperties nodeProperties;
+
     private final TransactionsViewProvider txViewProvider = new TransactionsViewProvider();
 
     private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
@@ -246,8 +249,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private final TransactionExpirationRegistry transactionExpirationRegistry = new TransactionExpirationRegistry();
 
     private volatile @Nullable ScheduledFuture<?> transactionExpirationJobFuture;
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     private volatile int lockRetryCount = 0;
 
@@ -303,7 +304,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 transactionInflights,
                 lowWatermark,
                 commonScheduler,
-                new FailureManager(new NoOpFailureHandler())
+                new FailureManager(new NoOpFailureHandler()),
+                new SystemPropertiesNodeProperties()
         );
     }
 
@@ -344,7 +346,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
             ScheduledExecutorService commonScheduler,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            NodeProperties nodeProperties
     ) {
         this.txConfig = txConfig;
         this.systemCfg = systemCfg;
@@ -364,6 +367,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.replicaService = replicaService;
         this.commonScheduler = commonScheduler;
         this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -483,7 +487,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeoutMillis().value());
 
-        var transaction = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
+        var transaction = new ReadWriteTransactionImpl(
+                this,
+                timestampTracker,
+                txId,
+                localNodeId,
+                implicit,
+                timeout,
+                nodeProperties.colocationEnabled()
+        );
 
         // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
         // no need to register them.
@@ -711,7 +723,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
-        assert (enabledColocation ? replicationGroupId instanceof ZonePartitionId : replicationGroupId instanceof TablePartitionId)
+        assert (nodeProperties.colocationEnabled() ? replicationGroupId instanceof ZonePartitionId
+                : replicationGroupId instanceof TablePartitionId)
                 : "Invalid replication group type: " + replicationGroupId.getClass();
     }
 

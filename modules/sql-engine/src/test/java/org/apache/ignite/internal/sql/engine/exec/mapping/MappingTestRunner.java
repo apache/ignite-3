@@ -38,6 +38,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
@@ -208,7 +209,8 @@ final class MappingTestRunner {
                 0,
                 partitionPruner,
                 snapshot::version,
-                executionDistributionProvider
+                executionDistributionProvider,
+                new SystemPropertiesNodeProperties()
         );
 
         List<MappedFragment> mappedFragments;
@@ -217,7 +219,7 @@ final class MappingTestRunner {
             mappedFragments = await(mappingService.map(plan, MappingParameters.EMPTY));
         } catch (Exception e) {
             String explanation = System.lineSeparator()
-                    + RelOptUtil.toString(plan.root())
+                    + RelOptUtil.toString(plan.getRel())
                     + System.lineSeparator();
 
             Throwable cause = e instanceof CompletionException ? e.getCause() : e;

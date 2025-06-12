@@ -320,6 +320,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
                 .defaultSchema(defaultSchema);
 
         String qry = queryTemplate.createQuery();
+        boolean containExplain = "EXPLAIN ".equalsIgnoreCase(qry.substring(0, 8));
         String queryToLog;
         if (qry.length() < MAX_QUERY_DISPLAY_LENGTH) {
             queryToLog = qry;
@@ -335,7 +336,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
                     observableTimeTracker(),
                     tx,
                     null,
-                    "EXPLAIN PLAN FOR " + qry,
+                    containExplain ? qry : "EXPLAIN PLAN FOR " + qry,
                     params
             );
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);

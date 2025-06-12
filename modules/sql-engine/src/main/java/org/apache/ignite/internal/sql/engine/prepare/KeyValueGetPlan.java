@@ -122,10 +122,6 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         return ExplainUtils.toString(clonedRoot);
     }
 
-    public IgniteKeyValueGet lookupNode() {
-        return lookupNode;
-    }
-
     private <RowT> Performable<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
         Performable<RowT> operation = cast(this.operation);
 
@@ -177,6 +173,11 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         CompletableFuture<Iterator<InternalSqlRow>> result = operation.perform(ctx, tx);
 
         return new IteratorToDataCursorAdapter<>(result, Runnable::run);
+    }
+
+    @Override
+    public IgniteKeyValueGet getRel() {
+        return lookupNode;
     }
 
     private static class SimpleLookupExecution<RowT> extends Performable<RowT> {

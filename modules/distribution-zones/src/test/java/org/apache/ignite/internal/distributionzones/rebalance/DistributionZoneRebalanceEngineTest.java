@@ -65,6 +65,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
@@ -492,7 +493,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 new IgniteSpinBusyLock(),
                 metaStorageManager,
                 distributionZoneManager,
-                catalogManager
+                catalogManager,
+                new SystemPropertiesNodeProperties()
         );
     }
 

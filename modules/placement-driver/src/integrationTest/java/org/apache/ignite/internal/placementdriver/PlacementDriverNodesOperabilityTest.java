@@ -20,7 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -64,7 +64,7 @@ public class PlacementDriverNodesOperabilityTest extends ClusterPerClassIntegrat
         IgniteImpl nonMetaStorageNode = unwrapIgniteImpl(findAliveNode(ni -> !cmgMetastoreNodesIndices.contains(ni.getKey())));
 
         TableImpl table = unwrapTableImpl(metaStorageNode.tables().table("TABLE_TEST"));
-        ReplicationGroupId groupId = enabledColocation() ? new ZonePartitionId(table.internalTable().zoneId(), 0)
+        ReplicationGroupId groupId = colocationEnabled() ? new ZonePartitionId(table.internalTable().zoneId(), 0)
                 : new TablePartitionId(table.tableId(), 0);
 
         assertTrue(waitForCondition(() -> nonNullNonEmptyNoNullElements(assignments(metaStorageNode, groupId)), 3000));

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -178,7 +178,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         ClusterNode leader = ReplicaTestUtils.leaderAssignment(
                 node0,
-                enabledColocation() ? table.internalTable().zoneId() : table.tableId(),
+                colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
                 0
         );
 
@@ -201,7 +201,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
                             node0,
-                            enabledColocation() ? table.internalTable().zoneId() : table.tableId(),
+                            colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
                             0
                     )
                     .orElseThrow(AssertionError::new);
@@ -360,7 +360,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
                         ignite,
-                        enabledColocation() ? table.internalTable().zoneId() : table.tableId(),
+                        colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
                         0
                 )
                 .orElseThrow(AssertionError::new);

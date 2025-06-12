@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
@@ -264,7 +264,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }).when(r).run(any());
 
             partRafts.put(i, r);
-            groupRafts.put(enabledColocation() ? new ZonePartitionId(ZONE_ID, i) : new TablePartitionId(TABLE_ID, i), r);
+            groupRafts.put(colocationEnabled() ? new ZonePartitionId(ZONE_ID, i) : new TablePartitionId(TABLE_ID, i), r);
         }
 
         Answer<CompletableFuture<?>> clo = invocation -> {
@@ -272,7 +272,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             ClusterNode node = clusterNodeByName(nodeName);
             ReplicaRequest request = invocation.getArgument(1);
 
-            ReplicationGroupIdMessage commitPartId = enabledColocation()
+            ReplicationGroupIdMessage commitPartId = colocationEnabled()
                     ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(ZONE_ID, 0)) :
                     toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(TABLE_ID, 0));
 
@@ -366,7 +366,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
-                () -> 10_000L
+                () -> 10_000L,
+                colocationEnabled()
         );
     }
 
