@@ -102,7 +102,6 @@ import org.apache.ignite.internal.partitiondistribution.AssignmentsLink;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.RendezvousDistributionFunction;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
@@ -112,6 +111,8 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -131,7 +132,6 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.KeyValueView;
@@ -1724,31 +1724,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         stopNodesInParallel(1, 2);
 
-        AtomicBoolean thisMessageShouldBeLease = new AtomicBoolean(false);
-
-        blockMessage((nodeName, msg) -> {
-            logger().info("Received message {}", msg);
-
-            if (msg instanceof ActionResponse) {
-                return false;
-            }
-
-            if (thisMessageShouldBeLease.getAndSet(false) && !isLeaseMessage(msg)) {
-                // Not working at the moment.
-                logger().info("Lease message expected. Received " + msg + " instead");
-                fail("Lease message expected. Received " + msg + " instead");
-            }
-
-            if (isResetMessage(msg, partId)) {
-                // If this is a reset message then we need to check that the next message is a lease message.
-                thisMessageShouldBeLease.set(true);
-                logger().info("Detected reset message");
-            }
-            return false;
-        });
-
         // Reset the partition to make it operable.
-        CompletableFuture<?> updateFuture2 = TestDisasterRecoveryUtils.resetPartitions(
+        CompletableFuture<?> resetFuture = TestDisasterRecoveryUtils.resetPartitions(
                 node0.disasterRecoveryManager(),
                 zoneName,
                 SCHEMA_NAME,
@@ -1758,55 +1735,26 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 -1
         );
 
-        assertThat(updateFuture2, willCompleteSuccessfully());
+        assertThat(resetFuture, willCompleteSuccessfully());
 
-        ReplicaMeta primaryAfterReset = awaitPrimaryReplica(node0, partId);
-        logger().info("Primary replica after reset is {}", primaryAfterReset);
-
-        logger().info("Primary before startTime: {}, after startTime: {}",
-                primaryBeforeReset.getStartTime(), primaryAfterReset.getStartTime());
+        ReplicationConfiguration config = node0
+                .clusterConfiguration()
+                .getConfiguration(ReplicationExtensionConfiguration.KEY)
+                .replication();
         // Should be a new lease after the reset.
-        assertTrue(primaryAfterReset.getStartTime().compareTo(primaryBeforeReset.getStartTime()) > 0);
-    }
-
-    private boolean isResetMessage(NetworkMessage msg, int partId) {
-        if (msg instanceof WriteActionRequest) {
-            var writeActionRequest = (WriteActionRequest) msg;
-            WriteCommand command = writeActionRequest.deserializedCommand();
-
-            if (command instanceof MultiInvokeCommand) {
-                MultiInvokeCommand invokeCommand = (MultiInvokeCommand) command;
-
-                Statement andThen = invokeCommand.iif().andThen();
-
-                if (andThen instanceof UpdateStatement) {
-                    UpdateStatement updateStatement = (UpdateStatement) andThen;
-                    List<Operation> operations = updateStatement.update().operations();
-
-                    ByteArray pendingAssignmentsKey = pendingPartitionAssignmentsKey(partitionGroupId(partId));
-
-                    for (Operation operation : operations) {
-                        ByteArray opKey = new ByteArray(toByteArray(operation.key()));
-                        if (operation.type() == OperationType.PUT && opKey.equals(pendingAssignmentsKey)) {
-                            AssignmentsQueue assignmentsQueue = AssignmentsQueue.fromBytes(toByteArray(operation.value()));
-
-                            if (assignmentsQueue.peekLast().force()) {
-                                return true;
-                            }
-                        }
-                    }
-                }
+        assertTrue(waitForCondition(() -> {
+            try {
+                ReplicaMeta primaryAfterReset = awaitPrimaryReplica(node0, partId);
+                // We expect that a new lease is issued for the new stable.
+                return primaryAfterReset.getStartTime().compareTo(primaryBeforeReset.getStartTime()) > 0;
+            } catch (ExecutionException | InterruptedException e) {
+                fail(e);
             }
-        }
-
-        return false;
+            return false;
+        }, config.leaseExpirationIntervalMillis().value() * 2));
     }
 
-    private boolean isLeaseMessage(NetworkMessage msg) {
-        return msg instanceof LeaseGrantedMessage;
-    }
-
-    private void setDistributionResetTimeout(IgniteImpl node, long timeout) {
+    private static void setDistributionResetTimeout(IgniteImpl node, long timeout) {
         CompletableFuture<Void> changeFuture = node
                 .clusterConfiguration()
                 .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
