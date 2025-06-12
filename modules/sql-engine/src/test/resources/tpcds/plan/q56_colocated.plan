@@ -26,8 +26,8 @@ Limit
                 type: inner
                 est: (rows=80912)
               MergeJoin
-                  predicate: =(I_ITEM_ID, I_ITEM_ID0)
-                  fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_ID0]
+                  predicate: =(I_ITEM_ID, I_ITEM_ID#0)
+                  fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_ID#0]
                   type: inner
                   est: (rows=7394239)
                 Exchange
@@ -106,8 +106,8 @@ Limit
                 type: inner
                 est: (rows=40494)
               HashJoin
-                  predicate: =(I_ITEM_ID, I_ITEM_ID0)
-                  fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_ID0]
+                  predicate: =(I_ITEM_ID, I_ITEM_ID#0)
+                  fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_ID#0]
                   type: inner
                   est: (rows=7394239)
                 Exchange
@@ -186,8 +186,8 @@ Limit
                 type: inner
                 est: (rows=20208)
               HashJoin
-                  predicate: =(I_ITEM_ID, I_ITEM_ID0)
-                  fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_ID0]
+                  predicate: =(I_ITEM_ID, I_ITEM_ID#0)
+                  fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_ID#0]
                   type: inner
                   est: (rows=7394239)
                 Exchange

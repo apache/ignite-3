@@ -15,8 +15,8 @@ Limit
           predicate: OR(=(SUBSTR(CA_ZIP, 1, 5), _UTF-8'85669'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'86197'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'88274'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'83405'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'86475'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'85392'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'85460'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'80348'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'81792'), IS NOT NULL(i))
           est: (rows=10786141)
         HashJoin
-            predicate: =(I_ITEM_ID, I_ITEM_ID0)
-            fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_SALES_PRICE, C_CUSTOMER_SK, C_CURRENT_ADDR_SK, CA_ADDRESS_SK, CA_COUNTY, CA_ZIP, D_DATE_SK, D_YEAR, D_QOY, I_ITEM_SK, I_ITEM_ID, I_ITEM_ID0, i]
+            predicate: =(I_ITEM_ID, I_ITEM_ID#0)
+            fieldNames: [WS_SOLD_DATE_SK, WS_ITEM_SK, WS_BILL_CUSTOMER_SK, WS_SALES_PRICE, C_CUSTOMER_SK, C_CURRENT_ADDR_SK, CA_ADDRESS_SK, CA_COUNTY, CA_ZIP, D_DATE_SK, D_YEAR, D_QOY, I_ITEM_SK, I_ITEM_ID, I_ITEM_ID#0, i]
             type: left
             est: (rows=43144563)
           HashJoin
