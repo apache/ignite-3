@@ -115,10 +115,6 @@ class ReplicaStateManager {
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                     if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
                         context.releaseReservation();
-
-                        if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                            executeDeferredReplicaStop(context);
-                        }
                     }
                 }
             }
@@ -147,10 +143,6 @@ class ReplicaStateManager {
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
                             context.releaseReservation();
-
-                            if (context.replicaState == ReplicaState.RESTART_PLANNED) {
-                                executeDeferredReplicaStop(context);
-                            }
                         }
                     }
                 }
@@ -276,7 +268,7 @@ class ReplicaStateManager {
                     if (context.reservedForPrimary) {
                         context.replicaState = ReplicaState.PRIMARY_ONLY;
                         // Intentionally do not return future here: it can freeze the handling of assignment changes.
-                        planDeferredReplicaStop(groupId, context, null, stopOperation);
+                        planDeferredReplicaStop(groupId, context, stopOperation);
                     } else {
                         return stopReplica(groupId, context, stopOperation);
                     }
@@ -292,9 +284,7 @@ class ReplicaStateManager {
                     // If is primary, turning off the primary first.
                     context.replicaState = ReplicaState.RESTART_PLANNED;
                     return replicaManager.stopLeaseProlongation(groupId, null)
-                            .thenCompose(leaseExpirationTime ->
-                                    planDeferredReplicaStop(groupId, context, leaseExpirationTime, stopOperation)
-                            );
+                            .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
                 } else {
                     return stopReplica(groupId, context, stopOperation);
                 }
@@ -313,11 +303,25 @@ class ReplicaStateManager {
         }
     }
 
+    /**
+     * Should be called within {@code synchronized (context)}.
+     *
+     * @param groupId  Group id.
+     * @param context Replica state context.
+     * @param stopOperation Replica stop operation.
+     * @return Completable future that completes when the replica is stopped.
+     */
     private CompletableFuture<Void> stopReplica(
             ReplicationGroupId groupId,
             ReplicaStateContext context,
             Supplier<CompletableFuture<Void>> stopOperation
     ) {
+        // These is some probability that the replica would be reserved after the previous lease is expired and before this method
+        // is called, so reservation state needs to be checked again.
+        if (context.reservedForPrimary) {
+            return planDeferredReplicaStop(groupId, context, stopOperation);
+        }
+
         context.replicaState = ReplicaState.STOPPING;
         context.previousOperationFuture = context.previousOperationFuture
                 .handleAsync((v, e) -> stopOperation.get(), replicaStartStopExecutor)
@@ -342,7 +346,6 @@ class ReplicaStateManager {
     private CompletableFuture<Void> planDeferredReplicaStop(
             ReplicationGroupId groupId,
             ReplicaStateContext context,
-            @Nullable HybridTimestamp leaseExpirationTime,
             Supplier<CompletableFuture<Void>> deferredStopOperation
     ) {
         synchronized (context) {
@@ -351,23 +354,18 @@ class ReplicaStateManager {
 
             // No parallel actions affected this, continue.
             if (context.reservedForPrimary) {
-                context.deferredStopReadyFuture = leaseExpirationTime == null
-                        ? new CompletableFuture<>()
-                        : clockService.waitFor(leaseExpirationTime);
+                context.deferredStopReadyFuture = new CompletableFuture<>();
             } else {
                 // context.unreserve() has been called in parallel, no need to wait.
                 context.deferredStopReadyFuture = nullCompletedFuture();
             }
 
             return context.deferredStopReadyFuture
-                    .thenCompose(unused -> stopReplica(groupId, context, deferredStopOperation));
-        }
-    }
-
-    private static void executeDeferredReplicaStop(ReplicaStateContext context) {
-        if (context.deferredStopReadyFuture != null) {
-            context.deferredStopReadyFuture.complete(null);
-            context.deferredStopReadyFuture = null;
+                    .thenCompose(unused -> {
+                        synchronized (context) {
+                            return stopReplica(groupId, context, deferredStopOperation);
+                        }
+                    });
         }
     }
 
@@ -511,18 +509,25 @@ class ReplicaStateManager {
                 // Newer lease may reserve this replica when it's already reserved by older one: this means than older one is no longer
                 // valid and most likely has not been negotiated and is discarded. By the same reason we shouldn't process the attempt
                 // of reservation by older lease, which is not likely and means reordering of message handling.
-                throw new IllegalArgumentException(format("Replica reservation failed: newer lease has already reserved this replica ["
-                                + "groupId={}, requestedLeaseStartTime={}, newerLeaseStartTime={}].", groupId, leaseStartTime,
+                throw new ReplicaReservationFailedException(format("Replica reservation failed: newer lease has already reserved this "
+                                + "replica [groupId={}, requestedLeaseStartTime={}, newerLeaseStartTime={}].", groupId, leaseStartTime,
                         this.leaseStartTime));
             }
+
             this.leaseStartTime = leaseStartTime;
-            reservedForPrimary = true;
+            this.reservedForPrimary = true;
         }
 
         void releaseReservation() {
-            // TODO IGNITE-23702: should also lead to replica stop if it is PRIMARY_ONLY.
             reservedForPrimary = false;
             leaseStartTime = null;
+
+            // Unblock the deferred replica stop, if needed.
+            if (deferredStopReadyFuture != null &&
+                    (replicaState == ReplicaState.PRIMARY_ONLY || replicaState == ReplicaState.RESTART_PLANNED)) {
+                deferredStopReadyFuture.complete(null);
+                deferredStopReadyFuture = null;
+            }
         }
 
         void assertReservation(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
