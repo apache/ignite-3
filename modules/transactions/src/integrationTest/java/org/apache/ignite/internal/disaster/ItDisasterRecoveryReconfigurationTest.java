@@ -111,6 +111,8 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -1700,7 +1702,59 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(finalAssignments));
     }
 
-    private void setDistributionResetTimeout(IgniteImpl node, long timeout) {
+    /**
+     * Lease agreement message should be the first message sent after reset.
+     */
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25644")
+    @ZoneParams(nodes = 3, replicas = 3, partitions = 1)
+    void testLeaseResendOnManualReset() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = igniteImpl(0);
+        Table table = node0.tables().table(TABLE_NAME);
+
+        ReplicaMeta primaryBeforeReset = awaitPrimaryReplica(node0, partId);
+        logger().info("Primary replica before reset is {}", primaryBeforeReset);
+
+        assertRealAssignments(node0, partId, 0, 1, 2);
+
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        stopNodesInParallel(1, 2);
+
+        // Reset the partition to make it operable.
+        CompletableFuture<?> resetFuture = TestDisasterRecoveryUtils.resetPartitions(
+                node0.disasterRecoveryManager(),
+                zoneName,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                emptySet(),
+                true,
+                -1
+        );
+
+        assertThat(resetFuture, willCompleteSuccessfully());
+
+        ReplicationConfiguration config = node0
+                .clusterConfiguration()
+                .getConfiguration(ReplicationExtensionConfiguration.KEY)
+                .replication();
+        // Should be a new lease after the reset.
+        assertTrue(waitForCondition(() -> {
+            try {
+                ReplicaMeta primaryAfterReset = awaitPrimaryReplica(node0, partId);
+                // We expect that a new lease is issued for the new stable.
+                return primaryAfterReset.getStartTime().compareTo(primaryBeforeReset.getStartTime()) > 0;
+            } catch (ExecutionException | InterruptedException e) {
+                fail(e);
+            }
+            return false;
+        }, config.leaseExpirationIntervalMillis().value() * 2));
+    }
+
+    private static void setDistributionResetTimeout(IgniteImpl node, long timeout) {
         CompletableFuture<Void> changeFuture = node
                 .clusterConfiguration()
                 .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
@@ -1870,7 +1924,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertEquals(state, localPartitionStateByNode.values().iterator().next().state);
     }
 
-
     private String findLeader(int nodeIdx, int partId) {
         IgniteImpl node = igniteImpl(nodeIdx);
 
@@ -1918,11 +1971,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return colocationEnabled() ? new ZonePartitionId(zoneId, partId) : new TablePartitionId(tableId, partId);
     }
 
-    private void awaitPrimaryReplica(IgniteImpl node0, int partId) {
+    private ReplicaMeta awaitPrimaryReplica(IgniteImpl node0, int partId) throws ExecutionException, InterruptedException {
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture = node0.placementDriver()
                 .awaitPrimaryReplica(partitionGroupId(partId), node0.clock().now(), 60, SECONDS);
 
         assertThat(awaitPrimaryReplicaFuture, willSucceedIn(60, SECONDS));
+
+        return awaitPrimaryReplicaFuture.get();
     }
 
     private void assertRealAssignments(IgniteImpl node0, int partId, Integer... expected) throws InterruptedException {
