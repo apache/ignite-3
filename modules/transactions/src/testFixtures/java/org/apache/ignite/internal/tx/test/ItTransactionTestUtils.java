@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx.test;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -73,7 +73,7 @@ public class ItTransactionTestUtils {
         MetaStorageManager metaStorageManager = node.metaStorageManager();
 
         ByteArray stableAssignmentKey =
-                enabledColocation()
+                colocationEnabled()
                         ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) grpId)
                         : RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) grpId);
 
@@ -143,7 +143,7 @@ public class ItTransactionTestUtils {
             int partId = partitionIdForTuple(node, tableName, t, tx);
             partitionIds.add(partId);
 
-            PartitionGroupId grpId = enabledColocation()
+            PartitionGroupId grpId = colocationEnabled()
                     ? new ZonePartitionId(zoneId(node, tableName), partId)
                     : new TablePartitionId(tableId(node, tableName), partId);
 

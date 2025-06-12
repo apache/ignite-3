@@ -34,6 +34,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -211,7 +212,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         schemaRegistry,
                         mock(IndexMetaStorage.class),
                         lowWatermark,
-                        mock(FailureProcessor.class)
+                        mock(FailureProcessor.class),
+                        new SystemPropertiesNodeProperties()
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {

@@ -55,6 +55,8 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -71,6 +73,7 @@ import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Catalog service implementation.
@@ -102,6 +105,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private final FailureProcessor failureProcessor;
 
+    private final NodeProperties nodeProperties;
+
     private final LongSupplier delayDurationMsSupplier;
 
     private final CatalogSystemViewRegistry catalogSystemViewProvider;
@@ -123,17 +128,32 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private final Object lastSaveUpdateFutureMutex = new Object();
 
     /**
-     * Constructor.
+     * Test-only constructor.
      */
+    @TestOnly
     public CatalogManagerImpl(
             UpdateLog updateLog,
             ClockService clockService,
             FailureProcessor failureProcessor,
             LongSupplier delayDurationMsSupplier
     ) {
+        this(updateLog, clockService, failureProcessor, new SystemPropertiesNodeProperties(), delayDurationMsSupplier);
+    }
+
+    /**
+     * Constructor.
+     */
+    public CatalogManagerImpl(
+            UpdateLog updateLog,
+            ClockService clockService,
+            FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
+            LongSupplier delayDurationMsSupplier
+    ) {
         this.updateLog = updateLog;
         this.clockService = clockService;
         this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
     }
@@ -268,7 +288,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .partitions(DEFAULT_PARTITION_COUNT)
                         .replicas(DEFAULT_REPLICA_COUNT)
                         .quorumSize(DEFAULT_ZONE_QUORUM_SIZE)
-                        .dataNodesAutoAdjustScaleUp(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds())
+                        .dataNodesAutoAdjustScaleUp(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(nodeProperties.colocationEnabled()))
                         .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                         .filter(DEFAULT_FILTER)
                         .storageProfilesParams(

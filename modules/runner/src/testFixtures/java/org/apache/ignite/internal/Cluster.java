@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -753,7 +753,7 @@ public class Cluster {
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
         CatalogTableDescriptor tableDescriptor = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName.toUpperCase());
 
-        List<? extends ReplicationGroupId> replicationGroupIds = enabledColocation()
+        List<? extends ReplicationGroupId> replicationGroupIds = colocationEnabled()
                 ? zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id())
                 : tablePartitionIds(unwrapIgniteImpl(aliveNode()), tableDescriptor.id());
 

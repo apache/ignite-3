@@ -77,6 +77,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
@@ -186,7 +188,8 @@ public class DistributionZoneManager extends
                 new FailureManager(new NoOpFailureHandler()),
                 catalogManager,
                 systemDistributedConfiguration,
-                clockService
+                clockService,
+                new SystemPropertiesNodeProperties()
         );
     }
 
@@ -210,7 +213,8 @@ public class DistributionZoneManager extends
             FailureProcessor failureProcessor,
             CatalogManager catalogManager,
             SystemDistributedConfiguration systemDistributedConfiguration,
-            ClockService clockService
+            ClockService clockService,
+            NodeProperties nodeProperties
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
@@ -226,7 +230,8 @@ public class DistributionZoneManager extends
                 busyLock,
                 metaStorageManager,
                 this,
-                catalogManager
+                catalogManager,
+                nodeProperties
         );
 
         partitionDistributionResetTimeoutConfiguration = new SystemDistributedConfigurationPropertyHolder<>(

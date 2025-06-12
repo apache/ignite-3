@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -130,7 +130,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     private ReplicationGroupId defaultZonePartitionId(Ignite node) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             IgniteImpl ignite = unwrapIgniteImpl(node);
             var zoneDescriptor = ignite.catalogManager().activeCatalog(ignite.clockService().nowLong()).zone(ZONE_NAME);
             assertNotNull(zoneDescriptor);
@@ -342,7 +342,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         TxStatePartitionStorage storage;
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove !enabledColocation part.
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             storage = primaryNode.partitionReplicaLifecycleManager().txStatePartitionStorage(tableImpl.internalTable().zoneId(), 0);
         } else {
             TableViewInternal primaryTbl = unwrapTableViewInternal(primaryNode.tables().table(TABLE_NAME));
@@ -350,7 +350,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         }
 
         ReplicationGroupId replicationGroupIdToEnlist =
-                enabledColocation() ? new ZonePartitionId(tableImpl.internalTable().zoneId(), 0) :
+                colocationEnabled() ? new ZonePartitionId(tableImpl.internalTable().zoneId(), 0) :
                 new TablePartitionId(tableImpl.tableId(), 0);
 
         TxMeta txMetaToSet = new TxMeta(

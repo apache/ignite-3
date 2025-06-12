@@ -151,7 +151,22 @@ public enum IgniteMethod {
     CURRENT_DATE(IgniteSqlDateTimeUtils.class, "currentDate", DataContext.class),
 
     /**
-     * SQL CAST(? AS TIMESTAMP WITH LOCAL TIME ZONE FORMAT {@code format}). The same as
+     * SQL CAST({@code varchar} AS TIME FORMAT {@code format}).
+     */
+    TIME_STRING_TO_TIME(IgniteSqlFunctions.class, "toTime", String.class, String.class),
+
+    /**
+     * SQL CAST({@code varchar} AS DATE FORMAT {@code format}).
+     */
+    DATE_STRING_TO_DATE(IgniteSqlFunctions.class, "toDate", String.class, String.class),
+
+    /**
+     * SQL CAST({@code varchar} AS TIMESTAMP FORMAT {@code format}).
+     */
+    TIMESTAMP_STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "toTimestamp", String.class, String.class),
+
+    /**
+     * SQL CAST({@code varchar} AS TIMESTAMP WITH LOCAL TIME ZONE FORMAT {@code format}). The same as
      * {@link SqlFunctions#timeWithLocalTimeZoneToTimestampWithLocalTimeZone} but accepts date format literal.
      */
     TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlFunctions.class,

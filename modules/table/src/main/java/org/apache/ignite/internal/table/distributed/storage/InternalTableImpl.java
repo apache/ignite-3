@@ -24,7 +24,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
@@ -210,6 +209,8 @@ public class InternalTableImpl implements InternalTable {
     /** Default read-only transaction timeout. */
     private final Supplier<Long> defaultReadTxTimeout;
 
+    private final boolean colocationEnabled;
+
     /**
      * Constructor.
      *
@@ -247,7 +248,8 @@ public class InternalTableImpl implements InternalTable {
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
             StreamerReceiverRunner streamerReceiverRunner,
             Supplier<Long> defaultRwTxTimeout,
-            Supplier<Long> defaultReadTxTimeout
+            Supplier<Long> defaultReadTxTimeout,
+            boolean colocationEnabled
     ) {
         this.tableName = tableName;
         this.zoneId = zoneId;
@@ -266,6 +268,7 @@ public class InternalTableImpl implements InternalTable {
         this.streamerReceiverRunner = streamerReceiverRunner;
         this.defaultRwTxTimeout = defaultRwTxTimeout;
         this.defaultReadTxTimeout = defaultReadTxTimeout;
+        this.colocationEnabled = colocationEnabled;
     }
 
     /** {@inheritDoc} */
@@ -2230,7 +2233,7 @@ public class InternalTableImpl implements InternalTable {
 
     @Override
     public final ReplicationGroupId targetReplicationGroupId(int partitionIndex) {
-        if (enabledColocation()) {
+        if (colocationEnabled) {
             return new ZonePartitionId(zoneId, partitionIndex);
         } else {
             return new TablePartitionId(tableId, partitionIndex);
