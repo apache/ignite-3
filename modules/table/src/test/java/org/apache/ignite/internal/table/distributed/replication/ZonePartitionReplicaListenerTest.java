@@ -1467,7 +1467,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         // We have to force push clock forward because we will invoke listener directly bypassing ReplicaManager or MessageService, so clock
         // won't be updated if the test computes too fast for physical clock ticking and then we may have equal clock#current and the
         // given above commit timestamp.
-        clock.update(clock.now().addPhysicalTime(10));
+        clock.update(commitTs);
 
         HybridTimestamp reliableCatalogVersionTs = commit ? commitTs : beginTs;
         when(catalogService.activeCatalog(reliableCatalogVersionTs.longValue())).thenThrow(new CatalogNotFoundException("Oops"));
