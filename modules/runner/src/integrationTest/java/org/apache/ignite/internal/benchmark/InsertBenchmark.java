@@ -148,7 +148,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + InsertBenchmark.class.getSimpleName() + ".*")
+                .include(".*[.]" + InsertBenchmark.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(opt).run();

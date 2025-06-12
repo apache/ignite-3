@@ -21,7 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -156,7 +156,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     }
 
     private static ReplicationGroupId partitionReplicationGroupId(TableViewInternal tbl) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return new ZonePartitionId(tbl.internalTable().zoneId(), PART_ID);
         } else {
             return new TablePartitionId(tbl.tableId(), PART_ID);
@@ -418,7 +418,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     private static void waitForLeaderCache(IgniteImpl node, TableViewInternal tbl) throws InterruptedException {
         RaftGroupService raftSrvc = ReplicaTestUtils.getRaftClient(
                         node,
-                        enabledColocation() ? tbl.internalTable().zoneId() : tbl.tableId(),
+                        colocationEnabled() ? tbl.internalTable().zoneId() : tbl.tableId(),
                         0
                 )
                 .orElseThrow(AssertionError::new);

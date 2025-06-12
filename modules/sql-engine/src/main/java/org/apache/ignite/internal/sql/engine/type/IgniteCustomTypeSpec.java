@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.sql.engine.type;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.util.Objects;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -99,13 +97,9 @@ public final class IgniteCustomTypeSpec {
     /**
      * Returns the storage type of this data type.
      *
-     * <p>This method is called by {@link IgniteTypeFactory#getJavaClass(RelDataType)}
-     * to provide types for a expression interpreter. Execution engine also relies on the fact that this type is also used by
-     * {@link TypeUtils TypeUtils} in type conversions.
+     * <p>This method is called by {@link IgniteTypeFactory#getJavaClass(RelDataType)} to provide types for a expression interpreter.
      *
      * @see ExpressionFactoryImpl
-     * @see TypeUtils#toInternal(Object, Type)
-     * @see TypeUtils#fromInternal(Object, Type)
      */
     public Class<?> storageType() {
         return storageType;

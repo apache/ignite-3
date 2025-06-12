@@ -27,9 +27,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -49,8 +49,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionDistributionProviderImpl.class);
     private final PlacementDriver placementDriver;
     private final SystemViewManager systemViewManager;
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    private final NodeProperties nodeProperties;
 
     /**
      * Constructor.
@@ -58,9 +57,14 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
      * @param placementDriver Placement driver.
      * @param systemViewManager Manager for system views.
      */
-    public ExecutionDistributionProviderImpl(PlacementDriver placementDriver, SystemViewManager systemViewManager) {
+    public ExecutionDistributionProviderImpl(
+            PlacementDriver placementDriver,
+            SystemViewManager systemViewManager,
+            NodeProperties nodeProperties
+    ) {
         this.placementDriver = placementDriver;
         this.systemViewManager = systemViewManager;
+        this.nodeProperties = nodeProperties;
     }
 
     @Override
@@ -114,7 +118,7 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
     }
 
     private ReplicationGroupId targetReplicationGroupId(IgniteTable table, int partitionIndex) {
-        if (enabledColocation) {
+        if (nodeProperties.colocationEnabled()) {
             return new ZonePartitionId(table.zoneId(), partitionIndex);
         } else {
             return new TablePartitionId(table.id(), partitionIndex);

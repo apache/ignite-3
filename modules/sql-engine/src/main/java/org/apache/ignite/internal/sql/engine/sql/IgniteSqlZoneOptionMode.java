@@ -25,3 +25,4 @@ import org.apache.calcite.sql.Symbolizable;
 public enum IgniteSqlZoneOptionMode implements Symbolizable {
     ALL
 }
+

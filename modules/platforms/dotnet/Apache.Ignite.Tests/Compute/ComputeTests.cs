@@ -21,10 +21,12 @@ namespace Apache.Ignite.Tests.Compute
     using System.Buffers;
     using System.Collections;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
     using System.Net;
     using System.Text;
+    using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Marshalling;
@@ -600,12 +602,12 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJobExecutionStatusExecuting()
         {
-            const int sleepMs = 3000;
+            const int sleepMs = 5_000;
             var beforeStart = GetCurrentInstant();
 
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
 
-            await AssertJobStatus(jobExecution, JobStatus.Executing, beforeStart);
+            await AssertWaitJobStatus(jobExecution, JobStatus.Executing, beforeStart);
         }
 
         [Test]
@@ -643,16 +645,163 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [Ignore("IGNITE-23495")]
-        public async Task TestJobExecutionCancel()
+        public async Task TestCancelJob()
         {
-            const int sleepMs = 5000;
+            const int sleepMs = 10_000;
             var beforeStart = GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
+            var cts = new CancellationTokenSource();
 
-            // await jobExecution.CancelAsync();
-            await AssertJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
+            IJobExecution<string> jobExecution = await Client.Compute.SubmitAsync(
+                await GetNodeAsync(1),
+                SleepJob,
+                sleepMs,
+                cts.Token);
+
+            await cts.CancelAsync();
+
+            await AssertWaitJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
+
+            var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExecution.GetResultAsync());
+
+            Assert.AreEqual(
+                "Job execution failed: java.lang.RuntimeException: java.lang.InterruptedException: sleep interrupted",
+                ex.Message);
+        }
+
+        [Test]
+        public async Task TestCancelBroadcast()
+        {
+            const int sleepMs = 10_000;
+            var beforeStart = GetCurrentInstant();
+
+            var cts = new CancellationTokenSource();
+
+            IBroadcastExecution<string> jobExecution = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()),
+                SleepJob,
+                sleepMs,
+                cts.Token);
+
+            await cts.CancelAsync();
+
+            foreach (var jobExec in jobExecution.JobExecutions)
+            {
+                await AssertWaitJobStatus(jobExec, JobStatus.Canceled, beforeStart);
+
+                var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExec.GetResultAsync());
+
+                Assert.AreEqual(
+                    "Job execution failed: java.lang.RuntimeException: java.lang.InterruptedException: sleep interrupted",
+                    ex.Message);
+            }
+        }
+
+        [Test]
+        public async Task TestCancelMapReduce()
+        {
+            var cts = new CancellationTokenSource();
+
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 10_000, cts.Token);
+
+            await cts.CancelAsync();
+
+            var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await taskExec.GetResultAsync());
+            Assert.IsInstanceOf<ComputeException>(ex?.InnerException);
+
+            IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
+
+            foreach (var jobState in jobStates)
+            {
+                Assert.AreEqual(JobStatus.Canceled, jobState?.Status);
+            }
+
+            TaskState? state = await taskExec.GetStateAsync();
+
+            // TODO IGNITE-25640: must be TaskStatus.Canceled.
+            Assert.AreEqual(TaskStatus.Failed, state?.Status);
+        }
+
+        [Test]
+        public async Task TestJobCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "x", cts.Token);
+            await exec.GetResultAsync();
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public void TestJobExceptionCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            Assert.CatchAsync<ComputeException>(async () =>
+            {
+                var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ExceptionJob, "x", cts.Token);
+                await exec.GetResultAsync();
+            });
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public async Task TestBroadcastCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()), NodeNameJob, "x", cts.Token);
+
+            foreach (var jobExec in exec.JobExecutions)
+            {
+                await jobExec.GetResultAsync();
+            }
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public async Task TestBroadcastExceptionCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()), ExceptionJob, "x", cts.Token);
+
+            foreach (var jobExec in exec.JobExecutions)
+            {
+                Assert.CatchAsync<ComputeException>(async () => await jobExec.GetResultAsync());
+            }
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public async Task TestMapReduceCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "a", cts.Token);
+            await exec.GetResultAsync();
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public void TestMapReduceExceptionCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            Assert.CatchAsync<IgniteException>(async () =>
+            {
+                var exec = await Client.Compute.SubmitMapReduceAsync(ReduceExceptionTask, "a", cts.Token);
+                await exec.GetResultAsync();
+            });
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
 
         [Test]
@@ -807,40 +956,6 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [Ignore("IGNITE-23495")]
-        public async Task TestCancelCompletedTask()
-        {
-            var taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "arg");
-
-            await taskExec.GetResultAsync();
-
-            // var cancelRes = await taskExec.CancelAsync();
-            var state = await taskExec.GetStateAsync();
-
-            // Assert.IsFalse(cancelRes);
-            Assert.AreEqual(TaskStatus.Completed, state!.Status);
-        }
-
-        [Test]
-        [Ignore("IGNITE-23495")]
-        public async Task TestCancelExecutingTask()
-        {
-            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
-
-            var state1 = await taskExec.GetStateAsync();
-            Assert.AreEqual(TaskStatus.Executing, state1!.Status);
-
-            // var cancelRes = await taskExec.CancelAsync();
-            var state2 = await taskExec.GetStateAsync();
-
-            // Assert.IsTrue(cancelRes);
-            Assert.AreEqual(TaskStatus.Failed, state2!.Status);
-
-            var ex = Assert.ThrowsAsync<ComputeException>(async () => await taskExec.GetResultAsync());
-            StringAssert.Contains("CancellationException", ex.Message);
-        }
-
-        [Test]
         public async Task TestChangeTaskPriority()
         {
             var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
@@ -951,6 +1066,13 @@ namespace Apache.Ignite.Tests.Compute
             }
         }
 
+        private static async Task AssertWaitJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
+        {
+            await TestUtils.WaitForConditionAsync(async () => (await jobExecution.GetStateAsync())!.Status == status);
+
+            await AssertJobStatus(jobExecution, status, beforeStart);
+        }
+
         private static Instant GetCurrentInstant()
         {
             var instant = SystemClock.Instance.GetCurrentInstant();
@@ -967,6 +1089,7 @@ namespace Apache.Ignite.Tests.Compute
 
         private record Nested(Guid Id, decimal Price);
 
+        [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests.")]
         private record MyArg(int Id, string Name, Nested Nested);
 
         private record MyResult(string Data, Nested Nested);

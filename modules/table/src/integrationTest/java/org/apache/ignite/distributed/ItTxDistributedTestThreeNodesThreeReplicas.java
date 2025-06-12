@@ -17,7 +17,7 @@
 
 package org.apache.ignite.distributed;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -76,7 +76,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends TxAbstractTest {
     public void testPrimaryReplicaDirectUpdateForExplicitTxn() throws InterruptedException {
         Peer leader = txTestCluster.getLeaderId(accounts.qualifiedName());
         JraftServerImpl server = (JraftServerImpl) txTestCluster.raftServers.get(leader.consistentId()).server();
-        var groupId = enabledColocation() ? new ZonePartitionId(accounts.internalTable().zoneId(), 0)
+        var groupId = colocationEnabled() ? new ZonePartitionId(accounts.internalTable().zoneId(), 0)
                 : new TablePartitionId(accounts.tableId(), 0);
 
         // BLock replication messages to both replicas.

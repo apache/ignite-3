@@ -285,13 +285,15 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data.</returns>
         public Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            bool expectNotifications = false) =>
-            DoOutInOpAsyncInternal(clientOp, request, expectNotifications)
-                .WaitAsync(_operationTimeout);
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default) =>
+            DoOutInOpAsyncInternal(clientOp, request, expectNotifications, cancellationToken)
+                .WaitAsync(_operationTimeout, CancellationToken.None); // Do not cancel WaitAsync - wait for server response.
 
         /// <inheritdoc/>
         public void Dispose()
@@ -655,8 +657,9 @@ namespace Apache.Ignite.Internal
 
         private async Task<PooledBuffer> DoOutInOpAsyncInternal(
             ClientOp clientOp,
-            PooledArrayBuffer? request = null,
-            bool expectNotifications = false)
+            PooledArrayBuffer? request,
+            bool expectNotifications,
+            CancellationToken cancellationToken)
         {
             var ex = _exception;
 
@@ -676,6 +679,8 @@ namespace Apache.Ignite.Internal
                     new ObjectDisposedException(nameof(ClientSocket)));
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             var requestId = Interlocked.Increment(ref _requestId);
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
             _requests[requestId] = taskCompletionSource;
@@ -691,7 +696,10 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
+                await SendRequestAsync(request, clientOp, requestId, cancellationToken).ConfigureAwait(false);
+
+                await using var cancellation = RegisterCancellation(requestId, cancellationToken).ConfigureAwait(false);
+
                 PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
                 resBuf.Metadata = notificationHandler;
 
@@ -701,13 +709,17 @@ namespace Apache.Ignite.Internal
             {
                 if (_requests.TryRemove(requestId, out _))
                 {
-                    AddFailedRequest();
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        AddFailedRequest();
+                    }
+
                     Metrics.RequestsActiveDecrement();
                 }
 
                 _notificationHandlers.TryRemove(requestId, out _);
 
-                if (e is OperationCanceledException or ObjectDisposedException)
+                if (!cancellationToken.IsCancellationRequested && e is OperationCanceledException or ObjectDisposedException)
                 {
                     // Canceled task means Dispose was called.
                     throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.", e);
@@ -717,13 +729,39 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        private CancellationTokenRegistration RegisterCancellation(long requestId, CancellationToken cancellationToken) =>
+            cancellationToken == CancellationToken.None
+                ? default
+                : cancellationToken.Register(() => _ = CancelRequestAsync(requestId));
+
+        private async Task CancelRequestAsync(long requestId)
+        {
+            // Do not remove from _requests.
+            // - The client sends a cancellation request to the server.
+            // - The server response determines the outcome (canceled or completed).
+            // - Some operations can't be canceled, so the server will ignore the cancellation request.
+            if (IsDisposed || !_requests.ContainsKey(requestId))
+            {
+                return;
+            }
+
+            using var buf = ProtoCommon.GetMessageWriter();
+            buf.MessageWriter.Write(requestId);
+
+            using var resBuf = await DoOutInOpAsync(ClientOp.OperationCancel, buf).ConfigureAwait(false);
+        }
+
         [SuppressMessage(
             "Microsoft.Design",
             "CA1031:DoNotCatchGeneralExceptionTypes",
             Justification = "Any exception during socket write should be handled to close the socket.")]
-        private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)
+        private async ValueTask SendRequestAsync(
+            PooledArrayBuffer? request,
+            ClientOp op,
+            long requestId,
+            CancellationToken cancellationToken = default)
         {
-            // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
+            // Reset heartbeat timer - don't send heartbeats when connection is active anyway.
             _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
 
             _logger.LogSendingRequestTrace(requestId, op, ConnectionContext.ClusterNode.Address);
@@ -732,6 +770,9 @@ namespace Apache.Ignite.Internal
 
             try
             {
+                // Last chance check for cancellation.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var prefixMem = _prefixBuffer.AsMemory()[4..];
                 var prefixSize = MsgPackWriter.WriteUnsigned(prefixMem.Span, (ulong)op);
                 prefixSize += MsgPackWriter.WriteUnsigned(prefixMem[prefixSize..].Span, (ulong)requestId);
@@ -765,7 +806,7 @@ namespace Apache.Ignite.Internal
 
                 Metrics.RequestsSent.Add(1, MetricsContext.Tags);
             }
-            catch (Exception e)
+            catch (Exception e) when (e is not OperationCanceledException)
             {
                 var message = "Exception while writing to socket, connection closed: " + e.Message;
 

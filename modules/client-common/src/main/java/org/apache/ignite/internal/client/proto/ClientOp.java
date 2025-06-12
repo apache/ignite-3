@@ -188,8 +188,8 @@ public class ClientOp {
     /** Execute partitioned compute job. */
     public static final int COMPUTE_EXECUTE_PARTITIONED = 69;
 
-    /** Cancel execution of a SQL query previously initiated on the same connection. */
-    public static final int SQL_CANCEL_EXEC = 70;
+    /** Cancel execution of a request previously initiated on the same connection. */
+    public static final int OPERATION_CANCEL = 70;
 
     /** Get tables (returns Qualified names). */
     public static final int TABLES_GET_QUALIFIED = 71;

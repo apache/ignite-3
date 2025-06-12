@@ -164,7 +164,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
         assert nativeType != null;
 
-        value = TypeUtils.fromInternal(value, nativeType.spec().javaClass());
+        value = TypeUtils.fromInternal(value, nativeType.spec());
 
         assert value != null : nativeType;
 

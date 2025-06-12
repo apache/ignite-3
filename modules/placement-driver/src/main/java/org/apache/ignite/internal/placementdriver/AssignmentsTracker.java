@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -34,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -73,6 +73,8 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
     private final FailureProcessor failureProcessor;
 
+    private final NodeProperties nodeProperties;
+
     /** Map replication group id to stable assignment nodes. */
     private final Map<ReplicationGroupId, TokenizedAssignments> groupStableAssignments;
 
@@ -91,9 +93,10 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * @param msManager Meta storage manager.
      * @param failureProcessor Failure processor.
      */
-    public AssignmentsTracker(MetaStorageManager msManager, FailureProcessor failureProcessor) {
+    public AssignmentsTracker(MetaStorageManager msManager, FailureProcessor failureProcessor, NodeProperties nodeProperties) {
         this.msManager = msManager;
         this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
 
         this.groupStableAssignments = new ConcurrentHashMap<>();
         this.stableAssignmentsListener = createStableAssignmentsListener();
@@ -199,7 +202,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         };
     }
 
-    private static void handleReceivedAssignments(
+    private void handleReceivedAssignments(
             WatchEvent event,
             byte[] assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap,
@@ -347,15 +350,17 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         return sb.toString();
     }
 
-    private static byte[] pendingAssignmentsQueuePrefixBytes() {
-        return enabledColocation() ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES : PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
+    private byte[] pendingAssignmentsQueuePrefixBytes() {
+        return nodeProperties.colocationEnabled()
+                ? ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES
+                : PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
     }
 
-    private static byte[] stableAssignmentsPrefixBytes() {
-        return enabledColocation() ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES : STABLE_ASSIGNMENTS_PREFIX_BYTES;
+    private byte[] stableAssignmentsPrefixBytes() {
+        return nodeProperties.colocationEnabled() ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES : STABLE_ASSIGNMENTS_PREFIX_BYTES;
     }
 
-    private static ReplicationGroupId extractReplicationGroupPartitionId(byte[] key, byte[] prefix) {
-        return enabledColocation() ? extractZonePartitionId(key, prefix) : extractTablePartitionId(key, prefix);
+    private ReplicationGroupId extractReplicationGroupPartitionId(byte[] key, byte[] prefix) {
+        return nodeProperties.colocationEnabled() ? extractZonePartitionId(key, prefix) : extractTablePartitionId(key, prefix);
     }
 }

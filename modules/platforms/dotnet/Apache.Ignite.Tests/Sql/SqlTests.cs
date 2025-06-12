@@ -22,6 +22,8 @@ namespace Apache.Ignite.Tests.Sql
     using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
+    using System.Text;
+    using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
@@ -457,6 +459,7 @@ namespace Apache.Ignite.Tests.Sql
                 "DELETE FROM TestExecuteScript;" +
                 "INSERT INTO TestExecuteScript VALUES (?, ?); " +
                 "INSERT INTO TestExecuteScript VALUES (?, ?);",
+                CancellationToken.None,
                 id,
                 "a",
                 id + 1,
@@ -588,6 +591,89 @@ namespace Apache.Ignite.Tests.Sql
             var expectedTime = SystemClock.Instance.GetCurrentInstant();
 
             AssertInstantSimilar(expectedTime, resTime, $"Offset: {offset}");
+        }
+
+        [Test]
+        public async Task TestCancelQueryCursor([Values(true, false)] bool beforeIter)
+        {
+            var cts = new CancellationTokenSource();
+            await using var cursor = await Client.Sql.ExecuteAsync(
+                transaction: null,
+                new SqlStatement("SELECT * FROM TEST") { PageSize = 1 },
+                cts.Token);
+
+            if (beforeIter)
+            {
+                cts.Cancel();
+            }
+
+            Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            {
+                await foreach (var unused in cursor)
+                {
+                    if (!beforeIter)
+                    {
+                        cts.Cancel();
+                    }
+                }
+            });
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public async Task TestCancelQueryExecute([Values("sql", "sql-mapped", "script", "reader")] string mode)
+        {
+            // Cross join will produce 10^N rows, which takes a while to execute.
+            var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(7)})";
+
+            using var cts = new CancellationTokenSource();
+
+            Task task = mode switch
+            {
+                "sql" => Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token),
+                "sql-mapped" => Client.Sql.ExecuteAsync<int>(transaction: null, manyRowsQuery, cts.Token),
+                "script" => Client.Sql.ExecuteScriptAsync(manyRowsQuery, cts.Token),
+                "reader" => Client.Sql.ExecuteReaderAsync(transaction: null, manyRowsQuery, cts.Token),
+                _ => throw new ArgumentException("Invalid mode: " + mode)
+            };
+
+            // Wait for request to be sent and callbacks to be registered, then cancel.
+            TestUtils.WaitForCancellationRegistrations(cts);
+            await cts.CancelAsync();
+
+            var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await task);
+            Assert.AreEqual("The query was cancelled while executing.", ex!.Message);
+            Assert.IsInstanceOf<SqlException>(ex.InnerException);
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        private static string GenerateCrossJoin(int depth)
+        {
+            var sb = new StringBuilder("SELECT ");
+
+            for (var i = 1; i <= depth; i++)
+            {
+                sb.Append($"t{i}.ID AS ID{i}");
+                if (i < depth)
+                {
+                    sb.Append(", ");
+                }
+            }
+
+            sb.Append(" FROM ");
+
+            for (var i = 1; i <= depth; i++)
+            {
+                sb.Append($"TEST t{i}");
+                if (i < depth)
+                {
+                    sb.Append(" CROSS JOIN ");
+                }
+            }
+
+            return sb.ToString();
         }
 
         private static void AssertInstantSimilar(Instant expected, Instant actual, string message)

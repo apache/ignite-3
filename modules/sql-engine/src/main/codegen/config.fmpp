@@ -46,6 +46,7 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateSchema",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone",
@@ -93,6 +94,7 @@ data: {
       "KILL"
       "QUERY"
       "COMPUTE"
+      "MAPPING"
       "WAIT"
     ]
 
@@ -120,6 +122,7 @@ data: {
       "HASH"
       "QUERY"
       "COMPUTE"
+      "MAPPING"
       "WAIT"
       "KILL"
 

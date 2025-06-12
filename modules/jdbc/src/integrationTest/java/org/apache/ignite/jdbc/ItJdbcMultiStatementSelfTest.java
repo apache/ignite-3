@@ -309,14 +309,13 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testBrokenTransaction() throws Exception {
-        boolean res = stmt.execute("START TRANSACTION;");
-        assertFalse(res);
-        assertNull(stmt.getResultSet());
-        assertEquals(0, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());
-        assertEquals(-1, stmt.getUpdateCount());
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(
+                "Transaction block doesn't have a COMMIT statement at the end.",
+                () -> stmt.execute("START TRANSACTION;")
+        );
 
-        res = stmt.execute("COMMIT;");
+        boolean res = stmt.execute("COMMIT;");
         assertFalse(res);
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
@@ -421,7 +420,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         conn.setAutoCommit(false);
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT"));
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
-        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION"));
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; COMMIT;"));
 
         boolean res = stmt.execute("SELECT 1;COMMIT");
         assertTrue(res);

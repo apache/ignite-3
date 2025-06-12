@@ -99,7 +99,8 @@ public class MultiStepPlan implements ExplainablePlan {
     }
 
     /** Returns root of the query tree. */
-    public IgniteRel root() {
+    @Override
+    public IgniteRel getRel() {
         return root;
     }
 

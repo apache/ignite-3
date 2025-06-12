@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -71,7 +71,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     public void testLockExceptionRetry() {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        PartitionGroupId partitionGroupId = enabledColocation()
+        PartitionGroupId partitionGroupId = colocationEnabled()
                 ? new ZonePartitionId(tbl.zoneId(), PART_ID)
                 : new TablePartitionId(tbl.tableId(), PART_ID);
 

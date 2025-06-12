@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 import static org.apache.ignite.internal.sql.engine.exec.fsm.ValidationHelper.validateDynamicParameters;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor.ParsedResultWithNextCursorFuture;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
@@ -89,6 +91,8 @@ class MultiStatementHandler {
 
         ScriptStatement[] results = new ScriptStatement[parsedResults.size()];
 
+        boolean txControlStatementFound = false;
+
         // We fill parameters in reverse order, because each script statement
         // requires a reference to the future of the next statement.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> prevCursorFuture = null;
@@ -98,7 +102,16 @@ class MultiStatementHandler {
             Object[] params0 = Arrays.copyOfRange(params, paramsCount - result.dynamicParamsCount(), paramsCount);
             paramsCount -= result.dynamicParamsCount();
 
-            results[i] = new ScriptStatement(i, result, params0, prevCursorFuture);
+            // Marks the beginning of a transaction block that does not end with a COMMIT.
+            boolean unfinishedTxBlock = false;
+
+            if (!txControlStatementFound && result.queryType() == SqlQueryType.TX_CONTROL) {
+                unfinishedTxBlock = result.parsedTree() instanceof IgniteSqlStartTransaction;
+
+                txControlStatementFound = true;
+            }
+
+            results[i] = new ScriptStatement(i, result, params0, unfinishedTxBlock, prevCursorFuture);
             prevCursorFuture = results[i].cursorFuture;
         }
 
@@ -136,14 +149,20 @@ class MultiStatementHandler {
                     inFlightSelects.clear();
                 }
 
-                // Return an empty cursor.
-                fut = scriptTxContext.handleControlStatement(parsedResult.parsedTree())
-                        .thenApply(ignored -> new AsyncSqlCursorImpl<>(
-                                parsedResult.queryType(),
-                                EMPTY_RESULT_SET_METADATA,
-                                new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
-                                nextCurFut
-                        ));
+                if (scriptStatement.unfinishedTxBlock) {
+                    // Stop script execution because the transaction block is not complete.
+                    fut = CompletableFuture.failedFuture(new SqlException(RUNTIME_ERR,
+                            "Transaction block doesn't have a COMMIT statement at the end."));
+                } else {
+                    // Return an empty cursor.
+                    fut = scriptTxContext.handleControlStatement(parsedResult.parsedTree())
+                            .thenApply(ignored -> new AsyncSqlCursorImpl<>(
+                                    parsedResult.queryType(),
+                                    EMPTY_RESULT_SET_METADATA,
+                                    new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
+                                    nextCurFut
+                            ));
+                }
             } else if (parsedResult.queryType() == SqlQueryType.DDL) {
                 List<ParsedResultWithNextCursorFuture> ddlBatch = new ArrayList<>();
 
@@ -187,9 +206,6 @@ class MultiStatementHandler {
                 }
 
                 if (lastStatement) {
-                    // Try to rollback script managed transaction, if any.
-                    scriptTxContext.rollbackUncommitted();
-
                     // Main program is completed, therefore it's safe to schedule termination of a query
                     query.resultHolder
                             .thenRun(this::scheduleTermination);
@@ -286,17 +302,20 @@ class MultiStatementHandler {
         private final ParsedResult parsedResult;
         private final Object[] dynamicParams;
         private final int idx;
+        private final boolean unfinishedTxBlock;
 
         private ScriptStatement(
                 int idx,
                 ParsedResult parsedResult,
                 Object[] dynamicParams,
+                boolean unfinishedTxBlock,
                 @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextStatementFuture
         ) {
             this.idx = idx;
             this.parsedResult = parsedResult;
             this.dynamicParams = dynamicParams;
             this.nextStatementFuture = nextStatementFuture;
+            this.unfinishedTxBlock = unfinishedTxBlock;
         }
 
         boolean isLastStatement() {

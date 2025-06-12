@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -82,6 +82,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -327,7 +328,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             mockZoneLockForRead();
         } else {
             when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
@@ -356,7 +357,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testCreateTable() throws Exception {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             mockZoneLockForRead();
         } else {
             mockReplicaServicesExtended();
@@ -378,7 +379,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Test
     @MuteFailureManagerLogging
     public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             mockZoneLockForRead();
         } else {
             mockReplicaServicesExtended();
@@ -423,7 +424,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testDropTable() throws Exception {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             when(partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(any(), anyInt())).thenReturn(nullCompletedFuture());
 
             mockZoneLockForRead();
@@ -451,7 +452,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         verify(mvTableStorage, timeout(VERIFICATION_TIMEOUT)).destroy();
         verify(txStateStorage, timeout(VERIFICATION_TIMEOUT)).destroy();
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             verify(replicaMgr, never()).stopReplica(any());
         } else {
             verify(replicaMgr, timeout(VERIFICATION_TIMEOUT).times(PARTITIONS)).stopReplica(any());
@@ -464,7 +465,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testReCreateTableWithSameName() throws Exception {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt()))
                     .thenReturn(completedFuture(1L));
         } else {
@@ -635,7 +636,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testGetTableDuringCreation() throws Exception {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             mockZoneLockForRead();
         } else {
             mockReplicaServicesExtended();
@@ -698,7 +699,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      *         partition storage is emulated instead.
      */
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws Exception {
-        if (!enabledColocation()) {
+        if (!colocationEnabled()) {
             mockReplicaServicesExtended();
         }
 
@@ -797,7 +798,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             CompletableFuture<TableManager> tblManagerFut,
             @Nullable Phaser phaser
     ) {
-        if (!enabledColocation()) {
+        if (!colocationEnabled()) {
             when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
                     .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
@@ -903,6 +904,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 logSyncer,
                 partitionReplicaLifecycleManager,
+                new SystemPropertiesNodeProperties(),
                 new MinimumRequiredTimeCollectorServiceImpl(),
                 systemDistributedConfiguration
         ) {

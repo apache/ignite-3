@@ -30,28 +30,34 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemViewImpl;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 
 /**
  * Converts {@link MappedFragment} to text representation.
  */
-final class FragmentPrinter extends IgniteRelShuttle {
+public final class FragmentPrinter extends IgniteRelShuttle {
 
     static String FRAGMENT_PREFIX = "Fragment#";
 
@@ -61,7 +67,33 @@ final class FragmentPrinter extends IgniteRelShuttle {
         this.output = output;
     }
 
-    static String fragmentsToString(List<MappedFragment> mappedFragments) {
+    /** Print optimized plan in common fragment printer format. */
+    public static String relAwareToString(ExplainablePlan plan, String localNode) {
+        Output output = new Output(String::valueOf);
+
+        FragmentPrinter printer = new FragmentPrinter(output);
+
+        output.setNewLinePadding(0);
+        output.writeFormattedString(FRAGMENT_PREFIX + "{} root", 0);
+
+        output.setNewLinePadding(2);
+        output.writeNewline();
+
+        output.appendPadding();
+        output.writeKeyValue("executionNodes", List.of(localNode).toString());
+        output.writeNewline();
+
+        output.appendPadding();
+        output.writeString("tree:");
+        output.writeNewline();
+
+        printer.printRel(plan.getRel());
+
+        return output.builder.toString();
+    }
+
+    /** Wraps mapped fragments into string representation.  */
+    public static String fragmentsToString(List<MappedFragment> mappedFragments) {
         TableDescriptorCollector collector = new TableDescriptorCollector();
 
         for (MappedFragment mappedFragment : mappedFragments) {
@@ -88,7 +120,7 @@ final class FragmentPrinter extends IgniteRelShuttle {
         return output.builder.toString();
     }
 
-    void print(MappedFragment mappedFragment) {
+    private void print(MappedFragment mappedFragment) {
         Fragment fragment = mappedFragment.fragment();
 
         output.setNewLinePadding(0);
@@ -292,6 +324,41 @@ final class FragmentPrinter extends IgniteRelShuttle {
     }
 
     @Override
+    public IgniteRel visit(IgniteKeyValueGet rel) {
+        printExecutableNode(rel);
+        return super.visit(rel);
+    }
+
+    @Override
+    public IgniteRel visit(IgniteSelectCount rel) {
+        printExecutableNode(rel);
+        return super.visit(rel);
+    }
+
+    @Override
+    public IgniteRel visit(IgniteKeyValueModify rel) {
+        printExecutableNode(rel);
+        return super.visit(rel);
+    }
+
+    @Override
+    public IgniteRel visit(IgniteSystemViewScan rel) {
+        RelOptTable source = rel.getTable();
+        assert source != null;
+
+        IgniteSystemViewImpl sysView = source.unwrap(IgniteSystemViewImpl.class);
+        assert sysView != null;
+
+        String viewName = String.join(".", rel.getTable().getQualifiedName());
+
+        output.writeFormattedString("(name={}, distribution={})",
+                viewName, sysView.distribution()
+        );
+
+        return super.visit(rel);
+    }
+
+    @Override
     public IgniteRel visit(IgniteTableScan rel) {
         long sourceId = rel.sourceId();
         String tableName = String.join(".", rel.getTable().getQualifiedName());
@@ -319,10 +386,19 @@ final class FragmentPrinter extends IgniteRelShuttle {
         return super.visit(rel);
     }
 
+    private void printExecutableNode(IgniteRel rel) {
+        String tableName = String.join(".", rel.getTable().getQualifiedName());
+        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
+
+        assert table != null;
+        output.writeFormattedString("(name={}, partitions={}, distribution={})",
+                tableName, table.partitions(), rel.distribution()
+        );
+    }
+
     private static String formatDistribution(IgniteDistribution distribution, TableDescriptorCollector collector) {
-        if (distribution.function() instanceof AffinityDistribution) {
-            AffinityDistribution f = (AffinityDistribution) distribution.function();
-            IgniteTable igniteTable = collector.tables.get(f.tableId());
+        if (distribution.isTableDistribution()) {
+            IgniteTable igniteTable = collector.tables.get(distribution.tableId());
 
             if (igniteTable == null) {
                 String error = format("Unknown tableId: {}. Existing: {}", collector.tables.keySet());

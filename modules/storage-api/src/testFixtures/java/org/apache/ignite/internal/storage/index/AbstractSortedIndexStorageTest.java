@@ -70,7 +70,6 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.Sto
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow.TestIndexPrefix;
-import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matchers;
@@ -232,7 +231,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * Tests the Put-Get-Remove case when an index is created using a single column.
      */
     @ParameterizedTest
-    @VariableSource("ALL_TYPES_COLUMN_PARAMS")
+    @MethodSource("allTypesColumnParams")
     void testSingleColumnIndex(ColumnParams columnParms) {
         testPutGetRemove(List.of(columnParms));
     }
