@@ -44,6 +44,7 @@ dependencies {
     testImplementation project(':ignite-api')
     testImplementation project(':ignite-runner')
     testImplementation project(':ignite-client')
+    testImplementation project(':ignite-rest-api')
 }
 
 private def resolveAllDependencies(String dependencyNotation, String... additionalNotations) {
@@ -68,19 +69,21 @@ private def resolveAllDependencies(String dependencyNotation, String... addition
     return detached.resolve()  // Set<File> of *.jar
 }
 
+def resolveIgniteVersions() {
+    def versionsFile = file("src/test/resources/igniteVersions.json")
+    def versionsJson = new JsonSlurper().parseText(versionsFile.text)
+    versionsJson.versions.each { version ->
+        versionsJson.artifacts.each { artifact ->
+            resolveAllDependencies("$artifact:$version.version")
+        }
+    }
+}
+
 // This task should be started as a separate preparation step before running tests so that all the necessary dependencies are resolved and
 // cached locally
 tasks.register('resolveCompatibilityTestDependencies') {
     doLast {
-        def versionsFile = file("src/test/resources/versions.json")
-        def versionsJson = new JsonSlurper().parseText(versionsFile.text)
-        versionsJson.each { entry -> {
-            entry.versions.each { version ->
-                entry.artifacts.each { artifact ->
-                    resolveAllDependencies("$artifact:$version.version")
-                }
-            }
-        }}
+        resolveIgniteVersions()
     }
 }
 

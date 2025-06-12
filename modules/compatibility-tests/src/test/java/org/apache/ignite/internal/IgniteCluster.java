@@ -26,6 +26,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -45,13 +47,16 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.InitParameters;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.gradle.tooling.GradleConnectionException;
 import org.gradle.tooling.GradleConnector;
@@ -150,8 +155,8 @@ public class IgniteCluster {
     /**
      * Initializes the cluster using REST API on the first node with default settings.
      */
-    void init() {
-        init(new int[] { 0 });
+    void init(Consumer<InitParametersBuilder> initParametersConfigurator) {
+        init(new int[] { 0 }, initParametersConfigurator);
     }
 
     /**
@@ -159,8 +164,7 @@ public class IgniteCluster {
      *
      * @param cmgNodes Indices of the CMG nodes (also used as Metastorage group).
      */
-    void init(int[] cmgNodes) {
-
+    void init(int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
         // Wait for the node to start accepting requests
         await()
                 .ignoreExceptions()
@@ -171,19 +175,17 @@ public class IgniteCluster {
                 );
 
         // Initialize the cluster
-        String metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+        List<String> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
                 .mapToObj(this::nodeName)
-                .collect(Collectors.joining(", "));
+                .collect(toList());
 
-        String requestBody = "{\n"
-                + "    \"metaStorageNodes\": [\n"
-                + "        \"" + metaStorageAndCmgNodes + "\"\n"
-                + "    ],\n"
-                + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\"\n"
-                + "}";
+        InitParametersBuilder builder = InitParameters.builder()
+                .metaStorageNodeNames(metaStorageAndCmgNodes)
+                .clusterName(clusterConfiguration.clusterName());
 
-        assertThat(send(post("/management/v1/cluster/init", requestBody)).statusCode(), is(200));
+        initParametersConfigurator.accept(builder);
+
+        sendInitRequest(builder.build());
 
         // Wait for the cluster to be initialized
         await()
@@ -196,6 +198,24 @@ public class IgniteCluster {
 
         started = true;
         stopped = false;
+    }
+
+    private void sendInitRequest(InitParameters initParameters) {
+        ObjectMapper mapper = new ObjectMapper();
+        String requestBody;
+        try {
+            InitCommand initCommand = new InitCommand(
+                    initParameters.metaStorageNodeNames(),
+                    initParameters.cmgNodeNames(),
+                    initParameters.clusterName(),
+                    initParameters.clusterConfiguration()
+            );
+            requestBody = mapper.writeValueAsString(initCommand);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
+        assertThat(send(post("/management/v1/cluster/init", requestBody)).statusCode(), is(200));
     }
 
     /**

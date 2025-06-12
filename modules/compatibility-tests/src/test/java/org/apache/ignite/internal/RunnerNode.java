@@ -22,26 +22,22 @@ import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAU
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.writeConfigurationFile;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.writeConfigurationFileApplyingTestDefaults;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.app.IgniteRunner;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Represents the Ignite node running in the external process.
  */
 public class RunnerNode {
-    private static final Map<String, Map<String, String>> DEFAULTS_PER_VERSION = readTestDefaultsPerVersion();
+    private static final Map<String, Map<String, String>> DEFAULTS_PER_VERSION = getTestDefaultsPerVersion();
 
     private final Process process;
 
@@ -94,30 +90,13 @@ public class RunnerNode {
         process.destroy();
     }
 
-    private static Map<String, Map<String, String>> readTestDefaultsPerVersion() {
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            JsonNode node = mapper.readTree(RunnerNode.class.getResource("/versions.json"));
-
-            Map<String, Map<String, String>> result = new HashMap<>();
-
-            node.forEach(entry -> {
-                entry.get("versions").forEach(version -> {
-                    JsonNode configOverrides = version.get("configOverrides");
-                    if (configOverrides != null) {
-                        Map<String, String> overrides = configOverrides.propertyStream().collect(Collectors.toMap(
-                                Entry::getKey,
-                                override -> override.getValue().asText()
-                        ));
-                        result.put(version.get("version").textValue(), overrides);
-                    }
-                });
-            });
-            return result;
-        } catch (IOException e) {
-            Loggers.forClass(RunnerNode.class).error("Failed to read versions.json", e);
-            return Map.of();
-        }
+    private static Map<String, Map<String, String>> getTestDefaultsPerVersion() {
+        return IgniteVersions.INSTANCE.versions().stream()
+                .filter(version -> version.configOverrides() != null)
+                .collect(Collectors.toMap(
+                        Version::version,
+                        Version::configOverrides
+                ));
     }
 
     private static String seedAddressesString(ClusterConfiguration clusterConfiguration, int seedsCount) {

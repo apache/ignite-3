@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -48,6 +50,22 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 public abstract class PersistenceTestBase extends BaseIgniteAbstractTest {
+    /** Nodes bootstrap configuration pattern. */
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  },\n"
+            + "  storage.profiles: {"
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
+            + "  },\n"
+            + "  clientConnector.port: {},\n"
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
+            + "}";
 
     // If there are no fields annotated with @Parameter, constructor injection will be used, which is incompatible with the
     // Lifecycle.PER_CLASS.
@@ -63,14 +81,16 @@ public abstract class PersistenceTestBase extends BaseIgniteAbstractTest {
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
     void startCluster(String baseVersion, TestInfo testInfo) {
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR).build();
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR)
+                .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
+                .build();
 
         int nodesCount = nodesCount();
 
         cluster = new IgniteCluster(clusterConfiguration);
         cluster.start(baseVersion, nodesCount);
 
-        cluster.init();
+        cluster.init(this::configureInitParameters);
 
         try (IgniteClient client = cluster.createClient()) {
             setupBaseVersion(client);
@@ -89,8 +109,18 @@ public abstract class PersistenceTestBase extends BaseIgniteAbstractTest {
         }
     }
 
+    protected String getNodeBootstrapConfigTemplate() {
+        return NODE_BOOTSTRAP_CFG_TEMPLATE;
+    }
+
     protected int nodesCount() {
         return 3;
+    }
+
+    /**
+     * This method can be overridden to add custom init parameters during cluster initialization.
+     */
+    protected void configureInitParameters(InitParametersBuilder builder) {
     }
 
     protected abstract void setupBaseVersion(Ignite baseIgnite);
@@ -100,33 +130,13 @@ public abstract class PersistenceTestBase extends BaseIgniteAbstractTest {
     }
 
     private static List<String> baseVersions() {
-        List<String> versions = readVersions();
+        List<String> versions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).collect(Collectors.toList());
         if (System.getProperty("testAllVersions") != null) {
             return versions;
         } else {
             // Take at most two latest versions by default.
             int fromIndex = Math.max(versions.size() - 2, 0);
             return versions.subList(fromIndex, versions.size());
-        }
-    }
-
-    private static List<String> readVersions() {
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            JsonNode node = mapper.readTree(RunnerNode.class.getResource("/versions.json"));
-
-            List<String> result = new ArrayList<>();
-
-            node.forEach(entry ->
-                    entry.get("versions").forEach(version ->
-                            result.add(version.get("version").textValue())
-                    )
-            );
-
-            return result;
-        } catch (IOException e) {
-            Loggers.forClass(RunnerNode.class).error("Failed to read versions.json", e);
-            return List.of();
         }
     }
 }
