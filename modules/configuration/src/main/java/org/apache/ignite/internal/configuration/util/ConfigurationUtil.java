@@ -64,8 +64,10 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
+import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -938,6 +940,87 @@ public class ConfigurationUtil {
                 }
             };
         };
+    }
+
+    /**
+     * Removes {@code null} values that correspond to non-deprecated legacy keys from the configuration tree.
+     *
+     * @param roots Super root.
+     * @param prefixMap Mutable prefix map with updates received from the storage.
+     * @see PublicName#legacyNames()
+     */
+    public static void ignoreLegacyKeys(SuperRoot roots, Map<String, ?> prefixMap) {
+        roots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
+            private Map<String, ?> map = prefixMap;
+
+            @Override
+            protected Object doVisitLegacyLeafNode(Field field, String key, Serializable val, boolean isDeprecated) {
+                if (!isDeprecated) {
+                    map.remove(key);
+                }
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitInnerNode(Field field, String key, InnerNode node) {
+                if (!map.containsKey(key)) {
+                    return null;
+                }
+
+                Map<String, ?> prev = map;
+                map = (Map<String, ?>) map.get(key);
+
+                node.traverseChildren(this, true);
+
+                map = prev;
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitLegacyInnerNode(Field field, String key, InnerNode node, boolean isDeprecated) {
+                map.remove(key);
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitNamedListNode(Field field, String key, NamedListNode<?> node) {
+                if (!map.containsKey(key)) {
+                    return null;
+                }
+
+                Map<String, ?> prev = map;
+                map = (Map<String, ? extends Serializable>) map.get(key);
+
+                for (String namedListKey : node.namedListKeys()) {
+                    Map<String, ?> prev2 = map;
+                    map = (Map<String, ?>) map.get(namedListKey);
+
+                    if (map != null) {
+                        withTracking(field, node.internalId(namedListKey).toString(), false, false, () -> {
+                            node.getInnerNode(namedListKey).traverseChildren(this, true);
+
+                            return null;
+                        });
+                    }
+
+                    map = prev2;
+                }
+
+                map = prev;
+
+                return null;
+            }
+
+            @Override
+            protected Object doVisitLegacyNamedListNode(Field field, String key, NamedListNode<?> node, boolean isDeprecated) {
+                map.remove(key);
+
+                return null;
+            }
+        }, true);
     }
 
     /**

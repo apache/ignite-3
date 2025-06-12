@@ -26,7 +26,9 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.SortedMap;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -44,7 +46,7 @@ public class ConfigurationFlattener {
     public static Map<String, Serializable> createFlattenedUpdatesMap(
             SuperRoot curRoot,
             SuperRoot updates,
-            Map<String, ? extends Serializable> storageData
+            NavigableMap<String, ? extends Serializable> storageData
     ) {
         // Resulting map.
         Map<String, Serializable> resMap = new HashMap<>();
@@ -96,7 +98,7 @@ public class ConfigurationFlattener {
         private final Map<String, Serializable> resMap;
 
         /** Map with values in the configuration storage. */
-        private final Map<String, ? extends Serializable> storageData;
+        private final NavigableMap<String, ? extends Serializable> storageData;
 
         /** Flag indicates that "old" and "new" trees are literally the same at the moment. */
         private boolean singleTreeTraversal;
@@ -116,7 +118,7 @@ public class ConfigurationFlattener {
         FlattenerVisitor(
                 Deque<InnerNode> oldInnerNodesStack,
                 Map<String, Serializable> resMap,
-                Map<String, ? extends Serializable> storageData
+                NavigableMap<String, ? extends Serializable> storageData
         ) {
             this.oldInnerNodesStack = oldInnerNodesStack;
             this.resMap = resMap;
@@ -126,23 +128,30 @@ public class ConfigurationFlattener {
         /** {@inheritDoc} */
         @Override
         public Void doVisitLeafNode(Field field, String key, Serializable newVal) {
-            boolean isDeprecated = field.isAnnotationPresent(Deprecated.class);
-
             // Read same value from old tree.
             Serializable oldVal = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.leafNodeVisitor(), true);
 
             // Do not put duplicates into the resulting map.
-            if (isDeprecated || singleTreeTraversal || !Objects.deepEquals(oldVal, newVal)) {
-                boolean deletion = this.deletion || isDeprecated;
+            if (singleTreeTraversal || !Objects.deepEquals(oldVal, newVal)) {
+                resMap.put(currentKey(), this.deletion ? null : newVal);
+            } else {
+                String currentKey = currentKey();
 
-                resMap.put(currentKey(), deletion ? null : newVal);
+                if (!storageData.containsKey(currentKey)) {
+                    resMap.put(currentKey, newVal); // TODO Explain!
+                }
             }
 
-            processLegacyPaths(legacyKey -> {
-                if (storageData.containsKey(legacyKey)) {
-                    resMap.put(legacyKey, null);
-                }
-            });
+            return null;
+        }
+
+        @Override
+        protected Object doVisitLegacyLeafNode(Field field, String key, Serializable val, boolean isDeprecated) {
+            String currentKey = currentKey();
+
+            if (storageData.containsKey(currentKey)) {
+                resMap.put(currentKey, null);
+            }
 
             return null;
         }
@@ -150,8 +159,6 @@ public class ConfigurationFlattener {
         /** {@inheritDoc} */
         @Override
         public Void doVisitInnerNode(Field field, String key, InnerNode newNode) {
-            boolean isDeprecated = field != null && field.isAnnotationPresent(Deprecated.class);
-
             // Read same node from old tree.
             InnerNode oldNode = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.innerNodeVisitor(), true);
 
@@ -162,16 +169,14 @@ public class ConfigurationFlattener {
             }
 
             if (oldNode == null) {
-                visitAsymmetricInnerNode(newNode, isDeprecated);
+                visitAsymmetricInnerNode(newNode, false);
             } else if (oldNode.schemaType() != newNode.schemaType()) {
                 // At the moment, we do not separate the general fields from the fields of
                 // specific instances of the polymorphic configuration, so we will assume
                 // that all the fields have changed, perhaps we will fix this later.
                 visitAsymmetricInnerNode(oldNode, true);
 
-                visitAsymmetricInnerNode(newNode, isDeprecated);
-            } else if (isDeprecated) {
-                visitAsymmetricInnerNode(newNode, true);
+                visitAsymmetricInnerNode(newNode, false);
             } else {
                 oldInnerNodesStack.push(oldNode);
 
@@ -183,11 +188,16 @@ public class ConfigurationFlattener {
             return null;
         }
 
+        @Override
+        protected Object doVisitLegacyInnerNode(Field field, String key, InnerNode node, boolean isDeprecated) {
+            dropOutdatedData();
+
+            return null;
+        }
+
         /** {@inheritDoc} */
         @Override
         public Void doVisitNamedListNode(Field field, String key, NamedListNode<?> newNode) {
-            boolean isDeprecated = field.isAnnotationPresent(Deprecated.class);
-
             // Read same named list node from old tree.
             NamedListNode<?> oldNode =
                     oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.namedListNodeVisitor(), true);
@@ -204,7 +214,7 @@ public class ConfigurationFlattener {
                 String namedListFullKey = currentKey();
 
                 withTracking(field, newNodeInternalId.toString(), false, false, () -> {
-                    InnerNode newNamedElement = isDeprecated ? null : newNode.getInnerNode(newNodeKey);
+                    InnerNode newNamedElement = newNode.getInnerNode(newNodeKey);
 
                     String oldNodeKey = oldNode.keyByInternalId(newNodeInternalId);
                     InnerNode oldNamedElement = oldNode.getInnerNode(oldNodeKey);
@@ -217,14 +227,14 @@ public class ConfigurationFlattener {
                     if (newNamedElement == null) {
                         visitAsymmetricInnerNode(oldNamedElement, true);
                     } else if (oldNamedElement == null) {
-                        visitAsymmetricInnerNode(newNamedElement, isDeprecated);
+                        visitAsymmetricInnerNode(newNamedElement, false);
                     } else if (newNamedElement.schemaType() != oldNamedElement.schemaType()) {
                         // At the moment, we do not separate the general fields from the fields of
                         // specific instances of the polymorphic configuration, so we will assume
                         // that all the fields have changed, perhaps we will fix this later.
                         visitAsymmetricInnerNode(oldNamedElement, true);
 
-                        visitAsymmetricInnerNode(newNamedElement, isDeprecated);
+                        visitAsymmetricInnerNode(newNamedElement, false);
                     } else {
                         oldInnerNodesStack.push(oldNamedElement);
 
@@ -243,6 +253,11 @@ public class ConfigurationFlattener {
                         resMap.put(orderKey, deletion || newNamedElement == null ? null : newIdx);
                     }
 
+                    String orderKey = currentKey() + NamedListNode.ORDER_IDX;
+                    if (!storageData.containsKey(orderKey)) {
+                        resMap.put(orderKey, newIdx);
+                    }
+
                     // If it's creation / deletion / rename.
                     if (singleTreeTraversal || oldNamedElement == null || newNamedElement == null
                             || !oldNodeKey.equals(newNodeKey)
@@ -250,6 +265,10 @@ public class ConfigurationFlattener {
                         String nameKey = currentKey() + NamedListNode.NAME;
 
                         resMap.put(nameKey, deletion || newNamedElement == null ? null : newNodeKey);
+                    }
+                    String nameKey = currentKey() + NamedListNode.NAME;
+                    if (!storageData.containsKey(nameKey)) {
+                        resMap.put(nameKey, newNodeKey);
                     }
 
                     if (singleTreeTraversal) {
@@ -276,6 +295,11 @@ public class ConfigurationFlattener {
                         }
                     }
 
+                    String idKey = idKey(namedListFullKey, newNodeKey);
+                    if (!storageData.containsKey(idKey)) {
+                        resMap.put(idKey, newNodeInternalId);
+                    }
+
                     return null;
                 });
             }
@@ -283,10 +307,30 @@ public class ConfigurationFlattener {
             return null;
         }
 
+        @Override
+        protected Object doVisitLegacyNamedListNode(Field field, String key, NamedListNode<?> node, boolean isDeprecated) {
+            dropOutdatedData();
+
+            return null;
+        }
+
+        private void dropOutdatedData() {
+            String currentKey = currentKey();
+            SortedMap<String, ? extends Serializable> tailMap = storageData.tailMap(currentKey);
+
+            for (String storageKey : tailMap.keySet()) {
+                if (!storageKey.startsWith(currentKey)) {
+                    break;
+                }
+
+                resMap.put(storageKey, null);
+            }
+        }
+
         /**
          * Creates key {@code prefix.<ids>.nodeKey}, escaping {@code nodeKey} before appending it.
          */
-        private String idKey(String prefix, String nodeKey) {
+        private static String idKey(String prefix, String nodeKey) {
             return prefix + NamedListNode.IDS + KEY_SEPARATOR + escape(nodeKey);
         }
 
