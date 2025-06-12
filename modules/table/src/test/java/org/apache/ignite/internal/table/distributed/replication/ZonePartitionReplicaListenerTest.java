@@ -1464,8 +1464,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         HybridTimestamp beginTs = beginTimestamp(txId);
         HybridTimestamp commitTs = clock.now();
 
-        // We have to force push clock forward because we will invoke listener directly bypass ReplicaManager or MessageService, so clock
-        // won't be updated if the test will compute too fast for physical clock ticking and then we may have equal clock#current and the
+        // We have to force push clock forward because we will invoke listener directly bypassing ReplicaManager or MessageService, so clock
+        // won't be updated if the test computes too fast for physical clock ticking and then we may have equal clock#current and the
         // given above commit timestamp.
         clock.update(clock.now().addPhysicalTime(10));
 
