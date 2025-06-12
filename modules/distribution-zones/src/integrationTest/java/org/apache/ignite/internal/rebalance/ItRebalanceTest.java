@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssign
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -52,7 +53,9 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
@@ -144,6 +147,34 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
                 table.internalTable().get(key, clock.now(), clusterNode(3)),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
+    }
+
+    @Test
+    @WithSystemProperty(key = THREAD_ASSERTIONS_ENABLED, value = "false")
+    public void compactionAfterAbortedRebalance() {
+        createZone("TEST_ZONE", 1, 1);
+        createTestTable("TEST_TABLE", "TEST_ZONE");
+
+        IgniteImpl igniteImpl = igniteImpl(0);
+
+        TableViewInternal table = unwrapTableViewInternal(igniteImpl.tables().table("TEST_TABLE"));
+
+        MvTableStorage storage = table.internalTable().storage();
+
+        table.keyValueView().put(
+                null,
+                Tuple.create().set("id", 1),
+                Tuple.create().set("val", "value1")
+        );
+
+        CompletableFuture<CompletableFuture<Void>> abortRebalance = storage.startRebalancePartition(0)
+                .thenApply(v -> storage.abortRebalancePartition(0));
+
+        assertThat(abortRebalance, willCompleteSuccessfully());
+
+        CompletableFuture<Void> flush = storage.getMvPartition(0).flush(true);
+
+        assertThat(flush, willCompleteSuccessfully());
     }
 
     private static Row marshalTuple(TableViewInternal table, Tuple tuple) {
