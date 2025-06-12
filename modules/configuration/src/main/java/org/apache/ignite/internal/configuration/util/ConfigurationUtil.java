@@ -995,18 +995,11 @@ public class ConfigurationUtil {
                 map = (Map<String, ? extends Serializable>) map.get(key);
 
                 for (String namedListKey : node.namedListKeys()) {
-                    Map<String, ?> prev2 = map;
-                    map = (Map<String, ?>) map.get(namedListKey);
+                    withTracking(field, node.internalId(namedListKey).toString(), false, false, () -> {
+                        doVisitInnerNode(field, namedListKey, node.getInnerNode(namedListKey));
 
-                    if (map != null) {
-                        withTracking(field, node.internalId(namedListKey).toString(), false, false, () -> {
-                            node.getInnerNode(namedListKey).traverseChildren(this, true);
-
-                            return null;
-                        });
-                    }
-
-                    map = prev2;
+                        return null;
+                    });
                 }
 
                 map = prev;
