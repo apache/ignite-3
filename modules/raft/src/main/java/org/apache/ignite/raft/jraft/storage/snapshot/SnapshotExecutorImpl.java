@@ -45,7 +45,6 @@ import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotExecutor;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
-import org.apache.ignite.raft.jraft.util.CountDownEvent;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -72,7 +71,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
     private LogManager logManager;
     private final AtomicReference<DownloadingSnapshot> downloadingSnapshot = new AtomicReference<>(null);
     private SnapshotMeta loadingSnapshotMeta;
-    private final CountDownEvent runningJobs = new CountDownEvent();
+    private final SnapshotCountDownEvent runningJobs = new SnapshotCountDownEvent();
     private RaftMessagesFactory msgFactory;
 
     /**
@@ -245,7 +244,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         }
         LOG.info("Loading snapshot, meta={}.", this.loadingSnapshotMeta);
         this.loadingSnapshot = true;
-        this.runningJobs.incrementAndGet();
+        this.runningJobs.incrementAndGet(SnapshotCountDownEvent.INIT_SNAPSHOT_OP);
         final FirstSnapshotLoadDone done = new FirstSnapshotLoadDone(reader);
         Requires.requireTrue(this.fsmCaller.onSnapshotLoad(done));
         try {
@@ -351,7 +350,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                 Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EHOSTDOWN, "The raft node is down."));
                 return;
             }
-            this.runningJobs.incrementAndGet();
+            this.runningJobs.incrementAndGet(SnapshotCountDownEvent.DO_SNAPSHOT_OP);
         }
         finally {
             if (doUnlock) {
@@ -600,7 +599,7 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
                         .newResponse(msgFactory, RaftError.EINVAL, "Fail to copy from: %s", ds.request.uri()));
                     return false;
                 }
-                this.runningJobs.incrementAndGet();
+                this.runningJobs.incrementAndGet(SnapshotCountDownEvent.REGISTER_DOWNLOADING_SNAPSHOT_OP);
                 return true;
             }
 
