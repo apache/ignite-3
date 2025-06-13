@@ -43,8 +43,8 @@ public class ReplicationConfigurationModule implements ConfigurationModule {
 
     @Override
     public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
-        var rootView = (ReplicationExtensionView) superRootChange.viewRoot(ReplicationExtensionConfiguration.KEY);
-        var rootChange = (ReplicationExtensionChange) superRootChange.changeRoot(ReplicationExtensionConfiguration.KEY);
+        ReplicationExtensionView rootView = superRootChange.viewRoot(ReplicationExtensionConfiguration.KEY);
+        ReplicationExtensionChange rootChange = superRootChange.changeRoot(ReplicationExtensionConfiguration.KEY);
 
         StorageUpdateView storageUpdateView = rootView.storageUpdate();
 
