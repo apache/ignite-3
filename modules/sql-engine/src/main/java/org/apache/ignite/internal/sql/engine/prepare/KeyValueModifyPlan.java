@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleLong;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
@@ -52,6 +54,8 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     private final IgniteKeyValueModify modifyNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
+    @Nullable
+    private final PartitionAwarenessMetadata partitionAwarenessMetadata;
 
     private volatile InsertExecution<?> operation;
 
@@ -60,13 +64,15 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
             int catalogVersion,
             IgniteKeyValueModify modifyNode,
             ResultSetMetadata meta,
-            ParameterMetadata parameterMetadata
+            ParameterMetadata parameterMetadata,
+            @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata
     ) {
         this.id = id;
         this.catalogVersion = catalogVersion;
         this.modifyNode = modifyNode;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
+        this.partitionAwarenessMetadata = partitionAwarenessMetadata;
     }
 
     /** {@inheritDoc} */
@@ -91,6 +97,12 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public ParameterMetadata parameterMetadata() {
         return parameterMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @org.jetbrains.annotations.Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
     }
 
     /** Returns a table in question. */

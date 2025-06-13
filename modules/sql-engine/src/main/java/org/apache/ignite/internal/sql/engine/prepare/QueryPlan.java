@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import javax.annotation.Nullable;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -44,4 +46,9 @@ public interface QueryPlan {
      * Returns parameters metadata.
      */
     ParameterMetadata parameterMetadata();
+
+    /**
+     * Returns partition-awareness metadata or {@code null} if it not present.
+     */
+    @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata();
 }
