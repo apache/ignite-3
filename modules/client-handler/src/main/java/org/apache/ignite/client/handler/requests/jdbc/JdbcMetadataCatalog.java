@@ -19,6 +19,8 @@ package org.apache.ignite.client.handler.requests.jdbc;
 
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
+import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import java.sql.DatabaseMetaData;
 import java.util.Arrays;
@@ -43,9 +45,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.table.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
@@ -258,16 +258,14 @@ public class JdbcMetadataCatalog {
      * @return Column metadata.
      */
     private static JdbcColumnMeta createColumnMeta(String schemaName, String tblName, CatalogTableColumnDescriptor col) {
-        NativeType colType = TypeUtils.columnType2NativeType(col.type(), col.precision(), col.scale(), col.length());
-
         return new JdbcColumnMeta(
                 col.name(),
                 schemaName,
                 tblName,
                 col.name(),
                 col.type(),
-                Commons.nativeTypePrecision(colType),
-                Commons.nativeTypeScale(colType),
+                resolvePrecision(col),
+                resolveScale(col),
                 col.nullable()
         );
     }
@@ -321,6 +319,85 @@ public class JdbcMetadataCatalog {
         toRegex = toRegex.replaceAll("([^\\\\\\\\])(\\\\\\\\(?>\\\\\\\\\\\\\\\\)*\\\\\\\\)*\\\\\\\\([_|%])", "$1$2$3");
 
         return toRegex.substring(1);
+    }
+
+
+    /**
+     * Resolves the precision of the specified column.
+     * Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if precision is not applicable for this column type.
+     *
+     * @return Column precision.
+     */
+    private static int resolvePrecision(CatalogTableColumnDescriptor column) {
+        switch (column.type()) {
+            case INT8:
+                return 3;
+
+            case INT16:
+                return 5;
+
+            case INT32:
+                return 10;
+
+            case INT64:
+                return 19;
+
+            case FLOAT:
+            case DOUBLE:
+                return 15;
+
+            case BOOLEAN:
+            case UUID:
+            case DATE:
+                return UNDEFINED_PRECISION;
+
+            case DECIMAL:
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                return column.precision();
+
+            case BYTE_ARRAY:
+            case STRING:
+                return column.length();
+
+            default:
+                throw new IllegalArgumentException("Unsupported type " + column.type());
+        }
+    }
+
+    /**
+     * Gets the scale of the specified column.
+     * Returns {@link ColumnMetadata#UNDEFINED_SCALE} if scale is not valid for this type.
+     *
+     * @return Number of digits of scale.
+     */
+    private static int resolveScale(CatalogTableColumnDescriptor column) {
+        switch (column.type()) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+                return 0;
+
+            case BOOLEAN:
+            case FLOAT:
+            case DOUBLE:
+            case UUID:
+            case DATE:
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+            case BYTE_ARRAY:
+            case STRING:
+                return UNDEFINED_SCALE;
+
+            case DECIMAL:
+                return column.scale();
+
+            default:
+                throw new IllegalArgumentException("Unsupported type " + column.type());
+        }
     }
 
     /** Catalog object type. */
