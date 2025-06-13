@@ -19,7 +19,7 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -50,7 +50,7 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
     void fsyncOptionOnlyAffectsPartitions(boolean fsyncInConfig) {
         cluster.startAndInit(1, "ignite.raft.fsync = " + fsyncInConfig, paramsBuilder -> {});
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();

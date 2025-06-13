@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rest.recovery;
 
 import static java.util.Collections.emptySet;
 import static java.util.Comparator.comparing;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Body;
@@ -31,6 +30,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.rest.ResourceHolder;
@@ -64,9 +64,11 @@ import org.apache.ignite.table.QualifiedName;
 @Requires(classes = IgniteInternalExceptionHandler.class)
 public class DisasterRecoveryController implements DisasterRecoveryApi, ResourceHolder {
     private DisasterRecoveryManager disasterRecoveryManager;
+    private NodeProperties nodeProperties;
 
-    public DisasterRecoveryController(DisasterRecoveryManager disasterRecoveryManager) {
+    public DisasterRecoveryController(DisasterRecoveryManager disasterRecoveryManager, NodeProperties nodeProperties) {
         this.disasterRecoveryManager = disasterRecoveryManager;
+        this.nodeProperties = nodeProperties;
     }
 
     @Override
@@ -254,8 +256,8 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         return new GlobalZonePartitionStatesResponse(states);
     }
 
-    private static void checkColocationEnabled() {
-        if (!enabledColocation()) {
+    private void checkColocationEnabled() {
+        if (!nodeProperties.colocationEnabled()) {
             throw new UnsupportedOperationException("This method is unsupported when colocation is disabled.");
         }
     }
@@ -263,5 +265,6 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
     @Override
     public void cleanResources() {
         disasterRecoveryManager = null;
+        nodeProperties = null;
     }
 }

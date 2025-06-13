@@ -79,6 +79,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -869,7 +870,8 @@ public class TestBuilders {
                                 0,
                                 partitionPruner,
                                 () -> 1L,
-                                executionProvider
+                                executionProvider,
+                                new SystemPropertiesNodeProperties()
                         );
 
                         systemViewManager.register(() -> systemViews);
@@ -979,7 +981,13 @@ public class TestBuilders {
             return tablesSize.getOrDefault(descriptor.name(), 10_000L);
         };
 
-        return new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 0);
+        return new SqlSchemaManagerImpl(
+                catalogManager,
+                sqlStatisticManager,
+                new SystemPropertiesNodeProperties(),
+                CaffeineCacheFactory.INSTANCE,
+                0
+        );
     }
 
     private static class TableBuilderImpl implements TableBuilder {
@@ -1771,7 +1779,17 @@ public class TestBuilders {
                             throw new AssertionError("Assignments are not configured for table " + tableName);
                         }
 
-                        return assignments;
+                        if (includeBackups) {
+                            return assignments;
+                        } else {
+                            List<List<String>> primaryAssignments = new ArrayList<>();
+
+                            for (List<String> assign : assignments) {
+                                primaryAssignments.add(List.of(assign.get(0)));
+                            }
+
+                            return primaryAssignments;
+                        }
                     };
 
             return new TestExecutionDistributionProvider(

@@ -50,6 +50,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
@@ -185,6 +186,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
+            NodeProperties nodeProperties,
             Executor partitionOperationsExecutor
     ) {
         assert igniteTables != null;
@@ -203,6 +205,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         assert placementDriver != null;
         assert clientConnectorConfiguration != null;
         assert lowWatermark != null;
+        assert nodeProperties != null;
         assert partitionOperationsExecutor != null;
 
         this.queryProcessor = queryProcessor;
@@ -219,7 +222,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clockService, schemaSyncService,
-                lowWatermark);
+                lowWatermark, nodeProperties);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }

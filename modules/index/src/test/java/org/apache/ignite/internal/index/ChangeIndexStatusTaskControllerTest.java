@@ -45,6 +45,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -106,6 +107,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
                 placementDriver,
                 clusterService,
                 lowWatermark,
+                new SystemPropertiesNodeProperties(),
                 changeIndexStatusTaskScheduler
         );
 
@@ -257,7 +259,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private void setPrimaryReplica(ClusterNode clusterNode) {
-        ReplicationGroupId groupId = IgniteSystemProperties.enabledColocation()
+        ReplicationGroupId groupId = IgniteSystemProperties.colocationEnabled()
                 ? new ZonePartitionId(zoneId(), 0)
                 : new TablePartitionId(tableId(), 0);
 

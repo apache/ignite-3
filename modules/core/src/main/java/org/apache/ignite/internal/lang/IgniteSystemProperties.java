@@ -20,6 +20,7 @@ package org.apache.ignite.internal.lang;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
@@ -98,8 +99,14 @@ public final class IgniteSystemProperties {
     }
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
-    /* Feature flag for zone based colocation track */
-    public static boolean enabledColocation() {
+    /**
+     * Feature flag for zone based colocation track.
+     *
+     * <p>Do not use in production code (apart from {@link NodeProperties} implementations). If a component needs colocation status,
+     * it should get one from {@link NodeProperties}.
+     */
+    @Deprecated
+    public static boolean colocationEnabled() {
         return getBoolean(COLOCATION_FEATURE_FLAG, true);
     }
 

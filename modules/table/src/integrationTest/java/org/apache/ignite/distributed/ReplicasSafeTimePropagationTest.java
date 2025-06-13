@@ -45,6 +45,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -397,6 +398,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             mock(Executor.class),
                             placementDriver,
                             clockService,
+                            new SystemPropertiesNodeProperties(),
                             GROUP_ID
                     ) {
                         @Override

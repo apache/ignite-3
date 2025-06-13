@@ -1,3 +1,44 @@
+# simple select and root is colocated with first partition
+N0
+SELECT * FROM t4_n0n1_n2n1
+---
+Fragment#0 root
+  executionNodes: [N0]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N0, N1]}
+  tree:
+    Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N0]
+  executionNodes: [N0, N1]
+  tables: [T4_N0N1_N2N1]
+  partitions: {N0=[0:2], N1=[1:2]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      TableScan(name=PUBLIC.T4_N0N1_N2N1, source=2, partitions=2, distribution=affinity[table: T4_N0N1_N2N1, columns: [ID]])
+---
+# simple select and root is colocated with first partition
+N0
+SELECT * FROM t4_n0n1_n2n1
+READ_FROM_PRIMARY
+---
+Fragment#0 root
+  executionNodes: [N0]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N0, N2]}
+  tree:
+    Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N0]
+  executionNodes: [N0, N2]
+  tables: [T4_N0N1_N2N1]
+  partitions: {N0=[0:2], N2=[1:2]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      TableScan(name=PUBLIC.T4_N0N1_N2N1, source=2, partitions=2, distribution=affinity[table: T4_N0N1_N2N1, columns: [ID]])
+---
 # root of the query is colocated with first partition
 N0
 SELECT * FROM t1_n0n1_n1n2
@@ -38,6 +79,27 @@ Fragment#1
     Sender(targetFragment=0, exchange=1, distribution=single)
       TableScan(name=PUBLIC.T1_N0N1_N1N2, source=2, partitions=2, distribution=affinity[table: T1_N0N1_N1N2, columns: [ID]])
 ---
+# root of the query is colocated with both partitions
+N1
+SELECT * FROM t1_n0n1_n1n2
+READ_FROM_PRIMARY
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N0, N1]}
+  tree:
+    Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N0, N1]
+  tables: [T1_N0N1_N1N2]
+  partitions: {N0=[0:2], N1=[1:2]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      TableScan(name=PUBLIC.T1_N0N1_N1N2, source=2, partitions=2, distribution=affinity[table: T1_N0N1_N1N2, columns: [ID]])
+---
 # root of the query is colocated with second partition
 N2
 SELECT * FROM t1_n0n1_n1n2
@@ -54,6 +116,27 @@ Fragment#1
   executionNodes: [N0, N2]
   tables: [T1_N0N1_N1N2]
   partitions: {N0=[0:2], N2=[1:2]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      TableScan(name=PUBLIC.T1_N0N1_N1N2, source=2, partitions=2, distribution=affinity[table: T1_N0N1_N1N2, columns: [ID]])
+---
+# root of the query is colocated with second partition
+N2
+SELECT * FROM t1_n0n1_n1n2
+READ_FROM_PRIMARY
+---
+Fragment#0 root
+  executionNodes: [N2]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N0, N1]}
+  tree:
+    Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N2]
+  executionNodes: [N0, N1]
+  tables: [T1_N0N1_N1N2]
+  partitions: {N0=[0:2], N1=[1:2]}
   tree:
     Sender(targetFragment=0, exchange=1, distribution=single)
       TableScan(name=PUBLIC.T1_N0N1_N1N2, source=2, partitions=2, distribution=affinity[table: T1_N0N1_N1N2, columns: [ID]])

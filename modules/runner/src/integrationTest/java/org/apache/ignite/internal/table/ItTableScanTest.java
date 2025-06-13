@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
@@ -786,7 +786,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         if (readOnly) {
             IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            ReplicationGroupId partitionId = enabledColocation()
+            ReplicationGroupId partitionId = colocationEnabled()
                     ? new ZonePartitionId(internalTable.zoneId(), PART_ID)
                     : new TablePartitionId(internalTable.tableId(), PART_ID);
 
@@ -886,7 +886,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
-        ReplicationGroupId replicationGroupId = enabledColocation()
+        ReplicationGroupId replicationGroupId = colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), partId)
                 : new TablePartitionId(table.tableId(), partId);
 
@@ -1083,7 +1083,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
-        ReplicationGroupId replicationGroupId = enabledColocation()
+        ReplicationGroupId replicationGroupId = colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), partId)
                 : new TablePartitionId(table.tableId(), partId);
 

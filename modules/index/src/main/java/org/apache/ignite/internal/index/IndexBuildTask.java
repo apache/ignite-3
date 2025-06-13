@@ -20,7 +20,6 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -33,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -77,6 +77,8 @@ class IndexBuildTask {
 
     private final FailureProcessor failureProcessor;
 
+    private final NodeProperties nodeProperties;
+
     private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
@@ -105,6 +107,7 @@ class IndexBuildTask {
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
             FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
             Executor executor,
             IgniteSpinBusyLock busyLock,
             int batchSize,
@@ -119,6 +122,7 @@ class IndexBuildTask {
         this.partitionStorage = partitionStorage;
         this.replicaService = replicaService;
         this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
         this.executor = executor;
         this.busyLock = busyLock;
         this.batchSize = batchSize;
@@ -254,7 +258,7 @@ class IndexBuildTask {
     private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds, HybridTimestamp initialOperationTimestamp) {
         boolean finish = rowIds.size() < batchSize;
 
-        ReplicationGroupIdMessage groupIdMessage = enabledColocation()
+        ReplicationGroupIdMessage groupIdMessage = nodeProperties.colocationEnabled()
                 ? toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(taskId.getZoneId(), taskId.getPartitionId()))
                 : toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()));
 

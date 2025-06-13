@@ -27,7 +27,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT;
@@ -101,6 +101,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -229,7 +230,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -624,6 +624,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 clusterNodeResolver,
                 mockRaftClient,
                 failureManager,
+                new SystemPropertiesNodeProperties(),
                 localNode,
                 zonePartitionId
         );
@@ -634,7 +635,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 txManager,
                 lockManager,
                 Runnable::run,
-                enabledColocation() ? new ZonePartitionId(tableDescriptor.zoneId(), PART_ID) : new TablePartitionId(TABLE_ID, PART_ID),
+                colocationEnabled() ? new ZonePartitionId(tableDescriptor.zoneId(), PART_ID) : new TablePartitionId(TABLE_ID, PART_ID),
                 TABLE_ID,
                 () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
                 pkStorageSupplier,
@@ -659,7 +660,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2),
                 indexMetaStorage,
                 lowWatermark,
-                failureManager
+                failureManager,
+                new SystemPropertiesNodeProperties()
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -1453,7 +1455,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
-    @Disabled("IGNITE-25654")
     void writeIntentSwitchForCompactedCatalogTimestampWorks(boolean commit) {
         int earliestVersion = 999;
         Catalog mockEarliestCatalog = mock(Catalog.class);
@@ -1462,6 +1463,11 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID txId = newTxId();
         HybridTimestamp beginTs = beginTimestamp(txId);
         HybridTimestamp commitTs = clock.now();
+
+        // We have to force push clock forward because we will invoke listener directly bypassing ReplicaManager or MessageService, so clock
+        // won't be updated if the test computes too fast for physical clock ticking and then we may have equal clock#current and the
+        // given above commit timestamp.
+        clock.update(commitTs);
 
         HybridTimestamp reliableCatalogVersionTs = commit ? commitTs : beginTs;
         when(catalogService.activeCatalog(reliableCatalogVersionTs.longValue())).thenThrow(new CatalogNotFoundException("Oops"));

@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -834,10 +834,10 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
     @Test
     public void enabledColocationTest() {
-        assertTrue(enabledColocation());
+        assertTrue(colocationEnabled());
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.FALSE.toString());
-        assertFalse(enabledColocation());
+        assertFalse(colocationEnabled());
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.TRUE.toString());
-        assertTrue(enabledColocation());
+        assertTrue(colocationEnabled());
     }
 }

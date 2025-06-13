@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -147,7 +147,7 @@ public class ItColocatedDataTest extends BaseSqlIntegrationTest {
      */
     // TODO: remove this method after https://issues.apache.org/jira/browse/IGNITE-25283 has been fixed.
     private static void waitForDefaultZoneAssignments() throws InterruptedException {
-        if (!enabledColocation()) {
+        if (!colocationEnabled()) {
             return;
         }
 

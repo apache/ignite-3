@@ -70,6 +70,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -304,6 +305,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
+                new SystemPropertiesNodeProperties(),
                 new TablePartitionId(TABLE_ID, PARTITION_ID)
         );
 
@@ -483,6 +485,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 executor,
                 placementDriver,
                 clockService,
+                new SystemPropertiesNodeProperties(),
                 new TablePartitionId(TABLE_ID, PARTITION_ID)
         );
 
