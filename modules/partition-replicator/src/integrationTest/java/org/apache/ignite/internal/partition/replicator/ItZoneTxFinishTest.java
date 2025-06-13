@@ -26,7 +26,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,7 +37,6 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -68,8 +66,8 @@ class ItZoneTxFinishTest extends ItAbstractColocationTest {
         // Create a zone with a single partition on every node.
         int zoneId = createZone(node0, TEST_ZONE_NAME, 1, cluster.size());
 
-        int tableId1 = createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        int tableId2 = createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
@@ -106,18 +104,6 @@ class ItZoneTxFinishTest extends ItAbstractColocationTest {
                     1,
                     commit
             ));
-            assertions.add(() -> assertTxStateStorageAsExpected(
-                    "Node " + finalI + " table1",
-                    tableTxStatePartitionStorage(currentNode, tableId1, 0),
-                    0,
-                    commit
-            ));
-            assertions.add(() -> assertTxStateStorageAsExpected(
-                    "Node " + finalI + " table2",
-                    tableTxStatePartitionStorage(currentNode, tableId2, 0),
-                    0,
-                    commit
-            ));
         }
 
         assertAll(assertions);
@@ -143,16 +129,6 @@ class ItZoneTxFinishTest extends ItAbstractColocationTest {
                         .collect(toList());
             }
         });
-    }
-
-    private static TxStatePartitionStorage tableTxStatePartitionStorage(Node node, int tableId1, int partitionId)
-            throws NodeStoppingException {
-        InternalTable internalTable1 = node.tableManager.table(tableId1).internalTable();
-        TxStatePartitionStorage txStatePartitionStorage = internalTable1.txStateStorage().getPartitionStorage(partitionId);
-
-        assertThat(txStatePartitionStorage, is(notNullValue()));
-
-        return txStatePartitionStorage;
     }
 
     @ParameterizedTest(name = "commit={0}")
