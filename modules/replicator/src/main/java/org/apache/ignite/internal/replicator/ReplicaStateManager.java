@@ -98,8 +98,6 @@ class ReplicaStateManager {
             ReplicaStateContext context = getContext(replicationGroupId);
 
             synchronized (context) {
-                LOG.info("qqq Primary elected [groupId={}, leaseholderId={}, leaseStartTime={}, localNode={}, replicaState={}, reserved={}].",
-                        replicationGroupId, parameters.leaseholderId(), parameters.startTime(), localNodeId, context.replicaState, context.reservedForPrimary);
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED
                             : "Unexpected primary replica state STOPPED [groupId=" + replicationGroupId
@@ -129,9 +127,6 @@ class ReplicaStateManager {
         }
 
         try {
-            ReplicaStateContext x = replicaContexts.get(parameters.groupId());
-            LOG.info("qqq Primary expired [groupId={}, leaseholderId={}, leaseStartTime={}, localNode={}, replicaState={}, reserved={}, contextLeaseStartTime={}].",
-                    parameters.groupId(), parameters.leaseholderId(), parameters.startTime(), localNodeId, x.replicaState, x.reservedForPrimary, x.leaseStartTime);
             if (localNodeId.equals(parameters.leaseholderId())) {
                 ReplicaStateContext context = replicaContexts.get(parameters.groupId());
 
@@ -228,7 +223,7 @@ class ReplicaStateManager {
                         }
                     }
 
-                    LOG.info("Weak replica start complete [state={}, partitionStarted={}].", context.replicaState, partitionStarted);
+                    LOG.debug("Weak replica start complete [state={}, partitionStarted={}].", context.replicaState, partitionStarted);
 
                     return partitionStarted;
                 }))
@@ -284,7 +279,6 @@ class ReplicaStateManager {
                 // Explicit restart: always stop.
                 if (context.reservedForPrimary) {
                     // If is primary, turning off the primary first.
-                    LOG.info("qqq Replica restart, groupId={}", groupId);
                     context.replicaState = ReplicaState.RESTART_PLANNED;
                     return replicaManager.stopLeaseProlongation(groupId, null)
                             .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
@@ -321,9 +315,7 @@ class ReplicaStateManager {
     ) {
         // These is some probability that the replica would be reserved after the previous lease is expired and before this method
         // is called, so reservation state needs to be checked again.
-        LOG.info("qqq Stopping replica [groupId={}, reservedForPrimary={}].", groupId, context.reservedForPrimary);
         if (context.reservedForPrimary) {
-            LOG.info("Retrying planDeferredReplicaStop, groupId={}", groupId);
             return replicaManager.stopLeaseProlongation(groupId, null)
                     .thenCompose(unused -> planDeferredReplicaStop(groupId, context, stopOperation));
         }
@@ -336,7 +328,7 @@ class ReplicaStateManager {
                         context.replicaState = ReplicaState.STOPPED;
                     }
 
-                    LOG.info("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
+                    LOG.debug("Weak replica stop complete [grpId={}, state={}].", groupId, context.replicaState);
 
                     return true;
                 }))
@@ -355,7 +347,8 @@ class ReplicaStateManager {
             Supplier<CompletableFuture<Void>> deferredStopOperation
     ) {
         synchronized (context) {
-            LOG.info("qqq Planning deferred replica stop [groupId={}, reservedForPrimary={}].", groupId, context.reservedForPrimary);
+            LOG.debug("Planning deferred replica stop [groupId={}, reservedForPrimary={}].", groupId, context.reservedForPrimary);
+
             // No parallel actions affected this, continue.
             if (context.reservedForPrimary) {
                 context.deferredStopReadyFuture = new CompletableFuture<>();
@@ -382,8 +375,9 @@ class ReplicaStateManager {
         ReplicaStateContext context = getContext(groupId);
 
         synchronized (context) {
-            LOG.info("qqq Trying to reserve replica [groupId={}, leaseStartTime={}, replicaState={}, reservedForPrimary={}].",
+            LOG.debug("Trying to reserve replica [groupId={}, leaseStartTime={}, replicaState={}, reservedForPrimary={}].",
                     groupId, leaseStartTime, context.replicaState, context.reservedForPrimary);
+
             ReplicaState state = context.replicaState;
 
             if (state == ReplicaState.STOPPING || state == ReplicaState.STOPPED) {
@@ -395,8 +389,9 @@ class ReplicaStateManager {
                     throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
                 }
             } else if (state == ReplicaState.RESTART_PLANNED) {
+                // Explicitly release reservation if the replica is going to restart, otherwise placement driver will always try to reserve
+                // it again before the replica stopping begins.
                 context.releaseReservation();
-                //context.reserve(groupId, leaseStartTime);
             } else {
                 context.reserve(groupId, leaseStartTime);
             }
@@ -523,7 +518,7 @@ class ReplicaStateManager {
                         this.leaseStartTime));
             }
 
-            LOG.info("qqq Reserving replica [groupId={}, leaseStartTime={}].", groupId, leaseStartTime);
+            LOG.debug("Reserving replica [groupId={}, leaseStartTime={}].", groupId, leaseStartTime);
 
             this.leaseStartTime = leaseStartTime;
             this.reservedForPrimary = true;
