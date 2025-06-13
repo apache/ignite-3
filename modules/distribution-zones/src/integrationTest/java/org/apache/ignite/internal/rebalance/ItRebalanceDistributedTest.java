@@ -41,7 +41,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -64,6 +63,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -95,7 +95,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -254,7 +253,6 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -294,8 +292,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @Timeout(120)
-// TODO https://issues.apache.org/jira/browse/IGNITE-25074
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
@@ -448,6 +444,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         alterZone(node, ZONE_NAME, 2);
 
+        nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+
         waitPartitionAssignmentsSyncedToExpected(TABLE_NAME, 0, 2);
         waitPartitionAssignmentsSyncedToExpected(TABLE_NAME_2, 0, 2);
         waitPartitionAssignmentsSyncedToExpected(TABLE_NAME_3, 0, 2);
@@ -574,6 +572,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         ((JraftServerImpl) leaderNode.raftManager.server()).stopBlockMessages(partitionNodeId);
 
+        nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
         checkPartitionNodes(0, 3);
@@ -619,6 +619,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         alterZone(node, ZONE_NAME, 3);
 
+        nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
         checkPartitionNodes(0, 3);
@@ -631,9 +633,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTableWithOnePartition(node, TABLE_NAME, ZONE_NAME, 3, true);
 
+        // Later in the test, as part of the reaction to the replica factor reduction, the zone storage will be destroyed,
+        // so to verify the correctness of the deletion, it is necessary to make sure that the storage was initially created.
+        if (colocationEnabled()) {
+            nodes.forEach(
+                    n -> assertNotNull(
+                            n.partitionReplicaLifecycleManager.txStatePartitionStorage(getInternalTable(node, TABLE_NAME).zoneId(), 0)));
+        }
+
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionStableAssignments(node, 0);
 
         changeTableReplicasForSinglePartition(node, ZONE_NAME, 2);
+
+        nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -1164,6 +1176,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final CatalogManager catalogManager;
 
+        final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+
         private final SchemaSyncService schemaSyncService;
 
         private final ClockWaiter clockWaiter;
@@ -1479,7 +1493,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftManager,
                     partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
-                    ForkJoinPool.commonPool(),
+                    threadPoolsManager.tableIoExecutor(),
                     replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                             .thenApply(Entry::value)
             ));
@@ -1524,7 +1538,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService(), failureManager);
 
-            var replicaLifecycleManager = new PartitionReplicaLifecycleManager(
+            partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                     catalogManager,
                     replicaManager,
                     distributionZoneManager,
@@ -1582,7 +1596,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     transactionInflights,
                     indexMetaStorage,
                     logStorageFactory,
-                    replicaLifecycleManager,
+                    partitionReplicaLifecycleManager,
                     nodeProperties,
                     minTimeCollectorService,
                     systemDistributedConfiguration
@@ -1672,6 +1686,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     dataStorageMgr,
                     schemaManager,
                     sharedTxStateStorage,
+                    partitionReplicaLifecycleManager,
                     tableManager,
                     indexManager
             )).thenComposeAsync(componentFuts -> {
@@ -1816,10 +1831,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) {
         InternalTable internalTable = getInternalTable(node, tableName);
 
-        verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
-                .destroyPartition(partitionId);
-        verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
-                .destroyTxStateStorage(partitionId);
+        if (colocationEnabled()) {
+            // Assert that zone tx state storage was removed.
+            assertNull(node.partitionReplicaLifecycleManager.txStatePartitionStorage(internalTable.zoneId(), partitionId));
+        } else {
+            verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                    .destroyPartition(partitionId);
+            verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                    .destroyTxStateStorage(partitionId);
+        }
     }
 
     private static void throwExceptionOnInvokeDestroyPartitionStorages(Node node, String tableName, int partitionId) {

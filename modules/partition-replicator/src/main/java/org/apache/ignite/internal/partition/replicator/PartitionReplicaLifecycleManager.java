@@ -1394,6 +1394,7 @@ public class PartitionReplicaLifecycleManager extends
                     }
 
                     assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
+                            + ", groupId=" + replicaGrpId
                             + ", stable=" + stableAssignments
                             + ", pending=" + pendingAssignments
                             + ", localName=" + localNode().name() + "].";
