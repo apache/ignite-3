@@ -43,6 +43,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -66,6 +67,11 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     @AfterEach
     void stopLogInspector() {
         appendEntriesInterceptorInspector.stop();
+    }
+
+    @RepeatedTest(1000)
+    void laggingSchemasPreventPartitionDataReplicationOther() throws Exception {
+        laggingSchemasPreventPartitionDataReplication();
     }
 
     /**
