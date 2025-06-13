@@ -951,12 +951,13 @@ public class ConfigurationUtil {
      */
     public static void ignoreLegacyKeys(SuperRoot roots, Map<String, ?> prefixMap) {
         roots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
-            private Map<String, ?> map = prefixMap;
+            /** Map that correspond to current recursive call. */
+            private Map<String, ?> currentMap = prefixMap;
 
             @Override
             protected Object doVisitLegacyLeafNode(Field field, String key, Serializable val, boolean isDeprecated) {
                 if (!isDeprecated) {
-                    map.remove(key);
+                    currentMap.remove(key);
                 }
 
                 return null;
@@ -964,35 +965,35 @@ public class ConfigurationUtil {
 
             @Override
             protected Object doVisitInnerNode(Field field, String key, InnerNode node) {
-                if (!map.containsKey(key)) {
+                if (!currentMap.containsKey(key)) {
                     return null;
                 }
 
-                Map<String, ?> prev = map;
-                map = (Map<String, ?>) map.get(key);
+                Map<String, ?> prev = currentMap;
+                currentMap = (Map<String, ?>) currentMap.get(key);
 
                 node.traverseChildren(this, true);
 
-                map = prev;
+                currentMap = prev;
 
                 return null;
             }
 
             @Override
             protected Object doVisitLegacyInnerNode(Field field, String key, InnerNode node, boolean isDeprecated) {
-                map.remove(key);
+                currentMap.remove(key);
 
                 return null;
             }
 
             @Override
             protected Object doVisitNamedListNode(Field field, String key, NamedListNode<?> node) {
-                if (!map.containsKey(key)) {
+                if (!currentMap.containsKey(key)) {
                     return null;
                 }
 
-                Map<String, ?> prev = map;
-                map = (Map<String, ? extends Serializable>) map.get(key);
+                Map<String, ?> prev = currentMap;
+                currentMap = (Map<String, ? extends Serializable>) currentMap.get(key);
 
                 for (String namedListKey : node.namedListKeys()) {
                     withTracking(field, node.internalId(namedListKey).toString(), false, false, () -> {
@@ -1002,14 +1003,14 @@ public class ConfigurationUtil {
                     });
                 }
 
-                map = prev;
+                currentMap = prev;
 
                 return null;
             }
 
             @Override
             protected Object doVisitLegacyNamedListNode(Field field, String key, NamedListNode<?> node, boolean isDeprecated) {
-                map.remove(key);
+                currentMap.remove(key);
 
                 return null;
             }

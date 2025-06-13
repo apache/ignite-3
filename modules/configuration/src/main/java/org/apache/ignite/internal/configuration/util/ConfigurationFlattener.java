@@ -30,9 +30,11 @@ import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
+import org.jetbrains.annotations.Nullable;
 
 /** Utility class that has {@link ConfigurationFlattener#createFlattenedUpdatesMap} method. */
 public class ConfigurationFlattener {
@@ -125,6 +127,22 @@ public class ConfigurationFlattener {
             this.storageData = storageData;
         }
 
+        private void putToMap(boolean mustOverride, boolean delete, Supplier<String> key, @Nullable Serializable newVal) {
+            if (mustOverride) {
+                // This branch does the unconditional update, because it is known that the value must be updated.
+                resMap.put(key.get(), delete ? null : newVal);
+            } else {
+                String currentKey = key.get();
+
+                // Here the value must not be updated, but it could be updated. This code corresponds to a scenario where node restarts on
+                // a new version of Ignite and the name of the configuration key is changed to a new one. There's a separate piece of code
+                // that deletes all usages of old name. This particular code makes sure that we re-write each value with their new keys.
+                if (!storageData.containsKey(currentKey)) {
+                    resMap.put(currentKey, newVal);
+                }
+            }
+        }
+
         /** {@inheritDoc} */
         @Override
         public Void doVisitLeafNode(Field field, String key, Serializable newVal) {
@@ -132,15 +150,7 @@ public class ConfigurationFlattener {
             Serializable oldVal = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.leafNodeVisitor(), true);
 
             // Do not put duplicates into the resulting map.
-            if (singleTreeTraversal || !Objects.deepEquals(oldVal, newVal)) {
-                resMap.put(currentKey(), this.deletion ? null : newVal);
-            } else {
-                String currentKey = currentKey();
-
-                if (!storageData.containsKey(currentKey)) {
-                    resMap.put(currentKey, newVal); // TODO Explain!
-                }
-            }
+            putToMap(singleTreeTraversal || !Objects.deepEquals(oldVal, newVal), deletion, this::currentKey, newVal);
 
             return null;
         }
@@ -247,29 +257,20 @@ public class ConfigurationFlattener {
                     Integer oldIdx = oldKeysToOrderIdxMap == null ? null : oldKeysToOrderIdxMap.get(newNodeKey);
 
                     // We should "persist" changed indexes only.
-                    if (!Objects.equals(newIdx, oldIdx) || singleTreeTraversal || newNamedElement == null) {
-                        String orderKey = currentKey() + NamedListNode.ORDER_IDX;
-
-                        resMap.put(orderKey, deletion || newNamedElement == null ? null : newIdx);
-                    }
-
-                    String orderKey = currentKey() + NamedListNode.ORDER_IDX;
-                    if (!storageData.containsKey(orderKey)) {
-                        resMap.put(orderKey, newIdx);
-                    }
+                    putToMap(
+                            !Objects.equals(newIdx, oldIdx) || singleTreeTraversal || newNamedElement == null,
+                            deletion || newNamedElement == null,
+                            () -> currentKey() + NamedListNode.ORDER_IDX,
+                            newIdx
+                    );
 
                     // If it's creation / deletion / rename.
-                    if (singleTreeTraversal || oldNamedElement == null || newNamedElement == null
-                            || !oldNodeKey.equals(newNodeKey)
-                    ) {
-                        String nameKey = currentKey() + NamedListNode.NAME;
-
-                        resMap.put(nameKey, deletion || newNamedElement == null ? null : newNodeKey);
-                    }
-                    String nameKey = currentKey() + NamedListNode.NAME;
-                    if (!storageData.containsKey(nameKey)) {
-                        resMap.put(nameKey, newNodeKey);
-                    }
+                    putToMap(
+                            singleTreeTraversal || oldNamedElement == null || newNamedElement == null || !oldNodeKey.equals(newNodeKey),
+                            deletion || newNamedElement == null,
+                            () -> currentKey() + NamedListNode.NAME,
+                            newNodeKey
+                    );
 
                     if (singleTreeTraversal) {
                         if (deletion) {
@@ -295,6 +296,7 @@ public class ConfigurationFlattener {
                         }
                     }
 
+                    // Don't use "putToMap" method here because it would be too complicated due to all the conditions above.
                     String idKey = idKey(namedListFullKey, newNodeKey);
                     if (!storageData.containsKey(idKey)) {
                         resMap.put(idKey, newNodeInternalId);
