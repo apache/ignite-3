@@ -187,7 +187,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
             return completedFuture(List.of(
                     MapReduceJob.<Void, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NoOpJob.class).build())
-                            .nodes(taskContext.ignite().clusterNodes())
+                            .nodes(taskContext.ignite().cluster().nodes())
                             .build()
             ));
         }
