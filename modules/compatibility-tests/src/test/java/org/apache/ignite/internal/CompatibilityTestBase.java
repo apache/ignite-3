@@ -49,7 +49,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @TestInstance(Lifecycle.PER_CLASS)
 @ParameterizedClass
 @MethodSource("baseVersions")
-public abstract class PersistenceTestBase extends BaseIgniteAbstractTest {
+public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
@@ -130,12 +130,23 @@ public abstract class PersistenceTestBase extends BaseIgniteAbstractTest {
     }
 
     private static List<String> baseVersions() {
+        return baseVersions(2);
+    }
+
+    /**
+     * Returns a list of base versions. If {@code testAllVersions} system property is set, then all versions are returned, otherwise, at
+     * most {@code numLatest} are taken.
+     *
+     * @param numLatest Number of latest versions to take by default.
+     * @return A list of base versions for a test.
+     */
+    protected static List<String> baseVersions(int numLatest) {
         List<String> versions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).collect(Collectors.toList());
         if (System.getProperty("testAllVersions") != null) {
             return versions;
         } else {
             // Take at most two latest versions by default.
-            int fromIndex = Math.max(versions.size() - 2, 0);
+            int fromIndex = Math.max(versions.size() - numLatest, 0);
             return versions.subList(fromIndex, versions.size());
         }
     }

@@ -23,8 +23,12 @@ import static org.hamcrest.Matchers.contains;
 import java.util.List;
 import org.apache.ignite.Ignite;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
-class ItCompatibilityTest extends PersistenceTestBase {
+@ParameterizedClass
+@MethodSource("baseVersions")
+class ItCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
         baseIgnite.sql().execute(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
@@ -35,5 +39,9 @@ class ItCompatibilityTest extends PersistenceTestBase {
     void testCompatibility() {
         List<List<Object>> result = sql("SELECT * FROM TEST");
         assertThat(result, contains(contains(1, "str")));
+    }
+
+    private static List<String> baseVersions() {
+        return baseVersions(2);
     }
 }
