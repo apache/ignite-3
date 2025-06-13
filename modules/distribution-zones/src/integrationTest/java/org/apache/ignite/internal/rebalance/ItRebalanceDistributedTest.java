@@ -444,7 +444,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         alterZone(node, ZONE_NAME, 2);
 
-        nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+        if (colocationEnabled()) {
+            nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+        }
 
         waitPartitionAssignmentsSyncedToExpected(TABLE_NAME, 0, 2);
         waitPartitionAssignmentsSyncedToExpected(TABLE_NAME_2, 0, 2);
@@ -572,7 +574,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         ((JraftServerImpl) leaderNode.raftManager.server()).stopBlockMessages(partitionNodeId);
 
-        nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+        if (colocationEnabled()) {
+            nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+        }
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -619,7 +623,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         alterZone(node, ZONE_NAME, 3);
 
-        nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+        if (colocationEnabled()) {
+            nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+        }
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -645,7 +651,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         changeTableReplicasForSinglePartition(node, ZONE_NAME, 2);
 
-        nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+        if (colocationEnabled()) {
+            nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
+        }
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
