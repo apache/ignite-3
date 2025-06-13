@@ -8,11 +8,11 @@ Project
       est: (rows=44786183521985440000000000)
     Project
         fieldNames: [D_WEEK_SEQ1, SUN_SALES1, MON_SALES1, TUE_SALES1, WED_SALES1, THU_SALES1, FRI_SALES1, SAT_SALES1]
-        projection: [D_WEEK_SEQ#0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+        projection: [D_WEEK_SEQ$0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
         est: (rows=17279310079203)
       MergeJoin
-          predicate: =(D_WEEK_SEQ, D_WEEK_SEQ#0)
-          fieldNames: [D_WEEK_SEQ, D_YEAR, D_WEEK_SEQ#0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+          predicate: =(D_WEEK_SEQ, D_WEEK_SEQ$0)
+          fieldNames: [D_WEEK_SEQ, D_YEAR, D_WEEK_SEQ$0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
           type: inner
           est: (rows=17279310079203)
         Exchange
@@ -67,11 +67,11 @@ Project
                       est: (rows=73049)
     Project
         fieldNames: [D_WEEK_SEQ2, SUN_SALES2, MON_SALES2, TUE_SALES2, WED_SALES2, THU_SALES2, FRI_SALES2, SAT_SALES2, $f8]
-        projection: [D_WEEK_SEQ#0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES, -(D_WEEK_SEQ#0, 53)]
+        projection: [D_WEEK_SEQ$0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES, -(D_WEEK_SEQ$0, 53)]
         est: (rows=17279310079203)
       HashJoin
-          predicate: =(D_WEEK_SEQ, D_WEEK_SEQ#0)
-          fieldNames: [D_WEEK_SEQ, D_YEAR, D_WEEK_SEQ#0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+          predicate: =(D_WEEK_SEQ, D_WEEK_SEQ$0)
+          fieldNames: [D_WEEK_SEQ, D_YEAR, D_WEEK_SEQ$0, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
           type: inner
           est: (rows=17279310079203)
         Exchange

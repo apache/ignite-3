@@ -14,11 +14,11 @@ Limit
           est: (rows=2840543529)
         Project
             fieldNames: [S_STORE_NAME1, D_WEEK_SEQ1, S_STORE_ID1, SUN_SALES1, MON_SALES1, TUE_SALES1, WED_SALES1, THU_SALES1, FRI_SALES1, SAT_SALES1]
-            projection: [S_STORE_NAME, D_WEEK_SEQ#0, S_STORE_ID, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+            projection: [S_STORE_NAME, D_WEEK_SEQ$0, S_STORE_ID, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
             est: (rows=2840543529)
           HashJoin
-              predicate: =(D_WEEK_SEQ, D_WEEK_SEQ#0)
-              fieldNames: [D_MONTH_SEQ, D_WEEK_SEQ, S_STORE_SK, S_STORE_ID, S_STORE_NAME, D_WEEK_SEQ#0, SS_STORE_SK, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+              predicate: =(D_WEEK_SEQ, D_WEEK_SEQ$0)
+              fieldNames: [D_MONTH_SEQ, D_WEEK_SEQ, S_STORE_SK, S_STORE_ID, S_STORE_NAME, D_WEEK_SEQ$0, SS_STORE_SK, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
               type: inner
               est: (rows=2840543529)
             Exchange
@@ -69,11 +69,11 @@ Limit
                           est: (rows=73049)
       Project
           fieldNames: [D_WEEK_SEQ2, S_STORE_ID2, SUN_SALES2, MON_SALES2, TUE_SALES2, WED_SALES2, THU_SALES2, FRI_SALES2, SAT_SALES2, $f9]
-          projection: [D_WEEK_SEQ#0, S_STORE_ID, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES, -(D_WEEK_SEQ#0, 52)]
+          projection: [D_WEEK_SEQ$0, S_STORE_ID, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES, -(D_WEEK_SEQ$0, 52)]
           est: (rows=2840543529)
         HashJoin
-            predicate: =(D_WEEK_SEQ, D_WEEK_SEQ#0)
-            fieldNames: [D_MONTH_SEQ, D_WEEK_SEQ, S_STORE_SK, S_STORE_ID, D_WEEK_SEQ#0, SS_STORE_SK, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
+            predicate: =(D_WEEK_SEQ, D_WEEK_SEQ$0)
+            fieldNames: [D_MONTH_SEQ, D_WEEK_SEQ, S_STORE_SK, S_STORE_ID, D_WEEK_SEQ$0, SS_STORE_SK, SUN_SALES, MON_SALES, TUE_SALES, WED_SALES, THU_SALES, FRI_SALES, SAT_SALES]
             type: inner
             est: (rows=2840543529)
           Exchange

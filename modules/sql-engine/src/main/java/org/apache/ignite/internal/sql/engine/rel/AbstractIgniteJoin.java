@@ -308,7 +308,7 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
 
             fieldNames = SqlValidatorUtil.uniquify(
                     fieldNames,
-                    (original, attempt, size) -> original + "#" + attempt,
+                    (original, attempt, size) -> original + "$" + attempt,
                     typeFactory.getTypeSystem().isSchemaCaseSensitive()
             );
         }

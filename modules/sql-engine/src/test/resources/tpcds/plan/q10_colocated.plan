@@ -19,11 +19,11 @@ Limit
             projection: [CD_GENDER, CD_MARITAL_STATUS, CD_EDUCATION_STATUS, CD_PURCHASE_ESTIMATE, CD_CREDIT_RATING, CD_DEP_COUNT, CD_DEP_EMPLOYED_COUNT, CD_DEP_COLLEGE_COUNT]
             est: (rows=25000)
           Filter
-              predicate: OR(IS NOT NULL(i), IS NOT NULL(i#0))
+              predicate: OR(IS NOT NULL(i), IS NOT NULL(i$0))
               est: (rows=25000)
             CorrelatedNestedLoopJoin
                 predicate: true
-                fieldNames: [C_CUSTOMER_SK, CD_GENDER, CD_MARITAL_STATUS, CD_EDUCATION_STATUS, CD_PURCHASE_ESTIMATE, CD_CREDIT_RATING, CD_DEP_COUNT, CD_DEP_EMPLOYED_COUNT, CD_DEP_COLLEGE_COUNT, i, i#0]
+                fieldNames: [C_CUSTOMER_SK, CD_GENDER, CD_MARITAL_STATUS, CD_EDUCATION_STATUS, CD_PURCHASE_ESTIMATE, CD_CREDIT_RATING, CD_DEP_COUNT, CD_DEP_EMPLOYED_COUNT, CD_DEP_COLLEGE_COUNT, i, i$0]
                 type: left
                 correlates: [$cor5]
                 est: (rows=100000)

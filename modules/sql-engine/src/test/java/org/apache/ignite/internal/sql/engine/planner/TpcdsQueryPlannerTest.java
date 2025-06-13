@@ -111,7 +111,7 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
             planLocation = targetDirectory.resolve(String.format("variant_q%d.plan", numericId));
         } else {
             planLocation = colocationEnabled()
-                    ? targetDirectory.resolve(String.format("%s_colocated.plan", numericId))
+                    ? targetDirectory.resolve(String.format("q%s_colocated.plan", numericId))
                     : targetDirectory.resolve(String.format("q%s.plan", numericId));
         }
 
