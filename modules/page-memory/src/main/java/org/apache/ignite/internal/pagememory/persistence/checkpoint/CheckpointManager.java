@@ -365,19 +365,4 @@ public class CheckpointManager {
     public void triggerCompaction() {
         compactor.triggerCompaction();
     }
-
-    /**
-     * Callback on destruction of the partition of the corresponding group.
-     *
-     * <p>Prepares the checkpointer and compactor for partition destruction.
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @return Future that will complete when the callback completes.
-     */
-    public CompletableFuture<Void> onPartitionDestruction(GroupPartitionId groupPartitionId) {
-        return CompletableFuture.allOf(
-                checkpointer.prepareToDestroyPartition(groupPartitionId),
-                compactor.prepareToDestroyPartition(groupPartitionId)
-        );
-    }
 }

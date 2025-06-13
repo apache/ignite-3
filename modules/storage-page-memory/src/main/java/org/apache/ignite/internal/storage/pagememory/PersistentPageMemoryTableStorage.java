@@ -33,7 +33,10 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
@@ -353,13 +356,40 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     private CompletableFuture<Void> destroyPartitionPhysically(GroupPartitionId groupPartitionId) {
-        dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
+        FilePageStore store = dataRegion.filePageStoreManager().getStore(groupPartitionId);
 
-        dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+        assert store != null : groupPartitionId;
 
-        return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
-                .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
-                .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
+        store.markToDestroy();
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
+        CheckpointManager checkpointManager = dataRegion.checkpointManager();
+
+        CheckpointListener listener = new CheckpointListener() {
+            @Override
+            public void afterCheckpointEnd(CheckpointProgress progress) {
+                checkpointManager.removeCheckpointListener(this);
+
+                try {
+                    dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
+
+                    dataRegion.partitionMetaManager().removeMeta(groupPartitionId);
+
+                    future.complete(null);
+                } catch (Exception e) {
+                    future.completeExceptionally(new StorageException("Couldn't destroy partition: " + groupPartitionId, e));
+                }
+            }
+        };
+
+        checkpointManager.addCheckpointListener(listener, dataRegion);
+
+        CheckpointProgress checkpoint = dataRegion.checkpointManager().forceCheckpoint("Partition destruction");
+
+        return checkpoint.futureFor(CheckpointState.FINISHED)
+                .thenCompose(v -> future)
+                .thenCompose(v -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
     }
 
     private GroupPartitionId createGroupPartitionId(int partitionId) {
