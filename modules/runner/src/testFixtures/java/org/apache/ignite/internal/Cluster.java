@@ -18,6 +18,7 @@
 package org.apache.ignite.internal;
 
 import static java.util.Collections.nCopies;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
@@ -47,7 +48,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
@@ -68,10 +68,12 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -453,7 +455,7 @@ public class Cluster {
      */
     public Ignite startNode(int index, String nodeBootstrapConfigTemplate) {
         ServerRegistration registration = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
-        assertThat("nodeIndex=" + index, registration.registrationFuture(), willSucceedIn(20, TimeUnit.SECONDS));
+        assertThat("nodeIndex=" + index, registration.registrationFuture(), willSucceedIn(20, SECONDS));
         Ignite newIgniteNode = registration.server().api();
 
         assertEquals(newIgniteNode, nodes.get(index));
@@ -753,6 +755,39 @@ public class Cluster {
                 throw new IllegalStateException("Could not initiate leadership transfer to " + targetLeaderConsistentId + " in time");
             }
         }
+    }
+
+    /**
+     * Transfers primary replica of given replication group to the node with given index.
+     *
+     * @param nodeIndex Destination node index.
+     * @param groupId ID of the replication group.
+     */
+    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
+        String proposedPrimaryName = node(nodeIndex).name();
+
+        if (!proposedPrimaryName.equals(getPrimaryReplicaName(groupId))) {
+
+            String newPrimaryName = NodeUtils.transferPrimary(
+                    runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
+                    groupId,
+                    proposedPrimaryName
+            );
+
+            assertEquals(proposedPrimaryName, newPrimaryName);
+        }
+    }
+
+    private @Nullable String getPrimaryReplicaName(ReplicationGroupId groupId) {
+        IgniteImpl node = unwrapIgniteImpl(aliveNode());
+
+        CompletableFuture<ReplicaMeta> primary = node.placementDriver()
+                .awaitPrimaryReplica(groupId, node.clockService().now(), 30, SECONDS);
+
+        assertThat(primary, willCompleteSuccessfully());
+
+        @Nullable ReplicaMeta replicaMeta = primary.join();
+        return replicaMeta != null ? replicaMeta.getLeaseholder() : null;
     }
 
     /**
