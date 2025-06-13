@@ -441,7 +441,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     }
 
     private void transferPrimaryOnSolePartitionTo(int nodeIndex) throws InterruptedException {
-        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME));
+        cluster.transferPrimaryTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME));
     }
 
     /**

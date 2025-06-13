@@ -785,7 +785,8 @@ public class Cluster {
 
         assertThat(primary, willCompleteSuccessfully());
 
-        return primary.join().getLeaseholder();
+        @Nullable ReplicaMeta replicaMeta = primary.join();
+        return replicaMeta != null ? replicaMeta.getLeaseholder() : null;
     }
 
     /**
