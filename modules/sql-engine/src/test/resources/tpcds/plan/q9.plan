@@ -1,75 +1,75 @@
 Project
     fieldNames: [BUCKET1, BUCKET2, BUCKET3, BUCKET4, BUCKET5]
-    projection: [CASE(>(EXPR$0, 98972190), EXPR$00, EXPR$01), CASE(>(EXPR$02, 160856845), EXPR$03, EXPR$04), CASE(>(EXPR$05, 12733327), EXPR$06, EXPR$07), CASE(>(EXPR$08, 96251173), EXPR$09, EXPR$010), CASE(>(EXPR$011, 80049606), EXPR$012, EXPR$013)]
+    projection: [CASE(>(EXPR$0, 98972190), EXPR$0$0, EXPR$0$1), CASE(>(EXPR$0$2, 160856845), EXPR$0$3, EXPR$0$4), CASE(>(EXPR$0$5, 12733327), EXPR$0$6, EXPR$0$7), CASE(>(EXPR$0$8, 96251173), EXPR$0$9, EXPR$0$10), CASE(>(EXPR$0$11, 80049606), EXPR$0$12, EXPR$0$13)]
     est: (rows=1)
   NestedLoopJoin
       predicate: true
-      fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09, EXPR$010, EXPR$011, EXPR$012, EXPR$013]
+      fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4, EXPR$0$5, EXPR$0$6, EXPR$0$7, EXPR$0$8, EXPR$0$9, EXPR$0$10, EXPR$0$11, EXPR$0$12, EXPR$0$13]
       type: left
       est: (rows=1)
     NestedLoopJoin
         predicate: true
-        fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09, EXPR$010, EXPR$011, EXPR$012]
+        fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4, EXPR$0$5, EXPR$0$6, EXPR$0$7, EXPR$0$8, EXPR$0$9, EXPR$0$10, EXPR$0$11, EXPR$0$12]
         type: left
         est: (rows=1)
       NestedLoopJoin
           predicate: true
-          fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09, EXPR$010, EXPR$011]
+          fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4, EXPR$0$5, EXPR$0$6, EXPR$0$7, EXPR$0$8, EXPR$0$9, EXPR$0$10, EXPR$0$11]
           type: left
           est: (rows=1)
         NestedLoopJoin
             predicate: true
-            fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09, EXPR$010]
+            fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4, EXPR$0$5, EXPR$0$6, EXPR$0$7, EXPR$0$8, EXPR$0$9, EXPR$0$10]
             type: left
             est: (rows=1)
           NestedLoopJoin
               predicate: true
-              fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09]
+              fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4, EXPR$0$5, EXPR$0$6, EXPR$0$7, EXPR$0$8, EXPR$0$9]
               type: left
               est: (rows=1)
             NestedLoopJoin
                 predicate: true
-                fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08]
+                fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4, EXPR$0$5, EXPR$0$6, EXPR$0$7, EXPR$0$8]
                 type: left
                 est: (rows=1)
               NestedLoopJoin
                   predicate: true
-                  fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07]
+                  fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4, EXPR$0$5, EXPR$0$6, EXPR$0$7]
                   type: left
                   est: (rows=1)
                 NestedLoopJoin
                     predicate: true
-                    fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06]
+                    fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4, EXPR$0$5, EXPR$0$6]
                     type: left
                     est: (rows=1)
                   NestedLoopJoin
                       predicate: true
-                      fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05]
+                      fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4, EXPR$0$5]
                       type: left
                       est: (rows=1)
                     NestedLoopJoin
                         predicate: true
-                        fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04]
+                        fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3, EXPR$0$4]
                         type: left
                         est: (rows=1)
                       NestedLoopJoin
                           predicate: true
-                          fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03]
+                          fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2, EXPR$0$3]
                           type: left
                           est: (rows=1)
                         NestedLoopJoin
                             predicate: true
-                            fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02]
+                            fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1, EXPR$0$2]
                             type: left
                             est: (rows=1)
                           NestedLoopJoin
                               predicate: true
-                              fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01]
+                              fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0, EXPR$0$1]
                               type: left
                               est: (rows=1)
                             NestedLoopJoin
                                 predicate: true
-                                fieldNames: [R_REASON_SK, EXPR$0, EXPR$00]
+                                fieldNames: [R_REASON_SK, EXPR$0, EXPR$0$0]
                                 type: left
                                 est: (rows=1)
                               NestedLoopJoin

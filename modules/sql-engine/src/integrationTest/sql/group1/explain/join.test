@@ -14,8 +14,8 @@ SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('MergeJoinConverterRule', 'NestedLoo
   * FROM t1 JOIN t2 ON t1.x = t2.y
 ----
 HashJoin
-    predicate: =(X, X0)
-    fieldNames: [X, X0]
+    predicate: =(X, X$0)
+    fieldNames: [X, X$0]
     type: inner
     est: (rows=1500)
   TableFunctionScan
@@ -36,8 +36,8 @@ SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('MergeJoinConverterRule', 'NestedLoo
   * FROM t1 LEFT JOIN t2 ON t1.x = t2.y
 ----
 HashJoin
-    predicate: =(X, X0)
-    fieldNames: [X, X0]
+    predicate: =(X, X$0)
+    fieldNames: [X, X$0]
     type: left
     est: (rows=1585)
   TableFunctionScan
@@ -58,8 +58,8 @@ SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('MergeJoinConverterRule', 'NestedLoo
   * FROM t1 RIGHT JOIN t2 ON t1.x = t2.y
 ----
 HashJoin
-    predicate: =(X, X0)
-    fieldNames: [X, X0]
+    predicate: =(X, X$0)
+    fieldNames: [X, X$0]
     type: right
     est: (rows=1585)
   TableFunctionScan
@@ -80,8 +80,8 @@ SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('MergeJoinConverterRule', 'NestedLoo
   * FROM t1 FULL JOIN t2 ON t1.x = t2.y
 ----
 HashJoin
-    predicate: =(X, X0)
-    fieldNames: [X, X0]
+    predicate: =(X, X$0)
+    fieldNames: [X, X$0]
     type: full
     est: (rows=1670)
   TableFunctionScan
@@ -103,8 +103,8 @@ SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('HashJoinConverter', 'NestedLoopJoin
   * FROM t1 JOIN t2 ON t1.x = t2.y ORDER BY t1.x
 ----
 MergeJoin
-    predicate: =(X, X0)
-    fieldNames: [X, X0]
+    predicate: =(X, X$0)
+    fieldNames: [X, X$0]
     type: inner
     est: (rows=1500)
   Sort
@@ -131,8 +131,8 @@ SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('HashJoinConverter', 'NestedLoopJoin
   * FROM t1 LEFT JOIN t2 ON t1.x = t2.y ORDER BY t1.x
 ----
 MergeJoin
-    predicate: =(X, X0)
-    fieldNames: [X, X0]
+    predicate: =(X, X$0)
+    fieldNames: [X, X$0]
     type: left
     est: (rows=1585)
   Sort
@@ -162,8 +162,8 @@ Sort
     collation: [X ASC]
     est: (rows=1585)
   MergeJoin
-      predicate: =(X, X0)
-      fieldNames: [X, X0]
+      predicate: =(X, X$0)
+      fieldNames: [X, X$0]
       type: right
       est: (rows=1585)
     Sort
@@ -193,8 +193,8 @@ Sort
     collation: [X ASC]
     est: (rows=1670)
   MergeJoin
-      predicate: =(X, X0)
-      fieldNames: [X, X0]
+      predicate: =(X, X$0)
+      fieldNames: [X, X$0]
       type: full
       est: (rows=1670)
     Sort
@@ -260,7 +260,7 @@ SELECT  /*+ ENFORCE_JOIN_ORDER */ * FROM t1, t2
 ----
 NestedLoopJoin
     predicate: true
-    fieldNames: [X, X0]
+    fieldNames: [X, X$0]
     type: inner
     est: (rows=10000)
   TableFunctionScan
@@ -282,7 +282,7 @@ SELECT  /*+ ENFORCE_JOIN_ORDER */ * FROM t1 CROSS JOIN t2
 ----
 NestedLoopJoin
     predicate: true
-    fieldNames: [X, X0]
+    fieldNames: [X, X$0]
     type: inner
     est: (rows=10000)
   TableFunctionScan
@@ -293,3 +293,56 @@ NestedLoopJoin
       fieldNames: [X]
       invocation: SYSTEM_RANGE(1, 35)
       est: (rows=100)
+
+# anti join
+
+statement ok
+CREATE TABLE dst (id INT PRIMARY KEY, val INT);
+
+explain plan
+MERGE INTO dst 
+USING (SELECT * FROM system_range(1, 25)) AS src
+   ON dst.id = src.x
+ WHEN NOT MATCHED THEN INSERT VALUES (x, x)
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.DST
+          fieldNames: [ROWCOUNT]
+          type: MERGE
+          est: (rows=1)
+        Exchange
+            distribution: table PUBLIC.DST in zone "Default" by [X]
+            est: (rows=1)
+          Project
+              fieldNames: [X, X0]
+              projection: [CAST(X):INTEGER NOT NULL, CAST(X):INTEGER NOT NULL]
+              est: (rows=1)
+            HashJoin
+                predicate: =(ID0, X)
+                fieldNames: [X]
+                type: anti
+                est: (rows=1)
+              TableFunctionScan
+                  fieldNames: [X]
+                  invocation: SYSTEM_RANGE(1, 25)
+                  est: (rows=100)
+              Exchange
+                  distribution: single
+                  est: (rows=1)
+                TableScan
+                    table: PUBLIC.DST
+                    fieldNames: [ID0]
+                    projection: [CAST(ID):BIGINT NOT NULL]
+                    est: (rows=1)
