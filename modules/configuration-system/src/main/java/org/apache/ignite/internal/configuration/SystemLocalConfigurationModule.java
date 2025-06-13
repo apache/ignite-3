@@ -45,8 +45,8 @@ public class SystemLocalConfigurationModule implements ConfigurationModule {
 
     @Override
     public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
-        var rootView = (SystemLocalExtensionView) superRootChange.viewRoot(SystemLocalExtensionConfiguration.KEY);
-        var rootChange = (SystemLocalExtensionChange) superRootChange.changeRoot(SystemLocalExtensionConfiguration.KEY);
+        SystemLocalExtensionView rootView = superRootChange.viewRoot(SystemLocalExtensionConfiguration.KEY);
+        SystemLocalExtensionChange rootChange = superRootChange.changeRoot(SystemLocalExtensionConfiguration.KEY);
 
         CriticalWorkersView criticalWorkersView = rootView.criticalWorkers();
         CriticalWorkersChange criticalWorkersChange = rootChange.changeSystem().changeCriticalWorkers();

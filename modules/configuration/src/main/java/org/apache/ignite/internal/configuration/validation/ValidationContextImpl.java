@@ -104,13 +104,13 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
 
     /** {@inheritDoc} */
     @Override
-    public <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey) {
+    public <ROOT> ROOT getOldRoot(RootKey<?, ROOT, ?> rootKey) {
         return (ROOT) oldRoots.getRoot(rootKey);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey) {
+    public <ROOT> ROOT getNewRoot(RootKey<?, ROOT, ?> rootKey) {
         return (ROOT) newRoots.getRoot(rootKey);
     }
 
