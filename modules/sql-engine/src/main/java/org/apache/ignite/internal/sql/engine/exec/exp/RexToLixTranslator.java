@@ -93,7 +93,6 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -1555,9 +1554,8 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
             Expressions.call(root, BuiltInMethod.DATA_CONTEXT_GET.method,
                 Expressions.constant("?" + dynamicParam.getIndex())),
             storageType);*/
-    final Type paramType = ((IgniteTypeFactory) typeFactory).getResultClass(dynamicParam.getType());
-    final Expression ctxGet = Expressions.call(root, IgniteMethod.CONTEXT_GET_PARAMETER_VALUE.method(),
-            Expressions.constant("?" + dynamicParam.getIndex()), Expressions.constant(paramType));
+    final Expression ctxGet = Expressions.call(root, BuiltInMethod.DATA_CONTEXT_GET.method,
+            Expressions.constant("?" + dynamicParam.getIndex()));
     final Expression valueExpression =  ConverterUtils.convert(ctxGet, dynamicParam.getType());
 
     final ParameterExpression valueVariable =
