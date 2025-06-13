@@ -580,7 +580,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clockService);
 
-        tablesVv = new IncrementalVersionedValue<>(registry);
+        tablesVv = new IncrementalVersionedValue<>(registry, 100, null);
 
         localPartitionsVv = new IncrementalVersionedValue<>(dependingOn(tablesVv));
 
