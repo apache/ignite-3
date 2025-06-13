@@ -367,7 +367,7 @@ public class JdbcMetadataCatalog {
     }
 
     /**
-     * Gets the scale of the specified column.
+     * Resolves the scale of the specified column.
      * Returns {@link ColumnMetadata#UNDEFINED_SCALE} if scale is not valid for this type.
      *
      * @return Number of digits of scale.

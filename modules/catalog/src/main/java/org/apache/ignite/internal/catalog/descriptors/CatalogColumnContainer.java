@@ -29,7 +29,7 @@ public interface CatalogColumnContainer {
     String name();
 
     /**
-     * Returns a list of column descriptors for the described object.
+     * Returns a list of column descriptors of the described object.
      */
     List<CatalogTableColumnDescriptor> columns();
 }
