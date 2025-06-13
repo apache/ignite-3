@@ -293,3 +293,56 @@ NestedLoopJoin
       fieldNames: [X]
       invocation: SYSTEM_RANGE(1, 35)
       est: (rows=100)
+
+# anti join
+
+statement ok
+CREATE TABLE dst (id INT PRIMARY KEY, val INT);
+
+explain plan
+MERGE INTO dst 
+USING (SELECT * FROM system_range(1, 25)) AS src
+   ON dst.id = src.x
+ WHEN NOT MATCHED THEN INSERT VALUES (x, x)
+----
+Project
+    fieldNames: [ROWCOUNT]
+    projection: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      fieldNames: [$f0]
+      group: []
+      aggregation: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: PUBLIC.DST
+          fieldNames: [ROWCOUNT]
+          type: MERGE
+          est: (rows=1)
+        Exchange
+            distribution: table PUBLIC.DST in zone "Default" by [X]
+            est: (rows=1)
+          Project
+              fieldNames: [X, X0]
+              projection: [CAST(X):INTEGER NOT NULL, CAST(X):INTEGER NOT NULL]
+              est: (rows=1)
+            HashJoin
+                predicate: =(ID0, X)
+                fieldNames: [X]
+                type: anti
+                est: (rows=1)
+              TableFunctionScan
+                  fieldNames: [X]
+                  invocation: SYSTEM_RANGE(1, 25)
+                  est: (rows=100)
+              Exchange
+                  distribution: single
+                  est: (rows=1)
+                TableScan
+                    table: PUBLIC.DST
+                    fieldNames: [ID0]
+                    projection: [CAST(ID):BIGINT NOT NULL]
+                    est: (rows=1)

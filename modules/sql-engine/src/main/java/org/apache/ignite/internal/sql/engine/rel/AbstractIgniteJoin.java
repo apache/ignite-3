@@ -286,6 +286,19 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
 
     @Override
     protected RelDataType deriveRowType() {
+        return deriveRowTypeAsFor(joinType);
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer
+                // Predicate is composed based on joint row type, therefore if original join doesn't projects rhs,
+                // then we have to rebuild row type just for predicate.
+                .addPredicate(condition, joinType.projectsRight() ? getRowType() : deriveRowTypeAsFor(JoinRelType.INNER))
+                .addJoinType(joinType);
+    }
+
+    private RelDataType deriveRowTypeAsFor(JoinRelType joinType) {
         List<String> fieldNames = new ArrayList<>(left.getRowType().getFieldNames());
 
         RelDataTypeFactory typeFactory = getCluster().getTypeFactory();
@@ -308,12 +321,5 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
                 fieldNames,
                 List.of()
         );
-    }
-
-    @Override
-    public IgniteRelWriter explain(IgniteRelWriter writer) {
-        return writer
-                .addPredicate(condition, getRowType())
-                .addJoinType(joinType);
     }
 }

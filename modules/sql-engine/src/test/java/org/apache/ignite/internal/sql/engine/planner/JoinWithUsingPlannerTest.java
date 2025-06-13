@@ -111,7 +111,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Select all tables columns.
         assertPlan("SELECT T1.*, T2.* FROM T1 JOIN T2 USING (DEPTID)", schemas,
-                hasColumns("EMPID", "DEPTID", "NAME", "DEPTID0", "NAME0", "PARENTID"));
+                hasColumns("EMPID", "DEPTID", "NAME", "DEPTID#0", "NAME#0", "PARENTID"));
 
         // Select system columns and all table columns.
         assertPlan("SELECT T1.* FROM T1 JOIN T2 USING (DEPTID)", schemas,
@@ -159,7 +159,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Select all tables columns.
         assertPlan("SELECT T1.*, T2.* FROM T1 NATURAL JOIN T2", schemas,
-                hasColumns("EMPID", "DEPTID", "NAME", "DEPTID0", "NAME0", "PARENTID"));
+                hasColumns("EMPID", "DEPTID", "NAME", "DEPTID#0", "NAME#0", "PARENTID"));
 
         // Select system columns and all table columns.
         // TODO https://issues.apache.org/jira/browse/CALCITE-4923
