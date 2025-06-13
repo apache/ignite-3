@@ -128,7 +128,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
         ReplicationGroupId solePartitionId = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
         cluster.transferLeadershipTo(nodeIndex, solePartitionId);
-        cluster.transferLeadershipTo(nodeIndex, solePartitionId);
+        cluster.transferPrimaryTo(nodeIndex, solePartitionId);
     }
 
     private CompletableFuture<?> rejectionDueToMetadataLagTriggered() {
