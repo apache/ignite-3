@@ -30,12 +30,21 @@ public class ReplicaReservationFailedException extends RuntimeException {
     /**
      * Constructor.
      *
+     * @param message Exception message.
+     */
+    ReplicaReservationFailedException(String message) {
+        super(message);
+    }
+
+    /**
+     * Constructor.
+     *
      * @param groupId Replication group ID.
      * @param leaseStartTime Lease start time.
      * @param currentReplicaState Current state of the replica.
      */
     public ReplicaReservationFailedException(ReplicationGroupId groupId, HybridTimestamp leaseStartTime, String currentReplicaState) {
-        super(format(
+        this(format(
                 "Replica reservation failed [groupId={}, leaseStartTime={}, currentReplicaState={}].",
                 groupId,
                 leaseStartTime,
