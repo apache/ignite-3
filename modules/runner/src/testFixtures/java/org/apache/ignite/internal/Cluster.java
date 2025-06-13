@@ -781,7 +781,8 @@ public class Cluster {
     private @Nullable String getPrimaryReplicaName(ReplicationGroupId groupId) {
         IgniteImpl node = unwrapIgniteImpl(aliveNode());
 
-        CompletableFuture<ReplicaMeta> primary = node.placementDriver().getPrimaryReplica(groupId, node.clockService().now());
+        CompletableFuture<ReplicaMeta> primary = node.placementDriver()
+                .awaitPrimaryReplica(groupId, node.clockService().now(), 30, TimeUnit.SECONDS);
 
         assertThat(primary, willCompleteSuccessfully());
 
