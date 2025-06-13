@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
+import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -84,10 +85,6 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         this.catalogVersion = catalogVersion;
         this.metadata = resultSetMetadata;
         this.parameterMetadata = parameterMetadata;
-    }
-
-    public IgniteSelectCount selectCountNode() {
-        return selectCountNode;
     }
 
     @Override
@@ -134,6 +131,11 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public ResultSetMetadata metadata() {
         return metadata;
+    }
+
+    @Override
+    public IgniteSelectCount getRel() {
+        return selectCountNode;
     }
 
     @Override

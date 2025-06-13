@@ -162,7 +162,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         cluster.startEmbeddedNode(0);
 
         assertFalse(
-                waitForCondition(() -> restartedIgniteImpl1.clusterNodes().size() > 1, SECONDS.toMillis(3)),
+                waitForCondition(() -> restartedIgniteImpl1.cluster().nodes().size() > 1, SECONDS.toMillis(3)),
                 "Nodes from different clusters were able to establish a connection"
         );
     }
@@ -321,11 +321,9 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     private void waitTillDataNodesBecome(int[] expectedDataNodeIndexes, int zoneId, IgniteImpl ignite) throws InterruptedException {
         int catalogVersion = ignite.catalogManager().latestCatalogVersion();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-25277 - without colocation, 10 seconds are enough, but with
-        // colocation, we have to wait longer. After this is sorted out, reduce the timeout back to 10 seconds.
         waitForCondition(
                 () -> currentDataNodes(ignite, catalogVersion, zoneId).equals(Set.of(nodeNames(expectedDataNodeIndexes))),
-                SECONDS.toMillis(30)
+                SECONDS.toMillis(10)
         );
 
         Set<String> dataNodes = currentDataNodes(ignite, catalogVersion, zoneId);

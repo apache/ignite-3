@@ -53,6 +53,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -100,7 +101,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");
 
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
     private final PartitionGroupId group1 = replicationGroupId(1000, 0);
 
@@ -938,6 +939,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private AssignmentsTracker createAssignmentsPlacementDriver() {
-        return new AssignmentsTracker(metastore, mock(FailureProcessor.class));
+        return new AssignmentsTracker(metastore, mock(FailureProcessor.class), new SystemPropertiesNodeProperties());
     }
 }

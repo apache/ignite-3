@@ -25,10 +25,11 @@ import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -485,6 +486,25 @@ public class Cluster {
     }
 
     /**
+     * Stops a node by index asynchronously.
+     *
+     * @param index Node index in the cluster.
+     */
+    public CompletableFuture<Void> stopNodeAsync(int index) {
+        IgniteServer server = igniteServers.get(index);
+
+        if (server != null) {
+            return server.shutdownAsync().thenRun(() -> {
+                igniteServers.set(index, null);
+
+                nodes.set(index, null);
+            });
+        }
+
+        return nullCompletedFuture();
+    }
+
+    /**
      * Returns index of the node.
      *
      * @param name Node name.
@@ -747,7 +767,7 @@ public class Cluster {
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
         CatalogTableDescriptor tableDescriptor = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName.toUpperCase());
 
-        List<? extends ReplicationGroupId> replicationGroupIds = enabledColocation()
+        List<? extends ReplicationGroupId> replicationGroupIds = colocationEnabled()
                 ? zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id())
                 : tablePartitionIds(unwrapIgniteImpl(aliveNode()), tableDescriptor.id());
 

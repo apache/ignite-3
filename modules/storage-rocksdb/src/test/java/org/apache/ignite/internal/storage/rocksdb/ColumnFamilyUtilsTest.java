@@ -34,25 +34,27 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
-import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Unit test for {@link ColumnFamilyUtils}.
  */
 public class ColumnFamilyUtilsTest {
-    @SuppressWarnings("unused")
-    public static final List<NativeType> ALL_TYPES = SchemaTestUtils.ALL_TYPES;
+    private static List<NativeType> allNativeTypes() {
+        return SchemaTestUtils.ALL_TYPES;
+    }
 
     @ParameterizedTest
-    @VariableSource("ALL_TYPES")
+    @MethodSource("allNativeTypes")
     void testSortedIndexCfNameSingleType(NativeType nativeType) {
         var descriptor = new StorageSortedIndexColumnDescriptor("<unused>", nativeType, false, false, false);
 
-        assertArrayEquals(name(nativeType.spec().ordinal(), 0), sortedIndexCfName(List.of(descriptor)));
+        assertArrayEquals(name(nativeType.spec().id(), 0), sortedIndexCfName(List.of(descriptor)));
     }
 
     @Test
@@ -64,12 +66,14 @@ public class ColumnFamilyUtilsTest {
                 new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT8, true, true, true)
         );
 
-        assertArrayEquals(name(3, 0, 2, 5, 1, 2, 0, 7), sortedIndexCfName(descriptors));
+        assertArrayEquals(name(ColumnType.INT64.id(), 0,
+                ColumnType.INT32.id(), 5, ColumnType.INT16.id(), 2, ColumnType.INT8.id(), 7), sortedIndexCfName(descriptors));
     }
 
     @Test
     void testComparatorFromCfName() {
-        RocksDbBinaryTupleComparator comparator = comparatorFromCfName(name(3, 0, 2, 5, 1, 2, 0, 7));
+        RocksDbBinaryTupleComparator comparator = comparatorFromCfName(
+                name(ColumnType.INT64.id(), 0, ColumnType.INT32.id(), 5, ColumnType.INT16.id(), 2, ColumnType.INT8.id(), 7));
 
         List<NativeType> expectedTypes = List.of(NativeTypes.INT64, NativeTypes.INT32, NativeTypes.INT16, NativeTypes.INT8);
         List<CatalogColumnCollation> expectedCollations = List.of(DESC_NULLS_LAST, DESC_NULLS_FIRST, ASC_NULLS_LAST, ASC_NULLS_FIRST);

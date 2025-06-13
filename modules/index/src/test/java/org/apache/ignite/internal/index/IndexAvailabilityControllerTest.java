@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -89,7 +89,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture()),
-            new NoOpFailureManager()
+            new NoOpFailureManager(),
+            new SystemPropertiesNodeProperties()
     );
 
     private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(
@@ -112,7 +113,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        awaitDefaultZoneCreation(catalogManager);
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 

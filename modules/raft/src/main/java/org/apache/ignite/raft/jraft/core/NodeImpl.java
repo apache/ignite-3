@@ -3377,7 +3377,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
-                throw new IllegalStateException("Not leader");
+                throw new NotLeaderException();
             }
             return this.conf.getConf().listPeers();
         }
@@ -3391,7 +3391,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
-                throw new IllegalStateException("Not leader");
+                throw new NotLeaderException();
             }
             return getAliveNodes(this.conf.getConf().getPeers(), Utils.monotonicMs());
         }
@@ -3405,7 +3405,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
-                throw new IllegalStateException("Not leader");
+                throw new NotLeaderException();
             }
             return this.conf.getConf().listLearners();
         }
@@ -3419,7 +3419,7 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             if (this.state != State.STATE_LEADER) {
-                throw new IllegalStateException("Not leader");
+                throw new NotLeaderException();
             }
             return getAliveNodes(this.conf.getConf().getLearners(), Utils.monotonicMs());
         }
@@ -4056,5 +4056,10 @@ public class NodeImpl implements Node, RaftServerService {
     @TestOnly
     public LogStorage logStorage() {
         return logStorage;
+    }
+
+    @TestOnly
+    public FSMCaller fsmCaller() {
+        return fsmCaller;
     }
 }

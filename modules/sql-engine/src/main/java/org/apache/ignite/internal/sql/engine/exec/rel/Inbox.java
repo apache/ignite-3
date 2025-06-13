@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -390,19 +391,14 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                 });
     }
 
-    /**
-     * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onNodeLeft(String nodeName) {
-        if (context().originatingNodeName().equals(nodeName) && srcNodeNames == null) {
-            this.execute(this::close);
-        } else if (srcNodeNames != null && srcNodeNames.contains(nodeName)) {
-            this.execute(() -> onNodeLeft0(nodeName));
+    /** Notifies the inbox that provided node has left the cluster. */
+    public void onNodeLeft(ClusterNode node) {
+        if (srcNodeNames.contains(node.name())) {
+            this.execute(() -> onNodeLeft0(node.name()));
         }
     }
 
-    private void onNodeLeft0(String nodeName) throws Exception {
+    private void onNodeLeft0(String nodeName) {
         if (perNodeBuffers.get(nodeName).check() != State.END) {
             throw new NodeLeftException(nodeName);
         }

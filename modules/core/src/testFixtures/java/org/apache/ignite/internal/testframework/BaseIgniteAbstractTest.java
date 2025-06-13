@@ -41,6 +41,7 @@ import org.mockito.Mockito;
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "true")
 @WithSystemProperty(key = IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, value = "true")
+@WithSystemProperty(key = IgniteSystemProperties.IGNORE_DUPLICATE_JMX_MBEANS_ERROR, value = "true")
 public abstract class BaseIgniteAbstractTest {
     /** Logger. */
     protected final IgniteLogger log = Loggers.forClass(getClass());

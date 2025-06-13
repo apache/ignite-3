@@ -86,6 +86,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.ClusterChange;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -247,6 +248,8 @@ public class PlatformTestNodeRunner {
             System.out.println("Dry run succeeded.");
             return;
         }
+
+        System.setProperty(IgniteSystemProperties.IGNORE_DUPLICATE_JMX_MBEANS_ERROR, "true");
 
         List<IgniteServer> startedIgniteServers = startNodes(BASE_PATH, nodesBootstrapCfg);
 
@@ -874,7 +877,7 @@ public class PlatformTestNodeRunner {
     private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
         @Override
         public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Integer, Void>builder()
                             .jobDescriptor(JobDescriptor.builder(SleepJob.class).build())
                             .nodes(Set.of(node))
@@ -1022,8 +1025,7 @@ public class PlatformTestNodeRunner {
                     .options(jobOpts)
                     .build();
 
-            ClusterNode targetNode = context.ignite()
-                    .clusterNodes()
+            ClusterNode targetNode = context.ignite().cluster().nodes()
                     .stream()
                     .filter(n -> n.id().equals(arg.nodeId))
                     .findFirst()

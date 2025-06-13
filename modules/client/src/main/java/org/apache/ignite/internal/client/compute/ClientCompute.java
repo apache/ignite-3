@@ -319,7 +319,6 @@ public class ClientCompute implements IgniteCompute {
                 ClientCompute::unpackSubmitTaskResult,
                 null,
                 null,
-                null,
                 true
         );
     }
@@ -335,7 +334,6 @@ public class ClientCompute implements IgniteCompute {
                 },
                 ClientCompute::unpackSubmitResult,
                 node.name(),
-                null,
                 null,
                 true
         );

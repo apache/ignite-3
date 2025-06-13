@@ -45,6 +45,7 @@ class InvalidDefinitionTest {
     void zone() {
         assertZoneBuilderNull(ZoneDefinition.Builder::partitions, 1, "Number of partitions");
         assertZoneBuilderNull(ZoneDefinition.Builder::replicas, 1, "Number of replicas");
+        assertZoneBuilderNull(ZoneDefinition.Builder::quorumSize, 1, "Quorum size");
 
         assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::distributionAlgorithm, "a", "Partition distribution algorithm");
 

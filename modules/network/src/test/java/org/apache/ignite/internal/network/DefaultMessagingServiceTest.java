@@ -40,6 +40,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -70,9 +72,9 @@ import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
+import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
@@ -569,7 +571,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 bootstrapFactory,
                 staleIdDetector,
                 clusterIdSupplier,
-                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
+                initiatorHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
                 channelTypeRegistry,
                 new DefaultIgniteProductVersionSource()
         );
@@ -583,20 +585,20 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new Services(connectionManager, messagingService, bootstrapFactory);
     }
 
-    private RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(
+    private RecoveryInitiatorHandshakeManagerFactory initiatorHandshakeManagerFactoryAdding(
             Runnable beforeHandshake,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier
     ) {
-        return new RecoveryClientHandshakeManagerFactory() {
+        return new RecoveryInitiatorHandshakeManagerFactory() {
             @Override
-            public RecoveryClientHandshakeManager create(
+            public RecoveryInitiatorHandshakeManager create(
                     ClusterNode localNode,
                     short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider
             ) {
-                return new RecoveryClientHandshakeManager(
+                return new RecoveryInitiatorHandshakeManager(
                         localNode,
                         connectionId,
                         recoveryDescriptorProvider,
@@ -616,6 +618,14 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 };
             }
         };
+    }
+
+    private static String localHostName() {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static class Services implements AutoCloseable {
@@ -696,15 +706,30 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         CHANGE_ID_ONLY((node, services) -> new ClusterNodeImpl(randomUUID(), node.name(), node.address())),
         CHANGE_NAME_ONLY((node, services) -> new ClusterNodeImpl(node.id(), node.name() + "_", node.address())),
         CHANGE_NAME((node, services) -> new ClusterNodeImpl(randomUUID(), node.name() + "_", node.address())),
-        SET_IP_LOCALHOST((node, services) -> new ClusterNodeImpl(
+        SET_IPV4_LOOPBACK((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
                 new NetworkAddress("127.0.0.1", node.address().port())
         )),
-        SET_IPV6_LOCALHOST((node, services) -> new ClusterNodeImpl(
+        SET_IPV6_LOOPBACK((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
-                new NetworkAddress(services.connectionManager.localAddress().getHostName(), node.address().port())
+                new NetworkAddress("::1", node.address().port())
+        )),
+        SET_IPV4_ANYLOCAL((node, services) -> new ClusterNodeImpl(
+                randomUUID(),
+                node.name(),
+                new NetworkAddress("0.0.0.0", node.address().port())
+        )),
+        SET_IPV6_ANYLOCAL((node, services) -> new ClusterNodeImpl(
+                randomUUID(),
+                node.name(),
+                new NetworkAddress("0:0:0:0:0:0:0:0", node.address().port())
+        )),
+        SET_LOCALHOST((node, services) -> new ClusterNodeImpl(
+                randomUUID(),
+                node.name(),
+                new NetworkAddress(localHostName(), node.address().port())
         ));
 
         private final BiFunction<ClusterNode, Services, ClusterNode> changer;

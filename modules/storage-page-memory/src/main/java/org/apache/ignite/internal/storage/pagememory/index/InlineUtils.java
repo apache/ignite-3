@@ -33,8 +33,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Helper class for index inlining.
@@ -68,17 +68,17 @@ public class InlineUtils {
      * @return Inline size in bytes.
      */
     static int inlineSize(NativeType nativeType) {
-        NativeTypeSpec spec = nativeType.spec();
-
-        if (spec.fixedLength()) {
+        if (nativeType.fixedLength()) {
             return nativeType.sizeInBytes();
         }
+
+        ColumnType spec = nativeType.spec();
 
         // Variable length columns.
 
         switch (spec) {
             case STRING:
-            case BYTES:
+            case BYTE_ARRAY:
                 return Math.min(MAX_VARLEN_INLINE_SIZE, ((VarlenNativeType) nativeType).length());
 
             case DECIMAL:
@@ -134,7 +134,7 @@ public class InlineUtils {
         // for each item (with link), and for a leafNode, (100 / 7) = 14 bytes for each item, so we can safely use the 7 extra bytes for the
         // innerNode and leafNode per item.
 
-        if (indexDescriptor.columns().stream().anyMatch(c -> !c.type().spec().fixedLength())) {
+        if (indexDescriptor.columns().stream().anyMatch(c -> !c.type().fixedLength())) {
             int itemSize = binaryTupleInlineSize + itemHeaderSize;
 
             int innerNodeItemSize =

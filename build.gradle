@@ -86,8 +86,17 @@ allprojects {
 
     tasks.withType(Test).configureEach {
         defaultCharacterEncoding = 'UTF-8'
+        def extraJvmArgs = []
 
-        jvmArgs += defaultJvmArgs
+        if (project.hasProperty('extraJvmArgs')) {
+            extraJvmArgs = project.property('extraJvmArgs')
+                .toString()
+                .trim()
+                .split(/\s+/)  // Split on whitespace
+                .toList()
+        }
+
+        jvmArgs += defaultJvmArgs + extraJvmArgs
 
         systemProperty 'jraft.available_processors', 1
 

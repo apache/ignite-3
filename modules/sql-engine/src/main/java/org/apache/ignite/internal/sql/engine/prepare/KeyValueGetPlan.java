@@ -49,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -121,10 +122,6 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         return ExplainUtils.toString(clonedRoot);
     }
 
-    public IgniteKeyValueGet lookupNode() {
-        return lookupNode;
-    }
-
     private <RowT> Performable<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
         Performable<RowT> operation = cast(this.operation);
 
@@ -176,6 +173,11 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         CompletableFuture<Iterator<InternalSqlRow>> result = operation.perform(ctx, tx);
 
         return new IteratorToDataCursorAdapter<>(result, Runnable::run);
+    }
+
+    @Override
+    public IgniteKeyValueGet getRel() {
+        return lookupNode;
     }
 
     private static class SimpleLookupExecution<RowT> extends Performable<RowT> {

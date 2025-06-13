@@ -49,6 +49,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -385,9 +387,14 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public String getString(int colIdx) throws SQLException {
-        Object val = getValue(colIdx);
-
-        return val == null ? null : String.valueOf(val);
+        Object val = getJdbcValue(colIdx);
+        if (val == null) {
+            return null;
+        } else if (val instanceof byte[]) {
+            return StringUtils.toHexString((byte[]) val);
+        } else {
+            return String.valueOf(val);
+        }
     }
 
     /** {@inheritDoc} */
@@ -758,8 +765,9 @@ public class JdbcResultSet implements ResultSet {
         } else if (cls == LocalTime.class) {
             return new Date(Time.valueOf((LocalTime) val).getTime());
         } else if (cls == Instant.class) {
-            var odlDate = java.util.Date.from((Instant) val);
-            return new Date(odlDate.getTime());
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+
+            return Date.valueOf(localDateTime.toLocalDate());
         } else if (cls == LocalDateTime.class) {
             return Date.valueOf(((LocalDateTime) val).toLocalDate());
         } else {
@@ -805,8 +813,10 @@ public class JdbcResultSet implements ResultSet {
         } else if (cls == LocalDate.class) {
             return new Time(Date.valueOf((LocalDate) val).getTime());
         } else if (cls == Instant.class) {
-            var oldTs = Timestamp.from((Instant) val);
-            return new Time(oldTs.getTime());
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+            LocalTime localTime = localDateTime.toLocalTime();
+
+            return Time.valueOf(localTime);
         } else if (cls == LocalDateTime.class) {
             return Time.valueOf(((LocalDateTime) val).toLocalTime());
         } else {
@@ -852,7 +862,9 @@ public class JdbcResultSet implements ResultSet {
         } else if (cls == LocalDate.class) {
             return new Timestamp(Date.valueOf((LocalDate) val).getTime());
         } else if (cls == Instant.class) {
-            return Timestamp.from(((Instant) val));
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) val);
+
+            return Timestamp.valueOf(localDateTime);
         } else if (cls == LocalDateTime.class) {
             return Timestamp.valueOf((LocalDateTime) val);
         } else {
@@ -2149,6 +2161,30 @@ public class JdbcResultSet implements ResultSet {
         } catch (IndexOutOfBoundsException e) {
             throw new SQLException("Invalid column index: " + colIdx, SqlStateCode.PARSING_EXCEPTION, e);
         }
+    }
+
+    private Object getJdbcValue(int colIdx) throws SQLException {
+        Object value = getValue(colIdx);
+
+        if (value instanceof Instant) {
+            LocalDateTime localDateTime = instantWithLocalTimeZone((Instant) value);
+            return Timestamp.valueOf(localDateTime);
+        } else if (value instanceof LocalTime) {
+            return Time.valueOf((LocalTime) value);
+        } else if (value instanceof LocalDateTime) {
+            return Timestamp.valueOf((LocalDateTime) value);
+        } else {
+            return value;
+        }
+    }
+
+    private LocalDateTime instantWithLocalTimeZone(Instant val) throws SQLException {
+        JdbcConnection connection = (JdbcConnection) stmt.getConnection();
+        ZoneId zoneId = connection.connectionProperties().getConnectionTimeZone();
+        if (zoneId == null) {
+            zoneId = ZoneId.systemDefault();
+        }
+        return LocalDateTime.ofInstant(val, zoneId);
     }
 
     /**

@@ -143,7 +143,7 @@ public class NettyClient {
                             }
 
                             if (stopped) {
-                                return CompletableFuture.<NettySender>failedFuture(new CancellationException("Client was stopped"));
+                                return CompletableFuture.<NettySender>failedFuture(new CancellationException("NettyClient was stopped"));
                             } else if (throwable != null) {
                                 return CompletableFuture.<NettySender>failedFuture(throwable);
                             } else {
@@ -159,9 +159,9 @@ public class NettyClient {
     }
 
     /**
-     * Returns client start future.
+     * Returns sender start future.
      *
-     * @return Client start future.
+     * @return Sender start future.
      */
     public OrderingFuture<NettySender> sender() {
         Objects.requireNonNull(senderFuture, "NettyClient is not connected yet");

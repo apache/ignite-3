@@ -40,9 +40,9 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlDdl;
-import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
@@ -66,6 +66,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
@@ -76,9 +78,12 @@ import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -326,9 +331,12 @@ public class PrepareServiceImpl implements PrepareService {
         SqlNode parsedTree = parsedResult.parsedTree();
 
         assert single(parsedTree);
-        assert parsedTree instanceof SqlExplain : parsedTree.getClass().getCanonicalName();
+        assert parsedTree instanceof IgniteSqlExplain : parsedTree.getClass().getCanonicalName();
 
-        SqlNode explicandum = ((SqlExplain) parsedTree).getExplicandum();
+        IgniteSqlExplain parsedTree0 = (IgniteSqlExplain) parsedTree;
+
+        SqlNode explicandum = parsedTree0.getExplicandum();
+        SqlNode explainMode = parsedTree0.getMode();
 
         SqlQueryType queryType = Commons.getQueryType(explicandum);
 
@@ -361,7 +369,13 @@ public class PrepareServiceImpl implements PrepareService {
         return result.thenApply(plan -> {
             assert plan instanceof ExplainablePlan : plan == null ? "<null>" : plan.getClass().getCanonicalName();
 
-            return new ExplainPlan(nextPlanId(), (ExplainablePlan) plan);
+            SqlLiteral literal = (SqlLiteral) explainMode;
+
+            IgniteSqlExplainMode mode = literal.symbolValue(IgniteSqlExplainMode.class);
+
+            assert mode != null;
+
+            return new ExplainPlan(nextPlanId(), (ExplainablePlan) plan, mode);
         });
     }
 
@@ -615,7 +629,13 @@ public class PrepareServiceImpl implements PrepareService {
         for (Object param : params) {
             ColumnType columnType;
             if (param != null) {
-                columnType = NativeTypeSpec.fromObject(param).asColumnType();
+                @Nullable NativeType type0 = NativeTypes.fromObject(param);
+
+                if (type0 == null) {
+                    throw new IgniteException(Common.INTERNAL_ERR, "Unsupported native type: " + param.getClass());
+                }
+
+                columnType = type0.spec();
             } else {
                 columnType = ColumnType.NULL;
             }

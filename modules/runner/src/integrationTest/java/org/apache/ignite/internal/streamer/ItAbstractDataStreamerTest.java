@@ -55,6 +55,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.marshalling.ByteArrayMarshaller;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.sql.IgniteSql;
@@ -64,6 +66,7 @@ import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.ReceiverDescriptor;
@@ -421,6 +424,65 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = target.streamData(
                     publisher,
+                    DataStreamerReceiverDescriptor.builder(TestReceiver.class).build(),
+                    keyFunc,
+                    t -> t.stringValue(1),
+                    "arg1",
+                    resultSubscriber,
+                    DataStreamerOptions.builder().retryLimit(0).build()
+            );
+
+            // Same ID goes to the same partition.
+            publisher.submit(tuple(1, "val1"));
+            publisher.submit(tuple(1, "val2"));
+            publisher.submit(tuple(1, "val3"));
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+
+        if (returnResults) {
+            assertEquals(1, resultSubscriber.items.size());
+            assertEquals("Received: 3 items, arg1 arg", resultSubscriber.items.iterator().next());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverRecordBinaryViewDeprecated(boolean returnResults) {
+        testWithReceiverDeprecated(defaultTable().recordView(), Function.identity(), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverKvBinaryViewDeprecated(boolean returnResults) {
+        testWithReceiverDeprecated(defaultTable().keyValueView(), t -> Map.entry(t, t), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverRecordPojoViewDeprecated(boolean returnResults) {
+        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+
+        testWithReceiverDeprecated(view, t -> new PersonPojo(t.intValue(0)), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverKvPojoViewDeprecated(boolean returnResults) {
+        KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
+
+        testWithReceiverDeprecated(view, t -> Map.entry(t.intValue(0), new PersonValPojo()), returnResults);
+    }
+
+    @SuppressWarnings("deprecation")
+    private static <T> void testWithReceiverDeprecated(DataStreamerTarget<T> target, Function<Tuple, T> keyFunc, boolean returnResults) {
+        CompletableFuture<Void> streamerFut;
+
+        var resultSubscriber = returnResults ? new TestSubscriber<String>() : null;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = target.streamData(
+                    publisher,
                     keyFunc,
                     t -> t.stringValue(1),
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
@@ -456,10 +518,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = view.streamData(
                     publisher,
+                    DataStreamerReceiverDescriptor.builder(NodeNameReceiver.class).build(),
                     t -> t,
                     t -> t.intValue(0),
-                    ReceiverDescriptor.builder(NodeNameReceiver.class).build(),
-                    null, null, null
+                    null,
+                    null,
+                    null
             );
 
             for (int i = 0; i < count; i++) {
@@ -482,18 +546,17 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testReceiverException(boolean async) {
         CompletableFuture<Void> streamerFut;
 
-        Object key = 0;
         Tuple item = tupleKey(1);
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
+                    DataStreamerReceiverDescriptor.builder(TestReceiver.class).build(),
                     t -> t,
-                    t -> key,
-                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    t -> "",
+                    async ? "throw-async" : "throw",
                     null,
-                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
-                    async ? "throw-async" : "throw");
+                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build());
 
             publisher.submit(item);
         }
@@ -572,12 +635,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
+                    DataStreamerReceiverDescriptor.builder(TupleReceiver.class).build(),
                     Function.identity(),
                     Function.identity(),
-                    ReceiverDescriptor.builder(TupleReceiver.class).build(),
+                    receiverArg,
                     resultSubscriber,
-                    null,
-                    receiverArg
+                    null
             );
 
             // Tuple payload.
@@ -649,6 +712,79 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals(2, resTupleInner2.intValue("int"));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"arg1", ""})
+    public void testMarshallingReceiver(String arg) {
+        // Check that null arg works.
+        arg = arg.isEmpty() ? null : arg;
+
+        DataStreamerReceiverDescriptor<String, String, String> desc = DataStreamerReceiverDescriptor
+                .builder(MarshallingReceiver.class)
+                .payloadMarshaller(new StringSuffixMarshaller())
+                .argumentMarshaller(new StringSuffixMarshaller())
+                .resultMarshaller(new StringSuffixMarshaller())
+                .build();
+
+        CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<String>();
+
+        try (var publisher = new SubmissionPublisher<String>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    desc,
+                    x -> Tuple.create().set("id", 1),
+                    Function.identity(),
+                    arg,
+                    resultSubscriber,
+                    null
+            );
+
+            publisher.submit("val1");
+            publisher.submit("val2");
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+        assertEquals(2, resultSubscriber.items.size());
+
+        String expected = "received[arg=" + arg + ":beforeMarshal:afterUnmarshal,val=val1:beforeMarshal:afterUnmarshal]"
+                + ":beforeMarshal:afterUnmarshal";
+
+        assertEquals(expected, resultSubscriber.items.get(0));
+    }
+
+    @Test
+    public void testReceiverMarshallerMismatch() {
+        DataStreamerReceiverDescriptor<String, String, String> desc = DataStreamerReceiverDescriptor
+                .builder(MarshallingReceiver.class)
+                .build();
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<String>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    desc,
+                    x -> Tuple.create().set("id", 1),
+                    Function.identity(),
+                    "arg",
+                    null,
+                    null
+            );
+
+            publisher.submit("val1");
+        }
+
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(10, TimeUnit.SECONDS).join());
+        DataStreamerException dsEx = (DataStreamerException) ex.getCause();
+
+        assertThat(dsEx.getMessage(), containsString(
+                "Marshaller is defined in the DataStreamerReceiver implementation, "
+                        + "expected argument type: `byte[]`, actual: `class java.lang.String`. "
+                        + "Ensure that DataStreamerReceiverDescriptor marshallers match DataStreamerReceiver marshallers."));
+
+        assertEquals("IGN-COMPUTE-13", dsEx.codeAsString());
+    }
+
     private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
         CompletableFuture<Void> streamerFut;
         var resultSubscriber = new TestSubscriber<Tuple>();
@@ -658,12 +794,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
+                    DataStreamerReceiverDescriptor.builder(TupleReceiver.class).build(),
                     Function.identity(),
                     Function.identity(),
-                    ReceiverDescriptor.builder(TupleReceiver.class).build(),
+                    receiverArg,
                     resultSubscriber,
-                    null,
-                    receiverArg
+                    null
             );
 
             publisher.submit(asArg ? Tuple.create() : tuple);
@@ -809,6 +945,44 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             }
 
             return CompletableFuture.completedFuture(page);
+        }
+    }
+
+    private static class StringSuffixMarshaller implements ByteArrayMarshaller<String> {
+        @Override
+        public byte @Nullable [] marshal(@Nullable String object) {
+            return ByteArrayMarshaller.super.marshal(object + ":beforeMarshal");
+        }
+
+        @Override
+        public @Nullable String unmarshal(byte @Nullable [] raw) {
+            return ByteArrayMarshaller.super.unmarshal(raw) + ":afterUnmarshal";
+        }
+    }
+
+    private static class MarshallingReceiver implements DataStreamerReceiver<String, String, String> {
+        @Override
+        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, @Nullable String arg) {
+            var results = page.stream()
+                    .map(s -> "received[arg=" + arg + ",val=" + s + "]")
+                    .collect(Collectors.toList());
+
+            return CompletableFuture.completedFuture(results);
+        }
+
+        @Override
+        public @Nullable Marshaller<String, byte[]> payloadMarshaller() {
+            return new StringSuffixMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<String, byte[]> argumentMarshaller() {
+            return new StringSuffixMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<String, byte[]> resultMarshaller() {
+            return new StringSuffixMarshaller();
         }
     }
 }

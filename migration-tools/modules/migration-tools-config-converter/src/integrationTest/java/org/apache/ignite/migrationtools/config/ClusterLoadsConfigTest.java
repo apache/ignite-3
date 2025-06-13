@@ -42,7 +42,8 @@ public class ClusterLoadsConfigTest {
         var testDescr = ConfigTestUtils.loadResourceFile(inputPath);
         var nodeCfgPath = testDescr.getNodeCfgPath();
 
-        try (var container = new GenericContainer(Ignite3ClusterContainer.DOCKER_IMAGE_NAME)
+        String imageName = Ignite3ClusterContainer.dockerImageName();
+        try (var container = new GenericContainer(imageName)
                 .withCommand("--config-path=/node.cfg")
                 .withCopyToContainer(MountableFile.forHostPath(nodeCfgPath), "/node.cfg")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())

@@ -62,7 +62,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
                 DEFAULT_ZONE_QUORUM_SIZE,
-                defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(),
+                defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(node.nodeProperties().colocationEnabled()),
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
                 true,

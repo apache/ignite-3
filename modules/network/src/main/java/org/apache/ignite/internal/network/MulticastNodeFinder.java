@@ -30,7 +30,6 @@ import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
-import java.net.StandardSocketOptions;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -196,7 +195,13 @@ public class MulticastNodeFinder implements NodeFinder {
     }
 
     private void configureSocket(MulticastSocket socket, @Nullable NetworkInterface networkInterface, int soTimeout) throws IOException {
-        socket.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, true);
+        // Using setLoopbackMode() (which is deprecated in Java versions starting with 14) because it still works in all Java versions,
+        // while the replacement suggested by the deprecation message -
+        // socket.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, true/false) - is not portable across Java versions
+        // (before Java 14, we need to pass 'false', while since Java 14, it's 'true').
+
+        // Use 'false' to enable support for more than one node on the same machine.
+        socket.setLoopbackMode(false);
 
         if (networkInterface != null) {
             socket.setNetworkInterface(networkInterface);

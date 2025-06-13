@@ -17,9 +17,8 @@
 
 #pragma once
 
-#include <ignite/common/ignite_error.h>
+#include "ignite_error.h"
 
-#include <cstdint>
 #include <functional>
 #include <future>
 #include <optional>
@@ -48,7 +47,7 @@ public:
     /**
      * Constructor.
      *
-     * @param message Message.
+     * @param error Error.
      */
     ignite_result(ignite_error &&error) // NOLINT(google-explicit-constructor)
         : m_value(std::move(error)) {}
@@ -141,9 +140,9 @@ public:
 
     /**
      * Bool operator.
-     * Can be used to check result for an error.
+     * Can be used to check the result for an error.
      *
-     * @return @c true if result does not contain error.
+     * @return @c true if the result does not contain error.
      */
     explicit operator bool() const noexcept { return !has_error(); }
 
@@ -167,7 +166,7 @@ public:
     /**
      * Constructor.
      *
-     * @param message Message.
+     * @param error Error.
      */
     ignite_result(ignite_error &&error) // NOLINT(google-explicit-constructor)
         : m_error(std::move(error)) {}
@@ -205,9 +204,9 @@ public:
 
     /**
      * Bool operator.
-     * Can be used to check result for an error.
+     * Can be used to check the result for an error.
      *
-     * @return @c true if result does not contain error.
+     * @return @c true if the result does not contain error.
      */
     explicit operator bool() const noexcept { return !has_error(); }
 
@@ -228,7 +227,7 @@ using ignite_callback = std::function<void(ignite_result<T> &&)>;
 template<typename T>
 ignite_result<T> result_of_operation(const std::function<T()> &operation) noexcept {
     try {
-        if constexpr (std::is_same<decltype(operation()), void>::value) {
+        if constexpr (std::is_same_v<decltype(operation()), void>) {
             operation();
             return {};
         } else {
@@ -247,7 +246,7 @@ ignite_result<T> result_of_operation(const std::function<T()> &operation) noexce
 }
 
 /**
- * Set promise from result.
+ * Set promise from the result.
  *
  * @param pr Promise to set.
  * @param res Result to use.
@@ -257,7 +256,7 @@ void result_set_promise(std::promise<T> &pr, ignite_result<T> &&res) {
     if (!res) {
         pr.set_exception(std::make_exception_ptr(std::move(res).error()));
     } else {
-        if constexpr (std::is_same<T, void>::value) {
+        if constexpr (std::is_same_v<T, void>) {
             pr.set_value();
         } else {
             pr.set_value(std::move(res).value());
@@ -266,7 +265,7 @@ void result_set_promise(std::promise<T> &pr, ignite_result<T> &&res) {
 }
 
 /**
- * Get promise setter for a promise to be used with ignite result.
+ * Get promise setter for a promise to be used with the ignite_result.
  *
  * @param pr Promise.
  * @return Promise setter.
@@ -279,7 +278,7 @@ std::function<void(ignite_result<T>)> result_promise_setter(std::shared_ptr<std:
 /**
  * Synchronously calls async function.
  *
- * @param pr Promise.
+ * @param func Callback.
  * @return Promise setter.
  */
 template<typename T>

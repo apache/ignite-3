@@ -39,9 +39,6 @@ import org.testcontainers.utility.MountableFile;
 
 /** Ignite 3 cluster container. */
 public class Ignite3ClusterContainer implements Startable {
-
-    public static final String DOCKER_IMAGE_NAME = "apacheignite/ignite:" + System.getProperty("ignite3.docker.version", "latest");
-
     private static Path COMPUTE_LIBS_FOLDER = Path.of("build/dependency");
 
     private static final Logger LOGGER = LogManager.getLogger(Ignite3ClusterContainer.class);
@@ -64,7 +61,8 @@ public class Ignite3ClusterContainer implements Startable {
      */
     public Ignite3ClusterContainer(Network network) {
         this.network = network;
-        this.node = new GenericContainer(DOCKER_IMAGE_NAME)
+        String imageName = dockerImageName();
+        this.node = new GenericContainer(imageName)
                 .withNetwork(network)
                 .withNetworkAliases("ai3.node.1")
                 .withCommand("--node-name clusterNode1")
@@ -182,5 +180,19 @@ public class Ignite3ClusterContainer implements Startable {
 
     public IgniteClient buildClient() {
         return clientBuilder().build();
+    }
+
+    /**
+     * Retrieves the ignite 3 docker image name which should be used in the tests.
+     *
+     * @return The docker image name.
+     */
+    public static String dockerImageName() {
+        String imageName = System.getProperty("ignite3.docker.image");
+        if (imageName == null) {
+            throw new IllegalArgumentException("ignite3.docker.image property must be defined");
+        }
+
+        return imageName;
     }
 }

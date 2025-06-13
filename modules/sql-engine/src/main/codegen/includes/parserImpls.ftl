@@ -975,32 +975,46 @@ Boolean SqlKillNoWait():
 SqlNode SqlIgniteExplain() :
 {
     SqlNode stmt;
-    SqlExplainLevel detailLevel = SqlExplainLevel.EXPPLAN_ATTRIBUTES;
-    SqlExplain.Depth depth;
     Span s;
-    final SqlExplainFormat format;
+    IgniteSqlExplainMode mode = IgniteSqlExplainMode.PLAN;
 }
 {
-    <EXPLAIN> { s = span(); } <PLAN>
-    [ detailLevel = ExplainDetailLevel() ]
-    depth = ExplainDepth()
-    (
-        LOOKAHEAD(2)
-        <AS> <XML> { format = SqlExplainFormat.XML; }
-    |
-        LOOKAHEAD(2)
-        <AS> <JSON> { format = SqlExplainFormat.JSON; }
-    |
-        <AS> <DOT_FORMAT> { format = SqlExplainFormat.DOT; }
-    |
-        { format = SqlExplainFormat.TEXT; }
-    )
-    <FOR> stmt = SqlQueryOrDml() {
-        return new SqlExplain(s.end(this),
-            stmt,
-            detailLevel.symbol(SqlParserPos.ZERO),
-            depth.symbol(SqlParserPos.ZERO),
-            format.symbol(SqlParserPos.ZERO),
+    <EXPLAIN> { s = span(); }
+    [ mode = ExplainMode() ]
+    stmt = SqlQueryOrDml() {
+        return new IgniteSqlExplain(s.end(this),
+            stmt, mode.symbol(getPos()),
             nDynamicParams);
+    }
+}
+
+IgniteSqlExplainMode ExplainMode() :
+{
+    IgniteSqlExplainMode mode = IgniteSqlExplainMode.PLAN;
+}
+{
+    (
+        <MAPPING> <FOR>
+        {
+            mode = IgniteSqlExplainMode.MAPPING;
+        }
+        |
+        <PLAN> <FOR>
+        {
+        }
+    )
+    {
+        return mode;
+    }
+}
+
+/**
+ * DESCRIBE is actually not supported, therefore let's throw an exception.
+ */
+SqlNode SqlIgniteDescribe() :
+{ }
+{
+    <DESCRIBE> {
+        throw SqlUtil.newContextException(span().pos(), IgniteResource.INSTANCE.unexpectedStatement(token.image));
     }
 }

@@ -28,6 +28,7 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -118,6 +119,12 @@ public class IgniteSystemViewScan extends ProjectableFilterableTableScan impleme
                 names, projects, condition, requiredColumns);
     }
 
+    @Override
+    protected ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteSystemViewScan(sourceId, getCluster(), getTraitSet(), getHints(), getTable(),
+                names, newProjects, newCondition, requiredColumns);
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteSystemViewScan withHints(List<RelHint> hintList) {
@@ -136,5 +143,11 @@ public class IgniteSystemViewScan extends ProjectableFilterableTableScan impleme
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(
+            IgniteRelWriter writer) {
+        return explainAttributes(writer);
     }
 }

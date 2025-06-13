@@ -76,6 +76,12 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
         return new IgniteLogicalTableScan(getCluster(), getTraitSet(), hintList, getTable(), names, projects, condition, requiredColumns);
     }
 
+    @Override
+    protected ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteLogicalTableScan(getCluster(), getTraitSet(), getHints(), getTable(),
+                names, newProjects, newCondition, requiredColumns);
+    }
+
     /** {@inheritDoc} */
     @Override
     public String getRelTypeName() {

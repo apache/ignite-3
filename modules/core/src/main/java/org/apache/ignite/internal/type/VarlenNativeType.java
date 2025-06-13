@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Variable-length native type.
@@ -35,7 +36,7 @@ public class VarlenNativeType extends NativeType {
      * @param typeSpec Type spec.
      * @param len Type length.
      */
-    VarlenNativeType(NativeTypeSpec typeSpec, int len) {
+    VarlenNativeType(ColumnType typeSpec, int len) {
         super(typeSpec);
 
         this.len = len;

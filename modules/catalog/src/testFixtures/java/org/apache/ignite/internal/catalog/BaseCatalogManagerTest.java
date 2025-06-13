@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DURATION;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
@@ -138,7 +137,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
-        awaitDefaultZoneCreation(manager);
+        await(manager.catalogInitializationFuture());
     }
 
     @AfterEach

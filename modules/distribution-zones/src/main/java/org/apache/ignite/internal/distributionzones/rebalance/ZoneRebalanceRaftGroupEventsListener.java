@@ -41,10 +41,8 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -181,7 +179,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         }
 
         try {
-            rebalanceScheduler.schedule(() -> {
+            rebalanceScheduler.execute(() -> {
                 if (!busyLock.enterBusy()) {
                     return;
                 }
@@ -212,7 +210,17 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
                         PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
 
-                        partitionMover.movePartition(peersAndLearners, term).get();
+                        partitionMover.movePartition(peersAndLearners, term)
+                                .whenComplete((unused, ex) -> {
+                                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                                        String errorMessage = String.format(
+                                                "Unable to start rebalance [zonePartitionId=%s, term=%s]",
+                                                zonePartitionId,
+                                                term
+                                        );
+                                        failureProcessor.process(new FailureContext(ex, errorMessage));
+                                    }
+                                });
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
@@ -227,7 +235,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 } finally {
                     busyLock.leaveBusy();
                 }
-            }, 0, TimeUnit.MILLISECONDS);
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -241,26 +249,19 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         }
 
         try {
-            rebalanceScheduler.schedule(() -> {
+            Set<Assignment> stable = createAssignments(configuration);
+
+            rebalanceScheduler.execute(() -> {
                 if (!busyLock.enterBusy()) {
                     return;
                 }
 
                 try {
-                    Set<Assignment> stable = createAssignments(configuration);
-
-                    doStableKeySwitch(
-                            stable,
-                            zonePartitionId,
-                            metaStorageMgr,
-                            term,
-                            index,
-                            calculateAssignmentsFn
-                    );
+                    doStableKeySwitchWithExceptionHandling(stable, zonePartitionId, term, index, calculateAssignmentsFn);
                 } finally {
                     busyLock.leaveBusy();
                 }
-            }, 0, TimeUnit.MILLISECONDS);
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -330,7 +331,13 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), zonePartitionId);
 
             try {
-                partitionMover.movePartition(peersAndLearners, term).join();
+                partitionMover.movePartition(peersAndLearners, term)
+                        .whenComplete((unused, ex) -> {
+                            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                                String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
+                                failureProcessor.process(new FailureContext(ex, errorMessage));
+                            }
+                        });
             } finally {
                 busyLock.leaveBusy();
             }
@@ -340,34 +347,56 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     /**
      * Updates stable value with the new applied assignment.
      */
-    private void doStableKeySwitch(
+    private void doStableKeySwitchWithExceptionHandling(
             Set<Assignment> stableFromRaft,
             ZonePartitionId zonePartitionId,
-            MetaStorageManager metaStorageMgr,
             long configurationTerm,
             long configurationIndex,
             BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
-        try {
-            ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsQueueKey(zonePartitionId);
-            ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(zonePartitionId);
-            ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(zonePartitionId);
-            ByteArray switchReduceKey = switchReduceKey(zonePartitionId);
-            ByteArray switchAppendKey = switchAppendKey(zonePartitionId);
-            ByteArray assignmentsChainKey = assignmentsChainKey(zonePartitionId);
+        doStableKeySwitch(
+                stableFromRaft,
+                zonePartitionId,
+                configurationTerm,
+                configurationIndex,
+                calculateAssignmentsFn
+        ).whenComplete((res, ex) -> {
+            // TODO: IGNITE-14693
+            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                if (hasCause(ex, TimeoutException.class)) {
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-25276 - handle this timeout properly.
+                    LOG.error("Unable to commit partition configuration to metastore: {}", ex, zonePartitionId);
+                } else {
+                    String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", zonePartitionId);
+                    failureProcessor.process(new FailureContext(ex, errorMessage));
+                }
+            }
+        });
+    }
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
-            Map<ByteArray, Entry> values = metaStorageMgr.getAll(
-                    Set.of(
-                            plannedPartAssignmentsKey,
-                            pendingPartAssignmentsKey,
-                            stablePartAssignmentsKey,
-                            switchReduceKey,
-                            switchAppendKey,
-                            assignmentsChainKey
-                    )
-            ).get();
+    private CompletableFuture<Void> doStableKeySwitch(
+            Set<Assignment> stableFromRaft,
+            ZonePartitionId zonePartitionId,
+            long configurationTerm,
+            long configurationIndex,
+            BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
+    ) {
+        ByteArray pendingPartAssignmentsKey = pendingPartAssignmentsQueueKey(zonePartitionId);
+        ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(zonePartitionId);
+        ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(zonePartitionId);
+        ByteArray switchReduceKey = switchReduceKey(zonePartitionId);
+        ByteArray switchAppendKey = switchAppendKey(zonePartitionId);
+        ByteArray assignmentsChainKey = assignmentsChainKey(zonePartitionId);
 
+        Set<ByteArray> keysToGet = Set.of(
+                plannedPartAssignmentsKey,
+                pendingPartAssignmentsKey,
+                stablePartAssignmentsKey,
+                switchReduceKey,
+                switchAppendKey,
+                assignmentsChainKey
+        );
+        return metaStorageMgr.getAll(keysToGet).thenCompose(values -> {
             Entry stableEntry = values.get(stablePartAssignmentsKey);
             Entry pendingEntry = values.get(pendingPartAssignmentsKey);
             Entry plannedEntry = values.get(plannedPartAssignmentsKey);
@@ -384,201 +413,210 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Set<Assignment> retrievedPending = pendingAssignments.nodes();
 
             if (!retrievedPending.equals(stableFromRaft)) {
-                return;
+                return nullCompletedFuture();
             }
 
             // We wait for catalog metadata to be applied up to the provided timestamp, so it should be safe to use the timestamp.
-            Set<Assignment> calculatedAssignments = calculateAssignmentsFn.apply(zonePartitionId, pendingAssignments.timestamp())
-                    .get();
+            return calculateAssignmentsFn.apply(zonePartitionId, pendingAssignments.timestamp()).thenCompose(calculatedAssignments -> {
+                // Were reduced
+                Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stableFromRaft);
 
-            // Were reduced
-            Set<Assignment> reducedNodes = difference(retrievedSwitchReduce, stableFromRaft);
+                // Were added
+                Set<Assignment> addedNodes = difference(stableFromRaft, retrievedStable);
 
-            // Were added
-            Set<Assignment> addedNodes = difference(stableFromRaft, retrievedStable);
+                // For further reduction
+                Set<Assignment> calculatedSwitchReduce = difference(retrievedSwitchReduce, reducedNodes);
 
-            // For further reduction
-            Set<Assignment> calculatedSwitchReduce = difference(retrievedSwitchReduce, reducedNodes);
+                // For further addition
+                Set<Assignment> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
+                calculatedSwitchAppend = difference(calculatedSwitchAppend, addedNodes);
+                calculatedSwitchAppend = intersect(calculatedAssignments, calculatedSwitchAppend);
 
-            // For further addition
-            Set<Assignment> calculatedSwitchAppend = union(retrievedSwitchAppend, reducedNodes);
-            calculatedSwitchAppend = difference(calculatedSwitchAppend, addedNodes);
-            calculatedSwitchAppend = intersect(calculatedAssignments, calculatedSwitchAppend);
+                Set<Assignment> calculatedPendingReduction = difference(stableFromRaft, retrievedSwitchReduce);
 
-            Set<Assignment> calculatedPendingReduction = difference(stableFromRaft, retrievedSwitchReduce);
+                Set<Assignment> calculatedPendingAddition = union(stableFromRaft, reducedNodes);
+                calculatedPendingAddition = intersect(calculatedAssignments, calculatedPendingAddition);
 
-            Set<Assignment> calculatedPendingAddition = union(stableFromRaft, reducedNodes);
-            calculatedPendingAddition = intersect(calculatedAssignments, calculatedPendingAddition);
+                // eq(revision(assignments.stable), retrievedAssignmentsStable.revision)
+                SimpleCondition con1 = stableEntry.empty()
+                        ? notExists(stablePartAssignmentsKey) :
+                        revision(stablePartAssignmentsKey).eq(stableEntry.revision());
 
-            // eq(revision(assignments.stable), retrievedAssignmentsStable.revision)
-            SimpleCondition con1 = stableEntry.empty()
-                    ? notExists(stablePartAssignmentsKey) :
-                    revision(stablePartAssignmentsKey).eq(stableEntry.revision());
+                // eq(revision(assignments.pending), retrievedAssignmentsPending.revision)
+                SimpleCondition con2 = revision(pendingPartAssignmentsKey).eq(pendingEntry.revision());
 
-            // eq(revision(assignments.pending), retrievedAssignmentsPending.revision)
-            SimpleCondition con2 = revision(pendingPartAssignmentsKey).eq(pendingEntry.revision());
+                // eq(revision(assignments.switch.reduce), retrievedAssignmentsSwitchReduce.revision)
+                SimpleCondition con3 = switchReduceEntry.empty()
+                        ? notExists(switchReduceKey) : revision(switchReduceKey).eq(switchReduceEntry.revision());
 
-            // eq(revision(assignments.switch.reduce), retrievedAssignmentsSwitchReduce.revision)
-            SimpleCondition con3 = switchReduceEntry.empty()
-                    ? notExists(switchReduceKey) : revision(switchReduceKey).eq(switchReduceEntry.revision());
+                // eq(revision(assignments.switch.append), retrievedAssignmentsSwitchAppend.revision)
+                SimpleCondition con4 = switchAppendEntry.empty()
+                        ? notExists(switchAppendKey) : revision(switchAppendKey).eq(switchAppendEntry.revision());
 
-            // eq(revision(assignments.switch.append), retrievedAssignmentsSwitchAppend.revision)
-            SimpleCondition con4 = switchAppendEntry.empty()
-                    ? notExists(switchAppendKey) : revision(switchAppendKey).eq(switchAppendEntry.revision());
+                // All conditions combined with AND operator.
+                Condition retryPreconditions = and(con1, and(con2, and(con3, con4)));
 
-            // All conditions combined with AND operator.
-            Condition retryPreconditions = and(con1, and(con2, and(con3, con4)));
+                long catalogTimestamp = pendingAssignments.timestamp();
 
-            long catalogTimestamp = pendingAssignments.timestamp();
+                Assignments newStableAssignments = Assignments.of(stableFromRaft, catalogTimestamp);
 
-            Assignments newStableAssignments = Assignments.of(stableFromRaft, catalogTimestamp);
-
-            Operation assignmentChainChangeOp = handleAssignmentsChainChange(
-                    assignmentsChainKey,
-                    assignmentsChainEntry,
-                    pendingAssignments,
-                    newStableAssignments,
-                    configurationTerm,
-                    configurationIndex
-            );
-
-            Update successCase;
-            Update failCase;
-
-            byte[] stableFromRaftByteArray = newStableAssignments.toBytes();
-            byte[] additionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingAddition, catalogTimestamp));
-            byte[] reductionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingReduction, catalogTimestamp));
-            byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce, catalogTimestamp);
-            byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend, catalogTimestamp);
-
-            if (!calculatedSwitchAppend.isEmpty()) {
-                successCase = ops(
-                        put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                        put(pendingPartAssignmentsKey, additionByteArray),
-                        put(switchReduceKey, switchReduceByteArray),
-                        put(switchAppendKey, switchAppendByteArray),
-                        assignmentChainChangeOp
-                ).yield(SWITCH_APPEND_SUCCESS);
-                failCase = ops().yield(SWITCH_APPEND_FAIL);
-            } else if (!calculatedSwitchReduce.isEmpty()) {
-                successCase = ops(
-                        put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                        put(pendingPartAssignmentsKey, reductionByteArray),
-                        put(switchReduceKey, switchReduceByteArray),
-                        put(switchAppendKey, switchAppendByteArray),
-                        assignmentChainChangeOp
-                ).yield(SWITCH_REDUCE_SUCCESS);
-                failCase = ops().yield(SWITCH_REDUCE_FAIL);
-            } else {
-                Condition con5;
-                if (plannedEntry.value() != null) {
-                    // eq(revision(partition.assignments.planned), plannedEntry.revision)
-                    con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
-
-                    successCase = ops(
-                            put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                            put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
-                            remove(plannedPartAssignmentsKey),
-                            assignmentChainChangeOp
-                    ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
-
-                    failCase = ops().yield(SCHEDULE_PENDING_REBALANCE_FAIL);
-                } else {
-                    // notExists(partition.assignments.planned)
-                    con5 = notExists(plannedPartAssignmentsKey);
-
-                    successCase = ops(
-                            put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                            remove(pendingPartAssignmentsKey),
-                            assignmentChainChangeOp
-                    ).yield(FINISH_REBALANCE_SUCCESS);
-
-                    failCase = ops().yield(FINISH_REBALANCE_FAIL);
-                }
-
-                retryPreconditions = and(retryPreconditions, con5);
-            }
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
-            int res = metaStorageMgr.invoke(iif(retryPreconditions, successCase, failCase)).get().getAsInt();
-
-            if (res < 0) {
-                switch (res) {
-                    case SWITCH_APPEND_FAIL:
-                        LOG.info("Rebalance keys changed while trying to update rebalance pending addition information. "
-                                        + "Going to retry [zonePartitionId={}, appliedPeers={}]",
-                                zonePartitionId, stableFromRaft
-                        );
-                        break;
-                    case SWITCH_REDUCE_FAIL:
-                        LOG.info("Rebalance keys changed while trying to update rebalance pending reduce information. "
-                                        + "Going to retry [zonePartitionId={}, appliedPeers={}]",
-                                zonePartitionId, stableFromRaft
-                        );
-                        break;
-                    case SCHEDULE_PENDING_REBALANCE_FAIL:
-                    case FINISH_REBALANCE_FAIL:
-                        LOG.info("Rebalance keys changed while trying to update rebalance information. "
-                                        + "Going to retry [zonePartitionId={}, appliedPeers={}]",
-                                zonePartitionId, stableFromRaft
-                        );
-                        break;
-                    default:
-                        assert false : res;
-                        break;
-                }
-
-                doStableKeySwitch(
-                        stableFromRaft,
-                        zonePartitionId,
-                        metaStorageMgr,
+                Operation assignmentChainChangeOp = handleAssignmentsChainChange(
+                        assignmentsChainKey,
+                        assignmentsChainEntry,
+                        pendingAssignments,
+                        newStableAssignments,
                         configurationTerm,
-                        configurationIndex,
-                        calculateAssignmentsFn
+                        configurationIndex
                 );
 
-                return;
-            }
+                Update successCase;
+                Update failCase;
 
-            switch (res) {
-                case SWITCH_APPEND_SUCCESS:
-                    LOG.info("Rebalance finished. Going to schedule next rebalance with addition"
-                                    + " [zonePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            zonePartitionId, stableFromRaft, calculatedPendingAddition
-                    );
-                    break;
-                case SWITCH_REDUCE_SUCCESS:
-                    LOG.info("Rebalance finished. Going to schedule next rebalance with reduction"
-                                    + " [zonePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            zonePartitionId, stableFromRaft, calculatedPendingReduction
-                    );
-                    break;
-                case SCHEDULE_PENDING_REBALANCE_SUCCESS:
-                    LOG.info(
-                            "Rebalance finished. Going to schedule next rebalance [zonePartitionId={}, appliedPeers={}, plannedPeers={}]",
-                            zonePartitionId, stableFromRaft, Assignments.fromBytes(plannedEntry.value()).nodes()
-                    );
-                    break;
-                case FINISH_REBALANCE_SUCCESS:
-                    LOG.info("Rebalance finished [zonePartitionId={}, appliedPeers={}]", zonePartitionId, stableFromRaft);
-                    break;
+                byte[] stableFromRaftByteArray = newStableAssignments.toBytes();
+                byte[] additionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingAddition, catalogTimestamp));
+                byte[] reductionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingReduction, catalogTimestamp));
+                byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce, catalogTimestamp);
+                byte[] switchAppendByteArray = Assignments.toBytes(calculatedSwitchAppend, catalogTimestamp);
 
-                default:
-                    assert false : res;
-                    break;
-            }
-
-        } catch (InterruptedException | ExecutionException e) {
-            // TODO: IGNITE-14693
-            if (!hasCause(e, NodeStoppingException.class)) {
-                if (hasCause(e, TimeoutException.class)) {
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-25276 - handle this timeout properly.
-                    LOG.error("Unable to commit partition configuration to metastore: {}", e, zonePartitionId);
+                if (!calculatedSwitchAppend.isEmpty()) {
+                    successCase = ops(
+                            put(stablePartAssignmentsKey, stableFromRaftByteArray),
+                            put(pendingPartAssignmentsKey, additionByteArray),
+                            put(switchReduceKey, switchReduceByteArray),
+                            put(switchAppendKey, switchAppendByteArray),
+                            assignmentChainChangeOp
+                    ).yield(SWITCH_APPEND_SUCCESS);
+                    failCase = ops().yield(SWITCH_APPEND_FAIL);
+                } else if (!calculatedSwitchReduce.isEmpty()) {
+                    successCase = ops(
+                            put(stablePartAssignmentsKey, stableFromRaftByteArray),
+                            put(pendingPartAssignmentsKey, reductionByteArray),
+                            put(switchReduceKey, switchReduceByteArray),
+                            put(switchAppendKey, switchAppendByteArray),
+                            assignmentChainChangeOp
+                    ).yield(SWITCH_REDUCE_SUCCESS);
+                    failCase = ops().yield(SWITCH_REDUCE_FAIL);
                 } else {
-                    String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", zonePartitionId);
-                    failureProcessor.process(new FailureContext(e, errorMessage));
+                    Condition con5;
+                    if (plannedEntry.value() != null) {
+                        // eq(revision(partition.assignments.planned), plannedEntry.revision)
+                        con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
+
+                        successCase = ops(
+                                put(stablePartAssignmentsKey, stableFromRaftByteArray),
+                                put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
+                                remove(plannedPartAssignmentsKey),
+                                assignmentChainChangeOp
+                        ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
+
+                        failCase = ops().yield(SCHEDULE_PENDING_REBALANCE_FAIL);
+                    } else {
+                        // notExists(partition.assignments.planned)
+                        con5 = notExists(plannedPartAssignmentsKey);
+
+                        successCase = ops(
+                                put(stablePartAssignmentsKey, stableFromRaftByteArray),
+                                remove(pendingPartAssignmentsKey),
+                                assignmentChainChangeOp
+                        ).yield(FINISH_REBALANCE_SUCCESS);
+
+                        failCase = ops().yield(FINISH_REBALANCE_FAIL);
+                    }
+
+                    retryPreconditions = and(retryPreconditions, con5);
                 }
-            }
+
+                Set<Assignment> finalCalculatedPendingAddition = calculatedPendingAddition;
+                return metaStorageMgr.invoke(iif(retryPreconditions, successCase, failCase)).thenCompose(statementResult -> {
+                    int res = statementResult.getAsInt();
+
+                    if (res < 0) {
+                        logSwitchFailure(res, stableFromRaft, zonePartitionId);
+
+                        return doStableKeySwitch(
+                                stableFromRaft,
+                                zonePartitionId,
+                                configurationTerm,
+                                configurationIndex,
+                                calculateAssignmentsFn
+                        );
+                    } else {
+                        logSwitchSuccess(
+                                res,
+                                stableFromRaft,
+                                zonePartitionId,
+                                finalCalculatedPendingAddition,
+                                calculatedPendingReduction,
+                                plannedEntry
+                        );
+                        return nullCompletedFuture();
+                    }
+                });
+            });
+        });
+    }
+
+    private static void logSwitchFailure(int res, Set<Assignment> stableFromRaft, ZonePartitionId zonePartitionId) {
+        switch (res) {
+            case SWITCH_APPEND_FAIL:
+                LOG.info("Rebalance keys changed while trying to update rebalance pending addition information. "
+                                + "Going to retry [zonePartitionId={}, appliedPeers={}]",
+                        zonePartitionId, stableFromRaft
+                );
+                break;
+            case SWITCH_REDUCE_FAIL:
+                LOG.info("Rebalance keys changed while trying to update rebalance pending reduce information. "
+                                + "Going to retry [zonePartitionId={}, appliedPeers={}]",
+                        zonePartitionId, stableFromRaft
+                );
+                break;
+            case SCHEDULE_PENDING_REBALANCE_FAIL:
+            case FINISH_REBALANCE_FAIL:
+                LOG.info("Rebalance keys changed while trying to update rebalance information. "
+                                + "Going to retry [zonePartitionId={}, appliedPeers={}]",
+                        zonePartitionId, stableFromRaft
+                );
+                break;
+            default:
+                assert false : res;
+                break;
+        }
+    }
+
+    private static void logSwitchSuccess(
+            int res,
+            Set<Assignment> stableFromRaft,
+            ZonePartitionId zonePartitionId,
+            Set<Assignment> calculatedPendingAddition,
+            Set<Assignment> calculatedPendingReduction,
+            Entry plannedEntry
+    ) {
+        switch (res) {
+            case SWITCH_APPEND_SUCCESS:
+                LOG.info("Rebalance finished. Going to schedule next rebalance with addition"
+                                + " [zonePartitionId={}, appliedPeers={}, plannedPeers={}]",
+                        zonePartitionId, stableFromRaft, calculatedPendingAddition
+                );
+                break;
+            case SWITCH_REDUCE_SUCCESS:
+                LOG.info("Rebalance finished. Going to schedule next rebalance with reduction"
+                                + " [zonePartitionId={}, appliedPeers={}, plannedPeers={}]",
+                        zonePartitionId, stableFromRaft, calculatedPendingReduction
+                );
+                break;
+            case SCHEDULE_PENDING_REBALANCE_SUCCESS:
+                LOG.info(
+                        "Rebalance finished. Going to schedule next rebalance [zonePartitionId={}, appliedPeers={}, plannedPeers={}]",
+                        zonePartitionId, stableFromRaft, Assignments.fromBytes(plannedEntry.value()).nodes()
+                );
+                break;
+            case FINISH_REBALANCE_SUCCESS:
+                LOG.info("Rebalance finished [zonePartitionId={}, appliedPeers={}]", zonePartitionId, stableFromRaft);
+                break;
+
+            default:
+                assert false : res;
+                break;
         }
     }
 

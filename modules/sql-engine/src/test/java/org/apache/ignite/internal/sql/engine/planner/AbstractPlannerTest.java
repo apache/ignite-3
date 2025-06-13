@@ -113,7 +113,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -180,7 +179,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     protected static IgniteDistribution someAffinity() {
-        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
+        return TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
     }
 
     protected static int nextTableId() {

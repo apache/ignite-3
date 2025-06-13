@@ -34,18 +34,19 @@ data: {
       "org.apache.calcite.sql.SqlLiteral",
       "org.apache.calcite.schema.ColumnStrategy",
       "org.apache.calcite.sql.ddl.SqlDdlNodes",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlParserUtil",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateSchema",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplainMode",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone",
@@ -93,6 +94,7 @@ data: {
       "KILL"
       "QUERY"
       "COMPUTE"
+      "MAPPING"
       "WAIT"
     ]
 
@@ -120,6 +122,7 @@ data: {
       "HASH"
       "QUERY"
       "COMPUTE"
+      "MAPPING"
       "WAIT"
       "KILL"
 
@@ -337,6 +340,7 @@ data: {
     # Return type of method implementation should be 'SqlNode'.
     # Example: "SqlShowDatabases()", "SqlShowTables()".
     statementParserMethods: [
+      "SqlIgniteDescribe()",
       "SqlIgniteExplain()",
       "SqlAlterTable()",
       "SqlAlterZone()",

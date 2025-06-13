@@ -63,11 +63,11 @@ import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.recovery.DescriptorAcquiry;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
+import org.apache.ignite.internal.network.recovery.RecoveryAcceptorHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
-import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
@@ -127,8 +127,8 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private final ClusterIdSupplier clusterIdSupplier;
 
-    /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
-    private final @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
+    /** Factory producing {@link RecoveryInitiatorHandshakeManager} instances. */
+    private final @Nullable RecoveryInitiatorHandshakeManagerFactory initiatorHandshakeManagerFactory;
 
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -199,7 +199,7 @@ public class ConnectionManager implements ChannelCreationListener {
      * @param bootstrapFactory Bootstrap factory.
      * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
-     * @param clientHandshakeManagerFactory Factory for {@link RecoveryClientHandshakeManager} instances.
+     * @param initiatorHandshakeManagerFactory Factory for {@link RecoveryInitiatorHandshakeManager} instances.
      * @param channelTypeRegistry {@link ChannelType} registry.
      * @param productVersionSource Source of product version.
      */
@@ -211,7 +211,7 @@ public class ConnectionManager implements ChannelCreationListener {
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
-            @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory,
+            @Nullable RecoveryInitiatorHandshakeManagerFactory initiatorHandshakeManagerFactory,
             ChannelTypeRegistry channelTypeRegistry,
             IgniteProductVersionSource productVersionSource
     ) {
@@ -220,7 +220,7 @@ public class ConnectionManager implements ChannelCreationListener {
         this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
-        this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
+        this.initiatorHandshakeManagerFactory = initiatorHandshakeManagerFactory;
         this.channelTypeRegistry = channelTypeRegistry;
         this.productVersionSource = productVersionSource;
 
@@ -230,14 +230,14 @@ public class ConnectionManager implements ChannelCreationListener {
 
         this.server = new NettyServer(
                 networkConfiguration,
-                this::createServerHandshakeManager,
+                this::createAcceptorHandshakeManager,
                 this::onMessage,
                 serializationService,
                 bootstrapFactory,
                 ssl.enabled() ? SslContextProvider.createServerSslContext(ssl) : null
         );
 
-        this.clientBootstrap = bootstrapFactory.createClientBootstrap();
+        this.clientBootstrap = bootstrapFactory.createOutboundBootstrap();
 
         // We don't just use Executors#newSingleThreadExecutor() here because the maintenance thread will
         // be kept alive forever, and we only need it from time to time, so it seems a waste to keep the thread alive.
@@ -290,11 +290,11 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     /**
-     * Returns server local address.
+     * Returns server local bind address (might be an 'any local'/wildcard address if bound to all interfaces).
      *
-     * @return Server local address.
+     * @return Server local bind address.
      */
-    public InetSocketAddress localAddress() {
+    public InetSocketAddress localBindAddress() {
         return (InetSocketAddress) server.address();
     }
 
@@ -392,9 +392,9 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     /**
-     * Callback that is called upon new client connected to the server.
+     * Callback that is called upon new initiator connected to the acceptor.
      *
-     * @param channel Channel from client to this {@link #server}.
+     * @param channel Channel from initiator to this acceptor (represented with {@link #server}).
      */
     @Override
     public void handshakeFinished(NettySender channel) {
@@ -449,7 +449,7 @@ public class ConnectionManager implements ChannelCreationListener {
         var client = new NettyClient(
                 address,
                 serializationService,
-                createClientHandshakeManager(channelType.id()),
+                createInitiatorHandshakeManager(channelType.id()),
                 this::onMessage,
                 clientSslContext
         );
@@ -522,11 +522,11 @@ public class ConnectionManager implements ChannelCreationListener {
         return stopped.get();
     }
 
-    private HandshakeManager createClientHandshakeManager(short connectionId) {
+    private HandshakeManager createInitiatorHandshakeManager(short connectionId) {
         ClusterNode localNode = Objects.requireNonNull(localNodeFuture.getNow(null), "localNode not set");
 
-        if (clientHandshakeManagerFactory == null) {
-            return new RecoveryClientHandshakeManager(
+        if (initiatorHandshakeManagerFactory == null) {
+            return new RecoveryInitiatorHandshakeManager(
                     localNode,
                     connectionId,
                     descriptorProvider,
@@ -539,18 +539,18 @@ public class ConnectionManager implements ChannelCreationListener {
             );
         }
 
-        return clientHandshakeManagerFactory.create(
+        return initiatorHandshakeManagerFactory.create(
                 localNode,
                 connectionId,
                 descriptorProvider
         );
     }
 
-    private HandshakeManager createServerHandshakeManager() {
+    private HandshakeManager createAcceptorHandshakeManager() {
         // Do not just use localNodeFuture.join() to make sure the wait is time-limited.
         waitForLocalNodeToBeSet();
 
-        return new RecoveryServerHandshakeManager(
+        return new RecoveryAcceptorHandshakeManager(
                 localNodeFuture.join(),
                 FACTORY,
                 descriptorProvider,

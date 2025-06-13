@@ -52,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -79,6 +80,8 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
@@ -92,7 +95,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests {@link PersistentPageMemory}.
  */
-@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
+@ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelfTest {
     private static PageIoRegistry ioRegistry;
 
@@ -101,6 +104,9 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             value = "mock.engine = aipersist"
     )
     private StorageProfileConfiguration dataRegionCfg;
+
+    @InjectExecutorService
+    private ExecutorService executorService;
 
     @BeforeAll
     static void beforeAll() {
@@ -499,7 +505,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         return (fullPageId, buf, tag) -> fail("Should not happen");
     }
 
-    private static CheckpointManager createCheckpointManager(
+    private CheckpointManager createCheckpointManager(
             PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
@@ -515,6 +521,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 dataRegions,
                 ioRegistry,
                 mock(LogSyncer.class),
+                executorService,
                 PAGE_SIZE
         );
     }

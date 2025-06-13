@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlan
 
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchTables;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -29,7 +30,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  *
  * @see org.apache.ignite.internal.sql.engine.benchmarks.TpchParseBenchmark
  */
-// TODO https://issues.apache.org/jira/browse/IGNITE-21986 validate other query plans and make test parameterized.
 @TpcSuiteInfo(
         tables = TpchTables.class,
         queryLoader = "getQueryString",
@@ -37,7 +37,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 )
 public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     @ParameterizedTest
-    @ValueSource(strings = {"1", "5", "7", "8", "9", "21"})
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25607")
+    @ValueSource(strings = {
+            "1", "2", "3", "4", "5", "6", "7", "8", "8v", "9", "10", "11", "12", "12v",
+            "13", "14", "14v", "15", "16", "17", "18", "19", "20", "21", "22"
+    })
     public void test(String queryId) {
         validateQueryPlan(queryId);
     }

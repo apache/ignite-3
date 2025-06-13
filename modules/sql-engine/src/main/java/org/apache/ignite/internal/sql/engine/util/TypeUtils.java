@@ -51,7 +51,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -71,7 +70,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
@@ -226,62 +224,7 @@ public class TypeUtils {
     /**
      * Converts the given value to its presentation used by the execution engine.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-25037: Drop this method.
-    @Deprecated(forRemoval = true)
-    public static @Nullable Object toInternal(@Nullable Object val, Type storageType) {
-        if (val == null) {
-            return null;
-        } else if (storageType == LocalDate.class) {
-            return (int) ((LocalDate) val).toEpochDay();
-        } else if (storageType == LocalTime.class) {
-            return (int) (TimeUnit.NANOSECONDS.toMillis(((LocalTime) val).toNanoOfDay()));
-        } else if (storageType == LocalDateTime.class) {
-            var dt = (LocalDateTime) val;
-
-            return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
-        } else if (storageType == Instant.class) {
-            var timeStamp = (Instant) val;
-
-            return timeStamp.toEpochMilli();
-        } else if (storageType == Duration.class) {
-            return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
-                    + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
-        } else if (storageType == Period.class) {
-            return (int) ((Period) val).toTotalMonths();
-        } else if (storageType == byte[].class) {
-            if (val instanceof String) {
-                return new ByteString(((String) val).getBytes(StandardCharsets.UTF_8));
-            } else if (val instanceof byte[]) {
-                return new ByteString((byte[]) val);
-            } else {
-                assert val instanceof ByteString : "Expected ByteString but got " + val + ", type=" + val.getClass().getTypeName();
-                return val;
-            }
-        } else if (val instanceof Number && storageType != val.getClass()) {
-            // For dynamic parameters we don't know exact parameter type in compile time. To avoid casting errors in
-            // runtime we should convert parameter value to expected type.
-            Number num = (Number) val;
-
-            return Byte.class.equals(storageType) || byte.class.equals(storageType) ? SqlFunctions.toByte(num) :
-                    Short.class.equals(storageType) || short.class.equals(storageType) ? SqlFunctions.toShort(num) :
-                            Integer.class.equals(storageType) || int.class.equals(storageType) ? SqlFunctions.toInt(num) :
-                                    Long.class.equals(storageType) || long.class.equals(storageType) ? SqlFunctions.toLong(num) :
-                                            Float.class.equals(storageType) || float.class.equals(storageType) ? SqlFunctions.toFloat(num) :
-                                                    Double.class.equals(storageType) || double.class.equals(storageType)
-                                                            ? SqlFunctions.toDouble(num) :
-                                                            BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
-        } else {
-            var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
-            assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
-
-            return SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, nativeTypeSpec);
-        }
-    }
-
-    /**
-     * Converts the given value to its presentation used by the execution engine.
-     */
-    public static Object toInternal(Object val, NativeTypeSpec spec) {
+    public static Object toInternal(Object val, ColumnType spec) {
         switch (spec) {
             case INT8: {
                 assert val instanceof Byte : val.getClass();
@@ -319,7 +262,7 @@ public class TypeUtils {
                 assert val instanceof String : val.getClass();
                 return val;
             }
-            case BYTES: {
+            case BYTE_ARRAY: {
                 if (val instanceof String) {
                     return new ByteString(((String) val).getBytes(StandardCharsets.UTF_8));
                 } else if (val instanceof byte[]) {
@@ -386,17 +329,14 @@ public class TypeUtils {
         } else if (storageType == byte[].class && val instanceof ByteString) {
             return ((ByteString) val).getBytes();
         } else {
-            var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
-            assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
-
-            return SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, nativeTypeSpec);
+            return val;
         }
     }
 
     /**
      * Converts the value from its presentation used by the execution engine.
      */
-    public static Object fromInternal(Object val, NativeTypeSpec spec) {
+    public static Object fromInternal(Object val, ColumnType spec) {
         switch (spec) {
             case INT8:
             case INT16:
@@ -408,7 +348,7 @@ public class TypeUtils {
             case UUID:
             case STRING:
                 return val;
-            case BYTES:
+            case BYTE_ARRAY:
                 return ((ByteString) val).getBytes();
             case DATE:
                 return LocalDate.ofEpochDay((Integer) val);
@@ -420,15 +360,14 @@ public class TypeUtils {
                 return Instant.ofEpochMilli((Long) val);
             case BOOLEAN:
                 return val;
-            // TODO https://issues.apache.org/jira/browse/IGNITE-23295 Support native types for DURATION and PERIOD
-            // case DURATION: {
-            //     assert val instanceof Long;
-            //    return Duration.ofMillis((Long) val);
-            // }
-            // case PREIOD: {
-            //     assert val instanceof Integer;
-            //     return Period.of((Integer) val / 12, (Integer) val % 12, 0);
-            //     }
+            case DURATION: {
+                assert val instanceof Long;
+                return Duration.ofMillis((Long) val);
+            }
+            case PERIOD: {
+                assert val instanceof Integer;
+                return Period.of((Integer) val / 12, (Integer) val % 12, 0);
+            }
             default: {
                 return SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, spec);
             }
@@ -541,7 +480,7 @@ public class TypeUtils {
 
                 return factory.createSqlType(SqlTypeName.VARCHAR, varlen.length());
             }
-            case BYTES: {
+            case BYTE_ARRAY: {
                 assert nativeType instanceof VarlenNativeType;
 
                 var varlen = (VarlenNativeType) nativeType;
@@ -811,10 +750,10 @@ public class TypeUtils {
 
             if (yearMonth) {
                 // YEAR MONTH interval is stored as number of days in ints.
-                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT32, nullable);
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.PERIOD, nullable);
             } else {
                 // DAY interval is stored as time as long.
-                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT64, nullable);
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.DURATION, nullable);
             }
         } else if (SqlTypeUtil.isRow(type)) {
             List<TypeSpec> fields = new ArrayList<>();

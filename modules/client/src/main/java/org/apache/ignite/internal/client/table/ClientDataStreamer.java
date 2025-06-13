@@ -34,7 +34,7 @@ import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -71,8 +71,8 @@ class ClientDataStreamer {
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            ReceiverDescriptor<A> receiverDescriptor,
-            A receiverArgs
+            DataStreamerReceiverDescriptor<V, A, R> receiverDescriptor,
+            @Nullable A receiverArg
     ) {
         var opts = receiverDescriptor.options();
         if (opts != null && !opts.equals(ReceiverExecutionOptions.DEFAULT)) {
@@ -96,15 +96,16 @@ class ClientDataStreamer {
                                     StreamerReceiverSerializer.serializeReceiverInfoOnClient(
                                             w,
                                             receiverDescriptor.receiverClassName(),
-                                            receiverArgs,
+                                            receiverArg,
+                                            receiverDescriptor.payloadMarshaller(),
                                             receiverDescriptor.argumentMarshaller(),
                                             items);
                                 },
                                 in -> resultSubscriber != null
-                                        ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(in.in())
+                                        ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(
+                                                in.in(), receiverDescriptor.resultMarshaller())
                                         : null,
                                 partitionAssignment.get(partitionId),
-                                null,
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),
                                 false)
                 );

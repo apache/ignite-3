@@ -266,11 +266,11 @@ ospackage {
         from("$buildDir/linux/service/vars.env")
         from "$buildDir/linux/ignite.java.util.logging.properties"
         from generateConfigDefaults
-        from createVersionFile
-        from sourceSets.main.resources
 
         fileMode 0660
+        fileType CONFIG | NOREPLACE
 
+        // TODO https://github.com/nebula-plugins/gradle-ospackage-plugin/issues/463
         eachFile {
             def configFile = "${packageTokens.CONF_DIR}/${it.getName()}"
 
@@ -278,6 +278,14 @@ ospackage {
                 configurationFile(configFile)
             }
         }
+    }
+
+    // These are not config files, don't mark them as such so they are overwritten on upgrade
+    into(packageTokens.CONF_DIR) {
+        from createVersionFile
+        from sourceSets.main.resources
+
+        fileMode 0660
     }
 
     into(packageTokens.INSTALL_DIR) {

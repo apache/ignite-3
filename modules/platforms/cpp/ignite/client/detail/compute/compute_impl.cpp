@@ -16,6 +16,7 @@
  */
 
 #include "ignite/client/detail/compute/compute_impl.h"
+#include "ignite/client/detail/table/table_impl.h"
 
 #include "colocated_job_target.h"
 #include "ignite/client/detail/argument_check_utils.h"
@@ -307,7 +308,7 @@ private:
 void compute_impl::submit_to_nodes(const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
     const binary_object &arg, ignite_callback<job_execution> callback) {
 
-    auto writer_func = [&nodes, &descriptor, arg](protocol::writer &writer) {
+    auto writer_func = [&nodes, &descriptor, arg](protocol::writer &writer, auto&) {
         auto nodes_num = std::int32_t(nodes.size());
         writer.write(nodes_num);
         for (const auto &node : nodes) {
@@ -324,8 +325,8 @@ void compute_impl::submit_to_nodes(const std::set<cluster_node> &nodes, std::sha
 
     auto handler = std::make_shared<response_handler_compute>(shared_from_this(), std::move(callback), false);
 
-    m_connection->perform_request_handler(
-        protocol::client_operation::COMPUTE_EXECUTE, nullptr, writer_func, std::move(handler));
+    m_connection->perform_request_handler(cluster_connection::static_op(protocol::client_operation::COMPUTE_EXECUTE),
+        nullptr, writer_func, std::move(handler));
 }
 
 void compute_impl::submit_colocated_async(const colocated_job_target &target,
@@ -339,14 +340,14 @@ void compute_impl::submit_colocated_async(const colocated_job_target &target,
         }
         auto &table_opt = res.value();
         if (!table_opt) {
-            callback({ignite_error("Table does not exist: '" + target.get_table_name() + "'")});
+            callback({ignite_error("Table does not exist: '" + target.get_table_name().get_canonical_name() + "'")});
             return;
         }
 
         auto table = table_impl::from_facade(*table_opt);
         table->template with_proper_schema_async<job_execution>(
             callback, [self, table, key = target.get_key(), descriptor, arg, conn](const schema &sch, auto callback) mutable {
-                auto writer_func = [&key, &descriptor, &sch, &table, &arg](protocol::writer &writer) {
+                auto writer_func = [&key, &descriptor, &sch, &table, &arg](protocol::writer &writer, auto&) {
                     writer.write(table->get_id());
                     writer.write(sch.version);
                     write_tuple(writer, sch, key, true);
@@ -362,7 +363,8 @@ void compute_impl::submit_colocated_async(const colocated_job_target &target,
                 auto handler = std::make_shared<response_handler_compute>(self, std::move(callback), true);
 
                 conn->perform_request_handler(
-                    protocol::client_operation::COMPUTE_EXECUTE_COLOCATED, nullptr, writer_func, std::move(handler));
+                    cluster_connection::static_op(protocol::client_operation::COMPUTE_EXECUTE_COLOCATED),
+                    nullptr, writer_func, std::move(handler));
             });
     };
 
@@ -370,7 +372,7 @@ void compute_impl::submit_colocated_async(const colocated_job_target &target,
 }
 
 void compute_impl::get_state_async(uuid id, ignite_callback<std::optional<job_state>> callback) {
-    auto writer_func = [id](protocol::writer &writer) { writer.write(id); };
+    auto writer_func = [id](protocol::writer &writer, auto&) { writer.write(id); };
 
     auto reader_func = [](protocol::reader &reader) -> std::optional<job_state> {
         return read_job_state_opt(reader);
@@ -381,7 +383,7 @@ void compute_impl::get_state_async(uuid id, ignite_callback<std::optional<job_st
 }
 
 void compute_impl::cancel_async(uuid id, ignite_callback<job_execution::operation_result> callback) {
-    auto writer_func = [id](protocol::writer &writer) { writer.write(id); };
+    auto writer_func = [id](protocol::writer &writer, auto&) { writer.write(id); };
 
     auto reader_func = [](protocol::reader &reader) -> job_execution::operation_result {
         typedef job_execution::operation_result operation_result;
@@ -397,7 +399,7 @@ void compute_impl::cancel_async(uuid id, ignite_callback<job_execution::operatio
 
 void compute_impl::change_priority_async(
     uuid id, std::int32_t priority, ignite_callback<job_execution::operation_result> callback) {
-    auto writer_func = [id, priority](protocol::writer &writer) {
+    auto writer_func = [id, priority](protocol::writer &writer, auto&) {
         writer.write(id);
         writer.write(priority);
     };

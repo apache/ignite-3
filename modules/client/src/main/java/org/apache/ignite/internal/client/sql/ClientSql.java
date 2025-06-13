@@ -283,7 +283,7 @@ public class ClientSql implements IgniteSql {
         if (transaction != null) {
             try {
                 //noinspection resource
-                return ClientLazyTransaction.ensureStarted(transaction, ch, null)
+                return ClientLazyTransaction.ensureStarted(transaction, ch).get1()
                         .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader))
                         .exceptionally(ClientSql::handleException);
             } catch (TransactionException e) {
@@ -350,7 +350,7 @@ public class ClientSql implements IgniteSql {
         if (transaction != null) {
             try {
                 //noinspection resource
-                return ClientLazyTransaction.ensureStarted(transaction, ch, null)
+                return ClientLazyTransaction.ensureStarted(transaction, ch).get1()
                         .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader))
                         .exceptionally(ClientSql::handleException);
             } catch (TransactionException e) {
@@ -404,7 +404,7 @@ public class ClientSql implements IgniteSql {
         long correlationToken = ch.requestId();
 
         Runnable cancelAction = () -> ch.clientChannel()
-                .serviceAsync(ClientOp.SQL_CANCEL_EXEC, w -> w.out().packLong(correlationToken), null)
+                .serviceAsync(ClientOp.OPERATION_CANCEL, w -> w.out().packLong(correlationToken), null)
                 .whenComplete((r, e) -> {
                     if (e != null) {
                         cancelFuture.completeExceptionally(e);

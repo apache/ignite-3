@@ -32,6 +32,10 @@ import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.AbstractList;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -42,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -62,7 +67,6 @@ import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
-import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
@@ -83,7 +87,6 @@ import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeMappingRule;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -104,6 +107,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
@@ -112,7 +116,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -184,8 +187,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // Calcite fails to validate a query when its top node is EXPLAIN PLAN FOR
         // java.lang.NullPointerException: namespace for <query>
         // at org.apache.calcite.sql.validate.SqlValidatorImpl.getNamespaceOrThrow(SqlValidatorImpl.java:1280)
-        if (topNode instanceof SqlExplain) {
-            SqlExplain explainNode = (SqlExplain) topNode;
+        if (topNode instanceof IgniteSqlExplain) {
+            IgniteSqlExplain explainNode = (IgniteSqlExplain) topNode;
             SqlNode topNodeToValidate = explainNode.getExplicandum();
 
             SqlNode validatedNode = super.validate(topNodeToValidate);
@@ -1539,36 +1542,47 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             return typeFactory.createSqlType(SqlTypeName.NULL);
         }
 
-        Class<?> valueClass = value.getClass();
+        Class<?> cls = value.getClass();
 
-        if (valueClass == Character.class) {
-            valueClass = String.class;
+        if (cls == Character.class) {
+            cls = String.class;
         }
 
-        NativeTypeSpec spec = NativeTypeSpec.fromClass(valueClass);
-
-        assert spec != null : "Unable to derive type from value: " + value;
-
-        switch (spec) {
-            case INT8: return typeFactory.createSqlType(SqlTypeName.TINYINT);
-            case INT16: return typeFactory.createSqlType(SqlTypeName.SMALLINT);
-            case INT32: return typeFactory.createSqlType(INTEGER);
-            case INT64: return typeFactory.createSqlType(SqlTypeName.BIGINT);
-            case FLOAT: return typeFactory.createSqlType(SqlTypeName.REAL);
-            case DOUBLE: return typeFactory.createSqlType(SqlTypeName.DOUBLE);
-            case BOOLEAN: return typeFactory.createSqlType(SqlTypeName.BOOLEAN);
-            case UUID: return typeFactory.createSqlType(SqlTypeName.UUID);
-            case DATE: return typeFactory.createSqlType(SqlTypeName.DATE);
-            case TIME: return typeFactory.createSqlType(SqlTypeName.TIME);
-            case DATETIME: return typeFactory.createSqlType(SqlTypeName.TIMESTAMP);
-            case TIMESTAMP: return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
-            case DECIMAL: return typeFactory.createSqlType(
+        if (cls == Boolean.class) {
+            return typeFactory.createSqlType(SqlTypeName.BOOLEAN);
+        } else if (cls == Byte.class) {
+            return typeFactory.createSqlType(SqlTypeName.TINYINT);
+        } else if (cls == Short.class) {
+            return typeFactory.createSqlType(SqlTypeName.SMALLINT);
+        } else if (cls == Integer.class) {
+            return typeFactory.createSqlType(INTEGER);
+        } else if (cls == Long.class) {
+            return typeFactory.createSqlType(SqlTypeName.BIGINT);
+        } else if (cls == Float.class) {
+            return typeFactory.createSqlType(SqlTypeName.REAL);
+        } else if (cls == Double.class) {
+            return typeFactory.createSqlType(SqlTypeName.DOUBLE);
+        } else if (cls == LocalDate.class) {
+            return typeFactory.createSqlType(SqlTypeName.DATE);
+        } else if (cls == LocalTime.class) {
+            return typeFactory.createSqlType(SqlTypeName.TIME);
+        } else if (cls == LocalDateTime.class) {
+            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP);
+        } else if (cls == Instant.class) {
+            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+        } else if (cls == byte[].class) {
+            return typeFactory.createSqlType(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED);
+        } else if (cls == String.class) {
+            return typeFactory.createSqlType(SqlTypeName.VARCHAR, PRECISION_NOT_SPECIFIED);
+        } else if (cls == UUID.class) {
+            return typeFactory.createSqlType(SqlTypeName.UUID);
+        } else if (cls == BigDecimal.class) {
+            return typeFactory.createSqlType(
                     SqlTypeName.DECIMAL, DECIMAL_DYNAMIC_PARAM_PRECISION, DECIMAL_DYNAMIC_PARAM_SCALE
             );
-            case BYTES: return typeFactory.createSqlType(SqlTypeName.VARBINARY, BasicSqlType.PRECISION_NOT_SPECIFIED);
-            case STRING: return typeFactory.createSqlType(SqlTypeName.VARCHAR, BasicSqlType.PRECISION_NOT_SPECIFIED);
-            default: throw new AssertionError("Unknown type " + spec);
         }
+
+        throw new AssertionError("Unknown type " + cls);
     }
 
     /** if dynamic parameter is not specified, set its type to the provided type, otherwise return the type of its value. */

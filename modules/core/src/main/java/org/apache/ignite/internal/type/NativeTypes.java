@@ -19,13 +19,15 @@ package org.apache.ignite.internal.type;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
+ * A thin wrapper over {@link ColumnType} to instantiate parameterized constrained types.
  */
 public class NativeTypes {
     /**
@@ -38,55 +40,65 @@ public class NativeTypes {
     /**
      * BOOLEAN type.
      */
-    public static final NativeType BOOLEAN = new NativeType(NativeTypeSpec.BOOLEAN, 1);
+    public static final NativeType BOOLEAN = new NativeType(ColumnType.BOOLEAN, 1);
 
     /**
      * INT8 type.
      */
-    public static final NativeType INT8 = new NativeType(NativeTypeSpec.INT8, 1);
+    public static final NativeType INT8 = new NativeType(ColumnType.INT8, 1);
 
     /**
      * INT16 type.
      */
-    public static final NativeType INT16 = new NativeType(NativeTypeSpec.INT16, 2);
+    public static final NativeType INT16 = new NativeType(ColumnType.INT16, 2);
 
     /**
      * INT32 type.
      */
-    public static final NativeType INT32 = new NativeType(NativeTypeSpec.INT32, 4);
+    public static final NativeType INT32 = new NativeType(ColumnType.INT32, 4);
 
     /**
      * INT64 type.
      */
-    public static final NativeType INT64 = new NativeType(NativeTypeSpec.INT64, 8);
+    public static final NativeType INT64 = new NativeType(ColumnType.INT64, 8);
 
     /**
      * FLOAT type.
      */
-    public static final NativeType FLOAT = new NativeType(NativeTypeSpec.FLOAT, 4);
+    public static final NativeType FLOAT = new NativeType(ColumnType.FLOAT, 4);
 
     /**
      * DOUBLE type.
      */
-    public static final NativeType DOUBLE = new NativeType(NativeTypeSpec.DOUBLE, 8);
+    public static final NativeType DOUBLE = new NativeType(ColumnType.DOUBLE, 8);
 
     /**
      * UUID type.
      */
-    public static final NativeType UUID = new NativeType(NativeTypeSpec.UUID, 16);
+    public static final NativeType UUID = new NativeType(ColumnType.UUID, 16);
 
     /**
      * STRING type with length set to default value.
      */
-    public static final NativeType STRING = new VarlenNativeType(NativeTypeSpec.STRING, 65536);
+    public static final NativeType STRING = new VarlenNativeType(ColumnType.STRING, 65536);
 
     /**
      * BYTES type with length set to default value.
      */
-    public static final NativeType BYTES = new VarlenNativeType(NativeTypeSpec.BYTES, 65536);
+    public static final NativeType BYTES = new VarlenNativeType(ColumnType.BYTE_ARRAY, 65536);
 
     /** Timezone-free three-part value representing a year, month, and day. */
-    public static final NativeType DATE = new NativeType(NativeTypeSpec.DATE, 3);
+    public static final NativeType DATE = new NativeType(ColumnType.DATE, 3);
+
+    /**
+     * DURATION type.
+     */
+    public static final NativeType DURATION = new NativeType(ColumnType.DURATION, 8);
+
+    /**
+     * PERIOD type.
+     */
+    public static final NativeType PERIOD = new NativeType(ColumnType.PERIOD, 4);
 
     /** Don't allow to create an instance. */
     private NativeTypes() {
@@ -99,7 +111,7 @@ public class NativeTypes {
      * @return Native type.
      */
     public static NativeType stringOf(int len) {
-        return new VarlenNativeType(NativeTypeSpec.STRING, len);
+        return new VarlenNativeType(ColumnType.STRING, len);
     }
 
     /**
@@ -109,7 +121,7 @@ public class NativeTypes {
      * @return Native type.
      */
     public static NativeType blobOf(int len) {
-        return new VarlenNativeType(NativeTypeSpec.BYTES, len);
+        return new VarlenNativeType(ColumnType.BYTE_ARRAY, len);
     }
 
     /**
@@ -157,73 +169,80 @@ public class NativeTypes {
      * Return the native type for specified object.
      *
      * @param val Object to map to native type.
-     * @return {@code null} for {@code null} value. Otherwise returns NativeType according to the value's type.
+     * @return {@code null} for {@code null} value. Returns {@link NativeType} according to the value's type or throws an exception
+     *      if object type is unsupported.
      */
     @Contract("null -> null")
     public static @Nullable NativeType fromObject(@Nullable Object val) {
-        NativeTypeSpec spec = NativeTypeSpec.fromObject(val);
-
-        if (spec == null) {
+        if (val == null) {
             return null;
         }
 
-        switch (spec) {
-            case BOOLEAN:
-                return BOOLEAN;
+        Class<?> cls = val.getClass();
 
-            case INT8:
-                return INT8;
-
-            case INT16:
-                return INT16;
-
-            case INT32:
-                return INT32;
-
-            case INT64:
-                return INT64;
-
-            case FLOAT:
-                return FLOAT;
-
-            case DOUBLE:
-                return DOUBLE;
-
-            case UUID:
-                return UUID;
-
-            case DATE:
-                return DATE;
-
-            case TIME:
-                assert val instanceof LocalTime : val.getClass().getCanonicalName();
-
-                return time(derivePrecisionFromNanos(((LocalTime) val).getNano()));
-
-            case DATETIME:
-                assert val instanceof LocalDateTime : val.getClass().getCanonicalName();
-
-                return datetime(derivePrecisionFromNanos(((LocalDateTime) val).getNano()));
-
-            case TIMESTAMP:
-                assert val instanceof Instant : val.getClass().getCanonicalName();
-
-                return timestamp(derivePrecisionFromNanos(((Instant) val).getNano()));
-
-            case STRING:
-                return stringOf(((CharSequence) val).length());
-
-            case BYTES:
-                return blobOf(((byte[]) val).length);
-
-            case DECIMAL:
-                return decimalOf(((BigDecimal) val).precision(), ((BigDecimal) val).scale());
-
-            default:
-                assert false : "Unexpected type: " + spec;
-
-                return null;
+        if (!supportedClass(cls)) {
+            return null;
         }
+
+        if (cls == Boolean.class) {
+            return BOOLEAN;
+        } else if (cls == Byte.class) {
+            return INT8;
+        } else if (cls == Short.class) {
+            return INT16;
+        } else if (cls == Integer.class) {
+            return INT32;
+        } else if (cls == Long.class) {
+            return INT64;
+        } else if (cls == Float.class) {
+            return FLOAT;
+        } else if (cls == Double.class) {
+            return DOUBLE;
+        } else if (cls == LocalDate.class) {
+            return DATE;
+        } else if (cls == LocalTime.class) {
+            assert val instanceof LocalTime : val.getClass().getCanonicalName();
+
+            return time(derivePrecisionFromNanos(((LocalTime) val).getNano()));
+        } else if (cls == LocalDateTime.class) {
+            assert val instanceof LocalDateTime : val.getClass().getCanonicalName();
+
+            return datetime(derivePrecisionFromNanos(((LocalDateTime) val).getNano()));
+        } else if (cls == Instant.class) {
+            assert val instanceof Instant : val.getClass().getCanonicalName();
+
+            return timestamp(derivePrecisionFromNanos(((Instant) val).getNano()));
+        } else if (cls == byte[].class) {
+            return blobOf(((byte[]) val).length);
+        } else if (cls == String.class) {
+            return stringOf(((CharSequence) val).length());
+        } else if (cls == java.util.UUID.class) {
+            return UUID;
+        } else if (cls == BigDecimal.class) {
+            return decimalOf(((BigDecimal) val).precision(), ((BigDecimal) val).scale());
+        }
+
+        throw new UnsupportedOperationException("Class is not supported: " + cls);
+    }
+
+    private static boolean supportedClass(Class<?> cls) {
+        assert cls != null;
+
+        return cls == Boolean.class
+                || cls == Byte.class
+                || cls == Short.class
+                || cls == Integer.class
+                || cls == Long.class
+                || cls == Float.class
+                || cls == Double.class
+                || cls == LocalDate.class
+                || cls == LocalTime.class
+                || cls == LocalDateTime.class
+                || cls == Instant.class
+                || cls == byte[].class
+                || cls == String.class
+                || cls == java.util.UUID.class
+                || cls == BigDecimal.class;
     }
 
     private static int derivePrecisionFromNanos(int nanos) {

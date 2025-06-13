@@ -249,7 +249,7 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                 .addKeyColumn("ID", NativeTypes.INT32)
                 .addColumn("A", NativeTypes.INT32)
                 .size(ROW_CNT)
-                .distribution(IgniteDistributions.affinity(0, 1, 1));
+                .distribution(TestBuilders.affinity(0, 1, 1));
 
         IgniteSchema publicSchema = createSchema(builder.build());
 

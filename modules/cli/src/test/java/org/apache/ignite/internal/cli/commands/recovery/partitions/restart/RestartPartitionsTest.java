@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
@@ -29,25 +30,41 @@ import static org.mockserver.model.JsonBody.json;
 
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockserver.model.MediaType;
 
 /** Unit tests for {@link RestartPartitionsCommand}. */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-25104
 public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
+    private static String PARTITIONS_RESTART_ENDPOINT;
+
+    @BeforeAll
+    public static void beforeAll() {
+        PARTITIONS_RESTART_ENDPOINT = colocationEnabled() ? "zone/partitions/restart" : "partitions/restart";
+    }
+
     @Test
     @DisplayName("Restart all partitions")
     void restartAllPartitions() {
-        String expectedSentContent = "{"
-                + "     \"tableName\" : \"table_NAME\","
-                + "     \"zoneName\" : \"zone_NAME\","
-                + "}";
+        String expectedSentContent;
+
+        if (colocationEnabled()) {
+            expectedSentContent = "{"
+                    + "     \"zoneName\" : \"zone_NAME\","
+                    + "}";
+
+        } else {
+            expectedSentContent = "{"
+                    + "     \"tableName\" : \"table_NAME\","
+                    + "     \"zoneName\" : \"zone_NAME\","
+                    + "}";
+        }
 
         clientAndServer
                 .when(request()
                         .withMethod("POST")
-                        .withPath("/management/v1/recovery/partitions/restart")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
                         .withBody(json(expectedSentContent))
                         .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                 )
@@ -70,7 +87,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         clientAndServer
                 .when(request()
                         .withMethod("POST")
-                        .withPath("/management/v1/recovery/partitions/restart")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
                         .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
                         .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                 )
@@ -94,7 +111,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         clientAndServer
                 .when(request()
                         .withMethod("POST")
-                        .withPath("/management/v1/recovery/partitions/restart")
+                        .withPath("/management/v1/recovery/" + PARTITIONS_RESTART_ENDPOINT)
                         .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS))
                         .withContentType(MediaType.APPLICATION_JSON_UTF_8)
                 )

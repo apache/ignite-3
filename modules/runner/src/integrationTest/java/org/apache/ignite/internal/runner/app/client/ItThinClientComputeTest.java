@@ -89,6 +89,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
+import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
@@ -105,6 +106,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -221,6 +223,24 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         cancelHandle.cancel();
 
         assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
+    }
+
+    @Test
+    @Disabled("IGNITE-25640")
+    void cancelComputeSubmitMapReduceAsyncWithCancelHandle() {
+        IgniteClient entryNode = client();
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        TaskExecution<Void> taskExec = entryNode.compute()
+                .submitMapReduce(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), null, cancelHandle.token());
+
+        cancelHandle.cancel();
+
+        assertThrows(ExecutionException.class, () -> taskExec.resultAsync().get(10, TimeUnit.SECONDS));
+
+        TaskState taskState = taskExec.stateAsync().join();
+        assertThat(taskState, is(taskStateWithStatus(TaskStatus.CANCELED)));
     }
 
     @Test
@@ -410,7 +430,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteWithArgs() {
         JobExecution<String> execution = submit(
-                JobTarget.anyNode(client().clusterNodes()), JobDescriptor.builder(ConcatJob.class).build(),
+                JobTarget.anyNode(client().cluster().nodes()), JobDescriptor.builder(ConcatJob.class).build(),
                 "1:2:3.3"
         );
 
@@ -1004,7 +1024,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class MapReduceNodeNameTask implements MapReduceTask<String, Object, String, String> {
         @Override
         public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, String args) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Object, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
@@ -1024,7 +1044,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class MapReduceArgsTask implements MapReduceTask<String, String, String, String> {
         @Override
         public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(TaskExecutionContext context, String args) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<String, String>builder()
                             .jobDescriptor(JobDescriptor.builder(ConcatJob.class).build())
                             .nodes(Set.of(node))
@@ -1057,7 +1077,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         @Override
         public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, Object args) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Object, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
@@ -1100,7 +1120,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                     MapReduceJob.<Void, Void>builder()
                             .jobDescriptor(
                                     JobDescriptor.builder(InfiniteMapReduceJob.class).build())
-                            .nodes(taskContext.ignite().clusterNodes())
+                            .nodes(taskContext.ignite().cluster().nodes())
                             .build()
             ));
         }

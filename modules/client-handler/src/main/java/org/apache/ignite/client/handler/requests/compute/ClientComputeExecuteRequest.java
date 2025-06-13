@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
@@ -49,16 +50,14 @@ public class ClientComputeExecuteRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param compute Compute.
      * @param cluster Cluster.
      * @param notificationSender Notification sender.
      * @param enablePlatformJobs Enable platform jobs.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteComputeInternal compute,
             ClusterService cluster,
             NotificationSender notificationSender,
@@ -74,7 +73,7 @@ public class ClientComputeExecuteRequest {
 
         //noinspection DataFlowIssue
         return executionFut.thenCompose(execution ->
-                execution.idAsync().thenAccept(jobId -> packSubmitResult(out, jobId, execution.node()))
+                execution.idAsync().thenApply(jobId -> out -> packSubmitResult(out, jobId, execution.node()))
         );
     }
 

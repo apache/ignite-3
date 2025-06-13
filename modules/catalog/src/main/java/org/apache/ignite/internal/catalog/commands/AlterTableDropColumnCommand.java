@@ -66,7 +66,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
             boolean ifTableExists,
             Set<String> columns
     ) throws CatalogValidationException {
-        super(schemaName, tableName, ifTableExists);
+        super(schemaName, tableName, ifTableExists, true);
 
         // Set.copyOf() will throw NPE if any elements of the given set is null
         validate(columns);

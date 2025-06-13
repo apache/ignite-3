@@ -309,9 +309,9 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
             IAsyncEnumerable<TSource> data,
+            ReceiverDescriptor<TPayload, TArg, TResult> receiver,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
-            ReceiverDescriptor<TArg, TResult> receiver,
             TArg receiverArg,
             DataStreamerOptions? options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)

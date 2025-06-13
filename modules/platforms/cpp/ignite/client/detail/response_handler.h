@@ -217,7 +217,7 @@ public:
      *
      * @param msg Message.
      */
-    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection>, bytes_view msg, std::int32_t) final {
+    [[nodiscard]] ignite_result<void> handle(std::shared_ptr<node_connection>, bytes_view msg, std::int32_t) {
         protocol::reader reader(msg);
         auto read_res = result_of_operation<T>([&]() { return m_read_func(reader); });
         bool read_error = read_res.has_error();
@@ -263,7 +263,7 @@ public:
      * @param msg Message.
      */
     [[nodiscard]] ignite_result<void> handle(
-        std::shared_ptr<node_connection> conn, bytes_view msg, std::int32_t) final {
+        std::shared_ptr<node_connection> conn, bytes_view msg, std::int32_t) {
         protocol::reader reader(msg);
         auto read_res = result_of_operation<T>([&]() { return m_read_func(reader, conn); });
         bool read_error = read_res.has_error();

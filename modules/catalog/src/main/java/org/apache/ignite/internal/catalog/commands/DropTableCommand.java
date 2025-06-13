@@ -43,7 +43,7 @@ public class DropTableCommand extends AbstractTableCommand {
     }
 
     private DropTableCommand(String schemaName, String tableName, boolean ifExists) throws CatalogValidationException {
-        super(schemaName, tableName, ifExists);
+        super(schemaName, tableName, ifExists, true);
     }
 
     @Override

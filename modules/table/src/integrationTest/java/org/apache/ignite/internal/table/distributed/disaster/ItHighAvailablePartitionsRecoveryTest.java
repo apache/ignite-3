@@ -119,6 +119,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     void testHaRecoveryWhenPartitionResetTimeoutUpdated() throws InterruptedException {
         createHaZoneWithTable();
 

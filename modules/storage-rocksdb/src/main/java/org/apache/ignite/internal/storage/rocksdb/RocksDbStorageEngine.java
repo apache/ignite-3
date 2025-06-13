@@ -198,7 +198,9 @@ public class RocksDbStorageEngine implements StorageEngine {
         ConfigurationValue<Long> dataRegionSize = storageProfileConfiguration.sizeBytes();
 
         if (dataRegionSize.value() == UNSPECIFIED_SIZE) {
-            CompletableFuture<Void> updateFuture = dataRegionSize.update(StorageEngine.defaultDataRegionSize());
+            long defaultDataRegionSize = StorageEngine.defaultDataRegionSize();
+
+            CompletableFuture<Void> updateFuture = dataRegionSize.update(defaultDataRegionSize);
 
             // Node local configuration is synchronous, wait just in case.
             try {
@@ -206,6 +208,11 @@ public class RocksDbStorageEngine implements StorageEngine {
             } catch (InterruptedException | ExecutionException e) {
                 throw new StorageException(e);
             }
+
+            LOG.info(
+                    "{}.{} property is not specified, setting its value to {}",
+                    storageProfileConfiguration.name().value(), dataRegionSize.key(), defaultDataRegionSize
+            );
         }
     }
 

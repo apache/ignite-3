@@ -75,7 +75,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
             @Nullable Boolean nullable,
             @Nullable DeferredDefaultValue deferredDefault
     ) {
-        super(schemaName, tableName, ifTableExists);
+        super(schemaName, tableName, ifTableExists, true);
 
         this.columnName = columnName;
         this.type = type;

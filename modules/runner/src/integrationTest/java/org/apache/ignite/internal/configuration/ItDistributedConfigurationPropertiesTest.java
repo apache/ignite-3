@@ -64,6 +64,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -202,6 +203,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
+            MetricManager metricManager = new NoOpMetricManager();
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     new SystemDisasterRecoveryStorage(vaultManager),
@@ -213,7 +216,8 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurer
+                    cmgRaftConfigurer,
+                    metricManager
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -243,7 +247,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new SimpleInMemoryKeyValueStorage(name(), readOperationForCompactionTracker),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
-                    new NoOpMetricManager(),
+                    metricManager,
                     systemConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker

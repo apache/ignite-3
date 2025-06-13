@@ -37,6 +37,10 @@ public class IgniteRocksDbException extends StorageException {
         super(parseErrorCode(cause), message, cause);
     }
 
+    public IgniteRocksDbException(String message, RocksDBException cause, Object... params) {
+        super(parseErrorCode(cause), message, cause, params);
+    }
+
     private static int parseErrorCode(RocksDBException ex) {
         Status status = ex.getStatus();
 

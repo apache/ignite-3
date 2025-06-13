@@ -57,6 +57,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -414,11 +415,33 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         return CLUSTER.aliveNodesWithIndices();
     }
 
-    protected static List<List<Object>> sql(String sql, Object... args) {
+    protected static long[] dmlBatch(String dmlQuery, BatchedArguments batchedArgs) {
+        IgniteSql sql = CLUSTER.aliveNode().sql();
+        Statement statement = sql.createStatement(dmlQuery);
+
+        return sql.executeBatch(null, statement, batchedArgs);
+    }
+
+    /**
+     * Run SQL on the first Ignite instance with implicit transaction and parameters.
+     *
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(String sql, Object... args) {
         return sql(null, sql, args);
     }
 
-    protected static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
+    /**
+     * Run SQL on given Ignite instance with implicit transaction and parameters.
+     *
+     * @param nodeIndex Ignite instance to run a query.
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
         return sql(nodeIndex, null, sql, args);
     }
 

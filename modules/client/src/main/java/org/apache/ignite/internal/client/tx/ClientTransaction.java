@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.client.tx;
 
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
+import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -41,7 +42,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -135,9 +135,7 @@ public class ClientTransaction implements Transaction {
         this.timeout = timeout;
 
         if (cpm != null) {
-            // If mapping is known, assign commit partition.
-            // However, we don't require direct connection to a commit partition primary replica here because where is a guarantee that
-            // commit partition will be assigned to provided value at the txn beginning.
+            // if commit partition is known, we can attempt to do direct mappings in this transaction.
             this.commitTableId = cpm.tableId();
             this.commitPartition = cpm.partition();
         } else {
@@ -147,7 +145,7 @@ public class ClientTransaction implements Transaction {
 
         this.coordId = coordId;
 
-        assert this.coordId != null;
+        assert txId == null || coordId != null;
     }
 
     /**
@@ -220,19 +218,14 @@ public class ClientTransaction implements Transaction {
             enlistPartitionLock.writeLock().unlock();
         }
 
-        CompletableFuture<Void> finishFut = ch.inflights().finishFuture(txId());
+        boolean enabled = ch.protocolContext().isFeatureSupported(TX_PIGGYBACK);
+        CompletableFuture<Void> finishFut = enabled ? ch.inflights().finishFuture(txId()) : nullCompletedFuture();
 
         CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
             w.out().packLong(id);
-            if (!isReadOnly && w.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
-                w.out().packLong(tracker.get().longValue());
-                w.out().packInt(enlisted.size());
-                for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
-                    w.out().packInt(entry.getKey().tableId());
-                    w.out().packInt(entry.getKey().partitionId());
-                    w.out().packString(entry.getValue().getNow(null).get1());
-                    w.out().packLong(entry.getValue().getNow(null).get2());
-                }
+
+            if (!isReadOnly && enabled) {
+                packEnlisted(w);
             }
         }, r -> null));
 
@@ -269,19 +262,8 @@ public class ClientTransaction implements Transaction {
         // Don't wait inflights on rollback.
         CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
             w.out().packLong(id);
-            if (!isReadOnly && w.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
-                w.out().packInt(enlisted.size());
-                for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
-                    w.out().packInt(entry.getKey().tableId());
-                    w.out().packInt(entry.getKey().partitionId());
-                    CompletableFuture<IgniteBiTuple<String, Long>> fut = entry.getValue();
-                    if (CompletableFutures.isCompletedSuccessfully(fut)) {
-                        w.out().packString(fut.join().get1());
-                        w.out().packLong(fut.join().get2());
-                    } else {
-                        w.out().packNil();
-                    }
-                }
+            if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_PIGGYBACK)) {
+                packEnlisted(w);
             }
         }, r -> null);
 
@@ -294,6 +276,31 @@ public class ClientTransaction implements Transaction {
         });
 
         return mainFinishFut;
+    }
+
+    private void packEnlisted(PayloadOutputChannel w) {
+        int pos = w.out().reserveInt();
+        int cnt = 0;
+        for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
+            IgniteBiTuple<String, Long> info = entry.getValue().getNow(null);
+
+            if (info == null) {
+                continue; // Ignore incomplete enlistments.
+            }
+
+            w.out().packInt(entry.getKey().tableId());
+            w.out().packInt(entry.getKey().partitionId());
+            w.out().packString(info.get1());
+            w.out().packLong(info.get2());
+
+            cnt++;
+        }
+
+        w.out().setInt(pos, cnt);
+
+        if (cnt > 0) {
+            w.out().packLong(tracker.get().longValue());
+        }
     }
 
     /** {@inheritDoc} */
@@ -425,6 +432,12 @@ public class ClientTransaction implements Transaction {
     @TestOnly
     public int enlistedCount() {
         return enlisted.size();
+    }
+
+    /** Fail the transaction. */
+    public void fail() {
+        state.set(STATE_ROLLED_BACK);
+        finishFut.set(nullCompletedFuture());
     }
 
     @Override

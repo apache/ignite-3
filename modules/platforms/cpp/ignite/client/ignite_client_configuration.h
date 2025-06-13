@@ -23,6 +23,7 @@
 
 #include <initializer_list>
 #include <memory>
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -37,6 +38,11 @@ public:
      * TCP port used by client by default if not specified explicitly.
      */
     static constexpr uint16_t DEFAULT_PORT = 10800;
+
+    /**
+     * Default heartbeat interval.
+     */
+    static constexpr std::chrono::microseconds DEFAULT_HEARTBEAT_INTERVAL = std::chrono::seconds(30);
 
     // Default
     ignite_client_configuration() = default;
@@ -123,7 +129,7 @@ public:
      * this setting to limit the number of active connections. This reduces initial connection time and the
      * resource usage, but can have a negative effect on cache operation performance.
      *
-     * Zero value means that number of active connections is not limited.
+     * Zero value means that the number of active connections is not limited.
      *
      * The default value is zero.
      *
@@ -132,13 +138,40 @@ public:
     [[nodiscard]] uint32_t get_connection_limit() const { return m_connection_limit; }
 
     /**
-     * Set connection limit.
+     * Set the connection limit.
      *
-     * @see GetConnectionsLimit for details.
+     * @see get_connections_limit for details.
      *
      * @param limit Connections limit to set.
      */
     void set_connection_limit(uint32_t limit) { m_connection_limit = limit; }
+
+    /**
+     * Get a heartbeat interval.
+     * When server-side idle timeout is not zero, the effective heartbeat interval is set to
+     * min(heartbeat_interval, idle_timeout / 3)
+     *
+     * When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+     * to keep the connection alive and detect potential half-open state.
+     *
+     * Zero value means heartbeats are disabled.
+     *
+     * The default value is DEFAULT_HEARTBEAT_INTERVAL.
+     *
+     * @return Heartbeat interval.
+     */
+    [[nodiscard]] std::chrono::microseconds get_heartbeat_interval() const { return m_heartbeat_interval; }
+
+    /**
+     * Set a heartbeat interval.
+     *
+     * @see get_heartbeat_interval for details.
+     *
+     * @param heartbeat_interval Heartbeat interval.
+     */
+    void set_heartbeat_interval(std::chrono::microseconds heartbeat_interval) {
+        m_heartbeat_interval = heartbeat_interval;
+    }
 
     /**
      * Gets the authenticator.
@@ -181,7 +214,7 @@ public:
     }
 
     /**
-     * Get file path to SSL certificate to use during connection establishment.
+     * Get a file path to SSL certificate to use during a connection establishment.
      *
      * @return File path to SSL certificate.
      */
@@ -190,34 +223,34 @@ public:
     }
 
     /**
-     * Set file path to SSL certificate to use during connection establishment.
+     * Set file path to SSL certificate to use during a connection establishment.
      *
-     * @param sslCertFile File path to SSL certificate.
+     * @param ssl_cert_file File path to SSL certificate.
      */
     void set_ssl_cert_file(const std::string& ssl_cert_file) {
         m_ssl_cert_file = ssl_cert_file;
     }
 
     /**
-     * Get file path to SSL private key to use during connection establishment.
+     * Get a file path to the SSL private key to use during a connection establishment.
      *
-     * @return File path to SSL private key.
+     * @return File path to the SSL private key.
      */
     [[nodiscard]] const std::string& get_ssl_key_file() const {
         return m_ssl_key_file;
     }
 
     /**
-     * Set file path to SSL private key to use during connection establishment.
+     * Set file path to the SSL private key to use during a connection establishment.
      *
-     * @param sslKeyFile File path to SSL private key.
+     * @param ssl_key_file File path to the SSL private key.
      */
     void set_ssl_key_file(const std::string& ssl_key_file) {
         m_ssl_key_file = ssl_key_file;
     }
 
     /**
-     * Get file path to SSL certificate authority to authenticate server certificate during connection
+     * Get a file path to SSL certificate authority to authenticate server certificate during a connection
      *  establishment.
      *
      * @return File path to SSL certificate authority.
@@ -227,10 +260,10 @@ public:
     }
 
     /**
-     * Set file path to SSL certificate authority to authenticate server certificate during connection
-     *  establishment.
+     * Set file path to SSL certificate authority to authenticate server certificate during a connection
+     * establishment.
      *
-     * @param sslCaFile File path to SSL certificate authority.
+     * @param ssl_ca_file File path to SSL certificate authority.
      */
     void set_ssl_ca_file(const std::string& ssl_ca_file) {
         m_ssl_ca_file = ssl_ca_file;
@@ -250,13 +283,16 @@ private:
     /** Active connections limit. */
     uint32_t m_connection_limit{0};
 
+    /** Heartbeat interval. */
+    std::chrono::microseconds m_heartbeat_interval{DEFAULT_HEARTBEAT_INTERVAL};
+
     /** SSL Mode. */
     ssl_mode m_ssl_mode{ssl_mode::DISABLE};
 
     /** File path to SSL certificate. */
     std::string m_ssl_cert_file;
 
-    /** File path to SSL private key. */
+    /** File path to the SSL private key. */
     std::string m_ssl_key_file;
 
     /** File path to SSL certificate authority. */

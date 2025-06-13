@@ -117,10 +117,12 @@ import org.locationtech.jts.geom.Geometry;
  *      Removed original casts to numeric types and used own ConverterUtils.convert
  *      Added pad-truncate from CHARACTER to INTERVAL types
  *      Added time-zone dependency for cast from CHARACTER types to TIMESTAMP WITH LOCAL TIMEZONE (see point 3)
+ *      Cast VARCHAR to TIME is updated to use our implementation (see IgniteMethod.TIME_STRING_TO_TIME).
+ *      Cast VARCHAR to DATE is updated to use our implementation (see IgniteMethod.DATE_STRING_TO_DATE).
  *      Cast TIMESTAMP to TIMESTAMP WITH LOCAL TIMEZONE use our implementation, see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
  *      Cast TIMESTAMP LTZ accepts FORMAT. (See IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  * 6. Translate literals changes:
- *      DECIMAL use own implementation see IgniteSqlFunctions.class, “toBigDecimal"
+ *      DECIMAL use own implementation see IgniteSqlFunctions.class, "toBigDecimal"
  *      TIMESTAMP_WITH_LOCAL_TIME_ZONE use own implementation
  *      use Primitives.convertPrimitiveExact instead of primitive.number method
  * 7. Reworked implementation of dynamic parameters:
@@ -612,16 +614,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       // If format string is supplied, parse formatted string into date
       return Expressions.isConstantNull(format)
               ? Expressions.call(BuiltInMethod.STRING_TO_DATE.method, operand)
-              : Expressions.call(
-                      // TODO https://issues.apache.org/jira/browse/IGNITE-25010 Remove redundant call to TO_DATE_EXACT
-                      IgniteMethod.TO_DATE_EXACT.method(),
-                      Expressions.call(
-                              Expressions.new_(BuiltInMethod.PARSE_DATE.method.getDeclaringClass()),
-                              BuiltInMethod.PARSE_DATE.method,
-                              format,
-                              operand
-                      )
-              );
+              : Expressions.call(IgniteMethod.DATE_STRING_TO_DATE.method(), operand, format);
 
     case TIMESTAMP:
       return
@@ -652,8 +645,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       // If format string is supplied, parse formatted string into time
       return Expressions.isConstantNull(format)
           ? Expressions.call(IgniteMethod.STRING_TO_TIME.method(), operand)
-          : Expressions.call(Expressions.new_(BuiltInMethod.PARSE_TIME.method.getDeclaringClass()),
-              BuiltInMethod.PARSE_TIME.method, format, operand);
+          : Expressions.call(IgniteMethod.TIME_STRING_TO_TIME.method(), operand, format);
 
     case TIME_WITH_LOCAL_TIME_ZONE:
       return
@@ -733,13 +725,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       // If format string is supplied, parse formatted string into timestamp
       return Expressions.isConstantNull(format)
           ? Expressions.call(IgniteMethod.TO_TIMESTAMP_EXACT.method(), Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand))
-          : Expressions.call(
-                  IgniteMethod.TO_TIMESTAMP_EXACT.method(),
-                  Expressions.call(
-                    Expressions.new_(BuiltInMethod.PARSE_TIMESTAMP.method.getDeclaringClass()),
-                    BuiltInMethod.PARSE_TIMESTAMP.method, format, operand
-                  )
-          );
+          : Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP.method(), operand, format);
 
     case DATE:
       return

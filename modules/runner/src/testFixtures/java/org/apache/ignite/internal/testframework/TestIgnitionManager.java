@@ -20,6 +20,7 @@ package org.apache.ignite.internal.testframework;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.SYNC;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static java.util.Map.entry;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -61,16 +62,18 @@ public class TestIgnitionManager {
     public static final long DEFAULT_MAX_CLOCK_SKEW_MS = TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 
     /** Map with default node configuration values. */
-    private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.of(
-            "ignite.network.membership.scaleCube.metadataTimeoutMillis", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
-            "ignite.storage.profiles.default_aipersist.engine", "aipersist",
-            "ignite.storage.profiles.default_aipersist.sizeBytes", Integer.toString(256 * MiB),
-            "ignite.storage.profiles.default_aimem.engine", "aimem",
-            "ignite.storage.profiles.default_aimem.initSizeBytes", Integer.toString(256 * MiB),
-            "ignite.storage.profiles.default_aimem.maxSizeBytes", Integer.toString(256 * MiB),
-            "ignite.storage.profiles.default.engine", "aipersist",
-            "ignite.storage.profiles.default.sizeBytes", Integer.toString(256 * MiB),
-            "ignite.system.properties.aipersistThrottling", "disabled"
+    private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.ofEntries(
+            entry("ignite.network.membership.scaleCube.metadataTimeoutMillis", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT)),
+            entry("ignite.storage.profiles.default_aipersist.engine", "aipersist"),
+            entry("ignite.storage.profiles.default_aipersist.sizeBytes", Integer.toString(256 * MiB)),
+            entry("ignite.storage.profiles.default_aimem.engine", "aimem"),
+            entry("ignite.storage.profiles.default_aimem.initSizeBytes", Integer.toString(256 * MiB)),
+            entry("ignite.storage.profiles.default_aimem.maxSizeBytes", Integer.toString(256 * MiB)),
+            entry("ignite.storage.profiles.default_rocksdb.engine", "rocksdb"),
+            entry("ignite.storage.profiles.default_rocksdb.sizeBytes", Integer.toString(256 * MiB)),
+            entry("ignite.storage.profiles.default.engine", "aipersist"),
+            entry("ignite.storage.profiles.default.sizeBytes", Integer.toString(256 * MiB)),
+            entry("ignite.system.properties.aipersistThrottling", "disabled")
     );
 
     /** Map with default cluster configuration values. */

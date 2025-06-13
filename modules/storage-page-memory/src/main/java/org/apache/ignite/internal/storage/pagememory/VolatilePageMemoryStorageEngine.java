@@ -214,13 +214,25 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
         ConfigurationValue<Long> maxSize = storageProfileConfiguration.maxSizeBytes();
 
         if (maxSize.value() == UNSPECIFIED_SIZE) {
-            updateConfigValue(maxSize, StorageEngine.defaultDataRegionSize());
+            long defaultDataRegionSize = StorageEngine.defaultDataRegionSize();
+
+            updateConfigValue(maxSize, defaultDataRegionSize);
+
+            LOG.info(
+                    "{}.{} property is not specified, setting its value to {}",
+                    storageProfileConfiguration.name().value(), maxSize.key(), defaultDataRegionSize
+            );
         }
 
         ConfigurationValue<Long> initSize = storageProfileConfiguration.initSizeBytes();
 
         if (initSize.value() == UNSPECIFIED_SIZE) {
             updateConfigValue(initSize, maxSize.value());
+
+            LOG.info(
+                    "{}.{} property is not specified, setting its value to {}",
+                    storageProfileConfiguration.name().value(), initSize.key(), maxSize.value()
+            );
         }
     }
 

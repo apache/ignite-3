@@ -17,14 +17,10 @@
 
 #pragma once
 
-#include "ignite/common/ignite_error.h"
 #include "ignite/common/ignite_type.h"
 #include "ignite/protocol/reader.h"
 
-#include <msgpack.h>
-
 #include <algorithm>
-#include <array>
 #include <memory>
 #include <string>
 
@@ -52,7 +48,7 @@ struct column {
     /**
      * Unpack column from MsgPack object.
      *
-     * @param object MsgPack object.
+     * @param reader Reader.
      * @return Column value.
      */
     [[nodiscard]] static column read(protocol::reader &reader) {

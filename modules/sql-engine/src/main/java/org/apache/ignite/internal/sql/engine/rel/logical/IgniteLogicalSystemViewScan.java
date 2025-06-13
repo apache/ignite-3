@@ -78,6 +78,12 @@ public class IgniteLogicalSystemViewScan extends ProjectableFilterableTableScan 
                 names, projects, condition, requiredColumns);
     }
 
+    @Override
+    protected IgniteLogicalSystemViewScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteLogicalSystemViewScan(getCluster(), getTraitSet(), getHints(), getTable(),
+                names, newProjects, newCondition, requiredColumns);
+    }
+
     /** {@inheritDoc} */
     @Override
     public String getRelTypeName() {

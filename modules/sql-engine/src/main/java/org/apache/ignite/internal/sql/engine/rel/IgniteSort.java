@@ -38,6 +38,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.jetbrains.annotations.Nullable;
@@ -196,5 +197,18 @@ public class IgniteSort extends Sort implements IgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        if (offset != null) {
+            writer.addOffset(offset);
+        }
+
+        if (fetch != null) {
+            writer.addFetch(fetch);
+        }
+
+        return writer.addCollation(collation, getRowType());
     }
 }

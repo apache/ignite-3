@@ -106,7 +106,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("distributions")
     public void testInsertSelectFrom(IgniteDistribution distribution) throws Exception {
-        IgniteDistribution anotherDistribution = IgniteDistributions.affinity(1, 1, "0");
+        IgniteDistribution anotherDistribution = TestBuilders.affinity(1, 1, 0);
 
         IgniteTable test1 = newTestTable("TEST1", distribution);
         IgniteTable test2 = newTestTable("TEST2", anotherDistribution);
@@ -197,7 +197,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         return Stream.of(
                 IgniteDistributions.single(),
                 IgniteDistributions.hash(List.of(0, 1)),
-                IgniteDistributions.affinity(0, 2, "0"),
+                TestBuilders.affinity(0, 2, 0),
                 IgniteDistributions.identity(0)
         );
     }
@@ -210,10 +210,10 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     private static Stream<IgniteDistribution> distributionsForDelete() {
         return Stream.of(
                 IgniteDistributions.hash(List.of(1, 3)),
-                IgniteDistributions.affinity(1, 2, "0"),
-                IgniteDistributions.affinity(3, 2, "0"),
-                IgniteDistributions.affinity(List.of(1, 3), 2, "0"),
-                IgniteDistributions.affinity(List.of(3, 1), 2, "0"),
+                TestBuilders.affinity(1, 2, 0),
+                TestBuilders.affinity(3, 2, 0),
+                TestBuilders.affinity(List.of(1, 3), 2, 0),
+                TestBuilders.affinity(List.of(3, 1), 2, 0),
                 IgniteDistributions.identity(1)
         );
     }

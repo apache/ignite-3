@@ -385,6 +385,18 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsNotThrownIfSchemaIsReservedButValidationFlagSet(String schema) {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .validateSystemSchemas(false) // This flag disables the schema name validation.
+                .schemaName(schema);
+
+        assertDoesNotThrow(builder::build);
+    }
+
     @Test
     void exceptionIsThrownIfZoneNotExists() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();

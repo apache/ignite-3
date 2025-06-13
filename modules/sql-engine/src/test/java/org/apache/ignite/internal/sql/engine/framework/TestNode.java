@@ -34,6 +34,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -166,7 +167,7 @@ public class TestNode implements LifecycleAware {
         holdLock = new IgniteSpinBusyLock();
 
         messageService = registerService(new MessageServiceImpl(
-                nodeName, messagingService, taskExecutor, holdLock, clockService
+                topologyService.localMember(), messagingService, taskExecutor, holdLock, clockService
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry, messageService, clockService
@@ -201,6 +202,7 @@ public class TestNode implements LifecycleAware {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
+                new SystemPropertiesNodeProperties(),
                 killCommandHandler,
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE

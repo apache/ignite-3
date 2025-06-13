@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Type;
@@ -50,6 +51,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
@@ -80,6 +83,7 @@ public class ExecutionContext<RowT> implements DataContext {
     private final ClusterNode localNode;
 
     private final String originatingNodeName;
+    private final UUID originatingNodeId;
 
     private final RowHandler<RowT> handler;
 
@@ -128,6 +132,7 @@ public class ExecutionContext<RowT> implements DataContext {
             ExecutionId executionId,
             ClusterNode localNode,
             String originatingNodeName,
+            UUID originatingNodeId,
             FragmentDescription description,
             RowHandler<RowT> handler,
             Map<String, Object> params,
@@ -144,6 +149,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
+        this.originatingNodeId = originatingNodeId;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
@@ -235,6 +241,13 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
+     * Get originating node volatile ID.
+     */
+    public UUID originatingNodeId() {
+        return originatingNodeId;
+    }
+
+    /**
      * Get local node.
      */
     public ClusterNode localNode() {
@@ -308,7 +321,17 @@ public class ExecutionContext<RowT> implements DataContext {
             return null;
         }
 
-        return TypeUtils.toInternal(param, storageType == null ? param.getClass() : storageType);
+        NativeType nativeType = NativeTypes.fromObject(param);
+
+        if (nativeType == null) {
+            throw new IllegalArgumentException(format(
+                    "Dynamic parameter of unsupported type: parameterName={}, type={}",
+                    name,
+                    param.getClass()
+            ));
+        }
+
+        return TypeUtils.toInternal(param, nativeType.spec());
     }
 
     /**

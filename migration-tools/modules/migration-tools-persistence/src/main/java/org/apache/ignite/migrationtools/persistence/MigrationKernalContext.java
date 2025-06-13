@@ -46,7 +46,6 @@ import org.apache.ignite.internal.managers.indexing.GridIndexingManager;
 import org.apache.ignite.internal.managers.systemview.GridSystemViewManager;
 import org.apache.ignite.internal.processors.affinity.GridAffinityProcessor;
 import org.apache.ignite.internal.processors.cache.binary.CacheObjectBinaryProcessorImpl;
-import org.apache.ignite.internal.processors.cache.mvcc.MvccProcessorImpl;
 import org.apache.ignite.internal.processors.cache.persistence.wal.reader.StandaloneGridKernalContext;
 import org.apache.ignite.internal.processors.cache.persistence.wal.reader.StandaloneNoopCommunicationSpi;
 import org.apache.ignite.internal.processors.cache.persistence.wal.reader.StandaloneNoopDiscoverySpi;
@@ -152,7 +151,6 @@ public class MigrationKernalContext extends GridKernalContextImpl {
         this.add(new GridMetricManager(this), false);
         this.add(new GridTimeoutProcessor(this), false);
         this.add(new GridDeploymentManager(this), false);
-        this.add(new MvccProcessorImpl(this), false);
         this.add(new GridContinuousProcessor(this), false);
         this.add(new PlatformNoopProcessor(this), false);
 

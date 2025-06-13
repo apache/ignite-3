@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -52,6 +53,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionCo
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -150,7 +152,8 @@ public class TestServer implements AutoCloseable {
                 securityConfiguration,
                 port,
                 null,
-                true
+                true,
+                null
         );
     }
 
@@ -170,7 +173,8 @@ public class TestServer implements AutoCloseable {
             @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
             @Nullable HybridClock clock,
-            boolean enableRequestHandling
+            boolean enableRequestHandling,
+            @Nullable BitSet features
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -262,7 +266,8 @@ public class TestServer implements AutoCloseable {
                         authenticationManager,
                         clock,
                         ignite.placementDriver(),
-                        clientConnectorConfiguration)
+                        clientConnectorConfiguration,
+                        features)
                 : new ClientHandlerModule(
                         ignite.queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
@@ -280,6 +285,7 @@ public class TestServer implements AutoCloseable {
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark(),
+                        new SystemPropertiesNodeProperties(),
                         Runnable::run
                 );
 

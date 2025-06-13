@@ -1,0 +1,120 @@
+Limit
+    fetch: 100
+    est: (rows=100)
+  ColocatedSortAggregate
+      fieldNames: [S_STORE_NAME, EXPR$1]
+      collation: [S_STORE_NAME ASC]
+      group: [S_STORE_NAME]
+      aggregation: [SUM(SS_NET_PROFIT)]
+      est: (rows=7976420)
+    Project
+        fieldNames: [S_STORE_NAME, SS_NET_PROFIT]
+        projection: [S_STORE_NAME, SS_NET_PROFIT]
+        est: (rows=39882099)
+      HashJoin
+          predicate: =($f9, $f1)
+          type: inner
+          est: (rows=39882099)
+        Project
+            fieldNames: [SS_SOLD_DATE_SK, SS_STORE_SK, SS_NET_PROFIT, D_DATE_SK, D_YEAR, D_QOY, S_STORE_SK, S_STORE_NAME, S_ZIP, $f9]
+            projection: [SS_SOLD_DATE_SK, SS_STORE_SK, SS_NET_PROFIT, D_DATE_SK, D_YEAR, D_QOY, S_STORE_SK, S_STORE_NAME, S_ZIP, SUBSTR(S_ZIP, 1, 2)]
+            est: (rows=319405)
+          Sort
+              collation: [S_STORE_NAME ASC]
+              est: (rows=319405)
+            HashJoin
+                predicate: =(SS_STORE_SK, S_STORE_SK)
+                type: inner
+                est: (rows=319405)
+              HashJoin
+                  predicate: =(SS_SOLD_DATE_SK, D_DATE_SK)
+                  type: inner
+                  est: (rows=319405)
+                Exchange
+                    distribution: single
+                    est: (rows=2880404)
+                  TableScan
+                      table: PUBLIC.STORE_SALES
+                      fieldNames: [SS_SOLD_DATE_SK, SS_STORE_SK, SS_NET_PROFIT]
+                      est: (rows=2880404)
+                Exchange
+                    distribution: single
+                    est: (rows=8100)
+                  TableScan
+                      table: PUBLIC.DATE_DIM
+                      predicate: AND(=(D_QOY, 2), =(D_YEAR, 1998))
+                      fieldNames: [D_DATE_SK, D_YEAR, D_QOY]
+                      est: (rows=8100)
+              Exchange
+                  distribution: single
+                  est: (rows=12)
+                TableScan
+                    table: PUBLIC.STORE
+                    fieldNames: [S_STORE_SK, S_STORE_NAME, S_ZIP]
+                    est: (rows=12)
+        Project
+            fieldNames: [CA_ZIP, $f1]
+            projection: [CA_ZIP, SUBSTR(CA_ZIP, 1, 2)]
+            est: (rows=832)
+          ReduceIntersect
+              all: false
+              est: (rows=832)
+            Exchange
+                distribution: single
+                est: (rows=832)
+              MapIntersect
+                  all: false
+                  est: (rows=832)
+                TableScan
+                    table: PUBLIC.CUSTOMER_ADDRESS
+                    predicate: OR(=(SUBSTR(CA_ZIP, 1, 5), _UTF-8'47602'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'16704'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'35863'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'28577'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'83910'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'36201'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'58412'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'48162'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'28055'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41419'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'80332'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'38607'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'77817'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'24891'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'16226'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18410'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'21231'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'59345'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13918'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'51089'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'20317'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'17167'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'54585'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'67881'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'78366'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'47770'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18360'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'51717'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'73108'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'14440'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'21800'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'89338'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'45859'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'65501'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'34948'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'25973'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'73219'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'25333'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'17291'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'10374'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18829'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'60736'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'82620'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41351'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'52094'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'19326'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'25214'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'54207'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'40936'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'21814'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'79077'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'25178'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'75742'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'77454'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'30621'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'89193'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'27369'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41232'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'48567'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'83041'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'71948'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'37119'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'68341'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'14073'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'16891'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'62878'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'49130'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'19833'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'24286'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'27700'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'40979'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'50412'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'81504'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'94835'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'84844'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'71954'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'39503'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'57649'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18434'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'24987'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'12350'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'86379'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'27413'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'44529'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'98569'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'16515'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'27287'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'24255'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'21094'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'16005'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'56436'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'91110'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'68293'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'56455'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'54558'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'10298'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'83647'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'32754'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'27052'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'51766'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'19444'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13869'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'45645'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'94791'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'57631'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'20712'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'37788'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41807'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'46507'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'21727'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'71836'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'81070'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'50632'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'88086'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'63991'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'20244'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'31655'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'51782'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'29818'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'63792'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'68605'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'94898'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'36430'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'57025'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'20601'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'82080'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'33869'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'22728'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'35834'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'29086'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'92645'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'98584'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'98072'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'11652'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'78093'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'57553'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'43830'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'71144'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'53565'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18700'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'90209'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'71256'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'38353'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'54364'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'28571'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'96560'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'57839'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'56355'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'50679'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'45266'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'84680'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'34306'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'34972'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'48530'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'30106'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'15371'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'92380'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'84247'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'92292'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'68852'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13338'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'34594'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'82602'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'70073'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'98069'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'85066'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'47289'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'11686'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'98862'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'26217'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'47529'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'63294'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'51793'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'35926'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'24227'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'14196'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'24594'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'32489'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'99060'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'49472'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'43432'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'49211'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'14312'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'88137'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'47369'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'56877'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'20534'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'81755'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'15794'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'12318'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'21060'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'73134'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41255'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'63073'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'81003'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'73873'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'66057'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'51184'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'51195'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'45676'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'92696'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'70450'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'90669'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'98338'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'25264'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'38919'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'59226'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'58581'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'60298'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'17895'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'19489'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'52301'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'80846'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'95464'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'68770'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'51634'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'19988'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18367'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18421'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'11618'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'67975'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'25494'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41352'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'95430'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'15734'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'62585'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'97173'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'33773'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'10425'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'75675'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'53535'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'17879'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41967'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'12197'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'67998'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'79658'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'59130'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'72592'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'14851'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'43933'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'68101'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'50636'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'25717'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'71286'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'24660'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'58058'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'72991'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'95042'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'15543'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'33122'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'69280'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'11912'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'59386'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'27642'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'65177'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'17672'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'33467'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'64592'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'36335'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'54010'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18767'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'63193'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'42361'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'49254'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'33113'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'33159'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'36479'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'59080'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'11855'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'81963'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'31016'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'49140'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'29392'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41836'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'32958'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'53163'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13844'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'73146'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'23952'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'65148'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'93498'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'14530'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'46131'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'58454'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13376'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13378'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'83986'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'12320'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'17193'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'59852'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'46081'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'98533'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'52389'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13086'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'68843'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'31013'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13261'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'60560'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13443'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'45533'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'83583'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'11489'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'58218'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'19753'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'22911'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'25115'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'86709'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'27156'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'32669'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'13123'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'51933'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'39214'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41331'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'66943'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'14155'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'69998'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'49101'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'70070'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'35076'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'14242'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'73021'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'59494'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'15782'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'29752'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'37914'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'74686'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'83086'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'34473'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'15751'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'81084'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'49230'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'91894'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'60624'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'17819'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'28810'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'63180'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'56224'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'39459'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'55233'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'75752'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'43639'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'55349'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'86057'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'62361'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'50788'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'31830'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'58062'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18218'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'85761'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'60083'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'45484'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'21204'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'90229'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'70041'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'41162'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'35390'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'16364'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'39500'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'68908'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'26689'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'52868'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'81335'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'40146'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'11340'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'61527'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'61794'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'71997'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'30415'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'59004'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'29450'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'58117'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'69952'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'33562'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'83833'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'27385'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'61860'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'96435'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'48333'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'23065'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'32961'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'84919'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'61997'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'99132'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'22815'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'56600'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'68730'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'48017'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'95694'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'32919'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'88217'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'27116'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'28239'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'58032'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18884'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'16791'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'21343'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'97462'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'18569'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'75660'), =(SUBSTR(CA_ZIP, 1, 5), _UTF-8'15475'))
+                    fieldNames: [CA_ZIP]
+                    projection: [SUBSTR(CA_ZIP, 1, 5)]
+                    est: (rows=50000)
+                Exchange
+                    distribution: hash by [CA_ZIP]
+                    est: (rows=1665)
+                  Project
+                      fieldNames: [CA_ZIP]
+                      projection: [CA_ZIP]
+                      est: (rows=1665)
+                    Filter
+                        predicate: >(CNT, 10)
+                        est: (rows=1665)
+                      Project
+                          fieldNames: [CA_ZIP, CNT]
+                          projection: [f0, CAST(f0_1):BIGINT NOT NULL]
+                          est: (rows=3330)
+                        ReduceHashAggregate
+                            fieldNames: [f0, f0_1]
+                            group: [CA_ZIP]
+                            aggregation: [$SUM0(_ACC0)]
+                            est: (rows=3330)
+                          Exchange
+                              distribution: single
+                              est: (rows=3330)
+                            MapHashAggregate
+                                fieldNames: [CA_ZIP, _ACC0, _GROUP_ID]
+                                group: [CA_ZIP]
+                                aggregation: [COUNT()]
+                                est: (rows=3330)
+                              Project
+                                  fieldNames: [CA_ZIP]
+                                  projection: [SUBSTR(CA_ZIP, 1, 5)]
+                                  est: (rows=33300)
+                                HashJoin
+                                    predicate: =(CA_ADDRESS_SK, C_CURRENT_ADDR_SK)
+                                    type: inner
+                                    est: (rows=33300)
+                                  TableScan
+                                      table: PUBLIC.CUSTOMER_ADDRESS
+                                      fieldNames: [CA_ADDRESS_SK, CA_ZIP]
+                                      est: (rows=50000)
+                                  Exchange
+                                      distribution: table PUBLIC.CUSTOMER_ADDRESS in zone "Default" by [C_CURRENT_ADDR_SK]
+                                      est: (rows=33300)
+                                    TableScan
+                                        table: PUBLIC.CUSTOMER
+                                        predicate: =(C_PREFERRED_CUST_FLAG, _UTF-8'Y')
+                                        fieldNames: [C_CURRENT_ADDR_SK, C_PREFERRED_CUST_FLAG]
+                                        est: (rows=33300)

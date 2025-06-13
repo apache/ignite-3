@@ -18,7 +18,7 @@
 #include "odbc_connection.h"
 #include "odbc_suite.h"
 
-#include "ignite/odbc/string_utils.h"
+#include "ignite/common/detail/string_utils.h"
 
 #include <gtest/gtest.h>
 

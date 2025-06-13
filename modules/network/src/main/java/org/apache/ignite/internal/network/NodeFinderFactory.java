@@ -40,7 +40,7 @@ public class NodeFinderFactory {
      * @param nodeName Node name.
      * @return Node finder.
      */
-    public static NodeFinder createNodeFinder(NodeFinderView nodeFinderConfiguration, String nodeName, InetSocketAddress localAddress) {
+    public static NodeFinder createNodeFinder(NodeFinderView nodeFinderConfiguration, String nodeName, InetSocketAddress localBindAddress) {
         switch (nodeFinderConfiguration.type()) {
             case StaticNodeFinderConfigurationSchema.TYPE:
                 StaticNodeFinderView staticConfig = (StaticNodeFinderView) nodeFinderConfiguration;
@@ -57,7 +57,7 @@ public class NodeFinderFactory {
                         multicastConfig.resultWaitTimeMillis(),
                         multicastConfig.ttl(),
                         nodeName,
-                        localAddress
+                        localBindAddress
                 );
             default:
                 throw new IllegalArgumentException("Unsupported NodeFinder type " + nodeFinderConfiguration.type());

@@ -19,7 +19,7 @@
 
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/meta/column_meta.h"
-#include "ignite/odbc/string_utils.h"
+#include "ignite/common/detail/string_utils.h"
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/type_traits.h"
 

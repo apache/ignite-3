@@ -95,6 +95,7 @@ dependencies {
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation project(':ignite-partition-distribution')

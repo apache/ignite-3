@@ -33,6 +33,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.internal.util.MockUtil.isMock;
@@ -45,11 +47,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -111,6 +115,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRe
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -150,6 +155,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -157,6 +163,8 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataSto
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
@@ -191,6 +199,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -218,6 +227,8 @@ public class Node {
     public final MetaStorageManagerImpl metaStorageManager;
 
     private final VaultManager vaultManager;
+
+    private final NodePropertiesImpl nodeProperties;
 
     public final ClusterService clusterService;
 
@@ -331,6 +342,8 @@ public class Node {
 
         vaultManager = createVault(dir);
 
+        nodeProperties = new NodePropertiesImpl(vaultManager);
+
         nodeCfgGenerator = new ConfigurationTreeGenerator(
                 List.of(NodeConfiguration.KEY),
                 List.of(
@@ -338,11 +351,13 @@ public class Node {
                         StorageExtensionConfigurationSchema.class,
                         SystemLocalExtensionConfigurationSchema.class,
                         PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
-                        VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
+                        VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class,
+                        RocksDbStorageEngineExtensionConfigurationSchema.class
                 ),
                 List.of(
                         PersistentPageMemoryProfileConfigurationSchema.class,
                         VolatilePageMemoryProfileConfigurationSchema.class,
+                        RocksDbProfileConfigurationSchema.class,
                         StaticNodeFinderConfigurationSchema.class,
                         MulticastNodeFinderConfigurationSchema.class
                 )
@@ -379,9 +394,11 @@ public class Node {
         RaftGroupOptionsConfigurer partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
+        MetricManager metricManager = new NoOpMetricManager();
+
         raftManager = new Loza(
                 clusterService,
-                new NoOpMetricManager(),
+                metricManager,
                 raftConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
@@ -418,7 +435,8 @@ public class Node {
                 new NodeAttributesCollector(nodeAttributesConfiguration, storageConfiguration),
                 failureManager,
                 clusterIdHolder,
-                cmgRaftConfigurer
+                cmgRaftConfigurer,
+                metricManager
         );
 
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -479,6 +497,21 @@ public class Node {
 
                 return super.invoke(condition, success, failure);
             }
+
+            @Override
+            public CompletableFuture<Boolean> invoke(Condition condition, Operation success, Operation failure) {
+                InvokeInterceptor invokeInterceptor = Node.this.invokeInterceptor;
+
+                if (invokeInterceptor != null) {
+                    Boolean res = invokeInterceptor.invoke(condition, List.of(success), List.of(failure));
+
+                    if (res != null) {
+                        return completedFuture(res);
+                    }
+                }
+
+                return super.invoke(condition, success, failure);
+            }
         };
 
         threadPoolsManager = new ThreadPoolsManager(name);
@@ -514,6 +547,7 @@ public class Node {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureManager,
+                nodeProperties,
                 replicationConfiguration
         );
 
@@ -619,6 +653,7 @@ public class Node {
                 new UpdateLogImpl(metaStorageManager, failureManager),
                 clockService,
                 failureManager,
+                nodeProperties,
                 delayDurationMsSupplier
         );
 
@@ -643,11 +678,12 @@ public class Node {
                 clockService,
                 schemaSyncService,
                 clusterService.topologyService(),
+                nodeProperties,
                 clockService::nowLong,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
 
-        ((MetaStorageManagerImpl) metaStorageManager).addElectionListener(catalogCompactionRunner::updateCoordinator);
+        metaStorageManager.addElectionListener(catalogCompactionRunner::updateCoordinator);
 
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
                 params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
@@ -688,6 +724,7 @@ public class Node {
                 clusterService.topologyService(),
                 lowWatermark,
                 failureManager,
+                nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -749,15 +786,30 @@ public class Node {
                 indexMetaStorage,
                 partitionsLogStorageFactory,
                 partitionReplicaLifecycleManager,
+                nodeProperties,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         ) {
 
             @Override
             protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-                MvTableStorage storage = super.createTableStorage(tableDescriptor, zoneDescriptor);
+                MvTableStorage storage = createSpy(super.createTableStorage(tableDescriptor, zoneDescriptor));
 
-                return isMock(storage) ? storage : spy(storage);
+                var partitionStorages = new ConcurrentHashMap<Integer, MvPartitionStorage>();
+
+                doAnswer(invocation -> {
+                    Integer partitionId = invocation.getArgument(0);
+
+                    return partitionStorages.computeIfAbsent(partitionId, id -> {
+                        try {
+                            return (MvPartitionStorage) createSpy(invocation.callRealMethod());
+                        } catch (Throwable e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                }).when(storage).getMvPartition(anyInt());
+
+                return storage;
             }
 
             @Override
@@ -765,9 +817,7 @@ public class Node {
                     CatalogTableDescriptor tableDescriptor,
                     CatalogZoneDescriptor zoneDescriptor
             ) {
-                TxStateStorage storage = super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
-
-                return isMock(storage) ? storage : spy(storage);
+                return createSpy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
             }
         };
 
@@ -794,6 +844,7 @@ public class Node {
                 logicalTopologyService,
                 clockService,
                 failureManager,
+                nodeProperties,
                 lowWatermark
         );
 
@@ -817,6 +868,7 @@ public class Node {
                 sqlLocalConfiguration,
                 transactionInflights,
                 txManager,
+                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterService.messagingService()),
@@ -847,6 +899,7 @@ public class Node {
         IgniteComponent[] componentsToStartBeforeJoin = {
                 threadPoolsManager,
                 vaultManager,
+                nodeProperties,
                 nodeCfgMgr,
                 failureManager,
                 clusterService,
@@ -988,5 +1041,14 @@ public class Node {
 
         assertThat(primaryReplicaFuture, willCompleteSuccessfully());
         return primaryReplicaFuture.join();
+    }
+
+    @Contract("null -> null")
+    private static <T> @Nullable T createSpy(@Nullable T object) {
+        if (object == null) {
+            return null;
+        }
+
+        return isMock(object) ? object : spy(object);
     }
 }

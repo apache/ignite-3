@@ -42,7 +42,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getZoneIdByTableNameStrict;
@@ -126,6 +126,8 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -235,6 +237,8 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataSto
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -521,7 +525,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         ClusterNode leaderClusterNode = ReplicaTestUtils.leaderAssignment(
                 node1.replicaManager,
                 node1.clusterService.topologyService(),
-                enabledColocation() ? table.zoneId() : table.tableId(),
+                colocationEnabled() ? table.zoneId() : table.tableId(),
                 0
         );
 
@@ -560,7 +564,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(countDownLatch.await(10, SECONDS));
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
-        int tableOrZoneId = enabledColocation() ? nonLeaderTable.zoneId() : nonLeaderTable.tableId();
+        int tableOrZoneId = colocationEnabled() ? nonLeaderTable.zoneId() : nonLeaderTable.tableId();
         assertThat(
                 ReplicaTestUtils.getRaftClient(nonLeaderNode.replicaManager, tableOrZoneId, 0)
                         .map(raftClient -> raftClient.transferLeadership(new Peer(nonLeaderNodeConsistentId)))
@@ -1020,7 +1024,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId, remove.
     private static int getTableOrZoneId(Node node, String tableName) {
-        return enabledColocation() ? getZoneIdByTableNameStrict(node.catalogManager, tableName, node.hybridClock.nowLong())
+        return colocationEnabled() ? getZoneIdByTableNameStrict(node.catalogManager, tableName, node.hybridClock.nowLong())
                 : getTableIdStrict(node.catalogManager, tableName, node.hybridClock.nowLong());
     }
 
@@ -1213,6 +1217,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             vaultManager = createVault(dir);
 
+            NodeProperties nodeProperties = new SystemPropertiesNodeProperties();
+
             var clusterIdService = new ClusterIdHolder();
 
             nodeCfgGenerator = new ConfigurationTreeGenerator(
@@ -1224,11 +1230,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             StorageExtensionConfigurationSchema.class,
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                             VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class,
+                            RocksDbStorageEngineExtensionConfigurationSchema.class,
                             SystemLocalExtensionConfigurationSchema.class
                     ),
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
                             VolatilePageMemoryProfileConfigurationSchema.class,
+                            RocksDbProfileConfigurationSchema.class,
                             StaticNodeFinderConfigurationSchema.class,
                             MulticastNodeFinderConfigurationSchema.class
                     )
@@ -1304,7 +1312,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     clusterIdService,
-                    cmgRaftConfigurer
+                    cmgRaftConfigurer,
+                    metricManager
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -1523,6 +1532,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService.topologyService(),
                     lowWatermark,
                     failureManager,
+                    nodeProperties,
                     threadPoolsManager.tableIoExecutor(),
                     rebalanceScheduler,
                     threadPoolsManager.partitionOperationsExecutor(),
@@ -1573,6 +1583,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     indexMetaStorage,
                     logStorageFactory,
                     replicaLifecycleManager,
+                    nodeProperties,
                     minTimeCollectorService,
                     systemDistributedConfiguration
             ) {
@@ -1729,7 +1740,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 return null;
             }
 
-            if (enabledColocation()) {
+            if (colocationEnabled()) {
                 return ZoneRebalanceUtil.extractZonePartitionId(
                         stableAssignmentsWatchEvent.key(),
                         ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES);

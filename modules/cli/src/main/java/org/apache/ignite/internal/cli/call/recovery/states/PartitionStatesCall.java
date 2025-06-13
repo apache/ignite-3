@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.call.recovery.states;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
 import jakarta.inject.Singleton;
 import java.util.List;
@@ -30,7 +31,9 @@ import org.apache.ignite.internal.cli.sql.table.Table;
 import org.apache.ignite.rest.client.api.RecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.GlobalPartitionStatesResponse;
+import org.apache.ignite.rest.client.model.GlobalZonePartitionStatesResponse;
 import org.apache.ignite.rest.client.model.LocalPartitionStatesResponse;
+import org.apache.ignite.rest.client.model.LocalZonePartitionStatesResponse;
 
 /** Call to get partition states. */
 @Singleton
@@ -42,6 +45,12 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
 
     private static final List<String> LOCAL_HEADERS = Stream
             .concat(Stream.of("Node name"), GLOBAL_HEADERS.stream())
+            .collect(toList());
+
+    private static final List<String> ZONE_GLOBAL_HEADERS = List.of("Zone name", "Partition ID", "State");
+
+    private static final List<String> ZONE_LOCAL_HEADERS = Stream
+            .concat(Stream.of("Node name"), ZONE_GLOBAL_HEADERS.stream())
             .collect(toList());
 
     public PartitionStatesCall(ApiClientFactory clientFactory) {
@@ -63,11 +72,30 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
         }
     }
 
-    private static DefaultCallOutput<Table> getGlobalPartitionStatesOutput(
+    private DefaultCallOutput<Table> getGlobalPartitionStatesOutput(
             PartitionStatesCallInput input,
             RecoveryApi client,
             List<String> zoneNames
     ) throws ApiException {
+        // TODO: IGNITE-25637 - remove this.
+        if (colocationEnabled()) {
+            GlobalZonePartitionStatesResponse globalStates = client.getZoneGlobalPartitionStates(
+                    zoneNames,
+                    input.partitionIds()
+            );
+
+            List<String> content = globalStates.getStates().stream()
+                    .flatMap(state -> Stream.of(
+                                    state.getZoneName(),
+                                    String.valueOf(state.getPartitionId()),
+                                    state.getState()
+                            )
+                    )
+                    .collect(toList());
+
+            return DefaultCallOutput.success(new Table(ZONE_GLOBAL_HEADERS, content));
+        }
+
         GlobalPartitionStatesResponse globalStates = client.getGlobalPartitionStates(
                 zoneNames,
                 input.partitionIds()
@@ -88,11 +116,32 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
         return DefaultCallOutput.success(new Table(GLOBAL_HEADERS, content));
     }
 
-    private static DefaultCallOutput<Table> getLocalPartitionStatesOutput(
+    private DefaultCallOutput<Table> getLocalPartitionStatesOutput(
             RecoveryApi client,
             List<String> zoneNames,
-            PartitionStatesCallInput input)
-            throws ApiException {
+            PartitionStatesCallInput input
+    ) throws ApiException {
+        // TODO: IGNITE-25637 - remove this.
+        if (colocationEnabled()) {
+            LocalZonePartitionStatesResponse localStates = client.getZoneLocalPartitionStates(
+                    zoneNames,
+                    input.nodeNames(),
+                    input.partitionIds()
+            );
+
+            List<String> content = localStates.getStates().stream()
+                    .flatMap(state -> Stream.of(
+                                    state.getNodeName(),
+                                    state.getZoneName(),
+                                    String.valueOf(state.getPartitionId()),
+                                    state.getState()
+                            )
+                    )
+                    .collect(toList());
+
+            return DefaultCallOutput.success(new Table(ZONE_LOCAL_HEADERS, content));
+        }
+
         LocalPartitionStatesResponse localStates = client.getLocalPartitionStates(
                 zoneNames,
                 input.nodeNames(),

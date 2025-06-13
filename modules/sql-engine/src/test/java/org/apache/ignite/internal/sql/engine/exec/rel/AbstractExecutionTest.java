@@ -69,6 +69,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -138,14 +139,16 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         FragmentDescription fragmentDesc = getFragmentDescription();
 
+        ClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
         ExecutionContext<T> executionContext = new ExecutionContext<>(
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
                 taskExecutor,
                 new ExecutionId(randomUUID(), 0),
-                new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
-                "fake-test-node",
+                node,
+                node.name(),
+                node.id(),
                 fragmentDesc,
                 rowHandler(),
                 Map.of(),

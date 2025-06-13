@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rel.agg;
 
-import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
-
 import java.util.List;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.RelOptCluster;
@@ -36,6 +34,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
@@ -106,7 +105,7 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
                 .itemIf("rowType", rowType, pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES)
                 .item("group", groupSet)
                 .itemIf("groups", groupSets, Group.induce(groupSet, groupSets) != Group.SIMPLE)
-                .itemIf("aggs", aggCalls, pw.nest() && (!forExplain(pw) || !aggCalls.isEmpty()));
+                .itemIf("aggs", aggCalls, pw.nest());
 
         if (!pw.nest()) {
             for (Ord<AggregateCall> ord : Ord.zip(aggCalls)) {
@@ -174,5 +173,24 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
         // Reduce aggregate doesn't change result's row count until we don't use
         // cluster parallelism at the model (devide source rows by nodes for partitioned data).
         return mq.getRowCount(getInput());
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        RelDataType rowType = getInput().getRowType();
+
+        writer
+                .addGroup(groupSet, rowType)
+                .addAggregation(aggCalls, rowType);
+
+        if (getGroupType() != Group.SIMPLE) {
+            writer.addGroupSets(groupSets, rowType);
+        }
+
+        return writer;
+    }
+
+    public Group getGroupType() {
+        return Group.induce(groupSet, groupSets);
     }
 }

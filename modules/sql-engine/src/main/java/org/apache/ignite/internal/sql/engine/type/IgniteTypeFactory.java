@@ -56,7 +56,6 @@ import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -403,7 +402,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                     if (type instanceof IgniteCustomType) {
                         var customType = (IgniteCustomType) type;
                         var nativeType = customType.spec().nativeType();
-                        return Commons.nativeTypeToClass(nativeType);
+                        return nativeType.spec().javaClass();
                     }
                     // fallthrough
                 case OTHER:

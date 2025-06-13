@@ -46,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -357,12 +358,9 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
-    /**
-     * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onNodeLeft(String nodeName) {
-        if (nodeName.equals(context().originatingNodeName())) {
+    /** Notifies the outbox that provided node has left the cluster. */
+    public void onNodeLeft(ClusterNode node) {
+        if (node.id().equals(context().originatingNodeId())) {
             this.execute(this::close);
         }
     }

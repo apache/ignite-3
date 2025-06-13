@@ -42,6 +42,7 @@ import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,9 +90,9 @@ public class TxMessageSender {
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
-     * @return Completable future of ReplicaResponse.
+     * @return Completable future of WriteIntentSwitchReplicatedInfo.
      */
-    public CompletableFuture<ReplicaResponse> switchWriteIntents(
+    public CompletableFuture<WriteIntentSwitchReplicatedInfo> switchWriteIntents(
             String primaryConsistentId,
             EnlistedPartitionGroup partition,
             UUID txId,

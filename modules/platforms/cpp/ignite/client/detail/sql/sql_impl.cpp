@@ -90,14 +90,18 @@ void write_args(protocol::writer &writer, const std::vector<primitive> &args) {
 }
 
 void add_action(cancellation_token &token, const std::shared_ptr<node_connection> &connection, std::int64_t req_id) {
-    auto writer_func = [req_id](protocol::writer &writer) {
+    auto writer_func = [req_id](protocol::writer &writer, auto&) {
         writer.write(req_id);
     };
 
-    cancellation_token_impl &token_impl = static_cast<cancellation_token_impl&>(token);
-    token_impl.add_action(connection->get_logger(), [req_id, connection, writer_func] (ignite_callback<void> callback) {
-        connection->perform_request<void>(protocol::client_operation::SQL_CANCEL_EXEC,
-            writer_func, [] (protocol::reader&){}, std::move(callback));
+    auto &token_impl = static_cast<cancellation_token_impl&>(token);
+    token_impl.add_action(connection->get_logger(), [connection, writer_func] (const ignite_callback<void> &callback) {
+        auto req_res = connection->perform_request<void>(protocol::client_operation::SQL_CANCEL_EXEC,
+            writer_func, [] (protocol::reader&){}, callback);
+
+        if (!req_res) {
+            callback(ignite_error{error::code::CONNECTION, "Connection associated with the cursor is closed"});
+        }
     });
 }
 
@@ -113,7 +117,7 @@ void sql_impl::execute_async(transaction *tx, cancellation_token *token, const s
 
     auto tx0 = tx ? tx->m_impl : nullptr;
 
-    auto writer_func = [this, &statement, &args, &tx0](protocol::writer &writer) {
+    auto writer_func = [this, &statement, &args, &tx0](protocol::writer &writer, auto&) {
         if (tx0)
             writer.write(tx0->get_id());
         else
@@ -141,7 +145,7 @@ void sql_impl::execute_async(transaction *tx, cancellation_token *token, const s
 void sql_impl::execute_script_async(cancellation_token *token, const sql_statement &statement,
     std::vector<primitive> &&args, ignite_callback<void> &&callback) {
 
-    auto writer_func = [this, &statement, args = std::move(args)](protocol::writer &writer) {
+    auto writer_func = [this, &statement, args = std::move(args)](protocol::writer &writer, auto&) {
         write_statement(writer, statement);
         write_args(writer, args);
         writer.write(m_connection->get_observable_timestamp());

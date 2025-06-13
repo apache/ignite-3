@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.sql.ColumnType;
 
 /**
@@ -50,10 +51,7 @@ final class TestTableColumnDescriptors {
         List<CatalogTableColumnDescriptor> list = new ArrayList<>();
         Random random = state.random();
 
-        for (ColumnType columnType : ColumnType.values()) {
-            if (columnType == ColumnType.NULL || columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
-                continue;
-            }
+        for (ColumnType columnType : NativeType.nativeTypes()) {
             for (var nullable : new boolean[]{true, false}) {
                 if (columnType.lengthAllowed()) {
                     addColumnsWithLength(columnType, nullable, random, list);

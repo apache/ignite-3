@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -56,6 +56,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -148,7 +149,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
     private MessagingService messagingService;
 
     private static ReplicationGroupId replicationGroupId(int partId) {
-        return enabledColocation() ? new ZonePartitionId(ZONE_ID, partId) : new TablePartitionId(TABLE_ID, partId);
+        return colocationEnabled() ? new ZonePartitionId(ZONE_ID, partId) : new TablePartitionId(TABLE_ID, partId);
     }
 
     @Mock
@@ -228,7 +229,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 () -> null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
-                () -> 10_000L
+                () -> 10_000L,
+                colocationEnabled()
         );
 
         when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
@@ -316,7 +318,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 txManager,
                 lockManager,
                 ForkJoinPool.commonPool(),
-                enabledColocation() ? new ZonePartitionId(ZONE_ID, partId) : new TablePartitionId(TABLE_ID, partId),
+                colocationEnabled() ? new ZonePartitionId(ZONE_ID, partId) : new TablePartitionId(TABLE_ID, partId),
                 TABLE_ID,
                 Map::of,
                 new Lazy<>(() -> null),
@@ -336,7 +338,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 schemaRegistry,
                 indexMetaStorage,
                 new TestLowWatermark(),
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new SystemPropertiesNodeProperties()
         );
     }
 

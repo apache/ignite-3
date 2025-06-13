@@ -46,10 +46,10 @@ import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
 import org.apache.ignite.internal.network.recovery.AllIdsAreStale;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryAcceptorHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
-import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
@@ -75,8 +75,11 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     private static final UUID LOWER_UUID = new UUID(100, 200);
     private static final UUID HIGHER_UUID = new UUID(300, 400);
 
-    private static final String SERVER_HOST = "server-host";
-    private static final String CLIENT_HOST = "client-host";
+    private static final String INITIATOR = "initiator";
+    private static final String ACCEPTOR = "acceptor";
+
+    private static final String ACCEPTOR_HOST = "acceptor-host";
+    private static final String INITIATOR_HOST = "initiator-host";
 
     private static final int PORT = 1000;
 
@@ -93,60 +96,73 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testHandshake() throws Exception {
-        RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
-        RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider initiatorRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider acceptorRecovery = createRecoveryDescriptorProvider();
 
-        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
-        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+        EmbeddedChannel initiatorSideChannel = createUnregisteredChannel();
+        EmbeddedChannel acceptorSideChannel = createUnregisteredChannel();
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientSideChannel, clientRecovery);
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverSideChannel, serverRecovery);
+        RecoveryInitiatorHandshakeManager initiatorHandshakeManager = createRecoveryInitiatorHandshakeManager(
+                initiatorSideChannel,
+                initiatorRecovery
+        );
+        RecoveryAcceptorHandshakeManager acceptorHandshakeManager = createRecoveryAcceptorHandshakeManager(
+                acceptorSideChannel,
+                acceptorRecovery
+        );
 
-        setupChannel(clientSideChannel, clientHandshakeManager, noMessageListener);
-        setupChannel(serverSideChannel, serverHandshakeManager, noMessageListener);
+        setupChannel(initiatorSideChannel, initiatorHandshakeManager, noMessageListener);
+        setupChannel(acceptorSideChannel, acceptorHandshakeManager, noMessageListener);
 
-        assertTrue(serverSideChannel.isActive());
+        assertTrue(acceptorSideChannel.isActive());
 
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
 
-        assertNull(clientSideChannel.readOutbound());
-        assertNull(serverSideChannel.readOutbound());
+        assertNull(initiatorSideChannel.readOutbound());
+        assertNull(acceptorSideChannel.readOutbound());
 
-        checkHandshakeCompleted(serverHandshakeManager);
-        checkHandshakeCompleted(clientHandshakeManager);
+        checkHandshakeCompleted(acceptorHandshakeManager);
+        checkHandshakeCompleted(initiatorHandshakeManager);
 
-        checkPipelineAfterHandshake(serverSideChannel);
-        checkPipelineAfterHandshake(clientSideChannel);
+        checkPipelineAfterHandshake(acceptorSideChannel);
+        checkPipelineAfterHandshake(initiatorSideChannel);
 
-        assertFalse(serverSideChannel.finish());
-        assertFalse(clientSideChannel.finish());
+        assertFalse(acceptorSideChannel.finish());
+        assertFalse(initiatorSideChannel.finish());
     }
 
     @Test
-    public void testHandshakeWithUnacknowledgedServerMessage() throws Exception {
-        RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
-        RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
+    public void testHandshakeWithUnacknowledgedAcceptorMessage() throws Exception {
+        RecoveryDescriptorProvider initiatorRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider acceptorRecovery = createRecoveryDescriptorProvider();
 
-        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
-        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+        EmbeddedChannel initiatorSideChannel = createUnregisteredChannel();
+        EmbeddedChannel acceptorSideChannel = createUnregisteredChannel();
 
-        UUID clientLaunchId = UUID.randomUUID();
-        RecoveryDescriptor serverRecoveryDescriptor = serverRecovery.getRecoveryDescriptor("client", clientLaunchId, CONNECTION_ID);
-        addUnacknowledgedMessages(serverRecoveryDescriptor);
-
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(
-                clientSideChannel,
-                "client",
-                clientLaunchId,
-                clientRecovery
+        UUID initiatorLaunchId = UUID.randomUUID();
+        RecoveryDescriptor acceptorRecoveryDescriptor = acceptorRecovery.getRecoveryDescriptor(
+                INITIATOR,
+                initiatorLaunchId,
+                CONNECTION_ID
         );
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverSideChannel, serverRecovery);
+        addUnacknowledgedMessages(acceptorRecoveryDescriptor);
+
+        RecoveryInitiatorHandshakeManager initiatorHandshakeManager = createRecoveryInitiatorHandshakeManager(
+                initiatorSideChannel,
+                INITIATOR,
+                initiatorLaunchId,
+                initiatorRecovery
+        );
+        RecoveryAcceptorHandshakeManager acceptorHandshakeManager = createRecoveryAcceptorHandshakeManager(
+                acceptorSideChannel,
+                acceptorRecovery
+        );
 
         var messageCaptor = new AtomicReference<TestMessage>();
-        setupChannel(clientSideChannel, clientHandshakeManager, (inObject) -> {
+        setupChannel(initiatorSideChannel, initiatorHandshakeManager, (inObject) -> {
             NetworkMessage msg = inObject.message();
 
             assertInstanceOf(TestMessage.class, msg);
@@ -154,62 +170,69 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             messageCaptor.set((TestMessage) msg);
         });
 
-        setupChannel(serverSideChannel, serverHandshakeManager, noMessageListener);
+        setupChannel(acceptorSideChannel, acceptorHandshakeManager, noMessageListener);
 
-        assertTrue(serverSideChannel.isActive());
+        assertTrue(acceptorSideChannel.isActive());
 
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
 
-        assertNull(clientSideChannel.readOutbound());
+        assertNull(initiatorSideChannel.readOutbound());
 
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
-        assertNull(serverSideChannel.readOutbound());
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
+        assertNull(acceptorSideChannel.readOutbound());
 
         TestMessage ackedMessage = messageCaptor.get();
         assertNotNull(ackedMessage);
 
-        checkHandshakeNotCompleted(serverHandshakeManager);
-        checkHandshakeCompleted(clientHandshakeManager);
+        checkHandshakeNotCompleted(acceptorHandshakeManager);
+        checkHandshakeCompleted(initiatorHandshakeManager);
 
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
 
-        checkHandshakeCompleted(serverHandshakeManager);
-        checkHandshakeCompleted(clientHandshakeManager);
+        checkHandshakeCompleted(acceptorHandshakeManager);
+        checkHandshakeCompleted(initiatorHandshakeManager);
 
-        checkPipelineAfterHandshake(serverSideChannel);
-        checkPipelineAfterHandshake(clientSideChannel);
+        checkPipelineAfterHandshake(acceptorSideChannel);
+        checkPipelineAfterHandshake(initiatorSideChannel);
 
-        assertFalse(serverSideChannel.finish());
-        assertFalse(clientSideChannel.finish());
+        assertFalse(acceptorSideChannel.finish());
+        assertFalse(initiatorSideChannel.finish());
     }
 
     @Test
-    public void testHandshakeWithUnacknowledgedClientMessage() throws Exception {
-        RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
-        RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
+    public void testHandshakeWithUnacknowledgedInitiatorMessage() throws Exception {
+        RecoveryDescriptorProvider initiatorRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider acceptorRecovery = createRecoveryDescriptorProvider();
 
-        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
-        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+        EmbeddedChannel initiatorSideChannel = createUnregisteredChannel();
+        EmbeddedChannel acceptorSideChannel = createUnregisteredChannel();
 
-        UUID serverLaunchId = UUID.randomUUID();
-        RecoveryDescriptor clientRecoveryDescriptor = clientRecovery.getRecoveryDescriptor("server", serverLaunchId, CONNECTION_ID);
-        addUnacknowledgedMessages(clientRecoveryDescriptor);
+        UUID acceptorLaunchId = UUID.randomUUID();
+        RecoveryDescriptor initiatorRecoveryDescriptor = initiatorRecovery.getRecoveryDescriptor(
+                ACCEPTOR,
+                acceptorLaunchId,
+                CONNECTION_ID
+        );
+        addUnacknowledgedMessages(initiatorRecoveryDescriptor);
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientSideChannel, clientRecovery);
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(
-                serverSideChannel,
-                "server",
-                serverLaunchId,
-                serverRecovery
+        RecoveryInitiatorHandshakeManager initiatorHandshakeManager = createRecoveryInitiatorHandshakeManager(
+                initiatorSideChannel,
+                initiatorRecovery
+        );
+        RecoveryAcceptorHandshakeManager acceptorHandshakeManager = createRecoveryAcceptorHandshakeManager(
+                acceptorSideChannel,
+                ACCEPTOR,
+                acceptorLaunchId,
+                acceptorRecovery
         );
 
         var messageCaptor = new AtomicReference<TestMessage>();
-        setupChannel(clientSideChannel, clientHandshakeManager, noMessageListener);
+        setupChannel(initiatorSideChannel, initiatorHandshakeManager, noMessageListener);
 
-        setupChannel(serverSideChannel, serverHandshakeManager, (inObject) -> {
+        setupChannel(acceptorSideChannel, acceptorHandshakeManager, (inObject) -> {
             NetworkMessage msg = inObject.message();
 
             assertInstanceOf(TestMessage.class, msg);
@@ -217,34 +240,34 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             messageCaptor.set((TestMessage) msg);
         });
 
-        assertTrue(serverSideChannel.isActive());
+        assertTrue(acceptorSideChannel.isActive());
 
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
 
-        assertNull(serverSideChannel.readOutbound());
+        assertNull(acceptorSideChannel.readOutbound());
 
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        assertNull(clientSideChannel.readOutbound());
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        assertNull(initiatorSideChannel.readOutbound());
 
         TestMessage ackedMessage = messageCaptor.get();
         assertNotNull(ackedMessage);
 
-        checkHandshakeCompleted(serverHandshakeManager);
-        checkHandshakeNotCompleted(clientHandshakeManager);
+        checkHandshakeCompleted(acceptorHandshakeManager);
+        checkHandshakeNotCompleted(initiatorHandshakeManager);
 
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
 
-        checkHandshakeCompleted(serverHandshakeManager);
-        checkHandshakeCompleted(clientHandshakeManager);
+        checkHandshakeCompleted(acceptorHandshakeManager);
+        checkHandshakeCompleted(initiatorHandshakeManager);
 
-        checkPipelineAfterHandshake(serverSideChannel);
-        checkPipelineAfterHandshake(clientSideChannel);
+        checkPipelineAfterHandshake(acceptorSideChannel);
+        checkPipelineAfterHandshake(initiatorSideChannel);
 
-        assertFalse(serverSideChannel.finish());
-        assertFalse(clientSideChannel.finish());
+        assertFalse(acceptorSideChannel.finish());
+        assertFalse(initiatorSideChannel.finish());
     }
 
     @Test
@@ -260,11 +283,16 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         UUID node1Uuid = LOWER_UUID;
         UUID node2Uuid = HIGHER_UUID;
 
-        RecoveryClientHandshakeManager chm1 = createRecoveryClientHandshakeManager(channel1Src, "client", node1Uuid, node1Recovery);
-        RecoveryServerHandshakeManager shm1 = createRecoveryServerHandshakeManager(channel2Dst, "client", node1Uuid, node1Recovery);
+        RecoveryInitiatorHandshakeManager chm1 = createRecoveryInitiatorHandshakeManager(
+                channel1Src,
+                INITIATOR,
+                node1Uuid,
+                node1Recovery
+        );
+        RecoveryAcceptorHandshakeManager shm1 = createRecoveryAcceptorHandshakeManager(channel2Dst, INITIATOR, node1Uuid, node1Recovery);
 
-        RecoveryClientHandshakeManager chm2 = createRecoveryClientHandshakeManager(channel2Src, "server", node2Uuid, node2Recovery);
-        RecoveryServerHandshakeManager shm2 = createRecoveryServerHandshakeManager(channel1Dst, "server", node2Uuid, node2Recovery);
+        RecoveryInitiatorHandshakeManager chm2 = createRecoveryInitiatorHandshakeManager(channel2Src, ACCEPTOR, node2Uuid, node2Recovery);
+        RecoveryAcceptorHandshakeManager shm2 = createRecoveryAcceptorHandshakeManager(channel1Dst, ACCEPTOR, node2Uuid, node2Recovery);
 
         // Channel opened from node1 to node2 is channel 1.
         // Channel opened from node2 to node1 is channel 2.
@@ -277,18 +305,18 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         setupChannel(channel2Src, chm2, noMessageListener);
         setupChannel(channel2Dst, shm1, noMessageListener);
 
-        exchangeClientToServer(channel2Dst, channel2Src);
-        exchangeClientToServer(channel1Dst, channel1Src);
+        exchangeInitiatorToAcceptor(channel2Dst, channel2Src);
+        exchangeInitiatorToAcceptor(channel1Dst, channel1Src);
 
-        exchangeServerToClient(channel2Dst, channel2Src);
-        exchangeServerToClient(channel1Dst, channel1Src);
+        exchangeAcceptorToInitiator(channel2Dst, channel2Src);
+        exchangeAcceptorToInitiator(channel1Dst, channel1Src);
 
-        exchangeClientToServer(channel2Dst, channel2Src);
-        exchangeClientToServer(channel1Dst, channel1Src);
+        exchangeInitiatorToAcceptor(channel2Dst, channel2Src);
+        exchangeInitiatorToAcceptor(channel1Dst, channel1Src);
 
         // 2 -> 1 (Channel 2) is alive, while 1 -> 2 (Channel 1) closes because of the tie-breaking.
-        exchangeServerToClient(channel1Dst, channel1Src);
-        exchangeServerToClient(channel2Dst, channel2Src);
+        exchangeAcceptorToInitiator(channel1Dst, channel1Src);
+        exchangeAcceptorToInitiator(channel2Dst, channel2Src);
         assertFalse(channel1Src.isOpen());
         assertFalse(channel1Dst.isOpen());
 
@@ -303,8 +331,8 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
     /**
      * This tests the following scenario: two handshakes in the opposite directions are started,
-     * Handshake 1 is faster and it takes both client-side and server-side locks (using recovery descriptors
-     * as locks), and only then Handshake 2 tries to take the first lock (the one on the client side).
+     * Handshake 1 is faster and it takes both initiator-side and acceptor-side locks (using recovery descriptors
+     * as locks), and only then Handshake 2 tries to take the first lock (the one on the initiator side).
      * In such a situation, tie-breaking logic should not be applied (as Handshake 1 could have already
      * established, or almost established, a logical connection); instead, Handshake 2 must stop
      * itself (regardless of what that the Tie Breaker would prescribe).
@@ -323,11 +351,16 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         UUID node1Uuid = node1LaunchIdIsLower ? LOWER_UUID : HIGHER_UUID;
         UUID node2Uuid = node1LaunchIdIsLower ? HIGHER_UUID : LOWER_UUID;
 
-        RecoveryClientHandshakeManager chm1 = createRecoveryClientHandshakeManager(channel1Src, "client", node1Uuid, node1Recovery);
-        RecoveryServerHandshakeManager shm1 = createRecoveryServerHandshakeManager(channel2Dst, "client", node1Uuid, node1Recovery);
+        RecoveryInitiatorHandshakeManager chm1 = createRecoveryInitiatorHandshakeManager(
+                channel1Src,
+                INITIATOR,
+                node1Uuid,
+                node1Recovery
+        );
+        RecoveryAcceptorHandshakeManager shm1 = createRecoveryAcceptorHandshakeManager(channel2Dst, INITIATOR, node1Uuid, node1Recovery);
 
-        RecoveryClientHandshakeManager chm2 = createRecoveryClientHandshakeManager(channel2Src, "server", node2Uuid, node2Recovery);
-        RecoveryServerHandshakeManager shm2 = createRecoveryServerHandshakeManager(channel1Dst, "server", node2Uuid, node2Recovery);
+        RecoveryInitiatorHandshakeManager chm2 = createRecoveryInitiatorHandshakeManager(channel2Src, ACCEPTOR, node2Uuid, node2Recovery);
+        RecoveryAcceptorHandshakeManager shm2 = createRecoveryAcceptorHandshakeManager(channel1Dst, ACCEPTOR, node2Uuid, node2Recovery);
 
         // Channel opened from node1 to node2 is channel 1.
         // Channel opened from node2 to node1 is channel 2.
@@ -341,16 +374,16 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         setupChannel(channel2Dst, shm1, noMessageListener);
 
         // Channel 2's handshake acquires both locks.
-        exchangeClientToServer(channel2Dst, channel2Src);
-        exchangeServerToClient(channel2Dst, channel2Src);
-        exchangeClientToServer(channel2Dst, channel2Src);
+        exchangeInitiatorToAcceptor(channel2Dst, channel2Src);
+        exchangeAcceptorToInitiator(channel2Dst, channel2Src);
+        exchangeInitiatorToAcceptor(channel2Dst, channel2Src);
 
         // Now Channel 1's handshake cannot acquire even first lock.
-        exchangeClientToServer(channel1Dst, channel1Src);
-        exchangeServerToClient(channel1Dst, channel1Src);
+        exchangeInitiatorToAcceptor(channel1Dst, channel1Src);
+        exchangeAcceptorToInitiator(channel1Dst, channel1Src);
 
         // 2 -> 1 is alive, while 1 -> 2 closes because it is late.
-        exchangeServerToClient(channel2Dst, channel2Src);
+        exchangeAcceptorToInitiator(channel2Dst, channel2Src);
         assertFalse(channel1Src.isOpen());
 
         assertTrue(channel2Src.isOpen());
@@ -363,206 +396,222 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testExactlyOnceServer() throws Exception {
+    public void testExactlyOnceAcceptor() throws Exception {
         testExactlyOnce(true);
     }
 
     @Test
-    public void testExactlyOnceClient() throws Exception {
+    public void testExactlyOnceInitiator() throws Exception {
         testExactlyOnce(false);
     }
 
     /**
      * Tests that message was received exactly once in case of network failure during acknowledgement.
      *
-     * @param serverDidntReceiveAck {@code true} if server didn't receive the acknowledgement, {@code false} if client didn't receive
+     * @param acceptorDidntReceiveAck {@code true} if acceptor didn't receive the acknowledgement, {@code false} if initiator didn't receive
      *                              the acknowledgement.
      * @throws Exception If failed.
      */
-    private void testExactlyOnce(boolean serverDidntReceiveAck) throws Exception {
-        var server = "server";
-        UUID serverLaunchId = UUID.randomUUID();
-        var client = "client";
-        UUID clientLaunchId = UUID.randomUUID();
+    private void testExactlyOnce(boolean acceptorDidntReceiveAck) throws Exception {
+        var acceptor = ACCEPTOR;
+        UUID acceptorLaunchId = UUID.randomUUID();
+        var initiator = INITIATOR;
+        UUID initiatorLaunchId = UUID.randomUUID();
 
-        RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
-        RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider initiatorRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider acceptorRecovery = createRecoveryDescriptorProvider();
 
-        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
-        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+        EmbeddedChannel initiatorSideChannel = createUnregisteredChannel();
+        EmbeddedChannel acceptorSideChannel = createUnregisteredChannel();
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(
-                clientSideChannel,
-                client,
-                clientLaunchId,
-                clientRecovery
+        RecoveryInitiatorHandshakeManager initiatorHandshakeManager = createRecoveryInitiatorHandshakeManager(
+                initiatorSideChannel,
+                initiator,
+                initiatorLaunchId,
+                initiatorRecovery
         );
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(
-                serverSideChannel,
-                server,
-                serverLaunchId,
-                serverRecovery
+        RecoveryAcceptorHandshakeManager acceptorHandshakeManager = createRecoveryAcceptorHandshakeManager(
+                acceptorSideChannel,
+                acceptor,
+                acceptorLaunchId,
+                acceptorRecovery
         );
 
         var receivedFirst = new AtomicBoolean();
 
         var listener1 = new MessageListener("1", receivedFirst);
 
-        setupChannel(clientSideChannel, clientHandshakeManager, serverDidntReceiveAck ? listener1 : noMessageListener);
-        setupChannel(serverSideChannel, serverHandshakeManager, serverDidntReceiveAck ?  noMessageListener : listener1);
+        setupChannel(initiatorSideChannel, initiatorHandshakeManager, acceptorDidntReceiveAck ? listener1 : noMessageListener);
+        setupChannel(acceptorSideChannel, acceptorHandshakeManager, acceptorDidntReceiveAck ?  noMessageListener : listener1);
 
         // Normal handshake
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
 
-        EmbeddedChannel ch = serverDidntReceiveAck ? serverSideChannel : clientSideChannel;
+        EmbeddedChannel ch = acceptorDidntReceiveAck ? acceptorSideChannel : initiatorSideChannel;
 
         // Add two messages to the outbound
         ch.writeOutbound(new OutNetworkObject(TEST_MESSAGES_FACTORY.testMessage().msg("1").build(), Collections.emptyList()));
         ch.writeOutbound(new OutNetworkObject(TEST_MESSAGES_FACTORY.testMessage().msg("2").build(), Collections.emptyList()));
 
         // Send one of the messages
-        if (serverDidntReceiveAck) {
-            exchangeServerToClient(serverSideChannel, clientSideChannel);
+        if (acceptorDidntReceiveAck) {
+            exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
         } else {
-            exchangeClientToServer(serverSideChannel, clientSideChannel);
+            exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
         }
 
         // Message should be received
         assertTrue(receivedFirst.get());
 
         // Transfer only one acknowledgement, don't transfer the second one (simulates network failure on acknowledgement)
-        if (serverDidntReceiveAck) {
-            exchangeClientToServer(serverSideChannel, clientSideChannel);
+        if (acceptorDidntReceiveAck) {
+            exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
         } else {
-            exchangeServerToClient(serverSideChannel, clientSideChannel);
+            exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
         }
 
         // Simulate reconnection
-        clientHandshakeManager = createRecoveryClientHandshakeManager(clientSideChannel, client, clientLaunchId, clientRecovery);
-        serverHandshakeManager = createRecoveryServerHandshakeManager(serverSideChannel, server, serverLaunchId, serverRecovery);
+        initiatorHandshakeManager = createRecoveryInitiatorHandshakeManager(
+                initiatorSideChannel,
+                initiator,
+                initiatorLaunchId,
+                initiatorRecovery
+        );
+        acceptorHandshakeManager = createRecoveryAcceptorHandshakeManager(
+                acceptorSideChannel,
+                acceptor,
+                acceptorLaunchId,
+                acceptorRecovery
+        );
 
         var receivedSecond = new AtomicBoolean();
 
         var listener2 = new MessageListener("2", receivedSecond);
 
-        clientSideChannel.finishAndReleaseAll();
-        serverSideChannel.finishAndReleaseAll();
+        initiatorSideChannel.finishAndReleaseAll();
+        acceptorSideChannel.finishAndReleaseAll();
 
-        clientSideChannel = createUnregisteredChannel();
-        serverSideChannel = createUnregisteredChannel();
+        initiatorSideChannel = createUnregisteredChannel();
+        acceptorSideChannel = createUnregisteredChannel();
 
-        setupChannel(clientSideChannel, clientHandshakeManager, serverDidntReceiveAck ? listener2 : noMessageListener);
-        setupChannel(serverSideChannel, serverHandshakeManager, serverDidntReceiveAck ? noMessageListener : listener2);
+        setupChannel(initiatorSideChannel, initiatorHandshakeManager, acceptorDidntReceiveAck ? listener2 : noMessageListener);
+        setupChannel(acceptorSideChannel, acceptorHandshakeManager, acceptorDidntReceiveAck ? noMessageListener : listener2);
 
         // Handshake
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
 
         // Resending message
-        if (serverDidntReceiveAck) {
-            exchangeServerToClient(serverSideChannel, clientSideChannel);
+        if (acceptorDidntReceiveAck) {
+            exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
         } else {
-            exchangeClientToServer(serverSideChannel, clientSideChannel);
+            exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
         }
 
         // Send another acknowledgement
-        if (serverDidntReceiveAck) {
-            exchangeClientToServer(serverSideChannel, clientSideChannel);
+        if (acceptorDidntReceiveAck) {
+            exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
         } else {
-            exchangeServerToClient(serverSideChannel, clientSideChannel);
+            exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
         }
 
-        assertNull(serverSideChannel.readOutbound());
-        assertNull(clientSideChannel.readOutbound());
+        assertNull(acceptorSideChannel.readOutbound());
+        assertNull(initiatorSideChannel.readOutbound());
 
         assertTrue(receivedSecond.get());
 
-        assertFalse(serverSideChannel.finish());
-        assertFalse(clientSideChannel.finish());
+        assertFalse(acceptorSideChannel.finish());
+        assertFalse(initiatorSideChannel.finish());
     }
 
     @Test
-    public void serverFailsHandshakeIfClientIdIsAlreadySeen() throws Exception {
-        RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
-        RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
+    public void acceptorFailsHandshakeIfInitiatorIdIsAlreadySeen() throws Exception {
+        RecoveryDescriptorProvider initiatorRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider acceptorRecovery = createRecoveryDescriptorProvider();
 
-        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
-        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+        EmbeddedChannel initiatorSideChannel = createUnregisteredChannel();
+        EmbeddedChannel acceptorSideChannel = createUnregisteredChannel();
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientSideChannel, clientRecovery);
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(
-                serverSideChannel,
-                "server",
+        RecoveryInitiatorHandshakeManager initiatorHandshakeManager = createRecoveryInitiatorHandshakeManager(
+                initiatorSideChannel,
+                initiatorRecovery
+        );
+        RecoveryAcceptorHandshakeManager acceptorHandshakeManager = createRecoveryAcceptorHandshakeManager(
+                acceptorSideChannel,
+                ACCEPTOR,
                 UUID.randomUUID(),
-                serverRecovery,
+                acceptorRecovery,
                 new AllIdsAreStale()
         );
 
-        setupChannel(clientSideChannel, clientHandshakeManager, noMessageListener);
-        setupChannel(serverSideChannel, serverHandshakeManager, noMessageListener);
+        setupChannel(initiatorSideChannel, initiatorHandshakeManager, noMessageListener);
+        setupChannel(acceptorSideChannel, acceptorHandshakeManager, noMessageListener);
 
-        assertTrue(serverSideChannel.isActive());
+        assertTrue(acceptorSideChannel.isActive());
 
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
 
-        assertNull(clientSideChannel.readOutbound());
-        assertNull(serverSideChannel.readOutbound());
+        assertNull(initiatorSideChannel.readOutbound());
+        assertNull(acceptorSideChannel.readOutbound());
 
-        checkHandshakeCompletedExceptionally(serverHandshakeManager);
-        checkHandshakeCompletedExceptionally(clientHandshakeManager);
+        checkHandshakeCompletedExceptionally(acceptorHandshakeManager);
+        checkHandshakeCompletedExceptionally(initiatorHandshakeManager);
 
-        checkPipelineAfterHandshake(serverSideChannel);
-        checkPipelineAfterHandshake(clientSideChannel);
+        checkPipelineAfterHandshake(acceptorSideChannel);
+        checkPipelineAfterHandshake(initiatorSideChannel);
 
-        assertFalse(serverSideChannel.finish());
-        assertFalse(clientSideChannel.finish());
+        assertFalse(acceptorSideChannel.finish());
+        assertFalse(initiatorSideChannel.finish());
     }
 
     @Test
-    public void clientFailsHandshakeIfServerIdIsAlreadySeen() throws Exception {
-        RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
-        RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
+    public void initiatorFailsHandshakeIfAcceptorIdIsAlreadySeen() throws Exception {
+        RecoveryDescriptorProvider initiatorRecovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider acceptorRecovery = createRecoveryDescriptorProvider();
 
-        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
-        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+        EmbeddedChannel initiatorSideChannel = createUnregisteredChannel();
+        EmbeddedChannel acceptorSideChannel = createUnregisteredChannel();
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(
-                clientSideChannel,
-                "client",
+        RecoveryInitiatorHandshakeManager initiatorHandshakeManager = createRecoveryInitiatorHandshakeManager(
+                initiatorSideChannel,
+                INITIATOR,
                 UUID.randomUUID(),
-                clientRecovery,
+                initiatorRecovery,
                 new AllIdsAreStale()
         );
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverSideChannel, serverRecovery);
+        RecoveryAcceptorHandshakeManager acceptorHandshakeManager = createRecoveryAcceptorHandshakeManager(
+                acceptorSideChannel,
+                acceptorRecovery
+        );
 
-        setupChannel(clientSideChannel, clientHandshakeManager, noMessageListener);
-        setupChannel(serverSideChannel, serverHandshakeManager, noMessageListener);
+        setupChannel(initiatorSideChannel, initiatorHandshakeManager, noMessageListener);
+        setupChannel(acceptorSideChannel, acceptorHandshakeManager, noMessageListener);
 
-        assertTrue(serverSideChannel.isActive());
+        assertTrue(acceptorSideChannel.isActive());
 
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
-        exchangeServerToClient(serverSideChannel, clientSideChannel);
-        exchangeClientToServer(serverSideChannel, clientSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
+        exchangeAcceptorToInitiator(acceptorSideChannel, initiatorSideChannel);
+        exchangeInitiatorToAcceptor(acceptorSideChannel, initiatorSideChannel);
 
-        assertNull(clientSideChannel.readOutbound());
-        assertNull(serverSideChannel.readOutbound());
+        assertNull(initiatorSideChannel.readOutbound());
+        assertNull(acceptorSideChannel.readOutbound());
 
-        checkHandshakeCompletedExceptionally(serverHandshakeManager);
-        checkHandshakeCompletedExceptionally(clientHandshakeManager);
+        checkHandshakeCompletedExceptionally(acceptorHandshakeManager);
+        checkHandshakeCompletedExceptionally(initiatorHandshakeManager);
 
-        checkPipelineAfterHandshake(serverSideChannel);
-        checkPipelineAfterHandshake(clientSideChannel);
+        checkPipelineAfterHandshake(acceptorSideChannel);
+        checkPipelineAfterHandshake(initiatorSideChannel);
 
-        assertFalse(serverSideChannel.finish());
-        assertFalse(clientSideChannel.finish());
+        assertFalse(acceptorSideChannel.finish());
+        assertFalse(initiatorSideChannel.finish());
     }
 
     /** Message listener that accepts a specific message only once. */
@@ -639,20 +688,20 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         recoveryDescriptor.add(new OutNetworkObject(msg, Collections.emptyList()));
     }
 
-    private void exchangeServerToClient(EmbeddedChannel serverSideChannel, EmbeddedChannel clientSideChannel) {
-        runPendingTasks(serverSideChannel, clientSideChannel);
+    private void exchangeAcceptorToInitiator(EmbeddedChannel acceptorSideChannel, EmbeddedChannel initiatorSideChannel) {
+        runPendingTasks(acceptorSideChannel, initiatorSideChannel);
 
-        ByteBuf outgoingMessageBuffer = serverSideChannel.readOutbound();
+        ByteBuf outgoingMessageBuffer = acceptorSideChannel.readOutbound();
         // No need to release buffer because inbound buffers are released by InboundDecoder
-        clientSideChannel.writeInbound(outgoingMessageBuffer);
+        initiatorSideChannel.writeInbound(outgoingMessageBuffer);
     }
 
-    private void exchangeClientToServer(EmbeddedChannel serverSideChannel, EmbeddedChannel clientSideChannel) {
-        runPendingTasks(serverSideChannel, clientSideChannel);
+    private void exchangeInitiatorToAcceptor(EmbeddedChannel acceptorSideChannel, EmbeddedChannel initiatorSideChannel) {
+        runPendingTasks(acceptorSideChannel, initiatorSideChannel);
 
-        ByteBuf outgoingMessageBuffer = clientSideChannel.readOutbound();
+        ByteBuf outgoingMessageBuffer = initiatorSideChannel.readOutbound();
         // No need to release buffer because inbound buffers are released by InboundDecoder
-        serverSideChannel.writeInbound(outgoingMessageBuffer);
+        acceptorSideChannel.writeInbound(outgoingMessageBuffer);
     }
 
     private void runPendingTasks(EmbeddedChannel channel1, EmbeddedChannel channel2) {
@@ -689,34 +738,34 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 userObjectMarshaller);
     }
 
-    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(
-            Channel clientSideChannel,
+    private RecoveryInitiatorHandshakeManager createRecoveryInitiatorHandshakeManager(
+            Channel initiatorSideChannel,
             RecoveryDescriptorProvider provider
     ) {
-        return createRecoveryClientHandshakeManager(clientSideChannel, "client", UUID.randomUUID(), provider);
+        return createRecoveryInitiatorHandshakeManager(initiatorSideChannel, INITIATOR, UUID.randomUUID(), provider);
     }
 
-    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(
-            Channel clientSideChannel,
+    private RecoveryInitiatorHandshakeManager createRecoveryInitiatorHandshakeManager(
+            Channel initiatorSideChannel,
             String consistentId,
             UUID launchId,
             RecoveryDescriptorProvider provider
     ) {
-        return createRecoveryClientHandshakeManager(clientSideChannel, consistentId, launchId, provider, new AllIdsAreFresh());
+        return createRecoveryInitiatorHandshakeManager(initiatorSideChannel, consistentId, launchId, provider, new AllIdsAreFresh());
     }
 
-    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(
-            Channel clientSideChannel,
+    private RecoveryInitiatorHandshakeManager createRecoveryInitiatorHandshakeManager(
+            Channel initiatorSideChannel,
             String consistentId,
             UUID launchId,
             RecoveryDescriptorProvider provider,
             StaleIdDetector staleIdDetector
     ) {
-        return new RecoveryClientHandshakeManager(
-                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(CLIENT_HOST, PORT)),
+        return new RecoveryInitiatorHandshakeManager(
+                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(INITIATOR_HOST, PORT)),
                 CONNECTION_ID,
                 provider,
-                () -> List.of(clientSideChannel.eventLoop()),
+                () -> List.of(initiatorSideChannel.eventLoop()),
                 staleIdDetector,
                 clusterIdSupplier,
                 channel -> {},
@@ -725,34 +774,34 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(
-            Channel serverSideChannel,
+    private RecoveryAcceptorHandshakeManager createRecoveryAcceptorHandshakeManager(
+            Channel acceptorSideChannel,
             RecoveryDescriptorProvider provider
     ) {
-        return createRecoveryServerHandshakeManager(serverSideChannel, "server", UUID.randomUUID(), provider);
+        return createRecoveryAcceptorHandshakeManager(acceptorSideChannel, ACCEPTOR, UUID.randomUUID(), provider);
     }
 
-    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(
-            Channel serverSideChannel,
+    private RecoveryAcceptorHandshakeManager createRecoveryAcceptorHandshakeManager(
+            Channel acceptorSideChannel,
             String consistentId,
             UUID launchId,
             RecoveryDescriptorProvider provider
     ) {
-        return createRecoveryServerHandshakeManager(serverSideChannel, consistentId, launchId, provider, new AllIdsAreFresh());
+        return createRecoveryAcceptorHandshakeManager(acceptorSideChannel, consistentId, launchId, provider, new AllIdsAreFresh());
     }
 
-    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(
-            Channel serverSideChannel,
+    private RecoveryAcceptorHandshakeManager createRecoveryAcceptorHandshakeManager(
+            Channel acceptorSideChannel,
             String consistentId,
             UUID launchId,
             RecoveryDescriptorProvider provider,
             StaleIdDetector staleIdDetector
     ) {
-        return new RecoveryServerHandshakeManager(
-                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(SERVER_HOST, PORT)),
+        return new RecoveryAcceptorHandshakeManager(
+                new ClusterNodeImpl(launchId, consistentId, new NetworkAddress(ACCEPTOR_HOST, PORT)),
                 MESSAGE_FACTORY,
                 provider,
-                () -> List.of(serverSideChannel.eventLoop()),
+                () -> List.of(acceptorSideChannel.eventLoop()),
                 staleIdDetector,
                 clusterIdSupplier,
                 channel -> {},

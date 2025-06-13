@@ -193,7 +193,8 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurator
+                    cmgRaftConfigurator,
+                    new NoOpMetricManager()
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

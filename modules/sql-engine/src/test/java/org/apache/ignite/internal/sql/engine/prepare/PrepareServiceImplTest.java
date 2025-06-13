@@ -276,7 +276,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
         ParameterType parameterType = queryPlan.parameterMetadata().parameterTypes().get(0);
 
-        ColumnType columnType = nativeType.spec().asColumnType();
+        ColumnType columnType = nativeType.spec();
         assertEquals(columnType, parameterType.columnType(), "Column type does not match: " + parameterType);
         assertEquals(precision, parameterType.precision(), "Precision does not match: " + parameterType);
         assertEquals(scale, parameterType.scale(), "Scale does not match: " + parameterType);

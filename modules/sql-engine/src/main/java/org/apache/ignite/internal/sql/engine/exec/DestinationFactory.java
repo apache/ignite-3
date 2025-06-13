@@ -32,7 +32,6 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Identity;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Partitioned;
@@ -92,10 +91,10 @@ class DestinationFactory<RowT> {
                     return new Identity<>(rowHandler, keys.get(0), group.nodeNames());
                 }
 
-                if (function.affinity()) {
+                if (distribution.isTableDistribution()) {
                     assert !nullOrEmpty(group.assignments());
 
-                    int tableId = ((AffinityDistribution) function).tableId();
+                    int tableId = distribution.tableId();
                     Supplier<PartitionCalculator> calculator = dependencies.partitionCalculator(tableId);
                     TableDescriptor tableDescriptor = dependencies.tableDescriptor(tableId);
 

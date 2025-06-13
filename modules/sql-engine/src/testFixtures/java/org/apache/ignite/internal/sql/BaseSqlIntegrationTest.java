@@ -102,9 +102,17 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
      * @param rules Additional rules need to be disabled.
      */
     protected static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
-        return assertQuery(qry)
-                .disableRules(joinType.disabledRules)
-                .disableRules(rules);
+        return assertQuery(qry, rules).disableRules(joinType.disabledRules);
+    }
+
+    /**
+     * Query check with disabled rules.
+     *
+     * @param qry Query for check.
+     * @param rules Additional rules need to be disabled.
+     */
+    protected static QueryChecker assertQuery(String qry, String... rules) {
+        return assertQuery(qry).disableRules(rules);
     }
 
     /**
@@ -115,9 +123,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
      * @param rules Additional rules need to be disabled.
      */
     protected static QueryChecker assertQuery(String qry, AggregateType aggregateType, String... rules) {
-        return assertQuery(qry)
-                .disableRules(aggregateType.disabledRules)
-                .disableRules(rules);
+        return assertQuery(qry, rules).disableRules(aggregateType.disabledRules);
     }
 
     /**

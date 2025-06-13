@@ -50,7 +50,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * Closure for executing write operations on the storage. All write operations, such as
-     * {@link #addWrite(RowId, BinaryRow, UUID, int, int)} or {@link #commitWrite(RowId, HybridTimestamp)},
+     * {@link #addWrite(RowId, BinaryRow, UUID, int, int)} or {@link #commitWrite},
      * as well as {@link #scanVersions(RowId)}, and operations like {@link #committedGroupConfiguration(byte[])}, must be executed inside
      * of the write closure. Also, each operation that involves modifying rows (and {@link #scanVersions(RowId)}) must hold lock on
      * the corresponding row ID, by either calling {@link Locker#lock(RowId)} or calling {@link Locker#tryLock(RowId)} and checking the
@@ -173,56 +173,70 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
-     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
-     * In details:
-     * - if there is no uncommitted version, a new uncommitted version is added
-     * - if there is an uncommitted version belonging to the same transaction, it gets replaced by the given version
-     * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new uncommitted version is added.</li>
+     * <li>If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
+     * <li>If there is an uncommitted version belonging to a different transaction, nothing will happen.</li>
+     * </ul>
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param row Table row to update. {@code null} means value removal.
-     * @param txId Transaction id.
-     * @param commitTableOrZoneId Commit table/zone id.
-     * @param commitPartitionId Commit partitionId.
-     * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
-     *     exists before this call
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @param txId Transaction ID.
+     * @param commitTableOrZoneId Commit table/zone ID.
+     * @param commitPartitionId Commit partition ID.
+     * @return Result of add write intent.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException;
+    AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
-     * @param rowId Row id.
-     * @return Previous uncommitted row version associated with the row id.
+     * @param rowId Row ID.
+     * @param txId Transaction ID that abort write intent.
+     * @return Result of abort write intent.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
+    AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param timestamp Timestamp to associate with committed value.
+     * @param txId Transaction ID that commit write intent.
+     * @return Result of commit write intent.
      * @throws StorageException If failed to write data to the storage.
      */
-    void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
+    CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException;
 
     /**
      * Creates a committed version.
-     * In details:
-     * - if there is no uncommitted version, a new committed version is added
-     * - if there is an uncommitted version, this method may fail with a system exception (this method should not be called if there
-     *   is already something uncommitted for the given row).
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new committed version is added.</li>
+     * <li>If there is an uncommitted version, nothing will happen.</li>
+     * </ul>
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
+     * @return Result of add write intent committed.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+    AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException;
 
     /**
      * Scans all versions of a single row.

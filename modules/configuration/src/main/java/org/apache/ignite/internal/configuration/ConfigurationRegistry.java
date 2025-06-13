@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -65,6 +67,8 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /** Determines if key should be ignored. */
     private final KeyIgnorer keyIgnorer;
+
+    private final ConfigurationType configurationType;
 
     /** Constructor. */
     @TestOnly
@@ -106,6 +110,8 @@ public class ConfigurationRegistry implements IgniteComponent {
             }
         };
 
+        this.configurationType = storage.type();
+
         rootKeys.forEach(rootKey -> {
             DynamicConfiguration<?, ?> cfg = generator.instantiateCfg(rootKey, changer);
 
@@ -117,6 +123,12 @@ public class ConfigurationRegistry implements IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         changer.start();
+
+        // Initialize local configuration on start so that it can be read and modified during component start.
+        // Distributed configuration will be initialized during the "notifyCurrentConfigurationListeners" call.
+        if (configurationType == ConfigurationType.LOCAL) {
+            configs.values().forEach(ConfigurationUtil::touch);
+        }
 
         return nullCompletedFuture();
     }
@@ -139,7 +151,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Initializes the configuration with the given source. This method should be used only for the initial setup of the configuration. The
      * configuration is initialized with the provided source only if the storage is empty, and it is saved along with the defaults. This
-     * method must be called before {@link #startAsync()}.
+     * method must be called before {@link #startAsync}.
      *
      * @param configurationSource the configuration source to initialize with.
      */

@@ -48,7 +48,7 @@ public class MyBinaryKeyValueCacheTest {
 
         @Override
         public Map<String, SqlTest> jdbcTests() {
-            // TODO: GG-38110 Check if this can be implemented
+            // TODO: IGNITE-25440 Implement a simple test checking if the column have content.
             return Collections.emptyMap();
         }
     }

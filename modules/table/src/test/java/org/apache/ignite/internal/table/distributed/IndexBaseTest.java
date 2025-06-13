@@ -247,7 +247,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     void commitWrite(RowId rowId) {
         storage.runConsistently(locker -> {
-            storage.commitWrite(rowId, now());
+            storage.commitWrite(rowId, now(), TX_ID);
 
             return null;
         });

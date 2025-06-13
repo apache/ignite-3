@@ -30,6 +30,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 
 /** Base test class for Cluster Recovery restart partitions commands. */
 public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
@@ -103,7 +104,10 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testRestartPartitionTableNotFound() {
+        // This test in colocation mode is not relevant.
+
         String unknownTable = "PUBLIC.unknown_table";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,

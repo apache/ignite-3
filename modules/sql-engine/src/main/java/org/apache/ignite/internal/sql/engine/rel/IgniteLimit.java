@@ -36,6 +36,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.jetbrains.annotations.Nullable;
@@ -111,10 +112,14 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     /** {@inheritDoc} */
     @Override
     public RelNode accept(RexShuttle shuttle) {
-        shuttle.apply(offset);
-        shuttle.apply(fetch);
+        RexNode offset0 = shuttle.apply(offset);
+        RexNode fetch0 = shuttle.apply(fetch);
 
-        return super.accept(shuttle);
+        if (offset0 == offset && fetch0 == fetch) {
+            return this;
+        }
+
+        return new IgniteLimit(getCluster(), getTraitSet(), getInput(), offset0, fetch0);
     }
 
     /** {@inheritDoc} */
@@ -203,5 +208,18 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        if (offset != null) {
+            writer.addOffset(offset);
+        }
+
+        if (fetch != null) {
+            writer.addFetch(fetch);
+        }
+
+        return writer;
     }
 }

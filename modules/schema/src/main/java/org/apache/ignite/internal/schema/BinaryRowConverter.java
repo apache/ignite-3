@@ -131,7 +131,7 @@ public class BinaryRowConverter implements ColumnsExtractor {
                 return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
             case UUID:
                 return builder.appendUuidNotNull((UUID) value);
-            case BYTES:
+            case BYTE_ARRAY:
                 return builder.appendBytesNotNull((byte[]) value);
             case STRING:
                 return builder.appendStringNotNull((String) value);
@@ -193,7 +193,7 @@ public class BinaryRowConverter implements ColumnsExtractor {
             case UUID:
                 builder.appendUuidNotNull(delegate.uuidValue(col));
                 return;
-            case BYTES:
+            case BYTE_ARRAY:
                 builder.appendBytesNotNull(delegate.bytesValue(col));
                 return;
             case STRING:

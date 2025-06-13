@@ -25,11 +25,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -61,7 +61,6 @@ public class ClientSqlExecuteRequest {
      *
      * @param operationExecutor Executor to submit execution of operation.
      * @param in Unpacker.
-     * @param out Packer.
      * @param requestId Id of the request.
      * @param cancelHandles Registry of handlers. Request must register itself in this registry before switching to another thread.
      * @param sql SQL API.
@@ -69,60 +68,52 @@ public class ClientSqlExecuteRequest {
      * @param metrics Metrics.
      * @return Future representing result of operation.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             Executor operationExecutor,
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             long requestId,
             Map<Long, CancelHandle> cancelHandles,
             QueryProcessor sql,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics
+            ClientHandlerMetricSource metrics,
+            HybridTimestampTracker tsUpdater
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
 
-        return nullCompletedFuture().thenComposeAsync(none -> {
-            InternalTransaction tx = readTx(in, out, resources, null, null);
-            ClientSqlProperties props = new ClientSqlProperties(in);
-            String statement = in.unpackString();
-            Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+        InternalTransaction tx = readTx(in, tsUpdater, resources, null, null, null);
+        ClientSqlProperties props = new ClientSqlProperties(in);
+        String statement = in.unpackString();
+        Object[] arguments = readArgsNotNull(in);
 
-            if (arguments == null) {
-                // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-                arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
-            }
+        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        tsUpdater.update(clientTs);
 
-            HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-
-            HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
-
-            return executeAsync(
-                    tx,
-                    sql,
-                    tsUpdater,
-                    statement,
-                    cancelHandle.token(),
-                    props.pageSize(),
-                    props.toSqlProps(),
-                    () -> cancelHandles.remove(requestId),
-                    arguments
-            ).thenCompose(asyncResultSet -> {
-                out.meta(tsUpdater.get());
-
-                return writeResultSetAsync(out, resources, asyncResultSet, metrics);
-            });
-        }, operationExecutor);
+        return nullCompletedFuture().thenComposeAsync(none -> executeAsync(
+                tx,
+                sql,
+                tsUpdater,
+                statement,
+                cancelHandle.token(),
+                props.pageSize(),
+                props.toSqlProps(),
+                () -> cancelHandles.remove(requestId),
+                arguments
+        ).thenCompose(asyncResultSet -> writeResultSetAsync(resources, asyncResultSet, metrics)), operationExecutor);
     }
 
-    private static CompletionStage<Void> writeResultSetAsync(
-            ClientMessagePacker out,
+    static Object[] readArgsNotNull(ClientMessageUnpacker in) {
+        Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+
+        // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+        return arguments == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : arguments;
+    }
+
+    private static CompletableFuture<ResponseWriter> writeResultSetAsync(
             ClientResourceRegistry resources,
             AsyncResultSet asyncResultSet,
             ClientHandlerMetricSource metrics) {
-        boolean hasResource = asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages();
-
-        if (hasResource) {
+        if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
             try {
                 metrics.cursorsActiveIncrement();
 
@@ -132,7 +123,9 @@ public class ClientSqlExecuteRequest {
                         clientResultSet,
                         clientResultSet::closeAsync);
 
-                out.packLong(resources.put(resource));
+                var resourceId = resources.put(resource);
+
+                return CompletableFuture.completedFuture(out -> writeResultSet(out, asyncResultSet, resourceId));
             } catch (IgniteInternalCheckedException e) {
                 return asyncResultSet
                         .closeAsync()
@@ -140,26 +133,24 @@ public class ClientSqlExecuteRequest {
                             throw new IgniteInternalException(e.getMessage(), e);
                         });
             }
-        } else {
-            out.packNil(); // resourceId
         }
 
-        out.packBoolean(asyncResultSet.hasRowSet());
-        out.packBoolean(asyncResultSet.hasMorePages());
-        out.packBoolean(asyncResultSet.wasApplied());
-        out.packLong(asyncResultSet.affectedRows());
+        return asyncResultSet.closeAsync()
+                .thenApply(v -> (ResponseWriter) out -> writeResultSet(out, asyncResultSet, null));
+    }
 
-        packMeta(out, asyncResultSet.metadata());
+    private static void writeResultSet(ClientMessagePacker out, AsyncResultSet res, @Nullable Long resourceId) {
+        out.packLongNullable(resourceId);
 
-        // Pack first page.
-        if (asyncResultSet.hasRowSet()) {
-            packCurrentPage(out, asyncResultSet);
+        out.packBoolean(res.hasRowSet());
+        out.packBoolean(res.hasMorePages());
+        out.packBoolean(res.wasApplied());
+        out.packLong(res.affectedRows());
 
-            return hasResource
-                    ? nullCompletedFuture()
-                    : asyncResultSet.closeAsync();
-        } else {
-            return asyncResultSet.closeAsync();
+        packMeta(out, res.metadata());
+
+        if (res.hasRowSet()) {
+            packCurrentPage(out, res);
         }
     }
 

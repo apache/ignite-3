@@ -115,12 +115,13 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     @Override
     public CompletableFuture<ZoneDefinition> zoneDefinitionAsync(String zoneName) {
         List<String> zoneViewColumns = List.of(
-                "PARTITIONS",
-                "REPLICAS",
+                "ZONE_PARTITIONS",
+                "ZONE_REPLICAS",
+                "ZONE_QUORUM_SIZE",
                 "DATA_NODES_AUTO_ADJUST_SCALE_UP",
                 "DATA_NODES_AUTO_ADJUST_SCALE_DOWN",
                 "DATA_NODES_FILTER",
-                "CONSISTENCY_MODE"
+                "ZONE_CONSISTENCY_MODE"
         );
         return new SelectFromView<>(sql, zoneViewColumns, "ZONES", name(zoneName), row -> toZoneDefinitionBuilder(zoneName, row))
                 .executeAsync()
@@ -155,7 +156,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     @Override
     public CompletableFuture<Void> dropTableAsync(TableDefinition definition) {
         return new DropTableImpl(sql)
-                .name(definition.schemaName(), definition.tableName())
+                .name(definition.qualifiedName())
                 .ifExists()
                 .executeAsync()
                 .thenApply(unused -> null);
@@ -164,7 +165,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     @Override
     public CompletableFuture<Void> dropTableAsync(QualifiedName name) {
         return new DropTableImpl(sql)
-                .name(name.schemaName(), name.objectName())
+                .name(name)
                 .ifExists()
                 .executeAsync()
                 .thenApply(unused -> null);
@@ -209,16 +210,18 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     private static ZoneDefinition.Builder toZoneDefinitionBuilder(String zoneName, SqlRow row) {
-        int partitions = row.intValue("PARTITIONS");
-        int replicas = row.intValue("REPLICAS");
+        int partitions = row.intValue("ZONE_PARTITIONS");
+        int replicas = row.intValue("ZONE_REPLICAS");
+        int quorumsSize = row.intValue("ZONE_QUORUM_SIZE");
         int dataNodesAutoAdjustScaleUp = row.intValue("DATA_NODES_AUTO_ADJUST_SCALE_UP");
         int dataNodesAutoAdjustScaleDown = row.intValue("DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
         String filter = row.stringValue("DATA_NODES_FILTER");
-        String consistencyMode = row.stringValue("CONSISTENCY_MODE");
+        String consistencyMode = row.stringValue("ZONE_CONSISTENCY_MODE");
 
         return ZoneDefinition.builder(zoneName)
                 .partitions(partitions)
                 .replicas(replicas)
+                .quorumSize(quorumsSize)
                 .dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp)
                 .dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown)
                 .filter(filter)

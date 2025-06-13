@@ -78,6 +78,7 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -191,6 +192,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             RaftGroupOptionsConfigurer cmgRaftConfigurer =
                     RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
 
+            MetricManager metricManager = new NoOpMetricManager();
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     new SystemDisasterRecoveryStorage(vaultManager),
@@ -202,7 +205,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     new ClusterIdHolder(),
-                    cmgRaftConfigurer
+                    cmgRaftConfigurer,
+                    metricManager
             );
 
             components.add(cmgManager);
@@ -246,7 +250,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     storage,
                     clock,
                     topologyAwareRaftGroupServiceFactory,
-                    new NoOpMetricManager(),
+                    metricManager,
                     systemConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker

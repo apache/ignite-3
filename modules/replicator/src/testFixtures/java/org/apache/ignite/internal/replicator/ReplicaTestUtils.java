@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -63,7 +63,7 @@ public final class ReplicaTestUtils {
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
     public static Optional<RaftGroupService> getRaftClient(ReplicaManager replicaManager, int tableOrZoneId, int partId) {
         CompletableFuture<Replica> replicaFut = replicaManager
-                .replica(enabledColocation() ? new ZonePartitionId(tableOrZoneId, partId) : new TablePartitionId(tableOrZoneId, partId));
+                .replica(colocationEnabled() ? new ZonePartitionId(tableOrZoneId, partId) : new TablePartitionId(tableOrZoneId, partId));
 
         if  (replicaFut == null) {
             return Optional.empty();
