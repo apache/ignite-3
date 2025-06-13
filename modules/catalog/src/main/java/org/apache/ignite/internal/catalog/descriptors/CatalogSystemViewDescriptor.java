@@ -29,7 +29,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * System view descriptor.
  */
-public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor implements MarshallableEntry {
+public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor implements MarshallableEntry, CatalogColumnContainer {
     private final int schemaId;
 
     private final List<CatalogTableColumnDescriptor> columns;
@@ -89,11 +89,8 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor impleme
         return schemaId;
     }
 
-    /**
-     * Returns a list of columns of this view.
-     *
-     * @return A list of columns.
-     */
+    /** {@inheritDoc} */
+    @Override
     public List<CatalogTableColumnDescriptor> columns() {
         return columns;
     }

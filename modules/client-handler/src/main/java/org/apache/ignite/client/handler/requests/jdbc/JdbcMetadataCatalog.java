@@ -24,12 +24,15 @@ import java.sql.DatabaseMetaData;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnContainer;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -46,8 +49,6 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.table.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
-// TODO IGNITE-15525 Filter by table type must be added after 'view' type will appear.
-
 /**
  * Facade over {@link IgniteTables} to get information about database entities in terms of JDBC.
  */
@@ -55,28 +56,11 @@ public class JdbcMetadataCatalog {
     /** Primary key identifier. */
     private static final String PK = "PK_";
 
-    /** Name of TABLE type. */
-    private static final String TYPE_TABLE = "TABLE";
-
-    /** Name of system view type. */
-    private static final String TYPE_VIEW = "VIEW";
-
-    /** Index to quickly identify that the search should be performed with this type. */
-    private static final int TYPE_TABLE_IDX = 0;
-
-    /** Index to quickly identify that the search should be performed with this type. */
-    private static final int TYPE_VIEW_IDX = 1;
-
     private final ClockService clockService;
 
     private final SchemaSyncService schemaSyncService;
 
     private final CatalogService catalogService;
-
-    /** Comparator for {@link JdbcColumnMeta} by schema then table name. */
-    private static final Comparator<JdbcColumnMeta> bySchemaThenTabName
-            = Comparator.comparing(JdbcColumnMeta::schemaName)
-            .thenComparing(JdbcColumnMeta::tableName);
 
     /** Comparator for {@link JdbcTableMeta} by table name. */
     private static final Comparator<JdbcTableMeta> byTblTypeThenSchemaThenTblName
@@ -119,8 +103,7 @@ public class JdbcMetadataCatalog {
         return schemasAtNow().thenApply(schemas ->
                 schemas.stream()
                         .filter(schema -> matches(schema.name(), schemaNameRegex))
-                        .flatMap(schema ->
-                                Arrays.stream(schema.tables())
+                        .flatMap(schema -> Arrays.stream(schema.tables())
                                         .filter(table -> matches(table.name(), tlbNameRegex))
                                         .map(table -> createPrimaryKeyMeta(schema.name(), table))
                         )
@@ -152,66 +135,52 @@ public class JdbcMetadataCatalog {
     public CompletableFuture<List<JdbcTableMeta>> getTablesMeta(String schemaNamePtrn, String tblNamePtrn, @Nullable String[] tblTypes) {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
-        boolean[] includedTblTypes = resolveTableTypes(tblTypes);
+        Collection<CatalogObjectType> includedObjectTypes = resolveObjectTypes(tblTypes);
 
         return schemasAtNow().thenApply(schemas ->
                 schemas.stream()
                         .filter(schema -> matches(schema.name(), schemaNameRegex))
-                        .flatMap(schema -> {
-                            Stream<JdbcTableMeta> tablesStream = includedTblTypes[TYPE_TABLE_IDX]
-                                    ? Arrays.stream(schema.tables())
-                                    .filter(table -> matches(table.name(), tlbNameRegex))
-                                    .map(t -> new JdbcTableMeta(schema.name(), t.name(), TYPE_TABLE))
-                                    : Stream.empty();
-
-                            Stream<JdbcTableMeta> viewsStream = includedTblTypes[TYPE_VIEW_IDX]
-                                    ? Arrays.stream(schema.systemViews())
-                                    .filter(view -> matches(view.name(), tlbNameRegex))
-                                    .map(v -> new JdbcTableMeta(schema.name(), v.name(), TYPE_VIEW))
-                                    : Stream.empty();
-
-                            return Stream.concat(tablesStream, viewsStream);
-                        })
+                        .flatMap(schema -> includedObjectTypes.stream()
+                                .flatMap(tblType -> getCatalogObjects(schema, tblType)
+                                        .filter(desc -> matches(desc.name(), tlbNameRegex))
+                                        .map(desc -> new JdbcTableMeta(schema.name(), desc.name(), tblType.name())))
+                        )
                         .sorted(byTblTypeThenSchemaThenTblName)
                         .collect(toList())
         );
     }
 
+    private static Stream<CatalogObjectDescriptor> getCatalogObjects(CatalogSchemaDescriptor schema, CatalogObjectType type) {
+        switch (type) {
+            case TABLE:
+                return Arrays.stream(schema.tables());
+            case VIEW:
+                return Arrays.stream(schema.systemViews());
+            default:
+                throw new IllegalArgumentException("Unsupported object type: " + type);
+        }
+    }
+
     /**
-     * Returns a boolean array indicating which table types to include.
-     *
-     * @see #TYPE_TABLE_IDX
-     * @see #TYPE_VIEW_IDX
+     * Returns the set of table types resolved by string names.
      */
-    private static boolean[] resolveTableTypes(@Nullable String[] tblTypes) {
+    private static Collection<CatalogObjectType> resolveObjectTypes(@Nullable String[] tblTypes) {
         if (tblTypes == null) {
-            return new boolean[]{true, true};
+            return EnumSet.allOf(CatalogObjectType.class);
         }
 
-        boolean[] includedTypes = new boolean[2];
+        Set<CatalogObjectType> types = EnumSet.noneOf(CatalogObjectType.class);
 
         for (String tblType : tblTypes) {
             // In ODBC, SQL_ALL_TABLE_TYPES is defined as "%", so we need to support it.
             if ("%".equals(tblType)) {
-                return new boolean[]{true, true};
+                return EnumSet.allOf(CatalogObjectType.class);
             }
 
-            if (TYPE_TABLE.equals(tblType)) {
-                includedTypes[TYPE_TABLE_IDX] = true;
-
-                continue;
-            }
-
-            if (TYPE_VIEW.equals(tblType)) {
-                includedTypes[TYPE_VIEW_IDX] = true;
-
-                continue;
-            }
-
-            throw new IllegalArgumentException("Unsupported table type: " + tblType);
+            types.add(CatalogObjectType.valueOf(tblType));
         }
 
-        return includedTypes;
+        return types;
     }
 
     /**
@@ -229,27 +198,20 @@ public class JdbcMetadataCatalog {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
 
-        return schemasAtNow().thenApply(schemas ->
-                schemas.stream()
+        return schemasAtNow().thenApply(schemas -> schemas.stream()
                         .filter(schema -> matches(schema.name(), schemaNameRegex))
+                        .sorted(Comparator.comparing(CatalogSchemaDescriptor::name))
                         .flatMap(schema ->
                                 Stream.concat(
-                                        Arrays.stream(schema.systemViews())
-                                                .filter(view -> matches(view.name(), tlbNameRegex))
-                                                .flatMap(view -> view.columns().stream()
-                                                        .filter(col -> matches(col.name(), colNameRegex))
-                                                        .map(col -> createColumnMeta(schema.name(), view.name(), col))
-                                                ),
+                                        Arrays.stream(schema.systemViews()),
                                         Arrays.stream(schema.tables())
-                                                .filter(table -> matches(table.name(), tlbNameRegex))
-                                                .sorted(Comparator.comparing(CatalogTableDescriptor::name))
-                                                .flatMap(tbl -> tbl.columns().stream()
-                                                        .filter(col -> matches(col.name(), colNameRegex))
-                                                        .map(col -> createColumnMeta(schema.name(), tbl.name(), col))
-                                                )
                                 )
+                                .filter(desc -> matches(desc.name(), tlbNameRegex))
+                                .sorted(Comparator.comparing(CatalogColumnContainer::name))
+                                .flatMap(desc -> desc.columns().stream()
+                                                    .filter(col -> matches(col.name(), colNameRegex))
+                                                    .map(col -> createColumnMeta(schema.name(), desc.name(), col)))
                         )
-                        .sorted(bySchemaThenTabName)
                         .collect(toCollection(LinkedHashSet::new))
         );
     }
@@ -359,5 +321,14 @@ public class JdbcMetadataCatalog {
         toRegex = toRegex.replaceAll("([^\\\\\\\\])(\\\\\\\\(?>\\\\\\\\\\\\\\\\)*\\\\\\\\)*\\\\\\\\([_|%])", "$1$2$3");
 
         return toRegex.substring(1);
+    }
+
+    /** Catalog object type. */
+    private enum CatalogObjectType {
+        /** Name of TABLE type. */
+        TABLE,
+
+        /** Name of VIEW type. */
+        VIEW
     }
 }
