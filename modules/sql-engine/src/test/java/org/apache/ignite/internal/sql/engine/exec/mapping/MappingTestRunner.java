@@ -38,6 +38,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
@@ -61,8 +62,8 @@ import org.jetbrains.annotations.TestOnly;
  * <pre>
  *     #&lt;optional multiline description&gt;
  *     &lt;node_name&gt;
- *     ---
  *     &lt;SQL statement (single line or multiline)&gt;
+ *     [READ_FROM_PRIMARY] - optional pragma, used where primary reads are only possible.
  *     ---
  *     &lt;expected fragments&gt;
  *     ---
@@ -176,7 +177,8 @@ final class MappingTestRunner {
             MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel,
                     resultSetMetadata, parameterMetadata, schema.catalogVersion(), null);
 
-            String actualText = produceMapping(testDef.nodeName, executionDistributionProvider, snapshot, multiStepPlan);
+            String actualText =
+                    produceMapping(testDef.nodeName, executionDistributionProvider, snapshot, multiStepPlan, testDef.primaryRead);
 
             actualResults.add(actualText);
         }
@@ -197,7 +199,8 @@ final class MappingTestRunner {
             String nodeName,
             ExecutionDistributionProvider executionDistributionProvider,
             LogicalTopologySnapshot snapshot,
-            MultiStepPlan plan
+            MultiStepPlan plan,
+            boolean readFromPrimaryOnly
     ) {
 
         PartitionPruner partitionPruner = new PartitionPrunerImpl();
@@ -208,16 +211,18 @@ final class MappingTestRunner {
                 0,
                 partitionPruner,
                 snapshot::version,
-                executionDistributionProvider
+                executionDistributionProvider,
+                new SystemPropertiesNodeProperties()
         );
 
         List<MappedFragment> mappedFragments;
 
         try {
-            mappedFragments = await(mappingService.map(plan, MappingParameters.EMPTY));
+            mappedFragments = await(mappingService.map(plan, readFromPrimaryOnly
+                    ? MappingParameters.EMPTY : MappingParameters.MAP_ON_BACKUPS));
         } catch (Exception e) {
             String explanation = System.lineSeparator()
-                    + RelOptUtil.toString(plan.root())
+                    + RelOptUtil.toString(plan.getRel())
                     + System.lineSeparator();
 
             Throwable cause = e instanceof CompletionException ? e.getCause() : e;
@@ -245,12 +250,15 @@ final class MappingTestRunner {
 
         final String result;
 
-        TestCaseDef(int lineNo, @Nullable String description, String nodeName, String sql, String res) {
+        final boolean primaryRead;
+
+        TestCaseDef(int lineNo, @Nullable String description, String nodeName, String sql, String res, boolean primaryRead) {
             this.lineNo = lineNo;
             this.description = description;
             this.nodeName = nodeName;
             this.sql = sql;
             this.result = res;
+            this.primaryRead = primaryRead;
         }
     }
 
@@ -311,6 +319,7 @@ final class MappingTestRunner {
                 .append(System.lineSeparator())
                 .append(testCaseDef.sql)
                 .append(System.lineSeparator())
+                .append(testCaseDef.primaryRead ? (Parser.PRIMARY_READ + System.lineSeparator()) : "")
                 .append("---")
                 .append(System.lineSeparator())
                 .append(result)
@@ -322,12 +331,14 @@ final class MappingTestRunner {
     enum ParseState {
         NODE_NAME,
         SQL_STMT,
+        READ_FROM_PRIMARY,
         FRAGMENTS
     }
 
     private static class Parser {
         private static final String DELIMITER = "---";
         private static final String COMMENT = "#";
+        private static final String PRIMARY_READ = "READ_FROM_PRIMARY";
         private ParseState nextState = ParseState.NODE_NAME;
         private int testCaseLineNo;
         private int numFragments;
@@ -336,6 +347,7 @@ final class MappingTestRunner {
         private String nodeName;
         private final StringBuilder sqlStmt = new StringBuilder();
         private final StringBuilder result = new StringBuilder();
+        private boolean primaryRead;
 
         private void resetState() {
             nextState = ParseState.NODE_NAME;
@@ -344,6 +356,7 @@ final class MappingTestRunner {
             sqlStmt.setLength(0);
             result.setLength(0);
             description.setLength(0);
+            primaryRead = false;
         }
 
         List<TestCaseDef> parse(Path path) throws IOException {
@@ -387,15 +400,24 @@ final class MappingTestRunner {
                             throw reportError(fileName, lineNo, "Comments are not allowed in sql statement text", line);
                         }
 
-                        if (!line.stripLeading().startsWith(DELIMITER)) {
+                        String line0 = line.stripLeading();
+
+                        if (line0.startsWith(DELIMITER)) {
+                            nextState = ParseState.FRAGMENTS;
+                        } else if (line0.startsWith(PRIMARY_READ)) {
+                            nextState = ParseState.READ_FROM_PRIMARY;
+                        } else {
                             if (sqlStmt.length() > 0) {
                                 sqlStmt.append(System.lineSeparator());
                             }
 
                             sqlStmt.append(line);
-                        } else {
-                            nextState = ParseState.FRAGMENTS;
                         }
+
+                        break;
+                    case READ_FROM_PRIMARY:
+                        primaryRead = true;
+                        nextState = ParseState.FRAGMENTS;
                         break;
                     case FRAGMENTS:
                         if (line.startsWith(COMMENT)) {
@@ -456,7 +478,7 @@ final class MappingTestRunner {
             String res = result.toString().stripTrailing();
             String desc = description.length() > 0 ? description.toString() : null;
 
-            return new TestCaseDef(testCaseLineNo, desc, nodeName, sql, res);
+            return new TestCaseDef(testCaseLineNo, desc, nodeName, sql, res, primaryRead);
         }
 
         private static RuntimeException reportError(String fileName, int lineNo, String message, Object... params) {

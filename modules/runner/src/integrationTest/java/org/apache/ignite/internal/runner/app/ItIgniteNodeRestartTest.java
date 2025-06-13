@@ -31,7 +31,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
@@ -87,6 +87,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -349,6 +350,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         VaultManager vault = createVault(dir);
 
+        NodePropertiesImpl nodeProperties = new NodePropertiesImpl(vault);
+
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
 
         var clusterIdService = new ClusterIdService(vault);
@@ -580,6 +583,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureProcessor,
+                nodeProperties,
                 clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication()
         );
 
@@ -640,7 +644,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 transactionInflights,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                failureProcessor
+                failureProcessor,
+                nodeProperties
         );
 
         ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
@@ -686,6 +691,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new UpdateLogImpl(metaStorageMgr, failureProcessor),
                 clockService,
                 failureProcessor,
+                nodeProperties,
                 delayDurationMsSupplier
         );
 
@@ -741,6 +747,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 lowWatermark,
                 failureProcessor,
+                nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -791,6 +798,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 indexMetaStorage,
                 partitionsLogStorageFactory,
                 partitionReplicaLifecycleListener,
+                nodeProperties,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         );
@@ -834,6 +842,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
+                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService()),
@@ -845,6 +854,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         // Preparing the result map.
 
         components.add(vault);
+        components.add(nodeProperties);
         components.add(nodeCfgMgr);
 
         // Start.
@@ -1340,7 +1350,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         assertNotNull(table);
 
-        ReplicationGroupId groupId = enabledColocation()
+        ReplicationGroupId groupId = colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), 0)
                 : new TablePartitionId(table.tableId(), 0);
 
@@ -1615,11 +1625,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 .collect(toSet()), Set.of());
 
         for (int p = 0; p < partitions; p++) {
-            PartitionGroupId replicationGroupId = enabledColocation()
+            PartitionGroupId replicationGroupId = colocationEnabled()
                     ? new ZonePartitionId(table.zoneId(), p)
                     : new TablePartitionId(table.tableId(), p);
 
-            ByteArray stableAssignmentKey = enabledColocation()
+            ByteArray stableAssignmentKey = colocationEnabled()
                     ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) replicationGroupId)
                     : stablePartAssignmentsKey((TablePartitionId) replicationGroupId);
 
@@ -1918,7 +1928,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         node1 = startNode(1);
 
-        ByteArray assignmentsKey = enabledColocation()
+        ByteArray assignmentsKey = colocationEnabled()
                 ? ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId(node1, zoneName), 0))
                 : stablePartAssignmentsKey(new TablePartitionId(tableId(node1, tableName), 0));
 

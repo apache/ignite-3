@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -231,7 +231,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     void testPartitionStatesEmptyResult(boolean global) {
         // This test is not applicable for colocation enabled because empty zones are still have partitions.
 
@@ -256,7 +256,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             assertOutputMatches(String.format(
                     "%1$s%2$s\t1\t(HEALTHY|AVAILABLE)%3$s",
                     GLOBAL_ZONE_PARTITION_STATE_FIELDS,
@@ -288,7 +288,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             assertOutputMatches(String.format(
                     "%1$s(%2$s)\t%3$s\t1\t(HEALTHY|AVAILABLE)%4$s",
                     LOCAL_ZONE_PARTITION_STATE_FIELDS,
@@ -309,7 +309,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     private void checkOutput(boolean global, Set<String> zoneNames, Set<String> nodes, int partitions) {
         assertErrOutputIsEmpty();
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             assertOutputStartsWith(global ? GLOBAL_ZONE_PARTITION_STATE_FIELDS : LOCAL_ZONE_PARTITION_STATE_FIELDS);
         } else {
             assertOutputStartsWith(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
@@ -330,7 +330,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         if (!zoneNames.isEmpty()) {
             assertOutputContainsAll(zoneNames);
 
-            if (!enabledColocation()) {
+            if (!colocationEnabled()) {
                 Set<String> tableNames = zoneNames.stream().map(it -> it + "_table").collect(toSet());
 
                 assertOutputContainsAllIgnoringCase(tableNames);
@@ -339,7 +339,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         Set<String> anotherZones = CollectionUtils.difference(ZONES, zoneNames);
 
-        if (!anotherZones.isEmpty() && !enabledColocation()) {
+        if (!anotherZones.isEmpty() && !colocationEnabled()) {
             assertOutputDoesNotContain(anotherZones);
         }
 

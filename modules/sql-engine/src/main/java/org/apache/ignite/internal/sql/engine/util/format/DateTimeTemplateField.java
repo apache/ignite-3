@@ -21,52 +21,59 @@ package org.apache.ignite.internal.sql.engine.util.format;
  * Supported datetime template fields.
  */
 enum DateTimeTemplateField {
-    YYYY(FieldKind.YEAR, 4),
-    YYY(FieldKind.YEAR, 3),
-    YY(FieldKind.YEAR, 2),
-    Y(FieldKind.YEAR, 1),
-    RRRR(FieldKind.ROUNDED_YEAR, 4),
-    RR(FieldKind.ROUNDED_YEAR, 2),
-    MM(FieldKind.MONTH, 2),
-    DD(FieldKind.DAY_OF_MONTH, 2),
-    DDD(FieldKind.DAY_OF_YEAR, 3),
-    HH(FieldKind.HOUR_12, 2),
-    HH12(FieldKind.HOUR_12, 2),
-    HH24(FieldKind.HOUR_24, 2),
-    MI(FieldKind.MINUTE, 2),
-    SS(FieldKind.SECOND_OF_MINUTE, 2),
-    SSSSS(FieldKind.SECOND_OF_DAY, 5),
-    FF1(FieldKind.FRACTION, 1),
-    FF2(FieldKind.FRACTION, 2),
-    FF3(FieldKind.FRACTION, 3),
-    FF4(FieldKind.FRACTION, 4),
-    FF5(FieldKind.FRACTION, 5),
-    FF6(FieldKind.FRACTION, 6),
-    FF7(FieldKind.FRACTION, 7),
-    FF8(FieldKind.FRACTION, 8),
-    FF9(FieldKind.FRACTION, 9),
-    PM(FieldKind.AM_PM, "P.M."),
-    AM(FieldKind.AM_PM, "A.M."),
-    TZH(FieldKind.TIMEZONE, 2),
-    TZM(FieldKind.TIMEZONE, 2)
-    ;
+    YYYY("Year", FieldKind.YEAR, 4),
+    YYY("Year", FieldKind.YEAR, 3),
+    YY("Year", FieldKind.YEAR, 2),
+    Y("Year", FieldKind.YEAR, 1),
+    RRRR("Year", FieldKind.ROUNDED_YEAR, 4),
+    RR("Year", FieldKind.ROUNDED_YEAR, 2),
+    MM("MonthOfYear", FieldKind.MONTH, 2),
+    DD("DayOfMonth", FieldKind.DAY_OF_MONTH, 2),
+    DDD("DayOfYear", FieldKind.DAY_OF_YEAR, 3),
+    HH("HourAmPm", FieldKind.HOUR_12, 2),
+    HH12("HourAmPm", FieldKind.HOUR_12, 2),
+    HH24("HourOfDay", FieldKind.HOUR_24, 2),
+    MI("MinuteOfHour", FieldKind.MINUTE, 2),
+    SS("SecondOfMinute", FieldKind.SECOND_OF_MINUTE, 2),
+    SSSSS("SecondOfDay", FieldKind.SECOND_OF_DAY, 5),
+    FF1("Fraction", FieldKind.FRACTION, 1),
+    FF2("Fraction", FieldKind.FRACTION, 2),
+    FF3("Fraction", FieldKind.FRACTION, 3),
+    FF4("Fraction", FieldKind.FRACTION, 4),
+    FF5("Fraction", FieldKind.FRACTION, 5),
+    FF6("Fraction", FieldKind.FRACTION, 6),
+    FF7("Fraction", FieldKind.FRACTION, 7),
+    FF8("Fraction", FieldKind.FRACTION, 8),
+    FF9("Fraction", FieldKind.FRACTION, 9),
+    PM("Pm", FieldKind.AM_PM, "P.M."),
+    AM("Am", FieldKind.AM_PM, "A.M."),
+    TZH("TimeZone Hour", FieldKind.TIMEZONE, 2),
+    TZM("TimeZone MinuteOfHour", FieldKind.TIMEZONE, 2);
+
+    private final String displayName;
 
     private final FieldKind kind;
 
     private final String pattern;
 
-    private int maxDigits;
+    private final int maxDigits;
 
-    DateTimeTemplateField(FieldKind kind, int maxDigits) {
+    DateTimeTemplateField(String displayName, FieldKind kind, int maxDigits) {
+        this.displayName = displayName;
         this.kind = kind;
         this.pattern = this.name();
         this.maxDigits = maxDigits;
     }
 
-    DateTimeTemplateField(FieldKind kind, String pattern) {
+    DateTimeTemplateField(String displayName, FieldKind kind, String pattern) {
+        this.displayName = displayName;
         this.kind = kind;
         this.pattern = pattern;
         this.maxDigits = -1;
+    }
+
+    String displayName() {
+        return displayName;
     }
 
     String pattern() {

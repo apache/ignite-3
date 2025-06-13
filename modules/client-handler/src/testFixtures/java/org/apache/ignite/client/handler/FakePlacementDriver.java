@@ -52,7 +52,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     private boolean returnError;
 
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
     public FakePlacementDriver(int partitions) {
         this.partitions = partitions;

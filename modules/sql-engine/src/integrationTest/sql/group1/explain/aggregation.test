@@ -5,7 +5,7 @@
 # group: [explain]
 
 # simple group colocated hash aggregate
-plan
+explain plan
 SELECT sum(c2)
   FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
  GROUP BY c1;
@@ -29,7 +29,7 @@ Project
           est: (rows=100)
 
 # simple group colocated sort aggregate
-plan
+explain plan
 SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule',
            'MapReduceHashAggregateConverterRule') */ sum(c2)
   FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
@@ -58,7 +58,7 @@ Project
             est: (rows=100)
 
 # simple group map-reduce hash aggregate
-plan
+explain plan
 SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule') */ sum(c2)
   FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
  GROUP BY c1;
@@ -87,7 +87,7 @@ Project
             est: (rows=100)
 
 # simple group map-reduce sort aggregate
-plan
+explain plan
 SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule', 
            'ColocatedHashAggregateConverterRule',
            'ColocatedSortAggregateConverterRule',
@@ -124,7 +124,7 @@ Project
               est: (rows=100)
 
 # aggregation by group set colocated hash aggregate
-plan
+explain plan
 SELECT sum(c2)
   FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
  GROUP BY ROLLUP (c1, c3);
@@ -149,7 +149,7 @@ Project
           est: (rows=100)
 
 # aggregation by group set map-reduce hash aggregate
-plan
+explain plan
 SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule') */ sum(c2)
   FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
  GROUP BY ROLLUP (c1, c3);
@@ -180,7 +180,7 @@ Project
             est: (rows=100)
 
 # distinct aggregate
-plan
+explain plan
 SELECT sum(DISTINCT c2)
   FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
  GROUP BY c1;
@@ -204,7 +204,7 @@ Project
           est: (rows=100)
 
 # aggregate within distinct
-plan
+explain plan
 SELECT sum(c2) WITHIN DISTINCT (c2 / 2)
   FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
  GROUP BY c1;
@@ -228,7 +228,7 @@ Project
           est: (rows=100)
 
 # aggregate with additional filtration
-plan
+explain plan
 SELECT sum(c2) FILTER (WHERE c2 % 2 = 1)
   FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
  GROUP BY c1;
@@ -252,7 +252,7 @@ Project
           est: (rows=100)
 
 # aggregate with all modification
-plan
+explain plan
 SELECT count(DISTINCT c2) WITHIN DISTINCT (c2 / 2) FILTER (WHERE c2 % 2 = 1)
   FROM (SELECT x AS c1, x AS c2, x AS c3 FROM system_range(1, 10))
  GROUP BY c1;

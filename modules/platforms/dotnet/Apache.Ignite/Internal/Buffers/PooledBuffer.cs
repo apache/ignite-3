@@ -43,13 +43,11 @@ namespace Apache.Ignite.Internal.Buffers
         /// <param name="bytes">Bytes.</param>
         /// <param name="position">Data position within specified byte array.</param>
         /// <param name="length">Data length within specified byte array.</param>
-        /// <param name="metadata">Optional metadata.</param>
-        public PooledBuffer(byte[] bytes, int position, int length, object? metadata = null)
+        public PooledBuffer(byte[] bytes, int position, int length)
         {
             _bytes = bytes;
             Position = position;
             _length = length;
-            Metadata = metadata;
         }
 
         /// <summary>

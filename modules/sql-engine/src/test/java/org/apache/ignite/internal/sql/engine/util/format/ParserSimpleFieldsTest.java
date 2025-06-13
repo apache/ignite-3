@@ -23,12 +23,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind;
@@ -50,9 +54,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("yearValues")
     public void testParseYear(String pattern, String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.YEAR, val) : null;
+        LocalDate date = val != null ? LocalDate.now(FIXED_CLOCK).withYear(val) : null;
 
-        parseSingleField(pattern, text, fields, error);
+        parseSingleField(pattern, text, ParsedFields::getDate, date, error);
     }
 
     @ParameterizedTest
@@ -104,7 +108,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
 
                 Arguments.of("YYYY", "", null, noValuesForFields("YYYY")),
                 Arguments.of("YYYY", "+1", null, expectedField("YYYY")),
-                Arguments.of("YYYY", "0", null, valueOutOfRange("YYYY")),
+                Arguments.of("YYYY", "0", null, valueOutOfRange("Year")),
                 Arguments.of("YYYY", "1", 1, null),
                 Arguments.of("YYYY", "9", 9, null),
                 Arguments.of("YYYY", "12", 12, null),
@@ -121,8 +125,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @MethodSource("yearValuesAnotherDecade")
     public void testParseYearAnotherDecade(String pattern, String text, Integer val) {
         Clock clock = Clock.fixed(Instant.parse("2030-01-01T00:00:00.000Z"), ZoneId.of("UTC"));
+        LocalDate date = val != null ? LocalDate.now(clock).withYear(val) : null;
 
-        parseSingleField(pattern, text, clock, Map.of(FieldKind.YEAR, val), null);
+        parseSingleField(pattern, text, clock, ParsedFields::getDate, date, null);
     }
 
     private static Stream<Arguments> yearValuesAnotherDecade() {
@@ -151,10 +156,10 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("roundedYearValues")
     public void testParseRoundedYear(int currentYear, String pattern, String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.YEAR, val) : null;
         Clock clock = Clock.fixed(Instant.parse(currentYear + "-01-01T00:00:00.0Z"), ZoneId.systemDefault());
+        LocalDate date = val != null ? LocalDate.now(clock).withYear(val) : null;
 
-        parseSingleField(pattern, text, clock, fields, error);
+        parseSingleField(pattern, text, clock, ParsedFields::getDate, date, error);
     }
 
     @ParameterizedTest
@@ -256,9 +261,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("monthValues")
     public void testParseMonth(String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.MONTH, val) : null;
+        LocalDate date = val != null ? LocalDate.now(FIXED_CLOCK).withMonth(val) : null;
 
-        parseSingleField("MM", text, fields, error);
+        parseSingleField("MM", text, ParsedFields::getDate, date, error);
     }
 
     @ParameterizedTest
@@ -282,7 +287,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
         return Stream.of(
                 Arguments.of("", null, noValuesForFields("MM")),
                 Arguments.of("+1", null, expectedField("MM")),
-                Arguments.of("0", null, valueOutOfRange("MM")),
+                Arguments.of("0", null, valueOutOfRange("MonthOfYear")),
                 Arguments.of("1", 1, null),
                 Arguments.of("2", 2, null),
                 Arguments.of("3", 3, null),
@@ -295,7 +300,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
                 Arguments.of("10", 10, null),
                 Arguments.of("11", 11, null),
                 Arguments.of("12", 12, null),
-                Arguments.of("13", null, valueOutOfRange("MM")),
+                Arguments.of("13", null, valueOutOfRange("MonthOfYear")),
                 Arguments.of("012", null, unexpectedTrailingCharAfter("MM"))
         );
     }
@@ -303,9 +308,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("dayValues")
     public void testParseDay(String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.DAY_OF_MONTH, val) : null;
+        LocalDate date = val != null ? LocalDate.now(FIXED_CLOCK).withDayOfMonth(val) : null;
 
-        parseSingleField("DD", text, fields, error);
+        parseSingleField("DD", text, ParsedFields::getDate, date, error);
     }
 
     @ParameterizedTest
@@ -329,14 +334,14 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
         return Stream.of(
                 Arguments.of("", null, noValuesForFields("DD")),
                 Arguments.of("+1", null, expectedField("DD")),
-                Arguments.of("0", null, valueOutOfRange("DD")),
+                Arguments.of("0", null, valueOutOfRange("DayOfMonth")),
                 Arguments.of("1", 1, null),
                 Arguments.of("13", 13, null),
                 Arguments.of("17", 17, null),
                 Arguments.of("27", 27, null),
                 Arguments.of("28", 28, null),
                 Arguments.of("31", 31, null),
-                Arguments.of("32", null, valueOutOfRange("DD")),
+                Arguments.of("32", null, valueOutOfRange("DayOfMonth")),
                 Arguments.of("030", null, unexpectedTrailingCharAfter("DD"))
         );
     }
@@ -344,9 +349,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("dayOfYearValues")
     public void testParseDayOfYear(String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.DAY_OF_YEAR, val) : null;
+        LocalDate date = val != null ? LocalDate.now(FIXED_CLOCK).withDayOfYear(val) : null;
 
-        parseSingleField("DDD", text, fields, error);
+        parseSingleField("DDD", text, ParsedFields::getDate, date, error);
     }
 
     @ParameterizedTest
@@ -370,14 +375,14 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
         return Stream.of(
                 Arguments.of("", null, noValuesForFields("DDD")),
                 Arguments.of("+1", null, expectedField("DDD")),
-                Arguments.of("0", null, valueOutOfRange("DDD")),
+                Arguments.of("0", null, valueOutOfRange("DayOfYear")),
                 Arguments.of("1", 1, null),
                 Arguments.of("13", 13, null),
                 Arguments.of("37", 37, null),
                 Arguments.of("100", 100, null),
                 Arguments.of("200", 200, null),
                 Arguments.of("365", 365, null),
-                Arguments.of("366", null, valueOutOfRange("DDD")),
+                Arguments.of("366", null, "Invalid date 'DayOfYear 366' as '2025' is not a leap year"),
                 Arguments.of("0123", null, unexpectedTrailingCharAfter("DDD"))
         );
     }
@@ -385,9 +390,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("hours12Values")
     public void testParseHours12(String pattern, String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.HOUR_24, val) : null;
+        LocalTime time = val != null ? LocalTime.of(val, 0, 0) : null;
 
-        parseSingleField(pattern, text, fields, error);
+        parseSingleField(pattern, text, (parsedFields, ignore) -> parsedFields.getTime(), time, error);
     }
 
     @ParameterizedTest
@@ -405,9 +410,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
         pattern = pattern.replace("A.M.", "P.M.");
         error = error != null ? error.replace("AM", "PM") : error;
 
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.HOUR_24, val) : null;
+        LocalTime time = val != null ? LocalTime.of(val, 0, 0) : null;
 
-        parseSingleField(pattern, text, fields, error);
+        parseSingleField(pattern, text, (parsedFields, ignore) -> parsedFields.getTime(), time, error);
     }
 
     @ParameterizedTest
@@ -424,12 +429,12 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("hours12Values")
     public void testParseHours12h12(String pattern, String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.HOUR_24, val) : null;
+        LocalTime time = val != null ? LocalTime.of(val, 0, 0) : null;
 
         pattern = pattern.replace("HH", "HH12");
         error = error != null ? error.replace("HH", "HH12") : null;
 
-        parseSingleField(pattern, text, fields, error);
+        parseSingleField(pattern, text, (parsedFields, ignore) -> parsedFields.getTime(), time, error);
     }
 
     @ParameterizedTest
@@ -444,7 +449,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("hours12Values")
     public void testParseHours12h12pmAm(String pattern, String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.HOUR_24, val) : null;
+        LocalTime time = val != null ? LocalTime.of(val, 0, 0) : null;
 
         pattern = pattern.replace("HH", "HH12");
         error = error != null ? error.replace("HH", "HH12") : null;
@@ -453,7 +458,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
         pattern = pattern.replace("A.M.", "P.M.");
         error = error != null ? error.replace("AM", "PM") : error;
 
-        parseSingleField(pattern, text, fields, error);
+        parseSingleField(pattern, text, (parsedFields, ignore) -> parsedFields.getTime(), time, error);
     }
 
     @ParameterizedTest
@@ -486,13 +491,13 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
 
                 Arguments.of("HHA.M.", "+1A.M.", null, expectedField("HH")),
 
-                Arguments.of("HHA.M.", "0A.M.", null, valueOutOfRange("HH")),
+                Arguments.of("HHA.M.", "0A.M.", null, valueOutOfRange("HourAmPm")),
                 Arguments.of("HHA.M.", "1A.M.", 1, null),
                 Arguments.of("HHA.M.", "7A.M.", 7, null),
                 Arguments.of("HHA.M.", "10A.M.", 10, null),
                 Arguments.of("HHA.M.", "11A.M.", 11, null),
                 Arguments.of("HHA.M.", "12A.M.", 0, null),
-                Arguments.of("HHA.M.", "13A.M.", null, valueOutOfRange("HH")),
+                Arguments.of("HHA.M.", "13A.M.", null, valueOutOfRange("HourAmPm")),
 
                 Arguments.of("HHA.M.", "10AM", null, expectedField("AM")),
                 Arguments.of("HHA.M.", "A.M.", null, expectedField("HH")),
@@ -503,13 +508,13 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
 
                 Arguments.of("HHA.M.", "+1P.M.", null, expectedField("HH")),
 
-                Arguments.of("HHA.M.", "0P.M.", null, valueOutOfRange("HH")),
+                Arguments.of("HHA.M.", "0P.M.", null, valueOutOfRange("HourAmPm")),
                 Arguments.of("HHA.M.", "1P.M.", 13, null),
                 Arguments.of("HHA.M.", "7P.M.", 19, null),
                 Arguments.of("HHA.M.", "10P.M.", 22, null),
                 Arguments.of("HHA.M.", "11P.M.", 23, null),
                 Arguments.of("HHA.M.", "12P.M.", 12, null),
-                Arguments.of("HHA.M.", "13P.M.", null, valueOutOfRange("HH")),
+                Arguments.of("HHA.M.", "13P.M.", null, valueOutOfRange("HourAmPm")),
 
                 // Incorrect
                 Arguments.of("HH A.M.", "10 M.M.", null, expectedField("AM")),
@@ -531,15 +536,16 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
         Scanner scanner = new Scanner("HH12 A.M.");
         Parser parser = new Parser(scanner.scan());
         ParsedFields fields = parser.parse(text);
-        assertEquals(Map.of(FieldKind.HOUR_24, hours24), fields.values());
+
+        assertEquals(LocalTime.of(hours24, 0), fields.getTime());
     }
 
     @ParameterizedTest
     @MethodSource("hour24Values")
     public void testParseHours24(String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.HOUR_24, val) : null;
+        LocalTime time = val != null ? LocalTime.of(val, 0, 0) : null;
 
-        parseSingleField("HH24", text, fields, error);
+        parseSingleField("HH24", text, (parsedFields, ignore) -> parsedFields.getTime(), time, error);
     }
 
     @ParameterizedTest
@@ -587,7 +593,8 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
                 Arguments.of("21", 21, null),
                 Arguments.of("22", 22, null),
                 Arguments.of("23", 23, null),
-                Arguments.of("24", null, valueOutOfRange("HH24")),
+                Arguments.of("24", null, valueOutOfRange("HourOfDay")),
+                Arguments.of("25", null, valueOutOfRange("HourOfDay")),
                 Arguments.of("000", null, unexpectedTrailingCharAfter("HH24"))
         );
     }
@@ -595,9 +602,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("minutesValues")
     public void testParseMinutes(String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.MINUTE, val) : null;
+        LocalTime time = val != null ? LocalTime.of(0, val, 0) : null;
 
-        parseSingleField("MI", text, fields, error);
+        parseSingleField("MI", text, (parsedFields, ignore) -> parsedFields.getTime(), time, error);
     }
 
     @ParameterizedTest
@@ -630,7 +637,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
                 Arguments.of("10", 10, null),
                 Arguments.of("37", 37, null),
                 Arguments.of("59", 59, null),
-                Arguments.of("60", null, valueOutOfRange("MI")),
+                Arguments.of("60", null, valueOutOfRange("MinuteOfHour")),
                 Arguments.of("000", null, unexpectedTrailingCharAfter("MI"))
         );
     }
@@ -638,9 +645,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("secondsValues")
     public void testParseSeconds(String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.SECOND_OF_MINUTE, val) : null;
+        LocalTime time = val != null ? LocalTime.of(0, 0, val) : null;
 
-        parseSingleField("SS", text, fields, error);
+        parseSingleField("SS", text, (parsedFields, ignore) -> parsedFields.getTime(), time, error);
     }
 
     @ParameterizedTest
@@ -673,7 +680,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
                 Arguments.of("10", 10, null),
                 Arguments.of("37", 37, null),
                 Arguments.of("59", 59, null),
-                Arguments.of("60", null, valueOutOfRange("SS")),
+                Arguments.of("60", null, valueOutOfRange("SecondOfMinute")),
                 Arguments.of("000", null, unexpectedTrailingCharAfter("SS"))
         );
     }
@@ -681,9 +688,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("secondsOfDayValues")
     public void testParseSecondsOfDay(String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.SECOND_OF_DAY, val) : null;
+        LocalTime time = val != null ? LocalTime.ofSecondOfDay(val) : null;
 
-        parseSingleField("SSSSS", text, fields, error);
+        parseSingleField("SSSSS", text, (parsedFields, ignore) -> parsedFields.getTime(), time, error);
     }
 
     @ParameterizedTest
@@ -719,9 +726,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
                 Arguments.of("00086", 86, null),
                 Arguments.of("00864", 864, null),
                 Arguments.of("08640", 8640, null),
-                Arguments.of("86400", 86400, null),
-                Arguments.of("86401", null, valueOutOfRange("SSSSS")),
-                Arguments.of("90000", null, valueOutOfRange("SSSSS")),
+                Arguments.of("86399", 86399, null),
+                Arguments.of("86401", null, valueOutOfRange("SecondOfDay")),
+                Arguments.of("90000", null, valueOutOfRange("SecondOfDay")),
                 Arguments.of("010000", null, unexpectedTrailingCharAfter("SSSSS"))
         );
     }
@@ -729,9 +736,9 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("fractionValues")
     public void testParseFractions(String pattern, String text, Integer val, String error) {
-        Map<FieldKind, Object> fields = val != null ? Map.of(FieldKind.FRACTION, val) : null;
+        LocalTime time = val != null ? LocalTime.ofNanoOfDay(val) : null;
 
-        parseSingleField(pattern, text, fields, error);
+        parseSingleField(pattern, text, (parsedFields, ignore) -> parsedFields.getTime(), time, error);
     }
 
     @ParameterizedTest
@@ -824,11 +831,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("timeZoneValues")
     public void testParseTimeZone(String format, String text, ZoneOffset offset, String error) {
-        if (offset != null) {
-            parseSingleField(format, text, Map.of(FieldKind.TIMEZONE, offset), error);
-        } else {
-            parseSingleField(format, text, null, error);
-        }
+        parseSingleField(format, text, (fs, c) -> fs.toZoneOffset(), offset, error);
     }
 
     @ParameterizedTest
@@ -839,11 +842,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
         String swappedFormat = elements[1] + ":" + elements[0];
         String swappedText = values[1] + ":" + values[0];
 
-        if (offset != null) {
-            parseSingleField(swappedFormat, swappedText, Map.of(FieldKind.TIMEZONE, offset), error);
-        } else {
-            parseSingleField(swappedFormat, swappedText, null, error);
-        }
+        parseSingleField(swappedFormat, swappedText, (fs, c) -> fs.toZoneOffset(), offset, error);
     }
 
     private static Stream<Arguments> timeZoneValues() {
@@ -855,7 +854,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
                 Arguments.of("TZH:TZM", "+5:0", ZoneOffset.ofHoursMinutes(5, 0), null),
                 Arguments.of("TZH:TZM", "+5:3", ZoneOffset.ofHoursMinutes(5, 3), null),
                 Arguments.of("TZH:TZM", "+5:45", ZoneOffset.ofHoursMinutes(5, 45), null),
-                Arguments.of("TZH:TZM", "+13:60", null, valueOutOfRange("TZM")),
+                Arguments.of("TZH:TZM", "+13:60", null, valueOutOfRange("TimeZone MinuteOfHour")),
                 Arguments.of("TZH:TZM", "+10:0", ZoneOffset.ofHoursMinutes(10, 0), null),
                 Arguments.of("TZH:TZM", "+10:12", ZoneOffset.ofHoursMinutes(10, 12), null),
                 Arguments.of("TZH:TZM", "+17:43", ZoneOffset.ofHoursMinutes(17, 43), null),
@@ -863,7 +862,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
                 Arguments.of("TZH:TZM", "+18:1", null, invalidTimeZoneValue()),
                 Arguments.of("TZH:TZM", "+19:0", null, invalidTimeZoneValue()),
                 Arguments.of("TZH:TZM", "+19:59", null, invalidTimeZoneValue()),
-                Arguments.of("TZH:TZM", "+19:60", null, valueOutOfRange("TZM")),
+                Arguments.of("TZH:TZM", "+19:60", null, valueOutOfRange("TimeZone MinuteOfHour")),
 
                 // Positive
                 Arguments.of("TZH:TZM", "-0:0", ZoneOffset.ofHoursMinutes(0, 0), null),
@@ -872,7 +871,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
                 Arguments.of("TZH:TZM", "-5:0", ZoneOffset.ofHoursMinutes(-5, 0), null),
                 Arguments.of("TZH:TZM", "-5:3", ZoneOffset.ofHoursMinutes(-5, -3), null),
                 Arguments.of("TZH:TZM", "-5:45", ZoneOffset.ofHoursMinutes(-5, -45), null),
-                Arguments.of("TZH:TZM", "-13:60", null, valueOutOfRange("TZM")),
+                Arguments.of("TZH:TZM", "-13:60", null, valueOutOfRange("TimeZone MinuteOfHour")),
                 Arguments.of("TZH:TZM", "-10:0", ZoneOffset.ofHoursMinutes(-10, 0), null),
                 Arguments.of("TZH:TZM", "-10:12", ZoneOffset.ofHoursMinutes(-10, -12), null),
                 Arguments.of("TZH:TZM", "-17:43", ZoneOffset.ofHoursMinutes(-17, -43), null),
@@ -880,7 +879,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
                 Arguments.of("TZH:TZM", "-18:1", null, invalidTimeZoneValue()),
                 Arguments.of("TZH:TZM", "-19:0", null, invalidTimeZoneValue()),
                 Arguments.of("TZH:TZM", "-19:59", null, invalidTimeZoneValue()),
-                Arguments.of("TZH:TZM", "-19:60", null, valueOutOfRange("TZM")),
+                Arguments.of("TZH:TZM", "-19:60", null, valueOutOfRange("TimeZone MinuteOfHour")),
 
                 // Error depends on field ordering:
                 // Invalid format. Expected literal <:> but got <1>
@@ -908,7 +907,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     }
 
     private static String valueOutOfRange(String f) {
-        return "Value out of range for field " + f;
+        return "Invalid value for " + f;
     }
 
     private static String expectedField(String f) {
@@ -916,7 +915,7 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
     }
 
     private static String invalidTimeZoneValue() {
-        return "Time zone field value is not valid";
+        return "Zone offset";
     }
 
     private static String unexpectedTrailingCharAfter(String f) {
@@ -933,32 +932,55 @@ class ParserSimpleFieldsTest extends BaseIgniteAbstractTest {
             @Nullable Map<FieldKind, Object> fields,
             @Nullable String error
     ) {
-        parseSingleField(pattern, text, FIXED_CLOCK, fields, error);
+        parseSingleField(pattern, text, FIXED_CLOCK, (fs, c) -> fs, fields, error);
     }
 
     private void parseSingleField(
             String pattern,
             String text,
             Clock clock,
-            @Nullable Map<FieldKind, Object> fields,
+            @Nullable Object expected,
+            @Nullable String error
+    ) {
+        parseSingleField(pattern, text, clock, (fs, c) -> fs, expected, error);
+    }
+
+    private void parseSingleField(
+            String pattern,
+            String text,
+            @Nullable BiFunction<ParsedFields, Clock, Object> func,
+            @Nullable Object expected,
+            @Nullable String error
+    ) {
+        parseSingleField(pattern, text, FIXED_CLOCK, func, expected, error);
+    }
+
+    private void parseSingleField(
+            String pattern,
+            String text,
+            Clock clock,
+            @Nullable BiFunction<ParsedFields, Clock, Object> func,
+            @Nullable Object expected,
             @Nullable String error
     ) {
         List<DateTimeFormatElement> elements = new Scanner(pattern).scan();
         Parser parser = new Parser(elements, clock);
 
         log.info("Pattern: {}", pattern);
-        log.info("Result: {}", fields);
+        log.info("Result: {}", expected);
         log.info("Error: {}", error);
 
-        if (fields != null) {
+        if (expected != null) {
             ParsedFields parsedText = parser.parse(text);
+            Object actual = func.apply(parsedText, clock);
 
-            assertEquals(fields, parsedText.values());
+            assertEquals(expected, actual);
         } else {
             try {
                 ParsedFields parsedText = parser.parse(text);
-                fail("Expected an error but got " + parsedText.values());
-            } catch (DateTimeFormatException e) {
+                Object unexpectedVal = func.apply(parsedText, clock);
+                fail("Expected an error but got " + unexpectedVal);
+            } catch (DateTimeException e) {
                 assertThat("Error message: ", e.getMessage(), containsString(error));
             }
         }

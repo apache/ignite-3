@@ -15,19 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util.format;
+package org.apache.ignite.internal.rest.node;
+
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.rest.RestFactory;
 
 /**
- * Exception indicating an error with a date/time formatting.
+ * Factory that defines {@link NodeProperties} bean.
  */
-final class DateTimeFormatException extends RuntimeException {
-    private static final long serialVersionUID = 7351496651746646434L;
+@Factory
+public class NodePropertiesFactory implements RestFactory {
+    private NodeProperties nodeProperties;
 
-    DateTimeFormatException(String message) {
-        super(message);
+    public NodePropertiesFactory(NodeProperties nodeProperties) {
+        this.nodeProperties = nodeProperties;
     }
 
-    DateTimeFormatException(String message, Throwable cause) {
-        super(message, cause);
+    @Bean
+    @Singleton
+    public NodeProperties nodeProperties() {
+        return nodeProperties;
+    }
+
+    @Override
+    public void cleanResources() {
+        nodeProperties = null;
     }
 }

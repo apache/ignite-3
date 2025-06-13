@@ -90,7 +90,7 @@ public class ComputeAsyncExample {
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
                     .build();
 
-            JobTarget jobTarget = JobTarget.anyNode(client.clusterNodes());
+            JobTarget jobTarget = JobTarget.anyNode(client.cluster().nodes());
 
             //--------------------------------------------------------------------------------------
             //

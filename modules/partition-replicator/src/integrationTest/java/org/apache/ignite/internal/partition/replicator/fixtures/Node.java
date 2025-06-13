@@ -53,6 +53,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.app.NodePropertiesImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -227,6 +228,8 @@ public class Node {
 
     private final VaultManager vaultManager;
 
+    private final NodePropertiesImpl nodeProperties;
+
     public final ClusterService clusterService;
 
     private final LockManager lockManager;
@@ -338,6 +341,8 @@ public class Node {
         Path dir = workDir.resolve(name);
 
         vaultManager = createVault(dir);
+
+        nodeProperties = new NodePropertiesImpl(vaultManager);
 
         nodeCfgGenerator = new ConfigurationTreeGenerator(
                 List.of(NodeConfiguration.KEY),
@@ -542,6 +547,7 @@ public class Node {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureManager,
+                nodeProperties,
                 replicationConfiguration
         );
 
@@ -647,6 +653,7 @@ public class Node {
                 new UpdateLogImpl(metaStorageManager, failureManager),
                 clockService,
                 failureManager,
+                nodeProperties,
                 delayDurationMsSupplier
         );
 
@@ -671,6 +678,7 @@ public class Node {
                 clockService,
                 schemaSyncService,
                 clusterService.topologyService(),
+                nodeProperties,
                 clockService::nowLong,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
@@ -716,6 +724,7 @@ public class Node {
                 clusterService.topologyService(),
                 lowWatermark,
                 failureManager,
+                nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -777,6 +786,7 @@ public class Node {
                 indexMetaStorage,
                 partitionsLogStorageFactory,
                 partitionReplicaLifecycleManager,
+                nodeProperties,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         ) {
@@ -834,6 +844,7 @@ public class Node {
                 logicalTopologyService,
                 clockService,
                 failureManager,
+                nodeProperties,
                 lowWatermark
         );
 
@@ -857,6 +868,7 @@ public class Node {
                 sqlLocalConfiguration,
                 transactionInflights,
                 txManager,
+                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 new KillCommandHandler(name, logicalTopologyService, clusterService.messagingService()),
@@ -887,6 +899,7 @@ public class Node {
         IgniteComponent[] componentsToStartBeforeJoin = {
                 threadPoolsManager,
                 vaultManager,
+                nodeProperties,
                 nodeCfgMgr,
                 failureManager,
                 clusterService,

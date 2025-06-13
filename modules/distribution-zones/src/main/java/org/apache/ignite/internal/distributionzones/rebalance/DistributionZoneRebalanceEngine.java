@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
@@ -84,6 +84,8 @@ public class DistributionZoneRebalanceEngine {
     /** Catalog service. */
     private final CatalogService catalogService;
 
+    private final NodeProperties nodeProperties;
+
     /** Zone rebalance manager. */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 this class will replace DistributionZoneRebalanceEngine
     // TODO: after switching to zone-based replication
@@ -106,12 +108,14 @@ public class DistributionZoneRebalanceEngine {
             IgniteSpinBusyLock busyLock,
             MetaStorageManager metaStorageManager,
             DistributionZoneManager distributionZoneManager,
-            CatalogManager catalogService
+            CatalogManager catalogService,
+            NodeProperties nodeProperties
     ) {
         this.busyLock = busyLock;
         this.metaStorageManager = metaStorageManager;
         this.distributionZoneManager = distributionZoneManager;
         this.catalogService = catalogService;
+        this.nodeProperties = nodeProperties;
 
         this.dataNodesListener = createDistributionZonesDataNodesListener();
         this.distributionZoneRebalanceEngineV2 = new DistributionZoneRebalanceEngineV2(
@@ -148,7 +152,7 @@ public class DistributionZoneRebalanceEngine {
                 return nullCompletedFuture();
             }
 
-            if (enabledColocation()) {
+            if (nodeProperties.colocationEnabled()) {
                 return recoveryRebalanceTrigger(recoveryRevision, catalogVersion)
                         .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
             } else {
@@ -195,7 +199,7 @@ public class DistributionZoneRebalanceEngine {
             return;
         }
 
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             distributionZoneRebalanceEngineV2.stop();
         }
 
