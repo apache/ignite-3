@@ -21,6 +21,7 @@ import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.lang.management.RuntimeMXBean;
 import java.util.List;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -43,16 +44,21 @@ public class JvmMetricSource implements MetricSource {
 
     private final List<GarbageCollectorMXBean> gcMxBeans;
 
+    /** The managed bean for the runtime system of the Java virtual machine. */
+    private final RuntimeMXBean runtimeBean;
+
     /** Enablement status. Accessed from different threads under synchronization on this object. */
     private boolean enabled;
 
     /**
      * Constructor.
      *
+     * @param runtimeBean MXBean implementation to receive runtime info.
      * @param memoryMxBean MXBean implementation to receive memory info.
      * @param gcMxBeans MXBean implementation to receive GC info.
      */
-    JvmMetricSource(MemoryMXBean memoryMxBean, List<GarbageCollectorMXBean> gcMxBeans) {
+    JvmMetricSource(RuntimeMXBean runtimeBean, MemoryMXBean memoryMxBean, List<GarbageCollectorMXBean> gcMxBeans) {
+        this.runtimeBean = runtimeBean;
         this.memoryMxBean = memoryMxBean;
         this.gcMxBeans = List.copyOf(gcMxBeans);
     }
@@ -63,6 +69,7 @@ public class JvmMetricSource implements MetricSource {
     public JvmMetricSource() {
         memoryMxBean = ManagementFactory.getMemoryMXBean();
         gcMxBeans = ManagementFactory.getGarbageCollectorMXBeans();
+        runtimeBean = ManagementFactory.getRuntimeMXBean();
     }
 
     @Override
@@ -118,6 +125,11 @@ public class JvmMetricSource implements MetricSource {
                 "gc.CollectionTime",
                 "Approximate total time spent on garbage collection in milliseconds, summed across all collectors.",
                 this::totalCollectionTime);
+
+        metricSetBuilder.longGauge(
+                "UpTime",
+                "The uptime of the Java virtual machine in milliseconds.",
+                runtimeBean::getUptime);
 
         enabled = true;
 
