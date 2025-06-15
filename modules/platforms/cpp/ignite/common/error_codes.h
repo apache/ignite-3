@@ -144,6 +144,7 @@ enum class code : underlying_t {
     REPLICA_MISS = 0x80006,
     CURSOR_CLOSE = 0x80007,
     REPLICA_STOPPING = 0x80008,
+    GROUP_OVERLOADED = 0x80009,
 
     // Storage group. Group code: 9
     INDEX_NOT_BUILT = 0x90001,
