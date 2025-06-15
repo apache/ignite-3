@@ -235,62 +235,62 @@ public class JvmMetricSourceTest {
 
         @Override
         public String getName() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getVmName() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getVmVendor() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getVmVersion() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getSpecName() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getSpecVendor() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getSpecVersion() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getManagementSpecVersion() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getClassPath() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getLibraryPath() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public boolean isBootClassPathSupported() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
         public String getBootClassPath() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -305,7 +305,7 @@ public class JvmMetricSourceTest {
 
         @Override
         public long getStartTime() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -315,7 +315,7 @@ public class JvmMetricSourceTest {
 
         @Override
         public ObjectName getObjectName() {
-            throw new UnsupportedOperationException("Not supported in test implementation");
+            throw new UnsupportedOperationException();
         }
     }
 }

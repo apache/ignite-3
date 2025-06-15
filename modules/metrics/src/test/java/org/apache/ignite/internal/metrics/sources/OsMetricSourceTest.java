@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metrics.sources;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.lang.management.OperatingSystemMXBean;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.junit.jupiter.api.Test;
@@ -27,23 +26,28 @@ import org.junit.jupiter.api.Test;
 class OsMetricSourceTest {
     @Test
     void testOsMetrics() {
-        var osBean = new OperatingSystemBean(1.23);
+        var osBean = new OperatingSystemBean(1.23, 0.5);
         var metricSource = new OsMetricSource(osBean);
 
         var metricSet = metricSource.enable();
 
         assertEquals(1.23, metricSet.<DoubleMetric>get("LoadAverage").value());
+        assertEquals(0.5, metricSet.<DoubleMetric>get("CpuLoad").value());
 
         osBean.loadAverage = 2.34;
+        osBean.cpuLoad = 0.75;
 
         assertEquals(2.34, metricSet.<DoubleMetric>get("LoadAverage").value());
+        assertEquals(0.75, metricSet.<DoubleMetric>get("CpuLoad").value());
     }
 
-    private static class OperatingSystemBean implements OperatingSystemMXBean {
+    private static class OperatingSystemBean implements com.sun.management.OperatingSystemMXBean {
         private double loadAverage;
+        private double cpuLoad;
 
-        private OperatingSystemBean(double loadAverage) {
+        private OperatingSystemBean(double loadAverage, double cpuLoad) {
             this.loadAverage = loadAverage;
+            this.cpuLoad = cpuLoad;
         }
 
         @Override
@@ -69,6 +73,46 @@ class OsMetricSourceTest {
         @Override
         public double getSystemLoadAverage() {
             return loadAverage;
+        }
+
+        @Override
+        public long getCommittedVirtualMemorySize() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getTotalSwapSpaceSize() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getFreeSwapSpaceSize() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getProcessCpuTime() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getFreePhysicalMemorySize() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long getTotalPhysicalMemorySize() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public double getSystemCpuLoad() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public double getProcessCpuLoad() {
+            return cpuLoad;
         }
 
         @Override
