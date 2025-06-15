@@ -72,7 +72,7 @@ public class InjectedValueConfigurationTest {
 
     @BeforeEach
     void setUp() {
-        List<RootKey<?, ?>> roots = List.of(
+        List<RootKey<?, ?, ?>> roots = List.of(
                 HoconInjectedValueRootConfiguration.KEY
         );
 

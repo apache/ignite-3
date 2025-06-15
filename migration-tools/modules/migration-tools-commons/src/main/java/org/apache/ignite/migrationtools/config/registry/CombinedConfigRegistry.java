@@ -49,7 +49,7 @@ public class CombinedConfigRegistry implements ConfigurationRegistryInterface {
         return IgniteUtils.stopAsync(context, localRegistry, distributedRegistry);
     }
 
-    @Override public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
+    @Override public <V, C extends V, T extends ConfigurationTree<? super V, ? super C>> T getConfiguration(RootKey<T, V, C> rootKey) {
         return Optional.ofNullable(localRegistry.getConfiguration(rootKey))
                 .orElseGet(() -> distributedRegistry.getConfiguration(rootKey));
     }

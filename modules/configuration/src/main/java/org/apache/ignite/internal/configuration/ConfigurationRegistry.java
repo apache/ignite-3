@@ -73,7 +73,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Constructor. */
     @TestOnly
     public ConfigurationRegistry(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
@@ -85,7 +85,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * Constructor.
      */
     public ConfigurationRegistry(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator,
@@ -105,7 +105,7 @@ public class ConfigurationRegistry implements IgniteComponent {
                 keyIgnorer
         ) {
             @Override
-            public InnerNode createRootNode(RootKey<?, ?> rootKey) {
+            public InnerNode createRootNode(RootKey<?, ?, ?> rootKey) {
                 return generator.instantiateNode(rootKey.schemaClass());
             }
         };
@@ -168,7 +168,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param <T> Configuration tree type.
      * @return Public configuration tree.
      */
-    public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
+    public <V, C extends V, T extends ConfigurationTree<? super V, ? super C>> T getConfiguration(RootKey<T, V, C> rootKey) {
         return (T) configs.get(rootKey.key());
     }
 

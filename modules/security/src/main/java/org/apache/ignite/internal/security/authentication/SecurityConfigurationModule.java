@@ -26,11 +26,11 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.validator.AuthenticationProvidersValidatorImpl;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionChange;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfigurationSchema;
 
 /**
@@ -66,7 +66,7 @@ public class SecurityConfigurationModule implements ConfigurationModule {
 
     @Override
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
-        SecurityExtensionChange securityExtensionChange = (SecurityExtensionChange) rootChange.changeRoot(ClusterConfiguration.KEY);
+        SecurityExtensionChange securityExtensionChange = rootChange.changeRoot(SecurityExtensionConfiguration.KEY);
         securityExtensionChange.changeSecurity().changeAuthentication().changeProviders(providersChange -> {
             if (providersChange.isEmpty()) {
                 providersChange.create(DEFAULT_PROVIDER_NAME, change ->

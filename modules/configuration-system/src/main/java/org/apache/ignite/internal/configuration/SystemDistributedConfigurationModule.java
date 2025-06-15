@@ -41,8 +41,8 @@ public class SystemDistributedConfigurationModule implements ConfigurationModule
 
     @Override
     public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
-        var rootView = (SystemDistributedExtensionView) superRootChange.viewRoot(SystemDistributedExtensionConfiguration.KEY);
-        var rootChange = (SystemDistributedExtensionChange) superRootChange.changeRoot(SystemDistributedExtensionConfiguration.KEY);
+        SystemDistributedExtensionView rootView = superRootChange.viewRoot(SystemDistributedExtensionConfiguration.KEY);
+        SystemDistributedExtensionChange rootChange = superRootChange.changeRoot(SystemDistributedExtensionConfiguration.KEY);
 
         MetaStorageView metaStorageView = rootView.metaStorage();
 
