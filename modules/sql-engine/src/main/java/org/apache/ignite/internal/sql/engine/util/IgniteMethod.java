@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Objects;
@@ -52,9 +51,6 @@ public enum IgniteMethod {
 
     /** See {@link ExecutionContext#correlatedVariable(int)}. */
     CONTEXT_GET_CORRELATED_VALUE(ExecutionContext.class, "correlatedVariable", int.class),
-
-    /** See {@link ExecutionContext#getParameter(String, Type)}. */
-    CONTEXT_GET_PARAMETER_VALUE(ExecutionContext.class, "getParameter", String.class, Type.class),
 
     /** See {@link IgniteSqlDateTimeUtils#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlDateTimeUtils.class, "subtractTimeZoneOffset", long.class, TimeZone.class),

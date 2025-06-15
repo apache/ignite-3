@@ -151,7 +151,7 @@ public class IgniteSort extends Sort implements IgniteRel {
     /** {@inheritDoc} */
     @Override
     public double estimateRowCount(RelMetadataQuery mq) {
-        return memRows(mq.getRowCount(getInput()));
+        return IgniteLimit.estimateRowCount(mq.getRowCount(getInput()), offset, fetch);
     }
 
     /** {@inheritDoc} */
