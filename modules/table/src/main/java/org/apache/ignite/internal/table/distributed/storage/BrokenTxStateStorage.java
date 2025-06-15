@@ -15,61 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.storage.state;
+package org.apache.ignite.internal.table.distributed.storage;
 
-import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
-
-import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link TxStateStorage} that performs thread assertions when doing read/write operations.
- *
- * @see ThreadAssertions
+ * {@link TxStateStorage} implementation that returns broken partition storages.
+ * It is intended to make sure that with enabled colocation, table-scoped tx state storages are not used.
  */
-public class ThreadAssertingTxStateStorage implements TxStateStorage {
-    private final TxStateStorage wrappedStorage;
-
-    /** Constructor. */
-    public ThreadAssertingTxStateStorage(TxStateStorage wrappedStorage) {
-        this.wrappedStorage = wrappedStorage;
-    }
-
+// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove this.
+public class BrokenTxStateStorage implements TxStateStorage {
     @Override
     public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
-        assertThreadAllowsToWrite();
-
-        return new ThreadAssertingTxStatePartitionStorage(wrappedStorage.getOrCreatePartitionStorage(partitionId));
+        return new BrokenTxStatePartitionStorage();
     }
 
     @Override
     public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
-        TxStatePartitionStorage storage = wrappedStorage.getPartitionStorage(partitionId);
-
-        return storage == null ? null : new ThreadAssertingTxStatePartitionStorage(storage);
+        return new BrokenTxStatePartitionStorage();
     }
 
     @Override
     public void destroyTxStateStorage(int partitionId) {
-        assertThreadAllowsToWrite();
-
-        wrappedStorage.destroyTxStateStorage(partitionId);
+        // No-op.
     }
 
     @Override
     public void start() {
-        wrappedStorage.start();
+        // No-op.
     }
 
     @Override
     public void close() {
-        wrappedStorage.close();
+        // No-op.
     }
 
     @Override
     public void destroy() {
-        assertThreadAllowsToWrite();
-
-        wrappedStorage.destroy();
+        // No-op.
     }
 }

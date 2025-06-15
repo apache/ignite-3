@@ -37,7 +37,7 @@ public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Void, Stri
     @Override
     public CompletableFuture<List<MapReduceJob<Void, String>>> splitAsync(
             TaskExecutionContext taskContext, List<DeploymentUnit> deploymentUnits) {
-        return taskContext.ignite().clusterNodesAsync().thenApply(nodes -> nodes.stream().map(node ->
+        return taskContext.ignite().cluster().nodesAsync().thenApply(nodes -> nodes.stream().map(node ->
                 MapReduceJob.<Void, String>builder()
                         .jobDescriptor(
                                 JobDescriptor.builder(GetNodeNameJob.class)
@@ -55,7 +55,6 @@ public class MapReduce implements MapReduceTask<List<DeploymentUnit>, Void, Stri
     @Override
     public CompletableFuture<Integer> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
         return completedFuture(results.values().stream()
-                .map(String.class::cast)
                 .map(String::length)
                 .reduce(Integer::sum)
                 .orElseThrow());

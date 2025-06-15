@@ -15,33 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.app;
+package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.task.MapReduceJob;
-import org.apache.ignite.compute.task.MapReduceTask;
-import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.jetbrains.annotations.Nullable;
 
-class NoOpMapReduceTask implements MapReduceTask<Void, Void, String, Void> {
-    @Override
-    public CompletableFuture<List<MapReduceJob<Void, String>>> splitAsync(TaskExecutionContext taskContext, @Nullable Void input) {
-        return completedFuture(List.of(
-                MapReduceJob.<Void, String>builder()
-                        .jobDescriptor(JobDescriptor.builder(NoOpJob.class).build())
-                        .nodes(taskContext.ignite().cluster().nodes())
-                        .build()
-        ));
+/**
+ * Cluster implementation.
+ */
+public class IgniteClusterImpl implements IgniteCluster {
+    public final TopologyService topologyService;
+
+    public IgniteClusterImpl(TopologyService topologyService) {
+        this.topologyService = topologyService;
     }
 
     @Override
-    public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, String> results) {
-        return completedFuture(null);
+    public Collection<ClusterNode> nodes() {
+        return topologyService.logicalTopologyMembers();
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClusterNode>> nodesAsync() {
+        return completedFuture(topologyService.allMembers());
+    }
+
+    @Override
+    public @Nullable ClusterNode localNode() {
+        return topologyService.localMember();
     }
 }
