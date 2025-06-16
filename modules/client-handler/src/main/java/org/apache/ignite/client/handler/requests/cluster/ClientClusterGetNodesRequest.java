@@ -17,14 +17,11 @@
 
 package org.apache.ignite.client.handler.requests.cluster;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
@@ -34,14 +31,11 @@ public class ClientClusterGetNodesRequest {
     /**
      * Processes the request.
      *
-     * @param clusterService Cluster.
+     * @param cluster Cluster.
      * @return Future.
      */
-    public static CompletableFuture<ResponseWriter> process(
-            ClusterService clusterService) {
-        Collection<ClusterNode> nodes = clusterService.topologyService().allMembers();
-
-        return completedFuture(out -> {
+    public static CompletableFuture<ResponseWriter> process(IgniteCluster cluster) {
+        return cluster.nodesAsync().thenApply(nodes -> out -> {
             out.packInt(nodes.size());
 
             for (ClusterNode node : nodes) {
