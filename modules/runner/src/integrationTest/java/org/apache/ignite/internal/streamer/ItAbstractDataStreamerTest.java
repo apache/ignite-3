@@ -787,7 +787,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @Test
-    public void testObservableTimestampPropagation() {
+    public void testReceiverResultsObservedImmediately() {
         int count = 10_000;
 
         RecordView<Tuple> view = defaultTable().recordView();
@@ -811,6 +811,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         assertThat(streamerFut, willCompleteSuccessfully());
 
+        // Check that receiver execution results are observed immediately after the streaming completes.
+        // This is achieved by propagating correct hybridTimestamp to the client after every receiver execution.
         int resCount = 0;
 
         try (Cursor<Tuple> cursor = view.query(null, null)) {
