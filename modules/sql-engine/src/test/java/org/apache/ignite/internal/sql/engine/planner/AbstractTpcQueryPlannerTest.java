@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.common.io.CharStreams;
@@ -33,6 +34,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
@@ -41,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.util.TpcScaleFactor;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -55,6 +58,7 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
 
     private static Function<String, String> queryLoader;
     private static Function<String, String> planLoader;
+    private static @Nullable BiConsumer<String, String> planUpdater;
 
     @BeforeAll
     static void startCluster(TestInfo info) throws NoSuchMethodException {
@@ -68,6 +72,12 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
 
         Method queryLoaderMethod = testClass.getDeclaredMethod(suiteInfo.queryLoader(), String.class); 
         Method planLoaderMethod = testClass.getDeclaredMethod(suiteInfo.planLoader(), String.class); 
+
+        if (!nullOrBlank(suiteInfo.planUpdater())) {
+            Method planUpdaterMethod = testClass.getDeclaredMethod(suiteInfo.planUpdater(), String.class, String.class);
+
+            planUpdater = (queryId, newPlan) -> invoke(planUpdaterMethod, queryId, newPlan);
+        }
 
         queryLoader = queryId -> invoke(queryLoaderMethod, queryId);
         planLoader = queryId -> invoke(planLoaderMethod, queryId);
@@ -99,6 +109,13 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
         MultiStepPlan plan = (MultiStepPlan) node.prepare(queryLoader.apply(queryId));
 
         String actualPlan = plan.explain();
+
+        if (planUpdater != null) {
+            planUpdater.accept(queryId, actualPlan);
+
+            return;
+        }
+
         String expectedPlan = planLoader.apply(queryId);
 
         assertEquals(expectedPlan, actualPlan);
@@ -148,5 +165,19 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
          * string representing a query plan.
          */
         String planLoader();
+
+        /**
+         * Returns name of the method to use as plan updater. That is, the method to use to update stored plan
+         * with value returned by query engine.
+         *
+         * <p>If this method is specified, then provided method will be invoked with plan value provided byt the
+         * query engine. Worth to mention that no validation will be done in this case. Provide this method with
+         * caution, always validate results of the plan generation.
+         * 
+         * <p>Specified method must be static method within class this annotation is specified upon.
+         * Specified method must accept two parameters of a string type which is query id and a new plan, and return
+         * nothing.
+         */
+        String planUpdater() default "";
     }
 }

@@ -25,5 +25,5 @@ import org.apache.ignite3.internal.manager.IgniteComponent;
  * Custom Configuration Registry Interface.
  */
 public interface ConfigurationRegistryInterface extends IgniteComponent {
-    <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey);
+    <V, C extends V, T extends ConfigurationTree<? super V, ? super C>> T getConfiguration(RootKey<T, V, C> rootKey);
 }

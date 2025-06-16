@@ -513,7 +513,7 @@ public class ConfigurationUtilTest {
 
     @Test
     void testCheckConfigurationTypeMixedTypes() {
-        List<RootKey<?, ?>> rootKeys = List.of(LocalFirstConfiguration.KEY, DistributedFirstConfiguration.KEY);
+        List<RootKey<?, ?, ?>> rootKeys = List.of(LocalFirstConfiguration.KEY, DistributedFirstConfiguration.KEY);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -913,7 +913,7 @@ public class ConfigurationUtilTest {
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
 
         Class<?> schemaClass = InternalWithoutSuperclassConfigurationSchema.class;
-        RootKey<?, ?> schemaKey = InternalWithoutSuperclassConfiguration.KEY;
+        RootKey<?, ?, ?> schemaKey = InternalWithoutSuperclassConfiguration.KEY;
 
         generator.compileRootSchema(schemaClass, Map.of(), Map.of());
 
@@ -1044,7 +1044,7 @@ public class ConfigurationUtilTest {
 
         addDefaults(polymorphicRootInnerNode);
 
-        RootKey<?, ?> rootKey = PolymorphicRootConfiguration.KEY;
+        RootKey<?, ?, ?> rootKey = PolymorphicRootConfiguration.KEY;
 
         SuperRoot superRoot = new SuperRoot(key -> null, Map.of(rootKey, polymorphicRootInnerNode));
 
@@ -1079,7 +1079,7 @@ public class ConfigurationUtilTest {
 
         addDefaults(polymorphicRootInnerNode);
 
-        RootKey<?, ?> rootKey = PolymorphicRootConfiguration.KEY;
+        RootKey<?, ?, ?> rootKey = PolymorphicRootConfiguration.KEY;
 
         SuperRoot superRoot = new SuperRoot(key -> null, Map.of(rootKey, polymorphicRootInnerNode));
 
@@ -1189,7 +1189,7 @@ public class ConfigurationUtilTest {
      */
     private static Map<String, Serializable> flattenedMap(
             SuperRoot superRoot,
-            RootKey<?, ?> rootKey,
+            RootKey<?, ?, ?> rootKey,
             NavigableMap<String, ? extends Serializable> storageData,
             Consumer<InnerNode> patch
     ) {
