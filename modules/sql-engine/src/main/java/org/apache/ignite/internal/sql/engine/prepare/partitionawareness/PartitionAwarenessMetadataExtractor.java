@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
 import java.util.Arrays;
 import java.util.List;
-import javax.annotation.Nullable;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexNode;
@@ -27,11 +26,12 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Extracts partition awareness metadata from physical plans.
  */
-public class PartitionAwarenessMetadataBuilder {
+public class PartitionAwarenessMetadataExtractor {
 
     /**
      * Extracts partition awareness metadata from the given IgniteKeyValueGet plan.
@@ -40,7 +40,7 @@ public class PartitionAwarenessMetadataBuilder {
      * @return Metadata.
      */
     @Nullable
-    public static PartitionAwarenessMetadata build(IgniteKeyValueGet kv) {
+    public static PartitionAwarenessMetadata getMetadata(IgniteKeyValueGet kv) {
         RelOptTable optTable = kv.getTable();
         assert optTable != null;
 
@@ -54,7 +54,7 @@ public class PartitionAwarenessMetadataBuilder {
      * @return Metadata.
      */
     @Nullable
-    public static PartitionAwarenessMetadata build(IgniteKeyValueModify kv) {
+    public static PartitionAwarenessMetadata getMetadata(IgniteKeyValueModify kv) {
         RelOptTable optTable = kv.getTable();
         assert optTable != null;
 
@@ -73,7 +73,6 @@ public class PartitionAwarenessMetadataBuilder {
 
         // colocation key index to dynamic param index
         int[] dynamicParams = new int[colocationKeys.size()];
-        Arrays.fill(dynamicParams, -1);
 
         int[] hash = new int[0];
 

@@ -23,7 +23,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Partition awareness metadata.
  *
- * @see PartitionAwarenessMetadataBuilder
+ * @see PartitionAwarenessMetadataExtractor
  */
 public final class PartitionAwarenessMetadata {
 
@@ -58,7 +58,7 @@ public final class PartitionAwarenessMetadata {
 
     /**
      * Returns a mapping between positions in colocation key columns and dynamic parameter indices.
-     * If a colocation key column has a value, returns {@code -1}.
+     * If a colocation key column has a value, returns an index into the hash array.
      *
      * @return Mapping.
      */
@@ -81,7 +81,7 @@ public final class PartitionAwarenessMetadata {
     @Override
     public String toString() {
         return S.toString(PartitionAwarenessMetadata.class, this,
-                "dynamicParams", Arrays.toString(indexes),
+                "indexes", Arrays.toString(indexes),
                 "hash", Arrays.toString(hash)
         );
     }
