@@ -479,7 +479,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(0);
             packer.packInt(0);
             packer.packInt(0);
-            packer.packInt(8); // Size.
+            packer.packInt(9); // Size.
 
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
@@ -493,6 +493,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             clientFeatures.set(2);
             clientFeatures.set(6);
             clientFeatures.set(7);
+            clientFeatures.set(8);
             // Unsupported feature
             clientFeatures.set(4);
 
@@ -534,18 +535,22 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             byte[] featuresBits = unpacker.readPayload(featuresLen);
             BitSet supportedFeatures = BitSet.valueOf(featuresBits);
 
-            // Server features (excluding tx direct mapping)
+            // Server features
             BitSet expected = new BitSet();
             expected.set(1);
+            expected.set(2);
             expected.set(3);
             expected.set(5);
+            expected.set(6);
+            expected.set(7);
+            expected.set(8);
             assertEquals(expected, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(98, len);
+            assertEquals(99, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
