@@ -26,7 +26,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 
 /**
@@ -35,29 +34,31 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 public class PartitionAwarenessMetadataBuilder {
 
     /**
-     * Extracts partition awareness metadata from the given physical plan.
+     * Extracts partition awareness metadata from the given IgniteKeyValueGet plan.
      *
-     * @param rel Physical plan.
+     * @param kv IgniteKeyValueGet Plan.
      * @return Metadata.
      */
     @Nullable
-    public static PartitionAwarenessMetadata build(IgniteRel rel) {
-        if (rel instanceof IgniteKeyValueGet) {
-            IgniteKeyValueGet kv = (IgniteKeyValueGet) rel;
-            RelOptTable optTable = rel.getTable();
-            assert optTable != null;
+    public static PartitionAwarenessMetadata build(IgniteKeyValueGet kv) {
+        RelOptTable optTable = kv.getTable();
+        assert optTable != null;
 
-            return extractMetadata(optTable, kv.keyExpressions());
-        } else if (rel instanceof IgniteKeyValueModify) {
-            IgniteKeyValueModify kv = (IgniteKeyValueModify) rel;
+        return extractMetadata(optTable, kv.keyExpressions());
+    }
 
-            RelOptTable optTable = rel.getTable();
-            assert optTable != null;
+    /**
+     * Extracts partition awareness metadata from the given IgniteKeyValueModify plan.
+     *
+     * @param kv IgniteKeyValueModify Plan.
+     * @return Metadata.
+     */
+    @Nullable
+    public static PartitionAwarenessMetadata build(IgniteKeyValueModify kv) {
+        RelOptTable optTable = kv.getTable();
+        assert optTable != null;
 
-            return extractMetadata(optTable, kv.expressions());
-        } else {
-            return null;
-        }
+        return extractMetadata(optTable, kv.expressions());
     }
 
     @Nullable

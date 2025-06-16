@@ -432,13 +432,16 @@ public class PrepareServiceImpl implements PrepareService {
                 QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
-                PartitionAwarenessMetadata partitionAwarenessMetadata = createPartitionAwarenessMetadata(optimizedRel);
 
                 int catalogVersion = ctx.catalogVersion();
 
                 if (optimizedRel instanceof IgniteKeyValueGet) {
+                    IgniteKeyValueGet kvGet = (IgniteKeyValueGet) optimizedRel;
+                    PartitionAwarenessMetadata partitionAwarenessMetadata =
+                            PartitionAwarenessMetadataBuilder.build(kvGet);
+
                     return new KeyValueGetPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueGet) optimizedRel, resultSetMetadata,
+                            nextPlanId(), catalogVersion, kvGet, resultSetMetadata,
                             parameterMetadata, partitionAwarenessMetadata
                     );
                 }
@@ -502,10 +505,13 @@ public class PrepareServiceImpl implements PrepareService {
         // Get parameter metadata.
         RelDataType parameterRowType = planner.getParameterRowType();
         ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
-        PartitionAwarenessMetadata partitionAwarenessMetadata = createPartitionAwarenessMetadata(optimizedRel);
 
         ExplainablePlan plan;
         if (optimizedRel instanceof IgniteKeyValueModify) {
+            IgniteKeyValueModify kvModify = (IgniteKeyValueModify) optimizedRel;
+            PartitionAwarenessMetadata partitionAwarenessMetadata =
+                    PartitionAwarenessMetadataBuilder.build(kvModify);
+
             plan = new KeyValueModifyPlan(
                     nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA,
                     parameterMetadata, partitionAwarenessMetadata
@@ -563,7 +569,9 @@ public class PrepareServiceImpl implements PrepareService {
 
                 ExplainablePlan plan;
                 if (optimizedRel instanceof IgniteKeyValueModify) {
-                    PartitionAwarenessMetadata partitionAwarenessMetadata = createPartitionAwarenessMetadata(optimizedRel);
+                    IgniteKeyValueModify kvModify = (IgniteKeyValueModify) optimizedRel;
+                    PartitionAwarenessMetadata partitionAwarenessMetadata =
+                            PartitionAwarenessMetadataBuilder.build(kvModify);
 
                     plan = new KeyValueModifyPlan(
                             nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA,
@@ -751,10 +759,6 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         return new ParameterMetadata(parameterTypes);
-    }
-
-    private static @Nullable PartitionAwarenessMetadata createPartitionAwarenessMetadata(IgniteRel igniteRel) {
-        return PartitionAwarenessMetadataBuilder.build(igniteRel);
     }
 
     private static class ParsedResultImpl implements ParsedResult {
