@@ -18,7 +18,7 @@ import groovy.json.JsonSlurper
  */
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-compatibility-tests'
 
@@ -28,23 +28,23 @@ repositories {
 }
 
 dependencies {
-    testImplementation libs.gradle.tooling.api
-    testImplementation libs.hamcrest.core
-    testImplementation libs.awaitility
-    testImplementation libs.jackson.databind
-    testImplementation(libs.jsonpath.assert) {
+    integrationTestImplementation libs.gradle.tooling.api
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.jackson.databind
+    integrationTestImplementation(libs.jsonpath.assert) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
     }
 
-    testImplementation testFixtures(project(':ignite-core'))
-    testImplementation testFixtures(project(':ignite-runner'))
-    testImplementation project(':ignite-core')
-    testImplementation project(':ignite-api')
-    testImplementation project(':ignite-runner')
-    testImplementation project(':ignite-client')
-    testImplementation project(':ignite-rest-api')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation project(':ignite-core')
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-rest-api')
 }
 
 private def resolveAllDependencies(String dependencyNotation, String... additionalNotations) {
@@ -70,7 +70,7 @@ private def resolveAllDependencies(String dependencyNotation, String... addition
 }
 
 def resolveIgniteVersions() {
-    def versionsFile = file("src/test/resources/igniteVersions.json")
+    def versionsFile = file("src/integrationTest/resources/igniteVersions.json")
     def versionsJson = new JsonSlurper().parseText(versionsFile.text)
     versionsJson.versions.each { version ->
         versionsJson.artifacts.each { artifact ->
