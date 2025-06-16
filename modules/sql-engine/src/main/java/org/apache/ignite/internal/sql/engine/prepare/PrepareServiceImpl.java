@@ -60,6 +60,8 @@ import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadataBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -430,12 +432,14 @@ public class PrepareServiceImpl implements PrepareService {
                 QueryPlan fastPlan = tryOptimizeFast(stmt, ctx);
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
+                PartitionAwarenessMetadata partitionAwarenessMetadata = createPartitionAwarenessMetadata(optimizedRel);
 
                 int catalogVersion = ctx.catalogVersion();
 
                 if (optimizedRel instanceof IgniteKeyValueGet) {
                     return new KeyValueGetPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueGet) optimizedRel, resultSetMetadata, parameterMetadata
+                            nextPlanId(), catalogVersion, (IgniteKeyValueGet) optimizedRel, resultSetMetadata,
+                            parameterMetadata, partitionAwarenessMetadata
                     );
                 }
 
@@ -498,11 +502,13 @@ public class PrepareServiceImpl implements PrepareService {
         // Get parameter metadata.
         RelDataType parameterRowType = planner.getParameterRowType();
         ParameterMetadata parameterMetadata = createParameterMetadata(parameterRowType);
+        PartitionAwarenessMetadata partitionAwarenessMetadata = createPartitionAwarenessMetadata(optimizedRel);
 
         ExplainablePlan plan;
         if (optimizedRel instanceof IgniteKeyValueModify) {
             plan = new KeyValueModifyPlan(
-                    nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
+                    nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA,
+                    parameterMetadata, partitionAwarenessMetadata
             );
         } else {
             plan = new MultiStepPlan(
@@ -557,8 +563,11 @@ public class PrepareServiceImpl implements PrepareService {
 
                 ExplainablePlan plan;
                 if (optimizedRel instanceof IgniteKeyValueModify) {
+                    PartitionAwarenessMetadata partitionAwarenessMetadata = createPartitionAwarenessMetadata(optimizedRel);
+
                     plan = new KeyValueModifyPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
+                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA,
+                            parameterMetadata, partitionAwarenessMetadata
                     );
                 } else {
                     plan = new MultiStepPlan(
@@ -742,6 +751,10 @@ public class PrepareServiceImpl implements PrepareService {
         }
 
         return new ParameterMetadata(parameterTypes);
+    }
+
+    private static @Nullable PartitionAwarenessMetadata createPartitionAwarenessMetadata(IgniteRel igniteRel) {
+        return PartitionAwarenessMetadataBuilder.build(igniteRel);
     }
 
     private static class ParsedResultImpl implements ParsedResult {
