@@ -927,7 +927,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                         resCount++;
                         Tuple item = cursor.next();
 
-                        assertEquals("v" + item.intValue("id"), item.stringValue("name"));
+                        assertEquals("v" + item.intValue(COLUMN_KEY), item.stringValue(COLUMN_VAL));
                     }
                 }
 
