@@ -294,6 +294,8 @@ public interface QueryChecker {
 
     QueryChecker returns(Object... res);
 
+    QueryChecker returnMatched(Matcher<Iterable<?>> matcher);
+
     QueryChecker returnNothing();
 
     QueryChecker returnSomething();

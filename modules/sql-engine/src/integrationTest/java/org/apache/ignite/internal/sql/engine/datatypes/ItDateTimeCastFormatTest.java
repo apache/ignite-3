@@ -28,7 +28,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.temporal.ChronoUnit;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,9 +38,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.SqlException;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -208,7 +206,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("time")
-    public void timeUpdateFromLiteral(DateTimeArgs<LocalTime> args) {
+    public void timeUpdateFromDynamicParam(DateTimeArgs<LocalTime> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET time0_col=CAST(? AS TIME(4) FORMAT '{}') WHERE id = 1",
                 args.format
@@ -218,29 +216,27 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
         if (args.value != null) {
             assertQuery("SELECT time0_col FROM datetime_cols WHERE id = 1")
-                    .returns(args.value)
+                    // We are writing to time0_col, so we should expect a time w/o a fractional part.
+                    .returns(args.value.withNano(0))
                     .check();
         }
     }
 
     @ParameterizedTest
     @MethodSource("time")
-    public void timeUpdateFromDynamicParam(DateTimeArgs<LocalTime> args) {
+    public void timeUpdateFromLiteral(DateTimeArgs<LocalTime> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET time0_col=CAST('{}' AS TIME(3) FORMAT '{}') WHERE id = 1",
                 args.str,
                 args.format
         );
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25045
-        // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
-        Assumptions.assumeTrue(args.value == null || args.value.getNano() == 0);
-
         checkDml(sqlCast, args.error);
 
         if (args.value != null) {
             assertQuery("SELECT time0_col FROM datetime_cols WHERE id = 1")
-                    .returns(args.value)
+                    // We are writing to time0_col, so we should expect a time w/o a fractional part.
+                    .returns(args.value.withNano(0))
                     .check();
         }
     }
@@ -300,8 +296,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         checkQuery(sqlCast, args.value, args.error);
     }
 
-    // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25045")
     @ParameterizedTest
     @MethodSource("timeWithPrecision")
     public void timeWithPrecisionDynamicParams(int precision, DateTimeArgs<LocalTime> args) {
@@ -319,10 +313,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 "UPDATE datetime_cols SET {}=CAST(? AS TIME(3) FORMAT '{}') WHERE id = 1",
                 col, args.format
         );
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25045
-        // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
-        Assumptions.assumeTrue(precision == 3);
 
         checkDml(sqlCast, args.error, args.str);
 
@@ -345,10 +335,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 args.str,
                 args.format
         );
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25045
-        // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
-        Assumptions.assumeTrue(precision == 3);
 
         checkDml(sqlCast, args.error);
 
@@ -455,16 +441,11 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("timestamp")
-    public void timestampUpdateFromLiteral(DateTimeArgs<LocalDateTime> args) {
+    public void timestampUpdateFromDynamicParam(DateTimeArgs<LocalDateTime> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET timestamp0_col=CAST(? AS TIMESTAMP FORMAT '{}') WHERE id = 1",
                 args.format
         );
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25045
-        // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
-        boolean subMillis = args.value != null && args.value.getNano() != 0 && args.format.contains("ff");
-        Assumptions.assumeFalse(subMillis);
 
         checkDml(sqlCast, args.error, args.str);
 
@@ -478,7 +459,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("timestamp")
-    public void timestampUpdateFromDynamicParam(DateTimeArgs<LocalDateTime> args) {
+    public void timestampUpdateFromLiteral(DateTimeArgs<LocalDateTime> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET timestamp0_col=CAST('{}' AS TIMESTAMP FORMAT '{}') WHERE id = 1",
                 args.str, args.format
@@ -502,8 +483,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         checkQuery(sqlCast, args.value, args.error);
     }
 
-    // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25045")
     @ParameterizedTest
     @MethodSource("timestampWithPrecision")
     public void timestampWithPrecisionUpdateFromLiteral(int precision, DateTimeArgs<LocalDateTime> args) {
@@ -633,7 +612,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("timestampLtz")
-    public void timestampLtzUpdateFromLiteral(DateTimeArgs<Instant> args) {
+    public void timestampLtzUpdateFromDynamicParam(DateTimeArgs<Instant> args) {
         String sqlCast = format(""
                         + "UPDATE datetime_cols "
                         + "SET timestamp_with_local_time_zone0_col=CAST(? AS TIMESTAMP WITH LOCAL TIME ZONE FORMAT '{}') WHERE id = 1",
@@ -644,14 +623,15 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
         if (args.value != null) {
             assertQuery("SELECT timestamp_with_local_time_zone0_col FROM datetime_cols WHERE id = 1")
-                    .returns(args.value.truncatedTo(ChronoUnit.MILLIS))
+                    // We are writing to timestamp_with_local_time_zone0_col, so we should expect a timestamp w/o a fractional part.
+                    .returns(args.value.with(ChronoField.NANO_OF_SECOND, 0))
                     .check();
         }
     }
 
     @ParameterizedTest
     @MethodSource("timestampLtz")
-    public void timestampLtzUpdateFromDynamicParam(DateTimeArgs<Instant> args) {
+    public void timestampLtzUpdateFromLiteral(DateTimeArgs<Instant> args) {
         String sqlCast = format(""
                         + "UPDATE datetime_cols "
                         + "SET timestamp_with_local_time_zone0_col=CAST('{}' AS TIMESTAMP WITH LOCAL TIME ZONE FORMAT '{}') WHERE id = 1",
@@ -662,7 +642,8 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
         if (args.value != null) {
             assertQuery("SELECT timestamp_with_local_time_zone0_col FROM datetime_cols WHERE id = 1")
-                    .returns(args.value.truncatedTo(ChronoUnit.MILLIS))
+                    // We are writing to timestamp_with_local_time_zone0_col, so we should expect a timestamp w/o a fractional part.
+                    .returns(args.value.with(ChronoField.NANO_OF_SECOND, 0))
                     .check();
         }
     }
@@ -678,8 +659,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         });
     }
 
-    // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25045")
     @ParameterizedTest
     @MethodSource("timestampLtzWithPrecision")
     public void timestampLtzWithPrecisionLiterals(int precision, DateTimeArgs<Instant> args) {
@@ -691,8 +670,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         checkQuery(sqlCast, args.value, args.error);
     }
 
-    // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25045")
     @ParameterizedTest
     @MethodSource("timestampLtzWithPrecision")
     public void timestampLtzWithPrecisionUpdateFromLiteral(int precision, DateTimeArgs<Instant> args) {
@@ -713,8 +690,6 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         }
     }
 
-    // Cast to TIME/TIMESTAMP/TIMESTAMP_LTZ ignores target type's precision
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25045")
     @ParameterizedTest
     @MethodSource("timestampLtzWithPrecision")
     public void timestampLtzWithPrecisionUpdateFromDynamicParam(int precision, DateTimeArgs<Instant> args) {
