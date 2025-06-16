@@ -418,7 +418,7 @@ public class ClientTransaction implements Transaction {
     }
 
     /**
-     * Tries to fail enlistment
+     * Tries to fail the enlistment.
      *
      * @param pm Partition mapping.
      * @param exception The exception.
