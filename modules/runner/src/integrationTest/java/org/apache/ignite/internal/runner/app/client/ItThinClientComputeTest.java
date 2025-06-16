@@ -917,7 +917,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         client().compute().execute(jobTarget, jobDescriptor, rec);
 
-        String res = client().sql().execute(null, "SELECT val FROM " + TABLE_NAME + " WHERE key = ?").next().value(0);
+        String res = client().sql().execute(null, "SELECT val FROM " + TABLE_NAME + " WHERE key = ?", key).next().value(0);
 
         assertEquals(value, res);
     }
