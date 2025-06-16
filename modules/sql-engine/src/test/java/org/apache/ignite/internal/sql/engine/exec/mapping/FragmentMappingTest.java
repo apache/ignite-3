@@ -53,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.IdentityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.NetworkAddress;
@@ -400,7 +401,12 @@ public class FragmentMappingTest extends AbstractPlannerTest {
 
             IgniteDistribution distributionToUse;
             if (distribution.isTableDistribution()) {
-                distributionToUse = TestBuilders.affinity(0, objectId, objectId);
+                distributionToUse = IgniteDistributions.affinity(
+                        List.of(0),
+                        objectId,
+                        objectId,
+                        TraitUtils.affinityDistributionLabel("PUBLIC", tableName, "ZONE_" + objectId)
+                );
             } else {
                 distributionToUse = distribution;
             }
