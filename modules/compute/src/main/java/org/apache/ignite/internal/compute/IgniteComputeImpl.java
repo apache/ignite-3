@@ -66,6 +66,7 @@ import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -612,12 +613,18 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(
                 receiver, receiverArg, receiver.payloadMarshaller(), receiver.argumentMarshaller(), items);
 
+        // TODO: What to do with observableTs in embedded mode?
         return runReceiverAsync(payload, node, deploymentUnits, receiver.options())
-                .thenApply(r -> StreamerReceiverSerializer.deserializeReceiverJobResults(r, receiver.resultMarshaller()));
+                .thenApply(r -> {
+                    byte[] resBytes = r.get1();
+
+                    //noinspection DataFlowIssue
+                    return StreamerReceiverSerializer.deserializeReceiverJobResults(resBytes, receiver.resultMarshaller());
+                });
     }
 
     @Override
-    public CompletableFuture<byte[]> runReceiverAsync(
+    public CompletableFuture<IgniteBiTuple<byte[], Long>> runReceiverAsync(
             byte[] payload,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits,
@@ -649,7 +656,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ExceptionUtils.sneakyThrow(err);
                     }
 
-                    return SharedComputeUtils.unmarshalArgOrResult(res, null, null);
+                    byte[] resBytes = SharedComputeUtils.unmarshalArgOrResult(res, null, null);
+
+                    return new IgniteBiTuple<>(resBytes, res.observableTimestamp());
                 });
     }
 

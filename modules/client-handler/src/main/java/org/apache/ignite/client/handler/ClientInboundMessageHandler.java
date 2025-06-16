@@ -966,7 +966,8 @@ public class ClientInboundMessageHandler
                 return ClientStreamerWithReceiverBatchSendRequest.process(
                         in,
                         igniteTables,
-                        clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS));
+                        clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS),
+                        tsTracker);
 
             case ClientOp.TABLES_GET_QUALIFIED:
                 return ClientTablesGetQualifiedRequest.process(igniteTables).thenApply(x -> {
