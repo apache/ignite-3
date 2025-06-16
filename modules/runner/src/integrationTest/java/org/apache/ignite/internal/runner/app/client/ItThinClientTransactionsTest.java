@@ -159,7 +159,11 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertFalse(recordView.delete(tx, key));
 
         recordView.upsertAll(tx, List.of(rec(1, "6"), rec(2, "7")));
-        assertEquals(3, recordView.getAll(tx, List.of(key, rec(2, null), rec(3, null))).size());
+        List<Rec> res = recordView.getAll(tx, List.of(key, rec(3, null), rec(2, null)));
+        assertEquals(3, res.size());
+        assertEquals(rec(1, "6"), res.get(0));
+        assertNull(res.get(1));
+        assertEquals(rec(2, "7"), res.get(2));
 
         tx.rollback();
         assertEquals(rec(1, "1"), recordView.get(null, key));

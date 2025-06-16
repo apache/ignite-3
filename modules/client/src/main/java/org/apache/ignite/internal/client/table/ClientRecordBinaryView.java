@@ -113,10 +113,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return clo.apply(keyRecs, getPartitionAwarenessProvider(keyRecs.iterator().next()));
         }
 
-        return tbl.split(tx, keyRecs, clo,
-                new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
-                ClientTable::orderAwareReducer,
-                ClientTupleSerializer::getColocationHash);
+        return tbl.split(tx, keyRecs, clo, ClientTupleSerializer::getColocationHash);
     }
 
     /** {@inheritDoc} */

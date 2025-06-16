@@ -121,10 +121,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return clo.apply(keyRecs, getPartitionAwarenessProvider(ser.mapper(), keyRecs.iterator().next()));
         }
 
-        return tbl.split(tx, keyRecs, clo,
-                new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
-                ClientTable::orderAwareReducer,
-                (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
+        return tbl.split(tx, keyRecs, clo, (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
     /** {@inheritDoc} */

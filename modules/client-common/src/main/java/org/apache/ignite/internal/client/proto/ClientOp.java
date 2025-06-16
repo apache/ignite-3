@@ -249,7 +249,7 @@ public class ClientOp {
 
     /**
      * Test if the operation is a batch.
-     * 
+     *
      * @param opCode The operation code.
      * @return The status.
      */

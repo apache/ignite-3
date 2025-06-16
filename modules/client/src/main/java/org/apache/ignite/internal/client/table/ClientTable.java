@@ -35,6 +35,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -875,35 +876,27 @@ public class ClientTable implements Table {
         return partitionCount;
     }
 
-    public static class Batch<E> {
+    /**
+     * Batch with indexes.
+     *
+     * @param <E> Batch type element.
+     */
+    static class Batch<E> {
         List<E> batch = new ArrayList<>();
         List<Integer> originalIndices = new ArrayList<>();
 
-        public void add(E entry, int origIdx) {
+        void add(E entry, int origIdx) {
             batch.add(entry);
             originalIndices.add(origIdx);
         }
     }
 
-    static <R> List<R> removeNulls(List<R> res) {
-        List<R> copy = new ArrayList<>();
-        for (R val : res) {
-            if (val != null) {
-                copy.add(val);
-            }
-        }
-
-        return copy;
-    }
-
-    static <R, E> List<R> orderAwareReducer(@Nullable List<R> agg, List<R> cur, Batch<E> batch) {
-        for (int i = 0; i < batch.batch.size(); i++) {
-            R val = cur.get(i);
-            Integer orig = batch.originalIndices.get(i);
+    private static <E> void reduceWithKeepOrder(List<E> agg, List<E> cur, List<Integer> originalIndices) {
+        for (int i = 0; i < cur.size(); i++) {
+            E val = cur.get(i);
+            Integer orig = originalIndices.get(i);
             agg.set(orig, val);
         }
-
-        return agg;
     }
 
     <R, E> CompletableFuture<R> split(
@@ -957,17 +950,13 @@ public class ClientTable implements Table {
                 });
     }
 
-    <R, E> CompletableFuture<R> split(
-            @Nullable Transaction tx,
+    <E> CompletableFuture<List<E>> split(
+            Transaction tx,
             Collection<E> keys,
-            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<R>> fun,
-            R initialValue,
-            ReducerWithOrderTracking<R, E> reducer,
+            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<List<E>>> fun,
             BiFunction<ClientSchema, E, Integer> hashFunc
     ) {
-        if (tx == null) {
-            return fun.apply(keys, null);
-        }
+        assert tx != null;
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
         CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
@@ -991,7 +980,7 @@ public class ClientTable implements Table {
                         idx++;
                     }
 
-                    List<CompletableFuture<R>> res = new ArrayList<>();
+                    List<CompletableFuture<List<E>>> res = new ArrayList<>();
                     List<Batch<E>> batches = new ArrayList<>();
 
                     if (!unmapped.batch.isEmpty()) {
@@ -1005,11 +994,11 @@ public class ClientTable implements Table {
                     }
 
                     return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
-                        R in = initialValue;
+                        var in = new ArrayList<E>(Collections.nCopies(keys.size(), null));
 
                         for (int i = 0; i < res.size(); i++) {
-                            CompletableFuture<R> f = res.get(i);
-                            in = reducer.reduce(in, f.getNow(null), batches.get(i));
+                            CompletableFuture<List<E>> f = res.get(i);
+                            reduceWithKeepOrder(in, f.getNow(null), batches.get(i).originalIndices);
                         }
 
                         return in;
@@ -1019,12 +1008,7 @@ public class ClientTable implements Table {
 
     @FunctionalInterface
     interface Reducer<R> {
-        R reduce(R agg, R cur);
-    }
-
-    @FunctionalInterface
-    interface ReducerWithOrderTracking<R, E> {
-        R reduce(@Nullable R agg, R cur, Batch<E> batch);
+        R reduce(@Nullable R agg, R cur);
     }
 
     private static @Nullable PartitionMapping getPreferredNodeName(
