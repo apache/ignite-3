@@ -101,7 +101,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
     /** {@inheritDoc} */
     @Override
-    public @org.jetbrains.annotations.Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
         return partitionAwarenessMetadata;
     }
 

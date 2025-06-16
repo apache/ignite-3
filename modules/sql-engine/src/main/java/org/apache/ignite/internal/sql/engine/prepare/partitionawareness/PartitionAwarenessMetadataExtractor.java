@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
-import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rex.RexDynamicParam;
@@ -29,7 +28,26 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Extracts partition awareness metadata from physical plans.
+ * Extracts partition awareness metadata from physical plans. Examples:
+ *
+ * <pre>
+ *     SELECT * FROM t WHERE pk=?
+ *     colocation key: [pk]
+ *     =>
+ *     index: [1], hash: []
+ *
+ *     SELECT * FROM t WHERE pk1=? and pk2=?
+ *     colocation key: [pk1, pk2]
+ *     =>
+ *     index: [1, 2], hash: []
+ *
+ *     SELECT * FROM t WHERE pk1=? and pk2=V1 and pk3=?
+ *     colocation key: [pk1, pk2, pk3]
+ *     =>
+ *     index: [1, -1, 2], hash: [hash(V1)]
+ * </pre>
+ *
+ * @see PartitionAwarenessMetadata
  */
 public class PartitionAwarenessMetadataExtractor {
 
@@ -72,8 +90,7 @@ public class PartitionAwarenessMetadataExtractor {
         ImmutableIntList colocationKeys = igniteTable.distribution().getKeys();
 
         // colocation key index to dynamic param index
-        int[] dynamicParams = new int[colocationKeys.size()];
-
+        int[] indexes = new int[colocationKeys.size()];
         int[] hash = new int[0];
 
         for (int i = 0; i < colocationKeys.size(); i++) {
@@ -83,12 +100,12 @@ public class PartitionAwarenessMetadataExtractor {
 
             if (expr instanceof RexDynamicParam) {
                 RexDynamicParam dynamicParam = (RexDynamicParam) expr;
-                dynamicParams[i] = dynamicParam.getIndex();
+                indexes[i] = dynamicParam.getIndex() + 1;
             } else {
                 return null;
             }
         }
 
-        return new PartitionAwarenessMetadata(igniteTable.id(), dynamicParams, hash);
+        return new PartitionAwarenessMetadata(igniteTable.id(), indexes, hash);
     }
 }

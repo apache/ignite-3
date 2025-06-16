@@ -21,7 +21,8 @@ import java.util.Arrays;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Partition awareness metadata.
+ * Partition awareness metadata. The index array stores a mapping between colocation key indexes and dynamic parameters and hash array.
+ * The mapping uses 1-based indexes for dynamic parameters and hashes. Indexes into hash array are negated.
  *
  * @see PartitionAwarenessMetadataExtractor
  */
@@ -74,8 +75,6 @@ public final class PartitionAwarenessMetadata {
     public int[] hash() {
         return hash;
     }
-
-
 
     /** {@inheritDoc} */
     @Override

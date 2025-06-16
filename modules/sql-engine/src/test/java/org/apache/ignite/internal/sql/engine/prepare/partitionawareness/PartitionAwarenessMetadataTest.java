@@ -121,20 +121,20 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
     private static Stream<Arguments> simpleKeyMetadata() {
         return Stream.of(
                 // KV GET
-                Arguments.of("SELECT * FROM t WHERE c1=?", dynamicParams(0)),
-                Arguments.of("SELECT * FROM t WHERE c2=? and c1=?", dynamicParams(1)),
+                Arguments.of("SELECT * FROM t WHERE c1=?", dynamicParams(1)),
+                Arguments.of("SELECT * FROM t WHERE c2=? and c1=?", dynamicParams(2)),
                 Arguments.of("SELECT * FROM t WHERE c1=1", null),
                 Arguments.of("SELECT * FROM t WHERE c1=1+1", null),
                 // the first condition goes into key lookup other into a post-lookup filter.
-                Arguments.of("SELECT * FROM t WHERE c1=? and c1=?", dynamicParams(0)),
-                Arguments.of("SELECT * FROM t WHERE c2=? and c1=? and c1=?", dynamicParams(1)),
+                Arguments.of("SELECT * FROM t WHERE c1=? and c1=?", dynamicParams(1)),
+                Arguments.of("SELECT * FROM t WHERE c2=? and c1=? and c1=?", dynamicParams(2)),
 
                 // KV PUT
-                Arguments.of("INSERT INTO t VALUES(?, ?)", dynamicParams(0)),
+                Arguments.of("INSERT INTO t VALUES(?, ?)", dynamicParams(1)),
                 Arguments.of("INSERT INTO t VALUES(1, ?)", null),
                 Arguments.of("INSERT INTO t VALUES(1+1, ?)", null),
-                Arguments.of("INSERT INTO t(c2, c1) VALUES(?, ?)", dynamicParams(1)),
-                Arguments.of("INSERT INTO t(c2, c1) VALUES(1, ?)", dynamicParams(0)),
+                Arguments.of("INSERT INTO t(c2, c1) VALUES(?, ?)", dynamicParams(2)),
+                Arguments.of("INSERT INTO t(c2, c1) VALUES(1, ?)", dynamicParams(1)),
                 Arguments.of("INSERT INTO t(c2, c1) VALUES(?, 1)", null)
         );
     }
@@ -153,12 +153,12 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
     private static Stream<Arguments> compoundKeyMetadata() {
         return Stream.of(
                 // KV GET
-                Arguments.of("SELECT * FROM t WHERE c1=? and c2=? and c3=?", dynamicParams(2, 0, 1)),
-                Arguments.of("SELECT * FROM t WHERE c3=? and c1=? and c2=?", dynamicParams(0, 1, 2)),
-                Arguments.of("SELECT * FROM t WHERE c3=? and c2=? and c1=?", dynamicParams(0, 2, 1)),
-                Arguments.of("SELECT * FROM t WHERE c4=? and c1=? and c2=? and 1=? and c3=?", dynamicParams(4, 1, 2)),
+                Arguments.of("SELECT * FROM t WHERE c1=? and c2=? and c3=?", dynamicParams(3, 1, 2)),
+                Arguments.of("SELECT * FROM t WHERE c3=? and c1=? and c2=?", dynamicParams(1, 2, 3)),
+                Arguments.of("SELECT * FROM t WHERE c3=? and c2=? and c1=?", dynamicParams(1, 3, 2)),
+                Arguments.of("SELECT * FROM t WHERE c4=? and c1=? and c2=? and 1=? and c3=?", dynamicParams(5, 2, 3)),
                 // duplicate condition goes to a post lookup filter.
-                Arguments.of("SELECT * FROM t WHERE c1=? and c2=? and c3=? and c2=?", dynamicParams(2, 0, 1)),
+                Arguments.of("SELECT * FROM t WHERE c1=? and c2=? and c3=? and c2=?", dynamicParams(3, 1, 2)),
 
                 Arguments.of("SELECT * FROM t WHERE c1=1 and c2=? and c3=?", null),
                 Arguments.of("SELECT * FROM t WHERE c1=? and c2=2 and c3=?", null),
@@ -166,9 +166,9 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("SELECT * FROM t WHERE c1=1 and c2=2 and c3=3", null),
 
                 // KV PUT
-                Arguments.of("INSERT INTO t VALUES (?, ?, ?, ?)",  dynamicParams(2, 0, 1)),
-                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, ?, ?)", dynamicParams(0, 3, 1)),
-                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, 1, ?)", dynamicParams(0, 2, 1))
+                Arguments.of("INSERT INTO t VALUES (?, ?, ?, ?)",  dynamicParams(3, 1, 2)),
+                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, ?, ?)", dynamicParams(1, 4, 2)),
+                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, 1, ?)", dynamicParams(1, 3, 2))
         );
     }
 
