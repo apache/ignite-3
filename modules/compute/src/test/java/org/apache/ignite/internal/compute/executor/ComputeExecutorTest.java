@@ -52,6 +52,8 @@ import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
@@ -80,7 +82,9 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, "testNode");
-        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration, topologyService);
+        computeExecutor = new ComputeExecutorImpl(
+                ignite, stateMachine, computeConfiguration, topologyService, new TestClockService(new HybridClockImpl()));
+
         computeExecutor.start();
     }
 
