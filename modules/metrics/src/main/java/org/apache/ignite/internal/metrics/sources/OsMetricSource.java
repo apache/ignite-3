@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * Metric source which provides OS metrics like Load Average.
  */
 public class OsMetricSource implements MetricSource {
-    private static final IgniteLogger LOG = Loggers.forClass(OsMetricSource.class);
+    private final IgniteLogger log = Loggers.forClass(OsMetricSource.class);
 
     private static final String SOURCE_NAME = "os";
 
@@ -113,7 +113,7 @@ public class OsMetricSource implements MetricSource {
             // In this case, we return a supplier that always returns -1.
         }
 
-        LOG.warn("The 'com.sun.management.OperatingSystemMXBean' class is not available for class loader. "
+        log.warn("The 'com.sun.management.OperatingSystemMXBean' class is not available for class loader. "
                 + "CPU metrics are not available.");
 
         return () -> -1.0;
