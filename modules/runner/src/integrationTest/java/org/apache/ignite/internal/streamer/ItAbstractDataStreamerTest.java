@@ -797,8 +797,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 .builder(UpsertReceiver.class)
                 .build();
 
-        DataStreamerOptions opts = DataStreamerOptions.builder().pageSize(100).build();
-
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = view.streamData(publisher, desc, Function.identity(), Function.identity(), null, null, null);
 
@@ -814,6 +812,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
 
         int resCount = 0;
+
         try (Cursor<Tuple> cursor = view.query(null, null)) {
             while (cursor.hasNext()) {
                 resCount++;
