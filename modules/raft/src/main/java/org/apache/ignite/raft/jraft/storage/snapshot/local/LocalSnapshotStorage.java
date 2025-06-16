@@ -308,7 +308,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
             this.lock.unlock();
         }
         if (lsIndex == 0) {
-            LOG.warn("No data for snapshot reader {}.", this.path);
+            LOG.info("No data for snapshot reader {}.", this.path);
             return null;
         }
         final String snapshotPath = getSnapshotPath(lsIndex);
