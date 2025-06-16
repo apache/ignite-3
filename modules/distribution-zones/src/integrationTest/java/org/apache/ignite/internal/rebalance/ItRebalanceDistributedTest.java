@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.TestRebalanceUtil.plannedPartitionAssig
 import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
@@ -398,6 +399,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
+
+        // Without default zone preparation we will catch "Critical system error" because test placement driver will return fake primary
+        // replica for default zone out of corresponding assignments.
+        if (colocationEnabled()) {
+            alterDefaultZone(node0);
+
+            assertTrue(
+                    waitForCondition(
+                            () -> getDefaultZonePartitionStableAssignments(node0, 0).size() == NODE_COUNT,
+                            AWAIT_TIMEOUT_MILLIS
+                    )
+            );
+        }
     }
 
     @AfterEach
@@ -443,10 +457,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         electPrimaryReplica(node);
 
         alterZone(node, ZONE_NAME, 2);
-
-        if (colocationEnabled()) {
-            nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
-        }
 
         waitPartitionAssignmentsSyncedToExpected(TABLE_NAME, 0, 2);
         waitPartitionAssignmentsSyncedToExpected(TABLE_NAME_2, 0, 2);
@@ -545,7 +555,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         RaftNodeId partitionNodeId = leaderNode.raftManager.server()
                 .localNodes()
                 .stream()
-                .filter(nodeId -> nodeId.groupId().toString().contains("part"))
+                .filter(nodeId -> nodeId.groupId().toString().contains(nonLeaderTable.zoneId() + "_part"))
                 .findFirst()
                 .orElseThrow();
 
@@ -573,10 +583,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         );
 
         ((JraftServerImpl) leaderNode.raftManager.server()).stopBlockMessages(partitionNodeId);
-
-        if (colocationEnabled()) {
-            nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
-        }
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -623,10 +629,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         alterZone(node, ZONE_NAME, 3);
 
-        if (colocationEnabled()) {
-            nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
-        }
-
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
         checkPartitionNodes(0, 3);
@@ -650,10 +652,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionStableAssignments(node, 0);
 
         changeTableReplicasForSinglePartition(node, ZONE_NAME, 2);
-
-        if (colocationEnabled()) {
-            nodes.forEach(n -> n.placementDriver.setPrimaryReplicaSupplier(() -> null));
-        }
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -1109,6 +1107,22 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
 
         var stableAssignmentsFuture = stablePartitionAssignments(node.metaStorageManager, table, partNum);
+
+        assertThat(stableAssignmentsFuture, willCompleteSuccessfully());
+
+        return Optional
+                .ofNullable(stableAssignmentsFuture.join())
+                .orElse(Set.of());
+    }
+
+    private static Set<Assignment> getDefaultZonePartitionStableAssignments(Node node, int partitionIndex) {
+        CatalogManager catalog = node.catalogManager;
+
+        var stableAssignmentsFuture = ZoneRebalanceUtil.zonePartitionAssignments(
+                node.metaStorageManager,
+                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id(),
+                partitionIndex
+        );
 
         assertThat(stableAssignmentsFuture, willCompleteSuccessfully());
 
@@ -1918,6 +1932,27 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
+    private static void alterDefaultZone(Node node) {
+        node.waitForMetadataCompletenessAtNow();
+
+        CatalogManager catalog = node.catalogManager;
+
+        DistributionZonesTestUtil.alterZone(
+                catalog,
+                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().name(),
+                NODE_COUNT
+        );
+
+        // Setting scaleUp timer to immediate value for default zone is just an optimization for faster tests.
+        DistributionZonesTestUtil.alterZone(
+                catalog,
+                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().name(),
+                IMMEDIATE_TIMER_VALUE,
+                null,
+                null
+        );
+    }
+
     private static void createTable(Node node, String zoneName, String tableName) {
         node.waitForMetadataCompletenessAtNow();
 
@@ -1981,7 +2016,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .flatMap((n) -> {
                     List<JraftGroupEventsListener> nodeRaftGroupServices = new ArrayList<>();
                     n.raftManager.forEach((nodeId, raftGroupService) -> {
-                        nodeRaftGroupServices.add(raftGroupService.getNodeOptions().getRaftGrpEvtsLsnr());
+                        CatalogManager catalog = nodes.get(0).catalogManager;
+                        // Excluded default zone raft services.
+                        if (!raftGroupService.getGroupId().startsWith("" + catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id())) {
+                            nodeRaftGroupServices.add(raftGroupService.getNodeOptions().getRaftGrpEvtsLsnr());
+                        }
                     });
 
                     return nodeRaftGroupServices.stream();
