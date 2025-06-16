@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -109,7 +110,7 @@ public class ClientComputeExecuteRequest {
     ) {
         return executionFut.handle((execution, throwable) -> {
             if (throwable != null) {
-                notificationSender.sendNotification(null, throwable);
+                notificationSender.sendNotification(null, throwable, NULL_HYBRID_TIMESTAMP);
                 return CompletableFuture.<ComputeJobDataHolder>failedFuture(throwable);
             } else {
                 return execution.resultAsync().whenComplete((val, err) ->
@@ -118,7 +119,7 @@ public class ClientComputeExecuteRequest {
                                     Marshaller<Object, byte[]> marshaller = extractMarshaller(execution);
                                     ClientComputeJobPacker.packJobResult(val, marshaller, w);
                                     packJobState(w, state);
-                                }, err)));
+                                }, err, hybridTimestamp(val))));
             }
         }).thenCompose(Function.identity());
     }
@@ -126,6 +127,16 @@ public class ClientComputeExecuteRequest {
     static void packSubmitResult(ClientMessagePacker out, UUID jobId, ClusterNode node) {
         out.packUuid(jobId);
         packClusterNode(node, out);
+    }
+
+    static long hybridTimestamp(ComputeJobDataHolder holder) {
+        if (holder == null) {
+            return NULL_HYBRID_TIMESTAMP;
+        }
+
+        Long observableTimestamp = holder.observableTimestamp();
+
+        return observableTimestamp == null ? NULL_HYBRID_TIMESTAMP : observableTimestamp;
     }
 
     private static <T> @Nullable Marshaller<T, byte[]> extractMarshaller(JobExecution<ComputeJobDataHolder> e) {

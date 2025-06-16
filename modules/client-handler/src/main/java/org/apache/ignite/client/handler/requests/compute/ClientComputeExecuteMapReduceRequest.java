@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.hybridTimestamp;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packTaskState;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
@@ -35,6 +36,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.marshalling.Marshaller;
@@ -57,7 +59,7 @@ public class ClientComputeExecuteMapReduceRequest {
             NotificationSender notificationSender) {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String taskClassName = in.unpackString();
-        Object arg = unpackJobArgumentWithoutMarshaller(in);
+        ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
 
         TaskExecution<Object> execution = compute.submitMapReduce(
                 TaskDescriptor.builder(taskClassName).units(deploymentUnits).build(), arg);
@@ -93,7 +95,7 @@ public class ClientComputeExecuteMapReduceRequest {
                                     ClientComputeJobPacker.packJobResult(val, resultMarshaller, w);
                                     packTaskState(w, state);
                                     packJobStates(w, states);
-                                }, firstNotNull(err, errState, errStates)))
+                                }, firstNotNull(err, errState, errStates), hybridTimestamp((ComputeJobDataHolder) val)))
                 ));
     }
 
