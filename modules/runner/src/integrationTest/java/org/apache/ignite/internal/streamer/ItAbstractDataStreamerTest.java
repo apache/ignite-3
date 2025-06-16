@@ -1031,11 +1031,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         public @Nullable CompletableFuture<List<Void>> receive(List<Tuple> page, DataStreamerReceiverContext ctx, @Nullable Tuple arg) {
             RecordView<Tuple> view = ctx.ignite().tables().table(TABLE_NAME).recordView();
 
-            for (Tuple t : page) {
-                view.upsert(null, t);
-            }
-
-            return CompletableFuture.completedFuture(null);
+            return view.upsertAllAsync(null, page).thenApply(x -> null);
         }
     }
 }
