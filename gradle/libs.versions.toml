@@ -90,6 +90,7 @@ otel = "1.51.0"
 spring-boot = "3.5.0"
 spring-data = "3.5.1"
 testcontainers = "1.21.1"
+gradleToolingApi = "8.6"
 
 #Tools
 pmdTool = "6.55.0"
@@ -295,3 +296,5 @@ commons-collections4 = { module = "org.apache.commons:commons-collections4", ver
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
 
 spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugsTool" }
+
+gradle-tooling-api = { module = "org.gradle:gradle-tooling-api", version.ref = "gradleToolingApi" }
