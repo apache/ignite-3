@@ -222,7 +222,6 @@ public class ClientTransaction implements Transaction {
         CompletableFuture<Void> finishFut = enabled ? ch.inflights().finishFuture(txId()) : nullCompletedFuture();
 
         CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
-            ch.inflights().erase(txId());
             w.out().packLong(id);
 
             if (!isReadOnly && enabled) {
@@ -232,9 +231,8 @@ public class ClientTransaction implements Transaction {
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_COMMITTED);
-
+            ch.inflights().erase(txId());
             this.finishFut.get().complete(null);
-
             return null;
         });
 
@@ -262,7 +260,6 @@ public class ClientTransaction implements Transaction {
 
         // Don't wait inflights on rollback.
         CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
-            ch.inflights().erase(txId());
             w.out().packLong(id);
 
             if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_PIGGYBACK)) {
@@ -272,9 +269,8 @@ public class ClientTransaction implements Transaction {
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_ROLLED_BACK);
-
+            ch.inflights().erase(txId());
             this.finishFut.get().complete(null);
-
             return null;
         });
 
@@ -418,6 +414,26 @@ public class ClientTransaction implements Transaction {
 
         if (fut != null && !fut.isDone()) {
             fut.complete(new IgniteBiTuple<>(consistentId, token));
+        }
+    }
+
+    /**
+     * Tries to fail enlistment
+     *
+     * @param pm Partition mapping.
+     * @param exception The exception.
+     */
+    public void tryFailEnlist(PartitionMapping pm, Exception exception) {
+        if (!hasCommitPartition()) {
+            return;
+        }
+
+        TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+
+        CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.get(tablePartitionId);
+
+        if (fut != null && !fut.isDone()) {
+            fut.completeExceptionally(exception);
         }
     }
 

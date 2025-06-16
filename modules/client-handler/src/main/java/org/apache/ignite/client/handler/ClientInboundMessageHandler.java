@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
@@ -480,10 +481,11 @@ public class ClientInboundMessageHandler
             BitSet clientFeatures,
             ProtocolVersion clientVer,
             int clientCode) {
-        // Disable direct mapping if not all required features are supported.
+        // Disable direct mapping if not all required features are supported alltogether.
         boolean supportsDirectMapping = features.get(TX_DIRECT_MAPPING.featureId()) && clientFeatures.get(TX_DIRECT_MAPPING.featureId())
                 && features.get(TX_DELAYED_ACKS.featureId()) && clientFeatures.get(TX_DELAYED_ACKS.featureId())
-                && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId());
+                && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId())
+                && features.get(TX_ALLOW_NOOP_ENLIST.featureId()) && clientFeatures.get(TX_ALLOW_NOOP_ENLIST.featureId());
 
         BitSet actualFeatures;
 
@@ -493,6 +495,7 @@ public class ClientInboundMessageHandler
             actualFeatures.clear(TX_DIRECT_MAPPING.featureId());
             actualFeatures.clear(TX_DELAYED_ACKS.featureId());
             actualFeatures.clear(TX_PIGGYBACK.featureId());
+            actualFeatures.clear(TX_ALLOW_NOOP_ENLIST.featureId());
         } else {
             actualFeatures = this.features;
         }

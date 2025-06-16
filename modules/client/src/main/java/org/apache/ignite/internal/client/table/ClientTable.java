@@ -711,17 +711,27 @@ public class ClientTable implements Table {
             assert tx0 != null;
             assert ctx.pm != null;
 
-            String consistentId = in.in().unpackString();
-            long token = in.in().unpackLong();
-
-            // Test if no-op enlistment.
-            if (in.in().unpackBoolean()) {
+            if (in.in().tryUnpackNil()) { // This may happen on no-op enlistment when a newer client is connected to older server.
                 in.clientChannel().inflights().removeInflight(tx0.txId(), null);
-            }
 
-            // Finish enlist on first request only.
-            if (ctx.enlistmentToken == 0) {
-                tx0.tryFinishEnlist(ctx.pm, consistentId, token);
+                // If this is first enlistment to a partition, we hit a bug and can't do anything but fail.
+                if (ctx.enlistmentToken == 0) {
+                    tx0.tryFailEnlist(ctx.pm, new IgniteException(INTERNAL_ERR,
+                            "Encountered no-op on first direct enlistment, server version upgrade is required"));
+                }
+            } else {
+                String consistentId = in.in().unpackString();
+                long token = in.in().unpackLong();
+
+                // Test if no-op enlistment.
+                if (in.in().unpackBoolean()) {
+                    in.clientChannel().inflights().removeInflight(tx0.txId(), null);
+                }
+
+                // Finish enlist on first request only.
+                if (ctx.enlistmentToken == 0) {
+                    tx0.tryFinishEnlist(ctx.pm, consistentId, token);
+                }
             }
         }
 
