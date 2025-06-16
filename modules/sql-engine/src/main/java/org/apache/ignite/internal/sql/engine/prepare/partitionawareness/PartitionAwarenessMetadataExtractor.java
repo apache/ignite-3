@@ -34,17 +34,17 @@ import org.jetbrains.annotations.Nullable;
  *     SELECT * FROM t WHERE pk=?
  *     colocation key: [pk]
  *     =>
- *     index: [1], hash: []
+ *     indexes: [1], hash: []
  *
  *     SELECT * FROM t WHERE pk1=? and pk2=?
  *     colocation key: [pk1, pk2]
  *     =>
- *     index: [1, 2], hash: []
+ *     indexes: [1, 2], hash: []
  *
  *     SELECT * FROM t WHERE pk1=? and pk2=V1 and pk3=?
  *     colocation key: [pk1, pk2, pk3]
  *     =>
- *     index: [1, -1, 2], hash: [hash(V1)]
+ *     indexes: [1, -1, 2], hash: [hash(V1)]
  * </pre>
  *
  * @see PartitionAwarenessMetadata
