@@ -909,12 +909,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3, 4, 5})
     void testObservableTimestampPropagation(int key) {
-        Tuple rec = Tuple.create().set(COLUMN_KEY, key).set(COLUMN_VAL, "value1");
+        String value = "value" + key;
+        Tuple rec = Tuple.create().set(COLUMN_KEY, key).set(COLUMN_VAL, value);
 
         JobTarget jobTarget = JobTarget.colocated(TABLE_NAME, rec);
         JobDescriptor<Tuple, Void> jobDescriptor = JobDescriptor.builder(UpsertJob.class).build();
 
         client().compute().execute(jobTarget, jobDescriptor, rec);
+
+        String res = client().sql().execute(null, "SELECT val FROM " + TABLE_NAME + " WHERE key = ?").next().value(0);
+
+        assertEquals(value, res);
     }
 
     private void testEchoArg(Object arg) {
