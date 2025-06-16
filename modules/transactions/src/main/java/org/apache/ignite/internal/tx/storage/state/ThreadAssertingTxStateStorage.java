@@ -28,23 +28,23 @@ import org.jetbrains.annotations.Nullable;
  * @see ThreadAssertions
  */
 public class ThreadAssertingTxStateStorage implements TxStateStorage {
-    private final TxStateStorage tableStorage;
+    private final TxStateStorage wrappedStorage;
 
     /** Constructor. */
-    public ThreadAssertingTxStateStorage(TxStateStorage tableStorage) {
-        this.tableStorage = tableStorage;
+    public ThreadAssertingTxStateStorage(TxStateStorage wrappedStorage) {
+        this.wrappedStorage = wrappedStorage;
     }
 
     @Override
     public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
         assertThreadAllowsToWrite();
 
-        return new ThreadAssertingTxStatePartitionStorage(tableStorage.getOrCreatePartitionStorage(partitionId));
+        return new ThreadAssertingTxStatePartitionStorage(wrappedStorage.getOrCreatePartitionStorage(partitionId));
     }
 
     @Override
     public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
-        TxStatePartitionStorage storage = tableStorage.getPartitionStorage(partitionId);
+        TxStatePartitionStorage storage = wrappedStorage.getPartitionStorage(partitionId);
 
         return storage == null ? null : new ThreadAssertingTxStatePartitionStorage(storage);
     }
@@ -53,23 +53,23 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
     public void destroyTxStateStorage(int partitionId) {
         assertThreadAllowsToWrite();
 
-        tableStorage.destroyTxStateStorage(partitionId);
+        wrappedStorage.destroyTxStateStorage(partitionId);
     }
 
     @Override
     public void start() {
-        tableStorage.start();
+        wrappedStorage.start();
     }
 
     @Override
     public void close() {
-        tableStorage.close();
+        wrappedStorage.close();
     }
 
     @Override
     public void destroy() {
         assertThreadAllowsToWrite();
 
-        tableStorage.destroy();
+        wrappedStorage.destroy();
     }
 }

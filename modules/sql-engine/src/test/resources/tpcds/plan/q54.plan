@@ -43,8 +43,8 @@ Limit
                         fieldNames: [SS_SOLD_DATE_SK, SS_CUSTOMER_SK, SS_EXT_SALES_PRICE]
                         est: (rows=2880404)
                   NestedLoopJoin
-                      predicate: >=(D_MONTH_SEQ, $f00)
-                      fieldNames: [D_DATE_SK, D_MONTH_SEQ, $f0, $f00]
+                      predicate: >=(D_MONTH_SEQ, $f0$0)
+                      fieldNames: [D_DATE_SK, D_MONTH_SEQ, $f0, $f0$0]
                       type: inner
                       est: (rows=18262)
                     NestedLoopJoin

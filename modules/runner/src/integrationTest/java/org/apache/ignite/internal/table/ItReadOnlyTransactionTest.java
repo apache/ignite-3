@@ -143,7 +143,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
             HybridClock clock = igniteImpl.clock();
 
-            Collection<ClusterNode> nodes = ignite.clusterNodes();
+            Collection<ClusterNode> nodes = ignite.cluster().nodes();
 
             for (ClusterNode clusterNode : nodes) {
                 CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, 100 + i), clock.now(), clusterNode);
@@ -195,7 +195,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
             HybridClock clock = igniteImpl.clock();
 
-            Collection<ClusterNode> nodes = ignite.clusterNodes();
+            Collection<ClusterNode> nodes = ignite.cluster().nodes();
 
             int finalI = i;
             bypassingThreadAssertions(() -> {

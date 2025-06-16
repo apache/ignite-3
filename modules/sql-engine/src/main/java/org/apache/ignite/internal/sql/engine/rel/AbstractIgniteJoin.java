@@ -40,7 +40,10 @@ import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
@@ -282,9 +285,41 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     }
 
     @Override
+    protected RelDataType deriveRowType() {
+        return deriveRowTypeAsFor(joinType);
+    }
+
+    @Override
     public IgniteRelWriter explain(IgniteRelWriter writer) {
         return writer
-                .addPredicate(condition, getRowType())
+                // Predicate is composed based on joint row type, therefore if original join doesn't projects rhs,
+                // then we have to rebuild row type just for predicate.
+                .addPredicate(condition, joinType.projectsRight() ? getRowType() : deriveRowTypeAsFor(JoinRelType.INNER))
                 .addJoinType(joinType);
+    }
+
+    private RelDataType deriveRowTypeAsFor(JoinRelType joinType) {
+        List<String> fieldNames = new ArrayList<>(left.getRowType().getFieldNames());
+
+        RelDataTypeFactory typeFactory = getCluster().getTypeFactory();
+
+        if (joinType.projectsRight()) {
+            fieldNames.addAll(right.getRowType().getFieldNames());
+
+            fieldNames = SqlValidatorUtil.uniquify(
+                    fieldNames,
+                    (original, attempt, size) -> original + "$" + attempt,
+                    typeFactory.getTypeSystem().isSchemaCaseSensitive()
+            );
+        }
+
+        return SqlValidatorUtil.deriveJoinRowType(
+                left.getRowType(),
+                right.getRowType(),
+                joinType,
+                getCluster().getTypeFactory(),
+                fieldNames,
+                List.of()
+        );
     }
 }

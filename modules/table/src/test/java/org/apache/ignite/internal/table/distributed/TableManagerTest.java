@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -128,11 +129,14 @@ import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigu
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
+import org.apache.ignite.internal.table.distributed.storage.BrokenTxStateStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -148,6 +152,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CursorUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -348,7 +353,13 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertEquals(1, tableManager.tables().size());
 
-        assertNotNull(tableManager.table(PRECONFIGURED_TABLE_NAME));
+        Table table = tableManager.table(PRECONFIGURED_TABLE_NAME);
+        assertNotNull(table);
+
+        if (colocationEnabled()) {
+            InternalTable internalTable = Wrappers.unwrap(table, TableImpl.class).internalTable();
+            assertThat(internalTable.txStateStorage(), isA(BrokenTxStateStorage.class));
+        }
     }
 
     /**
@@ -368,6 +379,11 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
+
+        if (colocationEnabled()) {
+            InternalTable internalTable = Wrappers.unwrap(table, TableImpl.class).internalTable();
+            assertThat(internalTable.txStateStorage(), isA(BrokenTxStateStorage.class));
+        }
     }
 
     /**

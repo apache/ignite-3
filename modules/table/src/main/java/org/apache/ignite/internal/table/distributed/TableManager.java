@@ -223,6 +223,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
+import org.apache.ignite.internal.table.distributed.storage.BrokenTxStateStorage;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
@@ -1978,6 +1979,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param zoneDescriptor Catalog distributed zone descriptor.
      */
     protected TxStateStorage createTxStateTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
+        if (nodeProperties.colocationEnabled()) {
+            return new BrokenTxStateStorage();
+        }
+
         int tableId = tableDescriptor.id();
 
         TxStateStorage txStateStorage = new TxStateRocksDbStorage(
@@ -2723,11 +2728,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 .getOrCreatePartitionStorage(partitionId);
 
                         if (mvPartitionStorage.lastAppliedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
-                                || txStatePartitionStorage.lastAppliedIndex() == TxStatePartitionStorage.REBALANCE_IN_PROGRESS) {
-                            return allOf(
-                                    internalTable.storage().clearPartition(partitionId),
-                                    txStatePartitionStorage.clear()
-                            );
+                                || !nodeProperties.colocationEnabled()
+                                        && txStatePartitionStorage.lastAppliedIndex() == TxStatePartitionStorage.REBALANCE_IN_PROGRESS) {
+                            if (nodeProperties.colocationEnabled()) {
+                                return internalTable.storage().clearPartition(partitionId);
+                            } else {
+                                return allOf(
+                                        internalTable.storage().clearPartition(partitionId),
+                                        txStatePartitionStorage.clear()
+                                );
+                            }
                         } else {
                             return nullCompletedFuture();
                         }

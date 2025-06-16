@@ -192,6 +192,11 @@ public class ClusterServiceFactory {
             return allMembers.values();
         }
 
+        @Override
+        public Collection<ClusterNode> logicalTopologyMembers() {
+            return allMembers.values();
+        }
+
         /** {@inheritDoc} */
         @Override
         public @Nullable ClusterNode getByAddress(NetworkAddress addr) {

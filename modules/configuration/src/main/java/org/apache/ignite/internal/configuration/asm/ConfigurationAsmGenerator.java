@@ -135,7 +135,7 @@ public class ConfigurationAsmGenerator {
      * @return Configuration instance.
      */
     public synchronized DynamicConfiguration<?, ?> instantiateCfg(
-            RootKey<?, ?> rootKey,
+            RootKey<?, ?, ?> rootKey,
             DynamicConfigurationChanger changer
     ) {
         SchemaClassesInfo info = schemasInfo.get(rootKey.schemaClass());

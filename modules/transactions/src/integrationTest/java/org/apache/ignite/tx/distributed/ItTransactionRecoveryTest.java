@@ -188,7 +188,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         txCrdNode.stop();
 
         assertTrue(waitForCondition(
-                () -> node(0).clusterNodes().stream().filter(n -> txCrdNode.id().equals(n.id())).count() == 0,
+                () -> node(0).cluster().nodes().stream().filter(n -> txCrdNode.id().equals(n.id())).count() == 0,
                 10_000));
 
         InternalTransaction conflictTx = (InternalTransaction) node(0).transactions().begin();
@@ -328,7 +328,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         txCrdNode.stop();
 
         assertTrue(waitForCondition(
-                () -> node(0).clusterNodes().stream().filter(n -> txCrdNode.id().equals(n.id())).count() == 0,
+                () -> node(0).cluster().nodes().stream().filter(n -> txCrdNode.id().equals(n.id())).count() == 0,
                 10_000));
 
         InternalTransaction conflictTx = (InternalTransaction) node(0).transactions().begin();
@@ -546,7 +546,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         txCrdNode.stop();
 
         assertTrue(waitForCondition(
-                () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
+                () -> node(0).cluster().nodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
                 10_000)
         );
 
@@ -617,7 +617,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         txCrdNode.stop();
 
         assertTrue(waitForCondition(
-                () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
+                () -> node(0).cluster().nodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
                 10_000)
         );
 
@@ -1053,7 +1053,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         txCrdNode.stop();
 
         assertTrue(waitForCondition(
-                () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
+                () -> node(0).cluster().nodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
                 10_000)
         );
     }
@@ -1079,7 +1079,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                             : new TablePartitionId(tbl.tableId(), PART_ID)
             );
 
-            ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.name().equals(primary)).findAny().get();
+            ClusterNode primaryNode = node(0).cluster().nodes().stream().filter(node -> node.name().equals(primary)).findAny().get();
 
             publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
         } else {
@@ -1256,7 +1256,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         node.stop();
 
         assertTrue(waitForCondition(
-                () -> node(0).clusterNodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
+                () -> node(0).cluster().nodes().stream().filter(n -> txCrdNodeId.equals(n.id())).count() == 0,
                 10_000)
         );
         return ((InternalTransaction) rwTx1).id();
