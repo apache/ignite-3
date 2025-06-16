@@ -906,6 +906,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4, 5})
+    void testObservableTimestampPropagation(int key) {
+        Tuple rec = Tuple.create().set(COLUMN_KEY, key).set(COLUMN_VAL, "value1");
+
+        JobTarget jobTarget = JobTarget.colocated(TABLE_NAME, rec);
+        JobDescriptor<Tuple, Void> jobDescriptor = JobDescriptor.builder(UpsertJob.class).build();
+
+        client().compute().execute(jobTarget, jobDescriptor, rec);
+    }
+
     private void testEchoArg(Object arg) {
         Object res = client().compute().execute(JobTarget.node(node(0)), JobDescriptor.builder(EchoJob.class).build(), arg);
 
@@ -1135,6 +1146,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
                 return new CompletableFuture<>();
             }
+        }
+    }
+
+    private static class UpsertJob implements ComputeJob<Tuple, Void> {
+        @Override
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Tuple arg) {
+            return context.ignite().tables().table(TABLE_NAME).recordView().upsertAsync(null, arg);
         }
     }
 }
