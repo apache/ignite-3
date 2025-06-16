@@ -816,7 +816,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (Cursor<Tuple> cursor = view.query(null, null)) {
             while (cursor.hasNext()) {
                 resCount++;
-
                 Tuple item = cursor.next();
 
                 assertEquals("name-" + item.intValue("id"), item.stringValue("name"));

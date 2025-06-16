@@ -76,6 +76,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.IgniteClientConnectionException;
@@ -99,6 +100,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.JobTaskStatusMapper;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -906,21 +908,32 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true", hint);
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {1, 2, 3, 4, 5})
-    void testObservableTimestampPropagation(int key) {
-        JobDescriptor<Tuple, Void> jobDescriptor = JobDescriptor.builder(UpsertJob.class).build();
+    @Test
+    void testObservableTimestampPropagation() {
+        int count = 20_000;
+        JobDescriptor<Tuple, Void> jobDescriptor = JobDescriptor.builder(UpsertAllJob.class).build();
 
         for (int port : getClientPorts()) {
             try (var client = IgniteClient.builder().addresses("localhost:" + port).build()) {
-                String value = "value_" + key + "_" + port;
-                Tuple rec = Tuple.create().set(COLUMN_KEY, key).set(COLUMN_VAL, value);
+                int start = port * count;
+                Tuple arg = Tuple.create().set("start", start).set("count", count);
 
-                JobTarget jobTarget = JobTarget.colocated(TABLE_NAME, rec);
-                client.compute().execute(jobTarget, jobDescriptor, rec);
+                client.compute().execute(JobTarget.node(node(0)), jobDescriptor, arg);
 
-                String res = client.sql().execute(null, "SELECT val FROM " + TABLE_NAME + " WHERE key = ?", key).next().value(0);
-                assertEquals(value, res);
+                int resCount = 0;
+
+                try (Cursor<Tuple> cursor = client.tables().table(TABLE_NAME).recordView().query(null, null)) {
+                    while (cursor.hasNext()) {
+                        resCount++;
+                        Tuple item = cursor.next();
+
+                        assertEquals("v" + item.intValue("id"), item.stringValue("name"));
+                    }
+                }
+
+                assertEquals(count, resCount);
+
+                client.sql().executeScript("DELETE FROM " + TABLE_NAME);
             }
         }
     }
@@ -1157,10 +1170,18 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         }
     }
 
-    private static class UpsertJob implements ComputeJob<Tuple, Void> {
+    @SuppressWarnings("DataFlowIssue")
+    private static class UpsertAllJob implements ComputeJob<Tuple, Void> {
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Tuple arg) {
-            return context.ignite().tables().table(TABLE_NAME).recordView().upsertAsync(null, arg);
+            int start = arg.intValue("start");
+            int count = arg.intValue("count");
+
+            List<Tuple> tuples = IntStream.range(start, start + count).map(i -> i + 1)
+                    .mapToObj(i -> Tuple.create().set(COLUMN_KEY, i).set(COLUMN_VAL, "v" + i))
+                    .collect(Collectors.toList());
+
+            return context.ignite().tables().table(TABLE_NAME).recordView().upsertAllAsync(null, tuples);
         }
     }
 }
