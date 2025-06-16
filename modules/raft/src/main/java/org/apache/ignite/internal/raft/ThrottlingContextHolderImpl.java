@@ -27,6 +27,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -48,6 +49,8 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
     private final double maxInflightOverflowRate;
 
     private final Map<String, PeerContextHolder> peerContexts = new ConcurrentHashMap<>();
+
+    private static final boolean ENABLED = IgniteSystemProperties.getBoolean("RAFT_CLIENT_THROTTLING_ENABLED", true);
 
     @TestOnly
     public ThrottlingContextHolderImpl(RaftConfiguration configuration) {
@@ -74,21 +77,37 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
 
     @Override
     public boolean isOverloaded(Peer peer, String requestClassName) {
+        if (!ENABLED) {
+            return false;
+        }
+
         return peerContext(peer).isOverloaded();
     }
 
     @Override
     public void beforeRequest(Peer peer) {
+        if (!ENABLED) {
+            return;
+        }
+
         peerContext(peer).beforeRequest();
     }
 
     @Override
     public void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Boolean retriableError) {
+        if (!ENABLED) {
+            return;
+        }
+
         peerContext(peer).afterRequest(requestStartTimestamp, retriableError);
     }
 
     @Override
     public long peerRequestTimeoutMillis(Peer peer) {
+        if (!ENABLED) {
+            return 3000;
+        }
+
         return peerContext(peer).adaptiveResponseTimeoutMillis.get();
     }
 
