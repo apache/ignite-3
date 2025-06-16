@@ -431,8 +431,8 @@ public class ConfigurationUtil {
      *
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
-    public static void checkConfigurationType(Collection<RootKey<?, ?>> rootKeys, ConfigurationStorage storage) {
-        for (RootKey<?, ?> key : rootKeys) {
+    public static void checkConfigurationType(Collection<RootKey<?, ?, ?>> rootKeys, ConfigurationStorage storage) {
+        for (RootKey<?, ?, ?> key : rootKeys) {
             if (key.type() != storage.type()) {
                 throw new IllegalArgumentException("Invalid root key configuration type [key=" + key
                         + ", storage=" + storage.getClass().getName() + ", storageType=" + storage.type() + "]");
