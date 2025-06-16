@@ -52,7 +52,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Fork(1)
 @Threads(32)
 @Warmup(iterations = 10, time = 20)
-@Measurement(iterations = 20, time = 60)
+@Measurement(iterations = 30, time = 60)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
