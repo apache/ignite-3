@@ -34,8 +34,8 @@ public class SlidingHistogram {
     private final int[] circularBuffer;
     private final int windowSize;
     private final long estimationDefault;
-    private final AtomicInteger index = new AtomicInteger(0);
     private final AtomicInteger currentSize = new AtomicInteger(0);
+    private volatile int index = 0;
 
     /**
      * Constructor for SlidingHistogram.
@@ -56,18 +56,19 @@ public class SlidingHistogram {
      */
     public synchronized void record(long value) {
         int bucket = mapToBucket(value);
+        int index = this.index;
 
         if (currentSize.get() == windowSize) {
-            int oldBucket = circularBuffer[index.get()];
+            int oldBucket = circularBuffer[index];
             bucketCounters.decrementAndGet(oldBucket);
         } else {
             currentSize.incrementAndGet();
         }
 
-        circularBuffer[index.get()] = bucket;
+        circularBuffer[index] = bucket;
         bucketCounters.incrementAndGet(bucket);
 
-        index.updateAndGet(v -> (v + 1) % windowSize);
+        this.index = (index + 1) % windowSize;
     }
 
     /**

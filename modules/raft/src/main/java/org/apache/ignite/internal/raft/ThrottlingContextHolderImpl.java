@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -103,12 +104,6 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         private static final double HISTOGRAM_PERCENTILE = 0.98;
         private static final long HISTOGRAM_ESTIMATION_DEFAULT = 0;
 
-        private final SlidingAverageValueTracker averageValueTracker = new SlidingAverageValueTracker(
-                AVERAGE_VALUE_TRACKER_WINDOW_SIZE,
-                AVERAGE_VALUE_TRACKER_MINIMIM_VALUES,
-                AVERAGE_VALUE_TRACKER_DEFAULT
-        );
-
         private final SlidingHistogram histogram = new SlidingHistogram(HISTOGRAM_WINDOW_SIZE, HISTOGRAM_ESTIMATION_DEFAULT);
 
         private final Peer peer;
@@ -122,7 +117,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         private final long decreaseDelay;
 
         /** Counter of current number of requests in-flight. */
-        private final AtomicInteger currentInFlights = new AtomicInteger();
+        private final LongAdder currentInFlights = new LongAdder();
 
         /**
          * Response timeout in milliseconds. This value is adapted if the average response time from peer grows or
@@ -166,7 +161,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
          * @return Whether the peer is overloaded or not.
          */
         boolean isOverloaded() {
-            return currentInFlights.get() >= computeMaxInFlights() * maxInflightOverflowRate;
+            return currentInFlights.longValue() >= computeMaxInFlights() * maxInflightOverflowRate;
         }
 
         int computeMaxInFlights() {
@@ -178,17 +173,16 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         }
 
         void beforeRequest() {
-            currentInFlights.incrementAndGet();
+            currentInFlights.increment();
         }
 
         void afterRequest(long requestStartTimestamp, Boolean retriableError) {
-            currentInFlights.decrementAndGet();
+            currentInFlights.decrement();
 
             if (retriableError == null || retriableError) {
                 long now = System.currentTimeMillis();
                 long duration = now - requestStartTimestamp;
 
-                averageValueTracker.record(duration);
                 histogram.record(duration);
 
                 boolean timedOut = retriableError != null;
@@ -197,7 +191,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         }
 
         private void adaptRequestTimeout(long now, boolean timedOut) {
-            double avg = averageValueTracker.avg();
+            double avg = histogram.estimatePercentile(0.5);
             long defaultResponseTimeout = configuration.responseTimeoutMillis().value();
             long retryTimeout = configuration.retryTimeoutMillis().value();
             long r = adaptiveResponseTimeoutMillis.get();
