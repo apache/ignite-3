@@ -909,17 +909,20 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3, 4, 5})
     void testObservableTimestampPropagation(int key) {
-        String value = "value" + key;
-        Tuple rec = Tuple.create().set(COLUMN_KEY, key).set(COLUMN_VAL, value);
-
-        JobTarget jobTarget = JobTarget.colocated(TABLE_NAME, rec);
         JobDescriptor<Tuple, Void> jobDescriptor = JobDescriptor.builder(UpsertJob.class).build();
 
-        client().compute().execute(jobTarget, jobDescriptor, rec);
+        for (int port : getClientPorts()) {
+            try (var client = IgniteClient.builder().addresses("localhost:" + port).build()) {
+                String value = "value_" + key + "_" + port;
+                Tuple rec = Tuple.create().set(COLUMN_KEY, key).set(COLUMN_VAL, value);
 
-        String res = client().sql().execute(null, "SELECT val FROM " + TABLE_NAME + " WHERE key = ?", key).next().value(0);
+                JobTarget jobTarget = JobTarget.colocated(TABLE_NAME, rec);
+                client.compute().execute(jobTarget, jobDescriptor, rec);
 
-        assertEquals(value, res);
+                String res = client.sql().execute(null, "SELECT val FROM " + TABLE_NAME + " WHERE key = ?", key).next().value(0);
+                assertEquals(value, res);
+            }
+        }
     }
 
     private void testEchoArg(Object arg) {
