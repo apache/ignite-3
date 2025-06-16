@@ -941,7 +941,8 @@ public class ClientTable implements Table {
                     List<CompletableFuture<R>> res = new ArrayList<>();
 
                     if (!unmapped.isEmpty()) {
-                        res.add(fun.apply(unmapped, null));
+                        // Disable awareness for unmapped keys.
+                        res.add(fun.apply(unmapped, PartitionAwarenessProvider.NULL_PROVIDER));
                     }
 
                     for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
@@ -994,7 +995,8 @@ public class ClientTable implements Table {
                     List<Batch<E>> batches = new ArrayList<>();
 
                     if (!unmapped.batch.isEmpty()) {
-                        res.add(fun.apply(unmapped.batch, null));
+                        // Disable awareness for unmapped keys.
+                        res.add(fun.apply(unmapped.batch, PartitionAwarenessProvider.NULL_PROVIDER));
                         batches.add(unmapped);
                     }
 
