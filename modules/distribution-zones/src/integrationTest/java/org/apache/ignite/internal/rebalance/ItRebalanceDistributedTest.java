@@ -555,7 +555,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         RaftNodeId partitionNodeId = leaderNode.raftManager.server()
                 .localNodes()
                 .stream()
-                .filter(nodeId -> nodeId.groupId().toString().contains(nonLeaderTable.zoneId() + "_part"))
+                .filter(nodeId -> nodeId.groupId().toString().contains("part"))
+                .filter(nodeId -> !nodeId.groupId().toString().contains(defaultZoneId(leaderNode.catalogManager) + "_part"))
                 .findFirst()
                 .orElseThrow();
 
@@ -587,6 +588,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
         checkPartitionNodes(0, 3);
+    }
+
+    private static int defaultZoneId(CatalogManager catalog) {
+        return catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id();
     }
 
     @Test
@@ -1116,11 +1121,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static Set<Assignment> getDefaultZonePartitionStableAssignments(Node node, int partitionIndex) {
-        CatalogManager catalog = node.catalogManager;
-
         var stableAssignmentsFuture = ZoneRebalanceUtil.zonePartitionAssignments(
                 node.metaStorageManager,
-                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id(),
+                defaultZoneId(node.catalogManager),
                 partitionIndex
         );
 
@@ -2016,9 +2019,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .flatMap((n) -> {
                     List<JraftGroupEventsListener> nodeRaftGroupServices = new ArrayList<>();
                     n.raftManager.forEach((nodeId, raftGroupService) -> {
-                        CatalogManager catalog = nodes.get(0).catalogManager;
                         // Excluded default zone raft services.
-                        if (!raftGroupService.getGroupId().startsWith("" + catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id())) {
+                        if (!raftGroupService.getGroupId().startsWith("" + defaultZoneId(nodes.get(0).catalogManager))) {
                             nodeRaftGroupServices.add(raftGroupService.getNodeOptions().getRaftGrpEvtsLsnr());
                         }
                     });
