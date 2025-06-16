@@ -985,7 +985,7 @@ public class Replicator implements ThreadId.OnError {
             r.sendEntries();
         }
         else {
-            LOG.warn("Replicator stops sending entries [replicator={}].", id);
+            LOG.info("Replicator stops sending entries [replicator={}].", id);
             id.unlock();
         }
         return true;
