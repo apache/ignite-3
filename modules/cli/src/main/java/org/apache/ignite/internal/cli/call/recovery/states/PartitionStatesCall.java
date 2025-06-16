@@ -83,27 +83,31 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
 
         boolean colocationEnabled = globalStates.getStates().stream().anyMatch(g -> g.getTableId() == -1);
 
-        List<String> content = globalStates.getStates().stream()
-                .flatMap(PartitionStatesCall::globalState)
-                .collect(toList());
-
-        return DefaultCallOutput.success(new Table(colocationEnabled ? ZONE_GLOBAL_HEADERS : GLOBAL_HEADERS, content));
+        if (colocationEnabled) {
+            return DefaultCallOutput.success(new Table(ZONE_GLOBAL_HEADERS, globalStates.getStates().stream()
+                    .flatMap(PartitionStatesCall::globalZoneState)
+                    .collect(toList())));
+        } else {
+            return DefaultCallOutput.success(new Table(GLOBAL_HEADERS, globalStates.getStates().stream()
+                    .flatMap(PartitionStatesCall::globalTableSate)
+                    .collect(toList())));
+        }
     }
 
-    private static Stream<String> globalState(GlobalPartitionStateResponse state) {
-        if (state.getTableId() == -1) {
-            // Means colocation is enabled and we have no table info.
-            return Stream.of(
-                    state.getZoneName(),
-                    String.valueOf(state.getPartitionId()),
-                    state.getState()
-            );
-        }
+    private static Stream<String> globalTableSate(GlobalPartitionStateResponse state) {
         return Stream.of(
                 state.getZoneName(),
                 state.getSchemaName(),
                 String.valueOf(state.getTableId()),
                 state.getTableName(),
+                String.valueOf(state.getPartitionId()),
+                state.getState()
+        );
+    }
+
+    private static Stream<String> globalZoneState(GlobalPartitionStateResponse state) {
+        return Stream.of(
+                state.getZoneName(),
                 String.valueOf(state.getPartitionId()),
                 state.getState()
         );
@@ -122,29 +126,33 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
 
         boolean colocationEnabled = localStates.getStates().stream().anyMatch(g -> g.getTableId() == -1);
 
-        List<String> content = localStates.getStates().stream()
-                .flatMap(PartitionStatesCall::localState)
-                .collect(toList());
-
-        return DefaultCallOutput.success(new Table(colocationEnabled ? ZONE_LOCAL_HEADERS : LOCAL_HEADERS, content));
+        if (colocationEnabled) {
+            return DefaultCallOutput.success(new Table(ZONE_LOCAL_HEADERS, localStates.getStates().stream()
+                    .flatMap(PartitionStatesCall::localZoneState)
+                    .collect(toList())));
+        } else {
+            return DefaultCallOutput.success(new Table(LOCAL_HEADERS, localStates.getStates().stream()
+                    .flatMap(PartitionStatesCall::localTableState)
+                    .collect(toList())));
+        }
     }
 
-    private static Stream<String> localState(LocalPartitionStateResponse state) {
-        if (state.getTableId() == -1) {
-            // Means colocation is enabled and we have no table info.
-            return Stream.of(
-                    state.getNodeName(),
-                    state.getZoneName(),
-                    String.valueOf(state.getPartitionId()),
-                    state.getState()
-            );
-        }
+    private static Stream<String> localTableState(LocalPartitionStateResponse state) {
         return Stream.of(
                 state.getNodeName(),
                 state.getZoneName(),
                 state.getSchemaName(),
                 String.valueOf(state.getTableId()),
                 state.getTableName(),
+                String.valueOf(state.getPartitionId()),
+                state.getState()
+        );
+    }
+
+    private static Stream<String> localZoneState(LocalPartitionStateResponse state) {
+        return Stream.of(
+                state.getNodeName(),
+                state.getZoneName(),
                 String.valueOf(state.getPartitionId()),
                 state.getState()
         );
