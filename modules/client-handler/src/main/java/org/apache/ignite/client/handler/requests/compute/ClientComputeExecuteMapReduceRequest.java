@@ -61,6 +61,7 @@ public class ClientComputeExecuteMapReduceRequest {
         String taskClassName = in.unpackString();
         ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
 
+        // TODO: Wrap into internal task to gather all job timestamps?
         TaskExecution<Object> execution = compute.submitMapReduce(
                 TaskDescriptor.builder(taskClassName).units(deploymentUnits).build(), arg);
         sendTaskResult(execution, notificationSender);
