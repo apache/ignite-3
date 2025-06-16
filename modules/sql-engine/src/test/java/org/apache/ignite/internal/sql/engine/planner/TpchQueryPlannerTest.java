@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlan
 
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchTables;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -37,7 +36,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 )
 public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     @ParameterizedTest
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25607")
     @ValueSource(strings = {
             "1", "2", "3", "4", "5", "6", "7", "8", "8v", "9", "10", "11", "12", "12v",
             "13", "14", "14v", "15", "16", "17", "18", "19", "20", "21", "22"
