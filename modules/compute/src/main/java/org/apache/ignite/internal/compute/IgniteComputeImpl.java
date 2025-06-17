@@ -613,7 +613,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(
                 receiver, receiverArg, receiver.payloadMarshaller(), receiver.argumentMarshaller(), items);
 
-        // TODO: What to do with observableTs in embedded mode?
         return runReceiverAsync(payload, node, deploymentUnits, receiver.options())
                 .thenApply(r -> {
                     byte[] resBytes = r.get1();
