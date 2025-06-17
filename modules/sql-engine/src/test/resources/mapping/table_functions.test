@@ -2,7 +2,11 @@ N0
 SELECT * FROM TABLE(system_range(1, 5))
 ---
 Fragment#0 root
+  distribution: single
   executionNodes: [N0]
-  tree:
-    TableFunctionScan(source=1, distribution=single)
+  tree: 
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 5)
+        est: (rows=100)
 ---

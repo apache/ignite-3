@@ -36,7 +36,17 @@ public final class ExplainUtils {
 
     /** Converts given relation to string representation suitable for EXPLAIN command output. */
     public static String toString(IgniteRel rel) {
-        return RelTreeToTextWriter.dumpTree(rel);
+        return RelTreeToTextWriter.dumpTree(rel, 0);
+    }
+
+    /**
+     * Converts the given relational tree to string representation suitable for EXPLAIN command output.
+     *
+     * @param rel The relation tree to convert.
+     * @param padding The number of spaces to use for left-padding the converted tree.
+     */
+    public static String toString(IgniteRel rel, int padding) {
+        return RelTreeToTextWriter.dumpTree(rel, (padding + 1) / RelTreeToTextWriter.NEXT_OPERATOR_INDENT);
     }
 
     static RexShuttle inputRefRewriter(RelDataType rowType) {

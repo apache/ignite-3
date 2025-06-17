@@ -96,6 +96,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentPrinter;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingParameters;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingUtils;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
@@ -541,6 +542,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
             }
             case MAPPING:
+                CompletableFuture<List<MappedFragment>> mappedFragments;
                 if (plan.plan() instanceof MultiStepPlan) {
                     QueryTransactionContext txContext = operationContext.txContext();
 
@@ -558,21 +560,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     MappingParameters mappingParameters =
                             MappingParameters.create(operationContext.parameters(), readOnly, nodeExclusionFilter);
 
-                    CompletableFuture<List<MappedFragment>> mapping = mappingService.map((MultiStepPlan) plan.plan(), mappingParameters);
-
-                    CompletableFuture<Iterator<InternalSqlRow>> fragments0 =
-                            mapping.thenApply(FragmentPrinter::fragmentsToString)
-                                    .thenApply(InternalSqlRowSingleString::new)
-                                    .thenApply(InternalSqlRow.class::cast)
-                                    .thenApply(List::of)
-                                    .thenApply(List::iterator);
-
-                    return new IteratorToDataCursorAdapter<>(fragments0, Runnable::run);
+                    mappedFragments = mappingService.map((MultiStepPlan) plan.plan(), mappingParameters);
                 } else {
-                    InternalSqlRow res =
-                            new InternalSqlRowSingleString(FragmentPrinter.relAwareToString(plan.plan(), localNode.name()));
-                    return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
+                    mappedFragments = completedFuture(List.of(
+                            MappingUtils.createSingleNodeMapping(localNode.name(), plan.plan().getRel())
+                    ));
                 }
+
+                CompletableFuture<Iterator<InternalSqlRow>> fragments0 =
+                        mappedFragments.thenApply(mfs -> FragmentPrinter.fragmentsToString(false, mfs))
+                                .thenApply(InternalSqlRowSingleString::new)
+                                .thenApply(InternalSqlRow.class::cast)
+                                .thenApply(List::of)
+                                .thenApply(List::iterator);
+
+                return new IteratorToDataCursorAdapter<>(fragments0, Runnable::run);
             default:
                 throw new IllegalArgumentException("Unsupported mode: " + plan.mode());
         }

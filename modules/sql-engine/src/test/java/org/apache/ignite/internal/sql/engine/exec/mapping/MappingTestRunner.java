@@ -234,7 +234,7 @@ final class MappingTestRunner {
             throw new IllegalStateException("Mapped fragments");
         }
 
-        return FragmentPrinter.fragmentsToString(mappedFragments);
+        return FragmentPrinter.fragmentsToString(true, mappedFragments);
     }
 
     static class TestCaseDef {
