@@ -34,7 +34,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
     /** Fetch can be unset. */
     private final boolean fetchUndefined;
 
-    /** Already processed (pushed to upstream) rows count. */
+    /** Already processed (pushed to downstream) rows count. */
     private long rowsProcessed;
 
     /** Waiting results counter. */

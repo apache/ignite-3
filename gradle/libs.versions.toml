@@ -24,7 +24,7 @@ commons-collections4 = "4.5.0"
 commons-lang3 = "3.17.0"
 fliptables = "1.1.1"
 fmpp = "0.9.16"
-jackson = "2.19.0"
+jackson = "2.19.1"
 jakarta = "2.0.0"
 jansi = "2.4.2"
 netty = "4.1.119.Final"
@@ -72,7 +72,7 @@ msgpack = "0.8.24"
 caffeine = "3.2.0"
 fastutil = "8.5.15"
 kryo = "5.6.2"
-bytebuddy = "1.17.5"
+bytebuddy = "1.17.6"
 mockServer = "5.15.0"
 archunit = "1.4.1"
 testkit = "1.13.1"
@@ -90,6 +90,7 @@ otel = "1.51.0"
 spring-boot = "3.5.0"
 spring-data = "3.5.1"
 testcontainers = "1.21.1"
+gradleToolingApi = "8.6"
 
 #Tools
 pmdTool = "6.55.0"
@@ -295,3 +296,5 @@ commons-collections4 = { module = "org.apache.commons:commons-collections4", ver
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
 
 spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugsTool" }
+
+gradle-tooling-api = { module = "org.gradle:gradle-tooling-api", version.ref = "gradleToolingApi" }

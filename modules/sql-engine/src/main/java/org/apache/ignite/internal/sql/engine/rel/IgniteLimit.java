@@ -176,12 +176,19 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     /** {@inheritDoc} */
     @Override
     public double estimateRowCount(RelMetadataQuery mq) {
-        double inputRowCount = mq.getRowCount(getInput());
+        return estimateRowCount(mq.getRowCount(getInput()), offset, fetch);
+    }
 
+    /** Returns the estimated row count based on provided input and offset and fetch attributes. */
+    public static double estimateRowCount(
+            double inputRowCount,
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
+    ) {
         double lim = fetch != null ? doubleFromRex(fetch, inputRowCount * FETCH_IS_PARAM_FACTOR) : inputRowCount;
         double off = offset != null ? doubleFromRex(offset, inputRowCount * OFFSET_IS_PARAM_FACTOR) : 0;
 
-        return Math.max(0, Math.min(lim, inputRowCount - off));
+        return Math.max(1, Math.min(lim, inputRowCount - off));
     }
 
     /**
