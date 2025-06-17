@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -140,6 +141,41 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
+    @MethodSource("shortKeyMetadata")
+    public void shortKey(String query, PartitionAwarenessMetadata expected) {
+        node.initSchema("CREATE TABLE t (c1 INT, c2 INT, c3 INT, PRIMARY KEY (c3, c2)) COLOCATE BY (c3)");
+
+        QueryPlan plan = node.prepare(query);
+        PartitionAwarenessMetadata metadata = plan.partitionAwarenessMetadata();
+
+        expectMedata(expected, metadata);
+    }
+
+    private static Stream<Arguments> shortKeyMetadata() {
+        return Stream.of(
+                // KV GET
+                Arguments.of("SELECT * FROM t WHERE c3=? and c2=?", dynamicParams(1)),
+                Arguments.of("SELECT * FROM t WHERE c2=? and c3=?", dynamicParams(2)),
+                Arguments.of("SELECT * FROM t WHERE c3=? and c2=?", dynamicParams(1)),
+                Arguments.of("SELECT * FROM t WHERE c1=? and c2=? and c3=?", dynamicParams(3)),
+                Arguments.of("SELECT * FROM t WHERE c3=? and c1=? and c2=?", dynamicParams(1)),
+
+                Arguments.of("SELECT * FROM t WHERE c3=3", null),
+                Arguments.of("SELECT * FROM t WHERE c2=? and c3=3", null),
+                Arguments.of("SELECT * FROM t WHERE c1=? and c2=? and c3=3", null),
+
+                // KV PUT
+                Arguments.of("INSERT INTO t VALUES (?, ?, ?)",  dynamicParams(3)),
+                Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, ?)", dynamicParams(3)),
+                Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (?, ?, ?)", dynamicParams(1)),
+
+                Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, 3)", null),
+                Arguments.of("INSERT INTO t (c1, c3, c2) VALUES (?, 3, ?)", null),
+                Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (3, ?, ?)", null)
+        );
+    }
+
+    @ParameterizedTest
     @MethodSource("compoundKeyMetadata")
     public void compoundKey(String query, PartitionAwarenessMetadata expected) {
         node.initSchema("CREATE TABLE t (c1 INT, c2 INT, c3 INT, c4 INT, PRIMARY KEY(c1, c2, c3)) COLOCATE BY (c3, c1, c2)");
@@ -189,7 +225,11 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
             assertNotNull(table, "table");
 
             assertEquals(table.id(), actual.tableId(), "metadata tableId");
-            assertArrayEquals(expected.indexes(), actual.indexes(), "indexes");
+            assertEquals(
+                    Arrays.stream(expected.indexes()).boxed().collect(Collectors.toList()),
+                    Arrays.stream(actual.indexes()).boxed().collect(Collectors.toList()),
+                    "indexes"
+            );
         }
     }
 }

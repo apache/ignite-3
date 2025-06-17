@@ -62,7 +62,9 @@ public class PartitionAwarenessMetadataExtractor {
         RelOptTable optTable = kv.getTable();
         assert optTable != null;
 
-        return extractMetadata(optTable, kv.keyExpressions());
+        List<RexNode> expressions = kv.keyExpressions();
+
+        return buildMetadata(optTable, false, expressions);
     }
 
     /**
@@ -76,12 +78,14 @@ public class PartitionAwarenessMetadataExtractor {
         RelOptTable optTable = kv.getTable();
         assert optTable != null;
 
-        return extractMetadata(optTable, kv.expressions());
+        List<RexNode> expressions = kv.expressions();
+
+        return buildMetadata(optTable, true, expressions);
     }
 
-    @Nullable
-    private static PartitionAwarenessMetadata extractMetadata(
+    private static @Nullable PartitionAwarenessMetadata buildMetadata(
             RelOptTable optTable,
+            boolean fullRow,
             List<RexNode> expressions
     ) {
         IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
@@ -95,8 +99,14 @@ public class PartitionAwarenessMetadataExtractor {
 
         for (int i = 0; i < colocationKeys.size(); i++) {
             int colIdx = colocationKeys.get(i);
-            int keyIdx = igniteTable.keyColumns().indexOf(colIdx);
-            RexNode expr = expressions.get(keyIdx);
+            RexNode expr;
+
+            if (fullRow) {
+                expr = expressions.get(colIdx);
+            } else {
+                int keyIdx = igniteTable.keyColumns().indexOf(colIdx);
+                expr = expressions.get(keyIdx);
+            }
 
             if (expr instanceof RexDynamicParam) {
                 RexDynamicParam dynamicParam = (RexDynamicParam) expr;
