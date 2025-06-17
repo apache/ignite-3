@@ -305,7 +305,10 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
                 IgniteBiTuple<T, Long> jobRes = resultFutures[i].join();
                 results.put(idFutures[i].join(), jobRes.get1());
 
-                timestamp = Math.max(timestamp, jobRes.get2() == null ? NULL_HYBRID_TIMESTAMP : jobRes.get2());
+                Long jobTs = jobRes.get2();
+                assert jobTs != null : "Job result timestamp should not be null";
+
+                timestamp = Math.max(timestamp, jobTs);
             }
 
             return new IgniteBiTuple<>(results, timestamp);
