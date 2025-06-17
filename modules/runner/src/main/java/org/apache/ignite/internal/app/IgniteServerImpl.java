@@ -394,6 +394,8 @@ public class IgniteServerImpl implements IgniteServer {
 
         logAvailableResources();
 
+        ackRemoteManagement();
+
         return instance.startAsync().handle((result, throwable) -> {
             if (throwable != null) {
                 return CompletableFuture.<Void>failedFuture(throwable);
@@ -413,11 +415,6 @@ public class IgniteServerImpl implements IgniteServer {
 
             return completedFuture(result);
         }).thenCompose(identity());
-    }
-
-    private static void logAvailableResources() {
-        LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
-        LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
     }
 
     @Override
@@ -455,6 +452,54 @@ public class IgniteServerImpl implements IgniteServer {
         }
 
         LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, "Apache Ignite ver. " + version);
+    }
+
+    private static void logAvailableResources() {
+        LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
+        LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
+    }
+
+    private static void ackRemoteManagement() {
+        if (LOG.isInfoEnabled()) {
+            var sb = new StringBuilder();
+
+            sb.append("Remote Management [");
+
+            boolean jmxEnabled = System.getProperty("com.sun.management.jmxremote") != null;
+
+            sb.append("JMX (");
+            sb.append("remote: ").append(onOff(jmxEnabled));
+
+            if (jmxEnabled) {
+                sb.append(", ");
+
+                sb.append("port: ").append(System.getProperty("com.sun.management.jmxremote.port", "<n/a>")).append(", ");
+                sb.append("auth: ").append(onOff(Boolean.getBoolean("com.sun.management.jmxremote.authenticate"))).append(", ");
+
+                // By default SSL is enabled, that's why additional check for null is needed.
+                // https://docs.oracle.com/en/java/javase/11/management/monitoring-and-management-using-jmx-technology.html
+                boolean sslEnabled = Boolean.getBoolean("com.sun.management.jmxremote.ssl")
+                        || (System.getProperty("com.sun.management.jmxremote.ssl") == null);
+
+                sb.append("ssl: ").append(onOff(sslEnabled));
+            }
+
+            sb.append(")");
+
+            sb.append(']');
+
+            LOG.info(sb.toString());
+        }
+    }
+
+    /**
+     * Gets "on" or "off" string for given boolean value.
+     *
+     * @param b Boolean value to convert.
+     * @return Result string.
+     */
+    private static String onOff(boolean b) {
+        return b ? "on" : "off";
     }
 
     private static void sync(CompletableFuture<Void> future) {
