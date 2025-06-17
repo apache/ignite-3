@@ -39,8 +39,8 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.IgniteTables;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -105,23 +105,20 @@ public class ObservableTimestampComputePropagationTest extends BaseIgniteAbstrac
 
             RecordView<Tuple> view = defaultTable(client).recordView();
             CompletableFuture<Void> streamerFut;
-            int count = 3;
 
             FakeCompute.observableTimestamp = new HybridTimestamp(1234, 5678);
 
             try (var publisher = new SubmissionPublisher<Tuple>()) {
                 streamerFut = view.streamData(
                         publisher,
+                        DataStreamerReceiverDescriptor.builder(TestReceiver.class).build(),
                         t -> t,
                         t -> t.longValue("id"),
-                        ReceiverDescriptor.builder(TestReceiver.class).build(),
+                        ":arg:",
                         null,
-                        null,
-                        ":arg:");
+                        null);
 
-                for (long i = 0; i < count; i++) {
-                    publisher.submit(tuple(i));
-                }
+                publisher.submit(tuple());
             }
 
             streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
