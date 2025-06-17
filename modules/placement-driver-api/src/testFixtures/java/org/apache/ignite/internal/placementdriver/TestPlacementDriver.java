@@ -127,20 +127,18 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
         TestReplicaMetaImpl replicaMeta = primaryReplicaSupplier.get();
 
-        if (replicaMeta != null) {
-            fireEvent(
-                    PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
-                    new PrimaryReplicaEventParameters(
-                            // The only usage of causality token below is IndexBuildController that doesn't use in tests, so the actual
-                            // value doesn't matter there yet.
-                            0,
-                            replicaMeta.getReplicationGroupId(),
-                            replicaMeta.getLeaseholderId(),
-                            replicaMeta.getLeaseholder(),
-                            replicaMeta.getStartTime()
-                    )
-            );
-        }
+        fireEvent(
+                PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
+                new PrimaryReplicaEventParameters(
+                        // The only usage of causality token below is IndexBuildController that doesn't use in tests, so the actual
+                        // value doesn't matter there yet.
+                        0,
+                        replicaMeta.getReplicationGroupId(),
+                        replicaMeta.getLeaseholderId(),
+                        replicaMeta.getLeaseholder(),
+                        replicaMeta.getStartTime()
+                )
+        );
     }
 
     @Override
