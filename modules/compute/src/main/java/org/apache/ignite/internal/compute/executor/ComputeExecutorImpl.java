@@ -134,13 +134,22 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     private static Callable<CompletableFuture<ComputeJobDataHolder>> addObservableTimestamp(
             Callable<CompletableFuture<ComputeJobDataHolder>> jobCallable,
             ClockService clockService) {
-        return () -> jobCallable.call().thenApply(holder -> {
-            if (holder == null) {
-                return new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, clockService.nowLong());
+        return () -> {
+            CompletableFuture<ComputeJobDataHolder> jobFut = jobCallable.call();
+
+            if (jobFut == null) {
+                return CompletableFuture.completedFuture(
+                        new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, clockService.nowLong()));
             }
 
-            return new ComputeJobDataHolder(holder.type(), holder.data(), clockService.nowLong());
-        });
+            return jobFut.thenApply(holder -> {
+                if (holder == null) {
+                    return new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, clockService.nowLong());
+                }
+
+                return new ComputeJobDataHolder(holder.type(), holder.data(), clockService.nowLong());
+            });
+        };
     }
 
     private Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
