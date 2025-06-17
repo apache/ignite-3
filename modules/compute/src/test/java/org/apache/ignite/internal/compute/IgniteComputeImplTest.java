@@ -54,6 +54,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -107,6 +109,9 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private TableViewInternal table;
+
+    @Spy
+    private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(HybridTimestamp.MIN_VALUE);
 
     private final ClusterNode localNode = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("local-host", 1));
 
@@ -283,19 +288,22 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
-        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, null, null))
-                .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null), localNode)));
+        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull()))
+                .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
+                        "jobResponse", null, HybridTimestamp.MIN_VALUE.longValue()), localNode)));
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken token) {
-        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, null, token))
-                .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null), localNode)));
+        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), eq(token)))
+                .thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
+                        "jobResponse", null, HybridTimestamp.MIN_VALUE.longValue()), localNode)));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
                 eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), any(), isNull()
-        )).thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult("remoteResponse", null), remoteNode)));
+        )).thenReturn(completedFuture(completedExecution(SharedComputeUtils.marshalArgOrResult(
+                "remoteResponse", null, HybridTimestamp.MIN_VALUE.longValue()), remoteNode)));
     }
 
     private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
