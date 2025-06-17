@@ -413,9 +413,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     }
 
     void removeTableStorage(PersistentPageMemoryTableStorage tableStorage) {
-        boolean removed = tableStorages.remove(tableStorage);
-
-        assert removed : tableStorage.getTableId();
+        tableStorages.remove(tableStorage);
     }
 
     private void initMetrics() {
