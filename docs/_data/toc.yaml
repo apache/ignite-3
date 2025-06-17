@@ -36,6 +36,8 @@
       url: quick-start/explore-sql
     - title: Persist Your Data
       url: quick-start/persist-data
+    - title: Monitor Ignite
+      url: quick-start/monitor-ignite
 - title: Embedded Mode
   url: quick-start/embedded-mode
 - title: Ignite CLI Tool
