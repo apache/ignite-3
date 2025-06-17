@@ -24,6 +24,11 @@
 using namespace ignite;
 using namespace detail;
 
+template<typename T>
+std::string PrintTestIndex(const testing::TestParamInfo<typename T::ParamType>& info) {
+    return "_" + std::to_string(info.index);
+}
+
 class quote_if_needed_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
 
 TEST_P(quote_if_needed_fixture, quote_if_needed) {
@@ -61,7 +66,8 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("\"f.f\"", "\"\"\"f.f\"\"\""),
         std::make_tuple("foo\"bar\"", "\"foo\"\"bar\"\"\""),
         std::make_tuple("foo\"bar", "\"foo\"\"bar\"")
-    )
+    ),
+    PrintTestIndex<quote_if_needed_fixture>
 );
 
 
@@ -100,7 +106,8 @@ INSTANTIATE_TEST_SUITE_P(
         "A\xF0",
         "$foo",
         "foo$"
-    )
+    ),
+    PrintTestIndex<malformed_identifiers_fixture>
 );
 
 
@@ -134,6 +141,7 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("\",\"", ","),
         std::make_tuple("\"\xF0\x9F\x98\x85\"", "\xF0\x9F\x98\x85"),
         std::make_tuple("\"f\xF0\x9F\x98\x85\"", "f\xF0\x9F\x98\x85")
-    )
+    ),
+    PrintTestIndex<valid_identifiers_fixture>
 );
 
