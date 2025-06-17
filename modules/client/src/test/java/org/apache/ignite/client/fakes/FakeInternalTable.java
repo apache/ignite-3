@@ -580,6 +580,6 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                         .options(jobOptions)
                         .build(),
                 payload)
-                .thenApply(resBytes -> new IgniteBiTuple<>(resBytes, HybridTimestamp.NULL_HYBRID_TIMESTAMP));
+                .thenApply(resBytes -> new IgniteBiTuple<>(resBytes, FakeCompute.observableTimestamp.longValue()));
     }
 }
