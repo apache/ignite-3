@@ -18,8 +18,6 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -32,6 +30,7 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -61,7 +60,7 @@ public class ObservableTimestampComputePropagationTest extends BaseIgniteAbstrac
 
     @AfterEach
     public void resetFakeCompute() {
-        FakeCompute.observableTimestamp = NULL_HYBRID_TIMESTAMP;
+        FakeCompute.observableTimestamp = HybridTimestamp.MIN_VALUE;
     }
 
     @Test
@@ -70,21 +69,17 @@ public class ObservableTimestampComputePropagationTest extends BaseIgniteAbstrac
                 .addresses("127.0.1:" + testServer.port())
                 .build()) {
             ReliableChannel ch = ((TcpIgniteClient) client).channel();
-            assertEquals(1, lastObservableTimestamp(ch));
+            assertEquals(1, ch.observableTimestamp().get().getPhysical());
 
             JobTarget target = getClusterNodes("server-2");
             JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-            FakeCompute.observableTimestamp = 123;
+            FakeCompute.observableTimestamp = new HybridTimestamp(123, 456);
 
             String res = client.compute().execute(target, job, null);
             assertEquals("server-1", res);
 
-            assertEquals(123, lastObservableTimestamp(ch));
+            assertEquals(FakeCompute.observableTimestamp, ch.observableTimestamp().get());
         }
-    }
-
-    private static Long lastObservableTimestamp(ReliableChannel ch) {
-        return ch.observableTimestamp().get().longValue() >> LOGICAL_TIME_BITS_SIZE;
     }
 }
