@@ -138,7 +138,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, null);
+        verify(computeComponent).executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull());
     }
 
     @Test
@@ -177,7 +177,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, null);
+        verify(computeComponent).executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull());
     }
 
     @Test
@@ -209,7 +209,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, null, null);
+        verify(computeComponent).executeLocally(eq(expectedOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull());
     }
 
     @Test
