@@ -17,14 +17,21 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.AbstractClientTableTest.tuple;
+import static org.apache.ignite.client.AbstractClientTest.DEFAULT_TABLE;
 import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.SubmissionPublisher;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.client.DataStreamerTest.TestReceiver;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.TestHybridClock;
@@ -32,6 +39,11 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,7 +83,7 @@ public class ObservableTimestampComputePropagationTest extends BaseIgniteAbstrac
             ReliableChannel ch = ((TcpIgniteClient) client).channel();
             assertEquals(1, ch.observableTimestamp().get().getPhysical());
 
-            JobTarget target = getClusterNodes("server-2");
+            JobTarget target = getClusterNodes("server-1");
             JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
             FakeCompute.observableTimestamp = new HybridTimestamp(123, 456);
@@ -81,5 +93,50 @@ public class ObservableTimestampComputePropagationTest extends BaseIgniteAbstrac
 
             assertEquals(FakeCompute.observableTimestamp, ch.observableTimestamp().get());
         }
+    }
+
+    @Test
+    public void testReceiverPropagatesTimestampFromTargetNode() {
+        try (IgniteClient client = IgniteClient.builder()
+                .addresses("127.0.1:" + testServer.port())
+                .build()) {
+            ReliableChannel ch = ((TcpIgniteClient) client).channel();
+            assertEquals(1, ch.observableTimestamp().get().getPhysical());
+
+            RecordView<Tuple> view = defaultTable(client).recordView();
+            CompletableFuture<Void> streamerFut;
+            int count = 3;
+
+            FakeCompute.observableTimestamp = new HybridTimestamp(1234, 5678);
+
+            try (var publisher = new SubmissionPublisher<Tuple>()) {
+                streamerFut = view.streamData(
+                        publisher,
+                        t -> t,
+                        t -> t.longValue("id"),
+                        ReceiverDescriptor.builder(TestReceiver.class).build(),
+                        null,
+                        null,
+                        ":arg:");
+
+                for (long i = 0; i < count; i++) {
+                    publisher.submit(tuple(i));
+                }
+            }
+
+            streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+            assertEquals(FakeCompute.observableTimestamp, ch.observableTimestamp().get());
+        }
+    }
+
+    private static Table defaultTable(IgniteClient client) {
+        IgniteTables tables = testServer.ignite().tables();
+
+        if (tables.table(DEFAULT_TABLE) == null) {
+            ((FakeIgniteTables) tables).createTable(DEFAULT_TABLE);
+        }
+
+        return client.tables().table(DEFAULT_TABLE);
     }
 }
