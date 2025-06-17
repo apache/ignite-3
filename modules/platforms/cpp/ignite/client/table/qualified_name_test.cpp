@@ -24,9 +24,13 @@
 using namespace ignite;
 using namespace detail;
 
+namespace {
+
 template<typename T>
 std::string PrintTestIndex(const testing::TestParamInfo<typename T::ParamType>& info) {
-        return "_" + std::to_string(info.index);
+    return "_" + std::to_string(info.index);
+}
+
 }
 
 TEST(client_qualified_name, create_empty_schema_empty_name_throws) {

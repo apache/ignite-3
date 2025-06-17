@@ -24,9 +24,13 @@
 using namespace ignite;
 using namespace detail;
 
+namespace {
+
 template<typename T>
 std::string PrintTestIndex(const testing::TestParamInfo<typename T::ParamType>& info) {
     return "_" + std::to_string(info.index);
+}
+
 }
 
 class quote_if_needed_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
