@@ -34,17 +34,17 @@ import org.jetbrains.annotations.Nullable;
  *     SELECT * FROM t WHERE pk=?
  *     colocation key: [pk]
  *     =>
- *     indexes: [1], hash: []
+ *     indexes: [0], hash: []
  *
  *     SELECT * FROM t WHERE pk1=? and pk2=?
  *     colocation key: [pk1, pk2]
  *     =>
- *     indexes: [1, 2], hash: []
+ *     indexes: [0, 1], hash: []
  *
  *     SELECT * FROM t WHERE pk1=? and pk2=V1 and pk3=?
  *     colocation key: [pk1, pk2, pk3]
  *     =>
- *     indexes: [1, -1, 2], hash: [hash(V1)]
+ *     indexes: [0, -1, 1], hash: [hash(V1)]
  * </pre>
  *
  * @see PartitionAwarenessMetadata
@@ -110,7 +110,7 @@ public class PartitionAwarenessMetadataExtractor {
 
             if (expr instanceof RexDynamicParam) {
                 RexDynamicParam dynamicParam = (RexDynamicParam) expr;
-                indexes[i] = dynamicParam.getIndex() + 1;
+                indexes[i] = dynamicParam.getIndex();
             } else {
                 return null;
             }

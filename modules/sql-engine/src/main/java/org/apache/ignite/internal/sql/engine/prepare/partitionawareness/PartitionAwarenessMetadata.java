@@ -22,7 +22,7 @@ import org.apache.ignite.internal.tostring.S;
 
 /**
  * Partition awareness metadata. The index array stores a mapping between colocation key indexes and dynamic parameters and hash array.
- * The mapping uses 1-based indexes for dynamic parameters and hashes. Indexes into hash array are negated.
+ * The mapping uses negated 1-based indexes for hashes and 0-based non-negated indexes for dynamic parameters
  *
  * @see PartitionAwarenessMetadataExtractor
  */
@@ -59,7 +59,7 @@ public final class PartitionAwarenessMetadata {
 
     /**
      * Returns a mapping between positions in colocation key columns and dynamic parameter indices.
-     * If a colocation key column has a value, returns an index into the hash array.
+     * If a colocation key column has a value, returns a negated 1-based index into the hash array.
      *
      * @return Mapping.
      */
