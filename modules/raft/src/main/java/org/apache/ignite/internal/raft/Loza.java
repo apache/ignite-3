@@ -33,7 +33,6 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -84,14 +83,6 @@ public class Loza implements RaftManager {
 
     /** Raft client pool size. Size was taken from jraft's TimeManager. */
     private static final int CLIENT_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
-
-    private static final String IGNITE_REPLICATION_MAX_INFLIGHT_OVERFLOW_RATE_PROPERTY = "IGNITE_REPLICATION_MAX_INFLIGHT_OVERFLOW_RATE";
-
-    /**
-     * Default value for max inflights overflow rate. It's used in partitions throttling context.
-     * {@code 1.0} is too strict, so we use {@code 1.3}.
-     */
-    private static final double IGNITE_REPLICATION_MAX_INFLIGHT_OVERFLOW_RATE_DEFAULT = 1.3;
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Loza.class);
@@ -176,10 +167,7 @@ public class Loza implements RaftManager {
 
         this.opts = options;
 
-        double maxInflightOverflowRate = IgniteSystemProperties.getDouble(
-                IGNITE_REPLICATION_MAX_INFLIGHT_OVERFLOW_RATE_PROPERTY,
-                IGNITE_REPLICATION_MAX_INFLIGHT_OVERFLOW_RATE_DEFAULT
-        );
+        double maxInflightOverflowRate = raftConfiguration.maxInflightOverflowRate().value();
 
         partitionThrottlingContextHolder = new ThrottlingContextHolderImpl(raftConfiguration, maxInflightOverflowRate);
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions.isRecoverable;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
@@ -144,23 +145,11 @@ public class PlacementDriverMessageProcessor {
             return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
                     .handle((v, e) -> {
                         if (e != null) {
-                            if (!hasCause(
-                                    e,
-                                    NodeStoppingException.class,
-                                    ComponentStoppingException.class,
-                                    TrackerClosedException.class,
-                                    TimeoutException.class,
-                                    ReplicationException.class,
-                                    ReplicationTimeoutException.class,
-                                    ReplicaReservationFailedException.class,
-                                    // TODO https://issues.apache.org/jira/browse/IGNITE-25653
-                                    GroupOverloadedException.class
-                            )) {
-                                String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
-                                failureProcessor.process(new FailureContext(e, errorMessage));
+                            if (!hasCause(e, NodeStoppingException.class, ComponentStoppingException.class, TrackerClosedException.class)
+                                    && !isRecoverable(e)) {
+                                LOG.warn("Failed to process the lease granted message, lease negotiation will be retried [msg={}].",
+                                        e, msg);
                             }
-
-                            LOG.warn("Failed to process the lease granted message, lease negotiation will be retried [msg={}].", e, msg);
 
                             // Just restart the negotiation in case of exception.
                             return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()

@@ -812,9 +812,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         }
 
                         if (ReplicatorRecoverableExceptions.isRecoverable(cause)) {
-                            if (!(cause instanceof GroupOverloadedException)) {
-                                LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
-                            }
+                            LOG.debug("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
 
                             return supplyAsync(() -> durableFinish(
                                     observableTimestampTracker,

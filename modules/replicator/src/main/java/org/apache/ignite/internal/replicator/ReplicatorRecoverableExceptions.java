@@ -32,14 +32,14 @@ import org.apache.ignite.internal.util.ExceptionUtils;
  * Class holding the set of recoverable exceptions for the partition replicator.
  */
 public class ReplicatorRecoverableExceptions {
-    public static final Set<Class<? extends Throwable>> RECOVERABLE = unmodifiableSet(Set.of(
+    private static final Set<Class<? extends Throwable>> RECOVERABLE = Set.of(
             TimeoutException.class,
             IOException.class,
             ReplicationException.class,
             ReplicationTimeoutException.class,
             PrimaryReplicaMissException.class,
             GroupOverloadedException.class
-    ));
+    );
 
     /**
      * Check if the provided exception is recoverable. A recoverable transaction is the one that we can send a 'retry' request for.
