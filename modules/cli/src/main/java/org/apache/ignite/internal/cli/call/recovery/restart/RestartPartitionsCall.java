@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.cli.call.recovery.restart;
 
+import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
+
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
-import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.rest.client.api.RecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.RestartPartitionsRequest;
@@ -42,7 +43,7 @@ public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, S
         RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
 
         try {
-            if (StringUtils.nullOrEmpty(input.tableName())) {
+            if (nullOrEmpty(input.tableName())) {
                 RestartZonePartitionsRequest command = new RestartZonePartitionsRequest();
 
                 command.setPartitionIds(input.partitionIds());
