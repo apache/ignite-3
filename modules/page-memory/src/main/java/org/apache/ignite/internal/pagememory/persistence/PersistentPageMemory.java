@@ -81,6 +81,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.IntGauge;
+import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
@@ -289,6 +290,11 @@ public class PersistentPageMemory implements PageMemory {
         ));
         metricSource.addMetric(new IntGauge(
                 "MaxCheckpointBufferPages", "The capacity of checkpoint buffer in pages.", this::maxCheckpointBufferPages
+        ));
+        metricSource.addMetric(new LongGauge(
+                "MaxSize",
+                "Maximum region size in bytes.",
+                storageProfileView::sizeBytes
         ));
     }
 

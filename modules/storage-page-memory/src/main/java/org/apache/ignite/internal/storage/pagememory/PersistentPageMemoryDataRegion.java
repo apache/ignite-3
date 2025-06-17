@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -35,23 +37,27 @@ import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioPagesWriteThrottle;
 import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingType;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -98,7 +104,9 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
     private volatile AtomicLong pageListCacheLimit;
 
-    private PersistentPageMemoryMetricSource metricSource;
+    private final PersistentPageMemoryMetricSource metricSource;
+
+    private final Collection<PersistentPageMemoryTableStorage> tableStorages = ConcurrentHashMap.newKeySet();
 
     /**
      * Constructor.
@@ -157,6 +165,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         initThrottling(pageMemory);
 
         pageMemory.start();
+
+        initMetrics();
 
         metricManager.registerSource(metricSource);
         metricManager.enable(metricSource);
@@ -394,5 +404,62 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         if (pageMemory == null) {
             throw new StorageException("Data region not started");
         }
+    }
+
+    void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
+        boolean add = tableStorages.add(tableStorage);
+
+        assert add : tableStorage.getTableId();
+    }
+
+    void removeTableStorage(PersistentPageMemoryTableStorage tableStorage) {
+        boolean removed = tableStorages.remove(tableStorage);
+
+        assert removed : tableStorage.getTableId();
+    }
+
+    private void initMetrics() {
+        metricSource.addMetric(new LongGauge(
+                "TotalAllocatedSize",
+                "Total size of allocated pages on disk in bytes.",
+                this::totalAllocatedPagesSizeOnDiskInBytes
+        ));
+        metricSource.addMetric(new LongGauge(
+                "TotalUsedSize",
+                "Total size of non-empty allocated pages on disk in bytes.",
+                this::totalNonEmptyAllocatedPagesSizeOnDiskInBytes
+        ));
+    }
+
+    private long totalAllocatedPagesSizeOnDiskInBytes() {
+        long pageCount = 0;
+
+        for (PersistentPageMemoryTableStorage tableStorage : tableStorages) {
+            for (PersistentPageMemoryMvPartitionStorage partitionStorage : tableStorage.mvPartitionStorages.getAll()) {
+                pageCount += allocatedPageCountOnDisk(tableStorage.getTableId(), partitionStorage.partitionId());
+            }
+        }
+
+        return pageCount * pageSize;
+    }
+
+    private long totalNonEmptyAllocatedPagesSizeOnDiskInBytes() {
+        long pageCount = 0;
+
+        for (PersistentPageMemoryTableStorage tableStorage : tableStorages) {
+            for (PersistentPageMemoryMvPartitionStorage partitionStorage : tableStorage.mvPartitionStorages.getAll()) {
+                pageCount += allocatedPageCountOnDisk(tableStorage.getTableId(), partitionStorage.partitionId());
+
+                pageCount -= partitionStorage.emptyDataPageCountInFreeList();
+            }
+        }
+
+        return pageCount * pageSize;
+    }
+
+    private long allocatedPageCountOnDisk(int tableId, int partitionId) {
+        FilePageStore store = filePageStoreManager.getStore(new GroupPartitionId(tableId, partitionId));
+
+        return store == null ? 0 : store.pages();
     }
 }
