@@ -58,6 +58,7 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeUtils;
+import org.apache.ignite.internal.compute.HybridTimestampProvider;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.JobStateImpl;
@@ -366,7 +367,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
     }
 
-    class FakeTaskExecution<R> implements TaskExecution<R>, MarshallerProvider<R> {
+    class FakeTaskExecution<R> implements TaskExecution<R>, MarshallerProvider<R>, HybridTimestampProvider {
         private final CompletableFuture<R> result;
         private final UUID jobId;
         private final UUID subJobId1;
@@ -409,6 +410,11 @@ public class FakeCompute implements IgniteComputeInternal {
         @Override
         public boolean marshalResult() {
             return false;
+        }
+
+        @Override
+        public long hybridTimestamp() {
+            return 0;
         }
     }
 
