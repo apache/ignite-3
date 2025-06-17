@@ -66,6 +66,7 @@ import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -109,6 +110,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     private final NodeProperties nodeProperties;
 
+    private final HybridTimestampTracker observableTimestampTracker;
+
     /**
      * Create new instance.
      */
@@ -118,7 +121,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             IgniteTablesInternal tables,
             ComputeComponent computeComponent,
             HybridClock clock,
-            NodeProperties nodeProperties
+            NodeProperties nodeProperties,
+            HybridTimestampTracker observableTimestampTracker
     ) {
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
@@ -126,6 +130,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         this.computeComponent = computeComponent;
         this.clock = clock;
         this.nodeProperties = nodeProperties;
+        this.observableTimestampTracker = observableTimestampTracker;
 
         tables.setStreamerReceiverRunner(this);
     }
@@ -326,6 +331,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFuture,
             JobDescriptor<T, R> descriptor
     ) {
+        // TODO: Propagate observable timestamp from the job execution.
         return executionFuture.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
                 execution,
                 descriptor.resultMarshaller(),
@@ -613,10 +619,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(
                 receiver, receiverArg, receiver.payloadMarshaller(), receiver.argumentMarshaller(), items);
 
-        // TODO: What to do with observableTs in embedded mode?
         return runReceiverAsync(payload, node, deploymentUnits, receiver.options())
                 .thenApply(r -> {
                     byte[] resBytes = r.get1();
+
+                    assert r.get2() != null : "Observable timestamp should not be null";
+                    long observableTimestamp = r.get2();
+                    observableTimestampTracker.update(observableTimestamp);
 
                     //noinspection DataFlowIssue
                     return StreamerReceiverSerializer.deserializeReceiverJobResults(resBytes, receiver.resultMarshaller());

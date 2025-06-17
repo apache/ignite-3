@@ -1222,7 +1222,8 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 computeComponent,
                 clock,
-                nodeProperties
+                nodeProperties,
+                observableTimestampTracker
         );
 
         killCommandHandler.register(computeKillHandler(compute));
