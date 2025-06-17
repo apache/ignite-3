@@ -30,17 +30,25 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
@@ -51,6 +59,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
@@ -58,6 +67,12 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -89,6 +104,161 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     @Override
     protected int initialNodes() {
         return 1;
+    }
+
+    @Test
+    public void partitionPruningTimestampLtz() {
+        sql("CREATE TABLE timestamp_ltz_t (ts TIMESTAMP WITH LOCAL TIME ZONE,  val INT, PRIMARY KEY(ts) )");
+
+        Table table = CLUSTER.node(0).tables().table(QualifiedName.of("PUBLIC", "TIMESTAMP_LTZ_T"));
+
+        Instant now = Instant.now();
+
+        // T1
+        Instant now1 = now.with(ChronoField.NANO_OF_SECOND, 704_871_769);
+        
+        sql("INSERT INTO timestamp_ltz_t VALUES (?, 1)", now1);
+        
+        // table scan
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // index scan 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIMESTAMP_LTZ_T_PK') */ val "
+                + "FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+        
+        // T2
+        Instant now2 = now.with(ChronoField.NANO_OF_SECOND, 954_237_953);
+        
+        table.keyValueView().put(null, Tuple.create().set("TS", now2), Tuple.create().set("VAL", 2));
+
+        // kv
+        assertQuery("SELECT val FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now1.truncatedTo(ChronoUnit.MILLIS))
+                .returns(1)
+                .check();
+
+        // scan should work because predicate should 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now2)
+                .returns(2)
+                .check();
+
+        // index scan does not find anything since search bound with millisecond precision can not capture
+        // records that sub-millis values.
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIMESTAMP_LTZ_T_PK') */ val "
+                + "FROM timestamp_ltz_t WHERE ts=?")
+                .withParams(now2)
+                .returnNothing()
+                .check();
+    }
+
+    @Test
+    public void partitionPruningTime() {
+        sql("CREATE TABLE time_t (ts TIME(6),  val INT, PRIMARY KEY(ts) )");
+
+        Table table = CLUSTER.node(0).tables().table(QualifiedName.of("PUBLIC", "TIME_T"));
+
+        LocalTime now = LocalTime.now();
+
+        // T1
+        LocalTime now1 = now.withNano(704_871_769);
+
+        sql("INSERT INTO time_t VALUES (?, 1)", now1);
+
+        // table scan
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM time_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // index scan 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIME_T_PK') */ val "
+                + "FROM time_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // T2
+        LocalTime now2 = now.withNano(954_237_953);
+
+        table.keyValueView().put(null, Tuple.create().set("TS", now2), Tuple.create().set("VAL", 2));
+
+        // kv
+        assertQuery("SELECT val FROM time_t WHERE ts=?")
+                .withParams(now1.truncatedTo(ChronoUnit.MILLIS))
+                .returns(1)
+                .check();
+
+        // scan should work because predicate should 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM time_t WHERE ts=?")
+                .withParams(now2)
+                .returns(2)
+                .check();
+
+        // index scan does not find anything since search bound with millisecond precision can not capture
+        // records that sub-millis values.
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIME_T_PK') */ val "
+                + "FROM time_t WHERE ts=?")
+                .withParams(now2)
+                .returnNothing()
+                .check();
+    }
+
+    @Test
+    public void partitionPruningTimestamp() {
+        sql("CREATE TABLE timestamp_t (ts TIMESTAMP(6),  val INT, PRIMARY KEY(ts) )");
+
+        Table table = CLUSTER.node(0).tables().table(QualifiedName.of("PUBLIC", "TIMESTAMP_T"));
+        LocalDateTime now = LocalDateTime.now();
+
+        // T1
+        LocalDateTime now1 = now.withNano(704_871_769);
+
+        sql("INSERT INTO timestamp_t VALUES (?, 1)", now1);
+
+        // table scan
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM timestamp_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // index scan 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIMESTAMP_T_PK') */ val "
+                + "FROM timestamp_t WHERE ts=?")
+                .withParams(now1)
+                .returns(1)
+                .check();
+
+        // T2
+        LocalDateTime now2 = now.withNano(954_237_953);
+
+        table.keyValueView().put(null, Tuple.create().set("TS", now2), Tuple.create().set("VAL", 2));
+
+        // kv
+        assertQuery("SELECT val FROM timestamp_t WHERE ts=?")
+                .withParams(now1.truncatedTo(ChronoUnit.MILLIS))
+                .returns(1)
+                .check();
+
+        // scan should work because predicate should 
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM timestamp_t WHERE ts=?")
+                .withParams(now2)
+                .returns(2)
+                .check();
+
+        // index scan does not find anything since search bound with millisecond precision can not capture
+        // records that sub-millis values.
+        assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule'), FORCE_INDEX('TIMESTAMP_T_PK') */ val "
+                + "FROM timestamp_t WHERE ts=?")
+                .withParams(now2)
+                .returnNothing()
+                .check();
     }
 
     @ParameterizedTest

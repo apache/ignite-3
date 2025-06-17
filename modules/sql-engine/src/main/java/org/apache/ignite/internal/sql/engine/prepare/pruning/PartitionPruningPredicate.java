@@ -28,6 +28,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoField;
+import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashSet;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -70,7 +73,6 @@ public final class PartitionPruningPredicate {
      * @param pruningColumns Partition pruning metadata.
      * @param dynamicParameters Values dynamic parameters.
      * @param colocationGroup Colocation group.
-     *
      * @return New colocation group.
      */
     public static ColocationGroup prunePartitions(
@@ -137,7 +139,6 @@ public final class PartitionPruningPredicate {
      * @param expressionFactory Expression factory.
      * @param assignments Assignments.
      * @param nodeName Node name.
-     *
      * @return List of partitions that belong to the provided node.
      */
     public static <RowT> List<PartitionWithConsistencyToken> prunePartitions(
@@ -191,11 +192,28 @@ public final class PartitionPruningPredicate {
 
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21543
                 //  Remove after this issue makes it possible to have CAST('uuid_str' AS UUID) as value.
-                if (physicalType.spec() == ColumnType.UUID && !(node instanceof RexDynamicParam)) {
+                ColumnType columnType = physicalType.spec();
+                if (columnType == ColumnType.UUID && !(node instanceof RexDynamicParam)) {
                     return null;
                 }
 
                 Object val = getNodeValue(physicalType, node, dynamicParameters);
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
+                if (val != null && (columnType == ColumnType.TIME
+                        || columnType == ColumnType.DATETIME
+                        || columnType == ColumnType.TIMESTAMP)
+                ) {
+                    Temporal temporal = (Temporal) val;
+                    long nanos = temporal.get(ChronoField.NANO_OF_SECOND);
+                    long millis = temporal.get(ChronoField.MILLI_OF_SECOND);
+                    long millisAsNanos = TimeUnit.MILLISECONDS.toNanos(millis);
+                    // If a value of a dynamic parameter has submillisecond precision, 
+                    // then do not prune partitions for this table, because expressions support such precision.
+                    if (nanos != millisAsNanos) {
+                        return null;
+                    }
+                }
 
                 partitionCalculator.append(val);
             }

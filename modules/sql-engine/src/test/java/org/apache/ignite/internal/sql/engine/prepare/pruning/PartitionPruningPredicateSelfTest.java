@@ -20,18 +20,19 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateLiteral;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongList;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
@@ -45,13 +46,14 @@ import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Assumptions;
@@ -72,20 +74,67 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         log.info("Seed is {}", seed);
     }
 
-    private static List<ColumnType> columnTypes() {
-        return List.of(NativeType.nativeTypes());
+    private static List<NativeType> nativeTypes() {
+        List<NativeType> nativeTypes = new ArrayList<>();
+        nativeTypes.add(NativeTypes.BOOLEAN);
+        nativeTypes.add(NativeTypes.INT8);
+        nativeTypes.add(NativeTypes.INT16);
+        nativeTypes.add(NativeTypes.INT32);
+        nativeTypes.add(NativeTypes.INT64);
+        nativeTypes.add(NativeTypes.FLOAT);
+        nativeTypes.add(NativeTypes.DOUBLE);
+
+        nativeTypes.add(NativeTypes.decimalOf(2, 0));
+        nativeTypes.add(NativeTypes.decimalOf(6, 0));
+        nativeTypes.add(NativeTypes.decimalOf(12, 12));
+        nativeTypes.add(NativeTypes.decimalOf(16, 8));
+        nativeTypes.add(NativeTypes.decimalOf(42, 37));
+
+        nativeTypes.add(NativeTypes.stringOf(16));
+        nativeTypes.add(NativeTypes.blobOf(16));
+
+        nativeTypes.add(NativeTypes.DATE);
+
+        nativeTypes.add(NativeTypes.time(0));
+        nativeTypes.add(NativeTypes.time(3));
+        nativeTypes.add(NativeTypes.time(5));
+        nativeTypes.add(NativeTypes.time(6));
+        nativeTypes.add(NativeTypes.time(8));
+        nativeTypes.add(NativeTypes.time(9));
+
+        nativeTypes.add(NativeTypes.timestamp(0));
+        nativeTypes.add(NativeTypes.timestamp(3));
+        nativeTypes.add(NativeTypes.timestamp(5));
+        nativeTypes.add(NativeTypes.timestamp(6));
+        nativeTypes.add(NativeTypes.timestamp(8));
+        nativeTypes.add(NativeTypes.timestamp(9));
+
+        nativeTypes.add(NativeTypes.datetime(0));
+        nativeTypes.add(NativeTypes.datetime(3));
+        nativeTypes.add(NativeTypes.datetime(5));
+        nativeTypes.add(NativeTypes.datetime(6));
+        nativeTypes.add(NativeTypes.datetime(8));
+        nativeTypes.add(NativeTypes.datetime(9));
+
+        nativeTypes.add(NativeTypes.UUID);
+
+        return nativeTypes;
     }
 
     @ParameterizedTest
-    @MethodSource("columnTypes")
-    public void testLiteralValue(ColumnType columnType) {
+    @MethodSource("nativeTypes")
+    public void testLiteralValue(NativeType nativeType) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
         //  because it allows to support CAST('uuid-str' AS UUID) expressions.
-        Assumptions.assumeFalse(columnType == ColumnType.UUID);
+        Assumptions.assumeFalse(nativeType.spec() == ColumnType.UUID);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
+        if (nativeType instanceof TemporalNativeType) {
+            TemporalNativeType temporalNativeType = (TemporalNativeType) nativeType;
+            Assumptions.assumeFalse(temporalNativeType.precision() > 3);
+        }
 
         IgniteDistribution distribution = TestBuilders.affinity(List.of(0), 1, 1);
-
-        NativeType nativeType = getNativeType(columnType);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -96,8 +145,8 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                 .build();
 
         int fieldIndex = 0;
-        Object val = generateFieldValue(table, fieldIndex);
-        RexNode expr = generateLiteral(columnType, val);
+        Object val = generateFieldValue(table, fieldIndex, nativeType);
+        RexNode expr = generateLiteral(nativeType.spec(), val);
 
         PartitionPruningColumns columns = new PartitionPruningColumns(List.of(Int2ObjectMaps.singleton(fieldIndex, expr)));
 
@@ -108,31 +157,10 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         expectPartitionsPruned(table, columns, new Object[0], group, val);
     }
 
-    private static NativeType getNativeType(ColumnType columnType) {
-        SqlTypeName sqlTypeName = SqlTestUtils.columnType2SqlTypeName(columnType);
-        int precision = IgniteTypeSystem.INSTANCE.getMaxPrecision(sqlTypeName);
-        int scale = IgniteTypeSystem.INSTANCE.getMaxScale(sqlTypeName);
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
-        if (columnType == ColumnType.TIME || columnType == ColumnType.TIMESTAMP || columnType == ColumnType.DATETIME) {
-            precision = 3;
-        }
-
-        // To prevent generate too big values.
-        if (columnType == ColumnType.STRING || columnType == ColumnType.BYTE_ARRAY || columnType == ColumnType.DECIMAL) {
-            precision = 7_000;
-            scale = precision / 2;
-        }
-
-        return TypeUtils.columnType2NativeType(columnType, precision, scale, precision);
-    }
-
     @ParameterizedTest
-    @MethodSource("columnTypes")
-    public void testDynamicParam(ColumnType columnType) {
+    @MethodSource("nativeTypes")
+    public void testDynamicParam(NativeType nativeType) {
         IgniteDistribution distribution = TestBuilders.affinity(List.of(0), 1, 1);
-
-        NativeType nativeType = getNativeType(columnType);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -143,7 +171,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                 .build();
 
         int fieldIndex = 0;
-        Object val = generateFieldValue(table, fieldIndex);
+        Object val = generateFieldValue(table, fieldIndex, nativeType);
         RexNode expr = newDynamicParam(table.descriptor(), 0);
         Object[] dynamicParameters = {val};
 
@@ -153,7 +181,27 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
         ColocationGroup group = new ColocationGroup(LongList.of(0L), nodeNames, assignments);
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
+        if (nativeType instanceof TemporalNativeType) {
+            TemporalNativeType temporalNativeType = (TemporalNativeType) nativeType;
+            if (temporalNativeType.precision() > 3) {
+                expectPartitionsNotPruned(table, columns, dynamicParameters, group);
+                return;
+            }
+        }
+
         expectPartitionsPruned(table, columns, dynamicParameters, group, val);
+    }
+
+    private static void expectPartitionsNotPruned(
+            IgniteTable table,
+            PartitionPruningColumns pruningColumns,
+            Object[] dynamicParameters, 
+            ColocationGroup group
+    ) {
+
+        ColocationGroup newGroup = PartitionPruningPredicate.prunePartitions(table, pruningColumns, dynamicParameters, group);
+        assertSame(newGroup, group, "Partitions should not have been pruned");
     }
 
     private static void expectPartitionsPruned(
@@ -240,11 +288,30 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         return assignments;
     }
 
-    private Object generateFieldValue(IgniteTable table, int index) {
+    private Object generateFieldValue(IgniteTable table, int index, NativeType nativeType) {
         NativeType type = table.descriptor().columnDescriptor(index).physicalType();
 
-        Object val = SqlTestUtils.generateValueByType(type);
+        int precision;
+        int scale;
+
+        if (nativeType instanceof VarlenNativeType) {
+            precision = ((VarlenNativeType) nativeType).length();
+            scale = precision;
+        } else if (nativeType instanceof TemporalNativeType) {
+            precision = ((TemporalNativeType) nativeType).precision();
+            scale = precision;
+        } else if (nativeType instanceof DecimalNativeType) {
+            precision = ((DecimalNativeType) nativeType).precision();
+            scale = ((DecimalNativeType) nativeType).scale();
+        } else {
+            precision = 0;
+            scale = precision;
+        }
+
+        Object val = SqlTestUtils.generateValueByType(type.spec(), precision, scale);
         assert val != null;
+
+        log.info("Generated value for type {}: {}", nativeType, val);
 
         return val;
     }
