@@ -41,7 +41,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -95,7 +94,7 @@ public class MulticastNodeFinder implements NodeFinder {
     /** Address sent in response to multicast requests. */
     private final InetSocketAddress localAddressToAdvertise;
     private final ExecutorService listenerThreadPool;
-    private final ThreadFactory threadFactory;
+    private final String nodeName;
 
     /** Flag to control running state of node finder listener. */
     private volatile boolean stopped = false;
@@ -123,9 +122,9 @@ public class MulticastNodeFinder implements NodeFinder {
         this.resultWaitMillis = resultWaitMillis;
         this.ttl = ttl;
         this.localAddressToAdvertise = localAddressToAdvertise;
+        this.nodeName = nodeName;
 
-        this.threadFactory = NamedThreadFactory.create(nodeName, "multicast-node-finder", LOG);
-        this.listenerThreadPool = Executors.newSingleThreadExecutor(threadFactory);
+        this.listenerThreadPool = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "multicast-listener", LOG));
     }
 
     @Override
@@ -135,7 +134,10 @@ public class MulticastNodeFinder implements NodeFinder {
         // Creates multicast sockets for all eligible interfaces and an unbound socket. Will throw an exception if no sockets were created.
         List<MulticastSocket> sockets = createSockets(0, resultWaitMillis, false);
 
-        ExecutorService executor = Executors.newFixedThreadPool(sockets.size(), threadFactory);
+        ExecutorService executor = Executors.newFixedThreadPool(
+                sockets.size(),
+                NamedThreadFactory.create(nodeName, "multicast-node-finder", LOG)
+        );
 
         try {
             // Will contain nodes, found on all eligible interfaces and an unbound socket.
@@ -143,9 +145,13 @@ public class MulticastNodeFinder implements NodeFinder {
                     .map(socket -> supplyAsync(() -> findOnSocket(socket), executor))
                     .collect(toList());
 
-            // Collect results. Futures shouldn't throw exceptions or hang.
+            // Collect results.
             for (CompletableFuture<Collection<NetworkAddress>> future : futures) {
-                result.addAll(future.join());
+                try {
+                    result.addAll(future.get(resultWaitMillis * REQ_ATTEMPTS * 2L, TimeUnit.MILLISECONDS));
+                } catch (Exception e) {
+                    LOG.error("Error while waiting for multicast node finder result", e);
+                }
             }
         } finally {
             closeSockets(sockets);
