@@ -154,7 +154,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                     executeAsyncWithFailover(
                             nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), argHolder, cancellationToken
                     ),
-                    descriptor
+                    descriptor,
+                    observableTimestampTracker
             );
         }
 
@@ -199,7 +200,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ));
             }
 
-            return unmarshalResult(jobFut, descriptor);
+            return unmarshalResult(jobFut, descriptor, observableTimestampTracker);
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
@@ -323,19 +324,22 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         argHolder,
                         cancellationToken
                 ),
-                descriptor
+                descriptor,
+                observableTimestampTracker
         );
     }
 
     private static <T, R> CompletableFuture<JobExecution<R>> unmarshalResult(
             CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFuture,
-            JobDescriptor<T, R> descriptor
+            JobDescriptor<T, R> descriptor,
+            HybridTimestampTracker observableTimestampTracker
     ) {
         // TODO: Propagate observable timestamp from the job execution.
         return executionFuture.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
                 execution,
                 descriptor.resultMarshaller(),
-                descriptor.resultClass()
+                descriptor.resultClass(),
+                observableTimestampTracker
         ));
     }
 
