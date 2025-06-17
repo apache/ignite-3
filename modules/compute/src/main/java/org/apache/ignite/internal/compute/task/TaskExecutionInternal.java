@@ -328,6 +328,10 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
 
     @Override
     public long hybridTimestamp() {
+        if (resultsFuture.isCompletedExceptionally()) {
+            return NULL_HYBRID_TIMESTAMP;
+        }
+
         IgniteBiTuple<Map<UUID, T>, Long> res = resultsFuture.getNow(null);
 
         if (res == null) {

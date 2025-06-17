@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute.task;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobState;
@@ -81,6 +83,10 @@ public class DelegatingTaskExecution<I, M, T, R> implements CancellableTaskExecu
 
     @Override
     public long hybridTimestamp() {
+        if (delegate.isCompletedExceptionally()) {
+            return NULL_HYBRID_TIMESTAMP;
+        }
+
         TaskExecutionInternal<I, M, T, R> delegateNow = delegate.getNow(null);
 
         if (delegateNow == null) {

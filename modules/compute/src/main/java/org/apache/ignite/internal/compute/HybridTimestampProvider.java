@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute;
 /**
  * Hybrid timestamp provider.
  */
+@FunctionalInterface
 public interface HybridTimestampProvider {
     /**
      * Returns the associated hybrid timestamp.
