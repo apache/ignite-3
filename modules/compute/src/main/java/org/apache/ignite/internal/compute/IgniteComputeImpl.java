@@ -334,7 +334,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             JobDescriptor<T, R> descriptor,
             HybridTimestampTracker observableTimestampTracker
     ) {
-        // TODO: Propagate observable timestamp from the job execution.
         return executionFuture.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
                 execution,
                 descriptor.resultMarshaller(),
