@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -83,9 +84,10 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                         byte[] resBytes = res.get1();
                         Long observableTs = res.get2();
 
-                        if (observableTs != null) {
-                            tsTracker.update(observableTs);
-                        }
+                        assert observableTs != null : "Observable timestamp should not be null";
+                        assert observableTs != NULL_HYBRID_TIMESTAMP : "Observable timestamp should not be NULL_HYBRID_TIMESTAMP";
+
+                        tsTracker.update(observableTs);
 
                         return out -> StreamerReceiverSerializer.serializeReceiverResultsForClient(out, returnResults ? resBytes : null);
                     });
