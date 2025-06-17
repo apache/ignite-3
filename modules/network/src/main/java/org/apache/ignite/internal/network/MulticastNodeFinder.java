@@ -299,7 +299,13 @@ public class MulticastNodeFinder implements NodeFinder {
         List<MulticastSocket> sockets = new ArrayList<>();
 
         for (NetworkInterface networkInterface : getEligibleNetworkInterfaces()) {
-                addSocket(sockets, port, networkInterface, soTimeout, joinGroup);
+            addSocket(sockets, port, networkInterface, soTimeout, joinGroup);
+
+            if (joinGroup) {
+                LOG.info("Multicast listener socket created for interface: {}", networkInterface.getDisplayName());
+            } else {
+                LOG.info("Multicast node finder socket created for interface: {}", networkInterface.getDisplayName());
+            }
         }
 
         addSocket(sockets, multicastPort, null, soTimeout, joinGroup);
