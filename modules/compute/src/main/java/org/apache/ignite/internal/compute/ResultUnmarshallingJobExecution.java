@@ -65,6 +65,11 @@ public class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
         return delegate.node();
     }
 
+    /**
+     * Returns the result of the job execution along with the observable timestamp.
+     *
+     * @return A future that will be completed with a tuple containing the result and the observable timestamp.
+     */
     public CompletableFuture<IgniteBiTuple<R, Long>> resultWithTimestampAsync() {
         return delegate.resultAsync().thenApply(r -> new IgniteBiTuple<>(
                 SharedComputeUtils.unmarshalArgOrResult(r, resultUnmarshaller, resultClass),
