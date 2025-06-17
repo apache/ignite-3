@@ -385,7 +385,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         checkpointManager.addCheckpointListener(listener, dataRegion);
 
-        CheckpointProgress checkpoint = dataRegion.checkpointManager().forceCheckpoint("Partition destruction");
+        CheckpointProgress checkpoint = dataRegion.checkpointManager().scheduleCheckpoint(1000, "Partition destruction");
 
         return checkpoint.futureFor(CheckpointState.FINISHED)
                 .thenCompose(v -> future)
