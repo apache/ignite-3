@@ -128,8 +128,7 @@ public class ClientComputeExecuteRequest {
                                         },
                                         err,
                                         hybridTimestamp(val));
-                            }
-                            catch (Throwable e) {
+                            } catch (Throwable e) {
                                 LOG.error("Failed to send job result notification: " + e.getMessage(), e);
                             }
                         }));
