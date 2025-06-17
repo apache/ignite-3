@@ -17,60 +17,71 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests that observable timestamp (causality token) is propagated from server to client from compute jobs and streamer receiver.
  */
-@SuppressWarnings("DataFlowIssue")
+@SuppressWarnings({"DataFlowIssue", "AssignmentToStaticFieldFromInstanceMethod"})
 public class ObservableTimestampComputePropagationTest extends BaseIgniteAbstractTest {
-    private static TestServer testServer1;
+    private static TestServer testServer;
 
-    private static TestServer testServer2;
-
-    private static IgniteClient client;
-
-    private static final AtomicLong serverTimestamp1 = new AtomicLong(1);
-    private static final AtomicLong serverTimestamp2 = new AtomicLong(1);
+    private static final AtomicLong serverTimestamp = new AtomicLong(1);
 
     @BeforeAll
-    public static void startServer2() {
-        TestHybridClock clock1 = new TestHybridClock(serverTimestamp1::get);
+    public static void startServers() {
+        TestHybridClock clock1 = new TestHybridClock(serverTimestamp::get);
         var ignite1 = new FakeIgnite("server-1");
-        testServer1 = new TestServer(0, ignite1, null, null, "server-1", UUID.randomUUID(), null, null, clock1, true, null);
-
-        TestHybridClock clock2 = new TestHybridClock(serverTimestamp2::get);
-        var ignite2 = new FakeIgnite("server-2");
-        testServer2 = new TestServer(0, ignite2, null, null, "server-2", UUID.randomUUID(), null, null, clock2, true, null);
-
-        client = IgniteClient.builder()
-                .addresses("127.0.0.1:" + testServer1.port(), "127.0.0.2:" + testServer1.port())
-                .build();
+        testServer = new TestServer(0, ignite1, null, null, "server-1", UUID.randomUUID(), null, null, clock1, true, null);
     }
 
     @AfterAll
-    public static void stopServer2() throws Exception {
-        closeAll(client, testServer1, testServer2);
+    public static void stopServers() throws Exception {
+        closeAll(testServer);
+    }
+
+    @AfterEach
+    public void resetFakeCompute() {
+        FakeCompute.observableTimestamp = NULL_HYBRID_TIMESTAMP;
     }
 
     @Test
     public void testComputeJobPropagatesTimestampFromTargetNode() {
-        // TODO: Connect to node1, send a compute job to node2, and check that the observable timestamp is propagated.
-        ReliableChannel ch = ((TcpIgniteClient) client).channel();
-        assertEquals(1, lastObservableTimestamp(ch));
+        try (IgniteClient client = IgniteClient.builder()
+                .addresses("127.0.1:" + testServer.port())
+                .build()) {
+            ReliableChannel ch = ((TcpIgniteClient) client).channel();
+            assertEquals(1, lastObservableTimestamp(ch));
+
+            JobTarget target = getClusterNodes("server-2");
+            JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
+
+            FakeCompute.observableTimestamp = 123;
+
+            String res = client.compute().execute(target, job, null);
+            assertEquals("server-1", res);
+
+            assertEquals(123, lastObservableTimestamp(ch));
+        }
     }
 
     private static Long lastObservableTimestamp(ReliableChannel ch) {

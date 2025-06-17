@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
@@ -87,6 +88,8 @@ public class FakeCompute implements IgniteComputeInternal {
 
     public static volatile @Nullable RuntimeException err;
 
+    public static volatile long observableTimestamp = NULL_HYBRID_TIMESTAMP;
+
     private final Map<UUID, JobState> jobStates = new ConcurrentHashMap<>();
 
     public static volatile CountDownLatch latch = new CountDownLatch(0);
@@ -136,7 +139,13 @@ public class FakeCompute implements IgniteComputeInternal {
         }
 
         var future0 = future;
-        return jobExecution(future0 != null ? future0 : completedFuture(SharedComputeUtils.marshalArgOrResult(nodeName, null)));
+
+        CompletableFuture<ComputeJobDataHolder> resFut =
+                future0 != null
+                        ? future0
+                        : completedFuture(SharedComputeUtils.marshalArgOrResult(nodeName, null, observableTimestamp));
+
+        return jobExecution(resFut);
     }
 
     /** {@inheritDoc} */
@@ -152,7 +161,7 @@ public class FakeCompute implements IgniteComputeInternal {
     ) {
         return jobExecution(future != null
                 ? future
-                : completedFuture(SharedComputeUtils.marshalArgOrResult(nodeName, null)));
+                : completedFuture(SharedComputeUtils.marshalArgOrResult(nodeName, null, observableTimestamp)));
     }
 
     @Override
@@ -183,7 +192,7 @@ public class FakeCompute implements IgniteComputeInternal {
                     descriptor.units(),
                     descriptor.jobClassName(),
                     descriptor.options(),
-                    SharedComputeUtils.marshalArgOrResult(arg, null),
+                    SharedComputeUtils.marshalArgOrResult(arg, null, observableTimestamp),
                     cancellationToken
             ).thenApply(internalExecution -> unmarshalingExecution(descriptor, internalExecution));
         } else if (target instanceof ColocatedJobTarget) {
@@ -272,7 +281,7 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     private <R> CompletableFuture<JobExecution<ComputeJobDataHolder>> completedExecution(R result) {
-        return jobExecution(completedFuture(SharedComputeUtils.marshalArgOrResult(result, null)));
+        return jobExecution(completedFuture(SharedComputeUtils.marshalArgOrResult(result, null, observableTimestamp)));
     }
 
     private <R> CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecution(CompletableFuture<R> result) {
@@ -294,7 +303,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
         return completedFuture(new FakeJobExecution<>(result.thenApply(r -> r instanceof ComputeJobDataHolder
                 ? (ComputeJobDataHolder) r
-                : SharedComputeUtils.marshalArgOrResult(r, null)), jobId));
+                : SharedComputeUtils.marshalArgOrResult(r, null, observableTimestamp)), jobId));
     }
 
     private class FakeJobExecution<R> implements JobExecution<R>, MarshallerProvider<R> {
