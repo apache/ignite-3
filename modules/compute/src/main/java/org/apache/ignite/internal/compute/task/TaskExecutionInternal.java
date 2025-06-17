@@ -53,6 +53,7 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.CancellableTaskExecution;
+import org.apache.ignite.internal.compute.HybridTimestampProvider;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.ResultUnmarshallingJobExecution;
 import org.apache.ignite.internal.compute.TaskStateImpl;
@@ -74,7 +75,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Task result type.
  */
 @SuppressWarnings("unchecked")
-public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecution<R>, MarshallerProvider<R> {
+public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecution<R>, MarshallerProvider<R>, HybridTimestampProvider {
     private static final IgniteLogger LOG = Loggers.forClass(TaskExecutionInternal.class);
 
     private final QueueExecution<SplitResult<I, M, T, R>> splitExecution;
@@ -288,7 +289,6 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
     }
 
     private static <T> CompletableFuture<IgniteBiTuple<Map<UUID, T>, Long>> resultsAsync(List<JobExecution<T>> executions) {
-        // TODO: JobExecution here is ResultUnmarshallingJobExecution - extract timestamp from there.
         CompletableFuture<IgniteBiTuple<T, Long>>[] resultFutures = executions.stream()
                 .map(j -> ((ResultUnmarshallingJobExecution<IgniteBiTuple<T, Long>>) j).resultWithTimestampAsync())
                 .toArray(CompletableFuture[]::new);
@@ -321,6 +321,19 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
     public boolean marshalResult() {
         // Not needed because split/reduce jobs always run on the client handler node
         return false;
+    }
+
+    @Override
+    public long hybridTimestamp() {
+        IgniteBiTuple<Map<UUID, T>, Long> res = resultsFuture.getNow(null);
+
+        if (res == null) {
+            throw new IllegalStateException("Task execution is not complete yet, cannot get hybrid timestamp.");
+        }
+
+        assert res.get2() != null : "Task result timestamp should not be null";
+
+        return res.get2();
     }
 
     private static class SplitResult<I, M, T, R> {

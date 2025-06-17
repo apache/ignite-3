@@ -129,7 +129,7 @@ public class ClientComputeExecuteRequest {
         packClusterNode(node, out);
     }
 
-    static long hybridTimestamp(ComputeJobDataHolder holder) {
+    private static long hybridTimestamp(ComputeJobDataHolder holder) {
         if (holder == null) {
             return NULL_HYBRID_TIMESTAMP;
         }

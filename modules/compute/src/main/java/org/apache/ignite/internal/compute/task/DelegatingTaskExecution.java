@@ -23,6 +23,7 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.CancellableTaskExecution;
+import org.apache.ignite.internal.compute.HybridTimestampProvider;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
@@ -32,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-public class DelegatingTaskExecution<I, M, T, R> implements CancellableTaskExecution<R>, MarshallerProvider<R> {
+public class DelegatingTaskExecution<I, M, T, R> implements CancellableTaskExecution<R>, MarshallerProvider<R>, HybridTimestampProvider {
     private final CompletableFuture<TaskExecutionInternal<I, M, T, R>> delegate;
 
     public DelegatingTaskExecution(CompletableFuture<TaskExecutionInternal<I, M, T, R>> delegate) {
@@ -76,5 +77,16 @@ public class DelegatingTaskExecution<I, M, T, R> implements CancellableTaskExecu
         assert delegate.isDone() : "Task execution is supposed to be done before calling `marshalResult()`";
 
         return delegate.join().marshalResult();
+    }
+
+    @Override
+    public long hybridTimestamp() {
+        TaskExecutionInternal<I, M, T, R> delegateNow = delegate.getNow(null);
+
+        if (delegateNow == null) {
+            throw new IllegalStateException("Task execution is not yet completed, cannot retrieve hybrid timestamp.");
+        }
+
+        return delegateNow.hybridTimestamp();
     }
 }
