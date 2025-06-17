@@ -20,7 +20,10 @@ package org.apache.ignite.internal.network;
 import static java.lang.System.currentTimeMillis;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -38,8 +41,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -49,10 +53,17 @@ import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Multicast-based IP finder.
+ * Multicast-based node finder.
  *
- * <p>It sends multicast request and waits for configured time when other nodes reply to this request with messages containing their
- * addresses.
+ * <p>Sends multicast requests to {@link #multicastSocketAddress} and waits for responses from other nodes,
+ * which reply with their network addresses. </p>
+ *
+ * <p>Runs a background listener on all eligible network interfaces (up, non-loopback, multicast-capable)
+ * and an unbound socket.</p>
+ *
+ * <p>Listener uses a polling mechanism to cover multiple sockets using one thread.</p>
+ *
+ * <p>If error occurs on specific interfaces, node finder and listener log them, but continue operation using other ones.</p>
  */
 public class MulticastNodeFinder implements NodeFinder {
     private static final IgniteLogger LOG = Loggers.forClass(MulticastNodeFinder.class);
@@ -63,21 +74,28 @@ public class MulticastNodeFinder implements NodeFinder {
     /** Buffer size for receiving responses. */
     private static final int RECEIVE_BUFFER_SIZE = 1024;
 
-    /** System default value will be used. */
+    /** System default value will be used if {@code -1} is specified. */
     public static final int UNSPECIFIED_TTL = -1;
     public static final int MAX_TTL = 255;
 
     private static final int REQ_ATTEMPTS = 2;
     private static final int POLLING_TIMEOUT_MILLIS = 100;
 
+    /** Multicast address used for sending and listening to requests. Must be a valid multicast address. */
     private final InetSocketAddress multicastSocketAddress;
+
     private final int multicastPort;
+
+    /** Time to wait for multicast responses in milliseconds. */
     private final int resultWaitMillis;
+
+    /** Amount of network "hops" allowed for the multicast request. Range is from {@link #UNSPECIFIED_TTL} to {@link #MAX_TTL}. */
     private final int ttl;
 
+    /** Address sent in response to multicast requests. */
     private final InetSocketAddress localAddressToAdvertise;
     private final ExecutorService listenerThreadPool;
-    private final String nodeName;
+    private final ThreadFactory threadFactory;
 
     /** Flag to control running state of node finder listener. */
     private volatile boolean stopped = false;
@@ -105,68 +123,66 @@ public class MulticastNodeFinder implements NodeFinder {
         this.resultWaitMillis = resultWaitMillis;
         this.ttl = ttl;
         this.localAddressToAdvertise = localAddressToAdvertise;
-        this.nodeName = nodeName;
-        this.listenerThreadPool = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "multicast-node-listener", LOG));
+
+        this.threadFactory = NamedThreadFactory.create(nodeName, "multicast-node-finder", LOG);
+        this.listenerThreadPool = Executors.newSingleThreadExecutor(threadFactory);
     }
 
     @Override
     public Collection<NetworkAddress> findNodes() {
-        Collection<NetworkInterface> interfaces = getEligibleNetworkInterfaces();
-
-        if (interfaces.isEmpty()) {
-            LOG.error("Error getting network interfaces for multicast node finder, only unbound socket will be used");
-        }
-
         Set<NetworkAddress> result = new HashSet<>();
 
-        List<CompletableFuture<Collection<NetworkAddress>>> findOnInterfaceFutures = new ArrayList<>(interfaces.size() + 1);
+        // Creates multicast sockets for all eligible interfaces and an unbound socket. Will throw an exception if no sockets were created.
+        List<MulticastSocket> sockets = createSockets(0, resultWaitMillis, false);
 
-        ExecutorService executor = Executors.newFixedThreadPool(
-                interfaces.size() + 1,
-                NamedThreadFactory.create(nodeName, "multicast-node-finder", LOG)
-        );
+        ExecutorService executor = Executors.newFixedThreadPool(sockets.size(), threadFactory);
 
-        for (NetworkInterface networkInterface : interfaces) {
-            findOnInterfaceFutures.add(supplyAsync(() -> findOnInterface(networkInterface), executor));
-        }
+        try {
+            // Will contain nodes, found on all eligible interfaces and an unbound socket.
+            List<CompletableFuture<Collection<NetworkAddress>>> futures = sockets.stream()
+                    .map(socket -> supplyAsync(() -> findOnSocket(socket), executor))
+                    .collect(toList());
 
-        findOnInterfaceFutures.add(supplyAsync(() -> findOnInterface(null), executor));
-
-        for (CompletableFuture<Collection<NetworkAddress>> future : findOnInterfaceFutures) {
-            try {
-                result.addAll(future.get(resultWaitMillis * REQ_ATTEMPTS * 2L, TimeUnit.MILLISECONDS));
-            } catch (Exception e) {
-                LOG.error("Error during multicast node finding", e);
+            // Collect results. Futures shouldn't throw exceptions or hang.
+            for (CompletableFuture<Collection<NetworkAddress>> future : futures) {
+                result.addAll(future.join());
             }
-        }
+        } finally {
+            closeSockets(sockets);
 
-        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+            shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        }
 
         LOG.info("Found nodes: {}", result);
 
         return result;
     }
 
-    private Collection<NetworkAddress> findOnInterface(@Nullable NetworkInterface networkInterface) {
+    /** Finds nodes on the given socket. Errors are logged, but not thrown so they don't prevent discovery on other sockets. */
+    private Collection<NetworkAddress> findOnSocket(MulticastSocket socket) {
         Set<NetworkAddress> discovered = new HashSet<>();
         byte[] responseBuffer = new byte[RECEIVE_BUFFER_SIZE];
 
-        try (MulticastSocket socket = new MulticastSocket(0)) {
-            configureSocket(socket, networkInterface, resultWaitMillis);
+        try {
+            // To avoid hanging.
+            assert socket.getSoTimeout() == resultWaitMillis;
 
             for (int i = 0; i < REQ_ATTEMPTS; i++) {
+                // Send multicast request.
                 DatagramPacket requestPacket = new DatagramPacket(REQUEST_MESSAGE, REQUEST_MESSAGE.length, multicastSocketAddress);
                 socket.send(requestPacket);
 
+                // Receive responses from the nodes with their local addresses.
                 waitForResponses(responseBuffer, socket, discovered);
             }
         } catch (Exception e) {
-            LOG.error("Error during multicast node finding on interface: " + networkInterface, e);
+            LOG.error("Error during multicast node finding on interface: ", e);
         }
 
         return discovered;
     }
 
+    /** Waits for responses to the multicast request from other nodes. */
     private void waitForResponses(byte[] responseBuffer, MulticastSocket socket, Set<NetworkAddress> discovered) throws IOException {
         long endTime = currentTimeMillis() + resultWaitMillis;
         // Loop until the timeout expires.
@@ -174,12 +190,7 @@ public class MulticastNodeFinder implements NodeFinder {
             DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
 
             try {
-                socket.receive(responsePacket);
-                byte[] data = Arrays.copyOfRange(
-                        responsePacket.getData(),
-                        responsePacket.getOffset(),
-                        responsePacket.getOffset() + responsePacket.getLength()
-                );
+                byte[] data = receiveDatagramData(socket, responsePacket);
 
                 InetSocketAddress address = ByteUtils.fromBytes(data);
                 if (!address.equals(localAddressToAdvertise)) {
@@ -191,28 +202,9 @@ public class MulticastNodeFinder implements NodeFinder {
         }
     }
 
-    private void configureSocket(MulticastSocket socket, @Nullable NetworkInterface networkInterface, int soTimeout) throws IOException {
-        // Using setLoopbackMode() (which is deprecated in Java versions starting with 14) because it still works in all Java versions,
-        // while the replacement suggested by the deprecation message -
-        // socket.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, true/false) - is not portable across Java versions
-        // (before Java 14, we need to pass 'false', while since Java 14, it's 'true').
-
-        // Use 'false' to enable support for more than one node on the same machine.
-        socket.setLoopbackMode(false);
-
-        if (networkInterface != null) {
-            socket.setNetworkInterface(networkInterface);
-        }
-
-        socket.setSoTimeout(soTimeout);
-
-        if (ttl != UNSPECIFIED_TTL) {
-            socket.setTimeToLive(ttl);
-        }
-    }
-
     /**
-     * Returns a collection of eligible network interfaces that are up, non‑loopback, and support multicast.
+     * Returns a collection of eligible network interfaces that are up, non‑loopback, and support multicast or empty if got an exception
+     * while retrieving interfaces.
      *
      * @return Collection of eligible network interfaces.
      */
@@ -227,7 +219,7 @@ public class MulticastNodeFinder implements NodeFinder {
 
                             return false;
                         }
-                    }).collect(Collectors.toSet());
+                    }).collect(toSet());
         } catch (SocketException e) {
             LOG.error("Error getting network interfaces for multicast node finder", e);
 
@@ -244,40 +236,35 @@ public class MulticastNodeFinder implements NodeFinder {
 
     @Override
     public void start() {
+        // Create multicast sockets for all eligible interfaces and an unbound socket. Will throw an exception if no sockets were created.
+        List<MulticastSocket> sockets = createSockets(multicastPort, POLLING_TIMEOUT_MILLIS, true);
+
+        if (sockets.isEmpty()) {
+            throw new IgniteInternalException(INTERNAL_ERR, "No sockets for multicast listener were created.");
+        }
+
         listenerThreadPool.submit(() -> {
-            List<MulticastSocket> sockets;
-
-            sockets = configureListenerMulticastSockets();
-
-            if (sockets.isEmpty()) {
-                LOG.error("No interfaces eligible for multicast found, quitting.");
-                return;
-            }
-
             byte[] responseData = ByteUtils.toBytes(localAddressToAdvertise);
             byte[] requestBuffer = new byte[REQUEST_MESSAGE.length];
 
+            // Listener uses a polling mechanism to cover all sockets using one thread.
             while (!stopped) {
                 for (MulticastSocket socket : sockets) {
                     if (socket.isClosed()) {
                         continue;
                     }
 
-                    DatagramPacket requestPacket = new DatagramPacket(requestBuffer, requestBuffer.length);
                     try {
-                        socket.receive(requestPacket);
-
-                        byte[] received = Arrays.copyOfRange(
-                                requestPacket.getData(),
-                                requestPacket.getOffset(),
-                                requestPacket.getOffset() + requestPacket.getLength()
-                        );
+                        // Tries to receive a multicast request on the socket.
+                        DatagramPacket requestPacket = new DatagramPacket(requestBuffer, requestBuffer.length);
+                        byte[] received = receiveDatagramData(socket, requestPacket);
 
                         if (!Arrays.equals(received, REQUEST_MESSAGE)) {
                             LOG.error("Received unexpected request on multicast socket");
                             continue;
                         }
 
+                        // Send response with local address.
                         DatagramPacket responsePacket = new DatagramPacket(
                                 responseData,
                                 responseData.length,
@@ -297,43 +284,91 @@ public class MulticastNodeFinder implements NodeFinder {
                     }
                 }
             }
-            try {
-                IgniteUtils.closeAll(sockets);
-            } catch (Exception e) {
-                LOG.error("Could not close multicast listeners", e);
-            }
+
+            closeSockets(sockets);
         });
     }
 
-    private List<MulticastSocket> configureListenerMulticastSockets() {
+    /**
+     * Creates multicast sockets for all eligible interfaces and an unbound socket. Errors on specific interface are logged, but not thrown.
+     * Only unbound interface is used if there was error retrieving all interfaces.
+     *
+     * @throws IgniteInternalException If no multicast sockets were created.
+     */
+    private List<MulticastSocket> createSockets(int port, int soTimeout, boolean joinGroup) {
         List<MulticastSocket> sockets = new ArrayList<>();
 
         for (NetworkInterface networkInterface : getEligibleNetworkInterfaces()) {
-            try {
-                MulticastSocket socket = new MulticastSocket(multicastPort);
-                configureSocket(socket, networkInterface, POLLING_TIMEOUT_MILLIS);
-                socket.joinGroup(multicastSocketAddress, networkInterface);
-
-                LOG.info("Multicast listener created for interface: {}", networkInterface.getName());
-
-                sockets.add(socket);
-            } catch (Exception e) {
-                LOG.error("Failed to create multicast listener for interface {}", e, networkInterface.getName());
-            }
+                addSocket(sockets, port, networkInterface, soTimeout, joinGroup);
         }
 
-        try {
-            MulticastSocket socket = new MulticastSocket(multicastPort);
-            configureSocket(socket, null, POLLING_TIMEOUT_MILLIS);
-            socket.joinGroup(multicastSocketAddress, null);
+        addSocket(sockets, multicastPort, null, soTimeout, joinGroup);
 
-            LOG.info("Multicast listener created for unbound socket");
-
-            sockets.add(socket);
-        } catch (IOException e) {
-            LOG.error("Failed to create unbound multicast listener", e);
+        if (sockets.isEmpty()) {
+            throw new IgniteInternalException(INTERNAL_ERR, "No multicast sockets were created.");
         }
 
         return sockets;
+    }
+
+    /** Create socket, configure it with given parameters and add it to the given collection. */
+    private void addSocket(
+            Collection<MulticastSocket> sockets,
+            int port,
+            @Nullable NetworkInterface networkInterface,
+            int soTimeout,
+            boolean joinGroup
+    ) {
+        try {
+            var socket = new MulticastSocket(port);
+
+            // Using setLoopbackMode() (which is deprecated in Java versions starting with 14) because it still works in all Java versions,
+            // while the replacement suggested by the deprecation message -
+            // socket.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, true/false) - is not portable across Java versions
+            // (before Java 14, we need to pass 'false', while since Java 14, it's 'true').
+
+            // Use 'false' to enable support for more than one node on the same machine.
+            socket.setLoopbackMode(false);
+
+            if (networkInterface != null) {
+                socket.setNetworkInterface(networkInterface);
+            }
+
+            socket.setSoTimeout(soTimeout);
+
+            if (ttl != UNSPECIFIED_TTL) {
+                socket.setTimeToLive(ttl);
+            }
+
+            if (joinGroup) {
+                socket.joinGroup(multicastSocketAddress, networkInterface);
+            }
+
+            sockets.add(socket);
+        } catch (IOException e) {
+            if (networkInterface != null) {
+                LOG.error("Failed to create multicast socket for interface {}", e, networkInterface.getName());
+            } else {
+                LOG.error("Failed to create multicast socket for an unbound interface", e);
+            }
+        }
+    }
+
+    /** Waits for a datagram packet on the given socket and returns its data. */
+    private static byte[] receiveDatagramData(MulticastSocket socket, DatagramPacket responsePacket) throws IOException {
+        socket.receive(responsePacket);
+        return Arrays.copyOfRange(
+                responsePacket.getData(),
+                responsePacket.getOffset(),
+                responsePacket.getOffset() + responsePacket.getLength()
+        );
+    }
+
+    private static void closeSockets(List<MulticastSocket> sockets) {
+        try {
+            IgniteUtils.closeAll(sockets);
+        } catch (Exception e) {
+            LOG.error("Could not close multicast listeners", e);
+        }
     }
 }
