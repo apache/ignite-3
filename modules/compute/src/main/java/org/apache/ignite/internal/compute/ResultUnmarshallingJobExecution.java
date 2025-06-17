@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -29,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
+public class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
     private final JobExecution<ComputeJobDataHolder> delegate;
     private final @Nullable Marshaller<R, byte[]> resultUnmarshaller;
     private final @Nullable Class<R> resultClass;
@@ -62,5 +63,11 @@ class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
     @Override
     public ClusterNode node() {
         return delegate.node();
+    }
+
+    public CompletableFuture<IgniteBiTuple<R, Long>> resultWithTimestampAsync() {
+        return delegate.resultAsync().thenApply(r -> new IgniteBiTuple<>(
+                SharedComputeUtils.unmarshalArgOrResult(r, resultUnmarshaller, resultClass),
+                r.observableTimestamp()));
     }
 }
