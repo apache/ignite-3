@@ -909,7 +909,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testObservableTimestampPropagation() {
+    void testReceiverResultsObservedImmediately() {
         int count = 20_000;
         JobDescriptor<Tuple, Void> jobDescriptor = JobDescriptor.builder(UpsertAllJob.class).build();
 
