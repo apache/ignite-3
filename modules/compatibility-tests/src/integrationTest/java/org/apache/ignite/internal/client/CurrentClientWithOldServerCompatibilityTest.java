@@ -28,7 +28,7 @@ import org.junit.jupiter.api.AfterEach;
  * Tests that current Java client can work with all older server versions.
  */
 public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTestBase implements ClientCompatibilityTests {
-    private final AtomicInteger idGen = new AtomicInteger();
+    private final AtomicInteger idGen = new AtomicInteger(1000);
 
     private @Nullable IgniteClient client;
 
