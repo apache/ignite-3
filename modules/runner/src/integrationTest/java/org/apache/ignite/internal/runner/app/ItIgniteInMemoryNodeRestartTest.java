@@ -20,7 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -183,7 +183,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
         TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
-        PartitionGroupId replicationGroupId = enabledColocation()
+        PartitionGroupId replicationGroupId = colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), 0)
                 : new TablePartitionId(table.tableId(), 0);
 
@@ -235,7 +235,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     private static boolean solePartitionAssignmentsContain(IgniteImpl restartingNode, InternalTableImpl table, int partId) {
         String restartingNodeConsistentId = restartingNode.name();
 
-        PartitionGroupId replicationGroupId = enabledColocation()
+        PartitionGroupId replicationGroupId = colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), partId)
                 : new TablePartitionId(table.tableId(), partId);
 
@@ -262,7 +262,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
         Predicate<RaftNodeId> predicate;
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             predicate = nodeId -> {
                 ReplicationGroupId groupId = nodeId.groupId();
 

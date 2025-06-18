@@ -1,0 +1,107 @@
+import groovy.json.JsonSlurper
+
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+
+description = 'ignite-compatibility-tests'
+
+repositories {
+    // For Gradle Tooling API
+    maven { url = 'https://repo.gradle.org/gradle/libs-releases' }
+}
+
+dependencies {
+    integrationTestImplementation libs.gradle.tooling.api
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.jackson.databind
+    integrationTestImplementation(libs.jsonpath.assert) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
+
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation project(':ignite-core')
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-rest-api')
+}
+
+private def resolveAllDependencies(String dependencyNotation, String... additionalNotations) {
+    def notations = [dependencyNotation]
+    notations.addAll(additionalNotations)
+    def dependencies = notations.collect {
+        dependencies.create(it)
+    }
+    Configuration detached = configurations.detachedConfiguration(dependencies as Dependency[])
+    detached.transitive = true
+    detached.attributes {
+        it.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.class, Category.LIBRARY));
+        it.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.class, Usage.JAVA_RUNTIME));
+        it.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.class, LibraryElements.JAR));
+        it.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.class, Bundling.EXTERNAL));
+        it.attribute(
+                TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE,
+                objects.named(TargetJvmEnvironment.class, TargetJvmEnvironment.STANDARD_JVM)
+        )
+    }
+    println "resolving $dependencyNotation"
+    return detached.resolve()  // Set<File> of *.jar
+}
+
+def resolveIgniteVersions() {
+    def versionsFile = file("src/integrationTest/resources/igniteVersions.json")
+    def versionsJson = new JsonSlurper().parseText(versionsFile.text)
+    versionsJson.versions.each { version ->
+        versionsJson.artifacts.each { artifact ->
+            resolveAllDependencies("$artifact:$version.version")
+        }
+    }
+}
+
+// This task should be started as a separate preparation step before running tests so that all the necessary dependencies are resolved and
+// cached locally
+tasks.register('resolveCompatibilityTestDependencies') {
+    doLast {
+        resolveIgniteVersions()
+    }
+}
+
+tasks.register('constructArgFile') {
+    doLast {
+        def depNotation = project.property('dependencyNotation')
+        def jars = resolveAllDependencies(depNotation)
+        def classPath = files(jars).asPath
+        def classPathFilePath = project.property('argFilePath')
+
+        def classPathFile = file(classPathFilePath)
+        classPathFile.withPrintWriter {
+            it.println '-classpath'
+            // Java argfile quote rules are weird. It's enough to quote spaces.
+            it.println classPath.replace(" ", "\" \"")
+            defaultJvmArgs.each { arg ->
+                it.println arg
+            }
+        }
+    }
+}

@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -88,7 +89,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     private final IndexBuilder indexBuilder = new IndexBuilder(
             executorService,
             mock(ReplicaService.class, invocation -> nullCompletedFuture()),
-            new NoOpFailureManager()
+            new NoOpFailureManager(),
+            new SystemPropertiesNodeProperties()
     );
 
     private final IndexAvailabilityController indexAvailabilityController = new IndexAvailabilityController(

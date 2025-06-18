@@ -23,7 +23,7 @@ import static java.util.Optional.ofNullable;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -107,7 +107,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
     private static int getTableOrZoneId(Ignite node, String tableName) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId, remove.
         IgniteImpl ignite = unwrapIgniteImpl(node);
-        return enabledColocation()
+        return colocationEnabled()
                 ? TableTestUtils.getZoneIdByTableNameStrict(ignite.catalogManager(), tableName, ignite.clock().nowLong())
                 : requireNonNull(getTableId(node, tableName));
     }

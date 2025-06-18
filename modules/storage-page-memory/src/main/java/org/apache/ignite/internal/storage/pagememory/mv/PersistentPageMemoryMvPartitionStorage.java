@@ -556,4 +556,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     public void decrementEstimatedSize() {
         updateMeta((lastCheckpointId, meta) -> meta.decrementEstimatedSize(lastCheckpointId));
     }
+
+    public int emptyDataPageCountInFreeList() {
+        return renewableState.freeList().emptyDataPages();
+    }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -295,7 +295,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
             var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
 
             PartitionListener listener;
-            if (enabledColocation()) {
+            if (colocationEnabled()) {
                 listener = (PartitionListener) ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(table.tableId());
             } else {
                 listener = (PartitionListener) fsm.getListener();
@@ -378,7 +378,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove TablePartitionId part.
     protected static ReplicationGroupId replicationGroupId(TableViewInternal tableViewInternal, int partitionIndex) {
-        return enabledColocation() ? new ZonePartitionId(tableViewInternal.internalTable().zoneId(), partitionIndex) :
+        return colocationEnabled() ? new ZonePartitionId(tableViewInternal.internalTable().zoneId(), partitionIndex) :
                 new TablePartitionId(tableViewInternal.tableId(), partitionIndex);
     }
 }

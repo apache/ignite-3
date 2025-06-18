@@ -42,15 +42,19 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.DateTimeException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -183,7 +187,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
     @MethodSource("invalidPatterns")
     public void testRejectInvalidPattern(String pattern, String error) {
         Scanner scanner = new Scanner(pattern);
-        DateTimeFormatException err = assertThrows(DateTimeFormatException.class, scanner::scan);
+        DateTimeException err = assertThrows(DateTimeException.class, scanner::scan);
         assertThat(err.getMessage(), containsString(error));
     }
 
@@ -211,7 +215,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
         if (checkConsecutive) {
             String pattern = field.pattern() + field.pattern();
 
-            DateTimeFormatException err = assertThrows(DateTimeFormatException.class,
+            DateTimeException err = assertThrows(DateTimeException.class,
                     () -> new Scanner(pattern).scan());
             assertThat(err.getMessage(), containsString("Element is already present: " + field.kind()));
         }
@@ -219,7 +223,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
         {
             String pattern = field.pattern() + " " + field.pattern();
 
-            DateTimeFormatException err = assertThrows(DateTimeFormatException.class,
+            DateTimeException err = assertThrows(DateTimeException.class,
                     () -> new Scanner(pattern).scan());
             assertThat(err.getMessage(), containsString("Element is already present: " + field.kind()));
         }
@@ -354,7 +358,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
 
         log.info("Updated pattern: {}", updated);
 
-        DateTimeFormatException err = assertThrows(DateTimeFormatException.class,
+        DateTimeException err = assertThrows(DateTimeException.class,
                 () -> new Scanner(updated).scan());
         assertThat(err.getMessage(), containsString("Unexpected character "));
     }
@@ -479,6 +483,20 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
         );
     }
 
+    @Test
+    public void testRestrictFieldSet() {
+        {
+            Scanner scanner = new Scanner("YY", "XYZ", Set.of(FieldKind.MONTH));
+            DateTimeException err = assertThrows(DateTimeException.class, scanner::scan);
+            assertThat(err.getMessage(), containsString("Illegal field <YY> for format XYZ"));
+        }
+        {
+            Scanner scanner = new Scanner("DD", "XYZ", Set.of(FieldKind.MONTH, FieldKind.YEAR));
+            DateTimeException err = assertThrows(DateTimeException.class, scanner::scan);
+            assertThat(err.getMessage(), containsString("Illegal field <DD> for format XYZ"));
+        }
+    }
+
     private void checkSyntaxRule(String pattern, String error) {
         String[] split = pattern.split(" ");
 
@@ -488,7 +506,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
         log.info("Pattern: {}", shuffled);
 
         Scanner scanner = new Scanner(pattern);
-        DateTimeFormatException err = assertThrows(DateTimeFormatException.class, scanner::scan);
+        DateTimeException err = assertThrows(DateTimeException.class, scanner::scan);
         assertThat(err.getMessage(), containsString(error));
     }
 }

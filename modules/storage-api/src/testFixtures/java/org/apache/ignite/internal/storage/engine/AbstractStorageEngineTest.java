@@ -21,7 +21,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -334,7 +333,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
                 CompletableFuture<Void> flushFuture = mvPartitionStorage.flush();
                 assertSame(subscribeFuture, flushFuture);
 
-                assertThat(flushFuture, willSucceedFast());
+                assertThat(flushFuture, willCompleteSuccessfully());
             }
         }
     }

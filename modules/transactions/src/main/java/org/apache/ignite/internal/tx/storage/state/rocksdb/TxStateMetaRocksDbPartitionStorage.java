@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_PREFIX_SIZE_BYTES;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_OR_ZONE_PREFIX_SIZE_BYTES;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -34,7 +34,7 @@ import org.rocksdb.WriteBatch;
  */
 class TxStateMetaRocksDbPartitionStorage {
     /** Key length for the payload. Consists of a 1-byte prefix, tableId (4 bytes) and partitionId (2 bytes), in Big Endian. */
-    private static final int KEY_SIZE_BYTES = TABLE_PREFIX_SIZE_BYTES + Short.BYTES + 1;
+    private static final int KEY_SIZE_BYTES = TABLE_OR_ZONE_PREFIX_SIZE_BYTES + Short.BYTES + 1;
 
     /**
      * Prefix to store meta information, such as last applied index and term.

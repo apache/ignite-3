@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
@@ -84,6 +83,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -340,6 +340,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     private final LowWatermark lowWatermark;
 
+    private final NodeProperties nodeProperties;
+
     private static final boolean SKIP_UPDATES = getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
 
     private final ReplicaPrimacyEngine replicaPrimacyEngine;
@@ -407,7 +409,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             SchemaRegistry schemaRegistry,
             IndexMetaStorage indexMetaStorage,
             LowWatermark lowWatermark,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            NodeProperties nodeProperties
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftCommandRunner = raftCommandRunner;
@@ -426,6 +429,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.schemaRegistry = schemaRegistry;
         this.lowWatermark = lowWatermark;
+        this.nodeProperties = nodeProperties;
         this.replicationGroupId = replicationGroupId;
         this.tableId = tableId;
         this.tableLockKey = new TablePartitionId(tableId, replicationGroupId.partitionId());
@@ -439,7 +443,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         this.tableAwareReplicaRequestPreProcessor = new TableAwareReplicaRequestPreProcessor(
                 clockService,
                 schemaCompatValidator,
-                schemaSyncService
+                schemaSyncService,
+                nodeProperties
         );
 
         reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
@@ -495,7 +500,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
     private PendingTxPartitionEnlistment createAbandonedTxRecoveryEnlistment(ClusterNode node) {
-        assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+        assert !nodeProperties.colocationEnabled() : "Unexpected method call within colocation enabled.";
         // Enlistment consistency token is not required for the rollback, so it is 0L.
         // This method is not called in a colocation context, thus it's valid to cast replicationGroupId to TablePartitionId.
         return new PendingTxPartitionEnlistment(node.name(), 0L, ((TablePartitionId) replicationGroupId).tableId());
@@ -562,13 +567,13 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         }
 
         if (request instanceof TxRecoveryMessage) {
-            assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+            assert !nodeProperties.colocationEnabled() : "Unexpected method call within colocation enabled.";
 
             return txRecoveryMessageHandler.handle((TxRecoveryMessage) request, senderId);
         }
 
         if (request instanceof TxCleanupRecoveryRequest) {
-            assert !enabledColocation() : "Unexpected method call within colocation enabled.";
+            assert !nodeProperties.colocationEnabled() : "Unexpected method call within colocation enabled.";
 
             return txCleanupRecoveryRequestHandler.handle((TxCleanupRecoveryRequest) request);
         }
@@ -583,7 +588,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         @Nullable HybridTimestamp opTs = tableAwareReplicaRequestPreProcessor.getOperationTimestamp(request);
         @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo);
         } else {
             // Don't need to validate schema.
@@ -777,7 +782,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
             return nullCompletedFuture();
         } else if (request instanceof TxFinishReplicaRequest) {
-            assert !enabledColocation() : request;
+            assert !nodeProperties.colocationEnabled() : request;
 
             return txFinishReplicaRequestHandler.handle((TxFinishReplicaRequest) request);
         } else if (request instanceof WriteIntentSwitchReplicaRequest) {
@@ -799,15 +804,15 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
             return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof TxStateCommitPartitionRequest) {
-            assert !enabledColocation() : request;
+            assert !nodeProperties.colocationEnabled() : request;
 
             return txStateCommitPartitionReplicaRequestHandler.handle((TxStateCommitPartitionRequest) request);
         } else if (request instanceof VacuumTxStateReplicaRequest) {
-            assert !enabledColocation() : request;
+            assert !nodeProperties.colocationEnabled() : request;
 
             return vacuumTxStateReplicaRequestHandler.handle((VacuumTxStateReplicaRequest) request);
         } else if (request instanceof UpdateMinimumActiveTxBeginTimeReplicaRequest) {
-            assert !enabledColocation() : request;
+            assert !nodeProperties.colocationEnabled() : request;
 
             return minimumActiveTxTimeReplicaRequestHandler.handle((UpdateMinimumActiveTxBeginTimeReplicaRequest) request);
         }
@@ -1046,7 +1051,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      */
     private CompletableFuture<?> processReplicaSafeTimeSyncRequest(boolean isPrimary) {
         // Disable safe-time sync if the Colocation feature is enabled, safe-time is managed on a different level there.
-        if (!isPrimary || enabledColocation()) {
+        if (!isPrimary || nodeProperties.colocationEnabled()) {
             return nullCompletedFuture();
         }
 
@@ -1513,7 +1518,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         // When doing changes to this code, please take a look at WriteIntentSwitchRequestHandler#handle() as it might also need
         // to be touched.
 
-        assert !enabledColocation() : request;
+        assert !nodeProperties.colocationEnabled() : request;
 
         replicaTxFinishMarker.markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
@@ -1531,7 +1536,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     }
 
     private CompletableFuture<ReplicaResult> processTableWriteIntentSwitchAction(TableWriteIntentSwitchReplicaRequest request) {
-        assert enabledColocation() : request;
+        assert nodeProperties.colocationEnabled() : request;
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenApply(res -> {
@@ -1592,7 +1597,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         WriteIntentSwitchReplicatedInfo result = writeIntentSwitchReplicatedInfoFor(request);
 
-        assert !enabledColocation() : request;
+        assert !nodeProperties.colocationEnabled() : request;
 
         @Nullable HybridTimestamp commitTimestamp = request.commitTimestamp();
         HybridTimestamp commandTimestamp = commitTimestamp != null ? commitTimestamp : beginTimestamp(request.txId());
@@ -3346,8 +3351,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 });
     }
 
-    private static ReplicationGroupId replicationGroupId(int tableOrZoneId, int partitionId) {
-        if (enabledColocation()) {
+    private ReplicationGroupId replicationGroupId(int tableOrZoneId, int partitionId) {
+        if (nodeProperties.colocationEnabled()) {
             return new ZonePartitionId(tableOrZoneId, partitionId);
         } else {
             return new TablePartitionId(tableOrZoneId, partitionId);

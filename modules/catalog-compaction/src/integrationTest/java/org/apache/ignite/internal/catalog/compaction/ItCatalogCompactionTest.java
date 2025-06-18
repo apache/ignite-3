@@ -163,7 +163,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         List<Transaction> txs3 = Stream.of(node0, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
 
-        Collection<ClusterNode> topologyNodes = node0.clusterNodes();
+        Collection<ClusterNode> topologyNodes = node0.cluster().nodes();
 
         compactors.forEach(compactor -> {
             TimeHolder timeHolder = await(compactor.determineGlobalMinimumRequiredTime(topologyNodes, 0L));

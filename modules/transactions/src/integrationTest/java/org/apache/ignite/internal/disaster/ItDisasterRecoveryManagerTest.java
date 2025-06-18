@@ -22,7 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -198,7 +198,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     void testLocalPartitionStateZone() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
@@ -271,7 +271,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     void testGlobalPartitionStateZone() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();

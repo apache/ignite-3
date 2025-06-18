@@ -20,7 +20,7 @@ package org.apache.ignite.tx.distributed;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -204,7 +204,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> nodes = partitionAssignment(
                 node,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(node, TABLE_NAME), partId)
                         : new TablePartitionId(tableId(node, TABLE_NAME), partId)
         );
@@ -302,7 +302,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int partId = partitionIdForTuple(anyNode(), TABLE_NAME, tuple, null);
 
-        PartitionGroupId groupId = enabledColocation()
+        PartitionGroupId groupId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(anyNode(), TABLE_NAME), partId)
                 : new TablePartitionId(tableId(anyNode(), TABLE_NAME), partId);
 
@@ -383,7 +383,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple0, tx);
 
-        PartitionGroupId commitPartGrpId = enabledColocation()
+        PartitionGroupId commitPartGrpId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                 : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
 
@@ -392,7 +392,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(
                 node,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                         : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId)
         );
@@ -496,7 +496,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple, tx);
 
-        PartitionGroupId commitPartGrpId = enabledColocation()
+        PartitionGroupId commitPartGrpId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                 : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
 
@@ -505,7 +505,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(
                 node,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                         : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId)
         );
@@ -594,7 +594,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple, tx);
 
-        PartitionGroupId commitPartGrpId = enabledColocation()
+        PartitionGroupId commitPartGrpId = colocationEnabled()
                 ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                 : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
 
@@ -603,7 +603,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(
                 node,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(node, TABLE_NAME), commitPartId)
                         : new TablePartitionId(tableId(node, TABLE_NAME), commitPartId)
         );
@@ -697,7 +697,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartitionNodes = partitionAssignment(
                 commitPartitionLeaseholder,
-                enabledColocation()
+                colocationEnabled()
                         ? new ZonePartitionId(zoneId(commitPartitionLeaseholder, TABLE_NAME), commitPartId)
                         : new TablePartitionId(tableId(commitPartitionLeaseholder, TABLE_NAME), commitPartId)
         );
@@ -1048,7 +1048,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         if (checkCpPrimaryOnly) {
             IgniteImpl node = anyNode();
 
-            PartitionGroupId partitionGroupId = enabledColocation()
+            PartitionGroupId partitionGroupId = colocationEnabled()
                     ? new ZonePartitionId(zoneId(node, tableName), partId)
                     : new TablePartitionId(tableId(node, tableName), partId);
 
@@ -1123,7 +1123,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             InternalTable internalTable = table(node, tableName).internalTable();
 
             TxStatePartitionStorage txStatePartitionStorage =
-                    enabledColocation()
+                    colocationEnabled()
                     ? node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), partId)
                     : internalTable.txStateStorage().getPartitionStorage(partId);
 

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.rest.recovery;
 
 import static java.util.Collections.emptySet;
 import static java.util.Comparator.comparing;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static java.util.stream.Collectors.toList;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Body;
@@ -31,6 +31,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.rest.ResourceHolder;
@@ -64,9 +65,11 @@ import org.apache.ignite.table.QualifiedName;
 @Requires(classes = IgniteInternalExceptionHandler.class)
 public class DisasterRecoveryController implements DisasterRecoveryApi, ResourceHolder {
     private DisasterRecoveryManager disasterRecoveryManager;
+    private NodeProperties nodeProperties;
 
-    public DisasterRecoveryController(DisasterRecoveryManager disasterRecoveryManager) {
+    public DisasterRecoveryController(DisasterRecoveryManager disasterRecoveryManager, NodeProperties nodeProperties) {
         this.disasterRecoveryManager = disasterRecoveryManager;
+        this.nodeProperties = nodeProperties;
     }
 
     @Override
@@ -75,6 +78,13 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             Optional<Set<String>> nodeNames,
             Optional<Set<Integer>> partitionIds
     ) {
+        if (nodeProperties.colocationEnabled()) {
+            // The table response is actually a superset of the zone response, so should be fine to convert it.
+            CompletableFuture<LocalZonePartitionStatesResponse> zoneStates =
+                    getZoneLocalPartitionStates(zoneNames, nodeNames, partitionIds);
+            return zoneStates.thenApply(DisasterRecoveryController::toTableLocalStates);
+        }
+
         return disasterRecoveryManager.localTablePartitionStates(
                         zoneNames.orElse(Set.of()),
                         nodeNames.orElse(Set.of()),
@@ -83,16 +93,55 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                 .thenApply(DisasterRecoveryController::convertLocalTableStates);
     }
 
+    private static LocalPartitionStatesResponse toTableLocalStates(LocalZonePartitionStatesResponse zoneResponse) {
+        List<LocalPartitionStateResponse> states = zoneResponse.states().stream()
+                .map(state -> new LocalPartitionStateResponse(
+                        state.nodeName(),
+                        state.zoneName(),
+                        "",
+                        -1,
+                        "",
+                        state.partitionId(),
+                        state.state(),
+                        state.estimatedRows()
+                ))
+                .collect(toList());
+        return new LocalPartitionStatesResponse(states);
+    }
+
     @Override
     public CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates(
             Optional<Set<String>> zoneNames,
             Optional<Set<Integer>> partitionIds
     ) {
+        if (nodeProperties.colocationEnabled()) {
+            // The table response is actually a superset of the zone response, so should be fine to convert it.
+
+            CompletableFuture<GlobalZonePartitionStatesResponse> zoneStates =
+                    getZoneGlobalPartitionStates(zoneNames, partitionIds);
+            return zoneStates.thenApply(DisasterRecoveryController::toTableGlobalStates);
+        }
+
         return disasterRecoveryManager.globalTablePartitionStates(
                         zoneNames.orElse(Set.of()),
                         partitionIds.orElse(Set.of())
                 )
                 .thenApply(DisasterRecoveryController::convertGlobalStates);
+    }
+
+    private static GlobalPartitionStatesResponse toTableGlobalStates(GlobalZonePartitionStatesResponse zoneStates) {
+        List<GlobalPartitionStateResponse> states = zoneStates.states().stream()
+                .map(state -> new GlobalPartitionStateResponse(
+                        state.zoneName(),
+                        "",
+                        -1,
+                        "",
+                        state.partitionId(),
+                        state.state()
+                ))
+                .collect(toList());
+
+        return new GlobalPartitionStatesResponse(states);
     }
 
     @Override
@@ -254,8 +303,8 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         return new GlobalZonePartitionStatesResponse(states);
     }
 
-    private static void checkColocationEnabled() {
-        if (!enabledColocation()) {
+    private void checkColocationEnabled() {
+        if (!nodeProperties.colocationEnabled()) {
             throw new UnsupportedOperationException("This method is unsupported when colocation is disabled.");
         }
     }
@@ -263,5 +312,6 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
     @Override
     public void cleanResources() {
         disasterRecoveryManager = null;
+        nodeProperties = null;
     }
 }

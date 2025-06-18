@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
@@ -786,15 +786,18 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         if (readOnly) {
             IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            ReplicationGroupId partitionId = enabledColocation()
+            ReplicationGroupId partitionId = colocationEnabled()
                     ? new ZonePartitionId(internalTable.zoneId(), PART_ID)
                     : new TablePartitionId(internalTable.tableId(), PART_ID);
 
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
                     ignite.placementDriver().awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
-            ClusterNode recipientNode = ignite.clusterNodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
-                    .findFirst().get();
+            ClusterNode recipientNode = ignite.cluster().nodes().stream()
+                    .filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
+                    .findFirst()
+                    .get();
+
             tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true));
 
             publisher = internalTable.scan(PART_ID, tx.id(), ignite.clock().now(), recipientNode, tx.coordinatorId());
@@ -843,14 +846,14 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
             if (readOnly) {
                 // Any node from assignments will do it.
-                Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().clusterNodes().stream().map(
+                Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().cluster().nodes().stream().map(
                         ClusterNode::name).collect(Collectors.toList()), 0, 1, 1, 1);
 
                 assertFalse(assignments.isEmpty());
 
                 String consId = assignments.iterator().next().consistentId();
 
-                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(n -> n.name().equals(consId)).findAny()
+                ClusterNode node0 = CLUSTER.aliveNode().cluster().nodes().stream().filter(n -> n.name().equals(consId)).findAny()
                         .orElseThrow();
 
                 //noinspection DataFlowIssue
@@ -886,7 +889,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
-        ReplicationGroupId replicationGroupId = enabledColocation()
+        ReplicationGroupId replicationGroupId = colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), partId)
                 : new TablePartitionId(table.tableId(), partId);
 
@@ -894,7 +897,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        ClusterNode primaryNode = ignite.clusterNodes().stream()
+        ClusterNode primaryNode = ignite.cluster().nodes().stream()
                 .filter(n -> n.name().equals(enlistment.primaryNodeConsistentId()))
                 .findAny()
                 .orElseThrow();
@@ -1083,7 +1086,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
-        ReplicationGroupId replicationGroupId = enabledColocation()
+        ReplicationGroupId replicationGroupId = colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), partId)
                 : new TablePartitionId(table.tableId(), partId);
 

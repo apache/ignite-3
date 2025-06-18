@@ -976,13 +976,35 @@ SqlNode SqlIgniteExplain() :
 {
     SqlNode stmt;
     Span s;
+    IgniteSqlExplainMode mode = IgniteSqlExplainMode.PLAN;
 }
 {
     <EXPLAIN> { s = span(); }
-    [<PLAN> <FOR>] stmt = SqlQueryOrDml() {
+    [ mode = ExplainMode() ]
+    stmt = SqlQueryOrDml() {
         return new IgniteSqlExplain(s.end(this),
-            stmt,
+            stmt, mode.symbol(getPos()),
             nDynamicParams);
+    }
+}
+
+IgniteSqlExplainMode ExplainMode() :
+{
+    IgniteSqlExplainMode mode = IgniteSqlExplainMode.PLAN;
+}
+{
+    (
+        <MAPPING> <FOR>
+        {
+            mode = IgniteSqlExplainMode.MAPPING;
+        }
+        |
+        <PLAN> <FOR>
+        {
+        }
+    )
+    {
+        return mode;
     }
 }
 

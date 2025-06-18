@@ -162,7 +162,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
         cluster.startEmbeddedNode(0);
 
         assertFalse(
-                waitForCondition(() -> restartedIgniteImpl1.clusterNodes().size() > 1, SECONDS.toMillis(3)),
+                waitForCondition(() -> restartedIgniteImpl1.cluster().nodes().size() > 1, SECONDS.toMillis(3)),
                 "Nodes from different clusters were able to establish a connection"
         );
     }

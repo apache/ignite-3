@@ -31,7 +31,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -151,7 +151,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         int zoneId = catalog.zone(zoneName).id();
         int tableId = catalog.table(SCHEMA_NAME, tableName).id();
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             assertEquals(of(zoneId, PARTITION_IDS), request.partitionIds());
         } else {
             assertEquals(of(tableId, PARTITION_IDS), request.partitionIds());
@@ -267,7 +267,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
                             PartitionGroupId replicationGroupId;
 
-                            if (enabledColocation()) {
+                            if (colocationEnabled()) {
                                 replicationGroupId = new ZonePartitionId(zoneId, partNum);
                             } else {
                                 replicationGroupId = new TablePartitionId(tableId, partNum);
@@ -322,7 +322,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             int zoneId = TableTestUtils.getZoneIdByTableNameStrict(node.catalogManager(), tableName, clock.nowLong());
 
             CompletableFuture<Set<Assignment>> zonePartAssignmentsFut =
@@ -373,7 +373,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
         int zoneId = DistributionZonesTestUtil.getZoneId(igniteImpl(0).catalogManager(), zoneName, clock.nowLong());
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             awaitForAllNodesZoneGroupInitialization(zoneId, targetNodes.size());
             waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), tableNames.get(0), PARTITION_IDS, targetNodes);
         } else {
