@@ -125,7 +125,9 @@ public interface ClientCompatibilityTests {
     @Test
     default void testRecordViewOperations() {
         int id = idGen().incrementAndGet();
+        int id2 = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
+        Tuple key2 = Tuple.create().set("id", id2);
 
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
 
@@ -133,6 +135,14 @@ public interface ClientCompatibilityTests {
         assertTrue(view.insert(null, Tuple.create().set("id", id).set("name", "v1")));
         assertEquals("v1", view.get(null, key).stringValue("name"));
         assertFalse(view.insert(null, Tuple.create().set("id", id).set("name", "v2")));
+
+        // Insert All.
+        List<Tuple> insertAllRes = view.insertAll(
+                null,
+                List.of(Tuple.create().set("id", id).set("name", "v3"), Tuple.create().set("id", id2).set("name", "v4")));
+
+        assertEquals(1, insertAllRes.size());
+        assertEquals(id, insertAllRes.get(0).intValue(0));
 
         // Upsert.
         view.upsert(null, Tuple.create().set("id", id).set("name", "v2"));
