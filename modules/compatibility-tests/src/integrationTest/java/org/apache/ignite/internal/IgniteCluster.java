@@ -223,7 +223,7 @@ public class IgniteCluster {
      *
      * @return Ignite client instance.
      */
-    IgniteClient createClient() {
+    public IgniteClient createClient() {
         return IgniteClient.builder().addresses("localhost:" + clusterConfiguration.baseClientPort()).build();
     }
 

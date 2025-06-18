@@ -43,11 +43,15 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
     }
 
     @Override
+    protected boolean restartWithCurrentEmbeddedVersion() {
+        // Keep old servers running.
+        return false;
+    }
+
+    @Override
     public IgniteClient client() {
         if (client == null) {
-            client = IgniteClient.builder()
-                    .addresses("localhost:10800")
-                    .build();
+            client = cluster.createClient();
         }
 
         return client;
