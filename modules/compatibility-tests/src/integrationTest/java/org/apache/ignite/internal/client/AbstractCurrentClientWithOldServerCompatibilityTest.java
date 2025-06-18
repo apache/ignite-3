@@ -17,46 +17,18 @@
 
 package org.apache.ignite.internal.client;
 
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.client.compatibility.containers.IgniteServerContainer;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 
 /**
  * Tests that current Java client can work with all older server versions.
  */
 public abstract class AbstractCurrentClientWithOldServerCompatibilityTest extends ClientCompatibilityTestBase {
-    private IgniteServerContainer serverContainer;
-
     abstract String serverVersion();
-
-    @BeforeAll
-    @Override
-    public void beforeAll() throws Exception {
-        serverContainer = new IgniteServerContainer(serverVersion());
-        serverContainer.start();
-
-        activateCluster(serverContainer.restPort());
-        waitForActivation(serverContainer.clientPort());
-
-        client = IgniteClient.builder()
-                .addresses("localhost:" + serverContainer.clientPort())
-                .build();
-
-        super.beforeAll();
-    }
-
-    @AfterAll
-    void afterAll() throws Exception {
-        closeAll(client, serverContainer);
-    }
 
     private static void activateCluster(int restPort) throws IOException {
         URL url = new URL("http://localhost:" + restPort + "/management/v1/cluster/init");
