@@ -291,9 +291,10 @@ public class PersistentPageMemory implements PageMemory {
         metricSource.addMetric(new IntGauge(
                 "MaxCheckpointBufferPages", "The capacity of checkpoint buffer in pages.", this::maxCheckpointBufferPages
         ));
+        // TODO: IGNITE-25702 Fix the concept of "region"
         metricSource.addMetric(new LongGauge(
                 "MaxSize",
-                "Maximum region size in bytes.",
+                "Maximum in-memory region size in bytes.",
                 storageProfileView::sizeBytes
         ));
     }
