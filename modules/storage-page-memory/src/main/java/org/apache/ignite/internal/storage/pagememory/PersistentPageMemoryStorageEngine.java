@@ -121,6 +121,9 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private final LogSyncer logSyncer;
 
+    /** For unspecified tasks, i.e. throttling log. */
+    private final ExecutorService commonExecutorService;
+
     /**
      * Constructor.
      *
@@ -132,6 +135,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param commonExecutorService Executor service.
      * @param clock Hybrid Logical Clock.
      */
     public PersistentPageMemoryStorageEngine(
@@ -144,6 +148,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureManager failureManager,
             LogSyncer logSyncer,
+            ExecutorService commonExecutorService,
             HybridClock clock
     ) {
         super(clock);
@@ -158,6 +163,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         this.longJvmPauseDetector = longJvmPauseDetector;
         this.failureManager = failureManager;
         this.logSyncer = logSyncer;
+        this.commonExecutorService = commonExecutorService;
     }
 
     /**
@@ -201,6 +207,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                     regions.values(),
                     ioRegistry,
                     logSyncer,
+                    commonExecutorService,
                     pageSize
             );
 
@@ -273,7 +280,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
-        return new PersistentPageMemoryTableStorage(
+        var tableStorage = new PersistentPageMemoryTableStorage(
                 tableDescriptor,
                 indexDescriptorSupplier,
                 this,
@@ -281,6 +288,10 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                 destructionExecutor,
                 failureManager
         );
+
+        dataRegion.addTableStorage(tableStorage);
+
+        return tableStorage;
     }
 
     @Override

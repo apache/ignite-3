@@ -98,6 +98,22 @@ public interface IgniteRelWriter {
     IgniteRelWriter addTuples(List<List<RexLiteral>> tuples);
 
     /**
+     * Adds the source fragment ID, indicating the origin of a data flow edge between fragments.
+     *
+     * @param fragmentId The ID of the source fragment.
+     * @return This writer instance for chaining.
+     */
+    IgniteRelWriter addSourceFragmentId(long fragmentId);
+
+    /**
+     * Adds the target fragment ID, indicating the destination of a data flow edge between fragments.
+     *
+     * @param fragmentId The ID of the target fragment.
+     * @return This writer instance for chaining.
+     */
+    IgniteRelWriter addTargetFragmentId(long fragmentId);
+
+    /**
      * Adds a child relational node (i.e., an input) to the current node.
      *
      * @param rel The child {@link IgniteRel} node.

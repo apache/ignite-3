@@ -39,7 +39,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -69,7 +68,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
+        assertThat(invalidPlanMsg, join.distribution().isTableDistribution(), is(true));
         assertThat(invalidPlanMsg, join.getLeft(), instanceOf(IgniteIndexScan.class));
         assertThat(invalidPlanMsg, join.getRight(), instanceOf(IgniteIndexScan.class));
     }
@@ -97,7 +96,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         assertThat(invalidPlanMsg, joinNodes.size(), equalTo(1));
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
+        assertThat(invalidPlanMsg, join.distribution().isTableDistribution(), is(true));
     }
 
     /**
@@ -121,7 +120,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
+        assertThat(invalidPlanMsg, join.distribution().isTableDistribution(), is(true));
 
         if (!"MergeJoinConverter".equals(disabledRule)) {
             assertThat(invalidPlanMsg, join.getLeft(), instanceOf(IgniteIndexScan.class));
@@ -151,7 +150,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
+        assertThat(invalidPlanMsg, join.distribution().isTableDistribution(), is(true));
 
         if (!"MergeJoinConverter".equals(disabledRule)) {
             assertThat(invalidPlanMsg, join.getLeft(), instanceOf(IgniteIndexScan.class));
@@ -181,7 +180,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(false));
+        assertThat(invalidPlanMsg, join.distribution().isTableDistribution(), is(false));
     }
 
     /**
@@ -192,7 +191,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
     @Test
     public void joinComplexToSimpleAff() throws Exception {
         IgniteTable complexTbl = complexTbl("COMPLEX_TBL", 2 * DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
+                TestBuilders.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
 
         IgniteTable simpleTbl = simpleTable("SIMPLE_TBL", DEFAULT_TBL_SIZE);
 
@@ -227,12 +226,12 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         IgniteTable complexTblDirect = complexTbl(
                 "COMPLEX_TBL_DIRECT",
                 2 * DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
+                TestBuilders.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
 
         IgniteTable complexTblIndirect = complexTbl(
                 "COMPLEX_TBL_INDIRECT",
                 DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(ImmutableIntList.of(1, 0), nextTableId(), DEFAULT_ZONE_ID));
+                TestBuilders.affinity(ImmutableIntList.of(1, 0), nextTableId(), DEFAULT_ZONE_ID));
 
         IgniteSchema schema = createSchema(complexTblDirect, complexTblIndirect);
 
@@ -287,7 +286,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
     static IgniteTable complexTbl(String tableName) {
         return complexTbl(tableName, DEFAULT_TBL_SIZE,
-                IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
+                TestBuilders.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
     }
 
     private static IgniteTable complexTbl(String tableName, int size, IgniteDistribution distribution) {

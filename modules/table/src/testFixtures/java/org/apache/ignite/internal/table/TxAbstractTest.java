@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -1459,7 +1459,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                         ReplicaTestUtils.leaderAssignment(
                                 txTestCluster.replicaManagers().get(txTestCluster.localNodeName()),
                                 txTestCluster.clusterServices().get(txTestCluster.localNodeName()).topologyService(),
-                                enabledColocation() ? internalTable.zoneId() : internalTable.tableId(),
+                                colocationEnabled() ? internalTable.zoneId() : internalTable.tableId(),
                                 0
                         ),
                         internalTx.coordinatorId()

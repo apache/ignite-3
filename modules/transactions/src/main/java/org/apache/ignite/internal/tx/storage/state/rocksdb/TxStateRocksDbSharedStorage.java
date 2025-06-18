@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
+import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_OR_ZONE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -47,8 +50,9 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.WriteOptions;
 
 /**
- * Shared RocksDB storage instance to be used in {@link TxStateRocksDbStorage}. Exists to make "createTable" operation faster, as well as
- * reducing the amount of resources that would otherwise be used by multiple RocksDB instances, if they existed on per-table basis.
+ * Shared RocksDB storage instance to be used in {@link TxStateRocksDbStorage}. Exists to make createTable/createZone operations faster,
+ * as well as reducing the amount of resources that would otherwise be used by multiple RocksDB instances, if they existed
+ * on per-table/per-zone basis.
  */
 public class TxStateRocksDbSharedStorage implements IgniteComponent {
     static {
@@ -262,5 +266,21 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
 
     public ColumnFamily txStateMetaColumnFamily() {
         return txStateMetaColumnFamily;
+    }
+
+    /**
+     * Destroys tx state storage for table or zone by its ID.
+     *
+     * @param tableOrZoneId ID of the table or zone.
+     */
+    public void destroyStorage(int tableOrZoneId) {
+        byte[] start = ByteBuffer.allocate(TABLE_OR_ZONE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(tableOrZoneId).array();
+        byte[] end = ByteBuffer.allocate(TABLE_OR_ZONE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(tableOrZoneId + 1).array();
+
+        try {
+            db.deleteRange(start, end);
+        } catch (Exception e) {
+            throw new TxStateStorageException("Failed to destroy the transaction state storage [tableOrZoneId={}]", e, tableOrZoneId);
+        }
     }
 }

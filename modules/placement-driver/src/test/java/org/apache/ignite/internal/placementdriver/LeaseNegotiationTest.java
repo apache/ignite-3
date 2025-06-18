@@ -54,6 +54,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -99,7 +100,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    private final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
     private final PartitionGroupId groupId = replicationGroupId(0, 0);
 
@@ -198,7 +199,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
         leaseTracker.startTrack(0L);
 
-        assignmentsTracker = new AssignmentsTracker(metaStorageManager, mock(FailureProcessor.class));
+        assignmentsTracker = new AssignmentsTracker(metaStorageManager, mock(FailureProcessor.class), new SystemPropertiesNodeProperties());
 
         assignmentsTracker.startTrack();
 

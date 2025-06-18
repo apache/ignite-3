@@ -22,8 +22,6 @@ import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
 import static org.apache.ignite.internal.sql.engine.prepare.PlanningContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
-import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -32,11 +30,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.io.StringReader;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -112,11 +104,8 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.TemporalNativeType;
-import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.sql.ColumnMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -565,148 +554,6 @@ public final class Commons {
             } catch (Exception ignored) {
                 // No-op.
             }
-        }
-    }
-
-    /**
-     * Provide mapping Native types to java classes.
-     *
-     * @param type Native type
-     * @return Java corresponding class.
-     */
-    public static Class<?> nativeTypeToClass(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case BOOLEAN:
-                return Boolean.class;
-
-            case INT8:
-                return Byte.class;
-
-            case INT16:
-                return Short.class;
-
-            case INT32:
-                return Integer.class;
-
-            case INT64:
-                return Long.class;
-
-            case FLOAT:
-                return Float.class;
-
-            case DOUBLE:
-                return Double.class;
-
-            case DECIMAL:
-                return BigDecimal.class;
-
-            case UUID:
-                return UUID.class;
-
-            case STRING:
-                return String.class;
-
-            case BYTE_ARRAY:
-                return byte[].class;
-
-            case DATE:
-                return LocalDate.class;
-
-            case TIME:
-                return LocalTime.class;
-
-            case DATETIME:
-                return LocalDateTime.class;
-
-            case TIMESTAMP:
-                return Instant.class;
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
-        }
-    }
-
-    /**
-     * Gets the precision of this type. Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if
-     * precision is not applicable for this type.
-     *
-     * @return Precision for current type.
-     */
-    public static int nativeTypePrecision(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case INT8:
-                return 3;
-
-            case INT16:
-                return 5;
-
-            case INT32:
-                return 10;
-
-            case INT64:
-                return 19;
-
-            case FLOAT:
-            case DOUBLE:
-                return 15;
-
-            case DECIMAL:
-                return ((DecimalNativeType) type).precision();
-
-            case BOOLEAN:
-            case UUID:
-            case DATE:
-                return UNDEFINED_PRECISION;
-
-            case TIME:
-            case DATETIME:
-            case TIMESTAMP:
-                return ((TemporalNativeType) type).precision();
-
-            case BYTE_ARRAY:
-            case STRING:
-                return ((VarlenNativeType) type).length();
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
-        }
-    }
-
-    /**
-     * Gets the scale of this type. Returns {@link ColumnMetadata#UNDEFINED_SCALE} if
-     * scale is not valid for this type.
-     *
-     * @return number of digits of scale
-     */
-    public static int nativeTypeScale(NativeType type) {
-        switch (type.spec()) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-                return 0;
-
-            case BOOLEAN:
-            case FLOAT:
-            case DOUBLE:
-            case UUID:
-            case DATE:
-            case TIME:
-            case DATETIME:
-            case TIMESTAMP:
-            case BYTE_ARRAY:
-            case STRING:
-                return UNDEFINED_SCALE;
-
-            case DECIMAL:
-                return ((DecimalNativeType) type).scale();
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
         }
     }
 

@@ -113,7 +113,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -540,11 +539,10 @@ class RelJson {
                 map.put("func", distribution.function().name());
                 map.put("keys", keys);
 
-                DistributionFunction function = distribution.function();
-
-                if (function.affinity()) {
-                    map.put("zoneId", ((AffinityDistribution) function).zoneId());
-                    map.put("tableId", ((AffinityDistribution) function).tableId());
+                if (distribution.isTableDistribution()) {
+                    map.put("zoneId", distribution.zoneId());
+                    map.put("tableId", distribution.tableId());
+                    map.put("label", distribution.label());
                 }
 
                 return map;
@@ -691,15 +689,19 @@ class RelJson {
 
                 return IgniteDistributions.identity(keys.get(0));
             }
-            case "hash":
-                return IgniteDistributions.hash(keys, DistributionFunction.hash());
-            default: {
-                assert functionName.startsWith("affinity");
+            case "hash": {
+                if (map.get("tableId") == null) {
+                    return IgniteDistributions.hash(keys, DistributionFunction.hash());
+                }
 
                 int tableId = (int) map.get("tableId");
                 int zoneId = (int) map.get("zoneId");
+                String label = (String) map.get("label");
 
-                return IgniteDistributions.affinity(keys, tableId, zoneId);
+                return IgniteDistributions.affinity(keys, tableId, zoneId, label);
+            }
+            default: {
+                throw new IllegalStateException("Unsupported distribution function: " + functionName);
             }
         }
     }

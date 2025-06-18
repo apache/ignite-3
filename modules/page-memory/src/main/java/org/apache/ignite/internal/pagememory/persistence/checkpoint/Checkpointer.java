@@ -226,9 +226,10 @@ public class Checkpointer extends IgniteWorker {
             checkpointWritePagesPool = new ThreadPoolExecutor(
                     checkpointWritePageThreads,
                     checkpointWritePageThreads,
-                    30_000,
+                    0L,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
+                    // TODO IGNITE-25590 Add node name.
                     new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", log)
             );
         } else {

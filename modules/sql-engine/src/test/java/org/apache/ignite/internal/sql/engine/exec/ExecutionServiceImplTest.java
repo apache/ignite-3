@@ -75,6 +75,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -135,7 +136,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -204,7 +204,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             .name("TEST_TBL")
             .addKeyColumn("ID", NativeTypes.INT32)
             .addColumn("VAL", NativeTypes.INT32)
-            .distribution(IgniteDistributions.affinity(0, 1, 2))
+            .distribution(TestBuilders.affinity(0, 1, 2))
             .hashIndex().name("TEST_TBL_PK").addColumn("ID").primaryKey(true).end()
             .size(1_000_000)
             .build();
@@ -1160,6 +1160,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, capturingMailbox, exchangeService, deps, tableFunctionRegistry),
                 clockService,
+                new SystemPropertiesNodeProperties(),
                 killCommandHandler,
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
@@ -1189,7 +1190,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         LongSupplier topologyVerSupplier = () -> Long.MAX_VALUE;
 
         return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologyVerSupplier,
-                new TestExecutionDistributionProvider(logicalNodes, () -> mappingException));
+                new TestExecutionDistributionProvider(logicalNodes, () -> mappingException),
+                new SystemPropertiesNodeProperties()
+        );
     }
 
     private SqlOperationContext createContext() {

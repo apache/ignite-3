@@ -51,6 +51,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
+import org.apache.ignite.client.handler.requests.ClientOperationCancelRequest;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeCancelRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeChangePriorityRequest;
@@ -73,7 +74,6 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPrimaryKeyMetada
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlCancelRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
@@ -136,6 +136,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.IgniteClusterImpl;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
@@ -158,6 +159,7 @@ import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
@@ -169,7 +171,6 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>All message handling is sequential, {@link #channelRead} and other handlers are invoked on a single thread.</p>
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientInboundMessageHandler
         extends ChannelInboundHandlerAdapter
         implements EventListener<AuthenticationEventParameters> {
@@ -200,8 +201,11 @@ public class ClientInboundMessageHandler
     /** Compute. */
     private final IgniteComputeInternal compute;
 
-    /** Cluster. */
+    /** Cluster service. */
     private final ClusterService clusterService;
+
+    /** Ignite cluster. */
+    private final IgniteCluster cluster;
 
     /** Query processor. */
     private final QueryProcessor queryProcessor;
@@ -314,6 +318,7 @@ public class ClientInboundMessageHandler
         this.configuration = configuration;
         this.compute = compute;
         this.clusterService = clusterService;
+        this.cluster = new IgniteClusterImpl(clusterService.topologyService());
         this.queryProcessor = processor;
         this.clusterInfoSupplier = clusterInfoSupplier;
         this.metrics = metrics;
@@ -413,7 +418,7 @@ public class ClientInboundMessageHandler
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
-        try {
+        try (unpacker) {
             writeMagic(ctx);
             var clientVer = ProtocolVersion.unpack(unpacker);
 
@@ -465,8 +470,6 @@ public class ClientInboundMessageHandler
                     }, ctx.executor());
         } catch (Throwable t) {
             handshakeError(ctx, packer, t);
-        } finally {
-            unpacker.close();
         }
     }
 
@@ -917,14 +920,14 @@ public class ClientInboundMessageHandler
                 return ClientComputeChangePriorityRequest.process(in, compute);
 
             case ClientOp.CLUSTER_GET_NODES:
-                return ClientClusterGetNodesRequest.process(clusterService);
+                return ClientClusterGetNodesRequest.process(cluster);
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker);
 
-            case ClientOp.SQL_CANCEL_EXEC:
-                return ClientSqlCancelRequest.process(in, cancelHandles);
+            case ClientOp.OPERATION_CANCEL:
+                return ClientOperationCancelRequest.process(in, cancelHandles);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientSqlCursorNextPageRequest.process(in, resources);

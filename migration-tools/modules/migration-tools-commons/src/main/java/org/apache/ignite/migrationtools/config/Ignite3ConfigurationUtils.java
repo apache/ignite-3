@@ -81,7 +81,7 @@ public class Ignite3ConfigurationUtils {
         // Hack so that it passes the validation
         // TODO: This is another hack that needs to be cleaned. We don't really need the ConfigurationRegistry.
         var distributedModule = loadConfigurationModules().distributed();
-        for (RootKey<?, ?> key : distributedModule.rootKeys()) {
+        for (RootKey<?, ?, ?> key : distributedModule.rootKeys()) {
             try {
                 FieldUtils.writeDeclaredField(key, "storageType", ConfigurationType.LOCAL, true);
             } catch (IllegalAccessException e) {

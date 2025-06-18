@@ -1,47 +1,14 @@
+# description: Tests for printout of variants of TableModify operator.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
 statement ok
 CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
 
-# insert single tuple with literals
-plan
-INSERT INTO test_table VALUES (1, 2, 3)
-----
-KeyValueModify
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [ROWCOUNT]
-    sourceExpression: [1, 2, 3]
-    type: INSERT
-    est: (rows=1)
-
-# insert single tuple with literals different order
-plan
-INSERT INTO test_table (c2, c3, c1) VALUES (1, 2, 3)
-----
-KeyValueModify
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [ROWCOUNT]
-    sourceExpression: [3, 1, 2]
-    type: INSERT
-    est: (rows=1)
-
-# insert single tuple mixed
-plan
-INSERT INTO test_table VALUES (1, LENGTH(rand_uuid()::VARCHAR), 3)
-----
-KeyValueModify
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [ROWCOUNT]
-    sourceExpression: [1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL), 3]
-    type: INSERT
-    est: (rows=1)
-
-# https://issues.apache.org/jira/browse/IGNITE-25454
-# at the moment, distribution's printout depends on the state of the catalog because
-# it contains ids of table and zone. This makes the test unstable depending on whether
-# how many catalog objects were created prior to this script. We need to change
-# the way how distribution is rendered in the EXPLAIN output and unmute this test.
-skipif ignite3
 # insert multiple tuples with literals
-plan
+explain plan
 INSERT INTO test_table VALUES (1, 2, 3), (2, 2, 3)
 ----
 Project
@@ -62,21 +29,15 @@ Project
           type: INSERT
           est: (rows=2)
         TrimExchange
-            distribution: affinity[tableId=18, zoneId=18][0]
+            distribution: table PUBLIC.TEST_TABLE in zone "Default" by [C1]
             est: (rows=2)
           Values
               fieldNames: [C1, C2, C3]
               tuples: [[1, 2, 3], [2, 2, 3]]
               est: (rows=2)
 
-# https://issues.apache.org/jira/browse/IGNITE-25454
-# at the moment, distribution's printout depends on the state of the catalog because
-# it contains ids of table and zone. This makes the test unstable depending on whether
-# how many catalog objects were created prior to this script. We need to change
-# the way how distribution is rendered in the EXPLAIN output and unmute this test.
-skipif ignite3
 # insert multiple tuples mixed
-plan
+explain plan
 INSERT INTO test_table VALUES (1, LENGTH(rand_uuid()::VARCHAR), 3), (2, LENGTH(rand_uuid()::VARCHAR), 3)
 ----
 Project
@@ -99,7 +60,7 @@ Project
         UnionAll
             est: (rows=2)
           Exchange
-              distribution: affinity[tableId=18, zoneId=18][0]
+              distribution: table PUBLIC.TEST_TABLE in zone "Default" by [EXPR$0]
               est: (rows=1)
             Project
                 fieldNames: [EXPR$0, EXPR$1, EXPR$2]
@@ -110,7 +71,7 @@ Project
                   tuples: [[0]]
                   est: (rows=1)
           Exchange
-              distribution: affinity[tableId=18, zoneId=18][0]
+              distribution: table PUBLIC.TEST_TABLE in zone "Default" by [EXPR$0]
               est: (rows=1)
             Project
                 fieldNames: [EXPR$0, EXPR$1, EXPR$2]
@@ -122,7 +83,7 @@ Project
                   est: (rows=1)
 
 # delete by key simple
-plan
+explain plan
 DELETE FROM test_table WHERE c1 = 1
 ----
 Project
@@ -149,7 +110,7 @@ Project
             est: (rows=1)
 
 # delete by key complex
-plan
+explain plan
 DELETE FROM test_table WHERE c1 in (1, 2, 3)
 ----
 Project
@@ -177,7 +138,7 @@ Project
 
 
 # delete with predicate by arbitrary column
-plan
+explain plan
 DELETE FROM test_table WHERE c3 in (1, 2, 3)
 ----
 Project
@@ -204,7 +165,7 @@ Project
             est: (rows=1)
 
 # update with predicate by key simple
-plan
+explain plan
 UPDATE test_table SET c2 = 2 WHERE c1 = 1
 ----
 Project
@@ -232,7 +193,7 @@ Project
             est: (rows=1)
 
 # update with predicate by key complex
-plan
+explain plan
 UPDATE test_table SET c2 = 2 WHERE c1 in (1, 2, 3)
 ----
 Project
@@ -260,7 +221,7 @@ Project
             est: (rows=1)
 
 # update with predicate by arbitrary column
-plan
+explain plan
 UPDATE test_table SET c2 = 2 WHERE c3 in (1, 2, 3)
 ----
 Project
@@ -287,14 +248,8 @@ Project
             projection: [C1, C2, C3, 2]
             est: (rows=1)
 
-# https://issues.apache.org/jira/browse/IGNITE-25454
-# at the moment, distribution's printout depends on the state of the catalog because
-# it contains ids of table and zone. This makes the test unstable depending on whether
-# how many catalog objects were created prior to this script. We need to change
-# the way how distribution is rendered in the EXPLAIN output and unmute this test.
-skipif ignite3
 # merge operator
-plan
+explain plan
 MERGE INTO test_table dst
 USING (SELECT c1, c2, c3 FROM test_table) src
    ON dst.c1 = src.c1 * 2
@@ -319,14 +274,15 @@ Project
           type: MERGE
           est: (rows=1)
         Exchange
-            distribution: affinity[tableId=18, zoneId=18][0]
+            distribution: table PUBLIC.TEST_TABLE in zone "Default" by [$f0]
             est: (rows=1)
           Project
               fieldNames: [$f0, $f1, $f2, C10, C20, C30, $f6]
-              projection: [1, 2, 3, C1, C2, C3, *(C20, 2)]
+              projection: [1, 2, 3, C1, C2, C3, *(C2$0, 2)]
               est: (rows=1)
             HashJoin
                 predicate: =(C1, $f3)
+                fieldNames: [C1, C2, C3, C2$0, $f3]
                 type: right
                 est: (rows=1)
               TableScan
@@ -334,7 +290,7 @@ Project
                   fieldNames: [C1, C2, C3]
                   est: (rows=1)
               Exchange
-                  distribution: affinity[tableId=18, zoneId=18][1]
+                  distribution: table PUBLIC.TEST_TABLE in zone "Default" by [$f3]
                   est: (rows=1)
                 TableScan
                     table: PUBLIC.TEST_TABLE

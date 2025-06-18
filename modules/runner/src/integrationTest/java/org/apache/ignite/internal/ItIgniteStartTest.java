@@ -31,11 +31,13 @@ import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster.ServerRegistration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
 
 class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
@@ -116,6 +118,33 @@ class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
         );
 
         assertEquals("IGN-NETWORK-2", exception.codeAsString());
+    }
+
+    @Test
+    void testNodesCouldBeStoppedEvenIfMetastorageIsUnavailable() {
+        int nodeCount = 3;
+
+        cluster.startAndInit(nodeCount, builder -> {
+            builder.cmgNodeNames(cluster.nodeName(2));
+            builder.metaStorageNodeNames(cluster.nodeName(0));
+        });
+
+        Ignite node1 = cluster.node(1);
+
+        node1.sql().executeScript("CREATE TABLE TEST (ID INT PRIMARY KEY, VAL VARCHAR)");
+
+        KeyValueView<Integer, String> kvView = node1.tables().table("TEST").keyValueView(Integer.class, String.class);
+
+        kvView.put(null, 1, "one");
+
+        // Stop the single meta storage node.
+        cluster.stopNode(0);
+
+        // Imitate some activity on cluster
+        kvView.putAsync(null, 2, "two");
+
+        assertThat(cluster.stopNodeAsync(1), willCompleteSuccessfully());
+        assertThat(cluster.stopNodeAsync(2), willCompleteSuccessfully());
     }
 
     private static void waitTill1NodeValidateItselfWithCmg(ServerRegistration registration) throws InterruptedException {

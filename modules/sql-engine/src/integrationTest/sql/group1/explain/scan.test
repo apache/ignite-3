@@ -1,8 +1,14 @@
+# description: Tests for printout of various scan operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
 statement ok
 CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
 
 # select all, no renames
-plan
+explain plan
 SELECT * FROM test_table
 ----
 Exchange
@@ -14,7 +20,7 @@ Exchange
       est: (rows=1)
 
 # select with trimming projection, no renames
-plan
+explain plan
 SELECT c1, c2 FROM test_table
 ----
 Exchange
@@ -26,7 +32,7 @@ Exchange
       est: (rows=1)
 
 # select with trimming projection and renames
-plan
+explain plan
 SELECT c1 AS renamed_c1, c2 FROM test_table
 ----
 Exchange
@@ -38,7 +44,7 @@ Exchange
       est: (rows=1)
 
 # select with expression projection, no renames
-plan
+explain plan
 SELECT c1 + c3, c2 FROM test_table
 ----
 Exchange
@@ -51,7 +57,7 @@ Exchange
       est: (rows=1)
 
 # select with expression projection and renames
-plan
+explain plan
 SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table
 ----
 Exchange
@@ -68,7 +74,7 @@ statement ok
 CREATE INDEX test_table_idx ON test_table (c1, c2, c3);
 
 # select all, no renames
-plan
+explain plan
 SELECT /*+ FORCE_INDEX(test_table_idx) */ * FROM test_table
 ----
 Exchange
@@ -83,7 +89,7 @@ Exchange
       est: (rows=1)
 
 # select with trimming projection, no renames
-plan
+explain plan
 SELECT /*+ FORCE_INDEX(test_table_idx) */ c1, c2 FROM test_table
 ----
 Exchange
@@ -98,7 +104,7 @@ Exchange
       est: (rows=1)
 
 # select with trimming projection and renames
-plan
+explain plan
 SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 AS renamed_c1, c2 FROM test_table
 ----
 Exchange
@@ -113,7 +119,7 @@ Exchange
       est: (rows=1)
 
 # select with expression projection, no renames
-plan
+explain plan
 SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 + c3, c2 FROM test_table
 ----
 Exchange
@@ -129,7 +135,7 @@ Exchange
       est: (rows=1)
 
 # select with expression projection and renames
-plan
+explain plan
 SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table
 ----
 Exchange
@@ -144,62 +150,9 @@ Exchange
       collation: []
       est: (rows=1)
 
-# Similar set of tests but for KeyValueGet
-# select all, no renames
-plan
-SELECT * FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [C1, C2, C3]
-    key: [1]
-    est: (rows=1)
-
-# select with trimming projection, no renames
-plan
-SELECT c1, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [C1, C2]
-    key: [1]
-    est: (rows=1)
-
-# select with trimming projection and renames
-plan
-SELECT c1 AS renamed_c1, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [C1, C2]
-    key: [1]
-    est: (rows=1)
-
-# select with expression projection, no renames
-plan
-SELECT c1 + c3, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [EXPR$0, C2]
-    projection: [+(C1, C3), C2]
-    key: [1]
-    est: (rows=1)
-
-# select with expression projection and renames
-plan
-SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [SUM_OF_C1_AND_C3, C2]
-    projection: [+(C1, C3), C2]
-    key: [1]
-    est: (rows=1)
-
 # Similar set of tests but for SystemViewScan
 # select all, no renames
-plan
+explain plan
 SELECT * FROM system.system_views
 ----
 SystemViewScan
@@ -208,7 +161,7 @@ SystemViewScan
     est: (rows=100)
 
 # select with trimming projection, no renames
-plan
+explain plan
 SELECT view_id, view_name FROM system.system_views
 ----
 SystemViewScan
@@ -217,7 +170,7 @@ SystemViewScan
     est: (rows=100)
 
 # select with trimming projection and renames
-plan
+explain plan
 SELECT view_id AS renamed_view_id, view_name FROM system.system_views
 ----
 SystemViewScan
@@ -226,7 +179,7 @@ SystemViewScan
     est: (rows=100)
 
 # select with expression projection, no renames
-plan
+explain plan
 SELECT view_id + 5, view_name FROM system.system_views
 ----
 SystemViewScan
@@ -236,7 +189,7 @@ SystemViewScan
     est: (rows=100)
 
 # select with expression projection and renames
-plan
+explain plan
 SELECT view_id + 5 AS adjusted_view_id, view_name FROM system.system_views
 ----
 SystemViewScan
@@ -247,7 +200,7 @@ SystemViewScan
 
 # Complex query where column of source table is renamed, and this renamed column is referenced by
 # correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
-plan
+explain plan
 SELECT
   (SELECT COUNT(*)
      FROM test_table inner_t
@@ -287,7 +240,7 @@ Project
 
 # Complex query where expression involving a column of source table is renamed, and this renamed expression is referenced by
 # correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
-plan
+explain plan
 SELECT
   (SELECT COUNT(*)
      FROM test_table inner_t
@@ -327,7 +280,7 @@ Project
             est: (rows=1)
 
 # table scan with simple predicate
-plan
+explain plan
 SELECT c1 FROM test_table WHERE c3 = 1 
 ----
 Exchange
@@ -340,7 +293,7 @@ Exchange
       est: (rows=1)
 
 # table scan with complex predicate
-plan
+explain plan
 SELECT c1 FROM test_table WHERE c3 IN (1, 2, 3) AND CURRENT_TIMESTAMP > timestamp '1970-01-01' 
 ----
 Exchange
@@ -353,7 +306,7 @@ Exchange
       est: (rows=1)
 
 # index scan with simple predicate
-plan
+explain plan
 SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 FROM test_table WHERE c1 > 1 
 ----
 Exchange
@@ -370,7 +323,7 @@ Exchange
       est: (rows=1)
 
 # index scan with complex predicate
-plan
+explain plan
 SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 FROM test_table WHERE c1 IN (1, 2, 3) AND CURRENT_TIMESTAMP > timestamp '1970-01-01' 
 ----
 Exchange
@@ -390,7 +343,7 @@ statement ok
 CREATE INDEX hash_idx ON test_table USING HASH (c2);
 
 # look up by hash index
-plan
+explain plan
 SELECT /*+ FORCE_INDEX(hash_idx) */ c1 FROM test_table WHERE c2 = 10; 
 ----
 Exchange
@@ -409,7 +362,7 @@ statement ok
 CREATE INDEX test_table_different_collation_idx ON test_table USING SORTED (c2 DESC NULLS LAST);
 
 # index scan with different collation
-plan
+explain plan
 SELECT /*+ FORCE_INDEX(test_table_different_collation_idx) */ c1, c2 FROM test_table 
 ----
 Exchange
@@ -424,7 +377,7 @@ Exchange
       est: (rows=1)
 
 # system view scan with simple predicate
-plan
+explain plan
 SELECT view_id, view_name FROM system.system_views WHERE view_id = 5
 ----
 SystemViewScan
@@ -434,7 +387,7 @@ SystemViewScan
     est: (rows=33)
 
 # table scan with complex predicate
-plan
+explain plan
 SELECT view_id, view_name FROM system.system_views WHERE view_id IN (1, 2, 3) AND CURRENT_TIMESTAMP > timestamp '1970-01-01' 
 ----
 SystemViewScan
@@ -444,7 +397,7 @@ SystemViewScan
     est: (rows=38)
 
 # table function scan
-plan
+explain plan
 SELECT * FROM system_range(1, 10)
 ----
 TableFunctionScan
@@ -453,7 +406,7 @@ TableFunctionScan
     est: (rows=100)
 
 # another table function scan
-plan
+explain plan
 SELECT * FROM system_range(1, LENGTH(rand_uuid()::VARCHAR))
 ----
 TableFunctionScan

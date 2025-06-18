@@ -33,6 +33,7 @@ import java.util.TimeZone;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.runtime.SqlFunctions.DateParseFunction;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
@@ -515,7 +516,7 @@ public class IgniteSqlFunctionsTest {
 
         TimeZone timeZone = TimeZone.getTimeZone(zoneId);
         long calciteTsLtz = SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
-        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, "yyyy-MM-dd hh:mi:ss.ff3", timeZone);
+        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, "yyyy-MM-dd hh24:mi:ss.ff3", timeZone);
 
         assertEquals(Instant.ofEpochMilli(calciteTsLtz), Instant.ofEpochMilli(tsLtz));
     }
@@ -547,5 +548,65 @@ public class IgniteSqlFunctionsTest {
         );
 
         return zones.stream().flatMap(z -> times.stream().map(t -> Arguments.of(z, t)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("timeValues")
+    public void testToTime(String timeStr, int expectedMillis) {
+
+        DateParseFunction f = new DateParseFunction();
+        int millis = f.parseTime("HH:mi:SS", timeStr);
+        int time2 = IgniteSqlFunctions.toTime(timeStr, "HH24:MI:SS");
+
+        assertEquals(expectedMillis, millis);
+        assertEquals(millis, time2);
+    }
+
+    private static Stream<Arguments> timeValues() {
+        return Stream.of(
+                Arguments.of("00:00:00", 0),
+                Arguments.of("01:01:43", 3703000),
+                Arguments.of("07:37:59", 27479000),
+                Arguments.of("19:01:32", 68492000),
+                Arguments.of("23:59:59", 86399000)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("dateValues")
+    public void testToDate(String timeStr, int expectedDays) {
+
+        DateParseFunction f = new DateParseFunction();
+        int days = f.parseDate("YYYY-MM-DD", timeStr);
+        int days2 = IgniteSqlFunctions.toDate(timeStr, "YYYY-MM-DD");
+
+        assertEquals(expectedDays, days);
+        assertEquals(days, days2);
+    }
+
+    private static Stream<Arguments> dateValues() {
+        return Stream.of(
+                Arguments.of("1970-01-01", 0),
+                Arguments.of("2025-01-01", 20089)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampValues")
+    public void testToTimestamp(String timeStr, long expectedTs) {
+
+        DateParseFunction f = new DateParseFunction();
+        long ts = f.parseTimestamp("YYYY-MM-DD", timeStr);
+        Long ts2 = IgniteSqlFunctions.toTimestamp(timeStr, "YYYY-MM-DD");
+
+        assertEquals(expectedTs, ts);
+        assertEquals(ts, ts2);
+    }
+
+    private static Stream<Arguments> timestampValues() {
+        return Stream.of(
+                Arguments.of("1970-01-01", 0),
+                Arguments.of("2025-01-01", 1735689600000L)
+        );
     }
 }

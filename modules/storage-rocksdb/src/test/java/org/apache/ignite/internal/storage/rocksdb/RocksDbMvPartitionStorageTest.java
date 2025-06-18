@@ -86,12 +86,4 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
                 engine == null ? null : engine::stop
         );
     }
-
-    @Override
-    public void addWriteCommittedThrowsIfUncommittedVersionExists() {
-        // Disable this test because RocksDbMvPartitionStorage does not throw. It does not throw because this
-        // exception is thrown only to ease debugging as the caller must make sure that no write intent exists
-        // before calling addWriteCommitted(). For RocksDbMvPartitionStorage, it is not that cheap to check whether
-        // there is a write intent in the storage, so we do not require it to throw this optional exception.
-    }
 }

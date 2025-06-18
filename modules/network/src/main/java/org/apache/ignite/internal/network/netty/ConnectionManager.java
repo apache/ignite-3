@@ -290,11 +290,11 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     /**
-     * Returns server local address.
+     * Returns server local bind address (might be an 'any local'/wildcard address if bound to all interfaces).
      *
-     * @return Server local address.
+     * @return Server local bind address.
      */
-    public InetSocketAddress localAddress() {
+    public InetSocketAddress localBindAddress() {
         return (InetSocketAddress) server.address();
     }
 

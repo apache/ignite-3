@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
@@ -76,6 +76,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -612,7 +613,8 @@ public class ItTxTestCluster {
                 transactionInflights,
                 lowWatermark,
                 executor,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new SystemPropertiesNodeProperties()
         );
     }
 
@@ -649,7 +651,7 @@ public class ItTxTestCluster {
                 .collect(toList());
 
         List<ReplicationGroupId> grpIds = IntStream.range(0, assignments.size())
-                .mapToObj(i -> enabledColocation() ? new ZonePartitionId(predefinedZoneId, i) : new TablePartitionId(tableId, i))
+                .mapToObj(i -> colocationEnabled() ? new ZonePartitionId(predefinedZoneId, i) : new TablePartitionId(tableId, i))
                 .collect(toList());
 
         List<CompletableFuture<?>> partitionReadyFutures = new ArrayList<>();
@@ -678,7 +680,8 @@ public class ItTxTestCluster {
                 null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
-                () -> 10_000L
+                () -> 10_000L,
+                colocationEnabled()
         );
 
         TableImpl table = new TableImpl(
@@ -865,7 +868,7 @@ public class ItTxTestCluster {
             CatalogService catalogService,
             SchemaRegistry schemaRegistry
     ) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId);
 
             var nodeSpecificZonePartitionRaftGroupListeners = zonePartitionRaftGroupListeners.computeIfAbsent(assignment,
@@ -899,6 +902,7 @@ public class ItTxTestCluster {
                     partitionOperationsExecutor,
                     placementDriver,
                     clockServices.get(assignment),
+                    new SystemPropertiesNodeProperties(),
                     zonePartitionId
             );
 
@@ -921,6 +925,7 @@ public class ItTxTestCluster {
                     partitionOperationsExecutor,
                     placementDriver,
                     clockServices.get(assignment),
+                    new SystemPropertiesNodeProperties(),
                     new TablePartitionId(tableId, partId)
             );
         }
@@ -955,7 +960,7 @@ public class ItTxTestCluster {
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             SchemaRegistry schemaRegistry
     ) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             var nodeSpecificZonePartitionReplicaListeners = zonePartitionReplicaListeners.computeIfAbsent(assignment, k -> new HashMap<>());
 
             ZonePartitionReplicaListener zonePartitionReplicaListener = nodeSpecificZonePartitionReplicaListeners.computeIfAbsent(
@@ -971,6 +976,7 @@ public class ItTxTestCluster {
                             clusterNodeResolver,
                             raftClient,
                             new NoOpFailureManager(),
+                            new SystemPropertiesNodeProperties(),
                             localNode,
                             partitionId
                     )
@@ -1011,7 +1017,7 @@ public class ItTxTestCluster {
                     raftClient,
                     txManagers.get(assignment),
                     Runnable::run,
-                    enabledColocation() ? zonePartitionId : new TablePartitionId(tableId, zonePartitionId.partitionId()),
+                    colocationEnabled() ? zonePartitionId : new TablePartitionId(tableId, zonePartitionId.partitionId()),
                     tableId,
                     indexesLockers,
                     pkIndexStorage,
@@ -1111,7 +1117,8 @@ public class ItTxTestCluster {
                 schemaRegistry,
                 mock(IndexMetaStorage.class),
                 lowWatermark,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new SystemPropertiesNodeProperties()
         );
     }
 
@@ -1167,7 +1174,7 @@ public class ItTxTestCluster {
         TableImpl tableImpl = tables.get(tableName.objectName());
 
         return replicaManagers.get(extractConsistentId(cluster.get(partId)))
-                .replica(enabledColocation() ? new ZonePartitionId(tableImpl.internalTable().zoneId(), partId)
+                .replica(colocationEnabled() ? new ZonePartitionId(tableImpl.internalTable().zoneId(), partId)
                         : new TablePartitionId(tableImpl.tableId(), partId))
                 .thenApply(replica -> replica.raftClient().leader())
                 .join();
@@ -1320,7 +1327,8 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 lowWatermark,
                 executor,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new SystemPropertiesNodeProperties()
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(

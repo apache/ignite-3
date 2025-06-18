@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.Collections.emptyNavigableMap;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
@@ -175,7 +176,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             Config hocon = readHoconFromFile();
             HoconConverter.hoconSource(hocon.root(), keyIgnorer).descend(copiedSuperRoot);
 
-            Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot, Map.of());
+            Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot, emptyNavigableMap());
             flattenedUpdatesMap.forEach((key, value) -> {
                 if (value != null) { // Filter defaults.
                     latest.put(key, value);

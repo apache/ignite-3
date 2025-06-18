@@ -79,6 +79,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -341,6 +342,36 @@ public class TestBuilders {
                 throw new UnsupportedOperationException();
             }
         };
+    }
+
+    /**
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
+     *
+     * @param key Affinity key ordinal.
+     * @param tableId Table ID.
+     * @param zoneId Distribution zone ID.
+     * @return Affinity distribution.
+     */
+    public static IgniteDistribution affinity(int key, int tableId, int zoneId) {
+        return affinity(ImmutableIntList.of(key), tableId, zoneId);
+    }
+
+    /**
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
+     *
+     * @param keys Affinity keys ordinals. Should not be null or empty.
+     * @param tableId Table ID.
+     * @param zoneId  Distribution zone ID.
+     * @return Affinity distribution.
+     */
+    public static IgniteDistribution affinity(List<Integer> keys, int tableId, int zoneId) {
+        return IgniteDistributions.affinity(keys, tableId, zoneId, affinityDistributionLabel(tableId, zoneId));
+    }
+
+    private static String affinityDistributionLabel(int tableId, int zoneId) {
+        return format("affinity [tableId={}, zoneId={}]", tableId, zoneId);
     }
 
     /**
@@ -839,7 +870,8 @@ public class TestBuilders {
                                 0,
                                 partitionPruner,
                                 () -> 1L,
-                                executionProvider
+                                executionProvider,
+                                new SystemPropertiesNodeProperties()
                         );
 
                         systemViewManager.register(() -> systemViews);
@@ -949,7 +981,13 @@ public class TestBuilders {
             return tablesSize.getOrDefault(descriptor.name(), 10_000L);
         };
 
-        return new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 0);
+        return new SqlSchemaManagerImpl(
+                catalogManager,
+                sqlStatisticManager,
+                new SystemPropertiesNodeProperties(),
+                CaffeineCacheFactory.INSTANCE,
+                0
+        );
     }
 
     private static class TableBuilderImpl implements TableBuilder {
@@ -1741,7 +1779,17 @@ public class TestBuilders {
                             throw new AssertionError("Assignments are not configured for table " + tableName);
                         }
 
-                        return assignments;
+                        if (includeBackups) {
+                            return assignments;
+                        } else {
+                            List<List<String>> primaryAssignments = new ArrayList<>();
+
+                            for (List<String> assign : assignments) {
+                                primaryAssignments.add(List.of(assign.get(0)));
+                            }
+
+                            return primaryAssignments;
+                        }
                     };
 
             return new TestExecutionDistributionProvider(
@@ -1945,6 +1993,33 @@ public class TestBuilders {
         @Override
         public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
             return nullCompletedFuture();
+        }
+    }
+
+    /**
+     * Creates a cluster and runs a simple query to facilitate loading of necessary classes to prepare and execute sql queries.
+     *
+     * @throws Exception An exception if something goes wrong.
+     */
+    public static void warmupTestCluster() throws Exception {
+        TestCluster cluster = cluster()
+                .nodes("N1")
+                .defaultDataProvider(tableName -> tableScan(DataProvider.fromCollection(List.of())))
+                .defaultAssignmentsProvider(tableName -> (partitionsCount, includeBackups) -> IntStream.range(0, partitionsCount)
+                        .mapToObj(i -> List.of("N1"))
+                        .collect(Collectors.toList()))
+                .build();
+
+        cluster.start();
+
+        try {
+            TestNode node = cluster.node("N1");
+
+            node.initSchema("CREATE TABLE t (id INT PRIMARY KEY, val INT)");
+
+            await(node.executeQuery("SELECT * FROM t").requestNextAsync(1));
+        } finally {
+            cluster.stop();
         }
     }
 }

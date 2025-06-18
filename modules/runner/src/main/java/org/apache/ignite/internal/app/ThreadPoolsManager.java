@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.app;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -28,9 +27,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -64,13 +61,10 @@ public class ThreadPoolsManager implements IgniteComponent {
     public ThreadPoolsManager(String nodeName) {
         int cpus = Runtime.getRuntime().availableProcessors();
 
-        tableIoExecutor = new ThreadPoolExecutor(
+        tableIoExecutor = Executors.newFixedThreadPool(
                 Math.min(cpus * 3, 25),
-                Integer.MAX_VALUE,
-                100,
-                MILLISECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
+                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE)
+        );
 
         int partitionsOperationsThreads = Math.min(cpus * 3, 25);
         partitionOperationsExecutor = Executors.newFixedThreadPool(

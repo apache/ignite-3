@@ -33,7 +33,7 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.toPartitionB
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -117,7 +117,7 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testIsPrimaryReplicaFalse() {
-        PartitionGroupId groupId = enabledColocation()
+        PartitionGroupId groupId = colocationEnabled()
                 ? new ZonePartitionId(0, 0)
                 : new TablePartitionId(1, 0);
 
