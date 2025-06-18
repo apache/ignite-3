@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.partition.replicator.LocalPartitionRepl
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_DESTROYED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
@@ -40,12 +41,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -54,12 +54,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -77,7 +75,6 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -104,19 +101,19 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbPartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -125,7 +122,6 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.mockito.MockedConstruction;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -151,6 +147,9 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     @Mock
     private Loza raftManager;
 
+    @Mock
+    TxStateRocksDbPartitionStorage txStatePartitionStorage;
+
     @BeforeEach
     void setUp(
             TestInfo testInfo,
@@ -169,7 +168,6 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             @Mock LogStorageFactoryCreator logStorageFactoryCreator,
             @Mock PartitionSnapshotStorage partitionSnapshotStorage,
-            @Mock TxStatePartitionStorage txStatePartitionStorage,
             @Mock TxStateRocksDbSharedStorage sharedTxStateStorage,
             @Mock ZonePartitionRaftListener raftGroupListener,
             @Mock DataStorageManager dataStorageManager,
@@ -191,6 +189,13 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(nodeName)));
 
+        commonZonePartitionResources = spy(new ZonePartitionResources(
+                txStatePartitionStorage,
+                raftGroupListener,
+                partitionSnapshotStorage,
+                new PendingComparableValuesTracker<>(0L)
+        ));
+
         zoneResourcesManager = spy(new ZoneResourcesManager(
                 sharedTxStateStorage,
                 txManager,
@@ -199,18 +204,25 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 catalogService,
                 failureManager,
                 executorService
-        ));
+        ) {
+            @Override
+            protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
+                TxStateStorage txStateStorage = new TxStateRocksDbStorage(zoneId, partitionCount, sharedTxStateStorage) {
+                    @Override
+                    protected TxStatePartitionStorage createPartitionStorage(int partitionId) {
+                        return txStatePartitionStorage;
+                    }
+                };
 
-        commonZonePartitionResources = spy(new ZonePartitionResources(
-                txStatePartitionStorage,
-                raftGroupListener,
-                partitionSnapshotStorage,
-                new PendingComparableValuesTracker<>(0L)
-        ));
+                if (ThreadAssertions.enabled()) {
+                    txStateStorage = new ThreadAssertingTxStateStorage(txStateStorage);
+                }
 
-        doAnswer(invocation -> {
-            return commonZonePartitionResources;
-        }).when(zoneResourcesManager).allocateZonePartitionResources(any(), anyInt(), any());
+                txStateStorage.start();
+
+                return txStateStorage;
+            }
+        });
 
         when(raftManager.startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class), any()))
                 .thenReturn(topologyAwareRaftGroupService);
@@ -392,16 +404,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @MuteFailureManagerLogging
-    public void partitionLifecycleManagerStopsCorrectWhenTableStorageIsStoppedExceptionally() throws Exception {
-        int defaultZoneId = 0;
-        List<ZonePartitionId> defaultZoneResources = IntStream.range(0, CatalogUtils.DEFAULT_PARTITION_COUNT)
-                .mapToObj(partId -> new ZonePartitionId(defaultZoneId, partId))
-                .collect(Collectors.toList());
-    }
-
-    // @Test
-    public void partitionLifecycleManagerStopsCorrectWhenTxStateStoragesAreStoppedExceptionally() throws Exception {
+    public void partitionLifecycleManagerStopsCorrectWhenTxStatePartitionStoragesAreStoppedExceptionally() throws Exception {
         doReturn(commonZonePartitionResources).when(zoneResourcesManager).getZonePartitionResources(any());
 
         int defaultZoneId = 0;
@@ -418,11 +421,11 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         assertDoesNotThrow(() -> partitionReplicaLifecycleManager.beforeNodeStop());
 
-        assertThat(partitionReplicaLifecycleManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(partitionReplicaLifecycleManager.stopAsync(), willThrow(RuntimeException.class));
 
         verify(replicaManager, times(CatalogUtils.DEFAULT_PARTITION_COUNT)).stopReplica(any());
 
-        defaultZoneResources.forEach(resources -> verify(resources.txStatePartitionStorage()).close());
+        defaultZoneResources.forEach(resources -> verify(resources.txStatePartitionStorage(), atLeastOnce()).close());
 
         defaultZoneResources.forEach(resources -> reset(resources.txStatePartitionStorage()));
     }
