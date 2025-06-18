@@ -38,6 +38,11 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
     }
 
     @Override
+    protected int nodesCount() {
+        return 1;
+    }
+
+    @Override
     public IgniteClient client() {
         if (client == null) {
             client = IgniteClient.builder()
