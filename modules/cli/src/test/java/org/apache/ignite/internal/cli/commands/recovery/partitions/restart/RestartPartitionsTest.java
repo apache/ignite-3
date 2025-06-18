@@ -41,7 +41,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
 
     @BeforeAll
     public static void beforeAll() {
-        PARTITIONS_RESTART_ENDPOINT = colocationEnabled() ? "zone/partitions/restart" : "partitions/restart";
+        PARTITIONS_RESTART_ENDPOINT = "partitions/restart";
     }
 
     @Test
