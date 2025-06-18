@@ -187,8 +187,14 @@ public interface ClientCompatibilityTests {
         assertEquals("v8", view.get(null, key).stringValue("name"));
 
         // Get and replace.
+        Tuple old = view.getAndReplace(null, Tuple.create().set("id", id).set("name", "v9"));
+        assertEquals("v8", old.stringValue("name"));
+        assertEquals("v9", view.get(null, key).stringValue("name"));
 
         // Delete.
+        assertTrue(view.delete(null, key));
+        assertFalse(view.delete(null, key));
+        assertNull(view.get(null, key));
 
         // Delete exact.
 
