@@ -208,8 +208,21 @@ public interface ClientCompatibilityTests {
         assertEquals("v10", getAndDelete.stringValue("name"));
 
         // Delete all.
+        view.upsert(null, Tuple.create().set("id", id).set("name", "v11"));
+        List<Tuple> deleteAllRes = view.deleteAll(null, List.of(Tuple.create().set("id", id), Tuple.create().set("id", id2)));
+
+        assertEquals(1, deleteAllRes.size());
+        assertEquals(id2, deleteAllRes.get(0).intValue(0));
 
         // Delete all exact.
+        view.upsert(null, Tuple.create().set("id", id).set("name", "v12"));
+        view.upsert(null, Tuple.create().set("id", id2).set("name", "v13"));
+
+        List<Tuple> deleteAllExactRes = view.deleteAllExact(
+                null, List.of(Tuple.create().set("id", id), Tuple.create().set("id", id2).set("name", "v13")));
+
+        assertEquals(1, deleteAllExactRes.size());
+        assertEquals(id, deleteAllExactRes.get(0).intValue(0));
     }
 
     @Test
