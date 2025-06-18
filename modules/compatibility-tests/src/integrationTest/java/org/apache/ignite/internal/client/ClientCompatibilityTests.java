@@ -197,8 +197,15 @@ public interface ClientCompatibilityTests {
         assertNull(view.get(null, key));
 
         // Delete exact.
+        assertFalse(view.deleteExact(null, Tuple.create().set("id", id2).set("name", "v9")));
+        assertTrue(view.deleteExact(null, Tuple.create().set("id", id2).set("name", "v6")));
 
         // Get and delete.
+        view.upsert(null, Tuple.create().set("id", id).set("name", "v10"));
+        assertNull(view.getAndDelete(null, Tuple.create().set("id", -id)));
+
+        Tuple getAndDelete = view.getAndDelete(null, Tuple.create().set("id", id));
+        assertEquals("v10", getAndDelete.stringValue("name"));
 
         // Delete all.
 
