@@ -50,9 +50,9 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 @Fork(1)
-@Threads(32)
-@Warmup(iterations = 10, time = 20)
-@Measurement(iterations = 30, time = 60)
+@Threads(1)
+@Warmup(iterations = 10, time = 2)
+@Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
@@ -66,19 +66,19 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"32"})
+    @Param({"8"})
     private int partitionCount;
 
-    @Param({"0"})
+    @Param({"0", "10"})
     private int idxes;
 
     @Param({"100"})
     private int fieldLength;
 
-    @Param({"HASH"})
+    @Param({"HASH", "SORTED"})
     private String indexType;
 
-    @Param({"uniquePrefix"})
+    @Param({"uniquePrefix", "uniquePostfix"})
     private String fieldValueGeneration;
 
     private static final AtomicInteger COUNTER = new AtomicInteger();
@@ -87,9 +87,8 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
-        //System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
-        //System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
-        System.setProperty("RAFT_CLIENT_THROTTLING_ENABLED", "false");
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
         super.nodeSetUp();
     }
 
