@@ -49,33 +49,34 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 /**
- * Base class for client compatibility tests. Contains actual tests logic, without infrastructure initialization.
+ * Client compatibility tests. Interface to allow "multiple inheritance" of test methods.
  */
+@SuppressWarnings({"resource"})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class ClientCompatibilityTestBase {
-    private static final String TABLE_NAME_TEST = "TEST";
-    private static final String TABLE_NAME_ALL_COLUMNS = "ALL_COLUMNS";
+public interface ClientCompatibilityTests {
+    String TABLE_NAME_TEST = "TEST";
+    String TABLE_NAME_ALL_COLUMNS = "ALL_COLUMNS";
 
-    private final AtomicInteger idGen = new AtomicInteger(1000);
+    IgniteClient client();
 
-    IgniteClient client;
+    AtomicInteger idGen();
 
     @BeforeAll
-    public void beforeAll() throws Exception {
+    default void beforeAll() {
         createDefaultTables();
     }
 
     @Test
-    public void testClusterNodes() {
-        Collection<ClusterNode> nodes = client.clusterNodes();
+    default void testClusterNodes() {
+        Collection<ClusterNode> nodes = client().cluster().nodes();
         assertThat(nodes, Matchers.hasSize(1));
         assertEquals("defaultNode", nodes.iterator().next().name());
     }
 
     @Test
     @Disabled("IGNITE-25514")
-    public void testTableByName() {
-        Table testTable = client.tables().table(TABLE_NAME_TEST);
+    default void testTableByName() {
+        Table testTable = client().tables().table(TABLE_NAME_TEST);
         assertNotNull(testTable);
 
         assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().objectName());
@@ -83,16 +84,16 @@ public abstract class ClientCompatibilityTestBase {
 
     @Test
     @Disabled("IGNITE-25514")
-    public void testTableByQualifiedName() {
-        Table testTable = client.tables().table(QualifiedName.fromSimple(TABLE_NAME_TEST));
+    default void testTableByQualifiedName() {
+        Table testTable = client().tables().table(QualifiedName.fromSimple(TABLE_NAME_TEST));
         assertNotNull(testTable);
 
         assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().objectName());
     }
 
     @Test
-    public void testTables() {
-        List<Table> tables = client.tables().tables();
+    default void testTables() {
+        List<Table> tables = client().tables().tables();
 
         List<String> tableNames = tables.stream()
                 .map(t -> t.qualifiedName().objectName())
@@ -102,8 +103,8 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
-    public void testSqlColumnMeta() {
-        try (var cursor = client.sql().execute(null, "select * from " + TABLE_NAME_ALL_COLUMNS)) {
+    default void testSqlColumnMeta() {
+        try (var cursor = client().sql().execute(null, "select * from " + TABLE_NAME_ALL_COLUMNS)) {
             ResultSetMetadata meta = cursor.metadata();
             assertNotNull(meta);
 
@@ -128,8 +129,8 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
-    public void testRecordViewOperations() {
-        int id = idGen.incrementAndGet();
+    default void testRecordViewOperations() {
+        int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
 
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
@@ -165,31 +166,31 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
-    public void testKvViewOperations() {
+    default void testKvViewOperations() {
         assert false : "TODO";
     }
 
     @Test
-    public void testRecordViewAllColumnTypes() {
+    default void testRecordViewAllColumnTypes() {
         assert false : "TODO";
     }
 
     @Test
-    public void testKeyValueViewAllColumnTypes() {
+    default void testKeyValueViewAllColumnTypes() {
         assert false : "TODO";
     }
 
     @Test
     @Disabled("IGNITE-25545")
-    public void testTxCommit() {
-        int id = idGen.incrementAndGet();
+    default void testTxCommit() {
+        int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
 
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
 
         assertNull(view.get(null, key));
 
-        client.transactions().runInTransaction(tx -> {
+        client().transactions().runInTransaction(tx -> {
             Tuple tuple = Tuple.create().set("id", id).set("name", "testTxCommit");
             view.insert(tx, tuple);
         });
@@ -201,15 +202,15 @@ public abstract class ClientCompatibilityTestBase {
 
     @Test
     @Disabled("IGNITE-25545")
-    public void testTxRollback() {
-        int id = idGen.incrementAndGet();
+    default void testTxRollback() {
+        int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
 
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
 
         assertNull(view.get(null, key));
 
-        Transaction tx = client.transactions().begin();
+        Transaction tx = client().transactions().begin();
         view.insert(tx, Tuple.create().set("id", id).set("name", "testTxRollback"));
         tx.rollback();
 
@@ -218,12 +219,12 @@ public abstract class ClientCompatibilityTestBase {
 
     @Test
     @Disabled("IGNITE-25545")
-    public void testTxReadOnly() {
-        int id = idGen.incrementAndGet();
+    default void testTxReadOnly() {
+        int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
 
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
-        Transaction tx = client.transactions().begin(new TransactionOptions().readOnly(true));
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
 
         view.insert(null, Tuple.create().set("id", id).set("name", "testTxReadOnly"));
         assertNull(view.get(tx, key), "Read-only transaction shows snapshot of data in the past.");
@@ -232,12 +233,12 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
-    public void testCompute() {
+    default void testCompute() {
         assert false : "TODO";
     }
 
     @Test
-    public void testStreamer() {
+    default void testStreamer() {
         assert false : "TODO";
     }
 
@@ -257,7 +258,7 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     private @Nullable List<SqlRow> sql(String sql) {
-        try (var cursor = client.sql().execute(null, sql)) {
+        try (var cursor = client().sql().execute(null, sql)) {
             if (cursor.hasRowSet()) {
                 List<SqlRow> rows = new ArrayList<>();
                 cursor.forEachRemaining(rows::add);
@@ -269,14 +270,14 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     private boolean ddl(String sql) {
-        try (var cursor = client.sql().execute(null, sql)) {
+        try (var cursor = client().sql().execute(null, sql)) {
             return cursor.wasApplied();
         }
     }
 
     private Table table(String tableName) {
-        // TODO IGNITE-25514 Use client.tables().table().
-        return client.tables().tables().stream()
+        // TODO IGNITE-25514 Use client().tables().table().
+        return client().tables().tables().stream()
                 .filter(t -> t.qualifiedName().objectName().equals(tableName))
                 .findFirst()
                 .orElseThrow();
