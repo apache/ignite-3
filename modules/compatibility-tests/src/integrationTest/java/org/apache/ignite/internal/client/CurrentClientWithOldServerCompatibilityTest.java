@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.compatibility;
+package org.apache.ignite.internal.client;
 
 /**
  * Version-specific compatibility tests.

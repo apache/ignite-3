@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.compatibility;
+package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
