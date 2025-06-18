@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -111,7 +112,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     private TableViewInternal table;
 
     @Spy
-    private HybridTimestampTracker observableTimestampTracker;
+    private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(HybridTimestamp.MIN_VALUE);
 
     private HybridTimestamp jobTimestamp;
 
@@ -123,7 +124,6 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setupMocks() {
-        observableTimestampTracker = HybridTimestampTracker.atomicTracker(HybridTimestamp.MIN_VALUE);
         jobTimestamp = new HybridTimestamp(System.currentTimeMillis(), 123);
 
         lenient().when(topologyService.localMember()).thenReturn(localNode);
@@ -144,6 +144,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         );
 
         verify(computeComponent).executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull());
+
+        assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
 
     @Test
@@ -183,6 +185,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         );
 
         verify(computeComponent).executeLocally(eq(ExecutionOptions.DEFAULT), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), any(), isNull());
+
+        assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
 
     @Test
@@ -198,6 +202,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         );
 
         verifyExecuteRemotelyWithFailover(ExecutionOptions.DEFAULT);
+
+        assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
 
     @Test
@@ -247,6 +253,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                         "a"),
                 willBe("remoteResponse")
         );
+
+        assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
 
     @Test
@@ -262,6 +270,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 ),
                 willBe("remoteResponse")
         );
+
+        assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
 
     @Test
@@ -281,6 +291,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 jobExecutionWithResultAndNode("jobResponse", localNode),
                 jobExecutionWithResultAndNode("remoteResponse", remoteNode)
         ));
+
+        assertEquals(jobTimestamp, observableTimestampTracker.get());
     }
 
     private void respondWhenAskForPrimaryReplica() {
