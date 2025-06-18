@@ -16,8 +16,6 @@
  */
 
 apply plugin: 'jvm-test-suite'
-apply plugin: 'jacoco'
-
 
 testing {
     suites {
@@ -80,17 +78,6 @@ check {
 
 pmdIntegrationTest {
     enabled = false
-}
-
-tasks.register('jacocoIntegrationTestReport', JacocoReport) {
-    dependsOn integrationTest
-
-    group = 'verification'
-
-    reports {
-        xml.required = false
-        html.required = true
-    }
 }
 
 spotbugsIntegrationTest {

@@ -95,7 +95,6 @@ gradleToolingApi = "8.6"
 #Tools
 pmdTool = "6.55.0"
 checkstyleTool = "10.3.3"
-jacocoTool = "0.8.11"
 spotbugsTool = "4.8.3"
 
 [plugins]
