@@ -111,6 +111,9 @@ public class IgniteCluster {
             throw new IllegalStateException("The cluster is already started");
         }
 
+        // Reset the flag before starting nodes.
+        stopped = false;
+
         List<ServerRegistration> nodeRegistrations = new ArrayList<>();
         for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
             nodeRegistrations.add(startEmbeddedNode(nodeIndex));
@@ -121,7 +124,6 @@ public class IgniteCluster {
         }
 
         started = true;
-        stopped = false;
     }
 
     /**
