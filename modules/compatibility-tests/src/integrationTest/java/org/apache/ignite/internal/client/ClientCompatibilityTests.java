@@ -237,18 +237,22 @@ public interface ClientCompatibilityTests {
     }
 
     default void createDefaultTables() {
-        if (ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
-            sql("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
+        if (!ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
+            sql("DELETE FROM " + TABLE_NAME_TEST);
         }
 
-        if (ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
+        sql("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
+
+        if (!ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
                 "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL, " +
                 "string VARCHAR, uuid UUID, dt DATE, tm TIME, ts TIMESTAMP, bool BOOLEAN, bytes VARBINARY)")) {
-            sql("INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, " +
-                    "string, uuid, dt, tm, ts, bool, bytes) VALUES " +
-                    "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, " +
-                    "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', true, X'01020304')");
+            sql("DELETE FROM " + TABLE_NAME_ALL_COLUMNS);
         }
+
+        sql("INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, " +
+                "string, uuid, dt, tm, ts, bool, bytes) VALUES " +
+                "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, " +
+                "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', true, X'01020304')");
     }
 
     private @Nullable List<SqlRow> sql(String sql) {
