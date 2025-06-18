@@ -90,14 +90,15 @@ public class ClientComputeExecuteMapReduceRequest {
     }
 
     private static void sendTaskResult(TaskExecution<Object> execution, NotificationSender notificationSender) {
-        Marshaller<Object, byte[]> resultMarshaller = ((MarshallerProvider<Object>) execution).resultMarshaller();
-
         execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         execution.statesAsync().whenComplete((states, errStates) -> {
                             try {
                                 notificationSender.sendNotification(
                                         w -> {
+                                            Marshaller<Object, byte[]> resultMarshaller = ((MarshallerProvider<Object>) execution)
+                                                    .resultMarshaller();
+
                                             ClientComputeJobPacker.packJobResult(val, resultMarshaller, w);
                                             packTaskState(w, state);
                                             packJobStates(w, states);
