@@ -181,6 +181,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
             + "    }\n"
             + "  },\n"
             + "  clientConnector.port: {},\n"
+            + "  raft: { maxInflightOverflowRate: 1000000 },\n"
             + "  rest.port: {}\n"
             + "}";
 
