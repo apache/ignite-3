@@ -338,6 +338,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     }
 
     private static void restartCluster() throws Exception {
+        LOG.info("qqq restarting the cluster");
         stopNodes();
 
         IgniteUtils.deleteIfExists(WORK_DIR);
@@ -345,6 +346,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
         Files.createDirectories(WORK_DIR);
 
         startNodes();
+        LOG.info("qqq cluster restarted");
     }
 
     private static void startNodes() {
