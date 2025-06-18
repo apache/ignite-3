@@ -539,7 +539,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void tableManagerStopTest1() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -554,7 +554,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void tableManagerStopTest2() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -577,7 +577,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @MuteFailureManagerLogging
-    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void tableManagerStopTest3() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
@@ -600,7 +600,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @MuteFailureManagerLogging
-    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void tableManagerStopTest4() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
 
