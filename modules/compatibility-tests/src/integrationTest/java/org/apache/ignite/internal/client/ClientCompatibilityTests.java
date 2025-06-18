@@ -148,6 +148,10 @@ public interface ClientCompatibilityTests {
         view.upsert(null, Tuple.create().set("id", id).set("name", "v2"));
         assertEquals("v2", view.get(null, key).stringValue("name"));
 
+        // Get and upsert.
+        Tuple oldValue = view.getAndUpsert(null, Tuple.create().set("id", id).set("name", "v5"));
+        assertEquals("v2", oldValue.stringValue("name"));
+
         // Upsert All.
         view.upsertAll(null, List.of(Tuple.create().set("id", id).set("name", "v5"), Tuple.create().set("id", id2).set("name", "v6")));
         assertEquals("v5", view.get(null, key).stringValue("name"));
@@ -172,7 +176,24 @@ public interface ClientCompatibilityTests {
         assertEquals("v5", results.get(0).stringValue("name"));
         assertNull(results.get(1));
 
-        // TODO
+        // Replace.
+        assertTrue(view.replace(null, Tuple.create().set("id", id).set("name", "v7")));
+        assertFalse(view.replace(null, Tuple.create().set("id", -id).set("name", "v8")));
+        assertEquals("v7", view.get(null, key).stringValue("name"));
+
+        // Replace exact.
+
+        // Get and replace.
+
+        // Delete.
+
+        // Delete exact.
+
+        // Get and delete.
+
+        // Delete all.
+
+        // Delete all exact.
     }
 
     @Test
