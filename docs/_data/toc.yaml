@@ -36,6 +36,8 @@
       url: quick-start/explore-sql
     - title: Persist Your Data
       url: quick-start/persist-data
+    - title: Use Java API
+      url: quick-start/java-api
 - title: Embedded Mode
   url: quick-start/embedded-mode
 - title: Ignite CLI Tool
