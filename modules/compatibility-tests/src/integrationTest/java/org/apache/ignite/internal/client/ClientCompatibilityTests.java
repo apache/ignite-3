@@ -153,8 +153,9 @@ public interface ClientCompatibilityTests {
         // Get all.
         List<Tuple> keys = List.of(key, Tuple.create().set("id", -id));
         List<Tuple> results = view.getAll(null, keys);
-        assertEquals(1, results.size());
+        assertEquals(2, results.size());
         assertEquals("v2", results.get(0).stringValue("name"));
+        assertNull(results.get(1));
 
         // TODO
     }
