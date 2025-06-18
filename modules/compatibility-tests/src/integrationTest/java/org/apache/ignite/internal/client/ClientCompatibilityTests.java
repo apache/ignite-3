@@ -182,6 +182,9 @@ public interface ClientCompatibilityTests {
         assertEquals("v7", view.get(null, key).stringValue("name"));
 
         // Replace exact.
+        assertFalse(view.replace(null, Tuple.create().set("id", id).set("name", "-v7"), Tuple.create().set("id", id).set("name", "v8")));
+        assertTrue(view.replace(null, Tuple.create().set("id", id).set("name", "v7"), Tuple.create().set("id", id).set("name", "v8")));
+        assertEquals("v8", view.get(null, key).stringValue("name"));
 
         // Get and replace.
 
