@@ -168,8 +168,8 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     @Override
     public void onConnectionOpen() {
         HandshakeStartMessage handshakeStartMessage = messageFactory.handshakeStartMessage()
-                .acceptorNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
-                .acceptorClusterId(clusterIdSupplier.clusterId())
+                .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
+                .serverClusterId(clusterIdSupplier.clusterId())
                 .productName(productVersionSource.productName())
                 .productVersion(productVersionSource.productVersion().toString())
                 .build();
@@ -224,7 +224,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
             return;
         }
 
-        this.remoteNode = message.initiatorNode().asClusterNode();
+        this.remoteNode = message.clientNode().asClusterNode();
         this.receivedCount = message.receivedCount();
         this.remoteChannelId = message.connectionId();
 
@@ -233,7 +233,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
     }
 
     private boolean possiblyRejectHandshakeStartResponse(HandshakeStartResponseMessage message) {
-        if (staleIdDetector.isIdStale(message.initiatorNode().id())) {
+        if (staleIdDetector.isIdStale(message.clientNode().id())) {
             handleStaleInitiatorId(message);
 
             return true;
@@ -250,7 +250,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
 
     private void handleStaleInitiatorId(HandshakeStartResponseMessage msg) {
         String message = String.format("%s:%s is stale, it should be restarted to be allowed to connect",
-                msg.initiatorNode().name(), msg.initiatorNode().id()
+                msg.clientNode().name(), msg.clientNode().id()
         );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
@@ -258,7 +258,7 @@ public class RecoveryAcceptorHandshakeManager implements HandshakeManager {
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {
         String message = String.format("%s:%s tried to establish a connection with %s, but it's stopping",
-                msg.initiatorNode().name(), msg.initiatorNode().id(), localNode.name()
+                msg.clientNode().name(), msg.clientNode().id(), localNode.name()
         );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STOPPING, m -> new NodeStoppingException());
