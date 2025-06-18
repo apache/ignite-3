@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -31,6 +32,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.ComputeException;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -293,8 +297,11 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    default void testCompute() {
-        assert false : "TODO";
+    default void testComputeMissingJob() {
+        JobTarget target = JobTarget.anyNode(client().cluster().nodes());
+        JobDescriptor<Object, Object> desc = JobDescriptor.builder("test").build();
+
+        assertThrows(ComputeException.class,() ->  client().compute().execute(target, desc, null));
     }
 
     @Test
