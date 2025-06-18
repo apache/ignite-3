@@ -467,14 +467,16 @@ public class IgniteServerImpl implements IgniteServer {
 
             boolean jmxEnabled = System.getProperty("com.sun.management.jmxremote") != null;
 
-            sb.append("JMX (");
-            sb.append("remote: ").append(onOff(jmxEnabled));
+            sb.append("JMX (").append("remote: ").append(onOff(jmxEnabled));
 
             if (jmxEnabled) {
-                sb.append(", ");
-
-                sb.append("port: ").append(System.getProperty("com.sun.management.jmxremote.port", "<n/a>")).append(", ");
-                sb.append("auth: ").append(onOff(Boolean.getBoolean("com.sun.management.jmxremote.authenticate"))).append(", ");
+                sb.append(", ")
+                        .append("port: ")
+                        .append(System.getProperty("com.sun.management.jmxremote.port", "<n/a>"))
+                        .append(", ")
+                        .append("auth: ")
+                        .append(onOff(Boolean.getBoolean("com.sun.management.jmxremote.authenticate")))
+                        .append(", ");
 
                 // By default SSL is enabled, that's why additional check for null is needed.
                 // https://docs.oracle.com/en/java/javase/11/management/monitoring-and-management-using-jmx-technology.html
@@ -484,9 +486,7 @@ public class IgniteServerImpl implements IgniteServer {
                 sb.append("ssl: ").append(onOff(sslEnabled));
             }
 
-            sb.append(")");
-
-            sb.append(']');
+            sb.append(')').append(']');
 
             LOG.info(sb.toString());
         }
