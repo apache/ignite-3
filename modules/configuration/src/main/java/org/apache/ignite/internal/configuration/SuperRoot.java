@@ -62,10 +62,10 @@ public final class SuperRoot extends InnerNode {
      * @param nodeCreator Function that creates root node by root name or returns {@code null} if root name is not found.
      * @param roots       Map of roots belonging to this super root.
      */
-    public SuperRoot(Function<String, RootInnerNode> nodeCreator, Map<RootKey<?, ?>, InnerNode> roots) {
+    public SuperRoot(Function<String, RootInnerNode> nodeCreator, Map<RootKey<?, ?, ?>, InnerNode> roots) {
         this.nodeCreator = nodeCreator;
 
-        for (Map.Entry<RootKey<?, ?>, InnerNode> entry : roots.entrySet()) {
+        for (Map.Entry<RootKey<?, ?, ?>, InnerNode> entry : roots.entrySet()) {
             this.roots.put(entry.getKey().key(), new RootInnerNode(entry.getKey(), entry.getValue().copy()));
         }
     }
@@ -76,7 +76,7 @@ public final class SuperRoot extends InnerNode {
      * @param rootKey Root key.
      * @param root    Root node.
      */
-    public void addRoot(RootKey<?, ?> rootKey, InnerNode root) {
+    public void addRoot(RootKey<?, ?, ?> rootKey, InnerNode root) {
         assert !roots.containsKey(rootKey.key()) : rootKey.key() + " : " + roots;
 
         assertMutability();
@@ -91,7 +91,7 @@ public final class SuperRoot extends InnerNode {
      * @return Root node.
      */
     @Nullable
-    public InnerNode getRoot(RootKey<?, ?> rootKey) {
+    public InnerNode getRoot(RootKey<?, ?, ?> rootKey) {
         RootInnerNode root = roots.get(rootKey.key());
 
         return root == null ? null : root.node();

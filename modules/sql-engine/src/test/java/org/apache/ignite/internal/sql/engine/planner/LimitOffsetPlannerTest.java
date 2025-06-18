@@ -88,8 +88,8 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                 isInstanceOf(IgniteLimit.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteSort.class)
-                                        .and(s -> doubleFromRex(s.fetch, -1) == 5.0)
-                                        .and(s -> doubleFromRex(s.offset, -1) == 10.0))))));
+                                        .and(s -> doubleFromRex(s.fetch, -1) == 15.0)
+                                        .and(s -> s.offset == null))))));
 
         // Same simple case but witout offset.
         assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 5", publicSchema,
@@ -163,8 +163,8 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(e -> e.distribution() == IgniteDistributions.single())
                                 .and(input(isInstanceOf(IgniteSort.class)
-                                        .and(s -> doubleFromRex(s.offset, -1) == 1)
-                                        .and(s -> doubleFromRex(s.fetch, -1) == 1)))))));
+                                        .and(s -> doubleFromRex(s.fetch, -1) == 2)
+                                        .and(s -> s.offset == null)))))));
 
         publicSchema = createSchemaWithTable(IgniteDistributions.random(), "ID");
 
@@ -262,8 +262,8 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                                 .and(input(isInstanceOf(IgniteExchange.class)
                                         .and(input(
                                                 isInstanceOf(IgniteSort.class)
-                                                        .and(l -> doubleFromRex(l.offset, -1) == 2.0)
-                                                        .and(l -> doubleFromRex(l.fetch, -1) == 3.0)
+                                                        .and(l -> l.offset == null)
+                                                        .and(l -> doubleFromRex(l.fetch, -1) == 5.0)
                                         ))
                                 ))
                         ))

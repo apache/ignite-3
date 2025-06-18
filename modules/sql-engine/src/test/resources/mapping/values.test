@@ -2,16 +2,24 @@ N1
 SELECT 1
 ---
 Fragment#0 root
+  distribution: broadcast
   executionNodes: [N1]
-  tree:
+  tree: 
     Values
+        fieldNames: [EXPR$0]
+        tuples: [[1]]
+        est: (rows=1)
 ---
 
 N2
 SELECT 1
 ---
 Fragment#0 root
+  distribution: broadcast
   executionNodes: [N2]
-  tree:
+  tree: 
     Values
+        fieldNames: [EXPR$0]
+        tuples: [[1]]
+        est: (rows=1)
 ---

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.recovery.reset;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -43,8 +43,7 @@ public class ResetPartitionsCall implements Call<ResetPartitionsCallInput, Strin
         RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
 
         try {
-            // TODO: IGNITE-25637 - remove this.
-            if (colocationEnabled()) {
+            if (nullOrEmpty(input.tableName())) {
                 ResetZonePartitionsRequest command = new ResetZonePartitionsRequest();
 
                 command.setPartitionIds(input.partitionIds());

@@ -16,7 +16,7 @@ Limit
           est: (rows=3000608)
         MergeJoin
             predicate: =(O_ORDERKEY, L_ORDERKEY)
-            fieldNames: [L_ORDERKEY, L_QUANTITY, O_ORDERKEY, O_CUSTKEY, O_TOTALPRICE, O_ORDERDATE, L_ORDERKEY0, C_CUSTKEY, C_NAME]
+            fieldNames: [L_ORDERKEY, L_QUANTITY, O_ORDERKEY, O_CUSTKEY, O_TOTALPRICE, O_ORDERDATE, L_ORDERKEY$0, C_CUSTKEY, C_NAME]
             type: inner
             est: (rows=3000608)
           Exchange

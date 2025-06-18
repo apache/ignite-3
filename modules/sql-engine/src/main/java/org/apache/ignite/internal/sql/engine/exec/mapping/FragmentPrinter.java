@@ -17,101 +17,62 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
-import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
-import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
-import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSystemViewImpl;
+import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Converts {@link MappedFragment} to text representation.
  */
-public final class FragmentPrinter extends IgniteRelShuttle {
+public final class FragmentPrinter {
+    private static final int ATTRIBUTES_INDENT = 2;
 
     static String FRAGMENT_PREFIX = "Fragment#";
 
+    private final boolean verbose;
     private final Output output;
+    private final Int2ObjectMap<IgniteTable> tables;
 
-    private FragmentPrinter(Output output) {
+    private FragmentPrinter(boolean verbose, Output output, Int2ObjectMap<IgniteTable> tables) {
         this.output = output;
-    }
-
-    /** Print optimized plan in common fragment printer format. */
-    public static String relAwareToString(ExplainablePlan plan, String localNode) {
-        Output output = new Output(String::valueOf);
-
-        FragmentPrinter printer = new FragmentPrinter(output);
-
-        output.setNewLinePadding(0);
-        output.writeFormattedString(FRAGMENT_PREFIX + "{} root", 0);
-
-        output.setNewLinePadding(2);
-        output.writeNewline();
-
-        output.appendPadding();
-        output.writeKeyValue("executionNodes", List.of(localNode).toString());
-        output.writeNewline();
-
-        output.appendPadding();
-        output.writeString("tree:");
-        output.writeNewline();
-
-        printer.printRel(plan.getRel());
-
-        return output.builder.toString();
+        this.tables = tables;
+        this.verbose = verbose;
     }
 
     /** Wraps mapped fragments into string representation.  */
-    public static String fragmentsToString(List<MappedFragment> mappedFragments) {
-        TableDescriptorCollector collector = new TableDescriptorCollector();
+    public static String fragmentsToString(boolean verbose, List<MappedFragment> mappedFragments) {
+        var collector = new TableDescriptorCollector();
 
         for (MappedFragment mappedFragment : mappedFragments) {
             Fragment fragment = mappedFragment.fragment();
             collector.collect(fragment);
         }
 
-        Output output = new Output(val -> {
-            if (val instanceof IgniteDistribution) {
-                IgniteDistribution distribution = (IgniteDistribution) val;
-                return formatDistribution(distribution, collector);
-            } else {
-                return String.valueOf(val);
-            }
-        });
+        var output = new Output();
 
         for (MappedFragment mappedFragment : mappedFragments) {
-            FragmentPrinter printer = new FragmentPrinter(output);
+            FragmentPrinter printer = new FragmentPrinter(verbose, output, collector.tables);
             printer.print(mappedFragment);
 
             output.writeNewline();
@@ -120,11 +81,19 @@ public final class FragmentPrinter extends IgniteRelShuttle {
         return output.builder.toString();
     }
 
+    private static IgniteDistribution deriveDistribution(IgniteRel rel) {
+        if (rel instanceof IgniteSender) {
+            return ((IgniteSender) rel).sourceDistribution();
+        }
+
+        return rel.distribution(); 
+    }
+
     private void print(MappedFragment mappedFragment) {
         Fragment fragment = mappedFragment.fragment();
 
         output.setNewLinePadding(0);
-        output.writeFormattedString(FRAGMENT_PREFIX + "{}", fragment.fragmentId());
+        output.writeString(FRAGMENT_PREFIX + fragment.fragmentId());
 
         if (fragment.rootFragment()) {
             output.writeString(" root");
@@ -134,292 +103,87 @@ public final class FragmentPrinter extends IgniteRelShuttle {
             output.writeString(" correlated");
         }
 
-        output.appendPadding();
-        output.setNewLinePadding(2);
+        output.setNewLinePadding(ATTRIBUTES_INDENT);
         output.writeNewline();
 
-        ColocationGroup target = mappedFragment.target();
-        if (target != null) {
-            output.appendPadding();
-            List<String> sortedNodeNames = target.nodeNames()
-                    .stream()
-                    .sorted(Comparator.naturalOrder())
-                    .collect(Collectors.toList());
-
-            output.writeKeyValue("targetNodes", sortedNodeNames.toString());
-            output.writeNewline();
-        }
-
-        output.setNewLinePadding(2);
-
-        output.appendPadding();
+        output.writeKeyValue("distribution", deriveDistribution(mappedFragment.fragment().root()).label());
         output.writeKeyValue("executionNodes", mappedFragment.nodes().toString());
-        output.writeNewline();
 
-        List<IgniteReceiver> remotes = mappedFragment.fragment().remotes();
-        if (!remotes.isEmpty()) {
-            List<Long> remotesVals = remotes.stream()
-                    .map(IgniteReceiver::sourceFragmentId)
-                    .collect(Collectors.toList());
+        if (verbose) {
+            ColocationGroup target = mappedFragment.target();
+            if (target != null) {
+                List<String> sortedNodeNames = target.nodeNames()
+                        .stream()
+                        .sorted(Comparator.naturalOrder())
+                        .collect(Collectors.toList());
 
-            output.appendPadding();
-            output.writeKeyValues("remoteFragments", remotesVals);
-            output.writeNewline();
+                output.writeKeyValue("targetNodes", sortedNodeNames.toString());
+            }
+
+            Long2ObjectMap<List<String>> sourcesByExchangeId = mappedFragment.sourcesByExchangeId();
+            if (sourcesByExchangeId != null) {
+                output.writeKeyValue("exchangeSourceNodes", sourcesByExchangeId.long2ObjectEntrySet()
+                        .stream()
+                        .map(e -> Map.entry(e.getLongKey(), new TreeSet<>(e.getValue())))
+                        .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
+                        .toString()
+                );
+            }
         }
 
-        Long2ObjectMap<List<String>> sourcesByExchangeId = mappedFragment.sourcesByExchangeId();
-        if (sourcesByExchangeId != null) {
-            output.appendPadding();
-            output.writeKeyValue("exchangeSourceNodes", sourcesByExchangeId.long2ObjectEntrySet()
-                    .stream()
-                    .map(e -> Map.entry(e.getLongKey(), new TreeSet<>(e.getValue())))
-                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue))
-                    .toString()
-            );
-            output.writeNewline();
-        }
-
-        if (!fragment.tables().isEmpty()) {
-            List<String> tables = fragment.tables().values().stream()
-                    .map(IgniteDataSource::name)
-                    .sorted(Comparator.naturalOrder())
-                    .collect(Collectors.toList());
-
-            output.appendPadding();
-            output.writeKeyValue("tables", tables.toString());
-            output.writeNewline();
-        }
-
-        if (!fragment.systemViews().isEmpty()) {
-            List<String> tables = fragment.systemViews().stream()
-                    .map(IgniteDataSource::name)
-                    .sorted(Comparator.naturalOrder())
-                    .collect(Collectors.toList());
-
-            output.appendPadding();
-            output.writeKeyValue("systemViews", tables.toString());
-            output.writeNewline();
-        }
-
-        Map<String, List<PartitionWithConsistencyToken>> partitions = new HashMap<>();
+        Int2ObjectMap<Map<String, BitSet>> tableIdToNodeNameToPartitionsMap = new Int2ObjectOpenHashMap<>();
         for (ColocationGroup group : mappedFragment.groups()) {
-            Comparator<PartitionWithConsistencyToken> cmp = Comparator.comparing(PartitionWithConsistencyToken::partId)
-                    .thenComparing(PartitionWithConsistencyToken::enlistmentConsistencyToken);
+            for (long sourceId : group.sourceIds()) {
+                IgniteTable table = mappedFragment.fragment().tables().get(sourceId);
 
-            for (String nodeName : mappedFragment.nodes()) {
-                List<PartitionWithConsistencyToken> nodePartitions = group.partitionsWithConsistencyTokens(nodeName);
-                if (!nodePartitions.isEmpty()) {
-                    nodePartitions.sort(cmp);
-                    partitions.put(nodeName, nodePartitions);
+                if (table == null) {
+                    continue;
+                }
+
+                int tableId = table.id();
+
+                for (String nodeName : group.nodeNames()) {
+                    Map<String, BitSet> nodeNameToPartitionsMap = null;
+
+                    for (PartitionWithConsistencyToken partitionsWithToken : group.partitionsWithConsistencyTokens(nodeName)) {
+                        if (nodeNameToPartitionsMap == null) {
+                            nodeNameToPartitionsMap = tableIdToNodeNameToPartitionsMap
+                                    .computeIfAbsent(tableId, k -> new HashMap<>());
+                        }
+
+                        nodeNameToPartitionsMap.computeIfAbsent(nodeName, k -> new BitSet()).set(partitionsWithToken.partId());
+                    }
                 }
             }
         }
 
-        if (!partitions.isEmpty()) {
-            String partitionsAsString = partitions.entrySet().stream()
+        if (!tableIdToNodeNameToPartitionsMap.isEmpty()) {
+            String partitionsAsString = tableIdToNodeNameToPartitionsMap.int2ObjectEntrySet().stream()
                     .map(e -> {
-                        String valuesStr = e.getValue().stream()
-                                .map(v -> v.partId() + ":" + v.enlistmentConsistencyToken())
+                        IgniteTable table = tables.get(e.getIntKey());
+                        String tableName = table == null ? "<unknown table with id=" + e.getValue() + ">" : table.name();
+
+                        return tableName + "=" + e.getValue().entrySet().stream()
+                                .map(n2p -> n2p.getKey() + "=" + n2p.getValue())
                                 .collect(Collectors.joining(", ", "[", "]"));
-
-                        return e.getKey() + "=" + valuesStr;
                     })
-                    .collect(Collectors.joining(", ", "{", "}"));
+                    .collect(Collectors.joining(", ", "[", "]"));
 
-            output.appendPadding();
             output.writeKeyValue("partitions", partitionsAsString);
-            output.writeNewline();
         }
 
-        PartitionPruningMetadata pruningMetadata = mappedFragment.partitionPruningMetadata();
-        if (pruningMetadata != null) {
-            output.appendPadding();
-            output.writeKeyValue("pruningMetadata", pruningMetadata.data().long2ObjectEntrySet()
-                    .stream()
-                    .map(e -> {
-                        List<Map<Integer, RexNode>> columns = e.getValue().columns().stream()
-                                .map(TreeMap::new)
-                                .collect(Collectors.toList());
+        output.writeKeyValue("tree", "");
 
-                        return Map.entry(e.getLongKey(), columns);
-                    })
-                    .sorted(Entry.comparingByKey())
-                    .collect(Collectors.toList())
-                    .toString()
-            );
-            output.writeNewline();
-        }
+        output.setNewLinePadding(ATTRIBUTES_INDENT);
 
-        output.appendPadding();
-        output.writeString("tree:");
-        output.writeNewline();
-
-        printRel(fragment.root());
-    }
-
-    private void printRel(IgniteRel rel) {
-        String prevPaddingStr = output.paddingString;
-        int prevPadding = output.newLinePadding;
-
-        output.setPaddingStr("  ");
-        output.setNewLinePadding(2);
-        try {
-            visit(rel);
-        } finally {
-            output.setNewLinePadding(prevPadding);
-        }
-
-        output.setPaddingStr(prevPaddingStr);
-        output.setNewLinePadding(prevPadding);
-    }
-
-    @Override
-    protected IgniteRel processNode(IgniteRel rel) {
-        int prevPadding = output.newLinePadding;
-        output.setNewLinePadding(output.newLinePadding + 1);
-        output.writeNewline();
-        try {
-            return super.processNode(rel);
-        } finally {
-            output.setNewLinePadding(prevPadding);
-        }
-    }
-
-    @Override
-    public IgniteRel visit(IgniteRel rel) {
-        output.appendPadding();
-        output.writeString(rel.getRelTypeName());
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteSender rel) {
-        long targetId = rel.targetFragmentId();
-        long exchangeId = rel.exchangeId();
-
-        output.writeFormattedString("(targetFragment={}, exchange={}, distribution={})", targetId, exchangeId, rel.distribution());
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteReceiver rel) {
-        long sourceFragmentId = rel.sourceFragmentId();
-        long exchangeId = rel.exchangeId();
-
-        output.writeFormattedString("(sourceFragment={}, exchange={}, distribution={})", sourceFragmentId, exchangeId, rel.distribution());
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteIndexScan rel) {
-        long sourceId = rel.sourceId();
-        String tableName = String.join(".", rel.getTable().getQualifiedName());
-        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
-        assert table != null;
-
-        output.writeFormattedString("(name={}, source={}, partitions={}, distribution={})",
-                tableName, sourceId, table.partitions(), rel.distribution()
-        );
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteKeyValueGet rel) {
-        printExecutableNode(rel);
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteSelectCount rel) {
-        printExecutableNode(rel);
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteKeyValueModify rel) {
-        printExecutableNode(rel);
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteSystemViewScan rel) {
-        RelOptTable source = rel.getTable();
-        assert source != null;
-
-        IgniteSystemViewImpl sysView = source.unwrap(IgniteSystemViewImpl.class);
-        assert sysView != null;
-
-        String viewName = String.join(".", rel.getTable().getQualifiedName());
-
-        output.writeFormattedString("(name={}, distribution={})",
-                viewName, sysView.distribution()
-        );
-
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteTableScan rel) {
-        long sourceId = rel.sourceId();
-        String tableName = String.join(".", rel.getTable().getQualifiedName());
-        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
-        assert table != null;
-
-        output.writeFormattedString("(name={}, source={}, partitions={}, distribution={})",
-                tableName, sourceId, table.partitions(), rel.distribution()
-        );
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteTableModify rel) {
-        long sourceId = rel.sourceId();
-        String tableName = String.join(".", rel.getTable().getQualifiedName());
-
-        output.writeFormattedString("(name={}, source={}, distribution={})", tableName, sourceId, rel.distribution());
-        return super.visit(rel);
-    }
-
-    @Override
-    public IgniteRel visit(IgniteTableFunctionScan rel) {
-        output.writeFormattedString("(source={}, distribution={})", rel.sourceId(), rel.distribution());
-        return super.visit(rel);
-    }
-
-    private void printExecutableNode(IgniteRel rel) {
-        String tableName = String.join(".", rel.getTable().getQualifiedName());
-        IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
-
-        assert table != null;
-        output.writeFormattedString("(name={}, partitions={}, distribution={})",
-                tableName, table.partitions(), rel.distribution()
-        );
-    }
-
-    private static String formatDistribution(IgniteDistribution distribution, TableDescriptorCollector collector) {
-        if (distribution.isTableDistribution()) {
-            IgniteTable igniteTable = collector.tables.get(distribution.tableId());
-
-            if (igniteTable == null) {
-                String error = format("Unknown tableId: {}. Existing: {}", collector.tables.keySet());
-                throw new IllegalStateException(error);
-            }
-
-            TableDescriptor tableDescriptor = igniteTable.descriptor();
-            String colocationColumns = igniteTable.distribution().getKeys().stream()
-                    .map(k -> tableDescriptor.columnDescriptor(k).name())
-                    .collect(Collectors.joining(",", "[", "]"));
-
-            return format("affinity[table: {}, columns: {}]", igniteTable.name(), colocationColumns);
-        } else {
-            return distribution.toString();
-        }
+        IgniteRel clonedRoot = Cloner.clone(mappedFragment.fragment().root(), Commons.cluster());
+        output.writeString(ExplainUtils.toString(clonedRoot, 2 * ATTRIBUTES_INDENT));
     }
 
     /** Collects table descriptors to use them table names, column names in text output. */
     private static class TableDescriptorCollector extends IgniteRelShuttle {
 
-        private final Map<Integer, IgniteTable> tables = new HashMap<>();
+        private final Int2ObjectMap<IgniteTable> tables = new Int2ObjectOpenHashMap<>();
 
         void collect(Fragment fragment) {
             fragment.root().accept(this);
@@ -448,7 +212,6 @@ public final class FragmentPrinter extends IgniteRelShuttle {
     }
 
     private static class Output {
-
         private final StringBuilder builder = new StringBuilder();
 
         private int newLinePadding;
@@ -457,46 +220,20 @@ public final class FragmentPrinter extends IgniteRelShuttle {
 
         private boolean blankLine;
 
-        private final Function<Object, String> formatter;
-
-        private Output(Function<Object, String> formatter) {
-            this.formatter = formatter;
-        }
-
-        /** Writes a list of objectIds: {@code name: [id1, id2, ..., idN]}. */
-        void writeKeyValues(String name, List<?> values) {
-            builder.append(name);
-            builder.append(": [");
-
-            for (Object value : values) {
-                builder.append(formatter.apply(value));
-                builder.append(", ");
-            }
-            builder.setLength(builder.length() - 2);
-
-            builder.append(']');
-        }
-
         /** Writes string property: {@code name: value}. */
         void writeKeyValue(String name, String value) {
+            appendPadding();
+
             builder.append(name);
             builder.append(": ");
             builder.append(value);
+
+            writeNewline();
         }
 
         /** Writes the given. */
         void writeString(String value) {
             builder.append(value);
-        }
-
-        /** Writes a formatted string. */
-        void writeFormattedString(String value, Object... params) {
-            List<String> formattedParams = new ArrayList<>();
-            for (Object param : params) {
-                formattedParams.add(formatter.apply(param));
-            }
-
-            builder.append(format(value, formattedParams.toArray()));
         }
 
         void setPaddingStr(String val) {

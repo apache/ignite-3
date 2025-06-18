@@ -331,7 +331,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
-            ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
+            ClusterNode primaryNode = node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             if (idxId == null) {
                 publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
@@ -360,7 +360,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
-            ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
+            ClusterNode primaryNode = node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             publisher = unwrappedTable.internalTable().lookup(
                     PART_ID,

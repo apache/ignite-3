@@ -30,11 +30,11 @@ import org.jetbrains.annotations.Nullable;
 @Transferable(NetworkMessageTypes.HANDSHAKE_START)
 public interface HandshakeStartMessage extends InternalMessage {
     /** Returns the acceptor node that sends this. */
-    ClusterNodeMessage acceptorNode();
+    ClusterNodeMessage serverNode();
 
     /** ID of the cluster to which the acceptor node belongs ({@code null} if it's not initialized yet. */
     @Nullable
-    UUID acceptorClusterId();
+    UUID serverClusterId();
 
     /** Product name of the node that sends the message. */
     String productName();

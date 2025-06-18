@@ -207,7 +207,7 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private static HandshakeStartMessage handshakeStartMessageFrom(UUID acceptorLaunchId, UUID acceptorClusterId) {
         return MESSAGE_FACTORY.handshakeStartMessage()
-                .acceptorNode(
+                .serverNode(
                         MESSAGE_FACTORY.clusterNodeMessage()
                                 .id(acceptorLaunchId)
                                 .name(ACCEPTOR_CONSISTENT_ID)
@@ -215,7 +215,7 @@ class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
                                 .port(PORT)
                                 .build()
                 )
-                .acceptorClusterId(acceptorClusterId)
+                .serverClusterId(acceptorClusterId)
                 .productName(IgniteProductVersion.CURRENT_PRODUCT)
                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                 .build();

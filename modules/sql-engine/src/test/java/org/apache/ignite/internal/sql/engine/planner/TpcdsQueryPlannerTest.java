@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationE
 import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
 
 import it.unimi.dsi.fastutil.ints.IntSet;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
@@ -79,6 +81,44 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
                     : String.format("tpcds/plan/q%s.plan", numericId);
 
             return loadFromResource(queryFile);
+        }
+    }
+
+    @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
+    static void updateQueryPlan(String queryId, String newPlan) {
+        Path targetDirectory = null;
+
+        // A targetDirectory must be specified by hand when expected plans are generated. 
+        //noinspection ConstantValue 
+        if (targetDirectory == null) {
+            throw new RuntimeException("Please provide target directory to where save generated plans." 
+                    + " Usually plans are kept in resource folder of tests within the same module.");
+        }
+
+        // variant query ends with "v"
+        boolean variant = queryId.endsWith("v");
+        int numericId;
+
+        if (variant) {
+            String idString = queryId.substring(0, queryId.length() - 1);
+            numericId = Integer.parseInt(idString);
+        } else {
+            numericId = Integer.parseInt(queryId);
+        }
+
+        Path planLocation;
+        if (variant) {
+            planLocation = targetDirectory.resolve(String.format("variant_q%d.plan", numericId));
+        } else {
+            planLocation = colocationEnabled()
+                    ? targetDirectory.resolve(String.format("q%s_colocated.plan", numericId))
+                    : targetDirectory.resolve(String.format("q%s.plan", numericId));
+        }
+
+        try {
+            Files.writeString(planLocation, newPlan);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }

@@ -37,7 +37,7 @@ public class InfiniteMapReduceTask implements MapReduceTask<Void, Void, Void, Vo
         return completedFuture(List.of(
                 MapReduceJob.<Void, Void>builder()
                         .jobDescriptor(JobDescriptor.builder(InfiniteMapReduceJob.class).build())
-                        .nodes(taskContext.ignite().clusterNodes())
+                        .nodes(taskContext.ignite().cluster().nodes())
                         .build()
         ));
     }

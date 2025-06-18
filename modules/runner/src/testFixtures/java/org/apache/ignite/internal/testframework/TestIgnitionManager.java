@@ -49,7 +49,7 @@ public class TestIgnitionManager {
     /** Default name of configuration file. */
     public static final String DEFAULT_CONFIG_NAME = "ignite-config.conf";
 
-    private static final int DEFAULT_SCALECUBE_METADATA_TIMEOUT = 10_000;
+    public static final int DEFAULT_SCALECUBE_METADATA_TIMEOUT = 10_000;
 
     /** Default DelayDuration in ms used for tests that is set on node init. */
     public static final int DEFAULT_DELAY_DURATION_MS = 100;
@@ -172,17 +172,39 @@ public class TestIgnitionManager {
     }
 
     private static void writeConfigurationFileApplyingTestDefaults(@Nullable String configStr, Path configPath) throws IOException {
+        writeConfigurationFileApplyingTestDefaults(configStr, configPath, DEFAULT_NODE_CONFIG);
+    }
+
+    /**
+     * Applies overrides to the config and writes it to disk.
+     *
+     * @param configStr Config string.
+     * @param configPath Config file path.
+     * @param defaults Map of overrides.
+     * @throws IOException If failed to write the file.
+     */
+    public static void writeConfigurationFileApplyingTestDefaults(
+            @Nullable String configStr,
+            Path configPath,
+            Map<String, String> defaults
+    ) throws IOException {
         if (configStr == null && Files.exists(configPath)) {
             // Nothing to do.
             return;
         }
 
-        String configStringToWrite = applyTestDefaultsToConfig(configStr, DEFAULT_NODE_CONFIG);
+        String configStringToWrite = applyTestDefaultsToConfig(configStr, defaults);
 
         writeConfigurationFile(configStringToWrite, configPath);
     }
 
-    private static void writeConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
+    /**
+     * Writes config to file.
+     *
+     * @param configStr Config string.
+     * @param configPath Config file path.
+     */
+    public static void writeConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
         if (configStr == null && Files.exists(configPath)) {
             // Nothing to do.
             return;
