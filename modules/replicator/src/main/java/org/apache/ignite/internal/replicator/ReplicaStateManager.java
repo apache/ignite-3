@@ -397,7 +397,12 @@ class ReplicaStateManager {
             }
 
             if (!context.reservedForPrimary) {
-                throw new ReplicaReservationFailedException(groupId, leaseStartTime, state.name());
+                throw new ReplicaReservationFailedException(format(
+                        "Replica reservation failed [groupId={}, leaseStartTime={}, currentReplicaState={}].",
+                        groupId,
+                        leaseStartTime,
+                        state
+                ));
             }
         }
     }
