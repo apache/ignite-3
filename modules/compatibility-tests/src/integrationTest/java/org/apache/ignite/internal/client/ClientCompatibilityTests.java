@@ -148,12 +148,17 @@ public interface ClientCompatibilityTests {
         view.upsert(null, Tuple.create().set("id", id).set("name", "v2"));
         assertEquals("v2", view.get(null, key).stringValue("name"));
 
+        // Upsert All.
+        view.upsertAll(null, List.of(Tuple.create().set("id", id).set("name", "v5"), Tuple.create().set("id", id2).set("name", "v6")));
+        assertEquals("v5", view.get(null, key).stringValue("name"));
+        assertEquals("v6", view.get(null, key2).stringValue("name"));
+
         // Contains.
         assertTrue(view.contains(null, key));
         assertFalse(view.contains(null, Tuple.create().set("id", -id)));
 
         // Contains all.
-        assertTrue(view.containsAll(null, List.of(key)));
+        assertTrue(view.containsAll(null, List.of(key, key2)));
         assertFalse(view.containsAll(null, List.of(key, Tuple.create().set("id", -id))));
 
         // Get.
@@ -164,7 +169,7 @@ public interface ClientCompatibilityTests {
         List<Tuple> keys = List.of(key, Tuple.create().set("id", -id));
         List<Tuple> results = view.getAll(null, keys);
         assertEquals(2, results.size());
-        assertEquals("v2", results.get(0).stringValue("name"));
+        assertEquals("v5", results.get(0).stringValue("name"));
         assertNull(results.get(1));
 
         // TODO
