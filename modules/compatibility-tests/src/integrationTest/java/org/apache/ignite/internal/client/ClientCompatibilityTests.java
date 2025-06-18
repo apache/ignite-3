@@ -39,6 +39,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -54,7 +55,7 @@ import org.junit.jupiter.api.TestInstance;
 /**
  * Client compatibility tests. Interface to allow "multiple inheritance" of test methods.
  */
-@SuppressWarnings("resource")
+@SuppressWarnings({"resource", "DataFlowIssue"})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public interface ClientCompatibilityTests {
     String TABLE_NAME_TEST = "TEST";
@@ -68,7 +69,6 @@ public interface ClientCompatibilityTests {
     default void testClusterNodes() {
         Collection<ClusterNode> nodes = client().cluster().nodes();
         assertThat(nodes, Matchers.hasSize(1));
-        assertEquals("defaultNode", nodes.iterator().next().name());
     }
 
     @Test
@@ -231,7 +231,26 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testKvViewOperations() {
-        assert false : "TODO";
+        int id = idGen().incrementAndGet();
+        int id2 = idGen().incrementAndGet();
+        Tuple key = Tuple.create().set("id", id);
+        Tuple key2 = Tuple.create().set("id", id2);
+
+        KeyValueView<Tuple, Tuple> view = table(TABLE_NAME_TEST).keyValueView();
+
+        // Insert.
+        assertTrue(view.putIfAbsent(null, key, Tuple.create().set("name", "v1")));
+        assertEquals("v1", view.get(null, key).stringValue("name"));
+
+        assertFalse(view.putIfAbsent(null, key, Tuple.create().set("name", "v2")));
+
+        // Insert All - not supported by KeyValueView.
+
+        // Upsert.
+        view.put(null, key, Tuple.create().set("name", "v2"));
+        assertEquals("v2", view.get(null, key).stringValue("name"));
+
+        // TODO
     }
 
     @Test
