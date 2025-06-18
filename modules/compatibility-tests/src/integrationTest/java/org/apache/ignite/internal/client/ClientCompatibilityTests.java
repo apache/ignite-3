@@ -43,7 +43,6 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -51,7 +50,7 @@ import org.junit.jupiter.api.TestInstance;
 /**
  * Client compatibility tests. Interface to allow "multiple inheritance" of test methods.
  */
-@SuppressWarnings({"resource"})
+@SuppressWarnings("resource")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public interface ClientCompatibilityTests {
     String TABLE_NAME_TEST = "TEST";
