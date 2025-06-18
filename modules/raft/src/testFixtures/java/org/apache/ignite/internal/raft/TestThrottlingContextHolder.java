@@ -31,7 +31,7 @@ public class TestThrottlingContextHolder implements ThrottlingContextHolder {
      *
      * @param peerRequestTimeoutMillis Peer request timeout in milliseconds.
      */
-    public TestThrottlingContextHolder(long peerRequestTimeoutMillis) {
+    private TestThrottlingContextHolder(long peerRequestTimeoutMillis) {
         this.peerRequestTimeoutMillis = peerRequestTimeoutMillis;
     }
 
@@ -57,22 +57,32 @@ public class TestThrottlingContextHolder implements ThrottlingContextHolder {
     }
 
     @Override
-    public boolean isOverloaded(Peer peer, String requestClassName) {
+    public boolean isOverloaded() {
         return false;
     }
 
     @Override
-    public void beforeRequest(Peer peer) {
+    public void beforeRequest() {
         // No-op.
     }
 
     @Override
-    public void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Boolean retriableError) {
+    public void afterRequest(long requestStartTimestamp, @Nullable Boolean retriableError) {
         // No-op.
     }
 
     @Override
-    public long peerRequestTimeoutMillis(Peer peer) {
+    public long peerRequestTimeoutMillis() {
         return peerRequestTimeoutMillis;
+    }
+
+    @Override
+    public ThrottlingContextHolder peerContextHolder(String consistentId) {
+        return this;
+    }
+
+    @Override
+    public void onNodeLeft(String consistentId) {
+        // No-op.
     }
 }

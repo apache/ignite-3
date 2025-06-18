@@ -64,6 +64,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.RecipientLeftException;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -129,6 +130,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private final ThrottlingContextHolder throttlingContextHolder;
 
+    private final TopologyEventHandler topologyEventHandler;
+
     /**
      * Constructor.
      *
@@ -165,6 +168,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.commandsMarshaller = commandsMarshaller;
         this.stoppingExceptionFactory = stoppingExceptionFactory;
         this.throttlingContextHolder = throttlingContextHolder;
+        this.topologyEventHandler = topologyEventHandler();
     }
 
     /**
@@ -557,6 +561,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override
     public void shutdown() {
         busyLock.block();
+
+        clusterService().topologyService().removeEventHandler(topologyEventHandler);
     }
 
     @Override
@@ -606,7 +612,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
-        if (throttleOnOverload && throttlingContextHolder.isOverloaded(peer, requestFactory.apply(peer).getClass().getSimpleName())) {
+        ThrottlingContextHolder peerThrottlingContextHolder = throttlingContextHolder.peerContextHolder(peer.consistentId());
+
+        if (throttleOnOverload && peerThrottlingContextHolder.isOverloaded()) {
             executor.schedule(
                     () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
                     100,
@@ -619,7 +627,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
         var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
 
-        sendWithRetry(future, context);
+        sendWithRetry(future, context, peerThrottlingContextHolder);
 
         return future;
     }
@@ -632,6 +640,25 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param <R> Response type.
      */
     private <R extends NetworkMessage> void sendWithRetry(CompletableFuture<R> fut, RetryContext retryContext) {
+        ThrottlingContextHolder peerThrottlingContextHolder = throttlingContextHolder
+                .peerContextHolder(retryContext.targetPeer().consistentId());
+
+        sendWithRetry(fut, retryContext, peerThrottlingContextHolder);
+    }
+
+    /**
+     * Retries a request until success or timeout.
+     *
+     * @param fut Result future.
+     * @param retryContext Context.
+     * @param peerThrottlingContextHolder Throttling context holder for the given peer.
+     * @param <R> Response type.
+     */
+    private <R extends NetworkMessage> void sendWithRetry(
+            CompletableFuture<R> fut,
+            RetryContext retryContext,
+            ThrottlingContextHolder peerThrottlingContextHolder
+    ) {
         if (!busyLock.enterBusy()) {
             fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId + "]."));
 
@@ -647,8 +674,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 return;
             }
 
-            throttlingContextHolder.beforeRequest(retryContext.targetPeer());
-            long responseTimeout = throttlingContextHolder.peerRequestTimeoutMillis(retryContext.targetPeer());
+            peerThrottlingContextHolder.beforeRequest();
+            long responseTimeout = peerThrottlingContextHolder.peerRequestTimeoutMillis();
 
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> cluster.messagingService()
@@ -663,7 +690,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                     err == null ? null : err.getMessage());
                         }
 
-                        throttlingContextHolder.afterRequest(retryContext.targetPeer(), requestStartTime, retriableError(err, resp));
+                        peerThrottlingContextHolder.afterRequest(requestStartTime, retriableError(err, resp));
 
                         try {
                             if (err != null) {
@@ -1006,5 +1033,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
 
         return completedFuture(node);
+    }
+
+    private TopologyEventHandler topologyEventHandler() {
+        return new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                // Peers in throttling context are used for retries, so we use retry timeout here. Also, the retries themselves
+                // also can be delayed for any reasons, so here is the multiplier.
+                executor.schedule(
+                        () -> throttlingContextHolder.onNodeLeft(member.name()),
+                        configuration.retryTimeoutMillis().value() * 3,
+                        TimeUnit.MILLISECONDS
+                );
+            }
+        };
     }
 }

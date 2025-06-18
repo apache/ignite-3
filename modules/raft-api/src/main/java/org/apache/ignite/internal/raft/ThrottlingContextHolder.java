@@ -26,33 +26,41 @@ public interface ThrottlingContextHolder {
     /**
      * Whether the peer is overloaded. This is an assumption of the client side this can be based on
      * the current load on the peer.
-     *
-     * @param peer Peer.
-     * @return Whether the peer is overloaded.
      */
-    boolean isOverloaded(Peer peer, String requestClassName);
+    boolean isOverloaded();
 
     /**
-     * Called before sending a request to the peer.
-     *
-     * @param peer Peer.
+     * Called before sending a request.
      */
-    void beforeRequest(Peer peer);
+    void beforeRequest();
 
     /**
-     * Called after sending a request to the peer.
+     * Called after sending a request.
      *
-     * @param peer Peer.
      * @param requestStartTimestamp Timestamp when the request was sent.
      * @param retriableError Whether the Raft error is retriable. {@code null} if there was no error.
      */
-    void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Boolean retriableError);
+    void afterRequest(long requestStartTimestamp, @Nullable Boolean retriableError);
 
     /**
      * Returns the timeout for a request to the peer.
      *
-     * @param peer Peer.
      * @return Timeout in milliseconds.
      */
-    long peerRequestTimeoutMillis(Peer peer);
+    long peerRequestTimeoutMillis();
+
+    /**
+     * Returns the context holder for a peer with the given consistent ID.
+     *
+     * @param consistentId Consistent ID of the peer.
+     * @return ThrottlingContextHolder for the peer.
+     */
+    ThrottlingContextHolder peerContextHolder(String consistentId);
+
+    /**
+     * Called when a node leaves the cluster.
+     *
+     * @param consistentId Consistent ID of the node that left.
+     */
+    void onNodeLeft(String consistentId);
 }

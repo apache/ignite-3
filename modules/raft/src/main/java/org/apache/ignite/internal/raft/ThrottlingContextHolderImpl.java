@@ -24,14 +24,12 @@ import static java.lang.Math.min;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.util.SlidingAverageValueTracker;
 import org.apache.ignite.internal.util.SlidingHistogram;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -49,8 +47,6 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
     private final double maxInflightOverflowRate;
 
     private final Map<String, PeerContextHolder> peerContexts = new ConcurrentHashMap<>();
-
-    private static final boolean ENABLED = IgniteSystemProperties.getBoolean("RAFT_CLIENT_THROTTLING_ENABLED", true);
 
     @TestOnly
     public ThrottlingContextHolderImpl(RaftConfiguration configuration) {
@@ -71,56 +67,43 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         this.maxInflightOverflowRate = maxInflightOverflowRate;
     }
 
-    private PeerContextHolder peerContext(Peer peer) {
-        return peerContexts.computeIfAbsent(peer.consistentId(), k -> new PeerContextHolder(peer));
+    @Override
+    public boolean isOverloaded() {
+        throw new AssertionError("This method should be called on the peer context.");
     }
 
     @Override
-    public boolean isOverloaded(Peer peer, String requestClassName) {
-        if (!ENABLED) {
-            return false;
-        }
-
-        return peerContext(peer).isOverloaded();
+    public void beforeRequest() {
+        throw new AssertionError("This method should be called on the peer context.");
     }
 
     @Override
-    public void beforeRequest(Peer peer) {
-        if (!ENABLED) {
-            return;
-        }
-
-        peerContext(peer).beforeRequest();
+    public void afterRequest(long requestStartTimestamp, @Nullable Boolean retriableError) {
+        throw new AssertionError("This method should be called on the peer context.");
     }
 
     @Override
-    public void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Boolean retriableError) {
-        if (!ENABLED) {
-            return;
-        }
-
-        peerContext(peer).afterRequest(requestStartTimestamp, retriableError);
+    public long peerRequestTimeoutMillis() {
+        throw new AssertionError("This method should be called on the peer context.");
     }
 
     @Override
-    public long peerRequestTimeoutMillis(Peer peer) {
-        if (!ENABLED) {
-            return 3000;
-        }
-
-        return peerContext(peer).adaptiveResponseTimeoutMillis.get();
+    public ThrottlingContextHolder peerContextHolder(String consistentId) {
+        return peerContexts.computeIfAbsent(consistentId, k -> new PeerContextHolder(consistentId));
     }
 
-    private class PeerContextHolder {
+    @Override
+    public void onNodeLeft(String consistentId) {
+        peerContexts.remove(consistentId);
+    }
+
+    private class PeerContextHolder implements ThrottlingContextHolder {
         private static final double INCREASE_MULTIPLIER = 2.0;
         private static final double DECREASE_MULTIPLIER = 0.99;
 
-        private static final int AVERAGE_VALUE_TRACKER_WINDOW_SIZE = 50;
-        private static final int AVERAGE_VALUE_TRACKER_MINIMIM_VALUES = 20;
-        private static final double AVERAGE_VALUE_TRACKER_DEFAULT = 0.0;
-
         private static final int HISTOGRAM_WINDOW_SIZE = 1000;
         private static final double HISTOGRAM_PERCENTILE = 0.98;
+        private static final double HISTOGRAM_PERCENTILE_INC_TIMEOUT_THRESHOLD = 0.5;
         private static final long HISTOGRAM_ESTIMATION_DEFAULT = 0;
 
         private final SlidingHistogram histogram = new SlidingHistogram(HISTOGRAM_WINDOW_SIZE, HISTOGRAM_ESTIMATION_DEFAULT);
@@ -179,7 +162,8 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
          *
          * @return Whether the peer is overloaded or not.
          */
-        boolean isOverloaded() {
+        @Override
+        public boolean isOverloaded() {
             return currentInFlights.longValue() >= computeMaxInFlights() * maxInflightOverflowRate;
         }
 
@@ -191,11 +175,13 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
                     : (int) max((double) adaptiveResponseTimeoutMillis.get() / timeForMostOfRequests, 1.0);
         }
 
-        void beforeRequest() {
+        @Override
+        public void beforeRequest() {
             currentInFlights.increment();
         }
 
-        void afterRequest(long requestStartTimestamp, Boolean retriableError) {
+        @Override
+        public void afterRequest(long requestStartTimestamp, Boolean retriableError) {
             currentInFlights.decrement();
 
             if (retriableError == null || retriableError) {
@@ -209,8 +195,23 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
             }
         }
 
+        @Override
+        public long peerRequestTimeoutMillis() {
+            return adaptiveResponseTimeoutMillis.get();
+        }
+
+        @Override
+        public ThrottlingContextHolder peerContextHolder(String consistentId) {
+            return this;
+        }
+
+        @Override
+        public void onNodeLeft(String consistentId) {
+            // No-op.
+        }
+
         private void adaptRequestTimeout(long now, boolean timedOut) {
-            double avg = histogram.estimatePercentile(0.5);
+            double avg = histogram.estimatePercentile(HISTOGRAM_PERCENTILE_INC_TIMEOUT_THRESHOLD);
             long defaultResponseTimeout = configuration.responseTimeoutMillis().value();
             long retryTimeout = configuration.retryTimeoutMillis().value();
             long r = adaptiveResponseTimeoutMillis.get();
