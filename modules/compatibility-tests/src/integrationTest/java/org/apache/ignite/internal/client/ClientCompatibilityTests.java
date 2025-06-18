@@ -61,11 +61,6 @@ public interface ClientCompatibilityTests {
 
     AtomicInteger idGen();
 
-    @BeforeAll
-    default void beforeAll() {
-        createDefaultTables();
-    }
-
     @Test
     default void testClusterNodes() {
         Collection<ClusterNode> nodes = client().cluster().nodes();
@@ -242,7 +237,7 @@ public interface ClientCompatibilityTests {
         assert false : "TODO";
     }
 
-    private void createDefaultTables() {
+    default void createDefaultTables() {
         if (ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
             sql("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
         }

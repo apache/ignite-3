@@ -21,21 +21,39 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.CompatibilityTestBase;
+import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 
 /**
  * Tests that current Java client can work with all older server versions.
  */
 public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTestBase implements ClientCompatibilityTests {
-    private AtomicInteger idGen = new AtomicInteger();
+    private final AtomicInteger idGen = new AtomicInteger();
+
+    private @Nullable IgniteClient client;
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
-
+        createDefaultTables();
     }
 
     @Override
     public IgniteClient client() {
-        return null;
+        if (client == null) {
+            client = IgniteClient.builder()
+                    .addresses("localhost:10800")
+                    .build();
+        }
+
+        return client;
+    }
+
+    @AfterEach
+    public void afterEach() {
+        if (client != null) {
+            client.close();
+            client = null;
+        }
     }
 
     @Override
