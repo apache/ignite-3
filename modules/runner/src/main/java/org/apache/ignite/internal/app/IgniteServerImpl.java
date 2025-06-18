@@ -40,6 +40,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -461,34 +462,22 @@ public class IgniteServerImpl implements IgniteServer {
 
     private static void ackRemoteManagement() {
         if (LOG.isInfoEnabled()) {
-            var sb = new StringBuilder();
-
-            sb.append("Remote Management [");
-
             boolean jmxEnabled = System.getProperty("com.sun.management.jmxremote") != null;
 
-            sb.append("JMX (").append("remote: ").append(onOff(jmxEnabled));
-
             if (jmxEnabled) {
-                sb.append(", ")
-                        .append("port: ")
-                        .append(System.getProperty("com.sun.management.jmxremote.port", "<n/a>"))
-                        .append(", ")
-                        .append("auth: ")
-                        .append(onOff(Boolean.getBoolean("com.sun.management.jmxremote.authenticate")))
-                        .append(", ");
+                String jmxMessage = "Remote management[JMX (remote: on, port: {}, auth: {}, ssl: {})]";
 
+                String port = System.getProperty("com.sun.management.jmxremote.port", "<n/a>");
+                boolean authEnabled = Boolean.getBoolean("com.sun.management.jmxremote.authenticate");
                 // By default SSL is enabled, that's why additional check for null is needed.
                 // https://docs.oracle.com/en/java/javase/11/management/monitoring-and-management-using-jmx-technology.html
                 boolean sslEnabled = Boolean.getBoolean("com.sun.management.jmxremote.ssl")
                         || (System.getProperty("com.sun.management.jmxremote.ssl") == null);
 
-                sb.append("ssl: ").append(onOff(sslEnabled));
+                LOG.info(IgniteStringFormatter.format(jmxMessage, port, onOff(authEnabled), onOff(sslEnabled)));
+            } else {
+                LOG.info("Remote management[JMX (remote: off)]");
             }
-
-            sb.append(')').append(']');
-
-            LOG.info(sb.toString());
         }
     }
 
