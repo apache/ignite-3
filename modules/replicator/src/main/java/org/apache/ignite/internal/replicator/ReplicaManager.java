@@ -641,8 +641,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 replicaStateManager::reserveReplica,
                                 requestsExecutor,
                                 storageIndexTracker,
-                                raftClient,
-                                failureProcessor
+                                raftClient
                         );
 
                         return new ReplicaImpl(
@@ -706,8 +705,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 replicaStateManager::reserveReplica,
                                 requestsExecutor,
                                 storageIndexTracker,
-                                raftClient,
-                                failureProcessor
+                                raftClient
                         );
 
                         return new ZonePartitionReplicaImpl(

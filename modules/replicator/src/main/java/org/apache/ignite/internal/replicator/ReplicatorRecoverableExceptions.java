@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static java.util.Collections.unmodifiableSet;
-
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;

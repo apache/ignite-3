@@ -30,7 +30,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
-import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
@@ -90,8 +89,6 @@ public class PlacementDriverMessageProcessor {
 
     private final TopologyAwareRaftGroupService raftClient;
 
-    private final FailureProcessor failureProcessor;
-
     /**
      * The constructor of a replica server.
      *
@@ -104,7 +101,6 @@ public class PlacementDriverMessageProcessor {
      * @param executor Executor for handling requests.
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Raft client.
-     * @param failureProcessor Failure processor.
      */
     PlacementDriverMessageProcessor(
             ReplicationGroupId groupId,
@@ -114,8 +110,7 @@ public class PlacementDriverMessageProcessor {
             BiConsumer<ReplicationGroupId, HybridTimestamp> replicaReservationClosure,
             Executor executor,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TopologyAwareRaftGroupService raftClient,
-            FailureProcessor failureProcessor
+            TopologyAwareRaftGroupService raftClient
     ) {
         this.groupId = groupId;
         this.localNode = localNode;
@@ -125,7 +120,6 @@ public class PlacementDriverMessageProcessor {
         this.executor = executor;
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
-        this.failureProcessor = failureProcessor;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
