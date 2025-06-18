@@ -58,6 +58,9 @@ public class SlidingHistogram {
         int bucket = mapToBucket(value);
         int index = this.index;
 
+        // Don't care about the races here: on a long run the the loss of some values doesn't matter a lot.
+        this.index = (index + 1) % windowSize;
+
         if (currentSize.get() == windowSize) {
             int oldBucket = circularBuffer[index];
             bucketCounters.decrementAndGet(oldBucket);
@@ -67,8 +70,6 @@ public class SlidingHistogram {
 
         circularBuffer[index] = bucket;
         bucketCounters.incrementAndGet(bucket);
-
-        this.index = (index + 1) % windowSize;
     }
 
     /**
@@ -84,7 +85,7 @@ public class SlidingHistogram {
             return estimationDefault;
         }
 
-        int target = (int) ceil(currentSize.get() * percentile);
+        int target = (int) ceil(windowSize * percentile);
         int cumulative = 0;
 
         for (int i = 0; i < BUCKET_COUNT; i++) {

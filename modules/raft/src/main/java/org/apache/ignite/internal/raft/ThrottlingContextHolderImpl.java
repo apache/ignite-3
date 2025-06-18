@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.util.SlidingHistogram;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +37,9 @@ import org.jetbrains.annotations.TestOnly;
  * Throttling context holder implementation.
  * This class has the map storing contexts for each peer, because the {@link org.apache.ignite.raft.jraft.disruptor.StripedDisruptor}
  * is shared between groups on the peers.
+ * The reason why the contexts need to be shared between clients is that the servers have shared disruptors and the bad performance of one
+ * disruptor should take effect on all clients that send requests to that server; otherwise they can flood the disruptor and the
+ * probability of getting timeout exceptions dramatically increase.
  */
 public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
     private static final IgniteLogger LOG = Loggers.forClass(ThrottlingContextHolder.class);
@@ -108,7 +110,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
 
         private final SlidingHistogram histogram = new SlidingHistogram(HISTOGRAM_WINDOW_SIZE, HISTOGRAM_ESTIMATION_DEFAULT);
 
-        private final Peer peer;
+        private final String consistentId;
 
         /**
          * Delay in milliseconds after which the response timeout is decreased.
@@ -131,8 +133,8 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         /** When the response timeout was last decreased. */
         private volatile long lastDecreaseTime = System.currentTimeMillis();
 
-        PeerContextHolder(Peer peer) {
-            this.peer = peer;
+        PeerContextHolder(String consistentId) {
+            this.consistentId = consistentId;
 
             // Number of iterations to return to the default response timeout, when each iteration
             // is multiplication on DECREASE_MULTIPLIER.
@@ -221,7 +223,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
                     && r > configuration.responseTimeoutMillis().value()) {
                 if (adaptiveResponseTimeoutMillis.compareAndSet(r, (long) max(defaultResponseTimeout, r * DECREASE_MULTIPLIER))) {
                     LOG.debug("Adaptive response timeout changed [peer={}, action={}, from={}, to={}, avg={}].",
-                            peer.consistentId(), "DECREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg);
+                            consistentId, "DECREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg);
 
                     lastDecreaseTime = now;
                 }
@@ -240,7 +242,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
                 if (avg >= r * 0.7 || timedOut) {
                     if (adaptiveResponseTimeoutMillis.compareAndSet(r, newTimeout)) {
                         LOG.debug("Adaptive response timeout changed [peer={}, action={}, from={}, to={}, avg={}, timedOut={}].",
-                                peer.consistentId(), "INCREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg, timedOut);
+                                consistentId, "INCREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg, timedOut);
 
                         break;
                     }
