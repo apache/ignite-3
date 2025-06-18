@@ -301,7 +301,8 @@ public interface ClientCompatibilityTests {
         JobTarget target = JobTarget.anyNode(client().cluster().nodes());
         JobDescriptor<Object, Object> desc = JobDescriptor.builder("test").build();
 
-        assertThrows(ComputeException.class,() ->  client().compute().execute(target, desc, null));
+        var ex = assertThrows(ComputeException.class,() ->  client().compute().execute(target, desc, null));
+        assertThat(ex.getMessage(), containsString("Cannot load job class by name 'test'"));
     }
 
     @Test
