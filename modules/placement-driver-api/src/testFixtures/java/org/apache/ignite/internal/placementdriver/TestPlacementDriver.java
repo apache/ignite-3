@@ -130,8 +130,8 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         fireEvent(
                 PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
                 new PrimaryReplicaEventParameters(
-                        // The only usage of causality token below is IndexBuildController that doesn't use in tests, so the actual value
-                        // doesn't matter there yet.
+                        // The only usage of causality token below is IndexBuildController that doesn't use in tests, so the actual
+                        // value doesn't matter there yet.
                         0,
                         replicaMeta.getReplicationGroupId(),
                         replicaMeta.getLeaseholderId(),
@@ -139,7 +139,6 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
                         replicaMeta.getStartTime()
                 )
         );
-
     }
 
     @Override
