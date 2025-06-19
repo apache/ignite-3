@@ -76,10 +76,10 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
         IgniteStringBuilder scriptBuf = new IgniteStringBuilder();
 
         // Creates four tables for each specified type (T_TIME, T_TIMESTAMP...).
-        // With 7 columns (1 - PK, he other for each tested precision (0, 1, ...).
+        // With seven columns- for each tested precision (0, 1, ...) and PK (int) column.
         // The suffix number of the column name is equal to the precision.
         // For example T_TIME:
-        // ID | C0 TIME(0). C1 TIME(1)...
+        //    ID INT, C0 TIME(0). C1 TIME(1)...
         List.of(TIME, TIMESTAMP, TIMESTAMP_WITH_LOCAL_TIME_ZONE, VARCHAR)
                 .forEach(type -> {
                     String columns = PRECISIONS.stream()
