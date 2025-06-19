@@ -296,6 +296,15 @@ public interface ClientCompatibilityTests {
         Tuple old = view.getAndReplace(null, key, Tuple.create().set("name", "v8"));
         assertEquals("v7", old.stringValue("name"));
         assertEquals("v8", view.get(null, key).stringValue("name"));
+
+        // Delete.
+        assertTrue(view.remove(null, key));
+        assertFalse(view.remove(null, key));
+        assertNull(view.get(null, key));
+
+        // Delete exact.
+        assertFalse(view.remove(null, key2, Tuple.create().set("name", "-v5")));
+        assertTrue(view.remove(null, key2, Tuple.create().set("name", "v5")));
     }
 
     @Test
