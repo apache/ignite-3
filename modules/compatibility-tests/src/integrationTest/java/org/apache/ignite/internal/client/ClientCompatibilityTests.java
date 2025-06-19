@@ -352,6 +352,7 @@ public interface ClientCompatibilityTests {
                 .set("dt", LocalDate.now())
                 .set("tm", LocalTime.now())
                 .set("ts", LocalDateTime.now())
+                .set("tstz", Instant.ofEpochSecond(123456))
                 .set("bool", true)
                 .set("bytes", new byte[]{1, 2, 3, 4});
 
@@ -438,14 +439,14 @@ public interface ClientCompatibilityTests {
 
         if (!ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
                 "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL(10,1), " +
-                "string VARCHAR, uuid UUID, dt DATE, tm TIME(9), ts TIMESTAMP(9), bool BOOLEAN, bytes VARBINARY)")) {
+                "string VARCHAR, uuid UUID, dt DATE, tm TIME(9), ts TIMESTAMP(9), tstz TIMESTAMP WITH LOCAL TIME ZONE, bool BOOLEAN, bytes VARBINARY)")) {
             sql("DELETE FROM " + TABLE_NAME_ALL_COLUMNS);
         }
 
         sql("INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, " +
-                "string, uuid, dt, tm, ts, bool, bytes) VALUES " +
+                "string, uuid, dt, tm, ts, tstz, bool, bytes) VALUES " +
                 "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, " +
-                "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', true, X'01020304')");
+                "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', timestamp with local time zone '2023-01-01 12:00:00', true, X'01020304')");
     }
 
     private @Nullable List<SqlRow> sql(String sql) {
