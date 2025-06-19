@@ -35,6 +35,10 @@ import org.junit.jupiter.params.Parameter;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.ValueSource;
 
+/**
+ * Tests work directory injection as a non-static field in a parameterized test class. In such a case forcing per class initialization is
+ * needed so that it doesn't initialized in the BeforeEachCallback.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 @ParameterizedClass
 @TestInstance(Lifecycle.PER_CLASS)
