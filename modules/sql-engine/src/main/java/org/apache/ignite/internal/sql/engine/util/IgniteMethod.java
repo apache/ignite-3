@@ -178,7 +178,7 @@ public enum IgniteMethod {
      * Returns the time value truncated to the specified fraction of a second.
      * See {@link IgniteSqlDateTimeUtils#adjustTimeMillis(Integer, int)}.
      */
-    ADJUST_TIME_MILLIS(IgniteSqlDateTimeUtils.class, "adjustedTimeMillis", Integer.class, int.class),
+    ADJUST_TIME_MILLIS(IgniteSqlDateTimeUtils.class, "adjustTimeMillis", Integer.class, int.class),
 
     ;
 

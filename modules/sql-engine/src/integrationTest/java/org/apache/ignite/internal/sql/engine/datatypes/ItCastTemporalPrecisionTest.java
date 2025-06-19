@@ -57,7 +57,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * End-to-End test that verifies precision of the result of a CAST on temporal types.
+ * End-to-End tests that verify precision of the result of a CAST on temporal types.
  */
 public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
     /** List of tested precisions. */
@@ -152,7 +152,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
     /**
      * The test verifies the precision of the CAST result when inserting/updating from one table column to another.
      */
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}({1}) {2} :: {3}({4}) = {5}")
     @MethodSource("dmlCastArgs")
     public void dmlCast(SqlTypeName sourceType, int sourcePrecision, String literal, SqlTypeName targetType, int targetPrecision,
             Matcher<Iterable<?>> matcher) {
@@ -355,7 +355,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
         );
     }
 
-    @ParameterizedTest(name = "SELECT {0} ''{1}'' => {2}")
+    @ParameterizedTest(name = "SELECT {1} ''{0}'' = {3} ({1}({2}))")
     @MethodSource("selectLiteralArgs")
     public void selectLiteral(String literal, SqlTypeName targetType, int precision, Temporal expTemporal) {
         RelDataType targetDataType = Commons.typeFactory().createSqlType(targetType, precision);
