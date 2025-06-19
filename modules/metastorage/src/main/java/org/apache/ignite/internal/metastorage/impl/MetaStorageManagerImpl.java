@@ -1116,7 +1116,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /**
      * Saves processed Meta Storage revision to the {@link #appliedRevision}.
      */
-    private void onRevisionApplied(long revision) {
+    protected void onRevisionApplied(long revision) {
         appliedRevision = revision;
     }
 
