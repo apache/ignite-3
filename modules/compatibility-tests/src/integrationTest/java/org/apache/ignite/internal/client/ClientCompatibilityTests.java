@@ -286,6 +286,16 @@ public interface ClientCompatibilityTests {
         assertTrue(view.replace(null, key, Tuple.create().set("name", "v6")));
         assertFalse(view.replace(null, Tuple.create().set("id", -id), Tuple.create().set("name", "v7")));
         assertEquals("v6", view.get(null, key).stringValue("name"));
+
+        // Replace exact.
+        assertFalse(view.replace(null, key, Tuple.create().set("name", "-v6"), Tuple.create().set("name", "v7")));
+        assertTrue(view.replace(null, key, Tuple.create().set("name", "v6"), Tuple.create().set("name", "v7")));
+        assertEquals("v7", view.get(null, key).stringValue("name"));
+
+        // Get and replace.
+        Tuple old = view.getAndReplace(null, key, Tuple.create().set("name", "v8"));
+        assertEquals("v7", old.stringValue("name"));
+        assertEquals("v8", view.get(null, key).stringValue("name"));
     }
 
     @Test
