@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
@@ -250,7 +251,18 @@ public interface ClientCompatibilityTests {
         view.put(null, key, Tuple.create().set("name", "v2"));
         assertEquals("v2", view.get(null, key).stringValue("name"));
 
-        // TODO
+        // Get and upsert.
+        Tuple oldValue = view.getAndPut(null, key, Tuple.create().set("name", "v3"));
+        assertEquals("v2", oldValue.stringValue("name"));
+
+        // Upsert all.
+        view.putAll(null, Map.of(
+                key, Tuple.create().set("name", "v4"),
+                key2, Tuple.create().set("name", "v5")
+        ));
+
+        assertEquals("v4", view.get(null, key).stringValue("name"));
+        assertEquals("v5", view.get(null, key2).stringValue("name"));
     }
 
     @Test
