@@ -48,7 +48,7 @@ public class ThreadPoolsManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadPoolsManager.class);
 
     /** Group for a thread pools. */
-    private static final String THREAD_POOLS = "thread.pools";
+    private static final String THREAD_POOLS = "thread.pools.";
 
     /**
      * Separate executor for IO operations like partition storage initialization, partition raft group meta data persisting,
