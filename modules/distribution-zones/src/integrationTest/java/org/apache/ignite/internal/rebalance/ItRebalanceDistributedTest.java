@@ -1400,7 +1400,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
 
-            threadPoolsManager = new ThreadPoolsManager(name);
+            threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
