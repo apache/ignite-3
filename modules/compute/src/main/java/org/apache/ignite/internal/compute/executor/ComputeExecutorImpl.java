@@ -139,15 +139,15 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
             if (jobFut == null) {
                 return CompletableFuture.completedFuture(
-                        new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, clockService.nowLong()));
+                        new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, clockService.currentLong()));
             }
 
             return jobFut.thenApply(holder -> {
                 if (holder == null) {
-                    return new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, clockService.nowLong());
+                    return new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, clockService.currentLong());
                 }
 
-                return new ComputeJobDataHolder(holder.type(), holder.data(), clockService.nowLong());
+                return new ComputeJobDataHolder(holder.type(), holder.data(), clockService.currentLong());
             });
         };
     }
