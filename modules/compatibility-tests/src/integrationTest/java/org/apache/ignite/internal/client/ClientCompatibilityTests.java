@@ -451,7 +451,7 @@ public interface ClientCompatibilityTests {
         JobTarget target = JobTarget.anyNode(client().cluster().nodes());
         JobDescriptor<Object, Object> desc = JobDescriptor.builder("test").build();
 
-        var ex = assertThrows(ComputeException.class,() ->  client().compute().execute(target, desc, null));
+        var ex = assertThrows(ComputeException.class, () ->  client().compute().execute(target, desc, null));
         assertThat(ex.getMessage(), containsString("Cannot load job class by name 'test'"));
     }
 
@@ -484,6 +484,9 @@ public interface ClientCompatibilityTests {
         assert false : "TODO";
     }
 
+    /**
+     * Creates default tables for testing.
+     */
     default void createDefaultTables() {
         if (!ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
             sql("DELETE FROM " + TABLE_NAME_TEST);
