@@ -50,6 +50,7 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -207,7 +208,17 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testSqlBatch() {
-        assert false : "TODO";
+        int id1 = idGen().incrementAndGet();
+        int id2 = idGen().incrementAndGet();
+
+        BatchedArguments args = BatchedArguments.create()
+                .add(id1, "test1")
+                .add(id2, "test2");
+
+        client().sql().executeBatch(null, "INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (?, ?)", args);
+
+        List<SqlRow> rows = sql("SELECT * FROM " + TABLE_NAME_TEST + " WHERE id IN (?, ?)", id1, id2);
+        assertEquals(2, rows.size());
     }
 
     @Test
