@@ -50,8 +50,6 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
 
     @Override
     public IgniteClient client() {
-        // TODO: Ticket for full Compute tests
-        // TODO: Ticket for "old client, current server" tests
         if (client == null) {
             client = cluster.createClient();
         }
