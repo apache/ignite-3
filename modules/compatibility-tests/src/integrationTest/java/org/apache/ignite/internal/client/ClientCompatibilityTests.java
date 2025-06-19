@@ -37,6 +37,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
@@ -47,6 +49,8 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
@@ -453,6 +457,30 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testStreamer() {
+        RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
+
+        CompletableFuture<Void> streamFut;
+        List<Tuple> keys = new ArrayList<>();
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamFut = view.streamData(publisher, DataStreamerOptions.builder().pageSize(5).build());
+
+            for (int i = 0; i < 100; i++) {
+                Tuple item = Tuple.create().set("id", idGen().incrementAndGet()).set("name", "test" + i);
+                publisher.submit(DataStreamerItem.of(item));
+
+                keys.add(item);
+            }
+        }
+
+        streamFut.join();
+
+        List<Tuple> results = view.getAll(null, keys);
+        assertEquals(keys.size(), results.size());
+    }
+
+    @Test
+    default void testStreamerWithReceiver() {
         assert false : "TODO";
     }
 
