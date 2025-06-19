@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.sources;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import java.util.List;
 import java.util.concurrent.ThreadPoolExecutor;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
+import org.apache.ignite.internal.metrics.IntGauge;
+import org.apache.ignite.internal.metrics.LongGauge;
+import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.Holder;
 
-/** Metric source for {@link ThreadPoolMetricTest}. */
-public class ThreadPoolMetricSource extends AbstractMetricSource<ThreadPoolMetricSource.Holder> {
+/** Metric source for monitoring of {@link ThreadPoolExecutor}. */
+public class ThreadPoolMetricSource extends AbstractMetricSource<Holder> {
     private final ThreadPoolExecutor exec;
 
     /**
@@ -32,7 +37,7 @@ public class ThreadPoolMetricSource extends AbstractMetricSource<ThreadPoolMetri
      * @param name Metric source name.
      * @param exec Executor.
      */
-    ThreadPoolMetricSource(String name, ThreadPoolExecutor exec) {
+    public ThreadPoolMetricSource(String name, ThreadPoolExecutor exec) {
         super(name);
 
         this.exec = exec;
