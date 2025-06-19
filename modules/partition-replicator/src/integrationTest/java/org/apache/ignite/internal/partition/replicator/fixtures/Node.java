@@ -514,7 +514,7 @@ public class Node {
             }
         };
 
-        threadPoolsManager = new ThreadPoolsManager(name);
+        threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 

@@ -528,13 +528,13 @@ public class IgniteImpl implements Ignite {
 
         lifecycleManager = new LifecycleManager(name);
 
-        threadPoolsManager = new ThreadPoolsManager(name);
+        metricManager = new MetricManagerImpl();
+
+        threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
         vaultMgr = new VaultManager(new PersistentVaultService(vaultPath(workDir)));
 
         nodeProperties = new NodePropertiesImpl(vaultMgr);
-
-        metricManager = new MetricManagerImpl();
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
