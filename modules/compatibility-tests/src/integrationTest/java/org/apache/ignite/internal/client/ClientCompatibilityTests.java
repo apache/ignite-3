@@ -40,17 +40,22 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.util.subscription.AccumulatorSubscriber;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
@@ -162,6 +167,21 @@ public interface ClientCompatibilityTests {
         assertEquals(Instant.ofEpochSecond(1714946523), row.timestampValue("tstz"));
         assertTrue(row.booleanValue("bool"));
         assertArrayEquals(new byte[]{1, 2, 3, 4}, row.bytesValue("bytes"));
+    }
+
+    @Test
+    default void testSqlMultiplePages() {
+        assert false : "TODO";
+    }
+
+    @Test
+    default void testSqlScript() {
+        assert false : "TODO";
+    }
+
+    @Test
+    default void testSqlBatch() {
+        assert false : "TODO";
     }
 
     @Test
@@ -481,7 +501,32 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testStreamerWithReceiver() {
-        assert false : "TODO";
+        RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
+
+        CompletableFuture<Void> streamFut;
+
+        DataStreamerReceiverDescriptor<Tuple, String, Integer> desc = DataStreamerReceiverDescriptor
+                .<Tuple, String, Integer>builder("my-receiver")
+                .units(new DeploymentUnit("my-unit", Version.LATEST))
+                .build();
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamFut = view.streamData(
+                    publisher,
+                    desc,
+                    x -> Tuple.create().set("id", x.intValue("a")),
+                    Function.identity(),
+                    "arg",
+                    null,
+                    DataStreamerOptions.builder().pageSize(5).build());
+
+            for (int i = 0; i < 100; i++) {
+                Tuple item = Tuple.create().set("a", i).set("b", "b_" + i);
+                publisher.submit(item);
+            }
+        }
+
+        streamFut.join();
     }
 
     /**
