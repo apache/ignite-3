@@ -25,13 +25,10 @@ import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIR
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.internal.client.tx.ClientLazyTransaction.ensureStarted;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -624,21 +621,15 @@ public class ClientTable implements Table {
                                             fut.completeExceptionally(ex);
                                         } else {
                                             // In case of direct mapping failure for any reason try to roll back the transaction.
-                                            if (!matchAny(unwrapCause(ex), TX_ALREADY_FINISHED_ERR, TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR)) {
-                                                assert tx0 != null && !tx0.isReadOnly() : "Invalid transaction for direct mapping " + tx;
+                                            tx0.rollbackAsync().handle((ignored, err0) -> {
+                                                if (err0 != null) {
+                                                    ex.addSuppressed(err0);
+                                                }
 
-                                                tx0.rollbackAsync().handle((ignored, err0) -> {
-                                                    if (err0 != null) {
-                                                        ex.addSuppressed(err0);
-                                                    }
-
-                                                    fut.completeExceptionally(ex);
-
-                                                    return (T) null;
-                                                });
-                                            } else {
                                                 fut.completeExceptionally(ex);
-                                            }
+
+                                                return (T) null;
+                                            });
                                         }
                                     } else {
                                         fut.complete(ret);
@@ -924,25 +915,19 @@ public class ClientTable implements Table {
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
-                    List<E> unmapped = new ArrayList<>();
+                    @Nullable List<String> aff = partitionsFut.getNow(null);
                     Map<Integer, List<E>> mapped = new HashMap<>();
-                    for (E key : keys) {
-                        ClientSchema schema = schemaFut.getNow(null);
-                        @Nullable List<String> aff = partitionsFut.getNow(null);
-                        int hash = hashFunc.apply(schema, key);
-                        Integer part = aff == null ? null : Math.abs(hash % aff.size());
-                        if (part == null) {
-                            unmapped.add(key);
-                        } else {
-                            mapped.computeIfAbsent(part, k -> new ArrayList<>()).add(key);
-                        }
-                    }
-
                     List<CompletableFuture<R>> res = new ArrayList<>();
 
-                    if (!unmapped.isEmpty()) {
-                        // Disable awareness for unmapped keys.
-                        res.add(fun.apply(unmapped, PartitionAwarenessProvider.NULL_PROVIDER));
+                    if (aff == null) {
+                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
+                    }
+
+                    for (E key : keys) {
+                        ClientSchema schema = schemaFut.getNow(null);
+                        int hash = hashFunc.apply(schema, key);
+                        Integer part = Math.abs(hash % aff.size());
+                        mapped.computeIfAbsent(part, k -> new ArrayList<>()).add(key);
                     }
 
                     for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
@@ -974,31 +959,24 @@ public class ClientTable implements Table {
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
-                    Batch<E> unmapped = new Batch<>();
+                    @Nullable List<String> aff = partitionsFut.getNow(null);
                     Map<Integer, Batch<E>> mapped = new HashMap<>();
+
+                    if (aff == null) {
+                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
+                    }
+
                     int idx = 0;
                     for (E key : keys) {
                         ClientSchema schema = schemaFut.getNow(null);
-                        @Nullable List<String> aff = partitionsFut.getNow(null);
                         int hash = hashFunc.apply(schema, key);
-                        Integer part = aff == null ? null : Math.abs(hash % aff.size());
-                        if (part == null) {
-                            unmapped.add(key, idx);
-                        } else {
-                            mapped.computeIfAbsent(part, k -> new Batch<>()).add(key, idx);
-                        }
-
+                        int part = Math.abs(hash % aff.size());
+                        mapped.computeIfAbsent(part, k -> new Batch<>()).add(key, idx);
                         idx++;
                     }
 
                     List<CompletableFuture<List<E>>> res = new ArrayList<>();
                     List<Batch<E>> batches = new ArrayList<>();
-
-                    if (!unmapped.batch.isEmpty()) {
-                        // Disable awareness for unmapped keys.
-                        res.add(fun.apply(unmapped.batch, PartitionAwarenessProvider.NULL_PROVIDER));
-                        batches.add(unmapped);
-                    }
 
                     for (Entry<Integer, Batch<E>> entry : mapped.entrySet()) {
                         res.add(fun.apply(entry.getValue().batch, PartitionAwarenessProvider.of(entry.getKey())));

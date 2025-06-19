@@ -73,6 +73,7 @@ import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -927,6 +928,16 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertTrue(Tuple.equals(v2, kvView.get(tx, k2)));
 
         tx.commit();
+    }
+
+    @AfterEach
+    protected void validateInflights() throws NoSuchFieldException {
+        System.out.println("DBG: validateInflights");
+        TcpIgniteClient clent0 = (TcpIgniteClient) client();
+        Field inflightsField = clent0.channel().getClass().getDeclaredField(INFLIGHTS_FIELD_NAME);
+        inflightsField.setAccessible(true);
+        ClientTransactionInflights inflights = clent0.channel().inflights();
+        assertEquals(0, inflights.map().size());
     }
 
     private KeyValueView<Integer, String> kvView() {

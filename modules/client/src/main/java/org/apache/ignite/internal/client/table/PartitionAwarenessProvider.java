@@ -36,7 +36,7 @@ public class PartitionAwarenessProvider {
         this.partition = partition;
     }
 
-    public static PartitionAwarenessProvider of(@Nullable Integer partition) {
+    public static PartitionAwarenessProvider of(Integer partition) {
         return new PartitionAwarenessProvider(null, partition);
     }
 
