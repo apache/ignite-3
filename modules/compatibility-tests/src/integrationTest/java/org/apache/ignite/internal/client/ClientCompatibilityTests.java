@@ -175,7 +175,11 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testSqlScript() {
-        assert false : "TODO";
+        client().sql().executeScript("CREATE TABLE testSqlScript (id INT PRIMARY KEY, name VARCHAR)");
+        assertEquals(1, sql("SELECT * FROM SYSTEM.TABLES WHERE NAME = 'TESTSQLSCRIPT'").size());
+
+        client().sql().executeScript("DROP TABLE testSqlScript");
+        assertEquals(0, sql("SELECT * FROM SYSTEM.TABLES WHERE NAME = 'TESTSQLSCRIPT'").size());
     }
 
     @Test
