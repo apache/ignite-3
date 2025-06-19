@@ -437,7 +437,7 @@ public interface ClientCompatibilityTests {
         sql("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
 
         if (!ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
-                "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL, " +
+                "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL(10,5), " +
                 "string VARCHAR, uuid UUID, dt DATE, tm TIME, ts TIMESTAMP, bool BOOLEAN, bytes VARBINARY)")) {
             sql("DELETE FROM " + TABLE_NAME_ALL_COLUMNS);
         }
