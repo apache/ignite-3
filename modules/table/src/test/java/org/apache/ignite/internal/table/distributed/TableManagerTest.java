@@ -678,14 +678,14 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
     }
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(false);
     }
