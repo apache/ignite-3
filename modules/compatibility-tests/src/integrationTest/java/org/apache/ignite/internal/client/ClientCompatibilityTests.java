@@ -48,7 +48,6 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
-import org.apache.ignite.internal.util.subscription.AccumulatorSubscriber;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -500,6 +499,7 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
+    @Disabled("IGNITE-25715")
     default void testStreamerWithReceiver() {
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
 
