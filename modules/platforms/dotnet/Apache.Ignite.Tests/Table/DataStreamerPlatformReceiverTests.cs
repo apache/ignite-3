@@ -185,7 +185,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         var res = await TupleView.StreamDataAsync(
             data: ids.ToAsyncEnumerable(),
-            receiver: DotNetReceivers.CreateTableAndUpsert with {DeploymentUnits = [_defaultTestUnit] },
+            receiver: DotNetReceivers.CreateTableAndUpsert with { DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new IgniteTuple { ["key"] = 1L },
             payloadSelector: id => id,
             receiverArg: tableName,
@@ -193,14 +193,10 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         Assert.AreEqual(ids.Count, res.Count);
 
-        // TODO IGNITE-24659 Client does not observe table changes from streamer receiver: remove WaitForConditionAsync.
-        await TestUtils.WaitForConditionAsync(async () =>
-        {
-            await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {tableName}");
-            var rows = await resultSet.ToListAsync();
+        await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {tableName}");
+        var rows = await resultSet.ToListAsync();
 
-            return rows.Count == ids.Count;
-        });
+        Assert.AreEqual(ids.Count, rows.Count);
     }
 
     [Test]
