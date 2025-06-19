@@ -126,7 +126,15 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     protected abstract void setupBaseVersion(Ignite baseIgnite);
 
     protected List<List<Object>> sql(String query) {
-        return ClusterPerClassIntegrationTest.sql(cluster.node(0), null, null, null, query);
+        return sql(node(0), query);
+    }
+
+    protected List<List<Object>> sql(Ignite ignite, String query) {
+        return ClusterPerClassIntegrationTest.sql(ignite, null, null, null, query);
+    }
+
+    protected Ignite node(int index) {
+        return cluster.node(index);
     }
 
     private static List<String> baseVersions() {
