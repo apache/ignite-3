@@ -305,6 +305,24 @@ public interface ClientCompatibilityTests {
         // Delete exact.
         assertFalse(view.remove(null, key2, Tuple.create().set("name", "-v5")));
         assertTrue(view.remove(null, key2, Tuple.create().set("name", "v5")));
+        assertNull(view.get(null, key2));
+
+        // Get and delete.
+        view.put(null, key, Tuple.create().set("name", "v9"));
+        assertNull(view.getAndRemove(null, Tuple.create().set("id", -id)));
+        Tuple getAndDelete = view.getAndRemove(null, key);
+        assertEquals("v9", getAndDelete.stringValue("name"));
+        assertNull(view.get(null, key));
+
+        // Delete all.
+        view.put(null, key, Tuple.create().set("name", "v10"));
+        Collection<Tuple> deleteAllRes = view.removeAll(null, List.of(key, key2));
+
+        assertEquals(1, deleteAllRes.size());
+        assertEquals(key2, deleteAllRes.iterator().next());
+
+        assertNull(view.get(null, key));
+        assertNull(view.get(null, key2));
     }
 
     @Test
@@ -414,6 +432,7 @@ public interface ClientCompatibilityTests {
         }
     }
 
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     private boolean ddl(String sql) {
         try (var cursor = client().sql().execute(null, sql)) {
             return cursor.wasApplied();
