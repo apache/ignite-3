@@ -42,6 +42,7 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobDescriptor;
@@ -52,6 +53,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
@@ -170,7 +172,28 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testSqlMultiplePages() {
-        assert false : "TODO";
+        int count = 12345;
+        int minId = idGen().incrementAndGet();
+
+        List<Tuple> tuples = IntStream.range(0, count)
+                .map(x -> idGen().incrementAndGet())
+                .mapToObj(id -> Tuple.create().set("id", id).set("name", "test" + id))
+                .collect(Collectors.toList());
+
+        RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
+        view.upsertAll(null, tuples);
+
+        Statement statement = client().sql().statementBuilder()
+                .query("SELECT * FROM " + TABLE_NAME_TEST + " WHERE id > ?")
+                .pageSize(10)
+                .build();
+
+        try (var cursor = client().sql().execute(null, statement, minId)) {
+            AtomicInteger rowCnt = new AtomicInteger();
+            cursor.forEachRemaining(x -> rowCnt.incrementAndGet());
+
+            assertEquals(count, rowCnt.get());
+        }
     }
 
     @Test
