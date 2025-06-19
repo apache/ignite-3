@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -26,10 +27,16 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
@@ -327,12 +334,33 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testRecordViewAllColumnTypes() {
-        assert false : "TODO";
-    }
+        RecordView<Tuple> view = table(TABLE_NAME_ALL_COLUMNS).recordView();
 
-    @Test
-    default void testKeyValueViewAllColumnTypes() {
-        assert false : "TODO";
+        int id = idGen().incrementAndGet();
+
+        Tuple tuple = Tuple.create()
+                .set("id", id)
+                .set("byte", (byte) 1)
+                .set("short", (short) 2)
+                .set("int", 3)
+                .set("long", 4L)
+                .set("float", 5.5f)
+                .set("double", 6.6d)
+                .set("dec", new BigDecimal("7.7"))
+                .set("string", "test")
+                .set("uuid", UUID.randomUUID())
+                .set("dt", LocalDate.now())
+                .set("tm", LocalTime.now())
+                .set("ts", LocalDateTime.now())
+                .set("bool", true)
+                .set("bytes", new byte[]{1, 2, 3, 4});
+
+        assertTrue(view.insert(null, tuple));
+
+        Tuple res = view.get(null, Tuple.create().set("id", id));
+        assertNotNull(res);
+
+        assertEquals(tuple, res);
     }
 
     @Test
