@@ -66,6 +66,8 @@ import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -108,6 +110,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     private final NodeProperties nodeProperties;
 
+    private final HybridTimestampTracker observableTimestampTracker;
+
     /**
      * Create new instance.
      */
@@ -117,7 +121,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             IgniteTablesInternal tables,
             ComputeComponent computeComponent,
             HybridClock clock,
-            NodeProperties nodeProperties
+            NodeProperties nodeProperties,
+            HybridTimestampTracker observableTimestampTracker
     ) {
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
@@ -125,6 +130,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         this.computeComponent = computeComponent;
         this.clock = clock;
         this.nodeProperties = nodeProperties;
+        this.observableTimestampTracker = observableTimestampTracker;
 
         tables.setStreamerReceiverRunner(this);
     }
@@ -148,7 +154,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                     executeAsyncWithFailover(
                             nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), argHolder, cancellationToken
                     ),
-                    descriptor
+                    descriptor,
+                    observableTimestampTracker
             );
         }
 
@@ -193,7 +200,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ));
             }
 
-            return unmarshalResult(jobFut, descriptor);
+            return unmarshalResult(jobFut, descriptor, observableTimestampTracker);
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
@@ -317,18 +324,21 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         argHolder,
                         cancellationToken
                 ),
-                descriptor
+                descriptor,
+                observableTimestampTracker
         );
     }
 
     private static <T, R> CompletableFuture<JobExecution<R>> unmarshalResult(
             CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFuture,
-            JobDescriptor<T, R> descriptor
+            JobDescriptor<T, R> descriptor,
+            HybridTimestampTracker observableTimestampTracker
     ) {
         return executionFuture.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
                 execution,
                 descriptor.resultMarshaller(),
-                descriptor.resultClass()
+                descriptor.resultClass(),
+                observableTimestampTracker
         ));
     }
 
@@ -613,11 +623,20 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 receiver, receiverArg, receiver.payloadMarshaller(), receiver.argumentMarshaller(), items);
 
         return runReceiverAsync(payload, node, deploymentUnits, receiver.options())
-                .thenApply(r -> StreamerReceiverSerializer.deserializeReceiverJobResults(r, receiver.resultMarshaller()));
+                .thenApply(r -> {
+                    byte[] resBytes = r.get1();
+
+                    assert r.get2() != null : "Observable timestamp should not be null";
+                    long observableTimestamp = r.get2();
+                    observableTimestampTracker.update(observableTimestamp);
+
+                    //noinspection DataFlowIssue
+                    return StreamerReceiverSerializer.deserializeReceiverJobResults(resBytes, receiver.resultMarshaller());
+                });
     }
 
     @Override
-    public CompletableFuture<byte[]> runReceiverAsync(
+    public CompletableFuture<IgniteBiTuple<byte[], Long>> runReceiverAsync(
             byte[] payload,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits,
@@ -649,7 +668,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ExceptionUtils.sneakyThrow(err);
                     }
 
-                    return SharedComputeUtils.unmarshalArgOrResult(res, null, null);
+                    byte[] resBytes = SharedComputeUtils.unmarshalArgOrResult(res, null, null);
+
+                    return new IgniteBiTuple<>(resBytes, res.observableTimestamp());
                 });
     }
 

@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler;
-
-import java.util.function.Consumer;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.compute;
 
 /**
- * Client notification sender.
+ * Hybrid timestamp provider.
  */
 @FunctionalInterface
-public interface NotificationSender {
-    void sendNotification(@Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err, long hybridTimestamp);
+public interface HybridTimestampProvider {
+    /**
+     * Returns the associated hybrid timestamp.
+     *
+     * @return Associated hybrid timestamp.
+     */
+    long hybridTimestamp();
 }
