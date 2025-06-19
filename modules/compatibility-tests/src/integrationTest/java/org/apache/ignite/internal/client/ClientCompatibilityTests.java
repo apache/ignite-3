@@ -263,6 +263,29 @@ public interface ClientCompatibilityTests {
 
         assertEquals("v4", view.get(null, key).stringValue("name"));
         assertEquals("v5", view.get(null, key2).stringValue("name"));
+
+        // Contains.
+        assertTrue(view.contains(null, key));
+        assertFalse(view.contains(null, Tuple.create().set("id", -id)));
+
+        // Contains all.
+        assertTrue(view.containsAll(null, List.of(key, key2)));
+        assertFalse(view.containsAll(null, List.of(key, Tuple.create().set("id", -id))));
+
+        // Get.
+        assertNotNull(view.get(null, key));
+        assertNull(view.get(null, Tuple.create().set("id", -id)));
+
+        // Get all.
+        Map<Tuple, Tuple> getAllRes = view.getAll(null, List.of(key, key2, Tuple.create().set("id", -id)));
+        assertEquals(2, getAllRes.size());
+        assertEquals("v4", getAllRes.get(key).stringValue("name"));
+        assertEquals("v5", getAllRes.get(key2).stringValue("name"));
+
+        // Replace.
+        assertTrue(view.replace(null, key, Tuple.create().set("name", "v6")));
+        assertFalse(view.replace(null, Tuple.create().set("id", -id), Tuple.create().set("name", "v7")));
+        assertEquals("v6", view.get(null, key).stringValue("name"));
     }
 
     @Test
