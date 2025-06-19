@@ -108,9 +108,9 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         // T1
         Instant now1 = now.with(ChronoField.NANO_OF_SECOND, 704_871_769);
-        
+
         sql("INSERT INTO timestamp_ltz_t VALUES (?, 1)", now1);
-        
+
         // table scan
         assertQuery("SELECT /*+ DISABLE_RULE('TableScanToKeyValueGetRule')*/ val FROM timestamp_ltz_t WHERE ts=?")
                 .withParams(now1)
@@ -123,10 +123,10 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
                 .withParams(now1)
                 .returns(1)
                 .check();
-        
+
         // T2
         Instant now2 = now.with(ChronoField.NANO_OF_SECOND, 954_237_953);
-        
+
         table.keyValueView().put(null, Tuple.create().set("TS", now2), Tuple.create().set("VAL", 2));
 
         // kv
@@ -369,8 +369,8 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Tests a nested CASE WHEN statement using various combinations of dynamic parameter values,
-     * including the {@code NULL} value for different operands.
+     * Tests a nested CASE WHEN statement using various combinations of dynamic parameter values, including the {@code NULL} value for
+     * different operands.
      */
     @Test
     public void testNestedCase() {
