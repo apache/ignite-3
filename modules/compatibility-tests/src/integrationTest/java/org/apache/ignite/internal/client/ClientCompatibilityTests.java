@@ -115,7 +115,7 @@ public interface ClientCompatibilityTests {
             assertNotNull(meta);
 
             List<ColumnMetadata> cols = meta.columns();
-            assertEquals(15, cols.size());
+            assertEquals(16, cols.size());
             assertThat(cols.get(0).toString(), containsString("name=ID, type=INT32, precision=10"));
             assertThat(cols.get(1).toString(), containsString("name=BYTE, type=INT8, precision=3"));
             assertThat(cols.get(2).toString(), containsString("name=SHORT, type=INT16, precision=5"));
@@ -123,15 +123,41 @@ public interface ClientCompatibilityTests {
             assertThat(cols.get(4).toString(), containsString("name=LONG, type=INT64, precision=19"));
             assertThat(cols.get(5).toString(), containsString("name=FLOAT, type=FLOAT, precision=7"));
             assertThat(cols.get(6).toString(), containsString("name=DOUBLE, type=DOUBLE, precision=15"));
-            assertThat(cols.get(7).toString(), containsString("name=DEC, type=DECIMAL, precision=32767, scale=0"));
+            assertThat(cols.get(7).toString(), containsString("name=DEC, type=DECIMAL, precision=10, scale=1"));
             assertThat(cols.get(8).toString(), containsString("name=STRING, type=STRING, precision=65536"));
             assertThat(cols.get(9).toString(), containsString("name=UUID, type=UUID, precision=-1"));
             assertThat(cols.get(10).toString(), containsString("name=DT, type=DATE, precision=0"));
-            assertThat(cols.get(11).toString(), containsString("name=TM, type=TIME, precision=0"));
-            assertThat(cols.get(12).toString(), containsString("name=TS, type=DATETIME, precision=6"));
-            assertThat(cols.get(13).toString(), containsString("name=BOOL, type=BOOLEAN, precision=1"));
-            assertThat(cols.get(14).toString(), containsString("name=BYTES, type=BYTE_ARRAY, precision=65536"));
+            assertThat(cols.get(11).toString(), containsString("name=TM, type=TIME, precision=9"));
+            assertThat(cols.get(12).toString(), containsString("name=TS, type=DATETIME, precision=9"));
+            assertThat(cols.get(13).toString(), containsString("name=TSTZ, type=TIMESTAMP, precision=6"));
+            assertThat(cols.get(14).toString(), containsString("name=BOOL, type=BOOLEAN, precision=1"));
+            assertThat(cols.get(15).toString(), containsString("name=BYTES, type=BYTE_ARRAY, precision=65536"));
         }
+    }
+
+    @Test
+    default void testSqlSelectAllColumnTypes() {
+        List<SqlRow> rows = sql("select * from " + TABLE_NAME_ALL_COLUMNS + " where id = 1");
+        assertNotNull(rows);
+        assertEquals(1, rows.size());
+
+        SqlRow row = rows.get(0);
+        assertEquals(1, row.intValue("id"));
+        assertEquals((byte) 1, row.byteValue("byte"));
+        assertEquals((short) 2, row.shortValue("short"));
+        assertEquals(3, row.intValue("int"));
+        assertEquals(4L, row.longValue("long"));
+        assertEquals(5.0f, row.floatValue("float"));
+        assertEquals(6.0d, row.doubleValue("double"));
+        assertEquals(new BigDecimal("7"), row.decimalValue("dec"));
+        assertEquals("test", row.stringValue("string"));
+        assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.uuidValue("uuid"));
+        assertEquals(LocalDate.of(2023, 1, 1), row.dateValue("dt"));
+        assertEquals(LocalTime.of(12, 0, 0), row.timeValue("tm"));
+        assertEquals(LocalDateTime.of(2023, 1, 1, 12, 0, 0), row.datetimeValue("ts"));
+        assertEquals(Instant.parse("2024-05-05T22:02:03Z"), row.timestampValue("tstz"));
+        assertTrue(row.booleanValue("bool"));
+        assertArrayEquals(new byte[]{1, 2, 3, 4}, row.bytesValue("bytes"));
     }
 
     @Test
@@ -437,16 +463,18 @@ public interface ClientCompatibilityTests {
 
         sql("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
 
-        if (!ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
-                "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL(10,1), " +
-                "string VARCHAR, uuid UUID, dt DATE, tm TIME(9), ts TIMESTAMP(9), tstz TIMESTAMP WITH LOCAL TIME ZONE, bool BOOLEAN, bytes VARBINARY)")) {
+        if (!ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, "
+                + "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL(10,1), "
+                + "string VARCHAR, uuid UUID, dt DATE, tm TIME(9), ts TIMESTAMP(9), "
+                + "tstz TIMESTAMP WITH LOCAL TIME ZONE, bool BOOLEAN, bytes VARBINARY)")) {
             sql("DELETE FROM " + TABLE_NAME_ALL_COLUMNS);
         }
 
-        sql("INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, " +
-                "string, uuid, dt, tm, ts, tstz, bool, bytes) VALUES " +
-                "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, " +
-                "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', timestamp with local time zone '2023-01-01 12:00:00', true, X'01020304')");
+        sql("INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, "
+                + "string, uuid, dt, tm, ts, tstz, bool, bytes) VALUES "
+                + "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, "
+                + "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', "
+                + "timestamp with local time zone '2024-05-06 1:2:3', true, X'01020304')");
     }
 
     private @Nullable List<SqlRow> sql(String sql) {
