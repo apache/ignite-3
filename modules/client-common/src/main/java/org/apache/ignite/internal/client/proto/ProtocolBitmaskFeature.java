@@ -62,7 +62,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Piggyback txn start in the first request.
      */
-    TX_PIGGYBACK(7);
+    TX_PIGGYBACK(7),
+
+    /**
+     * Client supports Partition Awareness for SQL queries.
+     */
+    SQL_PARTITION_AWARENESS(8);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

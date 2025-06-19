@@ -21,6 +21,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import org.apache.ignite.lang.LoggerFactory;
+import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,6 +45,9 @@ public interface IgniteClientConfiguration {
 
     /** Default operation timeout, in milliseconds. */
     int DFLT_OPERATION_TIMEOUT = 0;
+
+    /** Default size for partition awareness metadata cache. */
+    int DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE = 1024;
 
     /**
      * Gets the address finder.
@@ -176,4 +180,16 @@ public interface IgniteClientConfiguration {
      * @return Operation timeout, in milliseconds.
      */
     long operationTimeout();
+
+    /**
+     * Gets the size of cache to store partition awareness metadata of sql queries, in number of entries.
+     * Default is {@value #DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE}.
+     *
+     * <p>Every instance of {@link IgniteSql} has its own cache. Every unique pair of (defaultSchema, queryString) reserve 
+     * its own place in metadata cache, if metadata is available for this particular query. In general, metadata is available
+     * for queries which have equality predicate over all colocation columns, or which inserts the whole tuple.
+     *
+     * @return Cache size, in number of entries.
+     */
+    int sqlPartitionAwarenessMetadataCacheSize();
 }

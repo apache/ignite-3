@@ -118,12 +118,14 @@ public class ClientTable implements Table {
      * @param marshallers Marshallers provider.
      * @param id Table id.
      * @param name Table name.
+     * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache to store partition awareness metadata.
      */
     public ClientTable(
             ReliableChannel ch,
             MarshallersProvider marshallers,
             int id,
-            QualifiedName name
+            QualifiedName name,
+            int sqlPartitionAwarenessMetadataCacheSize
     ) {
         assert ch != null;
         assert marshallers != null;
@@ -134,7 +136,7 @@ public class ClientTable implements Table {
         this.id = id;
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
-        this.sql = new ClientSql(ch, marshallers);
+        this.sql = new ClientSql(ch, marshallers, sqlPartitionAwarenessMetadataCacheSize);
         clientPartitionManager = new ClientPartitionManager(this);
     }
 
