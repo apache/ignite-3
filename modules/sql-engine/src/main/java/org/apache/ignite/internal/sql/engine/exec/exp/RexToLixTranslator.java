@@ -745,15 +745,13 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case TIME:
       return
           adjustTimestampMillis(sourceType, targetType,
-//              Expressions.convert_(
-                  Expressions.add(
-                      Expressions.multiply(
-                          Expressions.convert_(
-                              Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
-                              long.class),
-                          Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
-                      Expressions.convert_(operand, long.class))
-//                    int.class
+              Expressions.add(
+                  Expressions.multiply(
+                      Expressions.convert_(
+                          Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
+                          long.class),
+                      Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
+                  Expressions.convert_(operand, long.class))
           );
 
     case TIME_WITH_LOCAL_TIME_ZONE:
@@ -876,7 +874,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
   private static Expression adjustTimestampMillis(RelDataType sourceType, RelDataType targetType, Expression operand) {
     if (sourceType.getSqlTypeName() == SqlTypeName.VARCHAR
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove predicate by TIME.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove filtering by TIME.
             || sourceType.getSqlTypeName() == SqlTypeName.TIME
             || sourceType.getPrecision() > targetType.getPrecision()) {
         return Expressions.call(
@@ -891,7 +889,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
   private static Expression adjustTimeMillis(RelDataType sourceType, RelDataType targetType, Expression operand) {
     if (sourceType.getSqlTypeName() == SqlTypeName.VARCHAR
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove predicate by TIME.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove filtering by TIME.
             || sourceType.getSqlTypeName() == SqlTypeName.TIME
             || sourceType.getPrecision() > targetType.getPrecision()) {
           return Expressions.call(
