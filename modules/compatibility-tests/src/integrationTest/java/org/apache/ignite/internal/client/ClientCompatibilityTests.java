@@ -159,7 +159,7 @@ public interface ClientCompatibilityTests {
         assertEquals(LocalDate.of(2023, 1, 1), row.dateValue("dt"));
         assertEquals(LocalTime.of(12, 0, 0), row.timeValue("tm"));
         assertEquals(LocalDateTime.of(2023, 1, 1, 12, 0, 0), row.datetimeValue("ts"));
-        assertEquals(Instant.parse("2024-05-05T22:02:03Z"), row.timestampValue("tstz"));
+        assertEquals(Instant.ofEpochSecond(1714946523), row.timestampValue("tstz"));
         assertTrue(row.booleanValue("bool"));
         assertArrayEquals(new byte[]{1, 2, 3, 4}, row.bytesValue("bytes"));
     }
@@ -505,11 +505,11 @@ public interface ClientCompatibilityTests {
                 + "string, uuid, dt, tm, ts, tstz, bool, bytes) VALUES "
                 + "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, "
                 + "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', "
-                + "timestamp with local time zone '2024-05-06 1:2:3', true, X'01020304')");
+                + "?, true, X'01020304')", Instant.ofEpochSecond(1714946523L));
     }
 
-    private @Nullable List<SqlRow> sql(String sql) {
-        try (var cursor = client().sql().execute(null, sql)) {
+    private @Nullable List<SqlRow> sql(String sql, Object... arguments) {
+        try (var cursor = client().sql().execute(null, sql, arguments)) {
             if (cursor.hasRowSet()) {
                 List<SqlRow> rows = new ArrayList<>();
                 cursor.forEachRemaining(rows::add);
