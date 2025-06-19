@@ -146,6 +146,13 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
     @Override
     public CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command) {
+        if (nodeProperties.colocationEnabled()) {
+            return resetZonePartitions(new ResetZonePartitionsRequest(
+                    command.zoneName(),
+                    command.partitionIds()
+            ));
+        }
+
         QualifiedName tableName = QualifiedName.parse(command.tableName());
         return disasterRecoveryManager.resetTablePartitions(
                 command.zoneName(),
@@ -157,6 +164,13 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
     @Override
     public CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command) {
+        if (nodeProperties.colocationEnabled()) {
+            return restartZonePartitions(new RestartZonePartitionsRequest(
+                    command.nodeNames(),
+                    command.zoneName(),
+                    command.partitionIds()
+            ));
+        }
         QualifiedName tableName = QualifiedName.parse(command.tableName());
         return disasterRecoveryManager.restartTablePartitions(
                 command.nodeNames(),
