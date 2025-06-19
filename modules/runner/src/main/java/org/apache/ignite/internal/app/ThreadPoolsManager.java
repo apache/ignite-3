@@ -48,7 +48,7 @@ public class ThreadPoolsManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadPoolsManager.class);
 
     /** Group for a thread pools. */
-    private static final String THREAD_POOLS = "thread.pools.";
+    private static final String THREAD_POOLS_METRICS_PACKAGE = "thread.pools.";
 
     /**
      * Separate executor for IO operations like partition storage initialization, partition raft group meta data persisting,
@@ -98,7 +98,9 @@ public class ThreadPoolsManager implements IgniteComponent {
 
         metricSources = new ArrayList<>();
         metricSources.add(
-                new ThreadPoolMetricSource(THREAD_POOLS + "partitions-executor", (ThreadPoolExecutor) partitionOperationsExecutor)
+                new ThreadPoolMetricSource(
+                        THREAD_POOLS_METRICS_PACKAGE + "partitions-executor",
+                        (ThreadPoolExecutor) partitionOperationsExecutor)
         );
     }
 
