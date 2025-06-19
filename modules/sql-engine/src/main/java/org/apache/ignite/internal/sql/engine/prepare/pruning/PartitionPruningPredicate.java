@@ -28,8 +28,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.temporal.ChronoField;
-import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashSet;
@@ -37,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import org.apache.calcite.rex.RexDynamicParam;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -53,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -200,17 +198,11 @@ public final class PartitionPruningPredicate {
                 Object val = getNodeValue(physicalType, node, dynamicParameters);
 
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
-                if (val != null && (columnType == ColumnType.TIME
+                if (columnType == ColumnType.TIME
                         || columnType == ColumnType.DATETIME
-                        || columnType == ColumnType.TIMESTAMP)
-                ) {
-                    Temporal temporal = (Temporal) val;
-                    long nanos = temporal.get(ChronoField.NANO_OF_SECOND);
-                    long millis = temporal.get(ChronoField.MILLI_OF_SECOND);
-                    long millisAsNanos = TimeUnit.MILLISECONDS.toNanos(millis);
-                    // If a value of a dynamic parameter has submillisecond precision, 
-                    // then do not prune partitions for this table, because expressions support such precision.
-                    if (nanos != millisAsNanos) {
+                        || columnType == ColumnType.TIMESTAMP) {
+                    TemporalNativeType temporalNativeType = (TemporalNativeType) physicalType;
+                    if (temporalNativeType.precision() > 3) {
                         return null;
                     }
                 }
