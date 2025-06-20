@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -57,7 +56,6 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
-import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /** Manages table partitions assignments (excluding rebalance, see {@link DistributionZoneRebalanceEngine}). */
@@ -217,20 +215,6 @@ public class TableAssignmentsService {
                 failureProcessor.process(new FailureContext(e, errorMessage));
             }
         });
-    }
-
-    Assignments getPendingAssignmentsFromMetastorage(
-            Entry stableAssignmentsWatchEvent,
-            TablePartitionId tablePartitionId,
-            long revision
-    ) {
-        Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(tablePartitionId), revision);
-
-        byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
-
-        return pendingAssignmentsFromMetaStorage == null
-                ? Assignments.EMPTY
-                : AssignmentsQueue.fromBytes(pendingAssignmentsFromMetaStorage).poll();
     }
 
     private static List<Operation> getTableAssignmentsOperations(
