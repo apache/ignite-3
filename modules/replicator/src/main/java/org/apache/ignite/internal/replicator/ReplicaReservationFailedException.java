@@ -17,29 +17,18 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-
 /**
  * Exception thrown when a replica reservation fails.
  */
 public class ReplicaReservationFailedException extends RuntimeException {
-    public static final long serialVersionUID = 33897490775763932L;
+    private static final long serialVersionUID = 33897490775763932L;
 
     /**
      * Constructor.
      *
-     * @param groupId Replication group ID.
-     * @param leaseStartTime Lease start time.
-     * @param currentReplicaState Current state of the replica.
+     * @param message Exception message.
      */
-    public ReplicaReservationFailedException(ReplicationGroupId groupId, HybridTimestamp leaseStartTime, String currentReplicaState) {
-        super(format(
-                "Replica reservation failed [groupId={}, leaseStartTime={}, currentReplicaState={}].",
-                groupId,
-                leaseStartTime,
-                currentReplicaState
-        ));
+    ReplicaReservationFailedException(String message) {
+        super(message);
     }
 }
