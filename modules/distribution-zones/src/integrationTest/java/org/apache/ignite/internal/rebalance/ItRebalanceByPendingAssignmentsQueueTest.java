@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssign
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.rebalance.ItRebalanceByPendingAssignmentsQueueTest.AssignmentsRecorder.recordAssignmentsEvents;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -236,8 +236,8 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
 
             Assignments a = stablePartitionAssignmentsValue(TABLE_NAME);
             assertNotNull(a, "stable assignments should not be null");
-            assertFalse(a.fromReset(), "stable has no fromReset flag");
-            assertFalse(a.force(), "stable has no force flag");
+            assertFalse(a.fromReset(), "stable should not have fromReset flag");
+            assertFalse(a.force(), "stable should not have force flag");
 
             var stable1 = PeersAndLearners.fromAssignments(a.nodes());
             assertThat(stable1.peers(), hasSize(2));
@@ -432,7 +432,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
         TableViewInternal tableViewInternal = unwrapTableViewInternal(igniteImpl.distributedTableManager().table(tableName));
         // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId, remove.
-        return enabledColocation()
+        return colocationEnabled()
                 ? new ZonePartitionId(tableViewInternal.zoneId(), partId)
                 : new TablePartitionId(tableViewInternal.tableId(), partId);
     }

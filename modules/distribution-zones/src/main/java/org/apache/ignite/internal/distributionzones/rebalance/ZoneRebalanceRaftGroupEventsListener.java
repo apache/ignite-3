@@ -419,33 +419,30 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         .target(pendingAssignmentsQueue.peekLast())
                         .toQueue();
 
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
-                boolean updated =  metaStorageMgr.invoke(iif(
-                                revision(pendingPartAssignmentsKey).eq(pendingEntry.revision()),
-                                ops(put(pendingPartAssignmentsKey, pendingAssignmentsQueue.toBytes())).yield(true),
-                                ops().yield(false)
-                        ))
-                        .get().getAsBoolean();
+                final AssignmentsQueue pendingAssignmentsQueueFinal = pendingAssignmentsQueue;
+                return metaStorageMgr.invoke(iif(
+                        revision(pendingPartAssignmentsKey).eq(pendingEntry.revision()),
+                        ops(put(pendingPartAssignmentsKey, pendingAssignmentsQueue.toBytes())).yield(true),
+                        ops().yield(false)
+                )).thenCompose(statementResult -> {
+                    boolean updated = statementResult.getAsBoolean();
 
-                if (updated) {
-                    LOG.info("Pending assignments queue polled and updated [zonePartitionId={}, pendingQueue={}]",
-                            zonePartitionId, pendingAssignmentsQueue);
-
-                    return; // quit and wait for new configuration iteration
-
-                } else {
-                    LOG.info("Pending assignments queue update retry [zonePartitionId={}, pendingQueue={}]",
-                            zonePartitionId, pendingAssignmentsQueue
-                    );
-                    doStableKeySwitch(
-                            stableFromRaft,
-                            zonePartitionId,
-                            metaStorageMgr,
-                            configurationTerm,
-                            configurationIndex,
-                            calculateAssignmentsFn
-                    );
-                }
+                    if (updated) {
+                        LOG.info("Pending assignments queue polled and updated [zonePartitionId={}, pendingQueue={}]",
+                                zonePartitionId, pendingAssignmentsQueueFinal);
+                        return nullCompletedFuture(); // quit and wait for new configuration iteration
+                    } else {
+                        LOG.info("Pending assignments queue update retry [zonePartitionId={}, pendingQueue={}]",
+                                zonePartitionId, pendingAssignmentsQueueFinal);
+                        return doStableKeySwitch(
+                                stableFromRaft,
+                                zonePartitionId,
+                                configurationTerm,
+                                configurationIndex,
+                                calculateAssignmentsFn
+                        );
+                    }
+                });
             }
 
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();

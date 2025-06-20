@@ -350,33 +350,33 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                         .target(pendingAssignmentsQueue.peekLast())
                         .toQueue();
 
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
-                boolean updated =  metaStorageMgr.invoke(iif(
-                                revision(pendingPartAssignmentsKey).eq(pendingEntry.revision()),
-                                ops(put(pendingPartAssignmentsKey, pendingAssignmentsQueue.toBytes())).yield(true),
-                                ops().yield(false)
-                        ))
-                        .get().getAsBoolean();
+                final AssignmentsQueue pendingAssignmentsQueueFinal = pendingAssignmentsQueue;
+                return metaStorageMgr.invoke(iif(
+                        revision(pendingPartAssignmentsKey).eq(pendingEntry.revision()),
+                        ops(put(pendingPartAssignmentsKey, pendingAssignmentsQueue.toBytes())).yield(true),
+                        ops().yield(false)
+                )).thenCompose(statementResult -> {
+                    boolean updated = statementResult.getAsBoolean();
 
-                if (updated) {
-                    LOG.info("Pending assignments queue polled and updated [tablePartitionId={}, pendingQueue={}]",
-                            tablePartitionId, pendingAssignmentsQueue);
+                    if (updated) {
+                        LOG.info("Pending assignments queue polled and updated [tablePartitionId={}, pendingQueue={}]",
+                                tablePartitionId, pendingAssignmentsQueueFinal);
+                        // quit and wait for new configuration switch iteration
+                        return nullCompletedFuture();
+                    } else {
+                        LOG.info("Pending assignments queue update retry [tablePartitionId={}, pendingQueue={}]",
+                                tablePartitionId, pendingAssignmentsQueueFinal
+                        );
 
-                    return; // quit and wait for new configuration switch iteration
-
-                } else {
-                    LOG.info("Pending assignments queue update retry [tablePartitionId={}, pendingQueue={}]",
-                            tablePartitionId, pendingAssignmentsQueue
-                    );
-                    doStableKeySwitch(
-                            stableFromRaft,
-                            tablePartitionId,
-                            metaStorageMgr,
-                            configurationTerm,
-                            configurationIndex,
-                            calculateAssignmentsFn
-                    );
-                }
+                        return doStableKeySwitch(
+                                stableFromRaft,
+                                tablePartitionId,
+                                configurationTerm,
+                                configurationIndex,
+                                calculateAssignmentsFn
+                        );
+                    }
+                });
             }
 
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
