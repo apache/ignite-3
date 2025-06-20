@@ -2285,7 +2285,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         };
     }
 
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(
+    protected CompletableFuture<Void> handleChangePendingAssignmentEvent(
             Entry pendingAssignmentsEntry,
             long revision,
             boolean isRecovery
@@ -2458,11 +2458,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }));
                     }), ioExecutor);
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
-                assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
-
-                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
-            }), ioExecutor);
+            localServicesStartFuture = resetWithRetry(replicaGrpId, computedStableAssignments);
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
@@ -2509,6 +2505,42 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
+    }
+
+
+    private CompletableFuture<Void> resetWithRetry(TablePartitionId replicaGrpId, Assignments assignments) {
+        return supplyAsync(() -> inBusyLock(busyLock, () -> {
+            assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
+
+            return replicaMgr.resetPeers(replicaGrpId, fromAssignments(assignments.nodes()));
+        }), ioExecutor)
+                .handleAsync((resetSuccessful, ex) -> {
+                    if (ex != null) {
+                        if (isRetriable(ex)) {
+                            LOG.error("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
+
+                            return resetWithRetry(replicaGrpId, assignments);
+                        }
+
+                        return CompletableFuture.<Void>failedFuture(ex);
+                    }
+
+                    if (!resetSuccessful) {
+                        LOG.error("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
+
+                        return resetWithRetry(replicaGrpId, assignments);
+                    }
+
+                    return CompletableFutures.<Void>nullCompletedFuture();
+                }, ioExecutor)
+                .thenCompose(identity());
+    }
+
+    private static boolean isRetriable(Throwable ex) {
+        if (ex instanceof ExecutionException || ex instanceof CompletionException) {
+            ex = ex.getCause();
+        }
+        return !(ex instanceof NodeStoppingException || ex instanceof AssertionError);
     }
 
     /**

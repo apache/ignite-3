@@ -22,7 +22,6 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -71,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -156,6 +156,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -1358,9 +1359,7 @@ public class PartitionReplicaLifecycleManager extends
                     false
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> {
-                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes())));
-            }, ioExecutor);
+            localServicesStartFuture = resetWithRetry(replicaGrpId, computedStableAssignments);
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
@@ -1408,6 +1407,38 @@ public class PartitionReplicaLifecycleManager extends
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
+    }
+
+    private CompletableFuture<Void> resetWithRetry(ZonePartitionId replicaGrpId, Assignments assignments) {
+        return supplyAsync(() ->
+                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(assignments.nodes()))), ioExecutor)
+                .handleAsync((resetSuccessful, ex) -> {
+                    if (ex != null) {
+                        if (isRetriable(ex)) {
+                            LOG.error("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
+
+                            return resetWithRetry(replicaGrpId, assignments);
+                        }
+
+                        return CompletableFuture.<Void>failedFuture(ex);
+                    }
+
+                    if (!resetSuccessful) {
+                        LOG.error("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
+
+                        return resetWithRetry(replicaGrpId, assignments);
+                    }
+
+                    return CompletableFutures.<Void>nullCompletedFuture();
+                }, ioExecutor)
+                .thenCompose(identity());
+    }
+
+    private static boolean isRetriable(Throwable ex) {
+        if (ex instanceof ExecutionException || ex instanceof CompletionException) {
+            ex = ex.getCause();
+        }
+        return !(ex instanceof NodeStoppingException || ex instanceof AssertionError);
     }
 
     private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {

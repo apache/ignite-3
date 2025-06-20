@@ -22,8 +22,11 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
+import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleTable;
@@ -47,6 +50,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -84,6 +88,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -95,7 +100,6 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
@@ -108,6 +112,9 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -119,6 +126,8 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -168,12 +177,14 @@ import org.mockito.quality.Strictness;
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "testNode1";
+    private static final String NODE_NAME2 = "testNode2";
     private static final String ZONE_NAME = "zone1";
     private static final String TABLE_NAME = "testTable";
     private static final String INDEX_NAME = "testIndex1";
     private static final String INDEXED_COLUMN_NAME = "columnName";
     private static final int PARTITIONS = 8;
     private static final ClusterNode node = new ClusterNodeImpl(UUID.randomUUID(), NODE_NAME, new NetworkAddress("127.0.0.1", 2245));
+    private static final ClusterNode node2 = new ClusterNodeImpl(UUID.randomUUID(), NODE_NAME2, new NetworkAddress("127.0.0.1", 2246));
     private static final long WAIT_TIMEOUT = SECONDS.toMillis(10);
 
     // Configuration
@@ -191,7 +202,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     // Table manager dependencies.
     private SchemaManager sm;
     private CatalogManager catalogManager;
-    private MetaStorageManagerImpl metaStorageManager;
+    private StandaloneMetaStorageManager metaStorageManager;
     private TxStateRocksDbSharedStorage sharedTxStateStorage;
     private TableManager tableManager;
     @InjectExecutorService(threadCount = 4, allowedOperations = {STORAGE_READ, STORAGE_WRITE})
@@ -323,6 +334,52 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         // Verify that the listeners were loaded with the correct recovery flag value.
         verify(partitionReplicaLifecycleManager, times(defaultZonePartitions))
                 .loadTableListenerToZoneReplica(any(), anyInt(), any(), any(), any(), eq(true));
+    }
+
+    @Test
+    public void testResetPeersRetry() throws Exception {
+        createSimpleTable(catalogManager, TABLE_NAME);
+
+        int tableId = catalogManager.activeCatalog(clock.nowLong()).table(DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, 0);
+
+        int zoneId = catalogManager.activeCatalog(clock.nowLong()).table(DEFAULT_SCHEMA_NAME, TABLE_NAME).zoneId();
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
+
+        AssignmentsQueue assignmentsQueue = pendingAssignmentsCalculator()
+                .stable(Assignments.of(Set.of(Assignment.forPeer(node.name()), Assignment.forPeer(node2.name())), assignmentsTimestamp))
+                .target(Assignments.forced(Set.of(Assignment.forPeer(node.name())), assignmentsTimestamp))
+                .toQueue();
+
+        when(replicaMgr.isReplicaStarted(any())).thenReturn(true);
+        when(replicaMgr.replica(any())).thenReturn(completedFuture(mock(Replica.class, RETURNS_DEEP_STUBS)));
+        when(replicaMgr.resetPeers(any(), any())).thenThrow(IllegalStateException.class).thenReturn(false).thenReturn(true);
+
+        // This is to wait until handleChangePendingAssignments is finished.
+        CompletableFuture<Void> assignmentsHandled = new CompletableFuture<>();
+        metaStorageManager.setOnRevisionAppliedInterceptor(rev -> {
+            assignmentsHandled.complete(null);
+        });
+
+        if (colocationEnabled()) {
+            CompletableFuture<Void> putReset = metaStorageManager.put(
+                    ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(zonePartitionId),
+                    assignmentsQueue.toBytes()
+            );
+            assertThat(putReset, willCompleteSuccessfully());
+        } else {
+            CompletableFuture<Void> putReset = metaStorageManager.put(
+                    pendingPartAssignmentsQueueKey(tablePartitionId),
+                    assignmentsQueue.toBytes()
+            );
+            assertThat(putReset, willCompleteSuccessfully());
+        }
+
+        assertThat(assignmentsHandled, willCompleteSuccessfully());
+
+        verify(replicaMgr, times(3)).resetPeers(any(), any());
     }
 
     /**
