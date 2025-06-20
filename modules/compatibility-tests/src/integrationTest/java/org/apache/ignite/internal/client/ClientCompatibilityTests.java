@@ -452,7 +452,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25545")
     default void testTxCommit() {
         int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
@@ -472,7 +471,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25545")
     default void testTxRollback() {
         int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
@@ -489,15 +487,20 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25545")
     default void testTxReadOnly() {
         int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
 
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
-        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
 
+        // Start and activate a read-only transaction.
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        assertNull(view.get(tx, key)); // Activate lazy tx.
+
+        // Insert a record with an implicit tx.
         view.insert(null, Tuple.create().set("id", id).set("name", "testTxReadOnly"));
+
+        // RO transaction should not see the changes made outside of it.
         assertNull(view.get(tx, key), "Read-only transaction shows snapshot of data in the past.");
 
         tx.rollback();
