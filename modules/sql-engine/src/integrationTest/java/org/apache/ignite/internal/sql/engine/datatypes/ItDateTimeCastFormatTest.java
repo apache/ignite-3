@@ -205,7 +205,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @MethodSource("time")
+    @MethodSource("timeNoMillis")
     public void timeUpdateFromDynamicParam(DateTimeArgs<LocalTime> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET time0_col=CAST(? AS TIME(4) FORMAT '{}') WHERE id = 1",
@@ -216,14 +216,13 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
         if (args.value != null) {
             assertQuery("SELECT time0_col FROM datetime_cols WHERE id = 1")
-                    // We are writing to time0_col, so we should expect a time w/o a fractional part.
-                    .returns(args.value.withNano(0))
+                    .returns(args.value)
                     .check();
         }
     }
 
     @ParameterizedTest
-    @MethodSource("time")
+    @MethodSource("timeNoMillis")
     public void timeUpdateFromLiteral(DateTimeArgs<LocalTime> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET time0_col=CAST('{}' AS TIME(3) FORMAT '{}') WHERE id = 1",
@@ -235,10 +234,15 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
         if (args.value != null) {
             assertQuery("SELECT time0_col FROM datetime_cols WHERE id = 1")
-                    // We are writing to time0_col, so we should expect a time w/o a fractional part.
-                    .returns(args.value.withNano(0))
+                    .returns(args.value)
                     .check();
         }
+    }
+
+    private static Stream<DateTimeArgs<LocalTime>> timeNoMillis() {
+        // The expected result should be TIME(0) (without milliseconds).
+        return time().map(v ->
+                dateTime(v.str, v.format, v.value == null ? null : v.value.withNano(0), v.error));
     }
 
     private static Stream<DateTimeArgs<LocalTime>> time() {
@@ -410,6 +414,12 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
         checkQuery(sqlCast, args.value, args.error);
     }
 
+    private static Stream<DateTimeArgs<LocalDateTime>> timestampNoMillis() {
+        // The expected result should be TIMESTAMP(0) (without milliseconds).
+        return timestamp().map(dt ->
+                new DateTimeArgs<>(dt.str, dt.format, dt.value == null ? null : dt.value.withNano(0), dt.error));
+    }
+
     private static Stream<DateTimeArgs<LocalDateTime>> timestamp() {
         List<DateTimeArgs<LocalDate>> date = date().collect(Collectors.toList());
         List<DateTimeArgs<LocalTime>> time = time().collect(Collectors.toList());
@@ -440,7 +450,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @MethodSource("timestamp")
+    @MethodSource("timestampNoMillis")
     public void timestampUpdateFromDynamicParam(DateTimeArgs<LocalDateTime> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET timestamp0_col=CAST(? AS TIMESTAMP FORMAT '{}') WHERE id = 1",
@@ -451,14 +461,13 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
         if (args.value != null) {
             assertQuery("SELECT timestamp0_col FROM datetime_cols WHERE id = 1")
-                    // We are writing to timestamp_0, so we should expect a timestamp w/o a fractional part.
-                    .returns(args.value.withNano(0))
+                    .returns(args.value)
                     .check();
         }
     }
 
     @ParameterizedTest
-    @MethodSource("timestamp")
+    @MethodSource("timestampNoMillis")
     public void timestampUpdateFromLiteral(DateTimeArgs<LocalDateTime> args) {
         String sqlCast = format(
                 "UPDATE datetime_cols SET timestamp0_col=CAST('{}' AS TIMESTAMP FORMAT '{}') WHERE id = 1",
@@ -469,8 +478,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
         if (args.value != null) {
             assertQuery("SELECT timestamp0_col FROM datetime_cols WHERE id = 1")
-                    // We are writing to timestamp_0, so we should expect a timestamp w/o a fractional part.
-                    .returns(args.value.withNano(0))
+                    .returns(args.value)
                     .check();
         }
     }
@@ -611,7 +619,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @MethodSource("timestampLtz")
+    @MethodSource("timestampLtzNoMillis")
     public void timestampLtzUpdateFromDynamicParam(DateTimeArgs<Instant> args) {
         String sqlCast = format(""
                         + "UPDATE datetime_cols "
@@ -623,14 +631,13 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
         if (args.value != null) {
             assertQuery("SELECT timestamp_with_local_time_zone0_col FROM datetime_cols WHERE id = 1")
-                    // We are writing to timestamp_with_local_time_zone0_col, so we should expect a timestamp w/o a fractional part.
-                    .returns(args.value.with(ChronoField.NANO_OF_SECOND, 0))
+                    .returns(args.value)
                     .check();
         }
     }
 
     @ParameterizedTest
-    @MethodSource("timestampLtz")
+    @MethodSource("timestampLtzNoMillis")
     public void timestampLtzUpdateFromLiteral(DateTimeArgs<Instant> args) {
         String sqlCast = format(""
                         + "UPDATE datetime_cols "
@@ -642,10 +649,15 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
         if (args.value != null) {
             assertQuery("SELECT timestamp_with_local_time_zone0_col FROM datetime_cols WHERE id = 1")
-                    // We are writing to timestamp_with_local_time_zone0_col, so we should expect a timestamp w/o a fractional part.
-                    .returns(args.value.with(ChronoField.NANO_OF_SECOND, 0))
+                    .returns(args.value)
                     .check();
         }
+    }
+
+    private static Stream<DateTimeArgs<Instant>> timestampLtzNoMillis() {
+        // The expected result should be without milliseconds.
+        return timestampLtz().map(dt ->
+                dateTime(dt.str, dt.format, dt.value == null ? null : dt.value.with(ChronoField.NANO_OF_SECOND, 0), dt.error));
     }
 
     private static Stream<DateTimeArgs<Instant>> timestampLtz() {
