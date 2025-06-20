@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -47,7 +48,6 @@ import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,6 +66,8 @@ public class ClientSqlExecuteRequest {
      * @param sql SQL API.
      * @param resources Resources.
      * @param metrics Metrics.
+     * @param timestampTracker Server's view of latest seen by client time.
+     * @param sqlPartitionAwarenessSupported Denotes whether client supports partition awareness for SQL or not.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -76,30 +78,34 @@ public class ClientSqlExecuteRequest {
             QueryProcessor sql,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
-            HybridTimestampTracker tsUpdater
+            HybridTimestampTracker timestampTracker,
+            boolean sqlPartitionAwarenessSupported
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
 
-        InternalTransaction tx = readTx(in, tsUpdater, resources, null, null, null);
+        InternalTransaction tx = readTx(in, timestampTracker, resources, null, null, null);
         ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
         Object[] arguments = readArgsNotNull(in);
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        tsUpdater.update(clientTs);
+        timestampTracker.update(clientTs);
+
+        boolean includePartitionAwarenessMeta = sqlPartitionAwarenessSupported && in.unpackBoolean();
 
         return nullCompletedFuture().thenComposeAsync(none -> executeAsync(
                 tx,
                 sql,
-                tsUpdater,
+                timestampTracker,
                 statement,
                 cancelHandle.token(),
                 props.pageSize(),
                 props.toSqlProps(),
                 () -> cancelHandles.remove(requestId),
                 arguments
-        ).thenCompose(asyncResultSet -> writeResultSetAsync(resources, asyncResultSet, metrics)), operationExecutor);
+        ).thenCompose(asyncResultSet ->
+                writeResultSetAsync(resources, asyncResultSet, metrics, includePartitionAwarenessMeta)), operationExecutor);
     }
 
     static Object[] readArgsNotNull(ClientMessageUnpacker in) {
@@ -111,8 +117,10 @@ public class ClientSqlExecuteRequest {
 
     private static CompletableFuture<ResponseWriter> writeResultSetAsync(
             ClientResourceRegistry resources,
-            AsyncResultSet asyncResultSet,
-            ClientHandlerMetricSource metrics) {
+            AsyncResultSetImpl asyncResultSet,
+            ClientHandlerMetricSource metrics,
+            boolean includePartitionAwarenessMeta
+    ) {
         if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
             try {
                 metrics.cursorsActiveIncrement();
@@ -125,7 +133,8 @@ public class ClientSqlExecuteRequest {
 
                 var resourceId = resources.put(resource);
 
-                return CompletableFuture.completedFuture(out -> writeResultSet(out, asyncResultSet, resourceId));
+                return CompletableFuture.completedFuture(out ->
+                        writeResultSet(out, asyncResultSet, resourceId, includePartitionAwarenessMeta));
             } catch (IgniteInternalCheckedException e) {
                 return asyncResultSet
                         .closeAsync()
@@ -136,10 +145,15 @@ public class ClientSqlExecuteRequest {
         }
 
         return asyncResultSet.closeAsync()
-                .thenApply(v -> (ResponseWriter) out -> writeResultSet(out, asyncResultSet, null));
+                .thenApply(v -> (ResponseWriter) out -> writeResultSet(out, asyncResultSet, null, includePartitionAwarenessMeta));
     }
 
-    private static void writeResultSet(ClientMessagePacker out, AsyncResultSet res, @Nullable Long resourceId) {
+    private static void writeResultSet(
+            ClientMessagePacker out,
+            AsyncResultSetImpl res,
+            @Nullable Long resourceId,
+            boolean includePartitionAwarenessMeta
+    ) {
         out.packLongNullable(resourceId);
 
         out.packBoolean(res.hasRowSet());
@@ -148,6 +162,10 @@ public class ClientSqlExecuteRequest {
         out.packLong(res.affectedRows());
 
         packMeta(out, res.metadata());
+
+        if (includePartitionAwarenessMeta) {
+            packPartitionAwarenessMeta(out, res.partitionAwarenessMetadata());
+        }
 
         if (res.hasRowSet()) {
             packCurrentPage(out, res);
@@ -164,7 +182,18 @@ public class ClientSqlExecuteRequest {
         ClientSqlCommon.packColumns(out, meta.columns());
     }
 
-    private static CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+    private static void packPartitionAwarenessMeta(ClientMessagePacker out, @Nullable PartitionAwarenessMetadata meta) {
+        if (meta == null) {
+            out.packNil();
+            return;
+        }
+
+        out.packInt(meta.tableId());
+        out.packIntArray(meta.indexes());
+        out.packIntArray(meta.hash());
+    }
+
+    private static CompletableFuture<AsyncResultSetImpl<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             QueryProcessor qryProc,
             HybridTimestampTracker timestampTracker,
@@ -179,7 +208,7 @@ public class ClientSqlExecuteRequest {
             SqlProperties properties = new SqlProperties(props)
                     .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
 
-            CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
+            CompletableFuture<AsyncResultSetImpl<SqlRow>> fut = qryProc.queryAsync(
                         properties,
                         timestampTracker,
                         (InternalTransaction) transaction,

@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -56,6 +60,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Client SQL.
@@ -69,15 +74,21 @@ public class ClientSql implements IgniteSql {
     /** Marshallers provider. */
     private final MarshallersProvider marshallers;
 
+    private final Cache<PaCacheKey, ClientPartitionAwarenessMetadata> cache;
+
     /**
      * Constructor.
      *
      * @param ch Channel.
      * @param marshallers Marshallers provider.
      */
-    public ClientSql(ReliableChannel ch, MarshallersProvider marshallers) {
+    public ClientSql(ReliableChannel ch, MarshallersProvider marshallers, int sqlPartitionAwarenessMetadataCacheSize) {
         this.ch = ch;
         this.marshallers = marshallers;
+
+        cache = Caffeine.newBuilder()
+                .maximumSize(sqlPartitionAwarenessMetadataCacheSize)
+                .build();
     }
 
     /** {@inheritDoc} */
@@ -273,12 +284,27 @@ public class ClientSql implements IgniteSql {
 
             w.out().packLong(ch.observableTimestamp().get().longValue());
 
+            if (w.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS)) {
+                // Let's always request PA metadata from server. Later we might introduce some throttling.
+                w.out().packBoolean(true);
+            }
+
             if (cancellationToken != null) {
                 addCancelAction(cancellationToken, w);
             }
         };
 
-        PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), marshallers, r.in(), mapper);
+        PayloadReader<AsyncResultSet<T>> payloadReader = r -> {
+            ClientAsyncResultSet<T> rs = new ClientAsyncResultSet<>(r.clientChannel(), marshallers, r.in(), mapper);
+
+            ClientPartitionAwarenessMetadata partitionAwarenessMetadata = rs.partitionAwarenessMetadata();
+
+            if (partitionAwarenessMetadata != null) {
+                cache.put(new PaCacheKey(statement.defaultSchema(), statement.query()), partitionAwarenessMetadata);
+            }
+
+            return rs;
+        };
 
         if (transaction != null) {
             try {
@@ -446,5 +472,43 @@ public class ClientSql implements IgniteSql {
         }
 
         throw ExceptionUtils.sneakyThrow(ex);
+    }
+
+    private static class PaCacheKey {
+        private final String defaultSchema;
+        private final String query;
+        private final int hash;
+
+        private PaCacheKey(String defaultSchema, String query) {
+            this.defaultSchema = defaultSchema;
+            this.query = query;
+            this.hash = Objects.hash(defaultSchema, query);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            PaCacheKey that = (PaCacheKey) o;
+            return hash == that.hash
+                    && Objects.equals(query, that.query) 
+                    && Objects.equals(defaultSchema, that.defaultSchema);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+    }
+
+    @TestOnly
+    public List<ClientPartitionAwarenessMetadata> partitionAwarenessCachedMetas() {
+        return List.copyOf(cache.asMap().values());
     }
 }

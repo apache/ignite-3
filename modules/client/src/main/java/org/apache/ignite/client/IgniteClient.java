@@ -22,6 +22,7 @@ import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TI
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.List;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -108,6 +110,8 @@ public interface IgniteClient extends Ignite, AutoCloseable {
 
         /** Operation timeout. */
         private long operationTimeout = DFLT_OPERATION_TIMEOUT;
+
+        private int sqlPartitionAwarenessMetadataCacheSize = DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -342,6 +346,29 @@ public interface IgniteClient extends Ignite, AutoCloseable {
         }
 
         /**
+         * Sets the size of cache to store partition awareness metadata of sql queries, in number of entries.
+         * Default is {@value IgniteClientConfiguration#DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE}.
+         *
+         * <p>Every instance of {@link IgniteSql} has its own cache. Every unique pair of (defaultSchema, queryString) reserve 
+         * its own place in metadata cache, if metadata is available for this particular query. In general, metadata is available
+         * for queries which have equality predicate over all colocation columns, or which inserts the whole tuple.
+         *
+         * @param size Cache size, in number of entries.
+         * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
+         */
+        public Builder sqlPartitionAwarenessMetadataCacheSize(int size) {
+            if (size < 0) {
+                throw new IllegalArgumentException("Partition awareness metadata cache size [" + size + "] "
+                        + "must be a non-negative integer value.");
+            }
+
+            this.sqlPartitionAwarenessMetadataCacheSize = size;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -369,7 +396,9 @@ public interface IgniteClient extends Ignite, AutoCloseable {
                     sslConfiguration,
                     metricsEnabled,
                     authenticator,
-                    operationTimeout);
+                    operationTimeout,
+                    sqlPartitionAwarenessMetadataCacheSize
+            );
 
             return TcpIgniteClient.startAsync(cfg);
         }

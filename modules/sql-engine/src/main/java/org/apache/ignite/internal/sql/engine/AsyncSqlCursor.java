@@ -20,7 +20,9 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Sql query cursor.
@@ -37,6 +39,9 @@ public interface AsyncSqlCursor<T> extends AsyncDataCursor<T> {
      * Returns column metadata.
      */
     ResultSetMetadata metadata();
+
+    /** Returns partition awareness metadata. */
+    @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata();
 
     /**
      * Returns {@code true} if the current cursor is the result of a multi-statement query

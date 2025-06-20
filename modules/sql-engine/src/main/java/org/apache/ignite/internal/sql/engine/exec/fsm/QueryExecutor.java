@@ -450,6 +450,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
                 plan.type(),
                 plan.metadata(),
+                plan.partitionAwarenessMetadata(),
                 dataCursor,
                 query.nextCursorFuture
         );

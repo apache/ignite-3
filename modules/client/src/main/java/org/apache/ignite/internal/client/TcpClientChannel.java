@@ -89,7 +89,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING,
             ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB,
             ProtocolBitmaskFeature.TX_DELAYED_ACKS,
-            ProtocolBitmaskFeature.TX_PIGGYBACK
+            ProtocolBitmaskFeature.TX_PIGGYBACK,
+            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS
     ));
 
     /** Minimum supported heartbeat interval. */
