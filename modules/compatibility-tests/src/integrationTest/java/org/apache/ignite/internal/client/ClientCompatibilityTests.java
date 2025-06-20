@@ -452,7 +452,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25545")
     default void testTxCommit() {
         int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
@@ -472,7 +471,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25545")
     default void testTxRollback() {
         int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
@@ -489,7 +487,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25545")
     default void testTxReadOnly() {
         int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
