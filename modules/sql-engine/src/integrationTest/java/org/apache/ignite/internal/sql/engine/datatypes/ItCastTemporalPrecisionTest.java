@@ -161,10 +161,13 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
 
         // UPSERT initial literal value (id = 0).
         {
-            int soruceCastPrecision = 9;
+            int sourceCastPrecision = 9;
 
+            // The source column for the VARCHAR has a "precision" of 64, and when inserted into the
+            // source column, the value from the literal will not be truncated to match the source precision.
+            // Therefore, we add an explicit conversion with truncation of the literal value to the required precision.
             if (sourceType == VARCHAR) {
-                soruceCastPrecision = sourcePrecision == 0
+                sourceCastPrecision = sourcePrecision == 0
                         ? literal.length() - 10
                         : literal.length() - 9 + sourcePrecision;
             }
@@ -176,7 +179,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
                             + ") as src ON dst.id=src.id "
                             + "WHEN MATCHED THEN UPDATE SET dst.{}=src.{} "
                             + "WHEN NOT MATCHED THEN INSERT (id, {}) VALUES (src.id, src.{})",
-                    sourceType.getName(), literal, sqlNameWithPrecision(sourceType, soruceCastPrecision),
+                    sourceType.getName(), literal, sqlNameWithPrecision(sourceType, sourceCastPrecision),
                     sourceColumnName, sourceColumnName, sourceColumnName, sourceColumnName, sourceColumnName);
 
             assertQuery(query)
@@ -337,21 +340,25 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
                 new SelectArgs(TIME, "00:00:00.999999999", TIME, 6, time("00:00:00.999")),
                 new SelectArgs(TIME, "00:00:00.999999999", TIME, 9, time("00:00:00.999")),
 
-                // TIME => TIMESTAMP (only time part are verified)
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 0, dateTime("9999-01-01 00:00:00")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 1, dateTime("9999-01-01 00:00:00.9")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 2, dateTime("9999-01-01 00:00:00.99")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 3, dateTime("9999-01-01 00:00:00.999")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 6, dateTime("9999-01-01 00:00:00.999")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 9, dateTime("9999-01-01 00:00:00.999")),
+                // TIME => TIMESTAMP
+                // NOTE: to reduce the complexity of the test, the DATE in the expected value
+                //       is completely ignored and only the TIME is checked (see TimeMatcher).
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 0, dateTime("0000-01-01 00:00:00")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 1, dateTime("0000-01-01 00:00:00.9")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 2, dateTime("0000-01-01 00:00:00.99")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 3, dateTime("0000-01-01 00:00:00.999")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 6, dateTime("0000-01-01 00:00:00.999")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP, 9, dateTime("0000-01-01 00:00:00.999")),
 
-                // TIME => TIMESTAMP_WITH_LOCAL_TIME_ZONE (only nanos are verified)
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 0, instant("9999-01-01 00:00:00")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 1, instant("9999-01-01 00:00:00.9")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 2, instant("9999-01-01 00:00:00.99")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 3, instant("9999-01-01 00:00:00.999")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 6, instant("9999-01-01 00:00:00.999")),
-                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 9, instant("9999-01-01 00:00:00.999"))
+                // TIME => TIMESTAMP_WITH_LOCAL_TIME_ZONE
+                // NOTE: to reduce the complexity of the test, the DATE in the expected value
+                //       is completely ignored and only the TIME is checked (see TimeMatcher).
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 0, instant("0000-01-01 00:00:00")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 1, instant("0000-01-01 00:00:00.9")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 2, instant("0000-01-01 00:00:00.99")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 3, instant("0000-01-01 00:00:00.999")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 6, instant("0000-01-01 00:00:00.999")),
+                new SelectArgs(TIME, "00:00:00.999999999", TIMESTAMP_WITH_LOCAL_TIME_ZONE, 9, instant("0000-01-01 00:00:00.999"))
         );
     }
 

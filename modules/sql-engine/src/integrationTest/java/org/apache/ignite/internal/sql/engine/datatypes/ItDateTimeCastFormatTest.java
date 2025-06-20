@@ -306,7 +306,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("timeWithPrecision")
-    public void timeWithPrecisionUpdateFromLiteral(int precision, DateTimeArgs<LocalTime> args) {
+    public void timeWithPrecisionUpdateFromDynamicParam(int precision, DateTimeArgs<LocalTime> args) {
         String col = format("time{}_col", precision);
 
         String sqlCast = format(
@@ -325,7 +325,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("timeWithPrecision")
-    public void timeWithPrecisionUpdateFromDynamicParam(int precision, DateTimeArgs<LocalTime> args) {
+    public void timeWithPrecisionUpdateFromLiteral(int precision, DateTimeArgs<LocalTime> args) {
         String col = format("time{}_col", precision);
 
         // Use TIME(3) to preserve fractional part
