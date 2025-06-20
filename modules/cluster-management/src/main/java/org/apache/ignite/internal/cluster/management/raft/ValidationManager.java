@@ -113,7 +113,7 @@ public class ValidationManager {
                     "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                     clusterTag, state.clusterTag()
             ));
-        } else if (!validateColocationEnabledHomogeneity(isColocationEnabled(node))) {
+        } else if (!isColocationEnabledMatched(isColocationEnabled(node))) {
             return ValidationResult.errorResult(String.format(
                     "Colocation enabled mode does not match. Joining node colocation mode is: %s, cluster colocation mode is: %s",
                     isColocationEnabled(node),
@@ -130,7 +130,7 @@ public class ValidationManager {
         return Boolean.parseBoolean(node.systemAttributes().get(COLOCATION_FEATURE_FLAG));
     }
 
-    boolean validateColocationEnabledHomogeneity(boolean joiningNodeColocationEnabled) {
+    private boolean isColocationEnabledMatched(boolean joiningNodeColocationEnabled) {
         return logicalTopology.getLogicalTopology().nodes().isEmpty()
                 || isColocationEnabled(logicalTopology.getLogicalTopology().nodes().iterator().next()) == joiningNodeColocationEnabled;
     }
