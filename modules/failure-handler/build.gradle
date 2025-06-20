@@ -32,15 +32,11 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
 
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
-    integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))

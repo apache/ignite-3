@@ -32,6 +32,4 @@ dependencies {
 
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor libs.auto.service
-
-    testImplementation libs.hamcrest.core
 }

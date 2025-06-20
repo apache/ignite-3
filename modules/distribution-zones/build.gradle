@@ -47,9 +47,6 @@ dependencies {
         exclude group: 'org.ow2.asm', module: 'asm'
     }
 
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
     testImplementation project(':ignite-raft-api')
     testImplementation project(':ignite-network-api')
     testImplementation project(':ignite-metastorage-api')
@@ -72,9 +69,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-failure-handler')))
 
     testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.mockito.junit
-    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-metastorage')
     testFixturesImplementation project(':ignite-schema')
@@ -85,10 +79,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
 
     integrationTestImplementation libs.awaitility
-    integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation libs.jetbrains.annotations
-    integrationTestImplementation libs.mockito.core
-    integrationTestImplementation libs.mockito.junit
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-configuration')
     integrationTestImplementation project(':ignite-configuration-root')

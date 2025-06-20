@@ -30,7 +30,6 @@ dependencies {
     integrationTestImplementation project(":ignite-client")
     integrationTestImplementation project(":ignite-jdbc")
     integrationTestImplementation libs.assertj.core
-    integrationTestImplementation libs.junit5.api
     integrationTestImplementation libs.testcontainers.core
     integrationTestImplementation libs.testcontainers.junit
     integrationTestImplementation libs.log4j.api

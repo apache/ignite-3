@@ -31,10 +31,16 @@ test {
 }
 
 dependencies {
-    testImplementation libs.junit5.impl
     testImplementation libs.junit5.api
+    testImplementation libs.junit5.impl
     testImplementation libs.junit5.params
     testImplementation libs.junit.pioneer
+
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
+    testImplementation libs.hamcrest.core
+    testImplementation libs.hamcrest.optional
+    testImplementation libs.hamcrest.path
 
     testImplementation libs.jansi.core
     testImplementation libs.log4j.api

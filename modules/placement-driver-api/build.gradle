@@ -34,10 +34,6 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project(':ignite-core')))
-
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
 }
 
 description = 'ignite-placement-driver-api'

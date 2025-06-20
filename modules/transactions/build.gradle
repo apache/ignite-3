@@ -57,9 +57,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testImplementation(testFixtures(project(':ignite-low-watermark')))
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-cluster-management')
@@ -109,12 +106,6 @@ dependencies {
     testFixturesImplementation project(':ignite-table')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.mockito.junit
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.junit5.impl
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.params
 }
 
 description = 'ignite-transactions'

@@ -44,9 +44,6 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation project(':ignite-failure-handler')
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
     testImplementation libs.auto.service.annotations
 
     testFixturesAnnotationProcessor libs.auto.service
@@ -55,7 +52,6 @@ dependencies {
     testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation libs.fastutil.core
-    testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.auto.service.annotations
     testFixturesImplementation libs.jetbrains.annotations
 

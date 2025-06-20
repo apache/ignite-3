@@ -34,9 +34,7 @@ dependencies {
     implementation libs.log4j.core
     implementation libs.slf4j.jdk14
 
-    testImplementation libs.mockito.core
     testImplementation libs.assertj.core
-    testImplementation libs.junit5.params
 }
 
 javadoc {

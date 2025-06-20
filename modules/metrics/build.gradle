@@ -34,8 +34,6 @@ dependencies {
     annotationProcessor libs.auto.service
 
     testAnnotationProcessor project(":ignite-configuration-annotation-processor")
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
     testImplementation libs.awaitility
     testImplementation project(':ignite-core')
     testImplementation testFixtures(project(':ignite-core'))

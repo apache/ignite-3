@@ -26,8 +26,6 @@ dependencies {
     api libs.rocksdb.jni
 
     testImplementation testFixtures(project(':ignite-core'))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.junit
 }
 
 description = 'ignite-rocksdb-common'

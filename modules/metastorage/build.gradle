@@ -51,8 +51,6 @@ dependencies {
     testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation testFixtures(project(':ignite-configuration-system'))
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
 
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation project(":ignite-cluster-management")
@@ -95,7 +93,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
     testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.mockito.core
 }
 
 description = 'ignite-metastorage'
