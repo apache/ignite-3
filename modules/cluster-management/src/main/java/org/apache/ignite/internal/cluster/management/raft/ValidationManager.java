@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -112,11 +113,27 @@ public class ValidationManager {
                     "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                     clusterTag, state.clusterTag()
             ));
+        } else if (!validateColocationEnabledHomogeneity(isColocationEnabled(node))) {
+            return ValidationResult.errorResult(String.format(
+                    "Colocation enabled mode does not match. Joining node colocation mode is: %s, cluster colocation mode is: %s",
+                    isColocationEnabled(node),
+                    isColocationEnabled(logicalTopology.getLogicalTopology().nodes().iterator().next())
+            ));
         } else {
             putValidatedNode(node);
 
             return ValidationResult.successfulResult();
         }
+    }
+
+    private static boolean isColocationEnabled(LogicalNode node) {
+        return Boolean.parseBoolean(node.systemAttributes().get(COLOCATION_FEATURE_FLAG));
+    }
+
+    boolean validateColocationEnabledHomogeneity(boolean joiningNodeColocationEnabled) {
+        return logicalTopology.getLogicalTopology().nodes().isEmpty() ||
+                isColocationEnabled(logicalTopology.getLogicalTopology().nodes().iterator().next())
+                        == joiningNodeColocationEnabled;
     }
 
     boolean isNodeValidated(LogicalNode node) {
