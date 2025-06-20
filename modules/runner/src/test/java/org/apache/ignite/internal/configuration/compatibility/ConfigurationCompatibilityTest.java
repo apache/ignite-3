@@ -28,8 +28,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -37,14 +37,13 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNodeSerializer;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigShuttle;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -57,9 +56,10 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for configuration compatibility.
  */
 public class ConfigurationCompatibilityTest {
-    private static final String SNAPSHOT_DUMP_FILE = "./modules/runner/build/compatibility/configuration/actual_snapshot.bin";
+    private static final String SNAPSHOT_DUMP_FILE = "./modules/runner/build/compatibility/configuration/snapshot.bin";
     private static final String SNAPSHOTS_DIRECTORY = "./src/test/resources/";
-    private static final byte[] IGNITE_MAGIC = "IGNZIP".getBytes();
+    private static final byte[] IGNITE_COMPRESSED_MAGIC = "IGNZIP".getBytes();
+    private static final byte[] IGNITE_MAGIC = "IGNITE".getBytes();
 
     /** Return previously saved snapshot files. */
     public static Stream<Arguments> getSnapshots() throws IOException {
@@ -118,8 +118,8 @@ public class ConfigurationCompatibilityTest {
         DumpingShuttle expectedState = new DumpingShuttle();
         DumpingShuttle actualState = new DumpingShuttle();
 
-        currentMetadata.forEach(expectedState::visit);
-        snapshotMetadata.forEach(actualState::visit);
+        currentMetadata.forEach(m -> m.accept(expectedState));
+        snapshotMetadata.forEach(m -> m.accept(actualState));
 
         assertEquals(expectedState.toString(), actualState.toString());
     }
@@ -128,23 +128,30 @@ public class ConfigurationCompatibilityTest {
         ConfigurationModules modules = loadConfigurationModules(ConfigurationCompatibilityTest.class.getClassLoader());
 
         ConfigurationModule local = modules.local();
-        Set<Class<?>> localRootClasses = local.rootKeys().stream().map(RootKey::schemaClass).collect(Collectors.toSet());
-        Stream<Class<?>> localNodes = local.schemaExtensions().stream()
-                .filter(ext -> localRootClasses.contains(ext.getSuperclass()));
+        Map<Class<?>, Set<Class<?>>> localExtensions = ConfigurationUtil.schemaExtensions(local.schemaExtensions());
 
         ConfigurationModule distributed = modules.distributed();
-        Set<Class<?>> distributedRootClasses = distributed.rootKeys().stream().map(RootKey::schemaClass).collect(Collectors.toSet());
-        Stream<Class<?>> distributedNodes = distributed.schemaExtensions().stream()
-                .filter(ext -> distributedRootClasses.contains(ext.getSuperclass()));
+        Map<Class<?>, Set<Class<?>>> distributedExtensions = ConfigurationUtil.schemaExtensions(distributed.schemaExtensions());
 
-        return Stream.concat(localNodes, distributedNodes)
-                .sorted(Comparator.comparing(Class::getCanonicalName)) // Sort for test stability.
-                .map(ext -> {
-                    ConfigurationRoot declaredAnnotation = ext.getSuperclass().getDeclaredAnnotation(ConfigurationRoot.class);
-                    String rootName = declaredAnnotation.rootName();
-                    return ConfigurationTreeScanner.scanClass(rootName, ext, null);
-                })
-                .collect(Collectors.toList());
+        Stream<ConfigNode> localTreeNodes = local.rootKeys().stream()
+                .map(rootKey -> {
+                    ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootKey.schemaClass(), rootKey.type(), rootKey.internal());
+
+                    ConfigurationTreeScanner.scanClass(rootKey.schemaClass(), root, localExtensions);
+
+                    return root;
+                });
+
+        Stream<ConfigNode> distributedTreeNodes = distributed.rootKeys().stream()
+                .map(rootKey -> {
+                    ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootKey.schemaClass(), rootKey.type(), rootKey.internal());
+
+                    ConfigurationTreeScanner.scanClass(rootKey.schemaClass(), root, distributedExtensions);
+
+                    return root;
+                });
+
+        return Stream.concat(localTreeNodes, distributedTreeNodes).collect(Collectors.toList());
     }
 
     /**
@@ -154,20 +161,27 @@ public class ConfigurationCompatibilityTest {
         assert Files.isRegularFile(snapshotFile);
 
         List<ConfigNode> restoredNodes;
-        try (InputStream ifStream = Files.newInputStream(snapshotFile, StandardOpenOption.READ)) {
-            byte[] magic = ifStream.readNBytes(6);
+        try (InputStream finStream = Files.newInputStream(snapshotFile, StandardOpenOption.READ)) {
+            byte[] magic = finStream.readNBytes(6);
 
-            assert Arrays.equals(IGNITE_MAGIC, magic);
+            if (Arrays.equals(IGNITE_COMPRESSED_MAGIC, magic)) {
+                ZipInputStream zinStream = new ZipInputStream(finStream);
+                zinStream.getNextEntry(); // Read the first entry in the zip file.
 
-            ZipInputStream zinStream = new ZipInputStream(ifStream);
-            zinStream.getNextEntry(); // Read the first entry in the zip file.
+                IgniteUnsafeDataInput input = new IgniteUnsafeDataInput();
+                input.inputStream(zinStream);
 
-            IgniteUnsafeDataInput input = new IgniteUnsafeDataInput();
-            input.inputStream(zinStream);
+                restoredNodes = ConfigNodeSerializer.readAll(input);
 
-            restoredNodes = ConfigNodeSerializer.readAll(input);
+                assert zinStream.getNextEntry() == null : "More than one entry in the snapshot file";
+            } else {
+                assert Arrays.equals(IGNITE_MAGIC, magic);
 
-            assert zinStream.getNextEntry() == null : "More than one entry in the snapshot file";
+                IgniteUnsafeDataInput input = new IgniteUnsafeDataInput();
+                input.inputStream(finStream);
+
+                restoredNodes = ConfigNodeSerializer.readAll(input);
+            }
         }
         return restoredNodes;
     }
@@ -176,6 +190,7 @@ public class ConfigurationCompatibilityTest {
      * Generates a snapshot of the current configuration metadata and saves it to a file.
      */
     public static void main(String[] args) throws IOException {
+        boolean writeCompressed = true;
         List<ConfigNode> configNodes = loadCurrentConfiguration();
 
         ConfigShuttle shuttle = node -> System.out.println(node.toString());
@@ -188,18 +203,27 @@ public class ConfigurationCompatibilityTest {
 
         try (OutputStream foStream = Files.newOutputStream(file,
                 StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-            foStream.write(IGNITE_MAGIC);
+            if (writeCompressed) {
+                foStream.write(IGNITE_COMPRESSED_MAGIC);
 
-            ZipOutputStream zoutStream = new ZipOutputStream(foStream);
-            zoutStream.putNextEntry(new ZipEntry(file.getFileName().toString()));
+                ZipOutputStream zoutStream = new ZipOutputStream(foStream);
+                zoutStream.putNextEntry(new ZipEntry(file.getFileName().toString()));
 
-            IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(1024);
-            output.outputStream(zoutStream);
+                IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(1024);
+                output.outputStream(zoutStream);
 
-            ConfigNodeSerializer.writeAll(configNodes, output);
+                ConfigNodeSerializer.writeAll(configNodes, output);
 
-            zoutStream.finish();
-            output.flush();
+                zoutStream.finish();
+                output.flush();
+            } else {
+                foStream.write(IGNITE_MAGIC);
+
+                IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(1024);
+                output.outputStream(foStream);
+
+                ConfigNodeSerializer.writeAll(configNodes, output);
+            }
         }
     }
 

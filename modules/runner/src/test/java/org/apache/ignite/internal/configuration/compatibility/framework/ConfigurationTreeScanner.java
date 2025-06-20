@@ -25,6 +25,8 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +34,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
 
 /*
  TODO: support extension nodes. see {@link org.apache.ignite.configuration.annotation.ConfigurationExtension}.
@@ -67,27 +70,30 @@ public class ConfigurationTreeScanner {
     /**
      * Scans the given configuration class and returns a tree that describes configuration structure.
      */
-    public static InnerNode scanClass(String name, Class<?> clazz, @Nullable InnerNode parent) {
-        assert clazz != null && clazz.getName().startsWith("org.apache.ignite");
+    public static void scanClass(Class<?> nodeClass, ConfigNode currentNode, Map<Class<?>, Set<Class<?>>> extensions) {
+        assert nodeClass != null && nodeClass.getName().startsWith("org.apache.ignite");
 
-        List<ConfigNode> children = new ArrayList<>();
+        if (extensions.containsKey(nodeClass)) {
+            extensions.get(nodeClass).stream()
+                    .sorted(Comparator.comparing(Class::getName)) // Sort for test stability.
+                    .forEach(ext -> scanClass(ext, currentNode, extensions));
 
-        InnerNode currentNode = new InnerNode(name, clazz.getCanonicalName(), parent, children);
-        Arrays.stream(clazz.getFields())
+            return;
+        }
+
+        List<ConfigNode> childs = new ArrayList<>();
+        Arrays.stream(nodeClass.getFields())
                 .filter(field -> !Modifier.isStatic(field.getModifiers()))
                 .sorted(Comparator.comparing(Field::getName)) // Sort for test stability.
                 .forEach(field -> {
-                    boolean isLeaf = !field.isAnnotationPresent(NamedConfigValue.class)
-                            && !field.isAnnotationPresent(ConfigValue.class);
-
-                    if (isLeaf) {
-                        children.add(createLeafNode(currentNode, field));
-                    } else {
-                        children.add(createInnerNode(currentNode, field));
+                    ConfigNode node = createNodeForField(currentNode, field);
+                    childs.add(node);
+                    if (!node.isValue()) {
+                        scanClass(field.getType(), node, extensions);
                     }
                 });
 
-        return currentNode;
+        currentNode.addChilds(childs);
     }
 
     private static String collectAdditionalAnnotations(Field field) {
@@ -98,20 +104,33 @@ public class ConfigurationTreeScanner {
                 .collect(Collectors.joining(",", "[", "]"));
     }
 
-    private static InnerNode createInnerNode(InnerNode parentNode, Field field) {
-        InnerNode innerNode = scanClass(field.getName(), field.getType(), parentNode);
-
-        assert innerNode != null : parentNode.type() + "#" + field.getName();
-
-        return innerNode;
-    }
-
-    private static ConfigNode createLeafNode(ConfigNode parent, Field field) {
+    private static ConfigNode createNodeForField(ConfigNode parent, Field field) {
         String annotations = collectAdditionalAnnotations(field);
 
-        Map<String, String> additionalAttributes = annotations.isEmpty() ? Map.of() : Map.of("annotations", annotations);
+        EnumSet<ConfigNode.Flags> flags = extractFlags(field);
 
-        return new ValueNode(field.getName(), field.getType().getCanonicalName(), parent, additionalAttributes);
+        Map<String, String> attributes = new LinkedHashMap<>();
+        attributes.put(Attributes.NAME, field.getName());
+        attributes.put(Attributes.CLASS, field.getType().getCanonicalName());
+        attributes.put(Attributes.ANNOTATIONS, annotations);
+
+        return new ConfigNode(parent, attributes, flags);
     }
+
+    private static EnumSet<ConfigNode.Flags> extractFlags(Field field) {
+        EnumSet<ConfigNode.Flags> flags = EnumSet.noneOf(ConfigNode.Flags.class);
+
+        if (!field.isAnnotationPresent(NamedConfigValue.class)
+                && !field.isAnnotationPresent(ConfigValue.class)) {
+            flags.add(Flags.IS_VALUE);
+        }
+
+        if (field.isAnnotationPresent(Deprecated.class)) {
+            flags.add(Flags.IS_DEPRECATED);
+        }
+
+        return flags;
+    }
+
 }
 
