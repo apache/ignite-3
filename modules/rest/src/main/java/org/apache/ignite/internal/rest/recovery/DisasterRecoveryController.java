@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.recovery;
 
 import static java.util.Collections.emptySet;
 import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toList;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Body;
@@ -77,6 +78,13 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             Optional<Set<String>> nodeNames,
             Optional<Set<Integer>> partitionIds
     ) {
+        if (nodeProperties.colocationEnabled()) {
+            // The table response is actually a superset of the zone response, so should be fine to convert it.
+            CompletableFuture<LocalZonePartitionStatesResponse> zoneStates =
+                    getZoneLocalPartitionStates(zoneNames, nodeNames, partitionIds);
+            return zoneStates.thenApply(DisasterRecoveryController::toTableLocalStates);
+        }
+
         return disasterRecoveryManager.localTablePartitionStates(
                         zoneNames.orElse(Set.of()),
                         nodeNames.orElse(Set.of()),
@@ -85,11 +93,35 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                 .thenApply(DisasterRecoveryController::convertLocalTableStates);
     }
 
+    private static LocalPartitionStatesResponse toTableLocalStates(LocalZonePartitionStatesResponse zoneResponse) {
+        List<LocalPartitionStateResponse> states = zoneResponse.states().stream()
+                .map(state -> new LocalPartitionStateResponse(
+                        state.nodeName(),
+                        state.zoneName(),
+                        "",
+                        -1,
+                        "",
+                        state.partitionId(),
+                        state.state(),
+                        state.estimatedRows()
+                ))
+                .collect(toList());
+        return new LocalPartitionStatesResponse(states);
+    }
+
     @Override
     public CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates(
             Optional<Set<String>> zoneNames,
             Optional<Set<Integer>> partitionIds
     ) {
+        if (nodeProperties.colocationEnabled()) {
+            // The table response is actually a superset of the zone response, so should be fine to convert it.
+
+            CompletableFuture<GlobalZonePartitionStatesResponse> zoneStates =
+                    getZoneGlobalPartitionStates(zoneNames, partitionIds);
+            return zoneStates.thenApply(DisasterRecoveryController::toTableGlobalStates);
+        }
+
         return disasterRecoveryManager.globalTablePartitionStates(
                         zoneNames.orElse(Set.of()),
                         partitionIds.orElse(Set.of())
@@ -97,8 +129,30 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                 .thenApply(DisasterRecoveryController::convertGlobalStates);
     }
 
+    private static GlobalPartitionStatesResponse toTableGlobalStates(GlobalZonePartitionStatesResponse zoneStates) {
+        List<GlobalPartitionStateResponse> states = zoneStates.states().stream()
+                .map(state -> new GlobalPartitionStateResponse(
+                        state.zoneName(),
+                        "",
+                        -1,
+                        "",
+                        state.partitionId(),
+                        state.state()
+                ))
+                .collect(toList());
+
+        return new GlobalPartitionStatesResponse(states);
+    }
+
     @Override
     public CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command) {
+        if (nodeProperties.colocationEnabled()) {
+            return resetZonePartitions(new ResetZonePartitionsRequest(
+                    command.zoneName(),
+                    command.partitionIds()
+            ));
+        }
+
         QualifiedName tableName = QualifiedName.parse(command.tableName());
         return disasterRecoveryManager.resetTablePartitions(
                 command.zoneName(),
@@ -110,6 +164,13 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
     @Override
     public CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command) {
+        if (nodeProperties.colocationEnabled()) {
+            return restartZonePartitions(new RestartZonePartitionsRequest(
+                    command.nodeNames(),
+                    command.zoneName(),
+                    command.partitionIds()
+            ));
+        }
         QualifiedName tableName = QualifiedName.parse(command.tableName());
         return disasterRecoveryManager.restartTablePartitions(
                 command.nodeNames(),

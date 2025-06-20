@@ -922,9 +922,6 @@ TEST_F(record_view_test, remove_all_nonexisting_keys_return_all) {
     auto res = view.remove_all(nullptr, non_existing);
 
     EXPECT_EQ(res.size(), 2);
-
-    EXPECT_EQ(1, res[0].key);
-    EXPECT_EQ(2, res[1].key);
 }
 
 TEST_F(record_view_test, remove_all_only_existing) {
@@ -953,9 +950,6 @@ TEST_F(record_view_test, remove_all_overlapped) {
     auto res = view.remove_all(nullptr, to_remove);
 
     EXPECT_EQ(res.size(), 2);
-
-    EXPECT_EQ(11, res[0].key);
-    EXPECT_EQ(12, res[1].key);
 }
 
 TEST_F(record_view_test, remove_all_empty) {
@@ -967,9 +961,6 @@ TEST_F(record_view_test, remove_all_exact_nonexisting) {
     auto res = view.remove_all_exact(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
 
     ASSERT_EQ(2, res.size());
-
-    EXPECT_EQ(1, res[0].key);
-    EXPECT_EQ(2, res[1].key);
 }
 
 TEST_F(record_view_test, remove_all_exact_overlapped) {

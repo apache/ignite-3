@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.Map.entry;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.hocon.HoconConverter.hoconSource;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -24,10 +25,18 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.typesafe.config.ConfigFactory;
+import java.io.Serializable;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -41,13 +50,13 @@ import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class RenamedConfigurationTest extends BaseIgniteAbstractTest {
@@ -156,14 +165,26 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("IGNITE-25458")
     public void testNamedListLegacyNameIsRecognisedOnStartup() {
         assertThat(
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newListName().get("listInstance").newName().value(),
                 equalTo("oldValue")
         );
 
-        // TODO IGNITE-25458 Add check that old value is deleted
+        validateStorageContent(
+                entry("key.newInnerName.name", "oldDefault"),
+                entry("key.newInnerName.newName", "oldDefault"),
+                entry("key.newListName.$listId.<name>", "listInstance"),
+                entry("key.newListName.$listId.<order>", 0),
+                entry("key.newListName.$listId.name", "oldDefault"),
+                entry("key.newListName.$listId.newName", "oldValue"),
+                entry("key.newListName.<ids>.listInstance", "$listId"),
+                entry("key.newPolymorphicName.<ids>.polymorphicType", "$polymorphicId"),
+                entry("key.newPolymorphicName.$polymorphicId.<name>", "polymorphicType"),
+                entry("key.newPolymorphicName.$polymorphicId.<order>", 0),
+                entry("key.newPolymorphicName.$polymorphicId.newName", "oldValue"),
+                entry("key.newPolymorphicName.$polymorphicId.type", "polymorphicType")
+        );
     }
 
     @Test
@@ -178,18 +199,43 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
                 equalTo(newValue)
         );
 
-        // TODO IGNITE-25458 Add check that old value is deleted
+        validateStorageContent(
+                entry("key.newInnerName.name", "oldDefault"),
+                entry("key.newInnerName.newName", "oldDefault"),
+                entry("key.newListName.$listId.<name>", "listInstance"),
+                entry("key.newListName.$listId.<order>", 0),
+                entry("key.newListName.$listId.name", "oldDefault"),
+                entry("key.newListName.$listId.newName", newValue),
+                entry("key.newListName.<ids>.listInstance", "$listId"),
+                entry("key.newPolymorphicName.<ids>.polymorphicType", "$polymorphicId"),
+                entry("key.newPolymorphicName.$polymorphicId.<name>", "polymorphicType"),
+                entry("key.newPolymorphicName.$polymorphicId.<order>", 0),
+                entry("key.newPolymorphicName.$polymorphicId.newName", "oldValue"),
+                entry("key.newPolymorphicName.$polymorphicId.type", "polymorphicType")
+        );
     }
 
     @Test
-    @Disabled("IGNITE-25458")
     public void testPolymorphicLegacyNameIsRecognisedOnStartup() {
         assertThat(
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newPolymorphicName().get("polymorphicType").newName().value(),
                 equalTo("oldValue")
         );
 
-        // TODO IGNITE-25458 Add check that old value is deleted
+        validateStorageContent(
+                entry("key.newInnerName.name", "oldDefault"),
+                entry("key.newInnerName.newName", "oldDefault"),
+                entry("key.newListName.$listId.<name>", "listInstance"),
+                entry("key.newListName.$listId.<order>", 0),
+                entry("key.newListName.$listId.name", "oldDefault"),
+                entry("key.newListName.$listId.newName", "oldValue"),
+                entry("key.newListName.<ids>.listInstance", "$listId"),
+                entry("key.newPolymorphicName.<ids>.polymorphicType", "$polymorphicId"),
+                entry("key.newPolymorphicName.$polymorphicId.<name>", "polymorphicType"),
+                entry("key.newPolymorphicName.$polymorphicId.<order>", 0),
+                entry("key.newPolymorphicName.$polymorphicId.newName", "oldValue"),
+                entry("key.newPolymorphicName.$polymorphicId.type", "polymorphicType")
+        );
     }
 
     @Test
@@ -203,7 +249,53 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
                 equalTo(newValue)
         );
 
-        // TODO IGNITE-25458 Add check that old value is deleted
+        validateStorageContent(
+                entry("key.newInnerName.name", "oldDefault"),
+                entry("key.newInnerName.newName", "oldDefault"),
+                entry("key.newListName.$listId.<name>", "listInstance"),
+                entry("key.newListName.$listId.<order>", 0),
+                entry("key.newListName.$listId.name", "oldDefault"),
+                entry("key.newListName.$listId.newName", "oldValue"),
+                entry("key.newListName.<ids>.listInstance", "$listId"),
+                entry("key.newPolymorphicName.<ids>.polymorphicType", "$polymorphicId"),
+                entry("key.newPolymorphicName.$polymorphicId.<name>", "polymorphicType"),
+                entry("key.newPolymorphicName.$polymorphicId.<order>", 0),
+                entry("key.newPolymorphicName.$polymorphicId.newName", newValue),
+                entry("key.newPolymorphicName.$polymorphicId.type", "polymorphicType")
+        );
+    }
+
+    /**
+     * Validates that the storage content matches the expected values. Because storage contains several "dynamic" values, whose IDs are not
+     * constants, we denote them as strings {@code "$listId"} and {@code "$polymorphicId"}.All occasions of these strings will be replaced
+     * with real values of these identifiers.
+     */
+    @SafeVarargs
+    private void validateStorageContent(Map.Entry<String, Serializable> ...values) {
+        CompletableFuture<Data> dataFuture = storage.readDataOnRecovery();
+        assertThat(dataFuture, willCompleteSuccessfully());
+
+        RenamedTestNewView node = registry.getConfiguration(RenamedTestNewConfiguration.KEY).value();
+
+        UUID listId = ConfigurationUtil.internalId(node.newListName(), "listInstance");
+        UUID polymorphicId = ConfigurationUtil.internalId(node.newPolymorphicName(), "polymorphicType");
+
+        Function<Entry<String, ? extends Serializable>, String> keyMapper = e ->
+                e.getKey().replace("$listId", listId.toString()).replace("$polymorphicId", polymorphicId.toString());
+
+        Function<Entry<String, ? extends Serializable>, Serializable> valueMapper = e -> {
+            if ("$listId".equals(e.getValue())) {
+                return listId;
+            } else if ("$polymorphicId".equals(e.getValue())) {
+                return polymorphicId;
+            } else {
+                return e.getValue();
+            }
+        };
+
+        Map<String, ? extends Serializable> expectedMap = Stream.of(values).collect(Collectors.toMap(keyMapper, valueMapper));
+
+        assertEquals(expectedMap, dataFuture.join().values());
     }
 
     private static void updateConfig(ConfigurationRegistry registry, String updatedConfig) {
@@ -211,7 +303,7 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
         assertThat(change, willCompleteSuccessfully());
     }
 
-    private ConfigurationRegistry startRegistry(RootKey<?, ?> rootKey, ConfigurationTreeGenerator generator) {
+    private ConfigurationRegistry startRegistry(RootKey<?, ?, ?> rootKey, ConfigurationTreeGenerator generator) {
         var registry = new ConfigurationRegistry(Set.of(rootKey), storage, generator, new TestConfigurationValidator());
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());

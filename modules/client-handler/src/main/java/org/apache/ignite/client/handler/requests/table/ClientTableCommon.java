@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
@@ -431,7 +432,7 @@ public class ClientTableCommon {
                 InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
                         coord, token, timeout, err -> {
                             // Will be called for write txns.
-                            notificationSender.sendNotification(w -> w.packUuid(txId), err);
+                            notificationSender.sendNotification(w -> w.packUuid(txId), err, NULL_HYBRID_TIMESTAMP);
                         });
 
                 // Remote transaction will be synchronously rolled back if the timeout has exceeded.

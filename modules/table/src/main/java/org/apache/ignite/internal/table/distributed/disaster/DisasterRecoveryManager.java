@@ -26,7 +26,6 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -313,9 +312,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         Catalog catalog = catalogManager.activeCatalog(timestamp);
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
-        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalog);
         Map<Integer, Set<Integer>> tablePartitionsToReset = new HashMap<>();
-        for (CatalogTableDescriptor table : tables) {
+        for (CatalogTableDescriptor table : catalog.tables(zoneId)) {
             Set<Integer> partitionsToReset = new HashSet<>();
             for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
                 TablePartitionId partitionId = new TablePartitionId(table.id(), partId);

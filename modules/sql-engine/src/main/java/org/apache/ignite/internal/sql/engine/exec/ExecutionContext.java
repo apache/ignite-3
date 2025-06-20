@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import java.lang.reflect.Type;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -301,14 +300,14 @@ public class ExecutionContext<RowT> implements DataContext {
         }
 
         if (name.startsWith("?")) {
-            return getParameter(name, null);
+            return getParameter(name);
         } else {
             return params.get(name);
         }
     }
 
     /** Gets dynamic parameters by name. */
-    public @Nullable Object getParameter(String name, @Nullable Type storageType) {
+    private @Nullable Object getParameter(String name) {
         assert name.startsWith("?") : name;
 
         Object param = params.get(name);
