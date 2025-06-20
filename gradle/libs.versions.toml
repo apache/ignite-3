@@ -89,7 +89,7 @@ tree-sitter-hocon = "master-a"
 otel = "1.51.0"
 spring-boot = "3.5.1"
 spring-data = "3.5.1"
-testcontainers = "1.21.1"
+testcontainers = "1.21.2"
 gradleToolingApi = "8.6"
 
 #Tools
