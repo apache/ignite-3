@@ -523,7 +523,7 @@ public class ClientTable implements Table {
                                 boolean supports = ch0.protocolContext().isFeatureSupported(TX_PIGGYBACK)
                                         && ch0.protocolContext().clusterNode().name().equals(pm.nodeConsistentId());
 
-                                assert ch0.protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS);
+                                assert !supports || ch0.protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS);
 
                                 IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> tuple = ensureStarted(tx, ch,
                                         supports ? null : () -> completedFuture(ch0));
