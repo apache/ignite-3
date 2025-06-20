@@ -167,6 +167,19 @@ public enum IgniteMethod {
      */
     TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlFunctions.class,
             "toTimestampWithLocalTimeZone", String.class, String.class, TimeZone.class),
+
+    /**
+     * Returns the timestamp value truncated to the specified fraction of a second.
+     * See {@link IgniteSqlDateTimeUtils#adjustTimestampMillis(Long, int)}.
+     */
+    ADJUST_TIMESTAMP_MILLIS(IgniteSqlDateTimeUtils.class, "adjustTimestampMillis", Long.class, int.class),
+
+    /**
+     * Returns the time value truncated to the specified fraction of a second.
+     * See {@link IgniteSqlDateTimeUtils#adjustTimeMillis(Integer, int)}.
+     */
+    ADJUST_TIME_MILLIS(IgniteSqlDateTimeUtils.class, "adjustTimeMillis", Integer.class, int.class),
+
     ;
 
     private final Method method;

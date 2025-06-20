@@ -59,26 +59,24 @@ SELECT t1_0::VARCHAR, t1_1::VARCHAR, t1_2::VARCHAR, t1_3::VARCHAR FROM times2 OR
 00:00:59	00:00:59.3	00:00:59.33	00:00:59.333
 00:00:59	00:00:59.9	00:00:59.99	00:00:59.999
 
-# same as above but with CAST to TIME, TIME(3)
+# same as above but with CAST to TIME(3)
 
 # Cast to time instead of literals
-
-for type in [TIME, TIME(3)]
 
 statement ok
 CREATE TABLE times3(id INT PRIMARY KEY, t1_0 TIME(0), t1_1 TIME(1), t1_2 TIME(2), t1_3 TIME(3))
 
 statement ok
-INSERT INTO times3 VALUES(1, '00:00:00.333'::${type}, '00:00:00.333'::${type}, '00:00:00.333'::${type}, '00:00:00.333'::${type})
+INSERT INTO times3 VALUES(1, '00:00:00.333'::TIME(3), '00:00:00.333'::TIME(3), '00:00:00.333'::TIME(3), '00:00:00.333'::TIME(3))
 
 statement ok
-INSERT INTO times3 VALUES(2, '00:00:00.999'::${type}, '00:00:00.999'::${type}, '00:00:00.999'::${type}, '00:00:00.999'::${type})
+INSERT INTO times3 VALUES(2, '00:00:00.999'::TIME(3), '00:00:00.999'::TIME(3), '00:00:00.999'::TIME(3), '00:00:00.999'::TIME(3))
 
 statement ok
-INSERT INTO times3 VALUES(3, '00:00:59.333'::${type}, '00:00:59.333'::${type}, '00:00:59.333'::${type}, '00:00:59.333'::${type})
+INSERT INTO times3 VALUES(3, '00:00:59.333'::TIME(3), '00:00:59.333'::TIME(3), '00:00:59.333'::TIME(3), '00:00:59.333'::TIME(3))
 
 statement ok
-INSERT INTO times3 VALUES(4, '00:00:59.999'::${type}, '00:00:59.999'::${type}, '00:00:59.999'::${type}, '00:00:59.999'::${type})
+INSERT INTO times3 VALUES(4, '00:00:59.999'::TIME(3), '00:00:59.999'::TIME(3), '00:00:59.999'::TIME(3), '00:00:59.999'::TIME(3))
 
 query TTTT
 SELECT t1_0::VARCHAR, t1_1::VARCHAR, t1_2::VARCHAR, t1_3::VARCHAR FROM times3 ORDER BY id ASC
@@ -87,11 +85,6 @@ SELECT t1_0::VARCHAR, t1_1::VARCHAR, t1_2::VARCHAR, t1_3::VARCHAR FROM times3 OR
 00:00:00	00:00:00.9	00:00:00.99	00:00:00.999
 00:00:59	00:00:59.3	00:00:59.33	00:00:59.333
 00:00:59	00:00:59.9	00:00:59.99	00:00:59.999
-
-statement ok
-DROP TABLE times3
-
-endfor
 
 # Sub-millisecond precision time
 

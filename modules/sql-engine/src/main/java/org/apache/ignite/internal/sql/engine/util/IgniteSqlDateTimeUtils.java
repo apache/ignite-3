@@ -56,6 +56,67 @@ public class IgniteSqlDateTimeUtils {
         return IgniteSqlFunctions.toTimestampLtzExact(timestamp - offset);
     }
 
+    /** Returns the timestamp value truncated to the specified fraction of a second. */
+    public static @Nullable Long adjustTimestampMillis(@Nullable Long timestamp, int fractionOfSecond) {
+        if (timestamp == null) {
+            return null;
+        }
+
+        assert fractionOfSecond >= 0;
+
+        long unit;
+
+        switch (fractionOfSecond) {
+            case 0:
+                unit = 1000;
+                break;
+
+            case 1:
+                unit = 100;
+                break;
+
+            case 2:
+                unit = 10;
+                break;
+
+            default:
+                return timestamp;
+        }
+
+        return timestamp - Math.floorMod(timestamp, unit);
+    }
+
+    /** Returns the time value truncated to the specified fraction of a second. */
+    public static @Nullable Integer adjustTimeMillis(Integer time, int fractionOfSecond) {
+        if (time == null) {
+            return null;
+        }
+
+        assert time >= 0 : time;
+        assert fractionOfSecond >= 0;
+
+        int unit;
+
+        switch (fractionOfSecond) {
+            case 0:
+                unit = 1000;
+                break;
+
+            case 1:
+                unit = 100;
+                break;
+
+            case 2:
+                unit = 10;
+                break;
+
+            default:
+                return time;
+        }
+
+        return time - (time % unit);
+    }
+
     /**
      * SQL {@code CURRENT_DATE} function.
      */

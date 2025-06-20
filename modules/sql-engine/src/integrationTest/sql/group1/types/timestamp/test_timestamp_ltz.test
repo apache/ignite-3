@@ -82,12 +82,11 @@ SELECT '2008-01-01 00:00:01.999'::TIMESTAMP WITH LOCAL TIME ZONE::VARCHAR
 ----
 2008-01-01 00:00:01.999 Europe/Paris
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-25045 Result must have specified precision
-# Value must be rounded up.
+# Value must be truncated.
 query T
 SELECT '2008-01-01 00:00:01.969'::TIMESTAMP(2) WITH LOCAL TIME ZONE::VARCHAR
 ----
-2008-01-01 00:00:01.969 Europe/Paris
+2008-01-01 00:00:01.96 Europe/Paris
 
 query T
 SELECT '2008-01-01 00:00:01.9995'::TIMESTAMP(3) WITH LOCAL TIME ZONE::VARCHAR

@@ -61,7 +61,10 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
+import org.hamcrest.StringDescription;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -209,6 +212,26 @@ abstract class QueryCheckerImpl implements QueryChecker {
         }
 
         rowByRowResultChecker.expectedResult.add(Arrays.asList(res));
+
+        return this;
+    }
+
+    @Override
+    public QueryChecker returnMatched(Matcher<Iterable<?>> matcher) {
+        assert resultChecker == null || resultChecker instanceof RowByRowResultMatchChecker
+                : "Result checker already set to " + resultChecker.getClass().getSimpleName();
+
+        Objects.requireNonNull(matcher, "matcher");
+
+        RowByRowResultMatchChecker rowByRowResultChecker = (RowByRowResultMatchChecker) resultChecker;
+
+        if (rowByRowResultChecker == null) {
+            rowByRowResultChecker = new RowByRowResultMatchChecker();
+
+            resultChecker = rowByRowResultChecker;
+        }
+
+        rowByRowResultChecker.expectedResult.add(matcher);
 
         return this;
     }
@@ -529,6 +552,37 @@ abstract class QueryCheckerImpl implements QueryChecker {
             }
 
             QueryChecker.assertEqualsCollections(expectedResult, rows);
+        }
+    }
+
+    private static class RowByRowResultMatchChecker implements ResultChecker {
+        private final List<Matcher<Iterable<?>>> expectedResult = new ArrayList<>();
+
+        @Override
+        public void check(List<List<Object>> rows, boolean ordered) {
+            if (!ordered) {
+                // Avoid arbitrary order.
+                rows.sort(new ListComparator());
+            }
+
+            assertThat("Collections sizes are not equal", rows.size(), Matchers.equalTo(expectedResult.size()));
+
+            for (int i = 0; i < expectedResult.size(); i++) {
+                Matcher<Iterable<?>> matcher = expectedResult.get(i);
+
+                if (!matcher.matches(rows.get(i))) {
+                    Description desc = new StringDescription();
+                    desc.appendText("Collections are not equal (position " + i + ") ")
+                            .appendText(System.lineSeparator())
+                            .appendText("Expected: ")
+                            .appendDescriptionOf(matcher)
+                            .appendText(System.lineSeparator())
+                            .appendText("     but: ");
+                    matcher.describeMismatch(rows.get(i), desc);
+
+                    throw new AssertionError(desc.toString());
+                }
+            }
         }
     }
 
