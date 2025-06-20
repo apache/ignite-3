@@ -20,8 +20,10 @@ package org.apache.ignite.internal.configuration.compatibility.framework;
 import java.io.DataInput;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput.ObjectWriter;
@@ -36,26 +38,19 @@ public class ConfigNodeSerializer {
      * Writes a tree to the output.
      */
     private static void write(ConfigNode node, IgniteDataOutput out) throws IOException {
-        out.writeUTF(node.name());
-        out.writeUTF(node.type());
-        out.writeBoolean(node.isValue());
+        out.writeMap(node.rawAttributes(), UTF_WRITER, UTF_WRITER);
 
-        if (node.isValue()) {
-            out.writeMap(((ValueNode) node).additionalAttributes(), UTF_WRITER, UTF_WRITER);
-        } else {
-            // Write children
-            List<ConfigNode> children = ((InnerNode) node).children();
-            out.writeVarInt(children.size());
-            for (ConfigNode child : children) {
-                write(child, out);
-            }
+        Collection<ConfigNode> children = node.childNodes();
+        out.writeVarInt(children.size());
+        for (ConfigNode child : children) {
+            write(child, out);
         }
     }
 
     /**
      * Reads a tree from the input.
      */
-    public static ConfigNode read(IgniteDataInput in) throws IOException {
+    private static ConfigNode read(IgniteDataInput in) throws IOException {
         return read(in, null);
     }
 
@@ -63,23 +58,20 @@ public class ConfigNodeSerializer {
      * Reads a single ConfigNode tree from the input.
      */
     private static ConfigNode read(IgniteDataInput in, ConfigNode parent) throws IOException {
-        String name = in.readUTF();
-        String type = in.readUTF();
-        boolean isValue = in.readBoolean();
+        Map<String, String> properties = in.readMap(LinkedHashMap::new, IgniteDataInput::readUTF, DataInput::readUTF);
 
-        if (isValue) {
-            HashMap<String, String> properties = in.readMap(HashMap::new, IgniteDataInput::readUTF, DataInput::readUTF);
+        ConfigNode configNode = new ConfigNode(parent, properties);
 
-            return new ValueNode(name, type, parent, properties);
-        } else {
-            int childrenSize = in.readVarIntAsInt();
-            List<ConfigNode> children = new ArrayList<>(childrenSize);
-            ConfigNode innerNode = new InnerNode(name, type, parent, children);
-            for (int i = 0; i < childrenSize; i++) {
-                children.add(read(in, innerNode));
-            }
-            return innerNode;
+        int childrenSize = in.readVarIntAsInt();
+        List<ConfigNode> children = new ArrayList<>(childrenSize);
+
+        for (int i = 0; i < childrenSize; i++) {
+            children.add(read(in, configNode));
         }
+
+        configNode.addChildNodes(children);
+
+        return configNode;
     }
 
     /**

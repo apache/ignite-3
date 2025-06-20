@@ -24,18 +24,28 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.Value;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 
 /*
- TODO: support extension nodes. see {@link org.apache.ignite.configuration.annotation.ConfigurationExtension}.
  TODO: support removed nodes. {@link ConfigurationModule#deletedPrefixes()}.
  TODO: support user names. See {@link org.apache.ignite.configuration.annotation.Name} annotation. @PublicName ?
  TODO: support renamed nodes. See {@link org.apache.ignite.configuration.annotation.PublicName} annotation.
@@ -53,7 +63,6 @@ import org.jetbrains.annotations.Nullable;
  TODO: support {@link org.apache.ignite.internal.network.configuration.MulticastAddress} annotation. ???
  TODO: support {@link org.apache.ignite.internal.network.configuration.SslConfigurationValidator} annotation. ???
  TODO: validate name uniqueness. ???
- TODO: support storing flags instead of booleans (isRoot, isValue, isDeprecated) ??
 */
 
 /**
@@ -65,29 +74,57 @@ public class ConfigurationTreeScanner {
     );
 
     /**
-     * Scans the given configuration class and returns a tree that describes configuration structure.
+     * Scans the given configuration class and populates the configuration tree structure.
+     *
+     * @param currentNode The current node in the configuration tree.
+     * @param schemaClass The configuration schema class to scan.
+     * @param context The context containing dependency information.
      */
-    public static InnerNode scanClass(String name, Class<?> clazz, @Nullable InnerNode parent) {
-        assert clazz != null && clazz.getName().startsWith("org.apache.ignite");
+    public static void scan(ConfigNode currentNode, Class<?> schemaClass, ScanContext context) {
+        assert schemaClass != null && schemaClass.getName().startsWith("org.apache.ignite");
+
+        Set<Class<?>> extensions = context.getExtensions(schemaClass);
+        if (!extensions.isEmpty()) {
+            extensions.stream()
+                    .sorted(Comparator.comparing(Class::getName)) // Sort for test stability.
+                    .forEach(ext -> scan(currentNode, ext, context));
+
+            return;
+        }
 
         List<ConfigNode> children = new ArrayList<>();
-
-        InnerNode currentNode = new InnerNode(name, clazz.getCanonicalName(), parent, children);
-        Arrays.stream(clazz.getFields())
+        configurationClasses(schemaClass).stream()
+                .flatMap(c -> Arrays.stream(c.getDeclaredFields()))
                 .filter(field -> !Modifier.isStatic(field.getModifiers()))
                 .sorted(Comparator.comparing(Field::getName)) // Sort for test stability.
                 .forEach(field -> {
-                    boolean isLeaf = !field.isAnnotationPresent(NamedConfigValue.class)
-                            && !field.isAnnotationPresent(ConfigValue.class);
+                    ConfigNode node = createNodeForField(currentNode, field);
 
-                    if (isLeaf) {
-                        children.add(createLeafNode(currentNode, field));
-                    } else {
-                        children.add(createInnerNode(currentNode, field));
+                    children.add(node);
+                    if (!node.isValue()) {
+                        scan(node, field.getType(), context);
                     }
                 });
 
-        return currentNode;
+        currentNode.addChildNodes(children);
+    }
+
+    private static List<Class<?>> configurationClasses(Class<?> configClass) {
+        List<Class<?>> classes = new ArrayList<>();
+        Class<?> current = configClass;
+        while (current != Object.class) {
+            assert current.isAnnotationPresent(Config.class)
+                    || current.isAnnotationPresent(ConfigurationRoot.class)
+                    || current.isAnnotationPresent(PolymorphicConfig.class)
+                    || current.isAnnotationPresent(ConfigurationExtension.class)
+                    || current.isAnnotationPresent(AbstractConfiguration.class) : current;
+
+            classes.add(current);
+
+            current = current.getSuperclass();
+        }
+
+        return classes;
     }
 
     private static String collectAdditionalAnnotations(Field field) {
@@ -98,20 +135,71 @@ public class ConfigurationTreeScanner {
                 .collect(Collectors.joining(",", "[", "]"));
     }
 
-    private static InnerNode createInnerNode(InnerNode parentNode, Field field) {
-        InnerNode innerNode = scanClass(field.getName(), field.getType(), parentNode);
-
-        assert innerNode != null : parentNode.type() + "#" + field.getName();
-
-        return innerNode;
-    }
-
-    private static ConfigNode createLeafNode(ConfigNode parent, Field field) {
+    private static ConfigNode createNodeForField(ConfigNode parent, Field field) {
         String annotations = collectAdditionalAnnotations(field);
 
-        Map<String, String> additionalAttributes = annotations.isEmpty() ? Map.of() : Map.of("annotations", annotations);
+        EnumSet<ConfigNode.Flags> flags = extractFlags(field);
 
-        return new ValueNode(field.getName(), field.getType().getCanonicalName(), parent, additionalAttributes);
+        Map<String, String> attributes = new LinkedHashMap<>();
+        attributes.put(Attributes.NAME, field.getName());
+        attributes.put(Attributes.CLASS, field.getType().getCanonicalName());
+        attributes.put(Attributes.ANNOTATIONS, annotations);
+
+        return new ConfigNode(parent, attributes, flags);
+    }
+
+    private static EnumSet<ConfigNode.Flags> extractFlags(Field field) {
+        EnumSet<ConfigNode.Flags> flags = EnumSet.noneOf(ConfigNode.Flags.class);
+
+        if (!field.isAnnotationPresent(NamedConfigValue.class)
+                && !field.isAnnotationPresent(ConfigValue.class)) {
+            flags.add(Flags.IS_VALUE);
+        }
+
+        if (field.isAnnotationPresent(Deprecated.class)) {
+            flags.add(Flags.IS_DEPRECATED);
+        }
+
+        return flags;
+    }
+
+    /**
+     * Context holder contains required metadata to resolve dependencies between configuration classes.
+     */
+    public static class ScanContext {
+        /**
+         * Factory method to create a new scan context based on the provided configuration module.
+         */
+        public static ScanContext create(ConfigurationModule module) {
+            return new ScanContext(module.schemaExtensions(), module.polymorphicSchemaExtensions());
+        }
+
+        private final Map<Class<?>, Set<Class<?>>> extensions;
+        private final Map<Class<?>, Set<Class<?>>> polymorphicExtensions;
+
+        ScanContext(Collection<Class<?>> extensions, Collection<Class<?>> polymorphicExtensions) {
+            this.extensions = ConfigurationUtil.schemaExtensions(extensions);
+            this.polymorphicExtensions = ConfigurationUtil.polymorphicSchemaExtensions(polymorphicExtensions);
+        }
+
+        /**
+         * Returns the set of extension classes for the given extended class.
+         *
+         * @param extendedClass The class whose extensions should be retrieved.
+         */
+        public Set<Class<?>> getExtensions(Class<?> extendedClass) {
+            return extensions.getOrDefault(extendedClass, Set.of());
+        }
+
+
+        /**
+         * Returns the set of polymorphic instance classes for the given polymorphic class.
+         *
+         * @param polymorphicClass The polymorphic class whose implementations instances should be retrieved.
+         */
+        public Set<Class<?>> getPolymorphicInstances(Class<?> polymorphicClass) {
+            return polymorphicExtensions.getOrDefault(polymorphicClass, Set.of());
+        }
     }
 }
 

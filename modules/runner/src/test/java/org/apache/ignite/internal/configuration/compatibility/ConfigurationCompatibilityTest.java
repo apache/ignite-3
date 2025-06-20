@@ -17,34 +17,29 @@
 
 package org.apache.ignite.internal.configuration.compatibility;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNodeSerializer;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigShuttle;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner.ScanContext;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.jetbrains.annotations.Nullable;
@@ -56,10 +51,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for configuration compatibility.
  */
-public class ConfigurationCompatibilityTest {
-    private static final String SNAPSHOT_DUMP_FILE = "./modules/runner/build/compatibility/configuration/actual_snapshot.bin";
+public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
+    private static final String DEFAULT_FILE_NAME = "snapshot.bin";
     private static final String SNAPSHOTS_DIRECTORY = "./src/test/resources/";
-    private static final byte[] IGNITE_MAGIC = "IGNZIP".getBytes();
+    private static final String DEFAULT_SNAPSHOT_FILE = "./modules/runner/build/compatibility/configuration/" + DEFAULT_FILE_NAME;
+
+    private static final IgniteLogger LOG = Loggers.forClass(ConfigurationCompatibilityTest.class);
 
     /** Return previously saved snapshot files. */
     public static Stream<Arguments> getSnapshots() throws IOException {
@@ -79,128 +76,73 @@ public class ConfigurationCompatibilityTest {
     @Test
     void testConfigurationMetadataSerialization() throws IOException {
         // Load current configuration metadata.
-        List<ConfigNode> expectedNodes = loadCurrentConfiguration();
+        List<ConfigNode> actualTrees = loadCurrentConfiguration();
 
-        assertFalse(expectedNodes.isEmpty());
+        assertFalse(actualTrees.isEmpty());
 
         // Serialize, then deserialize the metadata.
         IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(1024);
 
-        ConfigNodeSerializer.writeAll(expectedNodes, output);
+        ConfigNodeSerializer.writeAll(actualTrees, output);
 
         byte[] data = output.array();
 
         assertTrue(data.length > 0);
 
-        List<ConfigNode> restoredNodes = ConfigNodeSerializer.readAll(new IgniteUnsafeDataInput(data));
+        List<ConfigNode> snapshot = ConfigNodeSerializer.readAll(new IgniteUnsafeDataInput(data));
 
         // Validate restored metadata.
-        validateConfigurationMetadata(expectedNodes, restoredNodes);
+        ConfigurationTreeComparator.compare(snapshot, actualTrees);
+    }
+
+    /**
+     * This test ensures that the current configuration metadata wasn't changed.
+     * If the test fails, it means that the current configuration metadata has changed,
+     * then current snapshot should be renamed to the latest release version, and a new snapshot should be created.
+     */
+    @Test
+    void testConfigurationChanged() throws IOException {
+        List<ConfigNode> currentMetadata = loadCurrentConfiguration();
+        List<ConfigNode> snapshotMetadata = ConfigurationSnapshotManager.loadSnapshot(Path.of(SNAPSHOTS_DIRECTORY, DEFAULT_FILE_NAME));
+
+        ConfigurationTreeComparator.compare(currentMetadata, snapshotMetadata);
     }
 
     /**
      * This test ensures that the current configuration metadata is compatible with the snapshots.
+     * If the test fails, it means that the current configuration is incompatible with the snapshot, and compatibility should be fixed.
      */
     @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("getSnapshots")
     void testConfigurationCompatibility(String testName, Path snapshotFile) throws IOException {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
-        List<ConfigNode> snapshotMetadata = loadConfigurationFromFile(snapshotFile);
+        List<ConfigNode> snapshotMetadata = ConfigurationSnapshotManager.loadSnapshot(snapshotFile);
 
-        validateConfigurationMetadata(currentMetadata, snapshotMetadata);
-    }
-
-    /**
-     * Validates snapshot is compatible with current metadata.
-     * TODO: Implement configuration compatibility validation logic.
-     */
-    private static void validateConfigurationMetadata(List<ConfigNode> currentMetadata, List<ConfigNode> snapshotMetadata) {
-        DumpingShuttle expectedState = new DumpingShuttle();
-        DumpingShuttle actualState = new DumpingShuttle();
-
-        currentMetadata.forEach(expectedState::visit);
-        snapshotMetadata.forEach(actualState::visit);
-
-        assertEquals(expectedState.toString(), actualState.toString());
+        ConfigurationTreeComparator.ensureCompatible(currentMetadata, snapshotMetadata);
     }
 
     private static List<ConfigNode> loadCurrentConfiguration() {
         ConfigurationModules modules = loadConfigurationModules(ConfigurationCompatibilityTest.class.getClassLoader());
 
         ConfigurationModule local = modules.local();
-        Set<Class<?>> localRootClasses = local.rootKeys().stream().map(RootKey::schemaClass).collect(Collectors.toSet());
-        Stream<Class<?>> localNodes = local.schemaExtensions().stream()
-                .filter(ext -> localRootClasses.contains(ext.getSuperclass()));
-
         ConfigurationModule distributed = modules.distributed();
-        Set<Class<?>> distributedRootClasses = distributed.rootKeys().stream().map(RootKey::schemaClass).collect(Collectors.toSet());
-        Stream<Class<?>> distributedNodes = distributed.schemaExtensions().stream()
-                .filter(ext -> distributedRootClasses.contains(ext.getSuperclass()));
 
-        return Stream.concat(localNodes, distributedNodes)
-                .sorted(Comparator.comparing(Class::getCanonicalName)) // Sort for test stability.
-                .map(ext -> {
-                    ConfigurationRoot declaredAnnotation = ext.getSuperclass().getDeclaredAnnotation(ConfigurationRoot.class);
-                    String rootName = declaredAnnotation.rootName();
-                    return ConfigurationTreeScanner.scanClass(rootName, ext, null);
-                })
+        return Stream.concat(
+                        local.rootKeys().stream().map(rootKey -> scanRootNode(local, rootKey)),
+                        distributed.rootKeys().stream().map(rootKey -> scanRootNode(distributed, rootKey))
+                )
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Loads configuration from the given snapshot file.
-     */
-    private static List<ConfigNode> loadConfigurationFromFile(Path snapshotFile) throws IOException {
-        assert Files.isRegularFile(snapshotFile);
+    private static ConfigNode scanRootNode(ConfigurationModule module, RootKey rootKey) {
+        ScanContext scanContext = ScanContext.create(module);
 
-        List<ConfigNode> restoredNodes;
-        try (InputStream ifStream = Files.newInputStream(snapshotFile, StandardOpenOption.READ)) {
-            byte[] magic = ifStream.readNBytes(6);
+        Class<?> rootClass = rootKey.schemaClass();
+        ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootClass, rootKey.type(), rootKey.internal());
 
-            assert Arrays.equals(IGNITE_MAGIC, magic);
+        ConfigurationTreeScanner.scan(root, rootClass, scanContext);
 
-            ZipInputStream zinStream = new ZipInputStream(ifStream);
-            zinStream.getNextEntry(); // Read the first entry in the zip file.
-
-            IgniteUnsafeDataInput input = new IgniteUnsafeDataInput();
-            input.inputStream(zinStream);
-
-            restoredNodes = ConfigNodeSerializer.readAll(input);
-
-            assert zinStream.getNextEntry() == null : "More than one entry in the snapshot file";
-        }
-        return restoredNodes;
-    }
-
-    /**
-     * Generates a snapshot of the current configuration metadata and saves it to a file.
-     */
-    public static void main(String[] args) throws IOException {
-        List<ConfigNode> configNodes = loadCurrentConfiguration();
-
-        ConfigShuttle shuttle = node -> System.out.println(node.toString());
-        System.out.println("DUMP TREE:");
-        configNodes.forEach(c -> c.accept(shuttle));
-
-        Path file = Path.of(SNAPSHOT_DUMP_FILE).toAbsolutePath();
-
-        Files.createDirectories(file.getParent());
-
-        try (OutputStream foStream = Files.newOutputStream(file,
-                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-            foStream.write(IGNITE_MAGIC);
-
-            ZipOutputStream zoutStream = new ZipOutputStream(foStream);
-            zoutStream.putNextEntry(new ZipEntry(file.getFileName().toString()));
-
-            IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(1024);
-            output.outputStream(zoutStream);
-
-            ConfigNodeSerializer.writeAll(configNodes, output);
-
-            zoutStream.finish();
-            output.flush();
-        }
+        return root;
     }
 
     /** Load configuration modules from classpath. */
@@ -216,18 +158,17 @@ public class ConfigurationCompatibilityTest {
         return new ConfigurationModules(modules);
     }
 
-    /** Configuration tree visitor that dumps tree state to string. */
-    private static class DumpingShuttle implements ConfigShuttle {
-        private final StringBuilder sb = new StringBuilder();
+    /**
+     * Generates a snapshot of the current configuration metadata and saves it to a file.
+     */
+    public static void main(String[] args) throws IOException {
+        List<ConfigNode> configNodes = loadCurrentConfiguration();
 
-        @Override
-        public void visit(ConfigNode node) {
-            sb.append(node.toString());
-        }
+        ConfigShuttle shuttle = node -> LOG.info(node.toString());
+        LOG.info("DUMP TREE:");
+        configNodes.forEach(c -> c.accept(shuttle));
 
-        @Override
-        public String toString() {
-            return sb.toString();
-        }
+        Path file = Path.of(DEFAULT_SNAPSHOT_FILE).toAbsolutePath();
+        ConfigurationSnapshotManager.saveSnapshot(configNodes, file);
     }
 }

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
 /**
- * A visitor to traverce configuration metadata tree.
+ * A visitor to traverse configuration metadata tree.
  */
 @FunctionalInterface
 public interface ConfigShuttle {
