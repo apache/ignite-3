@@ -91,7 +91,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25514")
     default void testTableByName() {
         Table testTable = client().tables().table(TABLE_NAME_TEST);
         assertNotNull(testTable);
@@ -100,7 +99,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25514")
     default void testTableByQualifiedName() {
         Table testTable = client().tables().table(QualifiedName.fromSimple(TABLE_NAME_TEST));
         assertNotNull(testTable);
@@ -614,10 +612,6 @@ public interface ClientCompatibilityTests {
     }
 
     private Table table(String tableName) {
-        // TODO IGNITE-25514 Use client().tables().table().
-        return client().tables().tables().stream()
-                .filter(t -> t.qualifiedName().objectName().equals(tableName))
-                .findFirst()
-                .orElseThrow();
+        return client().tables().table(tableName);
     }
 }
