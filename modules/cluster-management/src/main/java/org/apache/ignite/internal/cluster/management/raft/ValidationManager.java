@@ -131,9 +131,8 @@ public class ValidationManager {
     }
 
     boolean validateColocationEnabledHomogeneity(boolean joiningNodeColocationEnabled) {
-        return logicalTopology.getLogicalTopology().nodes().isEmpty() ||
-                isColocationEnabled(logicalTopology.getLogicalTopology().nodes().iterator().next())
-                        == joiningNodeColocationEnabled;
+        return logicalTopology.getLogicalTopology().nodes().isEmpty()
+                || isColocationEnabled(logicalTopology.getLogicalTopology().nodes().iterator().next()) == joiningNodeColocationEnabled;
     }
 
     boolean isNodeValidated(LogicalNode node) {
