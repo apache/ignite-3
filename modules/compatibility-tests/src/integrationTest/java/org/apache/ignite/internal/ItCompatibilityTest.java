@@ -19,6 +19,7 @@ package org.apache.ignite.internal;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.util.List;
 import org.apache.ignite.Ignite;
@@ -57,7 +58,7 @@ class ItCompatibilityTest extends CompatibilityTestBase {
 
         // Verify all data
         result = sql("SELECT * FROM TEST");
-        assertThat(result, contains(contains(1, "str"), contains(2, "str2")));
+        assertThat(result, containsInAnyOrder(contains(1, "str"), contains(2, "str2")));
     }
 
     private static List<String> baseVersions() {
