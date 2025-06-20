@@ -71,17 +71,18 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     // Lifecycle.PER_CLASS.
     @SuppressWarnings("unused")
     @Parameter
-    String baseVersion;
+    private String baseVersion;
 
-    @WorkDirectory
-    private static Path WORK_DIR;
+    // Force per class template work directory so that non-static field doesn't get overwritten by the BeforeEach callback.
+    @WorkDirectory(forcePerClassTemplate = true)
+    private Path workDir;
 
     protected IgniteCluster cluster;
 
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
     void startCluster(String baseVersion, TestInfo testInfo) {
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR)
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
                 .build();
 
