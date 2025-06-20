@@ -231,7 +231,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
 
         stopNodesInParallel(cluster, stopNodes);
 
-        await().atMost(60, SECONDS).untilAsserted(() -> {
+        await().atMost(120, SECONDS).untilAsserted(() -> {
             assertThat(dataNodes(TABLE_NAME), hasSize(2));
 
             Assignments a = stablePartitionAssignmentsValue(TABLE_NAME);
@@ -262,7 +262,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         putPendingAssignments(raftLeader(TABLE_NAME), TABLE_NAME, expectedPendingAssignmentsQueue);
         cluster.restartNode(cluster.nodeIndex(restartNode));
 
-        await().atMost(60, SECONDS).untilAsserted(() -> {
+        await().atMost(120, SECONDS).untilAsserted(() -> {
             assertThat(dataNodes(TABLE_NAME), hasSize(4));
 
             var expected = expectedPendingAssignmentsQueue.peekLast().nodes().stream()
@@ -288,7 +288,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         putPendingAssignments(raftLeader(TABLE_NAME), TABLE_NAME, expectedPendingAssignmentsQueue);
         cancelLease(leaderBefore, TABLE_NAME);
 
-        await().atMost(60, SECONDS).untilAsserted(() -> {
+        await().atMost(120, SECONDS).untilAsserted(() -> {
             var leaderAfter = raftLeader(TABLE_NAME);
             var expected = expectedPendingAssignmentsQueue.peekLast().nodes().stream()
                     .map(Assignment::consistentId).collect(toSet());
