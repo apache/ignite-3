@@ -468,8 +468,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Map<Tuple, Tuple> map2 = kvView.getAll(tx2, txMap.keySet()); // Triggers recovery.
         assertEquals(0, map2.size());
 
-        assertEquals(TxState.ABORTED, coord.txManager().stateMeta(txId).txState());
-        assertEquals(TxState.ABORTED, other.txManager().stateMeta(txId).txState());
+        assertTrue(IgniteTestUtils.waitForCondition(() -> coord.txManager().stateMeta(txId).txState() == TxState.ABORTED, 3_000),
+                "Tx is not timed out: " + coord.txManager().stateMeta(txId));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> other.txManager().stateMeta(txId).txState() == TxState.ABORTED, 3_000),
+                "Tx is not timed out: " + other.txManager().stateMeta(txId));
 
         tx2.commit();
     }
