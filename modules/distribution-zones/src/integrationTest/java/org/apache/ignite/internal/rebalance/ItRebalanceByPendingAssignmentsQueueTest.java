@@ -19,6 +19,8 @@ package org.apache.ignite.internal.rebalance;
 
 import static java.util.Optional.ofNullable;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
@@ -52,12 +54,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestRebalanceUtil;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -75,6 +78,8 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -85,7 +90,9 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.disaster.TestDisasterRecoveryUtils;
+import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftGroupService;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -185,7 +192,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         assertThat(stable0.peers(), hasSize(3));
         assertThat(stable0.learners(), hasSize(1));
 
-        String leaseholder = awaitPrimaryReplica(TABLE_NAME).getLeaseholder();
+        String leaseholder = primaryReplicaMeta(TABLE_NAME).getLeaseholder();
 
         // peer goes offline
         String stopNodeName = stable0.peers().stream()
@@ -194,8 +201,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         cluster.stopNode(stopNodeName);
         await().atMost(30, SECONDS).untilAsserted(() -> {
             var stableNames = stablePartitionAssignments(TABLE_NAME).stream()
-                    .map(Assignment::consistentId)
-                    .collect(Collectors.toSet());
+                    .map(Assignment::consistentId).collect(toSet());
             assertThat(stableNames, not(hasItem(stopNodeName)));
         });
 
@@ -214,14 +220,13 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         assertThat(stable0.peers(), hasSize(3));
         assertThat(stable0.learners(), hasSize(1));
 
-        String leaseholder = awaitPrimaryReplica(TABLE_NAME).getLeaseholder();
+        String leaseholder = primaryReplicaMeta(TABLE_NAME).getLeaseholder();
 
         // learners and some of majority goes offline
         Stream<Peer> someQuorumNodes = stable0.peers().stream().filter(p -> !p.consistentId().equals(leaseholder)).limit(1);
         Stream<Peer> learnerNodes = stable0.learners().stream(); // prevent promote learner into peer
         List<String> stopNodes = Stream.concat(learnerNodes, someQuorumNodes)
-                .map(Peer::consistentId)
-                .collect(Collectors.toList());
+                .map(Peer::consistentId).collect(toList());
         assertThat(stopNodes, hasSize(2));
 
         stopNodesInParallel(cluster, stopNodes);
@@ -240,6 +245,60 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         });
 
         assertNull(pendingAssignmentsValue(TABLE_NAME), "no ongoing or planned rebalance");
+    }
+
+    @Test
+    void testNodeRestartDuringQueueProcessing() {
+        createZoneAndTable(4, 2);
+
+        Set<Assignment> stableAssignments = stablePartitionAssignments(TABLE_NAME);
+        AssignmentsQueue expectedPendingAssignmentsQueue = assignmentsPromoteDemote(stableAssignments);
+        assertThat("pending queue size >= 2", expectedPendingAssignmentsQueue.size(), greaterThanOrEqualTo(2));
+
+        String leaseholder = primaryReplicaMeta(TABLE_NAME).getLeaseholder();
+        String restartNode = stableAssignments.stream()
+                .map(Assignment::consistentId).filter(name -> !name.equals(leaseholder)).findFirst().orElseThrow();
+
+        putPendingAssignments(raftLeader(TABLE_NAME), TABLE_NAME, expectedPendingAssignmentsQueue);
+        cluster.restartNode(cluster.nodeIndex(restartNode));
+
+        await().atMost(60, SECONDS).untilAsserted(() -> {
+            assertThat(dataNodes(TABLE_NAME), hasSize(4));
+
+            var expected = expectedPendingAssignmentsQueue.peekLast().nodes().stream()
+                    .map(Assignment::consistentId).collect(toSet());
+            var stableNames = stablePartitionAssignments(TABLE_NAME).stream()
+                    .map(Assignment::consistentId).collect(toSet());
+
+            assertThat(stableNames, equalTo(expected));
+            assertThat(stableNames, hasItem(restartNode));
+        });
+    }
+
+    @Test
+    void testRaftLeaderChangedDuringAssignmentsQueueProcessing() {
+        createZoneAndTable(4, 2);
+
+        Set<Assignment> stableAssignments = stablePartitionAssignments(TABLE_NAME);
+        AssignmentsQueue expectedPendingAssignmentsQueue = assignmentsPromoteDemote(stableAssignments);
+        assertThat("pending queue size >= 2", expectedPendingAssignmentsQueue.size(), greaterThanOrEqualTo(2));
+
+        var leaderBefore = raftLeader(TABLE_NAME);
+
+        putPendingAssignments(raftLeader(TABLE_NAME), TABLE_NAME, expectedPendingAssignmentsQueue);
+        cancelLease(leaderBefore, TABLE_NAME);
+
+        await().atMost(60, SECONDS).untilAsserted(() -> {
+            var leaderAfter = raftLeader(TABLE_NAME);
+            var expected = expectedPendingAssignmentsQueue.peekLast().nodes().stream()
+                    .map(Assignment::consistentId).collect(toSet());
+            var stableNames = stablePartitionAssignments(TABLE_NAME).stream()
+                    .map(Assignment::consistentId).collect(toSet());
+
+            assertThat(stableNames, equalTo(expected));
+            assertThat(stableNames, hasItem(leaderBefore.name()));
+            assertThat(stableNames, hasItem(leaderAfter.name()));
+        });
     }
 
     private void createZoneAndTable(int replicas, int quorum) {
@@ -261,20 +320,25 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     private void assertPartitionAssignments() {
         CatalogZoneDescriptor zone = latestCatalog().zone(ZONE_NAME);
 
+        long runningNodesCount = cluster.runningNodes().count();
         Set<Assignment> stableAssignments = stablePartitionAssignments(TABLE_NAME);
 
-        if (Objects.requireNonNull(zone).replicas() > cluster.runningNodes().count()) {
-            assertThat(stableAssignments, hasSize((int) cluster.runningNodes().count()));
+        if (Objects.requireNonNull(zone).replicas() > runningNodesCount) {
+            assertThat(stableAssignments, hasSize((int) runningNodesCount));
         } else {
             assertThat(stableAssignments, hasSize(zone.replicas()));
         }
 
         long stablePeerCount = stableAssignments.stream().filter(Assignment::isPeer).count();
-        assertThat(stablePeerCount, equalTo((long) zone.consensusGroupSize()));
+        if (Objects.requireNonNull(zone).consensusGroupSize() > runningNodesCount) {
+            assertThat(stablePeerCount, equalTo(runningNodesCount));
+        } else {
+            assertThat(stablePeerCount, equalTo((long) zone.consensusGroupSize()));
+        }
     }
 
     private Set<Assignment> stablePartitionAssignments(String tableName) {
-        IgniteImpl ignite = unwrapIgniteImpl(raftLeader(tableName));
+        IgniteImpl ignite = raftLeader(tableName);
         TableViewInternal table = unwrapTableViewInternal(ignite.distributedTableManager().table(tableName));
         var fut = TestRebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), table, 0);
         assertThat(fut, willCompleteSuccessfully());
@@ -282,7 +346,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     private @Nullable Assignments stablePartitionAssignmentsValue(String tableName) {
-        IgniteImpl ignite = unwrapIgniteImpl(raftLeader(tableName));
+        IgniteImpl ignite = raftLeader(tableName);
         CompletableFuture<Entry> fut = ignite.metaStorageManager()
                 .get(stablePartitionAssignmentsKey(partitionGroupId(ignite, tableName, 0)));
         assertThat(fut, willCompleteSuccessfully());
@@ -291,7 +355,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     private @Nullable Assignments pendingAssignmentsValue(String tableName) {
-        IgniteImpl ignite = unwrapIgniteImpl(raftLeader(tableName));
+        IgniteImpl ignite = raftLeader(tableName);
         CompletableFuture<Entry> fut = ignite.metaStorageManager()
                 .get(pendingPartitionAssignmentsKey(partitionGroupId(ignite, tableName, 0)));
         assertThat(fut, willCompleteSuccessfully());
@@ -305,18 +369,8 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         unwrapIgniteImpl(ignite).metaStorageManager().put(pendingKey, pendingVal).join();
     }
 
-    private ReplicaMeta awaitPrimaryReplica(String tableName) {
-        IgniteImpl ignite = unwrapIgniteImpl(raftLeader(tableName));
-        PartitionGroupId partitionId = partitionGroupId(ignite, tableName, 0);
-        CompletableFuture<ReplicaMeta> fut = ignite.placementDriver()
-                .awaitPrimaryReplica(partitionId, ignite.clock().now(), 60, SECONDS);
-
-        assertThat(fut, willSucceedIn(60, SECONDS));
-        return fut.join();
-    }
-
     private Set<String> dataNodes(String tableName) {
-        IgniteImpl ignite = unwrapIgniteImpl(raftLeader(tableName));
+        IgniteImpl ignite = raftLeader(tableName);
         long causalityToken = ignite.metaStorageManager().appliedRevision();
         HybridTimestamp timestamp = ignite.metaStorageManager().timestampByRevisionLocally(causalityToken);
         int catalogVersion = ignite.catalogManager().latestCatalogVersion();
@@ -326,21 +380,52 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         return dataNodes.join();
     }
 
-    private Ignite raftLeader(String tableName) {
+    private ReplicaMeta primaryReplicaMeta(String tableName) {
+        IgniteImpl ignite = raftLeader(tableName);
+        PartitionGroupId partitionId = partitionGroupId(ignite, tableName, 0);
+        CompletableFuture<ReplicaMeta> fut = ignite.placementDriver()
+                .awaitPrimaryReplica(partitionId, ignite.clock().now(), 60, SECONDS);
+
+        assertThat(fut, willCompleteSuccessfully());
+        return fut.join();
+    }
+
+    private IgniteImpl raftLeader(String tableName) {
         IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
         var raftNodeId = new RaftNodeId(partitionGroupId(ignite, tableName, 0), new Peer(ignite.name()));
         var jraftServer = (JraftServerImpl) ignite.raftManager().server();
         RaftGroupService raftGroupService = jraftServer.raftGroupService(raftNodeId);
-        assertNotNull(raftGroupService);
-        String consistentId = raftGroupService.getRaftNode().getLeaderId().getConsistentId();
-        return cluster.node(cluster.nodeIndex(consistentId));
+        String consistentId = ofNullable(raftGroupService)
+                .map(RaftGroupService::getRaftNode)
+                .map(Node::getLeaderId)
+                .map(PeerId::getConsistentId)
+                .orElse(null);
+        assertNotNull(consistentId);
+        return unwrapIgniteImpl(cluster.node(cluster.nodeIndex(consistentId)));
+    }
+
+    private void cancelLease(IgniteImpl leaseholder, String tableName) {
+        StopLeaseProlongationMessage msg = new PlacementDriverMessagesFactory()
+                .stopLeaseProlongationMessage()
+                .groupId(partitionGroupId(cluster.aliveNode(), tableName, 0))
+                .build();
+
+        // Just sent it to all nodes to not determine the exact placement driver active actor.
+        runningNodes().forEach(node -> leaseholder.sendFakeMessage(node.name(), msg));
     }
 
     private Set<String> realAssignments(String tableName) {
-        IgniteImpl ignite = unwrapIgniteImpl(raftLeader(tableName));
+        IgniteImpl ignite = raftLeader(tableName);
         TableViewInternal table = unwrapTableViewInternal(ignite.distributedTableManager().table(tableName));
         return TestDisasterRecoveryUtils.getRealAssignments(
                 ignite.disasterRecoveryManager(), ZONE_NAME, table.zoneId(), table.tableId(), 0);
+    }
+
+    private IgniteImpl findNode(Predicate<? super Ignite> predicate) {
+        return cluster.runningNodes().filter(predicate)
+                .findFirst()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .orElseThrow(() -> new AssertionError("node not found"));
     }
 
     private static PartitionGroupId partitionGroupId(Ignite ignite, String tableName, int partId) {
@@ -392,7 +477,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
      * scale-down event. Otherwise tests will start failing randomly.
      */
     private static void stopNodesInParallel(Cluster cluster, List<String> names) {
-        runRace(names.stream().<RunnableX>map(n -> () -> cluster.stopNode(n)).toArray(RunnableX[]::new));
+        runRace(names.stream().<RunnableX>map(name -> () -> cluster.stopNode(name)).toArray(RunnableX[]::new));
     }
 
     static class AssignmentsRecorder implements WatchListener {
