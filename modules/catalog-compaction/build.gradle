@@ -47,9 +47,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-failure-handler')))
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
     testImplementation libs.awaitility
 
     integrationTestImplementation libs.fastutil.core

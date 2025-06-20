@@ -28,7 +28,6 @@ dependencies {
 
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.hamcrest.core
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation libs.jetbrains.annotations

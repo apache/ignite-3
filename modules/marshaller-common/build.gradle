@@ -32,8 +32,6 @@ dependencies {
 
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.junit5.params
-    testImplementation libs.mockito.junit
     testImplementation libs.jmh.core
 
     testFixturesApi project(':ignite-api')

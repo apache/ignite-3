@@ -55,9 +55,6 @@ dependencies {
     testImplementation project(':ignite-placement-driver')
     testImplementation project(':ignite-replicator')
     testImplementation project(':ignite-cluster-management')
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-catalog')

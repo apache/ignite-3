@@ -48,8 +48,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation project(':ignite-schema')
     testImplementation(testFixtures(project(':ignite-schema')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
     testImplementation libs.jmh.core
 }
 

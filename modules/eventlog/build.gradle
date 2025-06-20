@@ -44,7 +44,6 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation project(':ignite-configuration')
 
-    testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.json
     testImplementation libs.awaitility
     testImplementation libs.mock.server.netty

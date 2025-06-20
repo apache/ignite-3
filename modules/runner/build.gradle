@@ -119,11 +119,6 @@ dependencies {
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-metastorage'))
     testImplementation testFixtures(project(':ignite-jdbc'))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.hamcrest.path
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation(libs.jsonpath.assert) {
         //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
@@ -232,7 +227,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-table'))
     testFixturesImplementation testFixtures(project(':ignite-storage-api'))
     testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.typesafe.config
 }
 

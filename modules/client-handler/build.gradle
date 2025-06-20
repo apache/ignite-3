@@ -60,8 +60,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-table')))
     testImplementation(testFixtures(project(':ignite-low-watermark')))
     testImplementation(testFixtures(project(':ignite-schema')))
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
     testImplementation libs.awaitility
 
     integrationTestImplementation project(':ignite-core')
@@ -98,7 +96,6 @@ dependencies {
     testFixturesImplementation project(':ignite-partition-distribution')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.mockito.junit
 }
 
 description = 'ignite-client-handler'

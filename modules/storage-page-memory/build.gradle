@@ -51,10 +51,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation(testFixtures(project(':ignite-page-memory')))
     testImplementation(testFixtures(project(':ignite-metrics')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.junit5.params
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesAnnotationProcessor libs.auto.service

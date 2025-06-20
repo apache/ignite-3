@@ -51,10 +51,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-marshaller-common')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 
@@ -66,8 +62,4 @@ dependencies {
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.impl
-    testFixturesImplementation libs.junit5.params
-    testFixturesImplementation libs.mockito.core
 }

@@ -117,9 +117,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-low-watermark')))
     testImplementation(testFixtures(project(':ignite-metrics')))
 
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
@@ -159,9 +156,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
     testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.awaitility
-    testFixturesImplementation libs.junit5.params
 
     constraints {
         api('com.google.protobuf:protobuf-java:4.31.1'){

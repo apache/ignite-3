@@ -80,9 +80,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-replicator')))
     testImplementation(testFixtures(project(':ignite-runner')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
 }
 
 description = 'ignite-placement-driver'

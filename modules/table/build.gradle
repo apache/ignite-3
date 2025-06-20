@@ -86,10 +86,6 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-table')))
     testImplementation(testFixtures(project(':ignite-low-watermark')))
     testImplementation(testFixtures(project(':ignite-failure-handler')))
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 
@@ -125,10 +121,6 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-schema')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.mockito.junit
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.junit5.params
 
 
     integrationTestImplementation project(':ignite-raft-api')

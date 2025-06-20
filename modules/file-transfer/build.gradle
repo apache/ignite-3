@@ -33,20 +33,15 @@ dependencies {
 
     testImplementation(testFixtures(project))
     testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation libs.awaitility
 
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
-    integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation libs.awaitility
 
     testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation libs.hamcrest.core
 }
 
 description = 'ignite-file-transfer'
