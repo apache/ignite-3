@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -40,7 +41,8 @@ public class ItEnabledColocationHomogeneityTest extends BaseIgniteRestartTest {
         assertThrowsWithCause(
                 () -> startNode(1),
                 JoinDeniedException.class,
-                "Colocation enabled mode does not match."
+                IgniteStringFormatter.format("Colocation enabled mode does not match. Joining node colocation mode is: {},"
+                        + " cluster colocation mode is: {}", !colocationEnabled, colocationEnabled)
         );
     }
 
