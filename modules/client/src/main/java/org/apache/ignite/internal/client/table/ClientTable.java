@@ -68,6 +68,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
@@ -915,16 +916,17 @@ public class ClientTable implements Table {
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
-                    @Nullable List<String> aff = partitionsFut.getNow(null);
-                    Map<Integer, List<E>> mapped = new HashMap<>();
-                    List<CompletableFuture<R>> res = new ArrayList<>();
+                    ClientSchema schema = schemaFut.getNow(null);
 
+                    @Nullable List<String> aff = partitionsFut.getNow(null);
                     if (aff == null) {
                         return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
                     }
 
+                    Map<Integer, List<E>> mapped = IgniteUtils.newHashMap(aff.size());
+                    List<CompletableFuture<R>> res = new ArrayList<>(aff.size());
+
                     for (E key : keys) {
-                        ClientSchema schema = schemaFut.getNow(null);
                         int hash = hashFunc.apply(schema, key);
                         Integer part = Math.abs(hash % aff.size());
                         mapped.computeIfAbsent(part, k -> new ArrayList<>()).add(key);
@@ -959,23 +961,24 @@ public class ClientTable implements Table {
 
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
-                    @Nullable List<String> aff = partitionsFut.getNow(null);
-                    Map<Integer, Batch<E>> mapped = new HashMap<>();
+                    ClientSchema schema = schemaFut.getNow(null);
 
+                    @Nullable List<String> aff = partitionsFut.getNow(null);
                     if (aff == null) {
                         return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
                     }
 
+                    Map<Integer, Batch<E>> mapped = IgniteUtils.newHashMap(aff.size());
+
                     int idx = 0;
                     for (E key : keys) {
-                        ClientSchema schema = schemaFut.getNow(null);
                         int hash = hashFunc.apply(schema, key);
                         int part = Math.abs(hash % aff.size());
                         mapped.computeIfAbsent(part, k -> new Batch<>()).add(key, idx);
                         idx++;
                     }
 
-                    List<CompletableFuture<List<E>>> res = new ArrayList<>();
+                    List<CompletableFuture<List<E>>> res = new ArrayList<>(aff.size());
                     List<Batch<E>> batches = new ArrayList<>();
 
                     for (Entry<Integer, Batch<E>> entry : mapped.entrySet()) {
