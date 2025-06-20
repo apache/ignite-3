@@ -42,12 +42,10 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -57,7 +55,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
@@ -90,11 +87,9 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
-import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
@@ -802,7 +797,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         ))
                 .handle((res, ex) -> {
                     if (ex != null) {
-                        Throwable cause = ExceptionUtils.unwrapCause(ex);
+                        Throwable cause = ExceptionUtils.unwrapRootCause(ex);
 
                         if (cause instanceof MismatchingTransactionOutcomeInternalException) {
                             MismatchingTransactionOutcomeInternalException transactionException =
@@ -828,8 +823,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                             return CompletableFuture.<Void>failedFuture(cause);
                         }
 
-                        if (TransactionFailureHandler.isRecoverable(cause)) {
-                            LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
+                        if (ReplicatorRecoverableExceptions.isRecoverable(cause)) {
+                            LOG.debug("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
 
                             return supplyAsync(() -> durableFinish(
                                     observableTimestampTracker,
@@ -1237,38 +1232,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 txViewProvider.get(),
                 lockViewProvider.get()
         );
-    }
-
-    static class TransactionFailureHandler {
-        private static final Set<Class<? extends Throwable>> RECOVERABLE = Set.of(
-                TimeoutException.class,
-                IOException.class,
-                ReplicationException.class,
-                ReplicationTimeoutException.class,
-                PrimaryReplicaMissException.class
-        );
-
-        /**
-         * Check if the provided exception is recoverable. A recoverable transaction is the one that we can send a 'retry' request for.
-         *
-         * @param throwable Exception to test.
-         * @return {@code true} if recoverable, {@code false} otherwise.
-         */
-        static boolean isRecoverable(Throwable throwable) {
-            if (throwable == null) {
-                return false;
-            }
-
-            Throwable candidate = ExceptionUtils.unwrapCause(throwable);
-
-            for (Class<? extends Throwable> recoverableClass : RECOVERABLE) {
-                if (recoverableClass.isAssignableFrom(candidate.getClass())) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
 
     private HybridTimestamp createBeginTimestampWithIncrementRwTxCounter() {

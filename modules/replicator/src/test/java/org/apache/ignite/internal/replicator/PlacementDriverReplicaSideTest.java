@@ -40,7 +40,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -136,8 +135,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 (unused0, unused1) -> reservationClosure.run(),
                 executor,
                 storageIndexTracker,
-                raftClient,
-                new NoOpFailureManager()
+                raftClient
         );
 
         return new ReplicaImpl(
