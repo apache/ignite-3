@@ -96,9 +96,11 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
             setupBaseVersion(client);
         }
 
-        cluster.stop();
+        if (restartWithCurrentEmbeddedVersion()) {
+            cluster.stop();
 
-        cluster.startEmbedded(nodesCount);
+            cluster.startEmbedded(nodesCount);
+        }
     }
 
     @SuppressWarnings("unused")
@@ -115,6 +117,10 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
     protected int nodesCount() {
         return 3;
+    }
+
+    protected boolean restartWithCurrentEmbeddedVersion() {
+        return true;
     }
 
     /**
