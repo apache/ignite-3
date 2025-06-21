@@ -37,15 +37,16 @@ public class ItEnabledColocationHomogeneityTest extends BaseIgniteRestartTest {
 
     @BeforeAll
     public static void setUp() {
-        commonColocationFeatureFlag = System. getProperty(COLOCATION_FEATURE_FLAG);
+        commonColocationFeatureFlag = System.getProperty(COLOCATION_FEATURE_FLAG);
     }
 
     @AfterAll
     public static void tearDown() {
-        if (commonColocationFeatureFlag == null)
-            System. clearProperty(COLOCATION_FEATURE_FLAG);
-        else
-            System. setProperty(COLOCATION_FEATURE_FLAG, commonColocationFeatureFlag);
+        if (commonColocationFeatureFlag == null) {
+            System.clearProperty(COLOCATION_FEATURE_FLAG);
+        } else {
+            System.setProperty(COLOCATION_FEATURE_FLAG, commonColocationFeatureFlag);
+        }
     }
 
     @ParameterizedTest
