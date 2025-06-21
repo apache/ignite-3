@@ -1717,8 +1717,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             )).thenComposeAsync(componentFuts -> {
                 CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                         .thenCompose(rev -> allOf(
-                                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                                 ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(),
                                 componentFuts
                         ));
