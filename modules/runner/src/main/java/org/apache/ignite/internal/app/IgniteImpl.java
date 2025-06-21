@@ -715,6 +715,8 @@ public class IgniteImpl implements Ignite {
                         nodeConfigRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage()
                 );
 
+        nodeAttributesCollector.register(nodeProperties);
+
         var clusterStateStorageMgr =  new ClusterStateStorageManager(clusterStateStorage);
         var validationManager = new ValidationManager(clusterStateStorageMgr, logicalTopology);
 
