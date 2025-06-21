@@ -46,6 +46,7 @@ dependencies {
     testImplementation project(':ignite-cluster-management')
     testImplementation project(':ignite-failure-handler')
     testImplementation project(':ignite-table')
+    testImplementation project(':ignite-rocksdb-common')
     testImplementation testFixtures(project(':ignite-catalog'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-core'))

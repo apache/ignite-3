@@ -67,7 +67,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
     private final Executor partitionOperationsExecutor;
 
     /** Map from zone IDs to their resource holders. */
-    private final Map<Integer, ZoneResources> resourcesByZoneId = new ConcurrentHashMap<>();
+    private final Map<Integer, ZoneResources>  resourcesByZoneId = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -146,7 +146,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         return zoneResources.resourcesByPartitionId.get(zonePartitionId.partitionId());
     }
 
-    private TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
+    protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
         TxStateStorage txStateStorage = new TxStateRocksDbStorage(zoneId, partitionCount, sharedTxStateStorage);
 
         if (ThreadAssertions.enabled()) {
