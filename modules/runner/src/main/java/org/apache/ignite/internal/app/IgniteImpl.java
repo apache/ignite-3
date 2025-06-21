@@ -1905,14 +1905,10 @@ public class IgniteImpl implements Ignite {
                 .thenRunAsync(systemDisasterRecoveryManager::markInitConfigApplied, startupExecutor);
     }
 
-    /**
-     * Recovers components state on start by invoking cluster configuration listeners and deploying watches after that.
-     */
     private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor, CompletableFuture<Void> startFuture) {
-        CompletableFuture<Void> startupConfigurationUpdate = clusterConfiguration().notifyCurrentConfigurationListeners();
         CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
 
-        return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
+        return CompletableFuture.allOf(startupRevisionUpdate, startFuture)
                 .thenComposeAsync(unused -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     return metaStorageMgr.deployWatches();

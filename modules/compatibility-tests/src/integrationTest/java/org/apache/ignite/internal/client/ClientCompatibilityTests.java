@@ -91,7 +91,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25514")
     default void testTableByName() {
         Table testTable = client().tables().table(TABLE_NAME_TEST);
         assertNotNull(testTable);
@@ -100,7 +99,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25514")
     default void testTableByQualifiedName() {
         Table testTable = client().tables().table(QualifiedName.fromSimple(TABLE_NAME_TEST));
         assertNotNull(testTable);
@@ -452,7 +450,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25545")
     default void testTxCommit() {
         int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
@@ -472,7 +469,6 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25545")
     default void testTxRollback() {
         int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
@@ -489,15 +485,20 @@ public interface ClientCompatibilityTests {
     }
 
     @Test
-    @Disabled("IGNITE-25545")
     default void testTxReadOnly() {
         int id = idGen().incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
 
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
-        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
 
+        // Start and activate a read-only transaction.
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+        assertNull(view.get(tx, key)); // Activate lazy tx.
+
+        // Insert a record with an implicit tx.
         view.insert(null, Tuple.create().set("id", id).set("name", "testTxReadOnly"));
+
+        // RO transaction should not see the changes made outside of it.
         assertNull(view.get(tx, key), "Read-only transaction shows snapshot of data in the past.");
 
         tx.rollback();
@@ -611,10 +612,6 @@ public interface ClientCompatibilityTests {
     }
 
     private Table table(String tableName) {
-        // TODO IGNITE-25514 Use client().tables().table().
-        return client().tables().tables().stream()
-                .filter(t -> t.qualifiedName().objectName().equals(tableName))
-                .findFirst()
-                .orElseThrow();
+        return client().tables().table(tableName);
     }
 }
