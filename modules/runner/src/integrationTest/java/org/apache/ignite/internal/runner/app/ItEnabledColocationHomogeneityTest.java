@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -33,15 +33,15 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("ThrowableNotThrown")
 public class ItEnabledColocationHomogeneityTest extends BaseIgniteRestartTest {
-    private static String commonColocationFeatureFlag;
+    private String commonColocationFeatureFlag;
 
-    @BeforeAll
-    public static void setUp() {
+    @BeforeEach
+    public void setUp() {
         commonColocationFeatureFlag = System.getProperty(COLOCATION_FEATURE_FLAG);
     }
 
-    @AfterAll
-    public static void tearDown() {
+    @AfterEach
+    public void tearDown() {
         if (commonColocationFeatureFlag == null) {
             System.clearProperty(COLOCATION_FEATURE_FLAG);
         } else {
