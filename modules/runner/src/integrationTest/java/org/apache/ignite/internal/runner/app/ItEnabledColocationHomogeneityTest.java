@@ -48,7 +48,7 @@ public class ItEnabledColocationHomogeneityTest extends BaseIgniteRestartTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    public void testJoinDeniedIsNotThrownInCaseOfIncompatibleColocationModes(boolean colocationEnabled) {
+    public void testJoinDeniedIsNotThrownInCaseOfCompatibleColocationModes(boolean colocationEnabled) {
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled));
         startNode(0);
         startNode(1);
