@@ -135,7 +135,7 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     /** {@inheritDoc} */
     @Override
     public String getValueAsString() {
-        StringBuilder sb = new StringBuilder("[");
+        StringBuilder sb = new StringBuilder('[');
 
         List<Metric> scalarMetrics = asScalarMetrics();
 

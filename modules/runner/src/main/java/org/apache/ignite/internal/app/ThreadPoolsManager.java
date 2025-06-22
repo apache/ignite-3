@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.app;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -46,9 +47,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
  */
 public class ThreadPoolsManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadPoolsManager.class);
-
-    /** Group for a thread pools. */
-    private static final String THREAD_POOLS_METRICS_PACKAGE = "thread.pools.";
 
     /**
      * Separate executor for IO operations like partition storage initialization, partition raft group meta data persisting,
@@ -99,7 +97,7 @@ public class ThreadPoolsManager implements IgniteComponent {
         metricSources = new ArrayList<>();
         metricSources.add(
                 new ThreadPoolMetricSource(
-                        THREAD_POOLS_METRICS_PACKAGE + "partitions-executor",
+                        THREAD_POOLS_METRICS_SOURCE_NAME + "partitions-executor",
                         (ThreadPoolExecutor) partitionOperationsExecutor)
         );
     }
