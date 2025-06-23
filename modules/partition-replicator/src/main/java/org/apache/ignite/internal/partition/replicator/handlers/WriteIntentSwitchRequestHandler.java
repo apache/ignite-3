@@ -45,6 +45,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.WriteInte
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
+import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -184,7 +185,7 @@ public class WriteIntentSwitchRequestHandler {
         return raftCommandApplicator
                 .applyCommandWithExceptionHandling(wiSwitchCmd)
                 .whenComplete((res, ex) -> {
-                    if (ex != null) {
+                    if (ex != null && !ReplicatorRecoverableExceptions.isRecoverable(ex)) {
                         LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', ex);
                     }
                 });
