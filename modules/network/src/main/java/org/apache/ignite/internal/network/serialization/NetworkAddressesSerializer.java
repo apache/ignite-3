@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.network.serialization;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -49,7 +48,7 @@ public class NetworkAddressesSerializer extends VersionedSerializer<Set<NetworkA
     protected Set<NetworkAddress> readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         int length = in.readVarIntAsInt();
 
-        List<NetworkAddress> addresses = new ArrayList<>(IgniteUtils.capacity(length));
+        Set<NetworkAddress> addresses = new HashSet<>(IgniteUtils.capacity(length));
         for (int i = 0; i < length; i++) {
             addresses.add(networkAddressSerializer.readExternal(in));
         }
