@@ -200,7 +200,9 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        assertThrows(IllegalArgumentException.class, () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)).classLoader());
     }
 
     @Test
@@ -214,7 +216,9 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        assertThrows(IllegalArgumentException.class, () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)).classLoader());
     }
 
     private List<DisposableDeploymentUnit> toDisposableDeploymentUnits(DeploymentUnit... units) {
