@@ -67,7 +67,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Allow txn no-op operations to be enlisted in direct transaction.
      */
-    TX_ALLOW_NOOP_ENLIST(8);
+    TX_ALLOW_NOOP_ENLIST(8),
+
+    /**
+     * Client supports Partition Awareness for SQL queries.
+     */
+    SQL_PARTITION_AWARENESS(9);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

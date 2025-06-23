@@ -64,6 +64,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     private final long operationTimeout;
 
+    private final int sqlPartitionAwarenessMetadataCacheSize;
+
     /**
      * Constructor.
      *
@@ -79,6 +81,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      *         needed.
      * @param metricsEnabled Whether metrics are enabled.
      * @param authenticator Authenticator.
+     * @param operationTimeout Operation timeout.
+     * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache to store partition awareness metadata.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -93,7 +97,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             @Nullable SslConfiguration sslConfiguration,
             boolean metricsEnabled,
             @Nullable IgniteClientAuthenticator authenticator,
-            long operationTimeout) {
+            long operationTimeout,
+            int sqlPartitionAwarenessMetadataCacheSize
+    ) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -110,6 +116,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.metricsEnabled = metricsEnabled;
         this.authenticator = authenticator;
         this.operationTimeout = operationTimeout;
+        this.sqlPartitionAwarenessMetadataCacheSize = sqlPartitionAwarenessMetadataCacheSize;
     }
 
     /** {@inheritDoc} */
@@ -187,5 +194,10 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public long operationTimeout() {
         return operationTimeout;
+    }
+
+    @Override
+    public int sqlPartitionAwarenessMetadataCacheSize() {
+        return sqlPartitionAwarenessMetadataCacheSize;
     }
 }
