@@ -92,7 +92,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         TxStateRocksDbPartitionStorage storage = storages.get(partitionId);
 
         if (storage == null) {
-            storage = (TxStateRocksDbPartitionStorage) createPartitionStorage(partitionId);
+            storage = createPartitionStorage(partitionId);
 
             storage.start();
         }
@@ -102,7 +102,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return storage;
     }
 
-    protected TxStatePartitionStorage createPartitionStorage(int partitionId) {
+    protected TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
         return new TxStateRocksDbPartitionStorage(partitionId, this);
     }
 
