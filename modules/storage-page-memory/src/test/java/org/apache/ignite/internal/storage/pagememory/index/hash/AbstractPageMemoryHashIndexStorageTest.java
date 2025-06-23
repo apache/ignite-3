@@ -117,23 +117,23 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
             try {
                 int inlineSize = index.indexTree().inlineSize();
 
-                HashIndexRow bigHashIndexRow = new HashIndexRow(
+                HashIndexRow firstHashIndexRow = new HashIndexRow(
                         hash,
                         new IndexColumns(TEST_PARTITION, ByteBuffer.allocate(firstSize)),
                         new RowId(TEST_PARTITION)
                 );
 
-                var bigClosure = new InsertHashIndexRowInvokeClosure(bigHashIndexRow, index.freeList(), inlineSize);
-                index.indexTree().invoke(bigHashIndexRow, null, bigClosure);
+                var firstClosure = new InsertHashIndexRowInvokeClosure(firstHashIndexRow, index.freeList(), inlineSize);
+                index.indexTree().invoke(firstHashIndexRow, null, firstClosure);
 
-                HashIndexRow smallHashIndexRow = new HashIndexRow(
+                HashIndexRow secondHashIndexRow = new HashIndexRow(
                         hash,
                         new IndexColumns(TEST_PARTITION, ByteBuffer.allocate(secondSize)),
                         new RowId(TEST_PARTITION)
                 );
 
-                var smallClosure = new InsertHashIndexRowInvokeClosure(smallHashIndexRow, index.freeList(), inlineSize);
-                index.indexTree().invoke(smallHashIndexRow, null, smallClosure);
+                var secondClosure = new InsertHashIndexRowInvokeClosure(secondHashIndexRow, index.freeList(), inlineSize);
+                index.indexTree().invoke(secondHashIndexRow, null, secondClosure);
 
                 return null;
             } catch (IgniteInternalCheckedException e) {
