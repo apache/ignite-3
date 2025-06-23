@@ -110,7 +110,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
     }
 
 
-    private static class TestJobClassLoader extends JobClassLoader {
+    private static class TestJobClassLoader extends JobClassLoaderImpl {
         TestJobClassLoader(URL[] urls, List<DisposableDeploymentUnit> units, ClassLoader parent) {
             super(units, urls, parent);
         }
