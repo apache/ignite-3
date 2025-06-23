@@ -21,8 +21,6 @@
 
 #include <Python.h>
 
-#define PY_CONNECTION_CLASS_NAME "PyConnection"
-
 namespace ignite {
 class sql_environment;
 class sql_connection;

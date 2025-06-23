@@ -26,13 +26,15 @@
 
 #include <Python.h>
 
+#define PY_CONNECTION_CLASS_NAME "PyConnection"
+
 /**
  * Check if the connection is open. Set error if not.
  *
  * @param self Connection.
- * @return @c true if open and @c false otherwise.
+ * @return @c true if open and @c false, otherwise.
  */
-static bool py_connection_expect_open(py_connection* self) {
+static bool py_connection_expect_open(const py_connection* self) {
     if (!self->m_connection) {
         PyErr_SetString(py_get_module_interface_error_class(), "Connection is in invalid state (Already closed?)");
         return false;
@@ -40,11 +42,8 @@ static bool py_connection_expect_open(py_connection* self) {
     return true;
 }
 
-int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds)
+int py_connection_init(py_connection *self, PyObject *, PyObject *)
 {
-    UNUSED_VALUE args;
-    UNUSED_VALUE kwds;
-
     self->m_environment = nullptr;
     self->m_connection = nullptr;
 
@@ -90,7 +89,7 @@ static PyObject* py_connection_cursor(py_connection* self, PyObject*)
         if (!py_cursor)
             return nullptr;
 
-        auto py_cursor_obj = (PyObject*)py_cursor;
+        auto py_cursor_obj = reinterpret_cast<PyObject *>(py_cursor);
         Py_INCREF(py_cursor_obj);
         return py_cursor_obj;
     }
@@ -125,7 +124,7 @@ static PyObject* py_connection_set_autocommit(py_connection* self, PyObject* val
         return nullptr;
     }
 
-    void* ptr_autocommit = (void*)(ptrdiff_t((value == Py_True) ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF));
+    auto ptr_autocommit = reinterpret_cast<void *>(ptrdiff_t(value == Py_True ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF));
     self->m_connection->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
     if (!check_errors(*self->m_connection))
         return nullptr;
@@ -163,30 +162,30 @@ static PyTypeObject py_connection_type = {
 };
 
 static struct PyMethodDef py_connection_methods[] = {
-    {"close", (PyCFunction)py_connection_close, METH_NOARGS, nullptr},
-    {"cursor", (PyCFunction)py_connection_cursor, METH_NOARGS, nullptr},
-    {"autocommit", (PyCFunction)py_connection_autocommit, METH_NOARGS, nullptr},
-    {"set_autocommit", (PyCFunction)py_connection_set_autocommit, METH_O, nullptr},
-    {"commit", (PyCFunction)py_connection_commit, METH_NOARGS, nullptr},
-    {"rollback", (PyCFunction)py_connection_rollback, METH_NOARGS, nullptr},
+    {"close", PyCFunction(py_connection_close), METH_NOARGS, nullptr},
+    {"cursor", PyCFunction(py_connection_cursor), METH_NOARGS, nullptr},
+    {"autocommit", PyCFunction(py_connection_autocommit), METH_NOARGS, nullptr},
+    {"set_autocommit", PyCFunction(py_connection_set_autocommit), METH_O, nullptr},
+    {"commit", PyCFunction(py_connection_commit), METH_NOARGS, nullptr},
+    {"rollback", PyCFunction(py_connection_rollback), METH_NOARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}
 };
 
 int prepare_py_connection_type() {
     py_connection_type.tp_new = PyType_GenericNew;
     py_connection_type.tp_basicsize=sizeof(py_connection);
-    py_connection_type.tp_dealloc=(destructor)py_connection_dealloc;
+    py_connection_type.tp_dealloc=reinterpret_cast<destructor>(py_connection_dealloc);
     py_connection_type.tp_flags=Py_TPFLAGS_DEFAULT;
     py_connection_type.tp_methods=py_connection_methods;
-    py_connection_type.tp_init=(initproc)py_connection_init;
+    py_connection_type.tp_init=reinterpret_cast<initproc>(py_connection_init);
 
     return PyType_Ready(&py_connection_type);
 }
 
 int register_py_connection_type(PyObject* mod) {
-    auto res = PyModule_AddObject(mod, PY_CONNECTION_CLASS_NAME, (PyObject *)&py_connection_type);
+    auto res = PyModule_AddObject(mod, PY_CONNECTION_CLASS_NAME, reinterpret_cast<PyObject *>(&py_connection_type));
     if (res < 0) {
-        Py_DECREF((PyObject *)&py_connection_type);
+        Py_DECREF(reinterpret_cast<PyObject *>(&py_connection_type));
     }
     return res;
 }

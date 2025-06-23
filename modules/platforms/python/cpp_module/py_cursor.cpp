@@ -291,8 +291,8 @@ static PyObject* py_cursor_execute(py_cursor* self, PyObject* args, PyObject* kw
         return nullptr;
 
     static char *kwlist[] = {
-        "query",
-        "params",
+        const_cast<char*>("query"),
+        const_cast<char*>("params"),
         nullptr
     };
 
@@ -336,8 +336,8 @@ static PyObject* py_cursor_executemany(py_cursor* self, PyObject* args, PyObject
         return nullptr;
 
     static char *kwlist[] = {
-        "query",
-        "params_list",
+        const_cast<char*>("query"),
+        const_cast<char*>("params_list"),
         nullptr
     };
 

@@ -22,7 +22,6 @@
 #include "ignite/odbc/sql_environment.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/ssl_mode.h"
-#include "ignite/odbc/utility.h"
 
 #include "ignite/common/detail/bytes.h"
 #include <ignite/network/network.h>
@@ -31,6 +30,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <new>
 #include <random>
 #include <sstream>
 #include <detail/utils.h>
@@ -224,7 +224,7 @@ sql_statement *sql_connection::create_statement() {
 }
 
 sql_result sql_connection::internal_create_statement(sql_statement *&statement) {
-    statement = new sql_statement(*this);
+    statement = new(std::nothrow) sql_statement(*this);
 
     if (!statement) {
         add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
@@ -422,10 +422,9 @@ sql_result sql_connection::internal_transaction_commit() {
 
     LOG_MSG("Committing transaction: " << *m_transaction_id);
 
-    network::data_buffer_owning response;
     auto success = catch_errors([&] {
-        auto response = sync_request(
-            protocol::client_operation::TX_COMMIT, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+        sync_request(protocol::client_operation::TX_COMMIT,
+            [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 
     if (!success)
@@ -448,9 +447,8 @@ sql_result sql_connection::internal_transaction_rollback() {
 
     LOG_MSG("Rolling back transaction: " << *m_transaction_id);
 
-    network::data_buffer_owning response;
     auto success = catch_errors([&] {
-        auto response = sync_request(protocol::client_operation::TX_ROLLBACK,
+        sync_request(protocol::client_operation::TX_ROLLBACK,
             [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 

@@ -50,23 +50,79 @@ static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
     if (!py_conn)
         return nullptr;
 
-    auto res = PyObject_SetAttrString(conn_obj, "_py_connection", (PyObject*)py_conn);
-    if (res)
+    if (PyObject_SetAttrString(conn_obj, "_py_connection", reinterpret_cast<PyObject *>(py_conn)))
         return nullptr;
 
     return conn_obj;
 }
 
+static PyObject* make_connection(std::string address_str, const char* schema, const char* identity, const char* secret,
+    int page_size, int timeout, int autocommit) {
+    if (address_str.empty()) {
+        PyErr_SetString(py_get_module_interface_error_class(), "No addresses provided to connect");
+        return nullptr;
+    }
+
+    auto sql_env = std::make_unique<ignite::sql_environment>();
+
+    std::unique_ptr<ignite::sql_connection> sql_conn{sql_env->create_connection()};
+    if (!check_errors(*sql_env))
+        return nullptr;
+
+    ignite::configuration cfg;
+    cfg.set_address(std::move(address_str));
+
+    if (schema)
+        cfg.set_schema(schema);
+
+    if (identity)
+        cfg.set_auth_identity(identity);
+
+    if (secret)
+        cfg.set_auth_secret(secret);
+
+    if (page_size)
+        cfg.set_page_size(std::int32_t(page_size));
+
+    if (timeout)
+    {
+        auto ptr_timeout = reinterpret_cast<void *>(ptrdiff_t(timeout));
+        sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+
+        sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+    }
+
+    sql_conn->establish(cfg);
+    if (!check_errors(*sql_conn))
+        return nullptr;
+
+    if (!autocommit)
+    {
+        auto ptr_autocommit = reinterpret_cast<void *>(ptrdiff_t(SQL_AUTOCOMMIT_OFF));
+        sql_conn->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+    }
+
+    return make_connection(std::move(sql_env), std::move(sql_conn));
+}
+
 static PyObject* pyignite_dbapi_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
+    UNUSED_VALUE self;
+
     static char *kwlist[] = {
-        "address",
-        "identity",
-        "secret",
-        "schema",
-        "timezone",
-        "timeout",
-        "page_size",
-        "autocommit",
+        const_cast<char*>("address"),
+        const_cast<char*>("identity"),
+        const_cast<char*>("secret"),
+        const_cast<char*>("schema"),
+        const_cast<char*>("timezone"),
+        const_cast<char*>("timeout"),
+        const_cast<char*>("page_size"),
+        const_cast<char*>("autocommit"),
         "use_ssl",
         "ssl_keyfile",
         "ssl_certfile",
@@ -129,74 +185,11 @@ static PyObject* pyignite_dbapi_connect(PyObject* self, PyObject* args, PyObject
         return nullptr;
     }
 
-    auto addrs_str = address_builder.str();
-    if (addrs_str.empty()) {
-        PyErr_SetString(py_get_module_interface_error_class(), "No addresses provided to connect");
-        return nullptr;
-    }
-
-    using namespace ignite;
-
-    auto sql_env = std::make_unique<sql_environment>();
-
-    std::unique_ptr<sql_connection> sql_conn{sql_env->create_connection()};
-    if (!check_errors(*sql_env))
-        return nullptr;
-
-    configuration cfg;
-    cfg.set_address(addrs_str);
-
-    if (schema)
-        cfg.set_schema(schema);
-
-    if (identity)
-        cfg.set_auth_identity(identity);
-
-    if (secret)
-        cfg.set_auth_secret(secret);
-
-    if (page_size)
-        cfg.set_page_size(std::int32_t(page_size));
-
-    if (timeout) {
-        void* ptr_timeout = (void*)(ptrdiff_t(timeout));
-        sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-
-        sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-    }
-
-    if (use_ssl)
-        cfg.set_ssl_mode(ssl_mode_t::REQUIRE);
-
-    if (ssl_keyfile)
-        cfg.set_ssl_key_file(ssl_keyfile);
-
-    if (ssl_certfile)
-        cfg.set_ssl_cert_file(ssl_certfile);
-
-    if (ssl_ca_certfile)
-        cfg.set_ssl_ca_file(ssl_ca_certfile);
-
-    sql_conn->establish(cfg);
-    if (!check_errors(*sql_conn))
-        return nullptr;
-
-    if (!autocommit) {
-        void* ptr_autocommit = (void*)(ptrdiff_t(SQL_AUTOCOMMIT_OFF));
-        sql_conn->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-    }
-
-    return make_connection(std::move(sql_env), std::move(sql_conn));
+    return make_connection(address_builder.str(), schema, identity, secret, page_size, timeout, autocommit, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
 }
 
 static PyMethodDef methods[] = {
-    {"connect", (PyCFunction)pyignite_dbapi_connect, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {"connect", PyCFunction(pyignite_dbapi_connect), METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 
@@ -213,9 +206,7 @@ static struct PyModuleDef module_def = {
 };
 
 PyMODINIT_FUNC PyInit__pyignite_dbapi_extension(void) { // NOLINT(*-reserved-identifier)
-    PyObject* mod;
-
-    mod = PyModule_Create(&module_def);
+    PyObject *mod = PyModule_Create(&module_def);
     if (mod == nullptr)
         return nullptr;
 
