@@ -19,13 +19,10 @@ package org.apache.ignite.internal.compute.loader;
 
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
-import org.apache.ignite.lang.ErrorGroups.Compute;
-import org.apache.ignite.lang.IgniteException;
 
 class JobClassLoaderImpl extends URLClassLoader {
     /**
@@ -110,37 +107,6 @@ class JobClassLoaderImpl extends URLClassLoader {
             return clazz;
         } else {
             return loadedClass;
-        }
-    }
-
-    @Override
-    public void close() {
-        List<Exception> exceptions = new ArrayList<>();
-
-        for (DisposableDeploymentUnit unit : units) {
-            try {
-                unit.release();
-            } catch (Exception e) {
-                exceptions.add(e);
-            }
-        }
-
-        try {
-            super.close();
-        } catch (Exception e) {
-            exceptions.add(e);
-        }
-
-        if (!exceptions.isEmpty()) {
-            IgniteException igniteException = new IgniteException(
-                    Compute.CLASS_LOADER_ERR,
-                    "Failed to close class loader"
-            );
-
-            for (Exception exception : exceptions) {
-                igniteException.addSuppressed(exception);
-            }
-            throw igniteException;
         }
     }
 
