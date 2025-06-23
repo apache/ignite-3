@@ -21,7 +21,6 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * An object that measures elapsed time in nanoseconds. It is useful to measure elapsed time using
@@ -122,7 +121,7 @@ final class IgniteStopwatch {
      *
      * @param ticker Ticker.
      */
-    IgniteStopwatch(@NotNull IgniteTicker ticker) {
+    IgniteStopwatch(IgniteTicker ticker) {
         this.ticker = ticker;
     }
 

@@ -27,7 +27,6 @@ import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.jetbrains.annotations.NotNull;
 
 class TimeBagImpl implements TimeBag {
     /** Lock. */
@@ -296,14 +295,20 @@ class TimeBagImpl implements TimeBag {
         public String toString() {
             StringBuilder sb = new StringBuilder();
 
-            sb.append("stage=").append('"').append(description()).append('"');
-            sb.append(' ').append('(').append(time()).append(' ').append(measurementUnitShort(measurementUnit)).append(')');
+            sb.append("stage=")
+                    .append('"')
+                    .append(description()).append('"')
+                    .append(' ')
+                    .append('(')
+                    .append(time()).append(' ')
+                    .append(measurementUnitShort(measurementUnit))
+                    .append(')');
 
             return sb.toString();
         }
 
         @Override
-        public int compareTo(@NotNull Stage o) {
+        public int compareTo(Stage o) {
             if (o.time < time) {
                 return -1;
             }
