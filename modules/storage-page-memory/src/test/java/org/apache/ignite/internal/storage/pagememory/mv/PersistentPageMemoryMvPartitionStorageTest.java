@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -31,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -43,9 +46,11 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataRegion;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
@@ -212,7 +217,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
     }
 
     @Test
-    void testDeltaFileCompactionAfterPartitionRecreated() throws InterruptedException {
+    void testDeltaFileCompactionAfterClearPartition() throws InterruptedException {
         addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
 
         assertThat(table.clearPartition(PARTITION_ID), willCompleteSuccessfully());
@@ -220,10 +225,38 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
         waitForDeltaFileCompaction((PersistentPageMemoryTableStorage) table);
     }
 
+    @Test
+    void testDeltaFileCompactionAfterPartitionRebalanced() throws InterruptedException {
+        addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
+
+        var leaseInfo = new LeaseInfo(333, new UUID(1, 2), "primary");
+
+        var partitionMeta = new MvPartitionMeta(1, 2, BYTE_EMPTY_ARRAY, leaseInfo, BYTE_EMPTY_ARRAY);
+
+        CompletableFuture<Void> rebalance = table.startRebalancePartition(PARTITION_ID)
+                .thenCompose(v -> table.finishRebalancePartition(PARTITION_ID, partitionMeta));
+
+        assertThat(rebalance, willCompleteSuccessfully());
+
+        waitForDeltaFileCompaction((PersistentPageMemoryTableStorage) table);
+    }
+
+    @Test
+    void testDeltaFileCompactionAfterPartitionRebalanceAborted() throws InterruptedException {
+        addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
+
+        CompletableFuture<Void> abortRebalance = table.startRebalancePartition(PARTITION_ID)
+                .thenCompose(v -> table.abortRebalancePartition(PARTITION_ID));
+
+        assertThat(abortRebalance, willCompleteSuccessfully());
+
+        waitForDeltaFileCompaction((PersistentPageMemoryTableStorage) table);
+    }
+
     private void waitForDeltaFileCompaction(PersistentPageMemoryTableStorage tableStorage) throws InterruptedException {
         PersistentPageMemoryDataRegion dataRegion = tableStorage.dataRegion();
 
-        CheckpointProgress checkpointProgress = engine.checkpointManager().forceCheckpoint("");
+        CheckpointProgress checkpointProgress = engine.checkpointManager().forceCheckpoint("Test compaction");
         assertThat(checkpointProgress.futureFor(FINISHED), willCompleteSuccessfully());
 
         FilePageStore fileStore = dataRegion.filePageStoreManager().getStore(new GroupPartitionId(tableStorage.getTableId(), PARTITION_ID));

@@ -366,11 +366,11 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         store.markToDestroy();
 
-        var future = new CompletableFuture<>();
+        var prepareDestroyFuture = new CompletableFuture<>();
 
         CheckpointManager checkpointManager = dataRegion.checkpointManager();
 
-        CheckpointListener listener = new CheckpointListener() {
+        var listener = new CheckpointListener() {
             @Override
             public void afterCheckpointEnd(CheckpointProgress progress) {
                 checkpointManager.removeCheckpointListener(this);
@@ -380,9 +380,9 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
                     dataRegion.partitionMetaManager().removeMeta(groupPartitionId);
 
-                    future.complete(null);
+                    prepareDestroyFuture.complete(null);
                 } catch (Exception e) {
-                    future.completeExceptionally(
+                    prepareDestroyFuture.completeExceptionally(
                             new StorageException("Couldn't invalidate partition for destruction: " + groupPartitionId, e)
                     );
                 }
@@ -397,7 +397,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
         );
 
         return checkpoint.futureFor(CheckpointState.FINISHED)
-                .thenCompose(v -> future)
+                .thenCompose(v -> prepareDestroyFuture)
                 .thenCompose(v -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
     }
 
