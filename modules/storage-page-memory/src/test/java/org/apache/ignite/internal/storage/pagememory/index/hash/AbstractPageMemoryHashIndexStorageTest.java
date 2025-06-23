@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index;
+package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MAX_BINARY_TUPLE_INLINE_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomString;
@@ -23,6 +23,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 
+import java.nio.ByteBuffer;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -30,8 +33,12 @@ import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
+import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Base class for testing {@link HashIndexStorage} based on {@link PageMemory}.
@@ -88,5 +95,50 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         assertThat(getAll(index, indexRow1), contains(indexRow1.rowId()));
 
         assertThat(getAll(index, createIndexRow(serializer, new RowId(TEST_PARTITION), 1, "foo")), empty());
+    }
+
+    private static Stream<Arguments> sizesForCollisionTest() {
+        return Stream.of(
+                Arguments.of(10, 200),
+                Arguments.of(100, 200),
+                Arguments.of(200, 10),
+                Arguments.of(200, 100)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("sizesForCollisionTest")
+    void testHashCollisionAndDifferentSizes(int firstSize, int secondSize) {
+        var index = (PageMemoryHashIndexStorage) createIndexStorage(INDEX_NAME, ColumnType.STRING);
+
+        int hash = 123;
+
+        partitionStorage.runConsistently(locker -> {
+            try {
+                int inlineSize = index.indexTree().inlineSize();
+
+                HashIndexRow bigHashIndexRow = new HashIndexRow(
+                        hash,
+                        new IndexColumns(TEST_PARTITION, ByteBuffer.allocate(firstSize)),
+                        new RowId(TEST_PARTITION)
+                );
+
+                var bigClosure = new InsertHashIndexRowInvokeClosure(bigHashIndexRow, index.freeList(), inlineSize);
+                index.indexTree().invoke(bigHashIndexRow, null, bigClosure);
+
+                HashIndexRow smallHashIndexRow = new HashIndexRow(
+                        hash,
+                        new IndexColumns(TEST_PARTITION, ByteBuffer.allocate(secondSize)),
+                        new RowId(TEST_PARTITION)
+                );
+
+                var smallClosure = new InsertHashIndexRowInvokeClosure(smallHashIndexRow, index.freeList(), inlineSize);
+                index.indexTree().invoke(smallHashIndexRow, null, smallClosure);
+
+                return null;
+            } catch (IgniteInternalCheckedException e) {
+                throw new AssertionError(e);
+            }
+        });
     }
 }
