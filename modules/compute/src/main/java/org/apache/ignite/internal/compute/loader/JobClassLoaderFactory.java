@@ -50,6 +50,7 @@ public class JobClassLoaderFactory {
      * @return The class loader.
      */
     public JobClassLoader createClassLoader(List<DisposableDeploymentUnit> units) {
+        // TODO: Make JobClassLoader lazy so for platform jobs it is quick.
         return AccessController.doPrivileged(new PrivilegedAction<>() {
             @Override
             public JobClassLoader run() {
