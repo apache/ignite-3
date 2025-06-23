@@ -110,6 +110,7 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.NodeProperties;
@@ -2925,27 +2926,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> stopAndDestroyTablePartition(TablePartitionId tablePartitionId, long causalityToken) {
-        TableImpl table = tables.get(tablePartitionId.tableId());
+        CompletableFuture<?> tokenFuture;
 
-        CompletableFuture<TableImpl> tableFuture;
-
-        // We need to look into #tablesVv only in the case when the table has not appeared in #tables.
-        // But most likely it is present there, and #tablesVv call may throw OutdatedTokenException if the
-        // versioned value history is removed.
-        // https://issues.apache.org/jira/browse/IGNITE-16544 may solve this problem on fundamental level.
-        if (table == null) {
-            tableFuture = tablesVv
-                    .get(causalityToken)
-                    .thenApply(ignore -> {
-                        TableImpl t = tables.get(tablePartitionId.tableId());
-                        assert t != null : tablePartitionId;
-                        return t;
-                    });
-        } else {
-            tableFuture = completedFuture(table);
+        try {
+            tokenFuture = tablesVv.get(causalityToken);
+        } catch (OutdatedTokenException e) {
+            // Here we need only to ensure that the token has been seen.
+            //TODO https://issues.apache.org/jira/browse/IGNITE-25742
+            tokenFuture = nullCompletedFuture();
         }
 
-        return tableFuture.thenCompose(t -> stopAndDestroyTablePartition(tablePartitionId, t));
+        return tokenFuture
+                .thenCompose(ignore -> {
+                    TableImpl table = tables.get(tablePartitionId.tableId());
+                    assert table != null : tablePartitionId;
+
+                    return stopAndDestroyTablePartition(tablePartitionId, table);
+                });
     }
 
     private CompletableFuture<Void> stopAndDestroyTablePartition(TablePartitionId tablePartitionId, TableImpl table) {
