@@ -43,6 +43,13 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
     }
 
     @Override
+    public TxStatePartitionStorage createPartitionStorage(int partitionId) {
+        assertThreadAllowsToWrite();
+
+        return wrappedStorage.createPartitionStorage(partitionId);
+    }
+
+    @Override
     public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
         TxStatePartitionStorage storage = wrappedStorage.getPartitionStorage(partitionId);
 

@@ -213,7 +213,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
                 TxStateStorage txStateStorage = new TxStateRocksDbStorage(zoneId, partitionCount, sharedTxStateStorage) {
                     @Override
-                    protected TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
+                    public TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
                         return txStatePartitionStorage;
                     }
                 };

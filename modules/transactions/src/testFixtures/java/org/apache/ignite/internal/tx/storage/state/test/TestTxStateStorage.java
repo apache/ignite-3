@@ -32,7 +32,12 @@ public class TestTxStateStorage implements TxStateStorage {
     private final Map<Integer, TxStatePartitionStorage> storages = new ConcurrentHashMap<>();
 
     @Override public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
-        return storages.computeIfAbsent(partitionId, k -> spy(new TestTxStatePartitionStorage()));
+        return storages.computeIfAbsent(partitionId, k -> spy());
+    }
+
+    @Override
+    public TxStatePartitionStorage createPartitionStorage(int partitionId) {
+        return new TestTxStatePartitionStorage();
     }
 
     @Override

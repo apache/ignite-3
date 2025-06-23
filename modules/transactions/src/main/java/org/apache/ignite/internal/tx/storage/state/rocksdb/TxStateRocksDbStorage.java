@@ -102,7 +102,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         return storage;
     }
 
-    protected TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
+    @Override
+    public TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
         return new TxStateRocksDbPartitionStorage(partitionId, this);
     }
 
