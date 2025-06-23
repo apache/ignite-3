@@ -2925,14 +2925,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> stopAndDestroyTablePartition(TablePartitionId tablePartitionId, long causalityToken) {
-        return tablesVv
-                .get(causalityToken)
-                .thenCompose(ignore -> {
-                    TableImpl table = tables.get(tablePartitionId.tableId());
-                    assert table != null : tablePartitionId;
+        TableImpl table = tables.get(tablePartitionId.tableId());
 
-                    return stopAndDestroyTablePartition(tablePartitionId, table);
-                });
+        CompletableFuture<TableImpl> tableFuture;
+
+        // We need to look into #tablesVv only in the case when the table has not appeared in #tables.
+        // But most likely it is present there, and #tablesVv call may throw OutdatedTokenException if the
+        // versioned value history is removed.
+        // https://issues.apache.org/jira/browse/IGNITE-16544 may solve this problem on fundamental level.
+        if (table == null) {
+            tableFuture = tablesVv
+                    .get(causalityToken)
+                    .thenApply(ignore -> {
+                        TableImpl t = tables.get(tablePartitionId.tableId());
+                        assert t != null : tablePartitionId;
+                        return t;
+                    });
+        } else {
+            tableFuture = completedFuture(table);
+        }
+
+        return tableFuture.thenCompose(t -> stopAndDestroyTablePartition(tablePartitionId, t));
     }
 
     private CompletableFuture<Void> stopAndDestroyTablePartition(TablePartitionId tablePartitionId, TableImpl table) {
