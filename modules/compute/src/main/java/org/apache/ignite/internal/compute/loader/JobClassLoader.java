@@ -37,7 +37,7 @@ public class JobClassLoader implements AutoCloseable {
 
     private final ClassLoader parent;
 
-    private ClassLoader inner;
+    private volatile JobClassLoaderImpl impl;
 
     /**
      * Creates new instance of {@link JobClassLoader}.
@@ -55,6 +55,11 @@ public class JobClassLoader implements AutoCloseable {
     }
 
     public ClassLoader classLoader() {
+        if (impl != null) {
+            return impl;
+        }
+
+        // TODO: PrivilegedAction?
         URL[] classpath = units.stream()
                 .map(DisposableDeploymentUnit::path)
                 .flatMap(JobClasspath::collectClasspath)
@@ -64,8 +69,9 @@ public class JobClassLoader implements AutoCloseable {
             LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
         }
 
-        // TODO: Cache lazy instance.
-        return new JobClassLoaderImpl(units, classpath, parent);
+        impl = new JobClassLoaderImpl(units, classpath, parent);
+
+        return impl;
     }
 
     @Override
@@ -81,8 +87,11 @@ public class JobClassLoader implements AutoCloseable {
         }
 
         try {
-            // TODO: Close wrapped class loader if any.
-            // super.close();
+            JobClassLoaderImpl impl0 = impl;
+
+            if (impl0 != null) {
+                impl0.close();
+            }
         } catch (Exception e) {
             exceptions.add(e);
         }
