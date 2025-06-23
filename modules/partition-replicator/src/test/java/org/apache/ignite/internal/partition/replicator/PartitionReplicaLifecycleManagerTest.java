@@ -407,7 +407,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     public void partitionLifecycleManagerStopsCorrectWhenTxStatePartitionStoragesAreStoppedExceptionally() throws Exception {
         doReturn(commonZonePartitionResources).when(zoneResourcesManager).getZonePartitionResources(any());
 
-        int defaultZoneId = 0;
+        int defaultZoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().id();
         List<ZonePartitionResources> defaultZoneResources = IntStream.range(0, CatalogUtils.DEFAULT_PARTITION_COUNT)
                 .mapToObj(partId -> new ZonePartitionId(defaultZoneId, partId))
                 .map(partitionReplicaLifecycleManager::zonePartitionResources)
