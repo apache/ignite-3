@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssign
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -32,7 +31,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -47,11 +45,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -59,10 +52,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataRegion;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
@@ -156,48 +146,6 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
                 table.internalTable().get(key, clock.now(), clusterNode(3)),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
-    }
-
-    @Test
-    @WithSystemProperty(key = THREAD_ASSERTIONS_ENABLED, value = "false")
-    public void compactionAfterAbortedRebalance() throws InterruptedException {
-        createZone(ZONE_NAME, 1, 1);
-        createTestTable(TABLE_NAME, ZONE_NAME);
-
-        IgniteImpl igniteImpl = igniteImpl(0);
-
-        TableViewInternal table = unwrapTableViewInternal(igniteImpl.tables().table(TABLE_NAME));
-
-        PersistentPageMemoryTableStorage tableStorage = (PersistentPageMemoryTableStorage) table.internalTable().storage();
-
-        table.keyValueView().put(
-                null,
-                Tuple.create().set("id", 1),
-                Tuple.create().set("val", "value1")
-        );
-
-        CompletableFuture<Void> abortRebalance = tableStorage.startRebalancePartition(0)
-                        .thenCompose(v -> tableStorage.abortRebalancePartition(0));
-
-        assertThat(abortRebalance, willCompleteSuccessfully());
-
-        assertEquals(0, tableStorage.getMvPartition(0).lastAppliedIndex());
-
-        waitForCompaction(tableStorage);
-    }
-
-    private static void waitForCompaction(PersistentPageMemoryTableStorage tableStorage) throws InterruptedException {
-        PersistentPageMemoryDataRegion dataRegion = tableStorage.dataRegion();
-        CheckpointManager checkpointManager = dataRegion.checkpointManager();
-
-        CheckpointProgress checkpointProgress = checkpointManager.forceCheckpoint("");
-        assertThat(checkpointProgress.futureFor(CheckpointState.FINISHED), willCompleteSuccessfully());
-
-        checkpointManager.triggerCompaction();
-
-        FilePageStore fileStore = dataRegion.filePageStoreManager().getStore(new GroupPartitionId(tableStorage.getTableId(), 0));
-
-        assertTrue(waitForCondition(() -> fileStore.deltaFileCount() == 0, 1000));
     }
 
     private static Row marshalTuple(TableViewInternal table, Tuple tuple) {

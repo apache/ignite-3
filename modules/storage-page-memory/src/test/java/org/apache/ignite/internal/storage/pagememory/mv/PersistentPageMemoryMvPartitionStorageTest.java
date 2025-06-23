@@ -21,11 +21,13 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -36,12 +38,17 @@ import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataRegion;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -203,4 +210,25 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         assertThat(readConfig, is(equalTo(configWhichFitsInOnePage)));
     }
+
+    @Test
+    void testDeltaFileCompactionAfterPartitionRecreated() throws InterruptedException {
+        addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
+
+        assertThat(table.clearPartition(PARTITION_ID), willCompleteSuccessfully());
+
+        waitForDeltaFileCompaction((PersistentPageMemoryTableStorage) table);
+    }
+
+    private void waitForDeltaFileCompaction(PersistentPageMemoryTableStorage tableStorage) throws InterruptedException {
+        PersistentPageMemoryDataRegion dataRegion = tableStorage.dataRegion();
+
+        CheckpointProgress checkpointProgress = engine.checkpointManager().forceCheckpoint("");
+        assertThat(checkpointProgress.futureFor(FINISHED), willCompleteSuccessfully());
+
+        FilePageStore fileStore = dataRegion.filePageStoreManager().getStore(new GroupPartitionId(tableStorage.getTableId(), PARTITION_ID));
+
+        assertTrue(waitForCondition(() -> fileStore.deltaFileCount() == 0, 1000));
+    }
+
 }

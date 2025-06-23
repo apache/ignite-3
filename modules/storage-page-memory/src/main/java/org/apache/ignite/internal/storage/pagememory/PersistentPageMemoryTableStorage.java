@@ -54,6 +54,10 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
 public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+    // TODO IGNITE-25738 Check if 1 second is a good value.
+    /** After partition invalidation checkpoint will be scheduled using this delay to allow batching. */
+    public static final int CHECKPOINT_ON_DESTRUCTION_DELAY_MILLIS = 1000;
+
     /** Storage engine instance. */
     private final PersistentPageMemoryStorageEngine engine;
 
@@ -362,7 +366,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
         store.markToDestroy();
 
-        CompletableFuture<Void> future = new CompletableFuture<>();
+        var future = new CompletableFuture<>();
 
         CheckpointManager checkpointManager = dataRegion.checkpointManager();
 
@@ -378,14 +382,19 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
                     future.complete(null);
                 } catch (Exception e) {
-                    future.completeExceptionally(new StorageException("Couldn't destroy partition: " + groupPartitionId, e));
+                    future.completeExceptionally(
+                            new StorageException("Couldn't invalidate partition for destruction: " + groupPartitionId, e)
+                    );
                 }
             }
         };
 
         checkpointManager.addCheckpointListener(listener, dataRegion);
 
-        CheckpointProgress checkpoint = dataRegion.checkpointManager().scheduleCheckpoint(1000, "Partition destruction");
+        CheckpointProgress checkpoint = dataRegion.checkpointManager().scheduleCheckpoint(
+                CHECKPOINT_ON_DESTRUCTION_DELAY_MILLIS,
+                "Partition destruction"
+        );
 
         return checkpoint.futureFor(CheckpointState.FINISHED)
                 .thenCompose(v -> future)

@@ -286,6 +286,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         }
     }
 
+    // TODO IGNITE-25739 Optimise rebalance for persistent page storages to avoid waiting for checkpoint after storage destruction.
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
         return busy(() -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
