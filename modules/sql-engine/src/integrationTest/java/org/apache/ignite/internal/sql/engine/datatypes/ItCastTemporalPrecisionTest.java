@@ -113,7 +113,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
             assertQuery(format("SELECT {} '{}'::{}", literalType, literal, targetTypeString))
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .returns(matcher)
                     .check();
         }
 
@@ -125,7 +125,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
             assertQuery(query)
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .returns(matcher)
                     .check();
         }
 
@@ -140,7 +140,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
                     .withParam(param)
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .returns(matcher)
                     .check();
         }
     }
@@ -207,7 +207,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
             assertQuery(format("SELECT {} FROM t_{} WHERE id={}", targetColumnName, targetType.getName(), rowNum))
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .returns(matcher)
                     .check();
         }
 
@@ -222,7 +222,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
             assertQuery(format("SELECT {} FROM t_{} WHERE id={}", targetColumnName, targetType.getName(), rowNum))
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .returns(matcher)
                     .check();
         }
     }

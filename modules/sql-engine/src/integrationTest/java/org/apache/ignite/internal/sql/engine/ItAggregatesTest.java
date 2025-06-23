@@ -386,7 +386,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .returns("Igor")
                 .returns("Ilya")
                 .returns("Roma")
-                .returns(null)
+                .returns((Object) null)
                 .check();
 
         assertQuery(sql, AggregateType.HASH)
@@ -394,7 +394,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .returns("Igor")
                 .returns("Ilya")
                 .returns("Roma")
-                .returns(null)
+                .returns((Object) null)
                 .check();
 
         assertQuery(sql, AggregateType.SORT)
@@ -402,7 +402,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .returns("Igor")
                 .returns("Ilya")
                 .returns("Roma")
-                .returns(null)
+                .returns((Object) null)
                 .check();
     }
 
@@ -542,10 +542,10 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .disableRules(rules)
                 .returns("s1")
                 .returns("s2")
-                .returns(null)
+                .returns((Object) null)
                 .returns("s1")
                 .returns("s2")
-                .returns(null)
+                .returns((Object) null)
                 .check();
     }
 

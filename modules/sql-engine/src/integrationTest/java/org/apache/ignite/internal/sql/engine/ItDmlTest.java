@@ -240,10 +240,10 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE test_null_def (id INTEGER PRIMARY KEY, col INTEGER DEFAULT NULL)");
 
         sql("INSERT INTO test_null_def VALUES(1, DEFAULT)");
-        assertQuery("SELECT col FROM test_null_def WHERE id = 1").returns(null).check();
+        assertQuery("SELECT col FROM test_null_def WHERE id = 1").returns((Object) null).check();
 
         sql("INSERT INTO test_null_def (id, col) VALUES(2, DEFAULT)");
-        assertQuery("SELECT col FROM test_null_def WHERE id = 2").returns(null).check();
+        assertQuery("SELECT col FROM test_null_def WHERE id = 2").returns((Object) null).check();
     }
 
     /** Test full MERGE command. */
@@ -804,7 +804,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                             () -> sql("INSERT INTO test (id) VALUES (2)"));
                 } else {
                     sql("INSERT INTO test (id) VALUES (2)");
-                    assertQuery("SELECT val FROM test WHERE id = 2").returns(null).check();
+                    assertQuery("SELECT val FROM test WHERE id = 2").returns((Object) null).check();
                 }
             } finally {
                 sql("DROP TABLE IF EXISTS test");

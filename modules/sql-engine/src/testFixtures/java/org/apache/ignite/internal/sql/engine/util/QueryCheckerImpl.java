@@ -217,7 +217,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
     }
 
     @Override
-    public QueryChecker returnMatched(Matcher<Iterable<?>> matcher) {
+    public QueryChecker returns(Matcher<Iterable<?>> matcher) {
         assert resultChecker == null || resultChecker instanceof RowByRowResultMatchChecker
                 : "Result checker already set to " + resultChecker.getClass().getSimpleName();
 

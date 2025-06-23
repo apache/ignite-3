@@ -342,7 +342,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     @Test
     public void testNullIf() {
         assertExpression("NULLIF(1, 2)").returns(1).check();
-        assertExpression("NULLIF(1, 1)").returns(null).check();
+        assertExpression("NULLIF(1, 1)").returns((Object) null).check();
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 "Cannot apply '=' to arguments of type '<DECIMAL(3, 1)> = <CHAR(1)>'",

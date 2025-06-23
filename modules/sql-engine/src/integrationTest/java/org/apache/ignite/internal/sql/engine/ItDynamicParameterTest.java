@@ -174,7 +174,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
     public void testDynamicParameters() {
         assertQuery("SELECT COALESCE(null, ?)").withParams(13).returns(13).check();
         assertQuery("SELECT LOWER(?)").withParams("ASD").returns("asd").check();
-        assertQuery("SELECT LOWER(?)").withParams(null).returns(null).check();
+        assertQuery("SELECT LOWER(?)").withParams(null).returns((Object) null).check();
         assertQuery("SELECT POWER(?, ?)").withParams(2, 3).returns(8d).check();
         assertQuery("SELECT SQRT(?)").withParams(4d).returns(2d).check();
         assertQuery("SELECT ?").withParams("asd").returns("asd").check();
@@ -246,7 +246,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2, 2, "TeSt").returns(4, "test").check();
         assertQuery("SELECT ? + ?, LOWER(?) ").withParams(2.2, 2.2, "TeSt").returns(4.4, "test").check();
 
-        assertQuery("SELECT COALESCE(?, ?)").withParams(null, null).returns(null).check();
+        assertQuery("SELECT COALESCE(?, ?)").withParams(null, null).returns((Object) null).check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(null, 13).returns(13).check();
         assertQuery("SELECT COALESCE(?, ?)").withParams("a", "b").returns("a").check();
         assertQuery("SELECT COALESCE(?, ?)").withParams(22, 33).returns(22).check();
