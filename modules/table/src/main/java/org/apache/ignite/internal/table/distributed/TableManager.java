@@ -2932,7 +2932,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             tokenFuture = tablesVv.get(causalityToken);
         } catch (OutdatedTokenException e) {
             // Here we need only to ensure that the token has been seen.
-            //TODO https://issues.apache.org/jira/browse/IGNITE-25742
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25742
             tokenFuture = nullCompletedFuture();
         }
 
