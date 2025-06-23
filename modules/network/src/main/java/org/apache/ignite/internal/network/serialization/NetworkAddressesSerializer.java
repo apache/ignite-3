@@ -19,8 +19,8 @@ package org.apache.ignite.internal.network.serialization;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -29,16 +29,16 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
 import org.apache.ignite.network.NetworkAddress;
 
 /**
- * {@link VersionedSerializer} for network addresses (represented with {@code Collection<NetworkAddress} instances).
+ * {@link VersionedSerializer} for network addresses (represented with {@code Set<NetworkAddress>} instances).
  */
-public class NetworkAddressesSerializer extends VersionedSerializer<Collection<NetworkAddress>> {
+public class NetworkAddressesSerializer extends VersionedSerializer<Set<NetworkAddress>> {
     /** Serializer instance. */
     public static final NetworkAddressesSerializer INSTANCE = new NetworkAddressesSerializer();
 
     private final NetworkAddressSerializer networkAddressSerializer = NetworkAddressSerializer.INSTANCE;
 
     @Override
-    protected void writeExternalData(Collection<NetworkAddress> addresses, IgniteDataOutput out) throws IOException {
+    protected void writeExternalData(Set<NetworkAddress> addresses, IgniteDataOutput out) throws IOException {
         out.writeVarInt(addresses.size());
         for (NetworkAddress address : addresses) {
             networkAddressSerializer.writeExternal(address, out);
@@ -46,7 +46,7 @@ public class NetworkAddressesSerializer extends VersionedSerializer<Collection<N
     }
 
     @Override
-    protected Collection<NetworkAddress> readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
+    protected Set<NetworkAddress> readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         int length = in.readVarIntAsInt();
 
         List<NetworkAddress> addresses = new ArrayList<>(IgniteUtils.capacity(length));
@@ -62,7 +62,7 @@ public class NetworkAddressesSerializer extends VersionedSerializer<Collection<N
      *
      * @param addresses Addresses to serialize.
      */
-    public static byte[] serialize(Collection<NetworkAddress> addresses) {
+    public static byte[] serialize(Set<NetworkAddress> addresses) {
         return VersionedSerialization.toBytes(addresses, INSTANCE);
     }
 
@@ -71,7 +71,7 @@ public class NetworkAddressesSerializer extends VersionedSerializer<Collection<N
      *
      * @param bytes Bytes.
      */
-    public static Collection<NetworkAddress> deserialize(byte[] bytes) {
+    public static Set<NetworkAddress> deserialize(byte[] bytes) {
         return VersionedSerialization.fromBytes(bytes, INSTANCE);
     }
 }

@@ -92,7 +92,7 @@ public class MulticastNodeFinder implements NodeFinder {
     private final int ttl;
 
     /** Addresses sent in response to multicast requests. */
-    private final List<NetworkAddress> addressesToAdvertise;
+    private final Set<NetworkAddress> addressesToAdvertise;
     private final ExecutorService listenerThreadPool;
     private final String nodeName;
 
@@ -121,7 +121,7 @@ public class MulticastNodeFinder implements NodeFinder {
         this.multicastPort = multicastPort;
         this.resultWaitMillis = resultWaitMillis;
         this.ttl = ttl;
-        this.addressesToAdvertise = new ArrayList<>(addressesToAdvertise);
+        this.addressesToAdvertise = new HashSet<>(addressesToAdvertise);
         this.nodeName = nodeName;
 
         this.listenerThreadPool = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "multicast-listener", LOG));
@@ -198,7 +198,7 @@ public class MulticastNodeFinder implements NodeFinder {
             try {
                 byte[] data = receiveDatagramData(socket, responsePacket);
 
-                Collection<NetworkAddress> addresses = NetworkAddressesSerializer.deserialize(data);
+                Set<NetworkAddress> addresses = NetworkAddressesSerializer.deserialize(data);
 
                 if (!addressesToAdvertise.contains(addresses.iterator().next())) {
                     discovered.addAll(addresses);
