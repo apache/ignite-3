@@ -1309,7 +1309,7 @@ public class InternalTableImpl implements InternalTable {
                                 groupId,
                                 enlistmentConsistencyToken,
                                 full),
-                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponses,
                 (res, req) -> {
                     for (BinaryRow row : res) {
                         if (row != null) {
@@ -1511,7 +1511,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 (keyRows0, txo, groupId, enlistmentConsistencyToken, full) ->
                         readWriteMultiRowPkReplicaRequest(RW_DELETE_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken, full),
-                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponses,
                 (res, req) -> {
                     for (BinaryRow row : res) {
                         if (row != null) {
@@ -1544,7 +1544,7 @@ public class InternalTableImpl implements InternalTable {
                                 enlistmentConsistencyToken,
                                 full
                         ),
-                InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
+                InternalTableImpl::collectRejectedRowsResponses,
                 (res, req) -> {
                     for (BinaryRow row : res) {
                         if (row != null) {
@@ -1942,25 +1942,28 @@ public class InternalTableImpl implements InternalTable {
      * @param rowBatches Row batches.
      * @return Future of collecting results.
      */
-    public static CompletableFuture<List<BinaryRow>> collectRejectedRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
-        return collectMultiRowsResponsesWithRestoreOrder(
-                rowBatches,
-                batch -> {
-                    List<BinaryRow> result = new ArrayList<>();
-                    List<BinaryRow> response = (List<BinaryRow>) batch.getCompletedResult();
+    public static CompletableFuture<List<BinaryRow>> collectRejectedRowsResponses(Collection<RowBatch> rowBatches) {
+        return allResultFutures(rowBatches).thenApply(ignored -> {
+            List<BinaryRow> result = new ArrayList<>();
 
-                    assert batch.requestedRows.size() == response.size() :
-                            "Replication response does not fit to request [requestRows=" + batch.requestedRows.size()
-                                    + "responseRows=" + response.size() + ']';
+            for (RowBatch batch : rowBatches) {
+                List<BinaryRow> response = (List<BinaryRow>) batch.getCompletedResult();
 
-                    for (int i = 0; i < response.size(); i++) {
-                        result.add(response.get(i) != null ? null : batch.requestedRows.get(i));
+                assert batch.requestedRows.size() == response.size() :
+                        "Replication response does not fit to request [requestRows=" + batch.requestedRows.size()
+                                + "responseRows=" + response.size() + ']';
+
+                for (int i = 0; i < response.size(); i++) {
+                    if (response.get(i) != null) {
+                        continue;
                     }
 
-                    return result;
-                },
-                true
-        );
+                    result.add(batch.requestedRows.get(i));
+                }
+            }
+
+            return result;
+        });
     }
 
     /**

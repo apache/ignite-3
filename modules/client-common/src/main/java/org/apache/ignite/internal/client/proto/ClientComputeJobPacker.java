@@ -86,7 +86,7 @@ public final class ClientComputeJobPacker {
                 ? (ComputeJobDataHolder) obj
                 : SharedComputeUtils.marshalArgOrResult(obj, marshaller);
 
-        if (holder == null) {
+        if (holder.data() == null) {
             packer.packNil();
             return;
         }

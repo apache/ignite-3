@@ -278,14 +278,11 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             ConfigurationRegistry clusterConfigRegistry,
             HybridClock clock
     ) {
-        CompletableFuture<?> startFuture = CompletableFuture.allOf(
-                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                clusterConfigRegistry.notifyCurrentConfigurationListeners(),
-                ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart()
-        ).thenCompose(unused ->
-                // Deploy all registered watches because all components are ready and have registered their listeners.
-                metaStorageMgr.deployWatches()
-        );
+        CompletableFuture<?> startFuture = ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart()
+                .thenCompose(unused ->
+                        // Deploy all registered watches because all components are ready and have registered their listeners.
+                        metaStorageMgr.deployWatches()
+                );
 
         assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 

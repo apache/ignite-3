@@ -53,8 +53,6 @@ public class JvmMetricSourceTest {
         assertEquals(memoryBean.nonHeapCommitted, metricSet.<LongMetric>get("memory.non-heap.Committed").value());
         assertEquals(memoryBean.nonHeapMax, metricSet.<LongMetric>get("memory.non-heap.Max").value());
 
-        assertEquals(memoryBean.nonHeapMax, metricSet.<LongMetric>get("memory.non-heap.Max").value());
-
         memoryBean.heapUsed += 1;
         memoryBean.heapCommitted += 1;
 

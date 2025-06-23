@@ -24,19 +24,24 @@ import static org.apache.ignite.internal.testframework.TestIgnitionManager.write
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.IgniteVersions.Version;
 import org.apache.ignite.internal.app.IgniteRunner;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Represents the Ignite node running in the external process.
  */
 public class RunnerNode {
+    private static final Map<String, String> DEFAULTS = IgniteVersions.INSTANCE.configOverrides();
     private static final Map<String, Map<String, String>> DEFAULTS_PER_VERSION = getTestDefaultsPerVersion();
 
     private final Process process;
@@ -74,13 +79,40 @@ public class RunnerNode {
 
         boolean useTestDefaults = true;
         if (useTestDefaults) {
-            writeConfigurationFileApplyingTestDefaults(configStr, configPath, DEFAULTS_PER_VERSION.get(igniteVersion));
+            Map<String, String> defaultsPerVersion = DEFAULTS_PER_VERSION.get(igniteVersion);
+            writeConfigurationFileApplyingTestDefaults(
+                    configStr,
+                    configPath,
+                    defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS
+            );
         } else {
             writeConfigurationFile(configStr, configPath);
         }
 
         Process process = executeRunner(javaHome, argFile, configPath, workDir, nodeName);
+        IgniteLogger processLogger = Loggers.forName(nodeName);
+        createStreamGrabber(process, processLogger, process::getInputStream, "input");
+        createStreamGrabber(process, processLogger, process::getErrorStream, "error");
         return new RunnerNode(process);
+    }
+
+    private static Thread createStreamGrabber(
+            Process process,
+            IgniteLogger processLogger,
+            Supplier<InputStream> streamSupplier,
+            String grabberType
+    ) {
+        Thread streamGrabber = new Thread(
+                new StreamGrabberTask(streamSupplier.get(), processLogger::info),
+                grabberThreadName(process.pid(), grabberType)
+        );
+        streamGrabber.setDaemon(true);
+        streamGrabber.start();
+        return streamGrabber;
+    }
+
+    private static String grabberThreadName(long pid, String grabberType) {
+        return "pid_" + pid + "_" + grabberType + "_grabber";
     }
 
     /**
@@ -133,7 +165,6 @@ public class RunnerNode {
                 "--work-dir", workDir.toString(),
                 "--config-path", configPath.toString()
         );
-        pb.inheritIO();
         return pb.start();
     }
 }
