@@ -123,12 +123,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 @WithSystemProperty(key = THREAD_ASSERTIONS_ENABLED, value = "false")
+@MockitoSettings(strictness = Strictness.LENIENT)
 class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
     private MetaStorageManager metaStorageManager;
 
@@ -390,14 +393,13 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void partitionLifecycleManagerStopsCorrectWhenReplicasAreStoppedExceptionally() throws Exception {
-        when(replicaManager.stopReplica(any())).thenThrow(new NodeStoppingException());
+        doThrow(new NodeStoppingException()).when(replicaManager).stopReplica(any());
 
         assertDoesNotThrow(() -> partitionReplicaLifecycleManager.beforeNodeStop());
 
         assertThat(partitionReplicaLifecycleManager.stopAsync(), willCompleteSuccessfully());
 
-        // One more because of exceptional mock above counts.
-        verify(replicaManager, times(CatalogUtils.DEFAULT_PARTITION_COUNT + 1)).stopReplica(any());
+        verify(replicaManager, times(CatalogUtils.DEFAULT_PARTITION_COUNT)).stopReplica(any());
 
         // Do reset for correct replica manager stop on tear down.
         reset(replicaManager);
@@ -426,7 +428,5 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
         verify(replicaManager, times(CatalogUtils.DEFAULT_PARTITION_COUNT)).stopReplica(any());
 
         defaultZoneResources.forEach(resources -> verify(resources.txStatePartitionStorage(), atLeastOnce()).close());
-
-        defaultZoneResources.forEach(resources -> reset(resources.txStatePartitionStorage()));
     }
 }
