@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.sources;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,12 +24,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.metrics.LongMetric;
+import org.apache.ignite.internal.metrics.MetricRegistry;
+import org.apache.ignite.internal.metrics.MetricSet;
 import org.junit.jupiter.api.Test;
 
 /**
  * Metrics for thread pool.
  */
-public class ThreadPoolMetricTest {
+public class ThreadPoolMetricSourceTest {
     @Test
     public void test() throws Exception {
         // Should be one per node.

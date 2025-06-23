@@ -31,22 +31,39 @@ import org.apache.ignite.internal.logger.Loggers;
  */
 @SuppressWarnings("unused")
 public class IgniteVersions {
-    public static IgniteVersions INSTANCE = readFromJson();
+    public static final IgniteVersions INSTANCE = readFromJson();
 
     private List<String> artifacts;
+    private Map<String, String> configOverrides;
     private List<Version> versions;
 
     public IgniteVersions() {
     }
 
+    /**
+     * Constructor.
+     *
+     * @param artifacts List of dependency notations.
+     * @param configOverrides Map of global node configuration overrides.
+     * @param versions List of version descriptors.
+     */
     @JsonCreator
-    public IgniteVersions(@JsonProperty("artifacts") List<String> artifacts, @JsonProperty("versions") List<Version> versions) {
+    public IgniteVersions(
+            @JsonProperty("artifacts") List<String> artifacts,
+            @JsonProperty("configOverrides") Map<String, String> configOverrides,
+            @JsonProperty("versions") List<Version> versions
+    ) {
         this.artifacts = artifacts;
+        this.configOverrides = configOverrides;
         this.versions = versions;
     }
 
     public List<String> artifacts() {
         return artifacts;
+    }
+
+    public Map<String, String> configOverrides() {
+        return configOverrides;
     }
 
     public List<Version> versions() {

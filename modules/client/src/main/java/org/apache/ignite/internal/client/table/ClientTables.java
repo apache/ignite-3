@@ -99,7 +99,7 @@ public class ClientTables implements IgniteTables {
                     if (useQualifiedNames(w.clientChannel())) {
                         w.out().packQualifiedName(name);
                     } else {
-                        w.out().packString(name.toCanonicalForm());
+                        w.out().packString(name.objectName());
                     }
                 }, r -> {
                     if (r.in().tryUnpackNil()) {

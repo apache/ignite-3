@@ -1400,7 +1400,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
 
-            threadPoolsManager = new ThreadPoolsManager(name);
+            threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
@@ -1717,8 +1717,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             )).thenComposeAsync(componentFuts -> {
                 CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                         .thenCompose(rev -> allOf(
-                                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                                 ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(),
                                 componentFuts
                         ));

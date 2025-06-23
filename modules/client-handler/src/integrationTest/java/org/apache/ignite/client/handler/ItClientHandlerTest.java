@@ -479,7 +479,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(0);
             packer.packInt(0);
             packer.packInt(0);
-            packer.packInt(8); // Size.
+            packer.packInt(9); // Size.
 
             packer.packInt(3); // Major.
             packer.packInt(0); // Minor.
@@ -493,6 +493,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             clientFeatures.set(2);
             clientFeatures.set(6);
             clientFeatures.set(7);
+            clientFeatures.set(8);
             // Unsupported feature
             clientFeatures.set(4);
 

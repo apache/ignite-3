@@ -231,9 +231,8 @@ public class ClientTransaction implements Transaction {
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_COMMITTED);
-
+            ch.inflights().erase(txId());
             this.finishFut.get().complete(null);
-
             return null;
         });
 
@@ -262,6 +261,7 @@ public class ClientTransaction implements Transaction {
         // Don't wait inflights on rollback.
         CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
             w.out().packLong(id);
+
             if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_PIGGYBACK)) {
                 packEnlisted(w);
             }
@@ -269,9 +269,8 @@ public class ClientTransaction implements Transaction {
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_ROLLED_BACK);
-
+            ch.inflights().erase(txId());
             this.finishFut.get().complete(null);
-
             return null;
         });
 
@@ -403,29 +402,38 @@ public class ClientTransaction implements Transaction {
      * @param pm Partition mapping.
      * @param consistentId Consistent id.
      * @param token Enlistment token.
-     * @param noOp No-op flag.
      */
-    public void tryFinishEnlist(PartitionMapping pm, @Nullable String consistentId, long token, boolean noOp) {
+    public void tryFinishEnlist(PartitionMapping pm, String consistentId, long token) {
         if (!hasCommitPartition()) {
             return;
         }
 
         TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
 
-        if (noOp) {
-            CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.remove(tablePartitionId);
-
-            if (fut != null && !fut.isDone()) {
-                fut.complete(new IgniteBiTuple<>(null, 0L));
-            }
-
-            return;
-        }
-
         CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.get(tablePartitionId);
 
         if (fut != null && !fut.isDone()) {
             fut.complete(new IgniteBiTuple<>(consistentId, token));
+        }
+    }
+
+    /**
+     * Tries to fail the enlistment.
+     *
+     * @param pm Partition mapping.
+     * @param exception The exception.
+     */
+    public void tryFailEnlist(PartitionMapping pm, Exception exception) {
+        if (!hasCommitPartition()) {
+            return;
+        }
+
+        TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+
+        CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.get(tablePartitionId);
+
+        if (fut != null && !fut.isDone()) {
+            fut.completeExceptionally(exception);
         }
     }
 

@@ -91,6 +91,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS,
             ProtocolBitmaskFeature.TX_DELAYED_ACKS,
             ProtocolBitmaskFeature.TX_PIGGYBACK,
+            ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
             ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS
     ));
 

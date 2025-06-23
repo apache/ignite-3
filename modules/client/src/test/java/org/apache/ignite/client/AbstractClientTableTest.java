@@ -59,28 +59,28 @@ public class AbstractClientTableTest extends AbstractClientTest {
         return res;
     }
 
-    protected static Tuple tuple() {
+    static Tuple tuple() {
         return Tuple.create()
                 .set("id", DEFAULT_ID)
                 .set("name", DEFAULT_NAME);
     }
 
-    protected static Tuple tuple(Long id) {
+    static Tuple tuple(Long id) {
         return Tuple.create()
                 .set("id", id);
     }
 
-    protected static Tuple tuple(Long id, String name) {
+    static Tuple tuple(Long id, String name) {
         return Tuple.create()
                 .set("id", id)
                 .set("name", name);
     }
 
-    protected static Tuple defaultTupleKey() {
+    static Tuple defaultTupleKey() {
         return Tuple.create().set("id", DEFAULT_ID);
     }
 
-    protected static Tuple tupleKey(long id) {
+    static Tuple tupleKey(long id) {
         return Tuple.create().set("id", id);
     }
 
