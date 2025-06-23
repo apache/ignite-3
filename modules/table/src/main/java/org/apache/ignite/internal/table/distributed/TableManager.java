@@ -44,6 +44,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED;
@@ -1243,7 +1244,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // Empty assignments might be a valid case if tables are created from within cluster init HOCON
             // configuration, which is not supported now.
             assert stableAssignmentsForPartitions != null
-                    : IgniteStringFormatter.format("Table [id={}] has empty assignments.", tableId);
+                    : format("Table [id={}] has empty assignments.", tableId);
 
             int partitions = stableAssignmentsForPartitions.size();
 
@@ -2934,6 +2935,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // Here we need only to ensure that the token has been seen.
             //TODO https://issues.apache.org/jira/browse/IGNITE-25742
             tokenFuture = nullCompletedFuture();
+        } catch (Throwable e) {
+            throw new AssertionError(format("Failed to ensure that the token has been processed [token={}]", causalityToken), e);
         }
 
         return tokenFuture
