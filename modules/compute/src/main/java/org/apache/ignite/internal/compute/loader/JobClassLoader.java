@@ -19,8 +19,11 @@ package org.apache.ignite.internal.compute.loader;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 
@@ -28,6 +31,8 @@ import org.apache.ignite.lang.IgniteException;
  * Implementation of {@link ClassLoader} that loads classes from specified component directories.
  */
 public class JobClassLoader implements AutoCloseable {
+    private static final IgniteLogger LOG = Loggers.forClass(JobClassLoaderFactory.class);
+
     private final List<DisposableDeploymentUnit> units;
 
     private final ClassLoader parent;
@@ -37,11 +42,10 @@ public class JobClassLoader implements AutoCloseable {
     /**
      * Creates new instance of {@link JobClassLoader}.
      *
-     * @param urls URLs to load classes from.
      * @param units Units to load classes from.
      * @param parent Parent class loader.
      */
-    public JobClassLoader(List<DisposableDeploymentUnit> units, URL[] urls, ClassLoader parent) {
+    public JobClassLoader(List<DisposableDeploymentUnit> units, ClassLoader parent) {
         this.units = units;
         this.parent = parent;
     }
@@ -51,8 +55,17 @@ public class JobClassLoader implements AutoCloseable {
     }
 
     public ClassLoader classLoader() {
-        // TODO: Init class URLs lazily.
-        return null;
+        URL[] classpath = units.stream()
+                .map(DisposableDeploymentUnit::path)
+                .flatMap(JobClasspath::collectClasspath)
+                .toArray(URL[]::new);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
+        }
+
+        // TODO: Cache lazy instance.
+        return new JobClassLoaderImpl(units, classpath, parent);
     }
 
     @Override
