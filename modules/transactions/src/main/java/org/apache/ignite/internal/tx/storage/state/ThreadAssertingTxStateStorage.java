@@ -59,7 +59,7 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
     public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
         TxStatePartitionStorage storage = wrappedStorage.getPartitionStorage(partitionId);
 
-        return storage == null ? null : new ThreadAssertingTxStatePartitionStorage(storage);
+        return storage == null ? null : wrapTxStatePartitionStorage(storage);
     }
 
     @Override
