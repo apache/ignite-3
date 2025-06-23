@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class VaultManager implements IgniteComponent {
     /** Special key, which reserved for storing the name of the current node. */
-    private static final ByteArray NODE_NAME = new ByteArray("node_name");
+    public static final ByteArray NODE_NAME = new ByteArray("node_name");
 
     /** Instance of vault. */
     private final VaultService vaultSvc;

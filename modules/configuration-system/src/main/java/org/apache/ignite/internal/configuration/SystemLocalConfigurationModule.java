@@ -17,11 +17,18 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static org.apache.ignite.internal.worker.configuration.CriticalWorkersConfigurationSchema.DEFAULT_LIVENESS_CHECK_INTERVAL_MILLIS;
+import static org.apache.ignite.internal.worker.configuration.CriticalWorkersConfigurationSchema.DEFAULT_MAX_ALLOWED_LAG_MILLIS;
+import static org.apache.ignite.internal.worker.configuration.CriticalWorkersConfigurationSchema.DEFAULT_NETTY_THREADS_HEARTBEAT_INTERVAL_MILLIS;
+
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersChange;
+import org.apache.ignite.internal.worker.configuration.CriticalWorkersView;
 
 /** {@link ConfigurationModule} for node-local system configuration. */
 @AutoService(ConfigurationModule.class)
@@ -34,5 +41,24 @@ public class SystemLocalConfigurationModule implements ConfigurationModule {
     @Override
     public Collection<Class<?>> schemaExtensions() {
         return List.of(SystemLocalExtensionConfigurationSchema.class);
+    }
+
+    @Override
+    public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
+        SystemLocalExtensionView rootView = superRootChange.viewRoot(SystemLocalExtensionConfiguration.KEY);
+        SystemLocalExtensionChange rootChange = superRootChange.changeRoot(SystemLocalExtensionConfiguration.KEY);
+
+        CriticalWorkersView criticalWorkersView = rootView.criticalWorkers();
+        CriticalWorkersChange criticalWorkersChange = rootChange.changeSystem().changeCriticalWorkers();
+
+        if (criticalWorkersView.livenessCheckIntervalMillis() != DEFAULT_LIVENESS_CHECK_INTERVAL_MILLIS) {
+            criticalWorkersChange.changeLivenessCheckIntervalMillis(criticalWorkersView.livenessCheckIntervalMillis());
+        }
+        if (criticalWorkersView.maxAllowedLagMillis() != DEFAULT_MAX_ALLOWED_LAG_MILLIS) {
+            criticalWorkersChange.changeMaxAllowedLagMillis(criticalWorkersView.maxAllowedLagMillis());
+        }
+        if (criticalWorkersView.nettyThreadsHeartbeatIntervalMillis() != DEFAULT_NETTY_THREADS_HEARTBEAT_INTERVAL_MILLIS) {
+            criticalWorkersChange.changeNettyThreadsHeartbeatIntervalMillis(criticalWorkersView.nettyThreadsHeartbeatIntervalMillis());
+        }
     }
 }

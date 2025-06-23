@@ -50,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
-public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage<PersistentPageMemoryMvPartitionStorage> {
     /** Storage engine instance. */
     private final PersistentPageMemoryStorageEngine engine;
 
@@ -465,5 +465,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     getTableId(), groupPartitionId.getPartitionId()
             );
         }
+    }
+
+    @Override
+    protected void beforeCloseOrDestroy() {
+        dataRegion.removeTableStorage(this);
     }
 }

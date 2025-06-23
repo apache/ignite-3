@@ -66,30 +66,48 @@ public class SharedComputeUtils {
      *
      * @return Data holder.
      */
-    @Nullable
     public static <T> ComputeJobDataHolder marshalArgOrResult(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller) {
+        return marshalArgOrResult(obj, marshaller, null);
+    }
+
+    /**
+     * Marshals the job result using either provided marshaller if not {@code null} or depending on the type of the result either as a
+     * {@link Tuple}, a native type (see {@link ColumnType}) or a POJO. Wraps the marshalled data with the data type in the
+     * {@link ComputeJobDataHolder} to be unmarshalled on the client.
+     *
+     * @param obj Compute job result.
+     * @param marshaller Optional result marshaller.
+     * @param observableTimestamp Optional observable timestamp for the job result.
+     *
+     * @return Data holder.
+     */
+    public static <T> ComputeJobDataHolder marshalArgOrResult(
+            @Nullable T obj,
+            @Nullable Marshaller<T, byte[]> marshaller,
+            @Nullable Long observableTimestamp) {
         if (obj == null) {
-            return null;
+            return new ComputeJobDataHolder(NATIVE, null, observableTimestamp);
         }
 
         if (marshaller != null) {
             byte[] data = marshaller.marshal(obj);
             if (data == null) {
-                return null;
+                return new ComputeJobDataHolder(NATIVE, null, observableTimestamp);
             }
-            return new ComputeJobDataHolder(MARSHALLED_CUSTOM, data);
+
+            return new ComputeJobDataHolder(MARSHALLED_CUSTOM, data, observableTimestamp);
         }
 
         if (obj instanceof Tuple) {
             Tuple tuple = (Tuple) obj;
-            return new ComputeJobDataHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple));
+            return new ComputeJobDataHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple), observableTimestamp);
         }
 
         if (obj instanceof Collection) {
             Collection<?> col = (Collection<?>) obj;
 
             // Pack entire collection into a single binary blob, starting with the number of elements (4 bytes, little-endian).
-            BinaryTupleBuilder tupleBuilder = SharedComputeUtils.writeTupleCollection(col);
+            BinaryTupleBuilder tupleBuilder = writeTupleCollection(col);
 
             ByteBuffer binTupleBytes = tupleBuilder.build();
 
@@ -98,7 +116,7 @@ public class SharedComputeUtils {
             resBuf.putInt(col.size());
             resBuf.put(binTupleBytes);
 
-            return new ComputeJobDataHolder(TUPLE_COLLECTION, resArr);
+            return new ComputeJobDataHolder(TUPLE_COLLECTION, resArr, observableTimestamp);
         }
 
 
@@ -107,13 +125,13 @@ public class SharedComputeUtils {
             // Value is represented by 3 tuple elements: type, scale, value.
             var builder = new BinaryTupleBuilder(3, 3, false);
             ClientBinaryTupleUtils.appendObject(builder, obj);
-            return new ComputeJobDataHolder(NATIVE, IgniteUtils.byteBufferToByteArray(builder.build()));
+            return new ComputeJobDataHolder(NATIVE, IgniteUtils.byteBufferToByteArray(builder.build()), observableTimestamp);
         }
 
         try {
             // TODO https://issues.apache.org/jira/browse/IGNITE-23320
             Tuple tuple = toTuple(obj);
-            return new ComputeJobDataHolder(POJO, TupleWithSchemaMarshalling.marshal(tuple));
+            return new ComputeJobDataHolder(POJO, TupleWithSchemaMarshalling.marshal(tuple), observableTimestamp);
         } catch (PojoConversionException e) {
             throw new MarshallingException("Can't pack object: " + obj, e);
         }
@@ -132,7 +150,7 @@ public class SharedComputeUtils {
             @Nullable ComputeJobDataHolder holder,
             @Nullable Marshaller<?, byte[]> marshaller,
             @Nullable Class<?> resultClass) {
-        if (holder == null) {
+        if (holder == null || holder.data() == null) {
             return null;
         }
 

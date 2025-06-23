@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
@@ -58,20 +56,20 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.util.IgniteNameUtils;
-import org.apache.ignite.table.QualifiedNameHelper;
 
 /**
  * Implementation of {@link SqlSchemaManager} backed by {@link CatalogService}.
@@ -80,6 +78,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final CatalogManager catalogManager;
     private final SqlStatisticManager sqlStatisticManager;
+    private final NodeProperties nodeProperties;
 
     private final Cache<Integer, IgniteSchemas> schemaCache;
 
@@ -100,10 +99,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SqlSchemaManagerImpl(
             CatalogManager catalogManager,
             SqlStatisticManager sqlStatisticManager,
+            NodeProperties nodeProperties,
             CacheFactory factory,
             int cacheSize) {
         this.catalogManager = catalogManager;
         this.sqlStatisticManager = sqlStatisticManager;
+        this.nodeProperties = nodeProperties;
         this.schemaCache = factory.create(cacheSize);
         this.tableCache = factory.create(cacheSize);
         this.indexCache = factory.create(cacheSize);
@@ -284,7 +285,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         );
     }
 
-    private static TableDescriptor createTableDescriptorForTable(Catalog catalog, CatalogTableDescriptor descriptor) {
+    private TableDescriptor createTableDescriptorForTable(Catalog catalog, CatalogTableDescriptor descriptor) {
         List<CatalogTableColumnDescriptor> columns = descriptor.columns();
         List<ColumnDescriptor> colDescriptors = new ArrayList<>(columns.size() + 2);
         Object2IntMap<String> columnToIndex = buildColumnToIndexMap(columns);
@@ -316,7 +317,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return new TableDescriptorImpl(colDescriptors, distribution);
     }
 
-    private static IgniteDistribution createDistribution(
+    private IgniteDistribution createDistribution(
             CatalogTableDescriptor descriptor, Object2IntMap<String> columnToIndex, String schemaName, String zoneName
     ) {
         List<Integer> colocationColumns = descriptor.colocationColumns().stream()
@@ -326,19 +327,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         int tableId = descriptor.id();
         int zoneId = descriptor.zoneId();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove flag
-        boolean zoneBasedColocation = enabledColocation();
+        String label = TraitUtils.affinityDistributionLabel(schemaName, descriptor.name(), zoneName);
 
-        String label = affinityDistributionLabel(schemaName, descriptor.name(), zoneName);
-
-        return zoneBasedColocation
+        return nodeProperties.colocationEnabled()
                 ? IgniteDistributions.affinity(colocationColumns, tableId, zoneId, label)
                 : IgniteDistributions.affinity(colocationColumns, tableId, tableId, label);
-    }
-
-    private static String affinityDistributionLabel(String schemaName, String tableName, String zoneName) {
-        return format("table {} in zone {}",
-                QualifiedNameHelper.fromNormalized(schemaName, tableName).toCanonicalForm(), IgniteNameUtils.quoteIfNeeded(zoneName)); 
     }
 
     private static Object2IntMap<String> buildColumnToIndexMap(List<CatalogTableColumnDescriptor> columns) {

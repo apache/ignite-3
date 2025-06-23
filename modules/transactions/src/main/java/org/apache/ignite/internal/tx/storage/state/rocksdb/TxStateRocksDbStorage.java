@@ -35,8 +35,8 @@ import org.jetbrains.annotations.Nullable;
  * RocksDb implementation of {@link TxStateStorage}.
  */
 public class TxStateRocksDbStorage implements TxStateStorage {
-    /** Prefix length for the payload within a table. Consists of tableId (4 bytes) in Big Endian.  */
-    static final int TABLE_PREFIX_SIZE_BYTES = Integer.BYTES;
+    /** Prefix length for the payload within a table/zone. Consists of tableId/zoneId (4 bytes) in Big Endian.  */
+    static final int TABLE_OR_ZONE_PREFIX_SIZE_BYTES = Integer.BYTES;
 
     /** Partition storages. */
     private final AtomicReferenceArray<TxStateRocksDbPartitionStorage> storages;
@@ -47,7 +47,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Table ID. */
+    /** Table/zone ID. */
     final int id;
 
     final TxStateRocksDbSharedStorage sharedStorage;
@@ -55,7 +55,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /**
      * Constructor.
      *
-     * @param id Table ID.
+     * @param id Table/zone ID.
      * @param partitions Count of partitions.
      */
     public TxStateRocksDbStorage(
@@ -78,7 +78,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         if (partitionId < 0 || partitionId >= storages.length()) {
             throw new IllegalArgumentException(S.toString(
                     "Unable to access partition with id outside of configured range",
-                    "tableId", id, false,
+                    "tableId/zoneId", id, false,
                     "partitionId", partitionId, false,
                     "partitions", storages.length(), false
             ));
@@ -148,7 +148,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             reverse(resources);
             closeAll(resources);
         } catch (Exception e) {
-            throw new TxStateStorageException("Failed to stop transaction state storage [tableId={}]", e, id);
+            throw new TxStateStorageException("Failed to stop transaction state storage [tableOrZoneId={}]", e, id);
         }
     }
 

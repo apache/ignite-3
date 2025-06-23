@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
@@ -135,7 +135,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         checkPartitionIds(response.body(), range(0, DEFAULT_PARTITION_COUNT).boxed().collect(toSet()), true);
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // When colocation enabled, empty zones (without tables) still have partitions.
             Set<String> zoneNames = new HashSet<>(CollectionUtils.concat(ZONES_CONTAINING_TABLES, Set.of(DEFAULT_ZONE_NAME, EMPTY_ZONE)));
 
@@ -207,7 +207,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     void testLocalPartitionsEmptyResult() {
         String path = localStatePath();
         HttpResponse<?> response = client.toBlocking().exchange(
@@ -219,8 +219,6 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         assertEmptyStates(response.body(), true);
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-25448 Does not work with colocation enabled.
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     @Test
     void testLocalPartitionStatesByZones() {
         String path = localStatePath();
@@ -261,7 +259,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         Set<String> expectedZoneNames;
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // When colocation enabled, empty zones (without tables) still have partitions.
             expectedZoneNames = new HashSet<>(CollectionUtils.concat(ZONES_CONTAINING_TABLES, Set.of(DEFAULT_ZONE_NAME, EMPTY_ZONE)));
 
@@ -304,7 +302,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         Set<String> expectedZoneNames;
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // When colocation enabled, empty zones (without tables) still have partitions.
             expectedZoneNames = new HashSet<>(CollectionUtils.concat(ZONES_CONTAINING_TABLES, Set.of(DEFAULT_ZONE_NAME, EMPTY_ZONE)));
         } else {
@@ -326,7 +324,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         Set<String> expectedZoneNames;
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // When colocation enabled, empty zones (without tables) still have partitions.
             expectedZoneNames = new HashSet<>(CollectionUtils.concat(ZONES_CONTAINING_TABLES, Set.of(EMPTY_ZONE, DEFAULT_ZONE_NAME)));
         } else {
@@ -387,7 +385,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     void testGlobalPartitionsEmptyResult() {
         String path = globalStatePath();
 
@@ -439,7 +437,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         Set<String> expectedZoneNames;
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // When colocation enabled, empty zones (without tables) still have partitions.
             expectedZoneNames = new HashSet<>(CollectionUtils.concat(ZONES_CONTAINING_TABLES, Set.of(EMPTY_ZONE, DEFAULT_ZONE_NAME)));
         } else {
@@ -465,7 +463,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     // TODO: remove this test when colocation is enabled https://issues.apache.org/jira/browse/IGNITE-22522
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testResetPartitionTableNotFound() {
         String tableName = "PUBLIC.unknown_table";
 
@@ -509,8 +507,6 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         ));
     }
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-25448 Does not work with colocation enabled.
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     @Test
     void testLocalPartitionStatesWithUpdatedEstimatedRows() {
         insertRowToAllTables(1, 1);
@@ -535,7 +531,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     private static Set<Long> collectEstimatedRows(Object body) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return ((LocalZonePartitionStatesResponse) body).states()
                     .stream()
                     .map(LocalZonePartitionStateResponse::estimatedRows)
@@ -549,7 +545,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     private static void checkLocalStates(Object body, Set<String> zoneNames, Set<String> nodes) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             List<LocalZonePartitionStateResponse> statesCasted = ((LocalZonePartitionStatesResponse) body).states();
 
             assertFalse(statesCasted.isEmpty());
@@ -599,7 +595,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     private static void checkGlobalStates(Object body, Set<String> zoneNames) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             List<GlobalZonePartitionStateResponse> statesCasted = ((GlobalZonePartitionStatesResponse) body).states();
 
             assertFalse(statesCasted.isEmpty());
@@ -624,7 +620,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     static MutableHttpRequest<?> resetPartitionsRequest(String zoneName, String tableName, Collection<Integer> partitionIds) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return HttpRequest.POST(RESET_ZONE_PARTITIONS_ENDPOINT,
                     new ResetZonePartitionsRequest(zoneName, partitionIds));
         } else {
@@ -634,25 +630,25 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     static String localStatePath() {
-        return enabledColocation() ? "zone/state/local" : "state/local";
+        return colocationEnabled() ? "zone/state/local" : "state/local";
     }
 
     static String globalStatePath() {
-        return enabledColocation() ? "zone/state/global" : "state/global";
+        return colocationEnabled() ? "zone/state/global" : "state/global";
     }
 
     private static Class<?> localStateResponseType() {
-        return enabledColocation() ? LocalZonePartitionStatesResponse.class : LocalPartitionStatesResponse.class;
+        return colocationEnabled() ? LocalZonePartitionStatesResponse.class : LocalPartitionStatesResponse.class;
     }
 
     private static Class<?> globalStateResponseType() {
-        return enabledColocation() ? GlobalZonePartitionStatesResponse.class : GlobalPartitionStatesResponse.class;
+        return colocationEnabled() ? GlobalZonePartitionStatesResponse.class : GlobalPartitionStatesResponse.class;
     }
 
     private static List<?> castStatesResponse(Object body, boolean local) {
         List<?> statesCasted;
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             if (local) {
                 statesCasted = ((LocalZonePartitionStatesResponse) body).states();
             } else {

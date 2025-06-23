@@ -35,6 +35,7 @@ import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionContextImpl;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
@@ -71,6 +73,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private final TopologyService topologyService;
 
+    private final ClockService clockService;
+
     private PriorityQueueExecutor executorService;
 
     private @Nullable DotNetComputeExecutor dotNetComputeExecutor;
@@ -87,12 +91,14 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             Ignite ignite,
             ComputeStateMachine stateMachine,
             ComputeConfiguration configuration,
-            TopologyService topologyService
+            TopologyService topologyService,
+            ClockService clockService
     ) {
         this.ignite = ignite;
         this.configuration = configuration;
         this.stateMachine = stateMachine;
         this.topologyService = topologyService;
+        this.clockService = clockService;
     }
 
     public void setPlatformComputeTransport(PlatformComputeTransport transport) {
@@ -114,6 +120,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Callable<CompletableFuture<ComputeJobDataHolder>> jobCallable = getJobCallable(
                 options.executorType(), jobClassName, classLoader, input, context);
 
+        jobCallable = addObservableTimestamp(jobCallable, clockService);
+
         QueueExecution<ComputeJobDataHolder> execution = executorService.submit(
                 jobCallable,
                 options.priority(),
@@ -121,6 +129,27 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         );
 
         return new JobExecutionInternal<>(execution, isInterrupted, null, false, topologyService.localMember());
+    }
+
+    private static Callable<CompletableFuture<ComputeJobDataHolder>> addObservableTimestamp(
+            Callable<CompletableFuture<ComputeJobDataHolder>> jobCallable,
+            ClockService clockService) {
+        return () -> {
+            CompletableFuture<ComputeJobDataHolder> jobFut = jobCallable.call();
+
+            if (jobFut == null) {
+                return CompletableFuture.completedFuture(
+                        new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, clockService.currentLong()));
+            }
+
+            return jobFut.thenApply(holder -> {
+                if (holder == null) {
+                    return new ComputeJobDataHolder(ComputeJobDataType.NATIVE, null, clockService.currentLong());
+                }
+
+                return new ComputeJobDataHolder(holder.type(), holder.data(), clockService.currentLong());
+            });
+        };
     }
 
     private Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(

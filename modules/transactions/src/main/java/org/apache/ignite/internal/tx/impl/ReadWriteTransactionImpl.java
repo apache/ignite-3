@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -46,6 +45,8 @@ import org.jetbrains.annotations.Nullable;
  * The read-write implementation of an internal transaction.
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
+    private final boolean colocationEnabled;
+
     /** Commit partition updater. */
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ReplicationGroupId> COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ReplicationGroupId.class, "commitPart");
@@ -64,8 +65,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     private boolean killed;
 
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
-
     /**
      * Constructs an explicit read-write transaction.
      *
@@ -82,9 +81,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             UUID id,
             UUID txCoordinatorId,
             boolean implicit,
-            long timeout
+            long timeout,
+            boolean colocationEnabled
     ) {
         super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
+
+        this.colocationEnabled = colocationEnabled;
     }
 
     /** {@inheritDoc} */
@@ -140,7 +142,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
-        assert (enabledColocation ? replicationGroupId instanceof ZonePartitionId : replicationGroupId instanceof TablePartitionId)
+        assert (colocationEnabled ? replicationGroupId instanceof ZonePartitionId : replicationGroupId instanceof TablePartitionId)
                 : "Invalid replication group type: " + replicationGroupId.getClass();
     }
 

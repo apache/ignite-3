@@ -46,11 +46,11 @@ namespace Apache.Ignite.Tests
     {
         public const string Err = "Err!";
 
-        public const string ExistingTableName = "PUBLIC.TBL1";
+        public const string ExistingTableName = "TBL1";
 
-        public const string CompositeKeyTableName = "PUBLIC.TBL2";
+        public const string CompositeKeyTableName = "TBL2";
 
-        public const string CustomColocationKeyTableName = "PUBLIC.TBL3";
+        public const string CustomColocationKeyTableName = "TBL3";
 
         public const string GetDetailsJob = "get-details";
 

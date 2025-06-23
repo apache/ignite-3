@@ -30,7 +30,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -90,7 +90,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         int defaultZoneId = getDefaultZone().id();
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setZoneAutoAdjustScaleUpToImmediate(catalogManager, getDefaultZone().name());
@@ -146,7 +146,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         int defaultZoneId = getDefaultZone().id();
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setZoneAutoAdjustScaleUpToImmediate(catalogManager, getDefaultZone().name());
@@ -182,7 +182,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         CatalogZoneDescriptor defaultZone = getDefaultZone();
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setZoneAutoAdjustScaleUpToImmediate(catalogManager, getDefaultZone().name());
@@ -215,7 +215,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         CatalogZoneDescriptor defaultZone = getDefaultZone();
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setZoneAutoAdjustScaleUpToImmediate(catalogManager, getDefaultZone().name());

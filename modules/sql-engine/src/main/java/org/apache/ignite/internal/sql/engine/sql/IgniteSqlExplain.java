@@ -39,20 +39,23 @@ public class IgniteSqlExplain extends SqlCall {
                 @Override
                 public SqlCall createCall(@Nullable SqlLiteral functionQualifier,
                         SqlParserPos pos, @Nullable SqlNode... operands) {
-                    return new IgniteSqlExplain(pos, operands[0], 0);
+                    return new IgniteSqlExplain(pos, operands[0], operands[1], 0);
                 }
             };
 
 
     private SqlNode explicandum;
+    private SqlNode mode;
     private final int dynamicParameterCount;
 
     /** Constructor. */
     public IgniteSqlExplain(SqlParserPos pos,
             SqlNode explicandum,
+            SqlNode mode,
             int dynamicParameterCount) {
         super(pos);
         this.explicandum = explicandum;
+        this.mode = mode;
         this.dynamicParameterCount = dynamicParameterCount;
     }
 
@@ -63,7 +66,7 @@ public class IgniteSqlExplain extends SqlCall {
 
     @Override
     public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(explicandum);
+        return ImmutableNullableList.of(explicandum, mode);
     }
 
     /**
@@ -71,6 +74,13 @@ public class IgniteSqlExplain extends SqlCall {
      */
     public SqlNode getExplicandum() {
         return explicandum;
+    }
+
+    /**
+     * Returns explain mode.
+     */
+    public SqlNode getMode() {
+        return mode;
     }
 
     /**
@@ -82,7 +92,9 @@ public class IgniteSqlExplain extends SqlCall {
 
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-        writer.keyword("EXPLAIN PLAN FOR");
+        writer.keyword("EXPLAIN");
+        mode.unparse(writer, 0, 0);
+        writer.keyword("FOR");
         writer.newlineAndIndent();
         explicandum.unparse(writer, leftPrec, rightPrec);
     }

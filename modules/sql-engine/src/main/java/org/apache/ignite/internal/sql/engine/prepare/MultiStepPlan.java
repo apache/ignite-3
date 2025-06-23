@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
@@ -83,6 +84,12 @@ public class MultiStepPlan implements ExplainablePlan {
 
     /** {@inheritDoc} */
     @Override
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public SqlQueryType type() {
         return type;
     }
@@ -99,7 +106,8 @@ public class MultiStepPlan implements ExplainablePlan {
     }
 
     /** Returns root of the query tree. */
-    public IgniteRel root() {
+    @Override
+    public IgniteRel getRel() {
         return root;
     }
 

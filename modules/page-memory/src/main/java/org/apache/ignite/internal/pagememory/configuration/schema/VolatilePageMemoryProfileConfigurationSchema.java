@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
 
@@ -34,6 +35,7 @@ public class VolatilePageMemoryProfileConfigurationSchema extends StorageProfile
      * <p>When set to {@link #UNSPECIFIED_SIZE}, its value will be equal to {@link #maxSizeBytes}.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "initSize")
     public long initSizeBytes = UNSPECIFIED_SIZE;
 
     /**
@@ -42,5 +44,6 @@ public class VolatilePageMemoryProfileConfigurationSchema extends StorageProfile
      * <p>When set to {@link #UNSPECIFIED_SIZE}, its value will be equal to a maximum between 256 MiB and 20% of the total physical memory.
      */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "maxSize")
     public long maxSizeBytes = UNSPECIFIED_SIZE;
 }

@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.PrimaryReplicasResult;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
@@ -75,7 +76,8 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
                 new FakeCatalogService(PARTITIONS, tableId -> ZONE_ID),
                 new TestClockService(new TestHybridClock(currentTime::get)),
                 new AlwaysSyncedSchemaSyncService(),
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                new SystemPropertiesNodeProperties()
         );
     }
 

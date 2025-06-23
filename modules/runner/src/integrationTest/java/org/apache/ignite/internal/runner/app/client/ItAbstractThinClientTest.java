@@ -216,7 +216,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     }
 
     protected List<ClusterNode> sortedNodes() {
-        return client.clusterNodes().stream()
+        return client.cluster().nodes().stream()
                 .sorted(Comparator.comparing(ClusterNode::name))
                 .collect(toList());
     }

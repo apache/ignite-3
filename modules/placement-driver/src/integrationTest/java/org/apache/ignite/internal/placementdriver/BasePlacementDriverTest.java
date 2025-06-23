@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Base class for testing the placement driver. */
 abstract class BasePlacementDriverTest extends IgniteAbstractTest {
-    protected final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    protected final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
     protected PartitionGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
         return enabledColocation ? new ZonePartitionId(tableOrZoneId, partId) : new TablePartitionId(tableOrZoneId, partId);

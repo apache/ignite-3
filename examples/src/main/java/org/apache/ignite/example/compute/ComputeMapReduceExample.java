@@ -133,7 +133,7 @@ public class ComputeMapReduceExample {
                 jobs.add(
                         MapReduceJob.<String, Integer>builder()
                                 .jobDescriptor(job)
-                                .nodes(taskContext.ignite().clusterNodes())
+                                .nodes(taskContext.ignite().cluster().nodes())
                                 .args(word)
                                 .build()
                 );

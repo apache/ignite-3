@@ -192,7 +192,7 @@ class RecoveryAcceptorHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private static HandshakeStartResponseMessage handshakeStartResponseMessageFrom(UUID initiatorLaunchId) {
         return MESSAGE_FACTORY.handshakeStartResponseMessage()
-                .initiatorNode(
+                .clientNode(
                         MESSAGE_FACTORY.clusterNodeMessage()
                                 .id(initiatorLaunchId)
                                 .name(INITIATOR_CONSISTENT_ID)

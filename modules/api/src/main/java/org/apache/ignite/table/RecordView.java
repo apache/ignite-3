@@ -188,8 +188,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Skipped records. The order of collection elements is guaranteed to be the same as the order of {@code recs}. If a record is
-     *         inserted, the element will be excluded from the collection result.
+     * @return Skipped records. If a record is inserted, the element will be excluded from the collection result.
      */
     List<R> insertAll(@Nullable Transaction tx, Collection<R> recs);
 
@@ -198,9 +197,8 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Future representing pending completion of the operation, with rejected rows for insertion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code recs}. If a record is inserted, the element will be
-     *         excluded from the collection result.
+     * @return Future representing pending completion of the operation, with rejected rows for insertion in the result. If a record is
+     *         inserted, the element will be excluded from the collection result.
      */
     CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs);
 
@@ -320,8 +318,8 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Records with the key columns set that did not exist. The order of collection elements is guaranteed to be the same as the
-     *         order of {@code keyRecs}. If a record is removed, the element will be excluded from the collection result.
+     * @return Records with the key columns set that did not exist.
+     *         If a record is removed, the element will be excluded from the collection result.
      */
     List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs);
 
@@ -337,9 +335,8 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code keyRecs}. If a record is removed, the element will be
-     *         excluded from the collection result.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
+     *         If a record is removed, the element will be excluded from the collection result.
      */
     CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
 
@@ -356,8 +353,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to delete. The records cannot be {@code null}.
-     * @return Records that were not deleted. The order of collection elements is guaranteed to be the same as the order of {@code recs}. If
-     *         a record is removed, the element will be excluded from the collection result.
+     * @return Records that were not deleted. If a record is removed, the element will be excluded from the collection result.
      */
     List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs);
 
@@ -366,9 +362,8 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      * @param recs Records to delete. The records cannot be {@code null}.
-     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
-     *         collection elements is guaranteed to be the same as the order of {@code recs}. If a record is removed, the element will be
-     *         excluded from the collection result.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result.
+     *         If a record is removed, the element will be excluded from the collection result.
      */
     CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs);
 }

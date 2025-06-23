@@ -213,7 +213,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         var nullOpFields = new ArrayList<String>();
 
         for (var field : ClientOp.class.getDeclaredFields()) {
-            if ("WRITE_MASK".equals(field.getName())) {
+            if ("WRITE_MASK".equals(field.getName()) || "BATCH_MASK".equals(field.getName())) {
                 continue;
             }
 

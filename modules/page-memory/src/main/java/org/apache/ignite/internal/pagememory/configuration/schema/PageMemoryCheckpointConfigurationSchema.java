@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -29,6 +30,7 @@ public class PageMemoryCheckpointConfigurationSchema {
     /** Interval between checkpoints in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "interval")
     public long intervalMillis = 180_000;
 
     /**
@@ -37,6 +39,7 @@ public class PageMemoryCheckpointConfigurationSchema {
      */
     @Range(min = 0, max = 100)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "intervalDeviation")
     public int intervalDeviationPercent = 40;
 
     /** Delay before executing a checkpoint triggered by RAFT. */
@@ -57,11 +60,13 @@ public class PageMemoryCheckpointConfigurationSchema {
     /** Timeout for checkpoint read lock acquisition in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "readLockTimeout")
     public long readLockTimeoutMillis = 10_000;
 
     /** Threshold for logging (if greater than zero) read lock holders in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "logReadLockThresholdTimeout")
     public long logReadLockThresholdTimeoutMillis = 0;
 
     /** Use an asynchronous file I/O operations provider. */

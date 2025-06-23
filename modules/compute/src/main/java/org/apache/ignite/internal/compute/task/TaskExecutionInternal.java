@@ -27,6 +27,7 @@ import static org.apache.ignite.compute.TaskStatus.FAILED;
 import static org.apache.ignite.internal.compute.ComputeUtils.getTaskSplitArgumentType;
 import static org.apache.ignite.internal.compute.ComputeUtils.instantiateTask;
 import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -52,10 +53,13 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.CancellableTaskExecution;
+import org.apache.ignite.internal.compute.HybridTimestampProvider;
 import org.apache.ignite.internal.compute.MarshallerProvider;
+import org.apache.ignite.internal.compute.ResultUnmarshallingJobExecution;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.CancelHandle;
@@ -71,14 +75,14 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Task result type.
  */
 @SuppressWarnings("unchecked")
-public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecution<R>, MarshallerProvider<R> {
+public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecution<R>, MarshallerProvider<R>, HybridTimestampProvider {
     private static final IgniteLogger LOG = Loggers.forClass(TaskExecutionInternal.class);
 
     private final QueueExecution<SplitResult<I, M, T, R>> splitExecution;
 
     private final CompletableFuture<List<JobExecution<T>>> executionsFuture;
 
-    private final CompletableFuture<Map<UUID, T>> resultsFuture;
+    private final CompletableFuture<IgniteBiTuple<Map<UUID, T>, Long>> resultsFuture;
 
     private final CompletableFuture<QueueExecution<R>> reduceExecutionFuture;
 
@@ -139,8 +143,11 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
             // This future is already finished
             MapReduceTask<I, M, T, R> task = splitExecution.resultAsync().thenApply(SplitResult::task).join();
 
+            Map<UUID, T> resMap = results.get1();
+            assert resMap != null : "Results map should not be null";
+
             return executorService.submit(
-                    () -> task.reduceAsync(context, results),
+                    () -> task.reduceAsync(context, resMap),
                     Integer.MAX_VALUE,
                     0
             );
@@ -281,9 +288,9 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
 
     }
 
-    private static <T> CompletableFuture<Map<UUID, T>> resultsAsync(List<JobExecution<T>> executions) {
-        CompletableFuture<T>[] resultFutures = executions.stream()
-                .map(JobExecution::resultAsync)
+    private static <T> CompletableFuture<IgniteBiTuple<Map<UUID, T>, Long>> resultsAsync(List<JobExecution<T>> executions) {
+        CompletableFuture<IgniteBiTuple<T, Long>>[] resultFutures = executions.stream()
+                .map(j -> ((ResultUnmarshallingJobExecution<IgniteBiTuple<T, Long>>) j).resultWithTimestampAsync())
                 .toArray(CompletableFuture[]::new);
 
         CompletableFuture<UUID>[] idFutures = executions.stream()
@@ -292,12 +299,19 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
 
         return allOf(concat(resultFutures, idFutures)).thenApply(unused -> {
             Map<UUID, T> results = new LinkedHashMap<>();
+            long timestamp = NULL_HYBRID_TIMESTAMP;
 
             for (int i = 0; i < resultFutures.length; i++) {
-                results.put(idFutures[i].join(), resultFutures[i].join());
+                IgniteBiTuple<T, Long> jobRes = resultFutures[i].join();
+                results.put(idFutures[i].join(), jobRes.get1());
+
+                Long jobTs = jobRes.get2();
+                assert jobTs != null : "Job result timestamp should not be null";
+
+                timestamp = Math.max(timestamp, jobTs);
             }
 
-            return results;
+            return new IgniteBiTuple<>(results, timestamp);
         });
     }
 
@@ -310,6 +324,23 @@ public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecuti
     public boolean marshalResult() {
         // Not needed because split/reduce jobs always run on the client handler node
         return false;
+    }
+
+    @Override
+    public long hybridTimestamp() {
+        if (resultsFuture.isCompletedExceptionally()) {
+            return NULL_HYBRID_TIMESTAMP;
+        }
+
+        IgniteBiTuple<Map<UUID, T>, Long> res = resultsFuture.getNow(null);
+
+        if (res == null) {
+            throw new IllegalStateException("Task execution is not complete yet, cannot get hybrid timestamp.");
+        }
+
+        assert res.get2() != null : "Task result timestamp should not be null";
+
+        return res.get2();
     }
 
     private static class SplitResult<I, M, T, R> {

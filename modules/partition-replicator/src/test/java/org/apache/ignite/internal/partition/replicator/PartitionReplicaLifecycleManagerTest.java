@@ -66,6 +66,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -268,6 +269,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 clusterService.topologyService(),
                 lowWatermark,
                 failureManager,
+                new SystemPropertiesNodeProperties(),
                 executorService,
                 scheduledExecutorService,
                 executorService,

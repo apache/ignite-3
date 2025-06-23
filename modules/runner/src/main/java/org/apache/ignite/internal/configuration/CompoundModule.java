@@ -50,7 +50,7 @@ public class CompoundModule implements ConfigurationModule {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
+    public Collection<RootKey<?, ?, ?>> rootKeys() {
         return unionFromModulesExtractedWith(ConfigurationModule::rootKeys);
     }
 

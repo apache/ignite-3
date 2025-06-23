@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
@@ -70,16 +71,25 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     private final IgniteKeyValueGet lookupNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
+    @Nullable
+    private final PartitionAwarenessMetadata partitionAwarenessMetadata;
 
     private volatile Performable<?> operation;
 
-    KeyValueGetPlan(PlanId id, int catalogVersion, IgniteKeyValueGet lookupNode, ResultSetMetadata meta,
-            ParameterMetadata parameterMetadata) {
+    KeyValueGetPlan(
+            PlanId id,
+            int catalogVersion,
+            IgniteKeyValueGet lookupNode,
+            ResultSetMetadata meta,
+            ParameterMetadata parameterMetadata,
+            @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata
+    ) {
         this.id = id;
         this.catalogVersion = catalogVersion;
         this.lookupNode = lookupNode;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
+        this.partitionAwarenessMetadata = partitionAwarenessMetadata;
     }
 
     /** {@inheritDoc} */
@@ -106,6 +116,12 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         return parameterMetadata;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
+    }
+
     /** Returns a table in question. */
     private IgniteTable table() {
         IgniteTable table = lookupNode.getTable().unwrap(IgniteTable.class);
@@ -120,10 +136,6 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         IgniteRel clonedRoot = Cloner.clone(lookupNode, Commons.cluster());
 
         return ExplainUtils.toString(clonedRoot);
-    }
-
-    public IgniteKeyValueGet lookupNode() {
-        return lookupNode;
     }
 
     private <RowT> Performable<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
@@ -177,6 +189,11 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         CompletableFuture<Iterator<InternalSqlRow>> result = operation.perform(ctx, tx);
 
         return new IteratorToDataCursorAdapter<>(result, Runnable::run);
+    }
+
+    @Override
+    public IgniteKeyValueGet getRel() {
+        return lookupNode;
     }
 
     private static class SimpleLookupExecution<RowT> extends Performable<RowT> {

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.deriveUuidFrom;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -192,7 +193,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             new NamedThreadFactory("DummyInternalTable-common-scheduler-", true, LOG)
     );
 
-    private final boolean enabledColocation = enabledColocation();
+    private final boolean enabledColocation = colocationEnabled();
 
     /**
      * Creates a new local table.
@@ -305,7 +306,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
-                () -> 10_000L
+                () -> 10_000L,
+                colocationEnabled()
         );
 
         RaftGroupService svc = mock(RaftGroupService.class);
@@ -490,7 +492,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 schemaManager,
                 mock(IndexMetaStorage.class),
                 new TestLowWatermark(),
-                mock(FailureProcessor.class)
+                mock(FailureProcessor.class),
+                new SystemPropertiesNodeProperties()
         );
 
         if (enabledColocation) {
@@ -505,6 +508,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     mock(ClusterNodeResolver.class),
                     svc,
                     mock(FailureProcessor.class),
+                    new SystemPropertiesNodeProperties(),
                     LOCAL_NODE,
                     zonePartitionId
             );
@@ -536,6 +540,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(Executor.class),
                 placementDriver,
                 clockService,
+                new SystemPropertiesNodeProperties(),
                 enabledColocation ? zonePartitionId : tablePartitionId
         );
 
