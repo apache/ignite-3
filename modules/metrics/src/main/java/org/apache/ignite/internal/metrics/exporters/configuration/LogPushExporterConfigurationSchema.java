@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters.configuration;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
 
@@ -28,5 +29,6 @@ import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
 public class LogPushExporterConfigurationSchema extends ExporterConfigurationSchema {
     /** Export period, in milliseconds. */
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "period")
     public long periodMillis = 30_000;
 }

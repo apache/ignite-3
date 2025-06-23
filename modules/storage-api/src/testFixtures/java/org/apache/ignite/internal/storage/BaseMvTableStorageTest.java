@@ -63,6 +63,8 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
 
     protected static final String TABLE_NAME = "FOO";
 
+    protected static final int TABLE_ID = 1;
+
     protected static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
     protected static final String SORTED_INDEX_NAME = "SORTED_IDX";

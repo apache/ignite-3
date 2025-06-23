@@ -162,7 +162,7 @@ class DeletedConfigurationTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private ConfigurationChanger createChanger(RootKey<?, ?> rootKey) {
+    private ConfigurationChanger createChanger(RootKey<?, ?, ?> rootKey) {
         return new TestConfigurationChanger(
                 List.of(rootKey),
                 storage,

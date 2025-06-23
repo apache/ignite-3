@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -62,7 +62,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     abstract InternalTransaction toInternalTransaction(Transaction tx);
 
     private Table createTestTable() throws InterruptedException {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             IgniteImpl node = unwrapIgniteImpl(node(0));
             CatalogManager catalogManager = node.catalogManager();
             CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
@@ -162,7 +162,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     private static void awaitAssignmentsStabilization(Ignite node) throws InterruptedException {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
         TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-        int tableOrZoneId = enabledColocation() ? table.zoneId() : table.tableId();
+        int tableOrZoneId = colocationEnabled() ? table.zoneId() : table.tableId();
 
         HybridTimestamp timestamp = igniteImpl.clock().now();
 
@@ -172,7 +172,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
             // Within given test, default zone is used.
             for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
                 CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
-                        enabledColocation()
+                        colocationEnabled()
                                 ? new ZonePartitionId(tableOrZoneId, p)
                                 : new TablePartitionId(tableOrZoneId, p),
                         timestamp);

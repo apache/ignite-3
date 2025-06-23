@@ -20,8 +20,9 @@ package org.apache.ignite.internal.table.distributed.storage;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -244,7 +245,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 () -> mock(ScheduledExecutorService.class),
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
-                () -> 10_000L
+                () -> 10_000L,
+                colocationEnabled()
         );
     }
 
@@ -316,8 +318,13 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 originalRows.get(4)
         );
 
+        List<RowBatch> partitionOrderBatch = new ArrayList<>();
+        partitionOrderBatch.add(rowBatchByPartitionId.get(0));
+        partitionOrderBatch.add(rowBatchByPartitionId.get(1));
+        partitionOrderBatch.add(rowBatchByPartitionId.get(2));
+
         assertThat(
-                collectRejectedRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values()),
+                collectRejectedRowsResponses(partitionOrderBatch),
                 willBe(equalTo(rejectedRows))
         );
     }
@@ -393,7 +400,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 TestTransactionIds.newTransactionId(),
                 randomUUID(),
                 false,
-                10_000
+                10_000,
+                colocationEnabled()
         );
     }
 

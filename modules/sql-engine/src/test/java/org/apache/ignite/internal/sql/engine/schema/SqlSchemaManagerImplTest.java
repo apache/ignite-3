@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -78,11 +78,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -117,7 +117,13 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         sqlStatisticManager = tableId -> 10_000L;
 
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
-        sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 200);
+        sqlSchemaManager = new SqlSchemaManagerImpl(
+                catalogManager,
+                sqlStatisticManager,
+                new SystemPropertiesNodeProperties(),
+                CaffeineCacheFactory.INSTANCE,
+                200
+        );
 
         assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
@@ -474,30 +480,33 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T1");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(TestBuilders.affinity(
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
                     List.of(1),
                     table.id(),
-                    enabledColocation() ? table.zoneId() : table.id())));
+                    colocationEnabled() ? table.zoneId() : table.id(),
+                    "table PUBLIC.T1 in zone \"Default\"")));
         }
 
         {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T2");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(TestBuilders.affinity(
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
                     List.of(3, 1),
                     table.id(),
-                    enabledColocation() ? table.zoneId() : table.id())));
+                    colocationEnabled() ? table.zoneId() : table.id(),
+                    "table PUBLIC.T2 in zone \"Default\"")));
         }
 
         {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T3");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(TestBuilders.affinity(
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
                     List.of(2, 1, 0),
                     table.id(),
-                    enabledColocation() ? table.zoneId() : table.id())));
+                    colocationEnabled() ? table.zoneId() : table.id(),
+                    "table PUBLIC.T3 in zone \"Default\"")));
         }
     }
 

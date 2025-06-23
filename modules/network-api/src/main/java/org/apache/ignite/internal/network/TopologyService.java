@@ -42,11 +42,25 @@ public interface TopologyService extends ClusterNodeResolver, JoinedNodes {
     Collection<ClusterNode> allMembers();
 
     /**
+     * Returns a list of all logical topology members, including the local member.
+     *
+     * @return List of logical topology members.
+     */
+    Collection<ClusterNode> logicalTopologyMembers();
+
+    /**
      * Registers a handler for physical topology change events.
      *
      * @param handler Physical topology event handler.
      */
     void addEventHandler(TopologyEventHandler handler);
+
+    /**
+     * Unregisters a handler for physical topology change events.
+     *
+     * @param handler Physical topology event handler.
+     */
+    void removeEventHandler(TopologyEventHandler handler);
 
     /**
      * Returns a cluster node specified by its network address in the 'host:port' format.

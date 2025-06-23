@@ -53,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
-public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage<PersistentPageMemoryMvPartitionStorage> {
     // TODO IGNITE-25738 Check if 1 second is a good value.
     /** After partition invalidation checkpoint will be scheduled using this delay to allow batching. */
     public static final int CHECKPOINT_ON_DESTRUCTION_DELAY_MILLIS = 1000;
@@ -504,5 +504,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     getTableId(), groupPartitionId.getPartitionId()
             );
         }
+    }
+
+    @Override
+    protected void beforeCloseOrDestroy() {
+        dataRegion.removeTableStorage(this);
     }
 }

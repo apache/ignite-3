@@ -67,7 +67,8 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("storage.aipersist.default").enabled(true),
             new MetricSource().name("storage.aipersist.default_aipersist").enabled(true),
             new MetricSource().name("topology.cluster").enabled(true),
-            new MetricSource().name("topology.local").enabled(true)
+            new MetricSource().name("topology.local").enabled(true),
+            new MetricSource().name("thread.pools.partitions-executor").enabled(true),
     };
 
     /** Correct ignite jdbc url. */

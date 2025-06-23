@@ -5,7 +5,7 @@
 # group: [explain]
 
 # union all
-plan
+explain plan
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 UNION ALL
 SELECT x AS c3, x AS c4 FROM system_range(6, 15)
@@ -30,7 +30,7 @@ UnionAll
         est: (rows=100)
 
 # union [not all]
-plan
+explain plan
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 UNION
 SELECT x AS c3, x AS c4 FROM system_range(6, 15)
@@ -59,7 +59,7 @@ ColocatedHashAggregate
           est: (rows=100)
 
 # colocated minus
-plan
+explain plan
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 EXCEPT
 SELECT x AS c3, x AS c4 FROM system_range(6, 15)
@@ -85,7 +85,7 @@ ColocatedMinus
         est: (rows=100)
 
 # colocated minus all
-plan
+explain plan
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 EXCEPT ALL
 SELECT x AS c3, x AS c4 FROM system_range(6, 15)
@@ -111,7 +111,7 @@ ColocatedMinus
         est: (rows=100)
 
 # map-reduce minus
-plan
+explain plan
 SELECT /*+ DISABLE_RULE('ColocatedMinusConverterRule') */ * FROM (
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 EXCEPT
@@ -142,7 +142,7 @@ ReduceMinus
           est: (rows=100)
 
 # map-reduce minus all
-plan
+explain plan
 SELECT /*+ DISABLE_RULE('ColocatedMinusConverterRule') */ * FROM (
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 EXCEPT ALL
@@ -173,7 +173,7 @@ ReduceMinus
           est: (rows=100)
 
 # colocated intersect
-plan
+explain plan
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 INTERSECT
 SELECT x AS c3, x AS c4 FROM system_range(6, 15)
@@ -199,7 +199,7 @@ ColocatedIntersect
         est: (rows=100)
 
 # colocated intersect all
-plan
+explain plan
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 INTERSECT ALL
 SELECT x AS c3, x AS c4 FROM system_range(6, 15)
@@ -225,7 +225,7 @@ ColocatedIntersect
         est: (rows=100)
 
 # map-reduce intersect
-plan
+explain plan
 SELECT /*+ DISABLE_RULE('ColocatedIntersectConverterRule') */ * FROM (
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 INTERSECT
@@ -256,7 +256,7 @@ ReduceIntersect
           est: (rows=100)
 
 # map-reduce intersect all
-plan
+explain plan
 SELECT /*+ DISABLE_RULE('ColocatedIntersectConverterRule') */ * FROM (
 SELECT x AS c1, x AS c2 FROM system_range(1, 10)
 INTERSECT ALL

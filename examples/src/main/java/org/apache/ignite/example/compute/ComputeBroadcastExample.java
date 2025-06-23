@@ -87,7 +87,7 @@ public class ComputeBroadcastExample {
                     .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
                     .build();
 
-            BroadcastJobTarget target = BroadcastJobTarget.nodes(client.clusterNodes());
+            BroadcastJobTarget target = BroadcastJobTarget.nodes(client.cluster().nodes());
 
             //--------------------------------------------------------------------------------------
             //

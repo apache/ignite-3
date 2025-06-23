@@ -549,7 +549,7 @@ public class LogManagerImpl implements LogManager {
                         startMs = Utils.monotonicMs();
                         try {
                             final TruncateSuffixClosure tsc = (TruncateSuffixClosure) done;
-                            LOG.warn(
+                            LOG.info(
                                     "Truncating log storage suffix [groupId={}, lastIndexKept={}]",
                                     nodeId.getGroupId(),
                                     tsc.lastIndexKept

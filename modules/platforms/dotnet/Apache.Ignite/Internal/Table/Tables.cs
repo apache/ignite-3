@@ -138,7 +138,7 @@ namespace Apache.Ignite.Internal.Table
                 }
                 else
                 {
-                    w.Write(arg.Name.CanonicalName);
+                    w.Write(arg.Name.ObjectName);
                 }
             }
 

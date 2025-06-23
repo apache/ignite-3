@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.sql;
+package org.apache.ignite.client.handler.requests;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -25,9 +25,9 @@ import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancelHandle;
 
 /**
- * Request to cancel execution of a SQL query previously initiated on the same connection.
+ * Request to cancel execution of any operation previously initiated on the same connection.
  */
-public class ClientSqlCancelRequest {
+public class ClientOperationCancelRequest {
     /**
      * Processes the request.
      */

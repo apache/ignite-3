@@ -37,7 +37,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
  */
-public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage<VolatilePageMemoryMvPartitionStorage> {
     private final VolatilePageMemoryStorageEngine engine;
 
     private final VolatilePageMemoryDataRegion dataRegion;

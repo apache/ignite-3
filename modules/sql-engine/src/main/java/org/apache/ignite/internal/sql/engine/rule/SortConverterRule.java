@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
@@ -27,11 +29,19 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Sort;
 import org.apache.calcite.rel.logical.LogicalSort;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexExecutor;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.immutables.value.Value;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Converter rule for sort operator.
@@ -79,8 +89,8 @@ public class SortConverterRule extends RelRule<SortConverterRule.Config> {
                         cluster.traitSetOf(IgniteConvention.INSTANCE).replace(sort.getCollation()),
                         convert(sort.getInput(), cluster.traitSetOf(IgniteConvention.INSTANCE)),
                         sort.getCollation(),
-                        sort.offset,
-                        sort.fetch
+                        null,
+                        createLimitForSort(cluster.getPlanner().getExecutor(), cluster.getRexBuilder(), sort.offset, sort.fetch)
                 );
 
                 call.transformTo(
@@ -98,5 +108,43 @@ public class SortConverterRule extends RelRule<SortConverterRule.Config> {
 
             call.transformTo(new IgniteSort(cluster, outTraits, input, sort.getCollation()));
         }
+    }
+
+    private static @Nullable RexNode createLimitForSort(
+            @Nullable RexExecutor executor, RexBuilder builder, @Nullable RexNode offset, @Nullable RexNode fetch
+    ) {
+        if (fetch == null) {
+            // Current implementation of SortNode cannot handle offset-only case.
+            return null;
+        }
+
+        if (offset != null) {
+            boolean shouldTryToSimplify = RexUtil.isLiteral(fetch, false)
+                    && RexUtil.isLiteral(offset, false);
+
+            fetch = builder.makeCall(IgniteSqlOperatorTable.PLUS, fetch, offset);
+
+            if (shouldTryToSimplify && executor != null) {
+                try {
+                    List<RexNode> result = new ArrayList<>();
+                    executor.reduce(builder, List.of(fetch), result);
+
+                    assert result.size() <= 1 : result;
+
+                    if (result.size() == 1) {
+                        fetch = result.get(0);
+                    }
+                } catch (Exception ex) {
+                    if (IgniteUtils.assertionsEnabled()) {
+                        ExceptionUtils.sneakyThrow(ex);
+                    }
+
+                    // Just ignore the exception, we will deal with this expression later again,
+                    // and next time we might have all the required context to evaluate it.
+                }
+            }
+        }
+
+        return fetch;
     }
 }

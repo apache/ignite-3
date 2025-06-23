@@ -16,7 +16,6 @@
  */
 
 apply plugin: 'java'
-apply plugin: 'jacoco'
 apply plugin: 'checkstyle'
 apply plugin: 'pmd'
 apply plugin: 'java-library'
@@ -27,10 +26,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
     withSourcesJar()
     withJavadocJar()
-}
-
-test {
-    finalizedBy(jacocoTestReport)
 }
 
 pmd {
@@ -103,28 +98,6 @@ javadoc {
 }
 
 javadoc.dependsOn compileJava
-
-
-jacoco {
-    toolVersion = libs.versions.jacocoTool.get()
-}
-
-
-jacocoTestReport {
-    dependsOn test
-
-    reports {
-        xml.required = false
-        html.required = true
-    }
-    afterEvaluate {
-        classDirectories.setFrom(files(classDirectories.files.collect {
-            fileTree(dir: it,
-                    exclude: ['org/apache/calcite/**/*'])
-        }))
-    }
-}
-
 
 spotbugs {
     ignoreFailures = false

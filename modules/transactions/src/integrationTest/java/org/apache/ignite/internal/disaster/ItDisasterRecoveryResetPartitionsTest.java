@@ -20,7 +20,7 @@ package org.apache.ignite.internal.disaster;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -109,7 +109,7 @@ public class ItDisasterRecoveryResetPartitionsTest extends ClusterPerTestIntegra
     }
 
     private static ByteArray prefix(String zoneName, String tableName, IgniteImpl ignite) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             int zoneId = getZoneId(ignite.catalogManager(), zoneName, ignite.clock().nowLong());
 
             return new ByteArray(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX + zoneId);

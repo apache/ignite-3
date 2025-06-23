@@ -50,6 +50,7 @@ dependencies {
     integrationTestImplementation libs.auto.service.annotations
 
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-metrics'

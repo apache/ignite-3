@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -72,7 +73,9 @@ public class StoragePartitionMeta extends PartitionMeta {
      * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param indexTreeMetaPageId Index tree meta page ID.
      * @param gcQueueMetaPageId Garbage collection queue meta page ID.
-     * @param estimatedSize Estimated size of the partition.
+     * @param estimatedSize Estimated number of latest entries in the partition.
+     *
+     * @see MvPartitionStorage#estimatedSize for a detailed description of what estimated size is.
      */
     public StoragePartitionMeta(
             int pageCount,
