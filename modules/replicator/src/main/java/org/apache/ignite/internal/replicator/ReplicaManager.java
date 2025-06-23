@@ -281,7 +281,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         this.replicaStateManager = new ReplicaStateManager(
                 replicaStartStopExecutor,
-                clockService,
                 placementDriver,
                 this,
                 failureProcessor

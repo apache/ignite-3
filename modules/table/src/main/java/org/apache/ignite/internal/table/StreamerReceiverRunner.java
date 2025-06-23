@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.ReceiverExecutionOptions;
@@ -60,7 +61,7 @@ public interface StreamerReceiverRunner {
      * @param deploymentUnits Deployment units.
      * @return Serialized receiver results.
      */
-    CompletableFuture<byte[]> runReceiverAsync(
+    CompletableFuture<IgniteBiTuple<byte[], Long>> runReceiverAsync(
             byte[] payload,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits,

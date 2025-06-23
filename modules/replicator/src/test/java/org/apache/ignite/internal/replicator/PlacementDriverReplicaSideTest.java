@@ -21,7 +21,6 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -383,7 +382,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         long leaseStartTime = 10;
 
         reservationClosure = () -> {
-            throw new ReplicaReservationFailedException(GRP_ID, hybridTimestamp(leaseStartTime), "STOPPING");
+            throw new ReplicaReservationFailedException("Test: replica reservation failed");
         };
 
         leaderElection(LOCAL_NODE);

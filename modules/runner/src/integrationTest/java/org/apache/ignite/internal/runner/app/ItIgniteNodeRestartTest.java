@@ -382,7 +382,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry()
                 .getConfiguration(NetworkExtensionConfiguration.KEY).network();
 
-        var threadPoolsManager = new ThreadPoolsManager(name);
+        var metricManager = new MetricManagerImpl();
+
+        var threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
         var failureProcessor = new NoOpFailureManager();
 
@@ -447,8 +449,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         StorageConfiguration storageConfiguration = nodeCfgMgr.configurationRegistry()
                 .getConfiguration(StorageExtensionConfiguration.KEY).storage();
-
-        var metricManager = new MetricManagerImpl();
 
         var cmgManager = new ClusterManagementGroupManager(
                 vault,

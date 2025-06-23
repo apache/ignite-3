@@ -19,9 +19,11 @@ package org.apache.ignite.internal;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.util.List;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
@@ -33,14 +35,30 @@ import org.junit.jupiter.params.provider.MethodSource;
 class ItCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
-        baseIgnite.sql().execute(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
-        baseIgnite.sql().execute(null, "INSERT INTO TEST VALUES (1, 'str')");
+        sql(baseIgnite, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
+
+        Transaction tx = baseIgnite.transactions().begin();
+        baseIgnite.sql().execute(tx, "INSERT INTO TEST VALUES (1, 'str')");
+        tx.commit();
+
+        List<List<Object>> result = sql(baseIgnite, "SELECT * FROM TEST");
+        assertThat(result, contains(contains(1, "str")));
     }
 
     @Test
     void testCompatibility() {
+        // Read old data
         List<List<Object>> result = sql("SELECT * FROM TEST");
         assertThat(result, contains(contains(1, "str")));
+
+        // Insert new data
+        Transaction tx = node(0).transactions().begin();
+        node(0).sql().execute(tx, "INSERT INTO TEST VALUES (2, 'str2')");
+        tx.commit();
+
+        // Verify all data
+        result = sql("SELECT * FROM TEST");
+        assertThat(result, containsInAnyOrder(contains(1, "str"), contains(2, "str2")));
     }
 
     private static List<String> baseVersions() {
