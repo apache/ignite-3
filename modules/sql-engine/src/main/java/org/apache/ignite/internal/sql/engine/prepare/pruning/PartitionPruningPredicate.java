@@ -50,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,7 +71,6 @@ public final class PartitionPruningPredicate {
      * @param pruningColumns Partition pruning metadata.
      * @param dynamicParameters Values dynamic parameters.
      * @param colocationGroup Colocation group.
-     *
      * @return New colocation group.
      */
     public static ColocationGroup prunePartitions(
@@ -137,7 +137,6 @@ public final class PartitionPruningPredicate {
      * @param expressionFactory Expression factory.
      * @param assignments Assignments.
      * @param nodeName Node name.
-     *
      * @return List of partitions that belong to the provided node.
      */
     public static <RowT> List<PartitionWithConsistencyToken> prunePartitions(
@@ -191,11 +190,22 @@ public final class PartitionPruningPredicate {
 
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21543
                 //  Remove after this issue makes it possible to have CAST('uuid_str' AS UUID) as value.
-                if (physicalType.spec() == ColumnType.UUID && !(node instanceof RexDynamicParam)) {
+                ColumnType columnType = physicalType.spec();
+                if (columnType == ColumnType.UUID && !(node instanceof RexDynamicParam)) {
                     return null;
                 }
 
                 Object val = getNodeValue(physicalType, node, dynamicParameters);
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
+                if (columnType == ColumnType.TIME
+                        || columnType == ColumnType.DATETIME
+                        || columnType == ColumnType.TIMESTAMP) {
+                    TemporalNativeType temporalNativeType = (TemporalNativeType) physicalType;
+                    if (temporalNativeType.precision() > 3) {
+                        return null;
+                    }
+                }
 
                 partitionCalculator.append(val);
             }

@@ -788,24 +788,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         allChanges.entrySet().removeIf(entry -> entry.getValue() == null && !localRoots.storageData.containsKey(entry.getKey()));
     }
 
-    /**
-     * Notifies all listeners of the current configuration.
-     *
-     * @return Future that must signify when processing is completed.
-     */
-    CompletableFuture<Void> notifyCurrentConfigurationListeners() {
-        StorageRoots storageRoots = this.storageRoots;
-
-        long notificationCount = notificationListenerCnt.incrementAndGet();
-
-        return configurationUpdateListener.onConfigurationUpdated(
-                null,
-                storageRoots.roots,
-                storageRoots.changeId,
-                notificationCount
-        );
-    }
-
     /** {@inheritDoc} */
     @Override
     public long notificationCount() {

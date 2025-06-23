@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.rowType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponses;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 
@@ -368,7 +368,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ExecutionContext<RowT> ectx,
             Collection<RowBatch> batches
     ) {
-        return collectRejectedRowsResponsesWithRestoreOrder(batches)
+        return collectRejectedRowsResponses(batches)
                 .thenApply(response -> {
                     if (nullOrEmpty(response)) {
                         return null;

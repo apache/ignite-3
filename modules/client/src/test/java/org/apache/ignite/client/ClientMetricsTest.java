@@ -241,14 +241,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
-        assertEquals(16, metrics().bytesSent());
+        assertEquals(17, metrics().bytesSent());
 
         long handshakeReceived = metrics().bytesReceived();
         assertThat(handshakeReceived, greaterThanOrEqualTo(77L));
 
         client.tables().tables();
 
-        assertEquals(22, metrics().bytesSent());
+        assertEquals(23, metrics().bytesSent());
         assertEquals(handshakeReceived + 21, metrics().bytesReceived());
     }
 
