@@ -182,12 +182,30 @@ public interface IgniteClientConfiguration {
     long operationTimeout();
 
     /**
-     * Gets the size of cache to store partition awareness metadata of sql queries, in number of entries.
-     * Default is {@value #DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE}.
+     * Gets the size of cache to store partition awareness metadata of sql queries, in number of entries. Default is
+     * {@value #DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE}.
      *
-     * <p>Every instance of {@link IgniteSql} has its own cache. Every unique pair of (defaultSchema, queryString) reserve 
-     * its own place in metadata cache, if metadata is available for this particular query. In general, metadata is available
-     * for queries which have equality predicate over all colocation columns, or which inserts the whole tuple.
+     * <p>SQL partition awareness feature improves query performance by directing queries to the specific server nodes that hold the
+     * relevant data, minimizing network overhead. Ignite client builds the metadata cache during the initial query execution and leverages
+     * this cache to speed up subsequent queries.
+     *
+     * <p>Every instance of {@link IgniteSql} has its own cache. Every unique pair of (defaultSchema, queryString) reserve
+     * its own place in metadata cache, if metadata is available for this particular query. In general, metadata is available for queries
+     * which have equality predicate over all colocation columns, or which inserts the whole tuple. Let's consider the following example:
+     * <pre>
+     *     // Creates reservations table. Please mind the {@code COLOCATE BY (floor_no)}: all reservations are colocated by
+     *     // {@code floor_no}.
+     *     CREATE TABLE RoomsReservations (room_no INT, floor_no INT, PRIMARY_KEY (room_no, floor_no)) COLOCATE BY (floor_no);
+     *
+     *     // Here, we are selecting all reserved rooms on a particular floor. All reservation are colocated by {@code floor_no},
+     *     // therefore having predicate like {@code floor_no = ?} make it possible to compute a partition which keeps the data of
+     *     // interest. Which in turn makes it possible to send the query directly to the node that hold the relevant data.
+     *     SELECT room_no FROM RoomsReservations WHERE floor_no = ?;
+     *
+     *     // Similar with INSERT: since values of dynamic parameters are known on a client, it makes it possible to route the
+     *     // query directly to the node that hold the relevant data.
+     *     INSERT INTO RoomsReservations(room_no, floor_no) VALUES(?, ?);
+     * </pre>
      *
      * @return Cache size, in number of entries.
      */
