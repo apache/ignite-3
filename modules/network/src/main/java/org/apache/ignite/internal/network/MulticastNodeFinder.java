@@ -45,8 +45,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.serialization.NetworkAddressesSerializer;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -91,8 +91,8 @@ public class MulticastNodeFinder implements NodeFinder {
     /** Amount of network "hops" allowed for the multicast request. Range is from {@link #UNSPECIFIED_TTL} to {@link #MAX_TTL}. */
     private final int ttl;
 
-    /** Address sent in response to multicast requests. */
-    private final InetSocketAddress localAddressToAdvertise;
+    /** Addresses sent in response to multicast requests. */
+    private final List<NetworkAddress> addressesToAdvertise;
     private final ExecutorService listenerThreadPool;
     private final String nodeName;
 
@@ -107,7 +107,7 @@ public class MulticastNodeFinder implements NodeFinder {
      * @param resultWaitMillis Wait time for responses.
      * @param ttl Time-to-live for multicast packets.
      * @param nodeName Node name.
-     * @param localAddressToAdvertise Local node address.
+     * @param addressesToAdvertise Local node addresses.
      */
     public MulticastNodeFinder(
             String multicastGroup,
@@ -115,13 +115,13 @@ public class MulticastNodeFinder implements NodeFinder {
             int resultWaitMillis,
             int ttl,
             String nodeName,
-            InetSocketAddress localAddressToAdvertise
+            Collection<NetworkAddress> addressesToAdvertise
     ) {
         this.multicastSocketAddress = new InetSocketAddress(multicastGroup, multicastPort);
         this.multicastPort = multicastPort;
         this.resultWaitMillis = resultWaitMillis;
         this.ttl = ttl;
-        this.localAddressToAdvertise = localAddressToAdvertise;
+        this.addressesToAdvertise = new ArrayList<>(addressesToAdvertise);
         this.nodeName = nodeName;
 
         this.listenerThreadPool = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "multicast-listener", LOG));
@@ -159,7 +159,7 @@ public class MulticastNodeFinder implements NodeFinder {
             shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
         }
 
-        LOG.info("Found nodes: {}", result);
+        LOG.info("Found addresses: {}", result);
 
         return result;
     }
@@ -198,9 +198,10 @@ public class MulticastNodeFinder implements NodeFinder {
             try {
                 byte[] data = receiveDatagramData(socket, responsePacket);
 
-                InetSocketAddress address = ByteUtils.fromBytes(data);
-                if (!address.equals(localAddressToAdvertise)) {
-                    discovered.add(NetworkAddress.from(address));
+                Collection<NetworkAddress> addresses = NetworkAddressesSerializer.deserialize(data);
+
+                if (!addressesToAdvertise.contains(addresses.iterator().next())) {
+                    discovered.addAll(addresses);
                 }
             } catch (SocketTimeoutException ignored) {
                 // No-op.
@@ -250,7 +251,7 @@ public class MulticastNodeFinder implements NodeFinder {
         }
 
         listenerThreadPool.submit(() -> {
-            byte[] responseData = ByteUtils.toBytes(localAddressToAdvertise);
+            byte[] responseData = NetworkAddressesSerializer.serialize(addressesToAdvertise);
             byte[] requestBuffer = new byte[REQUEST_MESSAGE.length];
 
             // Listener uses a polling mechanism to cover all sockets using one thread.
