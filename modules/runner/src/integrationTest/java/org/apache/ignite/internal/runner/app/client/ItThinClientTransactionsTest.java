@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -59,10 +60,13 @@ import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -387,6 +391,28 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertFalse(tx.isReadOnly());
 
         tx.rollback();
+    }
+
+    @Test
+    void testKillTransaction() {
+        @SuppressWarnings("resource") IgniteClient client = client();
+        KeyValueView<Integer, String> kvView = kvView();
+
+        Transaction tx = client.transactions().begin();
+        kvView.put(tx, 1, "1");
+        kvView.put(tx, 2, "2");
+
+        try (ResultSet<SqlRow> cursor = client.sql().execute(null, "SELECT TRANSACTION_ID FROM SYSTEM.TRANSACTIONS")) {
+            cursor.forEachRemaining(r -> {
+                String txId = r.stringValue("TRANSACTION_ID");
+                client.sql().executeScript("KILL TRANSACTION '" + txId + "'");
+            });
+        }
+
+        TransactionException ex = assertThrows(TransactionException.class, tx::commit);
+
+        assertThat(ex.getMessage(), startsWith("Transaction is killed"));
+        assertEquals("IGN-TX-13", ex.codeAsString());
     }
 
     @Test
