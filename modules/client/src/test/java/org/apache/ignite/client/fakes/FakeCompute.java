@@ -132,7 +132,7 @@ public class FakeCompute implements IgniteComputeInternal {
             Class<ComputeJob<Object, Object>> jobClass = ComputeUtils.jobClass(jobClassLoader, jobClassName);
             ComputeJob<Object, Object> job = ComputeUtils.instantiateJob(jobClass);
             CompletableFuture<Object> jobFut = job.executeAsync(
-                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader(), null),
+                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), jobClassLoader, null),
                     SharedComputeUtils.unmarshalArgOrResult(arg, null, null));
 
             return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
