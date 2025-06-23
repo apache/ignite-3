@@ -18,36 +18,35 @@
 #include "module.h"
 #include "py_connection.h"
 #include "py_cursor.h"
+#include "py_object.h"
 #include "py_string.h"
 #include "utils.h"
 
-#include <ignite/odbc/sql_environment.h>
-#include <ignite/odbc/sql_connection.h>
 #include <ignite/common/detail/defer.h>
 
-#include <memory>
+#include <sstream>
 
 #include <Python.h>
 
-static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
-    std::unique_ptr<ignite::sql_connection> conn)
+static PyObject* make_connection()
 {
-    auto conn_class = py_get_module_class("Connection");
+    py_object conn_class(py_get_module_class("Connection"));
     if (!conn_class)
         return nullptr;
 
-    auto args = PyTuple_New(0);
-    auto kwargs = Py_BuildValue("{}");
-    PyObject* conn_obj  = PyObject_Call(conn_class, args, kwargs);
-    Py_DECREF(conn_class);
-    Py_DECREF(args);
-    Py_DECREF(kwargs);
+    py_object args(PyTuple_New(0));
+    py_object kwargs(Py_BuildValue("{}"));
+    return PyObject_Call(conn_class.get(), args.get(), kwargs.get());
+}
 
-    if (!conn_obj)
+static PyObject* make_connection(std::string address_str, const char* schema, const char* identity, const char* secret,
+    int page_size, int timeout, int autocommit) {
+    auto py_conn = make_py_connection(std::move(address_str), schema, identity, secret, page_size, timeout, autocommit);
+    if (!py_conn)
         return nullptr;
 
-    auto py_conn = make_py_connection(std::move(env), std::move(conn));
-    if (!py_conn)
+    auto conn_obj = make_connection();
+    if (!conn_obj)
         return nullptr;
 
     if (PyObject_SetAttrString(conn_obj, "_py_connection", reinterpret_cast<PyObject *>(py_conn)))
@@ -56,64 +55,7 @@ static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
     return conn_obj;
 }
 
-static PyObject* make_connection(std::string address_str, const char* schema, const char* identity, const char* secret,
-    int page_size, int timeout, int autocommit) {
-    if (address_str.empty()) {
-        PyErr_SetString(py_get_module_interface_error_class(), "No addresses provided to connect");
-        return nullptr;
-    }
-
-    auto sql_env = std::make_unique<ignite::sql_environment>();
-
-    std::unique_ptr<ignite::sql_connection> sql_conn{sql_env->create_connection()};
-    if (!check_errors(*sql_env))
-        return nullptr;
-
-    ignite::configuration cfg;
-    cfg.set_address(std::move(address_str));
-
-    if (schema)
-        cfg.set_schema(schema);
-
-    if (identity)
-        cfg.set_auth_identity(identity);
-
-    if (secret)
-        cfg.set_auth_secret(secret);
-
-    if (page_size)
-        cfg.set_page_size(std::int32_t(page_size));
-
-    if (timeout)
-    {
-        auto ptr_timeout = reinterpret_cast<void *>(ptrdiff_t(timeout));
-        sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-
-        sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-    }
-
-    sql_conn->establish(cfg);
-    if (!check_errors(*sql_conn))
-        return nullptr;
-
-    if (!autocommit)
-    {
-        auto ptr_autocommit = reinterpret_cast<void *>(ptrdiff_t(SQL_AUTOCOMMIT_OFF));
-        sql_conn->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-    }
-
-    return make_connection(std::move(sql_env), std::move(sql_conn));
-}
-
-static PyObject* pyignite_dbapi_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
-    UNUSED_VALUE self;
-
+static PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
     static char *kwlist[] = {
         const_cast<char*>("address"),
         const_cast<char*>("identity"),

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <memory>
+#include <string>
 
 #include <Python.h>
 
@@ -52,12 +52,17 @@ void py_connection_dealloc(py_connection *self);
 /**
  * Create a new instance of py_connection python class.
  *
- * @param env Environment.
- * @param conn Connection.
- * @return A new class instance.
+ * @param address_str Address string.
+ * @param schema Schema.
+ * @param identity Identity.
+ * @param secret Secret.
+ * @param page_size Page size.
+ * @param timeout Timeout.
+ * @param autocommit Autocommit flag.
+ * @return A new connection class instance.
  */
-py_connection* make_py_connection(std::unique_ptr<ignite::sql_environment> env,
-    std::unique_ptr<ignite::sql_connection> conn);
+py_connection* make_py_connection(std::string address_str, const char* schema, const char* identity, const char* secret,
+    int page_size, int timeout, int autocommit);
 
 /**
  * Prepare PyConnection type for registration.

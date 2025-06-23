@@ -190,15 +190,65 @@ int register_py_connection_type(PyObject* mod) {
     return res;
 }
 
-py_connection *make_py_connection(std::unique_ptr<ignite::sql_environment> env,
-    std::unique_ptr<ignite::sql_connection> conn) {
-    py_connection* py_conn_obj  = PyObject_New(py_connection, &py_connection_type);
+py_connection *make_py_connection(std::string address_str, const char* schema, const char* identity, const char* secret,
+    int page_size, int timeout, int autocommit) {
+    if (address_str.empty()) {
+        PyErr_SetString(py_get_module_interface_error_class(), "No addresses provided to connect");
+        return nullptr;
+    }
+
+    auto sql_env = std::make_unique<ignite::sql_environment>();
+
+    std::unique_ptr<ignite::sql_connection> sql_conn{sql_env->create_connection()};
+    if (!check_errors(*sql_env))
+        return nullptr;
+
+    ignite::configuration cfg;
+    cfg.set_address(std::move(address_str));
+
+    if (schema)
+        cfg.set_schema(schema);
+
+    if (identity)
+        cfg.set_auth_identity(identity);
+
+    if (secret)
+        cfg.set_auth_secret(secret);
+
+    if (page_size)
+        cfg.set_page_size(std::int32_t(page_size));
+
+    if (timeout)
+    {
+        auto ptr_timeout = reinterpret_cast<void *>(ptrdiff_t(timeout));
+        sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+
+        sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+    }
+
+    sql_conn->establish(cfg);
+    if (!check_errors(*sql_conn))
+        return nullptr;
+
+    if (!autocommit)
+    {
+        auto ptr_autocommit = reinterpret_cast<void *>(ptrdiff_t(SQL_AUTOCOMMIT_OFF));
+        sql_conn->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
+        if (!check_errors(*sql_conn))
+            return nullptr;
+    }
+
+    py_connection* py_conn_obj = PyObject_New(py_connection, &py_connection_type);
 
     if (!py_conn_obj)
         return nullptr;
 
-    py_conn_obj->m_environment = env.release();
-    py_conn_obj->m_connection = conn.release();
+    py_conn_obj->m_environment = sql_env.release();
+    py_conn_obj->m_connection = sql_conn.release();
 
     return py_conn_obj;
 }
