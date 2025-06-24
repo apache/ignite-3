@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.CompatibilityTestBase;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Tests that current Java client can work with all older server versions.
@@ -34,7 +36,7 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
 
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
-        createDefaultTables();
+        createDefaultTables(baseIgnite);
     }
 
     @Override
@@ -48,21 +50,22 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
         return false;
     }
 
-    @Override
-    public IgniteClient client() {
-        if (client == null) {
-            client = cluster.createClient();
-        }
-
-        return client;
+    @BeforeEach
+    public void createClient() {
+        client = cluster.createClient();
     }
 
     @AfterEach
-    public void afterEach() {
+    public void closeClient() {
         if (client != null) {
             client.close();
             client = null;
         }
+    }
+
+    @Override
+    public IgniteClient client() {
+        return Objects.requireNonNull(client);
     }
 
     @Override
