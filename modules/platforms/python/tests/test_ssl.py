@@ -65,7 +65,7 @@ def test_connection_reject_2():
     with pytest.raises(pyignite_dbapi.OperationalError) as err:
         ssl_cfg = create_ssl_param(True, 'client.pem', 'client.pem', 'ca.pem')
         pyignite_dbapi.connect(address=server_addresses_basic, timeout=1, **ssl_cfg)
-    assert err.match('Can not establish secure connection')
+    assert err.match('(Can not establish secure connection)|(Error while establishing secure connection)')
 
 
 def test_connection_no_certs():
