@@ -18,7 +18,8 @@ from typing import Optional
 import pytest
 
 import pyignite_dbapi
-from tests.util import server_addresses_basic, server_addresses_ssl_basic, server_addresses_ssl_client_auth, get_test_dir
+from tests.util import server_addresses_basic, server_addresses_ssl_basic, server_addresses_ssl_client_auth, \
+    get_test_dir, create_and_populate_test_table, check_row
 
 
 def create_ssl_param(use_ssl : bool, ssl_key : Optional[str], ssl_cert : Optional[str], ssl_ca : Optional[str]):
@@ -97,44 +98,10 @@ def test_connection_non_existing_cert():
     assert err.match('(No such file or directory)|(no such file)')
 
 
-TEST_ROWS_NUM = 15
-
-def get_row(index):
-    return (index, f'Value-{index * 2}', index / 2.0)
-
-
-def row_generator(begin, rows_num):
-    for i in range(begin, begin + rows_num):
-        yield get_row(i)
-
-
-def create_and_populate_test_table(cursor, rows_num, table_name, batch_size=1):
-    cursor.execute(f'drop table if exists {table_name}')
-    cursor.execute(f'create table {table_name}(id int primary key, data varchar, fl double)')
-    if batch_size == 1:
-        for i in range(rows_num):
-            cursor.execute(f"insert into {table_name} values (?, ?, ?)", params=get_row(i))
-    else:
-        batch = 0
-        for batch in range(rows_num // batch_size):
-            cursor.executemany(f"insert into {table_name} values(?, ?, ?)",
-                               list(row_generator(batch * batch_size, batch_size)))
-        if rows_num % batch_size:
-            cursor.executemany(f"insert into {table_name} values(?, ?, ?)",
-                               list(row_generator(batch * batch_size, rows_num % batch_size)))
-
-
-def check_row(i, row):
-    assert len(row) == 3
-    assert row[0] == i
-    assert row[1] == f'Value-{i * 2}'
-    assert row[2] == pytest.approx(i / 2.0)
-
-
 @pytest.mark.parametrize("address", [server_addresses_ssl_basic, server_addresses_ssl_client_auth])
 def test_fetch_table_several_pages(table_name, address, drop_table_cleanup):
     ssl_cfg = create_ssl_param(True, 'client.pem', 'client.pem', 'ca.pem')
-    with pyignite_dbapi.connect(address=address, timeout=1, **ssl_cfg) as connection:
+    with pyignite_dbapi.connect(address=address, timeout=10, **ssl_cfg) as connection:
         with connection.cursor() as cursor:
             rows_num = 345
             create_and_populate_test_table(cursor, rows_num, table_name, 1000)
