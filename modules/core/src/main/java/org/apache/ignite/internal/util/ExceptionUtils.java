@@ -474,6 +474,31 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Unwraps the root cause of the given exception.
+     *
+     * @param e The exception to unwrap.
+     * @return The root cause of the exception, or the exception itself if no cause is found.
+     */
+    public static Throwable unwrapRootCause(Throwable e) {
+        Throwable th = e.getCause();
+
+        if (th == null) {
+            return e;
+        }
+
+        while (th != e) {
+            Throwable t = th;
+            th = t.getCause();
+
+            if (th == t || th == null) {
+                return t;
+            }
+        }
+
+        return e;
+    }
+
+    /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
      * In the case when the provided cause {@code t} is an instance of {@link TraceableException},
      * the original trace identifier and full error code are preserved.

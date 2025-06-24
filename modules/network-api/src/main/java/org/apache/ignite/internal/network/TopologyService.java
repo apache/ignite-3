@@ -56,6 +56,13 @@ public interface TopologyService extends ClusterNodeResolver, JoinedNodes {
     void addEventHandler(TopologyEventHandler handler);
 
     /**
+     * Unregisters a handler for physical topology change events.
+     *
+     * @param handler Physical topology event handler.
+     */
+    void removeEventHandler(TopologyEventHandler handler);
+
+    /**
      * Returns a cluster node specified by its network address in the 'host:port' format.
      *
      * @param addr The network address.

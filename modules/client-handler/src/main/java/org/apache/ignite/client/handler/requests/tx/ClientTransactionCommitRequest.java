@@ -140,6 +140,10 @@ public class ClientTransactionCommitRequest {
 
             metrics.transactionsActiveDecrement();
 
+            if (err != null) {
+                throw ExceptionUtils.sneakyThrow(err);
+            }
+
             return null;
         });
     }
