@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare.partitionawareness;
+package org.apache.ignite.internal.client.sql;
 
-import java.util.Arrays;
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
 /**
  * Partition awareness metadata.
@@ -38,65 +37,35 @@ import org.apache.ignite.internal.tostring.S;
  *   indexes[i] >= 0         => use dynamicParam[indexes[i]]
  *   indexes[i] < 0          => use hash[-(indexes[i] + 1)]
  * </pre>
- *
- * @see PartitionAwarenessMetadataExtractor
  */
-public final class PartitionAwarenessMetadata {
-
+public final class ClientPartitionAwarenessMetadata {
     private final int tableId;
-
     private final int[] indexes;
-
     private final int[] hash;
 
-    /**
-     * Constructor.
-     *
-     * @param tableId Table Id.
-     * @param indexes Mapping between positions in colocation key and dynamic parameters.
-     * @param hash Array of computed hashes.
-     */
-    public PartitionAwarenessMetadata(int tableId, int[] indexes, int[] hash) {
+    private ClientPartitionAwarenessMetadata(int tableId, int[] indexes, int[] hash) {
         this.tableId = tableId;
         this.indexes = indexes;
         this.hash = hash;
     }
 
-    /** Return table id. */
+    static ClientPartitionAwarenessMetadata read(ClientMessageUnpacker unpacker) {
+        int tableId = unpacker.unpackInt();
+        int[] indexes = unpacker.unpackIntArray();
+        int[] hash = unpacker.unpackIntArray();
+
+        return new ClientPartitionAwarenessMetadata(tableId, indexes, hash);
+    }
+
     public int tableId() {
         return tableId;
     }
 
-    /** Returns the number of colocation key columns. */
-    public int size() {
-        return indexes.length;
-    }
-
-    /**
-     * Returns a mapping between positions in colocation key columns and dynamic parameter indices.
-     * If a colocation key column has a value, returns a negated 1-based index into the hash array.
-     *
-     * @return Mapping.
-     */
     public int[] indexes() {
         return indexes;
     }
 
-    /**
-     * Returns an array of precomputed hashes.
-     *
-     * @return Hash array.
-     */
     public int[] hash() {
         return hash;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(PartitionAwarenessMetadata.class, this,
-                "indexes", Arrays.toString(indexes),
-                "hash", Arrays.toString(hash)
-        );
     }
 }

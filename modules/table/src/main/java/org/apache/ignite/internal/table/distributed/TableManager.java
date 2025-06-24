@@ -110,6 +110,7 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.NodeProperties;
@@ -2925,8 +2926,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> stopAndDestroyTablePartition(TablePartitionId tablePartitionId, long causalityToken) {
-        return tablesVv
-                .get(causalityToken)
+        CompletableFuture<?> tokenFuture;
+
+        try {
+            tokenFuture = tablesVv.get(causalityToken);
+        } catch (OutdatedTokenException e) {
+            // Here we need only to ensure that the token has been seen.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25742
+            tokenFuture = nullCompletedFuture();
+        }
+
+        return tokenFuture
                 .thenCompose(ignore -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
                     assert table != null : tablePartitionId;

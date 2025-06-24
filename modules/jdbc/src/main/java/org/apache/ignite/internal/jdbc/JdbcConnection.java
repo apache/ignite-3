@@ -186,7 +186,8 @@ public class JdbcConnection implements Connection {
                 extractSslConfiguration(connProps),
                 false,
                 extractAuthenticationConfiguration(connProps),
-                IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT
+                IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
+                IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE
         );
 
         return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker));

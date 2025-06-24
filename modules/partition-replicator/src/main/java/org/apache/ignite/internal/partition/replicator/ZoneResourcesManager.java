@@ -146,7 +146,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
         return zoneResources.resourcesByPartitionId.get(zonePartitionId.partitionId());
     }
 
-    private TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
+    protected TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
         TxStateStorage txStateStorage = new TxStateRocksDbStorage(zoneId, partitionCount, sharedTxStateStorage);
 
         if (ThreadAssertions.enabled()) {
