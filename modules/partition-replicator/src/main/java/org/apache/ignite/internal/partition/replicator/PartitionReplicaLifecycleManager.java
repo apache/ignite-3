@@ -1411,7 +1411,12 @@ public class PartitionReplicaLifecycleManager extends
 
     private CompletableFuture<Void> resetWithRetry(ZonePartitionId replicaGrpId, Assignments assignments) {
         return supplyAsync(() ->
-                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(assignments.nodes()))), ioExecutor)
+                inBusyLock(busyLock, () -> {
+                    assert replicaMgr.isReplicaStarted(replicaGrpId)
+                            : "The local node is outside of the replication group: " + replicaGrpId;
+
+                    return replicaMgr.resetPeers(replicaGrpId, fromAssignments(assignments.nodes()));
+                }), ioExecutor)
                 .handleAsync((resetSuccessful, ex) -> {
                     if (ex != null) {
                         if (isRetriable(ex)) {
