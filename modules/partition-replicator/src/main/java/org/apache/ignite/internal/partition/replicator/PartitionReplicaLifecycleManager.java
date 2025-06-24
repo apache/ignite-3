@@ -155,9 +155,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -1359,7 +1357,7 @@ public class PartitionReplicaLifecycleManager extends
                     false
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = resetWithRetry(replicaGrpId, computedStableAssignments);
+            localServicesStartFuture = replicaMgr.resetWithRetry(replicaGrpId, computedStableAssignments);
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
@@ -1407,39 +1405,6 @@ public class PartitionReplicaLifecycleManager extends
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
-    }
-
-    private CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments) {
-        return supplyAsync(() -> inBusyLock(busyLock, () -> {
-            assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
-
-            return replicaMgr.resetPeers(replicaGrpId, fromAssignments(assignments.nodes()));
-        }), ioExecutor)
-                .handleAsync((resetSuccessful, ex) -> {
-                    if (ex != null) {
-                        if (isRetriable(ex)) {
-                            LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
-
-                            return resetWithRetry(replicaGrpId, assignments);
-                        }
-
-                        return CompletableFuture.<Void>failedFuture(ex);
-                    }
-
-                    if (!resetSuccessful) {
-                        LOG.debug("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
-
-                        return resetWithRetry(replicaGrpId, assignments);
-                    }
-
-                    return CompletableFutures.<Void>nullCompletedFuture();
-                }, ioExecutor)
-                .thenCompose(identity());
-    }
-
-    private static boolean isRetriable(Throwable ex) {
-        Throwable exception = ExceptionUtils.unwrapCause(ex);
-        return !(exception instanceof NodeStoppingException || exception instanceof AssertionError);
     }
 
     private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {

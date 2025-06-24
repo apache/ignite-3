@@ -22,9 +22,11 @@ import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
@@ -37,6 +39,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -119,6 +122,7 @@ import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteStripedBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -793,6 +797,46 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         return ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
+    }
+
+    /**
+     * Performs a {@code resetPeers} operation on raft node with retries.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @param assignments New assignments.
+     */
+    public CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments) {
+        return supplyAsync(() -> inBusyLock(busyLock, () -> {
+            assert isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
+
+            return resetPeers(replicaGrpId, fromAssignments(assignments.nodes()));
+        }), replicaStartStopExecutor)
+                .handleAsync((resetSuccessful, ex) -> {
+                    if (ex != null) {
+                        if (isRetriable(ex)) {
+                            LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
+
+                            return resetWithRetry(replicaGrpId, assignments);
+                        }
+
+                        return CompletableFuture.<Void>failedFuture(ex);
+                    }
+
+                    if (!resetSuccessful) {
+                        LOG.debug("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
+
+                        return resetWithRetry(replicaGrpId, assignments);
+                    }
+
+                    return CompletableFutures.<Void>nullCompletedFuture();
+                }, replicaStartStopExecutor)
+                .thenCompose(identity());
+    }
+
+    private static boolean isRetriable(Throwable ex) {
+        Throwable exception = unwrapCause(ex);
+
+        return !(exception instanceof NodeStoppingException || exception instanceof AssertionError);
     }
 
     private RaftGroupOptions groupOptionsForPartition(boolean isVolatileStorage, @Nullable SnapshotStorageFactory snapshotFactory) {

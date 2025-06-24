@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @see IgniteSpinReadWriteLock
  */
-public class IgniteSpinBusyLock implements IgniteBusyLock{
+public class IgniteSpinBusyLock implements IgniteBusyLock {
     /** Underlying read-write lock. */
     private final IgniteSpinReadWriteLock lock = new IgniteSpinReadWriteLock();
 
