@@ -15,24 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage.timebag;
 
 import java.util.List;
-import org.apache.ignite.internal.metastorage.EntryEvent;
-import org.apache.ignite.internal.metastorage.timebag.TimeBag;
 
-class WatchAndEvents {
-    final Watch watch;
+class NoOpTimeBag implements TimeBag {
+    static final NoOpTimeBag INSTANCE = new NoOpTimeBag();
 
-    final List<EntryEvent> events;
+    @Override
+    public void start() {
+        // No-op.
+    }
 
-    final TimeBag timeBag;
+    @Override
+    public void finishGlobalStage(String description) {
+        // No-op.
+    }
 
-    WatchAndEvents(Watch watch, List<EntryEvent> events, TimeBag timeBag) {
-        assert !events.isEmpty();
+    @Override
+    public void finishLocalStage(String description) {
+        // No-op.
+    }
 
-        this.watch = watch;
-        this.events = events;
-        this.timeBag = timeBag;
+    @Override
+    public List<String> stagesTimings() {
+        return List.of();
+    }
+
+    @Override
+    public List<String> longestLocalStagesTimings(int maxPerCompositeStage) {
+        return List.of();
     }
 }
