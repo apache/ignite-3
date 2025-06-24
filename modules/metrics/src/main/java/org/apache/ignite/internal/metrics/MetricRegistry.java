@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Metric registry. Metrics source (see {@link MetricSource} must be registered in this metrics registry after initialization
@@ -109,7 +110,7 @@ public class MetricRegistry {
      * @throws IllegalStateException If metric source isn't registered.
      * @throws IllegalArgumentException If metric source isn't the same as registered.
      */
-    public MetricSet enable(MetricSource src) {
+    public @Nullable MetricSet enable(MetricSource src) {
         lock.lock();
 
         try {

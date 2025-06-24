@@ -755,7 +755,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24072")
     void testRebalanceWithTheSameNodes() throws Exception {
         Node node = getNode(0);
 
@@ -1717,8 +1716,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             )).thenComposeAsync(componentFuts -> {
                 CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                         .thenCompose(rev -> allOf(
-                                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                                 ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(),
                                 componentFuts
                         ));

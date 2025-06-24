@@ -943,8 +943,6 @@ public class Node {
 
                     return metaStorageManager.recoveryFinishedFuture()
                             .thenCompose(rev -> allOf(
-                                    nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                                    clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                                     metaStorageManager.notifyRevisionUpdateListenerOnStart(),
                                     componentsStartAfterJoin
                             ));

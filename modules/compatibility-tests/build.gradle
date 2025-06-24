@@ -1,5 +1,3 @@
-import groovy.json.JsonSlurper
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
@@ -17,8 +15,11 @@ import groovy.json.JsonSlurper
  * limitations under the License.
  */
 
+import groovy.json.JsonSlurper
+
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 description = 'ignite-compatibility-tests'
 
@@ -28,22 +29,27 @@ repositories {
 }
 
 dependencies {
-    integrationTestImplementation libs.gradle.tooling.api
-    integrationTestImplementation libs.awaitility
-    integrationTestImplementation libs.jackson.databind
-    integrationTestImplementation(libs.jsonpath.assert) {
+    integrationTestImplementation testFixtures(project(':ignite-compatibility-tests'))
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-client')
+
+    testFixturesImplementation libs.gradle.tooling.api
+    testFixturesImplementation libs.awaitility
+    testFixturesImplementation libs.jackson.databind
+    testFixturesImplementation(libs.jsonpath.assert) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
     }
 
-    integrationTestImplementation testFixtures(project(':ignite-core'))
-    integrationTestImplementation testFixtures(project(':ignite-runner'))
-    integrationTestImplementation project(':ignite-core')
-    integrationTestImplementation project(':ignite-api')
-    integrationTestImplementation project(':ignite-runner')
-    integrationTestImplementation project(':ignite-client')
-    integrationTestImplementation project(':ignite-rest-api')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-runner'))
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-api')
+    testFixturesImplementation project(':ignite-runner')
+    testFixturesImplementation project(':ignite-client')
+    testFixturesImplementation project(':ignite-rest-api')
 }
 
 private def resolveAllDependencies(String dependencyNotation, String... additionalNotations) {

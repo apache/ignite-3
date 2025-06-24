@@ -28,14 +28,18 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Result set metadata.
  */
 final class ClientResultSetMetadata {
-    static ResultSetMetadata read(ClientMessageUnpacker unpacker) {
+    static @Nullable ResultSetMetadata read(ClientMessageUnpacker unpacker) {
         var size = unpacker.unpackInt();
-        assert size > 0 : "ResultSetMetadata should not be empty.";
+
+        if (size == 0) {
+            return null;
+        }
 
         var columns = new ArrayList<ColumnMetadata>(size);
 

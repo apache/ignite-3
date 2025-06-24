@@ -129,6 +129,8 @@ public class AuthenticationManagerImpl
                 securityConfiguration.authentication().providers().get(basicAuthenticationProviderName);
         basicAuthenticationProviderConfiguration.users().listenElements(userEventFactory);
 
+        refreshProviders(securityConfiguration.value());
+
         return nullCompletedFuture();
     }
 
