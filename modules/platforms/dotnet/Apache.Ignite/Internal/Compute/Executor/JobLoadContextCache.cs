@@ -17,26 +17,95 @@
 
 namespace Apache.Ignite.Internal.Compute.Executor;
 
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using System.Threading.Tasks;
 
-internal class JobLoadContextCache
+internal sealed class JobLoadContextCache : IDisposable
 {
-    private const int CacheCleanupIntervalMs = 10_000;
+    private const int CacheTtlMs = 10_000;
 
-    private readonly Dictionary<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)> JobLoadContextCache = new();
+    private readonly Dictionary<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)> _jobLoadContextCache = new();
 
-    private readonly Dictionary<string, List<DeploymentUnitPaths>> DeploymentUnitSets = new();
+    private readonly Dictionary<string, List<DeploymentUnitPaths>> _deploymentUnitSets = new();
 
-    private readonly object CacheLock = new();
+    private readonly SemaphoreSlim _cacheLock = new(1);
 
-    internal JobLoadContextCache()
+    private readonly CancellationTokenSource _cts = new();
+
+    internal JobLoadContextCache(int cacheCleanupIntervalMs = 5_000)
     {
-        _ = StartCacheCleanupAsync();
+        _ = StartCacheCleanupAsync(cacheCleanupIntervalMs);
     }
 
-    private async Task StartCacheCleanupAsync()
+    private static long Now() => Stopwatch.GetTimestamp();
+
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
+    private async Task StartCacheCleanupAsync(int cacheCleanupIntervalMs)
     {
-        await Task.Delay(CacheCleanupIntervalMs).ConfigureAwait(false);
+        var ct = _cts.Token;
+
+        while (!ct.IsCancellationRequested)
+        {
+            await Task.Delay(cacheCleanupIntervalMs, ct).ConfigureAwait(false);
+
+            await _cacheLock.WaitAsync(ct).ConfigureAwait(false);
+
+            try
+            {
+                CleanUpExpiredJobContexts();
+            }
+            catch (Exception)
+            {
+                // Ignore.
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
+        }
+    }
+
+    private void CleanUpExpiredJobContexts()
+    {
+        List<KeyValuePair<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)>> toRemove = new();
+
+        foreach (var cachedJobCtx in _jobLoadContextCache)
+        {
+            if (cachedJobCtx.Value.Ts + CacheTtlMs < Now())
+            {
+                toRemove.Add(cachedJobCtx);
+            }
+        }
+
+        foreach (var cachedJobCtx in toRemove)
+        {
+            _jobLoadContextCache.Remove(cachedJobCtx.Key);
+            cachedJobCtx.Value.Ctx.Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+
+        _cacheLock.Wait();
+
+        try
+        {
+            foreach (var cachedJobCtx in _jobLoadContextCache)
+            {
+                cachedJobCtx.Value.Ctx.Dispose();
+            }
+        }
+        finally
+        {
+            _cacheLock.Release();
+            _cacheLock.Dispose();
+            _cts.Dispose();
+        }
     }
 }
