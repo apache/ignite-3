@@ -150,6 +150,34 @@ public:
     [[nodiscard]] const value_with_default<std::string> &get_timezone() const { return m_timezone; };
 
     /**
+     * Get SSL Mode.
+     *
+     * @return SSL Mode.
+     */
+    [[nodiscard]] const value_with_default<ssl_mode_t> &get_ssl_mode() const { return m_ssl_mode; }
+
+    /**
+     * Get the SSL private key file path.
+     *
+     * @return SSL private key file path.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_ssl_key_file() const { return m_ssl_key_file; }
+
+    /**
+     * Get the SSL certificate file path.
+     *
+     * @return SSL certificate file path.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_ssl_cert_file() const { return m_ssl_cert_file; }
+
+    /**
+     * Get the SSL certificate authority file path.
+     *
+     * @return SSL certificate authority file path.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_ssl_ca_file() const { return m_ssl_ca_file; }
+
+    /**
      * Fill from configuration params.
      *
      * @throw odbc_error On parsing error.
