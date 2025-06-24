@@ -320,7 +320,6 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24072")
     void testRebalanceInHaZone() throws InterruptedException {
         createHaZoneWithTable();
 

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -160,7 +161,7 @@ public class TestNode implements LifecycleAware {
                         return true;
                     }
                 });
-        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureManager);
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureManager, new NoOpMetricManager());
 
         QueryTaskExecutor taskExecutor = registerService(queryExec);
 

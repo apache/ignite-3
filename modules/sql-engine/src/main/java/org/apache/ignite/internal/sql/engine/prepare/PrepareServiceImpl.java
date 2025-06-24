@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
@@ -108,6 +110,8 @@ public class PrepareServiceImpl implements PrepareService {
             new ParameterMetadata(Collections.emptyList());
 
     private static final long THREAD_TIMEOUT_MS = 60_000;
+
+    private static final String PLANNING_EXECUTOR_SOURCE_NAME = THREAD_POOLS_METRICS_SOURCE_NAME + "sql-planning-executor";
 
     private final UUID prepareServiceId = UUID.randomUUID();
     private final AtomicLong planIdGen = new AtomicLong();
@@ -211,6 +215,9 @@ public class PrepareServiceImpl implements PrepareService {
         metricManager.registerSource(sqlPlanCacheMetricSource);
         metricManager.enable(sqlPlanCacheMetricSource);
 
+        metricManager.registerSource(new ThreadPoolMetricSource(PLANNING_EXECUTOR_SOURCE_NAME, planningPool));
+        metricManager.enable(PLANNING_EXECUTOR_SOURCE_NAME);
+
         IgnitePlanner.warmup();
     }
 
@@ -219,6 +226,7 @@ public class PrepareServiceImpl implements PrepareService {
     public void stop() throws Exception {
         planningPool.shutdownNow();
         metricManager.unregisterSource(sqlPlanCacheMetricSource);
+        metricManager.unregisterSource(PLANNING_EXECUTOR_SOURCE_NAME);
     }
 
     /** {@inheritDoc} */

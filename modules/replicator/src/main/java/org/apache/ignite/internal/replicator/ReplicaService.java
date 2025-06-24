@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
@@ -242,12 +243,15 @@ public class ReplicaService {
                         }, partitionOperationsExecutor);
                     } else {
                         int replicaOperationRetryInterval = replicationConfiguration.replicaOperationRetryIntervalMillis().value();
-                        if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)
+                        if (retryExecutor != null
+                                && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR, GROUP_OVERLOADED_ERR)
                                 && replicaOperationRetryInterval > 0) {
                             retryExecutor.schedule(
                                     // Need to resubmit again to pool which is valid for synchronous IO execution.
                                     () -> partitionOperationsExecutor.execute(() -> res.completeExceptionally(errResp.throwable())),
-                                    replicaOperationRetryInterval, MILLISECONDS);
+                                    replicaOperationRetryInterval,
+                                    MILLISECONDS
+                            );
                         } else {
                             res.completeExceptionally(errResp.throwable());
                         }

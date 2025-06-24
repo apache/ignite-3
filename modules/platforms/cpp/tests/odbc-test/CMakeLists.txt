@@ -30,6 +30,7 @@ set(SOURCES
     many_cursors_test.cpp
     meta_queries_test.cpp
     queries_test.cpp
+    ssl_test.cpp
     timeout_test.cpp
     transaction_test.cpp
 )
