@@ -39,9 +39,9 @@ static PyObject* make_connection()
     return PyObject_Call(conn_class.get(), args.get(), kwargs.get());
 }
 
-static PyObject* make_connection(std::string address_str, const char* schema, const char* identity, const char* secret,
+static PyObject* make_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity, const char* secret,
     int page_size, int timeout, bool autocommit) {
-    auto py_conn = make_py_connection(std::move(address_str), schema, identity, secret, page_size, timeout, autocommit);
+    auto py_conn = make_py_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit);
     if (!py_conn)
         return nullptr;
 
@@ -91,7 +91,7 @@ static PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwa
     if (!parsed)
         return nullptr;
 
-    std::stringstream address_builder;
+    std::vector<ignite::end_point> addresses;
     if (PyList_Check(address)) {
         auto size = PyList_Size(address);
         for (Py_ssize_t idx = 0; idx < size; ++idx) {
@@ -109,6 +109,7 @@ static PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwa
                 return nullptr;
             }
 
+            ignite::end_point ep;
             address_builder << *item_str;
             if ((idx + 1) < size) {
                 address_builder << ',';

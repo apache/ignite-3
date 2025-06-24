@@ -17,14 +17,12 @@
 
 #pragma once
 
-#include <string>
+#include "ignite/common/end_point.h"
+
+#include <vector>
 
 #include <Python.h>
 
-namespace ignite {
-class sql_environment;
-class sql_connection;
-}
 
 /**
  * Create a new instance of py_connection python class.
