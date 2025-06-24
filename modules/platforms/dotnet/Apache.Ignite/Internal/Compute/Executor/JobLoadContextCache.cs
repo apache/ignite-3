@@ -25,6 +25,9 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
+/// <summary>
+/// Cache for job load contexts.
+/// </summary>
 internal sealed class JobLoadContextCache : IDisposable
 {
     private const int CacheTtlMs = 10_000;
@@ -37,11 +40,20 @@ internal sealed class JobLoadContextCache : IDisposable
 
     private readonly CancellationTokenSource _cts = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JobLoadContextCache"/> class.
+    /// </summary>
+    /// <param name="cacheCleanupIntervalMs">Cache cleanup interval.</param>
     internal JobLoadContextCache(int cacheCleanupIntervalMs = 5_000)
     {
         _ = StartCacheCleanupAsync(cacheCleanupIntervalMs);
     }
 
+    /// <summary>
+    /// Gets or adds a job load context for the specified deployment unit paths.
+    /// </summary>
+    /// <param name="paths">Deployment unit paths.</param>
+    /// <returns>Job load context.</returns>
     public async Task<JobLoadContext> GetOrAddJobLoadContext(DeploymentUnitPaths paths)
     {
         await _cacheLock.WaitAsync().ConfigureAwait(false);
@@ -64,12 +76,66 @@ internal sealed class JobLoadContextCache : IDisposable
             if (!exists)
             {
                 valRef.Ctx = DeploymentUnitLoader.GetJobLoadContext(paths);
+
+                foreach (var path in paths.Paths)
+                {
+                    ref var list = ref CollectionsMarshal.GetValueRefOrNullRef(_deploymentUnitSets, path);
+
+                    if (list == null!)
+                    {
+                        list = new List<DeploymentUnitPaths>();
+                    }
+
+                    list.Add(paths);
+                }
             }
 
             return valRef.Ctx;
         }
     }
 
+    /// <summary>
+    /// Undeploys the specified deployment unit paths and cleans up associated job load contexts.
+    /// </summary>
+    /// <param name="deploymentUnitPaths">Deployment unit paths to undeploy.</param>
+    /// <returns><see cref="Task"/> representing the asynchronous operation.</returns>
+    public async Task<bool> UndeployUnits(ICollection<string> deploymentUnitPaths)
+    {
+        await _cacheLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            bool res = false;
+
+            foreach (var deploymentUnitPath in deploymentUnitPaths)
+            {
+                if (!_deploymentUnitSets.TryGetValue(deploymentUnitPath, out var unitSet))
+                {
+                    continue;
+                }
+
+                foreach (DeploymentUnitPaths paths in unitSet)
+                {
+                    if (_jobLoadContextCache.TryGetValue(paths, out var cachedJobCtx))
+                    {
+                        cachedJobCtx.Ctx.Dispose();
+                        _jobLoadContextCache.Remove(paths);
+                    }
+                }
+
+                _deploymentUnitSets.Remove(deploymentUnitPath);
+                res = true;
+            }
+
+            return res;
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
+    }
+
+    /// <inheritdoc/>
     public void Dispose()
     {
         _cts.Cancel();
