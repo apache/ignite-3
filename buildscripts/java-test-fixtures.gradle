@@ -18,22 +18,10 @@
 apply plugin: 'java-test-fixtures'
 
 dependencies {
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.impl
-    testFixturesImplementation libs.junit5.params
-    testFixturesImplementation libs.junit.pioneer
-
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.mockito.junit
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.hamcrest.optional
-    testFixturesImplementation libs.hamcrest.path
-
-    testFixturesImplementation libs.jansi.core
-    testFixturesImplementation libs.log4j.api
-    testFixturesImplementation libs.log4j.core
-    testFixturesImplementation libs.log4j.bridge
-    testFixturesImplementation libs.slf4j.log4j
+    testFixturesImplementation libs.bundles.junit
+    testFixturesImplementation libs.bundles.mockito
+    testFixturesImplementation libs.bundles.hamcrest
+    testFixturesImplementation libs.bundles.log4j
 }
 
 pmdTestFixtures {

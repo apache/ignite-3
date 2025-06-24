@@ -297,3 +297,9 @@ commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "co
 spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugsTool" }
 
 gradle-tooling-api = { module = "org.gradle:gradle-tooling-api", version.ref = "gradleToolingApi" }
+
+[bundles]
+junit = ["junit5-api", "junit5-impl", "junit5-params", "junit-pioneer"]
+mockito = ["mockito-core", "mockito-junit"]
+hamcrest = ["hamcrest-core", "hamcrest-optional", "hamcrest-path"]
+log4j = ["jansi-core", "log4j-api", "log4j-core", "log4j-bridge", "slf4j-log4j"]
