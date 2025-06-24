@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <random>
 #include <sstream>
+#include <detail/utils.h>
 
 constexpr const std::size_t PROTOCOL_HEADER_SIZE = 4;
 
@@ -137,7 +138,14 @@ sql_result sql_connection::init_socket() {
     {
         LOG_MSG("Can not load OpenSSL library: " << err.what());
 
-        add_status_record("Can not load OpenSSL library (did you set OPENSSL_HOME environment variable?)");
+        auto openssl_home = detail::get_env("OPENSSL_HOME");
+        std::string openssl_home_str{"OPENSSL_HOME"};
+        if (openssl_home.has_value()) {
+            openssl_home_str += "='" + openssl_home.value() + '\'';
+        } else {
+            openssl_home_str += " is not set";
+        }
+        add_status_record("Can not load OpenSSL library. [" + openssl_home_str + "]");
 
         return sql_result::AI_ERROR;
     }

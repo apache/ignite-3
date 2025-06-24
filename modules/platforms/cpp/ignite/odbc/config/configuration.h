@@ -108,7 +108,7 @@ public:
     void set_schema(std::string schema) { m_schema = {std::move(schema), true}; }
 
     /**
-     * Get an authentication type.
+     * Get the authentication type.
      *
      * @return Authentication type.
      */
@@ -150,7 +150,7 @@ public:
     [[nodiscard]] const value_with_default<std::string> &get_timezone() const { return m_timezone; };
 
     /**
-     * Get SSL Mode.
+     * Get the SSL Mode.
      *
      * @return SSL Mode.
      */
