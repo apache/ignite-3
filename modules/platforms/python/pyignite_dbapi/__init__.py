@@ -619,7 +619,7 @@ class Connection:
         return self._py_connection.autocommit()
 
     @autocommit.setter
-    def autocommit(self, value):
+    def autocommit(self, value: bool):
         """
         Attribute that is used to query and set the autocommit mode of the connection.
         Setting the attribute to True or False adjusts the connection’s mode accordingly.

@@ -27,32 +27,9 @@ class sql_connection;
 }
 
 /**
- * Connection Python object.
- */
-struct py_connection {
-    PyObject_HEAD
-
-    /** Environment. */
-    ignite::sql_environment *m_environment;
-
-    /** Connection. */
-    ignite::sql_connection *m_connection;
-};
-
-/**
- * Connection init function.
- */
-int py_connection_init(py_connection *self, PyObject *args, PyObject *kwds);
-
-/**
- * Connection dealloc function.
- */
-void py_connection_dealloc(py_connection *self);
-
-/**
  * Create a new instance of py_connection python class.
  *
- * @param address_str Address string.
+ * @param addresses Addresses.
  * @param schema Schema.
  * @param identity Identity.
  * @param secret Secret.
@@ -61,8 +38,8 @@ void py_connection_dealloc(py_connection *self);
  * @param autocommit Autocommit flag.
  * @return A new connection class instance.
  */
-py_connection* make_py_connection(std::string address_str, const char* schema, const char* identity, const char* secret,
-    int page_size, int timeout, int autocommit);
+PyObject* make_py_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity,
+    const char* secret, int page_size, int timeout, bool autocommit);
 
 /**
  * Prepare PyConnection type for registration.

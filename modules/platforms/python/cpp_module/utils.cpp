@@ -149,6 +149,234 @@ bool check_errors(ignite::sql_result ret, ignite::diagnosable& diag) {
     return false;
 }
 
+void set_error(const ignite::ignite_error &error) {
+    auto error_class = py_get_module_interface_error_class();
+
+    switch (error.get_status_code()) {
+        case ignite::error::code::NULLABLE_VALUE:
+        case ignite::error::code::CURSOR_ALREADY_CLOSED:
+        case ignite::error::code::ILLEGAL_ARGUMENT: {
+            error_class = py_get_module_interface_error_class();
+            break;
+        }
+
+        case ignite::error::code::RESOURCE_CLOSING:
+        case ignite::error::code::NODE_LEFT:
+        case ignite::error::code::COMPONENT_NOT_STARTED:
+        case ignite::error::code::NODE_STOPPING: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::SSL_CONFIGURATION:
+        case ignite::error::code::USER_OBJECT_SERIALIZATION:
+        case ignite::error::code::INTERNAL: {
+            error_class = py_get_module_programming_error_class();
+            break;
+        }
+
+        case ignite::error::code::TABLE_ALREADY_EXISTS:
+        case ignite::error::code::TABLE_NOT_FOUND:
+        case ignite::error::code::COLUMN_ALREADY_EXISTS:
+        case ignite::error::code::COLUMN_NOT_FOUND:
+        case ignite::error::code::SCHEMA_VERSION_MISMATCH:
+        case ignite::error::code::UNSUPPORTED_PARTITION_TYPE: {
+            error_class = py_get_module_programming_error_class();
+            break;
+        }
+
+        case ignite::error::code::CONNECTION:
+        case ignite::error::code::PROTOCOL:
+        case ignite::error::code::PROTOCOL_COMPATIBILITY:
+        case ignite::error::code::TABLE_ID_NOT_FOUND:
+        case ignite::error::code::CONFIGURATION:
+        case ignite::error::code::CLUSTER_ID_MISMATCH:
+        case ignite::error::code::CLIENT_SSL_CONFIGURATION:
+        case ignite::error::code::HANDSHAKE_HEADER:
+        case ignite::error::code::SERVER_TO_CLIENT_REQUEST: {
+            error_class = py_get_module_operational_error_class();
+            break;
+        }
+
+        case ignite::error::code::QUERY_NO_RESULT_SET:
+        case ignite::error::code::SCHEMA_NOT_FOUND:
+        case ignite::error::code::STMT_PARSE:
+        case ignite::error::code::STMT_VALIDATION:
+        case ignite::error::code::CONSTRAINT_VIOLATION:
+        case ignite::error::code::EXECUTION_CANCELLED:
+        case ignite::error::code::RUNTIME:
+        case ignite::error::code::MAPPING:
+        case ignite::error::code::TX_CONTROL_INSIDE_EXTERNAL_TX: {
+            error_class = py_get_module_programming_error_class();
+            break;
+        }
+
+        case ignite::error::code::STARTING_STORAGE:
+        case ignite::error::code::RESTORING_STORAGE:
+        case ignite::error::code::COMPACTION:
+        case ignite::error::code::OP_EXECUTION:
+        case ignite::error::code::OP_EXECUTION_TIMEOUT:
+        case ignite::error::code::COMPACTED:
+        case ignite::error::code::DIVERGED: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::INDEX_NOT_FOUND:
+        case ignite::error::code::INDEX_ALREADY_EXISTS: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::TX_STATE_STORAGE:
+        case ignite::error::code::TX_STATE_STORAGE_STOPPED:
+        case ignite::error::code::TX_UNEXPECTED_STATE:
+        case ignite::error::code::ACQUIRE_LOCK:
+        case ignite::error::code::ACQUIRE_LOCK_TIMEOUT:
+        case ignite::error::code::TX_COMMIT:
+        case ignite::error::code::TX_ROLLBACK:
+        case ignite::error::code::TX_FAILED_READ_WRITE_OPERATION:
+        case ignite::error::code::TX_STATE_STORAGE_REBALANCE:
+        case ignite::error::code::TX_READ_ONLY_TOO_OLD:
+        case ignite::error::code::TX_INCOMPATIBLE_SCHEMA:
+        case ignite::error::code::TX_PRIMARY_REPLICA_EXPIRED:
+        case ignite::error::code::TX_ALREADY_FINISHED:
+        case ignite::error::code::TX_STALE_OPERATION:
+        case ignite::error::code::TX_STALE_READ_ONLY_OPERATION:
+        case ignite::error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::REPLICA_COMMON:
+        case ignite::error::code::REPLICA_IS_ALREADY_STARTED:
+        case ignite::error::code::REPLICA_TIMEOUT:
+        case ignite::error::code::REPLICA_UNSUPPORTED_REQUEST:
+        case ignite::error::code::REPLICA_UNAVAILABLE:
+        case ignite::error::code::REPLICA_MISS:
+        case ignite::error::code::CURSOR_CLOSE:
+        case ignite::error::code::REPLICA_STOPPING: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::INDEX_NOT_BUILT:
+        case ignite::error::code::STORAGE_CORRUPTED: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::ZONE_NOT_FOUND: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::UNRESOLVABLE_CONSISTENT_ID:
+        case ignite::error::code::PORT_IN_USE:
+        case ignite::error::code::FILE_TRANSFER:
+        case ignite::error::code::FILE_VALIDATION:
+        case ignite::error::code::RECIPIENT_LEFT:
+        case ignite::error::code::ADDRESS_UNRESOLVED: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::CONFIG_READ:
+        case ignite::error::code::CONFIG_FILE_CREATE:
+        case ignite::error::code::CONFIG_WRITE:
+        case ignite::error::code::CONFIG_PARSE: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::UNIT_NOT_FOUND:
+        case ignite::error::code::UNIT_ALREADY_EXISTS:
+        case ignite::error::code::UNIT_CONTENT_READ:
+        case ignite::error::code::UNIT_UNAVAILABLE: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::CLOSED: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::UNSUPPORTED_AUTHENTICATION_TYPE:
+        case ignite::error::code::INVALID_CREDENTIALS:
+        case ignite::error::code::BASIC_PROVIDER: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::CLASS_PATH:
+        case ignite::error::code::CLASS_LOADER:
+        case ignite::error::code::CLASS_INITIALIZATION:
+        case ignite::error::code::QUEUE_OVERFLOW:
+        case ignite::error::code::COMPUTE_JOB_STATUS_TRANSITION:
+        case ignite::error::code::CANCELLING:
+        case ignite::error::code::RESULT_NOT_FOUND:
+        case ignite::error::code::FAIL_TO_GET_JOB_STATE:
+        case ignite::error::code::COMPUTE_JOB_FAILED:
+        case ignite::error::code::PRIMARY_REPLICA_RESOLVE:
+        case ignite::error::code::CHANGE_JOB_PRIORITY:
+        case ignite::error::code::NODE_NOT_FOUND:
+        case ignite::error::code::MARSHALLING_TYPE_MISMATCH:
+        case ignite::error::code::COMPUTE_JOB_CANCELLED:
+        case ignite::error::code::COMPUTE_PLATFORM_EXECUTOR: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::VALIDATION: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::PRIMARY_REPLICA_AWAIT_TIMEOUT:
+        case ignite::error::code::PRIMARY_REPLICA_AWAIT: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::SYSTEM_WORKER_BLOCKED:
+        case ignite::error::code::SYSTEM_CRITICAL_OPERATION_TIMEOUT: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::ILLEGAL_PARTITION_ID:
+        case ignite::error::code::NODES_NOT_FOUND:
+        case ignite::error::code::PARTITION_STATE:
+        case ignite::error::code::CLUSTER_NOT_IDLE: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::CLUSTER_NOT_INITIALIZED:
+        case ignite::error::code::CLUSTER_INIT_FAILED:
+        case ignite::error::code::NODE_NOT_STARTED:
+        case ignite::error::code::NODE_START: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+
+        case ignite::error::code::COMMON:
+        case ignite::error::code::UNSUPPORTED_OBJECT_TYPE:
+        case ignite::error::code::UNMARSHALLING: {
+            error_class = py_get_module_not_supported_error_class();
+            break;
+        }
+
+        case ignite::error::code::CLUSTER_NOT_INIT: {
+            error_class = py_get_module_database_error_class();
+            break;
+        }
+    }
+
+    PyErr_SetString(error_class, error.what());
+}
+
 std::string get_current_exception_as_string() {
     auto err_obj = PyErr_Occurred();
     if (!err_obj)

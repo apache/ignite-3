@@ -18,6 +18,7 @@
 #pragma once
 
 #include <common_types.h>
+#include <ignite_error.h>
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_time.h>
@@ -59,6 +60,13 @@ bool check_errors(ignite::sql_result ret, ignite::diagnosable& diag);
 inline bool check_errors(ignite::diagnosable& diag) {
     return check_errors(ignite::sql_result::AI_SUCCESS, diag);
 }
+
+/**
+ * Convert Ignite Error to DB API Error.
+ *
+ * @param error Ignite error.
+ */
+void set_error(const ignite::ignite_error &error);
 
 /**
  * Get the current exception as a string.

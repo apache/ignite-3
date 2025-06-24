@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-#include <ignite/odbc/sql_environment.h>
-#include <ignite/odbc/sql_connection.h>
 #include <ignite/odbc/sql_statement.h>
 
 #include "module.h"
 #include "utils.h"
+#include "node_connection.h"
 #include "py_connection.h"
 #include "py_cursor.h"
 
 #include <Python.h>
 
 #define PY_CONNECTION_CLASS_NAME "PyConnection"
+
+/**
+ * Connection Python object.
+ */
+struct py_connection {
+    PyObject_HEAD
+
+    std::unique_ptr<node_connection> m_connection;
+};
 
 /**
  * Check if the connection is open. Set error if not.
@@ -42,21 +50,24 @@ static bool py_connection_expect_open(const py_connection* self) {
     return true;
 }
 
+/**
+ * Connection init function.
+ */
 int py_connection_init(py_connection *self, PyObject *, PyObject *)
 {
-    self->m_environment = nullptr;
-    self->m_connection = nullptr;
+    self->m_connection.reset();
 
     return 0;
 }
 
+/**
+ * Connection dealloc function.
+ */
 void py_connection_dealloc(py_connection *self)
 {
     delete self->m_connection;
-    delete self->m_environment;
 
     self->m_connection = nullptr;
-    self->m_environment = nullptr;
 
     Py_TYPE(self)->tp_free(self);
 }
@@ -64,15 +75,10 @@ void py_connection_dealloc(py_connection *self)
 static PyObject* py_connection_close(py_connection* self, PyObject*)
 {
     if (self->m_connection) {
-        self->m_connection->release();
-        if (!check_errors(*self->m_connection))
-            return nullptr;
+        self->m_connection->close();
 
         delete self->m_connection;
         self->m_connection = nullptr;
-
-        delete self->m_environment;
-        self->m_environment = nullptr;
     }
 
     Py_RETURN_NONE;
@@ -80,19 +86,19 @@ static PyObject* py_connection_close(py_connection* self, PyObject*)
 
 static PyObject* py_connection_cursor(py_connection* self, PyObject*)
 {
-    if (self->m_connection) {
-        std::unique_ptr<ignite::sql_statement> statement{self->m_connection->create_statement()};
-        if (!check_errors(*self->m_connection))
-            return nullptr;
-
-        auto py_cursor = make_py_cursor(std::move(statement));
-        if (!py_cursor)
-            return nullptr;
-
-        auto py_cursor_obj = reinterpret_cast<PyObject *>(py_cursor);
-        Py_INCREF(py_cursor_obj);
-        return py_cursor_obj;
-    }
+    // if (self->m_connection) {
+    //     std::unique_ptr<ignite::sql_statement> statement{self->m_connection->create_statement()};
+    //     if (!check_errors(*self->m_connection))
+    //         return nullptr;
+    //
+    //     auto py_cursor = make_py_cursor(std::move(statement));
+    //     if (!py_cursor)
+    //         return nullptr;
+    //
+    //     auto py_cursor_obj = reinterpret_cast<PyObject *>(py_cursor);
+    //     Py_INCREF(py_cursor_obj);
+    //     return py_cursor_obj;
+    // }
 
     Py_RETURN_NONE;
 }
@@ -102,16 +108,10 @@ static PyObject* py_connection_autocommit(py_connection* self, PyObject*)
     if (!py_connection_expect_open(self))
         return nullptr;
 
-    SQLUINTEGER res = 0;
-    self->m_connection->get_attribute(SQL_ATTR_AUTOCOMMIT, &res, 0, nullptr);
-    if (!check_errors(*self->m_connection))
-        return nullptr;
-
-    if (!res) {
-        Py_RETURN_FALSE;
+    if (self->m_connection->is_autocommit()) {
+        Py_RETURN_TRUE;
     }
-
-    Py_RETURN_TRUE;
+    Py_RETURN_FALSE;
 }
 
 static PyObject* py_connection_set_autocommit(py_connection* self, PyObject* value)
@@ -120,14 +120,11 @@ static PyObject* py_connection_set_autocommit(py_connection* self, PyObject* val
         return nullptr;
 
     if (!PyBool_Check(value)) {
-        PyErr_SetString(py_get_module_interface_error_class(), "Autocommit attribute should be of a type bool");
+        PyErr_SetString(py_get_module_interface_error_class(), "Autocommit attribute should be of a boolean type");
         return nullptr;
     }
 
-    auto ptr_autocommit = reinterpret_cast<void *>(ptrdiff_t(value == Py_True ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF));
-    self->m_connection->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
-    if (!check_errors(*self->m_connection))
-        return nullptr;
+    self->m_connection->set_autocommit(value == Py_True);
 
     Py_RETURN_NONE;
 }
@@ -137,10 +134,12 @@ static PyObject* py_connection_commit(py_connection* self, PyObject*)
     if (!py_connection_expect_open(self))
         return nullptr;
 
-    self->m_connection->transaction_commit();
-    if (!check_errors(*self->m_connection))
+    try {
+        self->m_connection->transaction_commit();
+    } catch (const ignite::ignite_error& err) {
+        set_error(err);
         return nullptr;
-
+    }
     Py_RETURN_NONE;
 }
 
@@ -149,9 +148,12 @@ static PyObject* py_connection_rollback(py_connection* self, PyObject*)
     if (!py_connection_expect_open(self))
         return nullptr;
 
-    self->m_connection->transaction_rollback();
-    if (!check_errors(*self->m_connection))
+    try {
+        self->m_connection->transaction_rollback();
+    } catch (const ignite::ignite_error& err) {
+        set_error(err);
         return nullptr;
+    }
 
     Py_RETURN_NONE;
 }
@@ -190,65 +192,37 @@ int register_py_connection_type(PyObject* mod) {
     return res;
 }
 
-py_connection *make_py_connection(std::string address_str, const char* schema, const char* identity, const char* secret,
-    int page_size, int timeout, int autocommit) {
-    if (address_str.empty()) {
+PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity, const char* secret,
+    int page_size, int timeout, bool autocommit) {
+    if (addresses.empty()) {
         PyErr_SetString(py_get_module_interface_error_class(), "No addresses provided to connect");
         return nullptr;
     }
 
-    auto sql_env = std::make_unique<ignite::sql_environment>();
+    auto node_connection = std::make_unique<class node_connection>(
+        addresses,
+        schema ? schema : "",
+        identity ? identity : "",
+        secret ? secret : "",
+        page_size ? page_size : 1024,
+        timeout);
 
-    std::unique_ptr<ignite::sql_connection> sql_conn{sql_env->create_connection()};
-    if (!check_errors(*sql_env))
+    try {
+        if (!autocommit) {
+            node_connection->set_autocommit(false);
+        }
+
+        node_connection->establish();
+    } catch (ignite::ignite_error& err) {
+        set_error(err);
         return nullptr;
-
-    ignite::configuration cfg;
-    cfg.set_address(std::move(address_str));
-
-    if (schema)
-        cfg.set_schema(schema);
-
-    if (identity)
-        cfg.set_auth_identity(identity);
-
-    if (secret)
-        cfg.set_auth_secret(secret);
-
-    if (page_size)
-        cfg.set_page_size(std::int32_t(page_size));
-
-    if (timeout)
-    {
-        auto ptr_timeout = reinterpret_cast<void *>(ptrdiff_t(timeout));
-        sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-
-        sql_conn->set_attribute(SQL_ATTR_LOGIN_TIMEOUT, ptr_timeout, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
-    }
-
-    sql_conn->establish(cfg);
-    if (!check_errors(*sql_conn))
-        return nullptr;
-
-    if (!autocommit)
-    {
-        auto ptr_autocommit = reinterpret_cast<void *>(ptrdiff_t(SQL_AUTOCOMMIT_OFF));
-        sql_conn->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
-        if (!check_errors(*sql_conn))
-            return nullptr;
     }
 
     py_connection* py_conn_obj = PyObject_New(py_connection, &py_connection_type);
-
     if (!py_conn_obj)
         return nullptr;
 
-    py_conn_obj->m_environment = sql_env.release();
-    py_conn_obj->m_connection = sql_conn.release();
+    py_conn_obj->m_connection = std::move(node_connection);
 
-    return py_conn_obj;
+    return reinterpret_cast<PyObject *>(py_conn_obj);
 }

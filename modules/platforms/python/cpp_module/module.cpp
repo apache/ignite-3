@@ -40,7 +40,7 @@ static PyObject* make_connection()
 }
 
 static PyObject* make_connection(std::string address_str, const char* schema, const char* identity, const char* secret,
-    int page_size, int timeout, int autocommit) {
+    int page_size, int timeout, bool autocommit) {
     auto py_conn = make_py_connection(std::move(address_str), schema, identity, secret, page_size, timeout, autocommit);
     if (!py_conn)
         return nullptr;
@@ -127,7 +127,7 @@ static PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwa
         return nullptr;
     }
 
-    return make_connection(address_builder.str(), schema, identity, secret, page_size, timeout, autocommit, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
+    return make_connection(address_builder.str(), schema, identity, secret, page_size, timeout, autocommit != 0, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
 }
 
 static PyMethodDef methods[] = {

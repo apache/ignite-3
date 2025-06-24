@@ -28,6 +28,8 @@
 
 namespace ignite::protocol {
 
+constexpr std::size_t HEADER_SIZE = 4;
+
 /**
  * Response flags.
  */
