@@ -70,7 +70,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -158,6 +157,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -1415,7 +1415,7 @@ public class PartitionReplicaLifecycleManager extends
                 .handleAsync((resetSuccessful, ex) -> {
                     if (ex != null) {
                         if (isRetriable(ex)) {
-                            LOG.error("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
+                            LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
 
                             return resetWithRetry(replicaGrpId, assignments);
                         }
@@ -1424,7 +1424,7 @@ public class PartitionReplicaLifecycleManager extends
                     }
 
                     if (!resetSuccessful) {
-                        LOG.error("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
+                        LOG.debug("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
 
                         return resetWithRetry(replicaGrpId, assignments);
                     }
@@ -1435,10 +1435,8 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private static boolean isRetriable(Throwable ex) {
-        if (ex instanceof ExecutionException || ex instanceof CompletionException) {
-            ex = ex.getCause();
-        }
-        return !(ex instanceof NodeStoppingException || ex instanceof AssertionError);
+        Throwable exception = ExceptionUtils.unwrapCause(ex);
+        return !(exception instanceof NodeStoppingException || exception instanceof AssertionError);
     }
 
     private CatalogZoneDescriptor zoneDescriptorAt(int zoneId, long timestamp) {

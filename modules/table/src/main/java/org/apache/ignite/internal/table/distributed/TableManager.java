@@ -242,6 +242,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -2519,7 +2520,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .handleAsync((resetSuccessful, ex) -> {
                     if (ex != null) {
                         if (isRetriable(ex)) {
-                            LOG.error("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
+                            LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
 
                             return resetWithRetry(replicaGrpId, assignments);
                         }
@@ -2528,7 +2529,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
 
                     if (!resetSuccessful) {
-                        LOG.error("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
+                        LOG.debug("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
 
                         return resetWithRetry(replicaGrpId, assignments);
                     }
@@ -2539,10 +2540,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private static boolean isRetriable(Throwable ex) {
-        if (ex instanceof ExecutionException || ex instanceof CompletionException) {
-            ex = ex.getCause();
-        }
-        return !(ex instanceof NodeStoppingException || ex instanceof AssertionError);
+        Throwable exception = ExceptionUtils.unwrapCause(ex);
+        return !(exception instanceof NodeStoppingException || exception instanceof AssertionError);
     }
 
     /**
