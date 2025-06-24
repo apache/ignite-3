@@ -17,24 +17,13 @@
 
 #pragma once
 
-#ifdef _WIN32
-# include <windows.h>
-#endif
-
 #include "ignite_runner.h"
 #include "odbc_connection.h"
-#include "odbc_test_utils.h"
 #include "test_utils.h"
 
 #include "tests/test-common/basic_auth_test_suite.h"
 
 #include <gtest/gtest.h>
-
-#include <memory>
-#include <string_view>
-
-#include <sql.h>
-#include <sqlext.h>
 
 namespace ignite {
 
@@ -57,9 +46,9 @@ public:
      *
      * @return Addresses.
      */
-    static std::string get_nodes_address() {
+    static std::string get_nodes_address(const std::vector<std::string> &addresses) {
         std::string res;
-        for (const auto &addr : ignite_runner::get_node_addrs())
+        for (const auto &addr : addresses)
             res += addr + ',';
 
         return res;
@@ -70,8 +59,57 @@ public:
      *
      * @return Addresses.
      */
+    static std::string get_nodes_address() {
+        return get_nodes_address(ignite_runner::get_node_addrs());
+    }
+
+    /**
+     * Get basic connection string with specified addresses.
+     *
+     * @return Basic connection string with specified addresses.
+     */
+    static std::string get_basic_connection_string(const std::string &addrs) {
+        return "driver={" + DRIVER_NAME + "};address=" + addrs + ';';
+    }
+
+    /**
+     * Get basic connection string with default addresses.
+     *
+     * @return Basic connection string with default addresses.
+     */
     static std::string get_basic_connection_string() {
-        return "driver={" + DRIVER_NAME + "};address=" + get_nodes_address() + ';';
+        return get_basic_connection_string(get_nodes_address());
+    }
+
+    /**
+     * Get a path to a SSL file.
+     * @param file
+     * @return
+     */
+    static std::string get_ssl_file(const std::string &file)
+    {
+        auto test_dir = resolve_test_dir();
+        auto ssl_files_dir = test_dir / "odbc-test" / "ssl";
+        if (!std::filesystem::is_directory(ssl_files_dir))
+            throw ignite_error("Can not find an 'ssl' directory in the current 'tests' directory: " + ssl_files_dir.string());
+
+        return (ssl_files_dir / file).string();
+    }
+
+    /**
+     * Try to connect to SSL server successfully.
+     * @return Client.
+     */
+    void connect_successfully_to_ssl_server() {
+        auto addresses = get_nodes_address(ignite_runner::get_ssl_node_addrs());
+        auto conn_str = get_basic_connection_string(addresses);
+
+        conn_str += ";ssl_mode=require";
+        conn_str += ";ssl_cert_file=" + get_ssl_file("client.pem");
+        conn_str += ";ssl_key_file=" + get_ssl_file("client.pem");
+        conn_str += ";ssl_ca_file=" + get_ssl_file("ca.pem");
+
+        odbc_connect(conn_str);
     }
 };
 
