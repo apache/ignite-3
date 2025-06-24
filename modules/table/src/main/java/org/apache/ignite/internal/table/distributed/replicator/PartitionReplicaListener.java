@@ -154,6 +154,7 @@ import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -1627,7 +1628,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         return applyCmdWithExceptionHandling(wiSwitchCmd)
                 .exceptionally(e -> {
-                    LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', e);
+                    if (!ReplicatorRecoverableExceptions.isRecoverable(e)) {
+                        LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', e);
+                    }
 
                     ExceptionUtils.sneakyThrow(e);
 
@@ -3315,7 +3318,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                             indexIdsAtRwTxBeginTsOrNull(txId)
                     )
             )).whenComplete((unused, e) -> {
-                if (e != null) {
+                if (e != null && !ReplicatorRecoverableExceptions.isRecoverable(e)) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
                 }
             });

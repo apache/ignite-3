@@ -36,6 +36,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of Hash index storage using Page Memory.
@@ -77,6 +78,16 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
         assert descriptor != null : "This tree must only be used during recovery";
 
         return descriptor;
+    }
+
+    @TestOnly
+    HashIndexTree indexTree() {
+        return indexTree;
+    }
+
+    @TestOnly
+    FreeListImpl freeList() {
+        return freeList;
     }
 
     @Override
