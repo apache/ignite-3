@@ -54,18 +54,6 @@ import java.util.concurrent.TimeUnit;
  * behavior of the stopwatch.
  *
  * <p><b>Note:</b> This class is not thread-safe.
- *
- * <p><b>Warning for Android users:</b> a stopwatch with default behavior may not continue to keep
- * time while the device is asleep. Instead, create one like this:
- *
- * <pre>{@code
- * Stopwatch.createStarted(
- *      new Ticker() {
- *        public long read() {
- *          return android.os.SystemClock.elapsedRealtimeNanos();
- *        }
- *      });
- * }</pre>
  */
 @SuppressWarnings("GoodTime") // lots of violations
 final class IgniteStopwatch {

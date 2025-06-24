@@ -164,7 +164,7 @@ class TimeBagImpl implements TimeBag {
             case NANOSECONDS:
                 return "ns";
             case MICROSECONDS:
-                return "mcs";
+                return "us";
             case HOURS:
                 return "h";
             case MINUTES:
