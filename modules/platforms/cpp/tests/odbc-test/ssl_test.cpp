@@ -120,9 +120,44 @@ TEST_F(ssl_test, ssl_connection_unknown_2)
         {
             try {
                 auto conn_str = get_ssl_ca_connection_string("client_unknown.pem", "client_unknown.pem", "ca.pem");
-                odbc_connect(conn_str);
+                odbc_connect_throw(conn_str);
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("08001: Failed to get handshake response (Did you forget to enable SSL?)"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(ssl_test, ssl_connection_reject_2)
+{
+    auto addresses = get_nodes_address(ignite_runner::get_ssl_node_addrs());
+    auto conn_str = get_basic_connection_string(addresses) + ";ssl_mode=disable";
+
+    EXPECT_THROW(
+        {
+            try {
+                odbc_connect_throw(conn_str);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("08001: Failed to get handshake response (Did you forget to enable SSL?)"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(ssl_test, ssl_connection_rejected_3)
+{
+    auto addresses = get_nodes_address(ignite_runner::get_node_addrs());
+    auto conn_str = get_basic_connection_string(addresses)
+        + get_ssl_connection_string("client.pem", "client.pem", "ca.pem");
+
+    EXPECT_THROW(
+        {
+            try {
+                odbc_connect_throw(conn_str);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not establish secure connection"));
                 throw;
             }
         },
