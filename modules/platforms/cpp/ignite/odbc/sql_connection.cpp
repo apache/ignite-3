@@ -119,9 +119,37 @@ void sql_connection::establish(const configuration &cfg) {
     IGNITE_ODBC_API_CALL(internal_establish(cfg));
 }
 
-void sql_connection::init_socket() {
-    if (!m_socket)
+sql_result sql_connection::init_socket() {
+    if (m_socket)
+        return sql_result::AI_SUCCESS;
+
+    if (m_config.get_ssl_mode().get_value() == ssl_mode_t::DISABLE) {
         m_socket = network::make_tcp_socket_client();
+
+        return sql_result::AI_SUCCESS;
+    }
+
+    try
+    {
+        network::ensure_ssl_loaded();
+    }
+    catch (const ignite_error &err)
+    {
+        LOG_MSG("Can not load OpenSSL library: " << err.what());
+
+        add_status_record("Can not load OpenSSL library (did you set OPENSSL_HOME environment variable?)");
+
+        return sql_result::AI_ERROR;
+    }
+
+    network::secure_configuration ssl_cfg;
+    ssl_cfg.cert_path = m_config.get_ssl_cert_file().get_value();
+    ssl_cfg.key_path = m_config.get_ssl_key_file().get_value();
+    ssl_cfg.ca_path = m_config.get_ssl_ca_file().get_value();
+
+    m_socket = std::move(network::make_secure_socket_client(ssl_cfg));
+
+    return sql_result::AI_SUCCESS;
 }
 
 sql_result sql_connection::internal_establish(const configuration &cfg) {
@@ -705,8 +733,11 @@ void sql_connection::ensure_connected() {
 bool sql_connection::try_restore_connection() {
     std::vector<end_point> addrs = collect_addresses(m_config);
 
-    if (!m_socket)
-        init_socket();
+    if (!m_socket) {
+        auto res = init_socket();
+        if (res != sql_result::AI_SUCCESS)
+            return false;
+    }
 
     bool connected = false;
     while (!addrs.empty()) {
