@@ -31,7 +31,6 @@ pmdMain {
 }
 
 dependencies {
-    implementation platform(project(':ignite-dependency-constraints'))
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation project(':ignite-configuration-api')

@@ -91,6 +91,7 @@ spring-boot = "3.5.1"
 spring-data = "3.5.1"
 testcontainers = "1.21.2"
 gradleToolingApi = "8.6"
+protobuf = "4.30.2"
 
 #Tools
 pmdTool = "6.55.0"
@@ -297,3 +298,5 @@ commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "co
 spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugsTool" }
 
 gradle-tooling-api = { module = "org.gradle:gradle-tooling-api", version.ref = "gradleToolingApi" }
+
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
