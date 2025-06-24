@@ -17,82 +17,48 @@
 
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
-import java.io.DataInput;
+import com.fasterxml.jackson.databind.MappingIterator;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput.ObjectWriter;
 
 /**
  * Helper class provides method for configuration tree objects serialization/deserialization.
  */
 public class ConfigNodeSerializer {
-    private static final ObjectWriter<String> UTF_WRITER = (k, o) -> o.writeUTF(k);
-
-    /**
-     * Writes a tree to the output.
-     */
-    private static void write(ConfigNode node, IgniteDataOutput out) throws IOException {
-        out.writeMap(node.rawAttributes(), UTF_WRITER, UTF_WRITER);
-
-        Collection<ConfigNode> children = node.childNodes();
-        out.writeVarInt(children.size());
-        for (ConfigNode child : children) {
-            write(child, out);
-        }
-    }
-
-    /**
-     * Reads a tree from the input.
-     */
-    private static ConfigNode read(IgniteDataInput in) throws IOException {
-        return read(in, null);
-    }
-
-    /**
-     * Reads a single ConfigNode tree from the input.
-     */
-    private static ConfigNode read(IgniteDataInput in, ConfigNode parent) throws IOException {
-        Map<String, String> properties = in.readMap(LinkedHashMap::new, IgniteDataInput::readUTF, DataInput::readUTF);
-
-        ConfigNode configNode = new ConfigNode(parent, properties);
-
-        int childrenSize = in.readVarIntAsInt();
-        List<ConfigNode> children = new ArrayList<>(childrenSize);
-
-        for (int i = 0; i < childrenSize; i++) {
-            children.add(read(in, configNode));
-        }
-
-        configNode.addChildNodes(children);
-
-        return configNode;
-    }
-
     /**
      * Writes a list of trees to the output.
      */
-    public static void writeAll(List<ConfigNode> nodes, IgniteDataOutput out) throws IOException {
-        out.writeVarInt(nodes.size());
-        for (ConfigNode node : nodes) {
-            write(node, out);
-        }
+    public static void writeAsJson(List<ConfigNode> nodes, IgniteDataOutput out) throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        objectMapper.writerFor(ConfigNode.class).writeValues(out).writeAll(nodes);
     }
 
     /**
      * Reads all the trees from the input.
      */
-    public static List<ConfigNode> readAll(IgniteDataInput in) throws IOException {
-        int count = in.readVarIntAsInt();
-        List<ConfigNode> nodes = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            nodes.add(read(in));
+    public static List<ConfigNode> readAsJson(IgniteDataInput in) throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        MappingIterator<ConfigNode> objectMappingIterator = objectMapper.readerFor(ConfigNode.class).readValues(in);
+
+        List<ConfigNode> configNodes = objectMappingIterator.readAll();
+
+        configNodes.forEach(ConfigNodeSerializer::restoreParentLinks);
+
+        return configNodes;
+    }
+
+    /*
+     * Recursively set parent links for all children
+     */
+    private static void restoreParentLinks(ConfigNode node) {
+        for (ConfigNode child : node.childNodes()) {
+            child.setParent(node);
+            restoreParentLinks(child);
         }
-        return nodes;
     }
 }

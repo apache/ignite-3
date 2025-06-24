@@ -83,13 +83,13 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         // Serialize, then deserialize the metadata.
         IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(1024);
 
-        ConfigNodeSerializer.writeAll(actualTrees, output);
+        ConfigNodeSerializer.writeAsJson(actualTrees, output);
 
         byte[] data = output.array();
 
         assertTrue(data.length > 0);
 
-        List<ConfigNode> snapshot = ConfigNodeSerializer.readAll(new IgniteUnsafeDataInput(data));
+        List<ConfigNode> snapshot = ConfigNodeSerializer.readAsJson(new IgniteUnsafeDataInput(data));
 
         // Validate restored metadata.
         ConfigurationTreeComparator.compare(snapshot, actualTrees);

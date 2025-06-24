@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -29,20 +31,18 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
  * Tree node that describes a configuration tree item.
  */
 public class ConfigNode {
-    private final ConfigNode parent;
-    private final Map<String, String> attributes;
-    private final Map<String, ConfigNode> childNodeMap = new LinkedHashMap<>();
-    /** Transient field. Flags that describe the properties of this node. */
-    private final EnumSet<Flags> flags;
+    private ConfigNode parent;
+    @JsonProperty
+    private Map<String, String> attributes;
+    @JsonProperty
+    private Map<String, ConfigNode> childNodeMap = new LinkedHashMap<>();
+    @JsonProperty
+    private boolean deprecated;
+    @JsonProperty
+    private boolean value;
 
-    /**
-     * Constructor is used when node is deserialized from the binary format.
-     */
-    ConfigNode(ConfigNode parent, Map<String, String> attributes) {
-        this.parent = parent;
-        this.attributes = attributes;
-        // Restore flags.
-        this.flags = Flags.parseFlags(attributes.get(Attributes.FLAGS));
+    ConfigNode() {
+        // Default constructor for Jackson deserialization.
     }
 
     /**
@@ -51,10 +51,8 @@ public class ConfigNode {
     ConfigNode(ConfigNode parent, Map<String, String> attributes, EnumSet<Flags> flags) {
         this.parent = parent;
         this.attributes = attributes;
-        this.flags = flags;
-
-        // Store flags to attributes for correct serialization.
-        this.attributes.put(Attributes.FLAGS, Flags.toHexString(flags));
+        this.value = flags.contains(Flags.IS_VALUE);
+        this.deprecated = flags.contains(Flags.IS_DEPRECATED);
     }
 
     /**
@@ -91,6 +89,9 @@ public class ConfigNode {
         return childNodeMap.values();
     }
 
+    public void setParent(ConfigNode parent) {
+        this.parent = parent;
+    }
 
     /**
      * Returns the child nodes of this node.
@@ -102,6 +103,7 @@ public class ConfigNode {
     /**
      * Returns {@code true} if this node is a root node, {@code false} otherwise.
      */
+    @JsonIgnore
     public boolean isRoot() {
         return parent == null;
     }
@@ -110,14 +112,14 @@ public class ConfigNode {
      * Returns {@code true} if this node represents a value, {@code false} otherwise.
      */
     public boolean isValue() {
-        return flags.contains(Flags.IS_VALUE);
+        return value;
     }
 
     /**
      * Returns {@code true} if this node is marked as deprecated, {@code false} otherwise.
      */
     public boolean isDeprecated() {
-        return flags.contains(Flags.IS_DEPRECATED);
+        return deprecated;
     }
 
     /**

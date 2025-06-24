@@ -23,7 +23,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -35,9 +34,6 @@ import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
  * Manager for configuration snapshots used in compatibility tests.
  */
 public class ConfigurationSnapshotManager {
-    private static final byte[] IGNITE_COMPRESSED_MAGIC = "IGNZ".getBytes();
-    private static final int FORMAT_VERSION = 1;
-
     /**
      * Loads configuration trees from the given snapshot file.
      */
@@ -46,27 +42,15 @@ public class ConfigurationSnapshotManager {
 
         List<ConfigNode> restoredNodes;
         try (InputStream finStream = Files.newInputStream(snapshotFile, StandardOpenOption.READ)) {
-            byte[] magic = finStream.readNBytes(6);
+            ZipInputStream zinStream = new ZipInputStream(finStream);
+            zinStream.getNextEntry(); // Read the first entry in the zip file.
 
-            if (Arrays.equals(IGNITE_COMPRESSED_MAGIC, magic)) {
-                int formatVersion = finStream.read();
+            IgniteUnsafeDataInput input = new IgniteUnsafeDataInput();
+            input.inputStream(zinStream);
 
-                if (formatVersion != FORMAT_VERSION) {
-                    throw new IllegalStateException("Unsupported format version: " + formatVersion);
-                }
+            restoredNodes = ConfigNodeSerializer.readAsJson(input);
 
-                ZipInputStream zinStream = new ZipInputStream(finStream);
-                zinStream.getNextEntry(); // Read the first entry in the zip file.
-
-                IgniteUnsafeDataInput input = new IgniteUnsafeDataInput();
-                input.inputStream(zinStream);
-
-                restoredNodes = ConfigNodeSerializer.readAll(input);
-
-                assert zinStream.getNextEntry() == null : "More than one entry in the snapshot file";
-            } else {
-                throw new IllegalStateException("Not a configuration snapshot file.");
-            }
+            assert zinStream.getNextEntry() == null : "More than one entry in the snapshot file";
         }
         return restoredNodes;
     }
@@ -79,16 +63,13 @@ public class ConfigurationSnapshotManager {
 
         try (OutputStream foStream =
                 Files.newOutputStream(file, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-            foStream.write(IGNITE_COMPRESSED_MAGIC);
-            foStream.write(FORMAT_VERSION);
-
             ZipOutputStream zoutStream = new ZipOutputStream(foStream);
-            zoutStream.putNextEntry(new ZipEntry(file.getFileName().toString()));
+            zoutStream.putNextEntry(new ZipEntry("config_snapshot.json"));
 
             IgniteUnsafeDataOutput output = new IgniteUnsafeDataOutput(1024);
             output.outputStream(zoutStream);
 
-            ConfigNodeSerializer.writeAll(trees, output);
+            ConfigNodeSerializer.writeAsJson(trees, output);
 
             zoutStream.finish();
             output.flush();
