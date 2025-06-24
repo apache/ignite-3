@@ -34,7 +34,7 @@ constexpr std::string_view SYSTEM_SHELL = IGNITE_SWITCH_WIN_OTHER("cmd.exe", "/b
 constexpr std::string_view SYSTEM_SHELL_ARG_0 = IGNITE_SWITCH_WIN_OTHER("/c ", "-c");
 constexpr std::string_view GRADLEW_SCRIPT = IGNITE_SWITCH_WIN_OTHER("gradlew.bat", "./gradlew");
 
-const std::string SERVER_ADDRESS = "192.168.1.131";
+const std::string SERVER_ADDRESS = "127.0.0.1";
 
 } // anonymous namespace
 
