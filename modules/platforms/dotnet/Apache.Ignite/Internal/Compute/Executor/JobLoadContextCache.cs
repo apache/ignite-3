@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -39,6 +40,34 @@ internal sealed class JobLoadContextCache : IDisposable
     internal JobLoadContextCache(int cacheCleanupIntervalMs = 5_000)
     {
         _ = StartCacheCleanupAsync(cacheCleanupIntervalMs);
+    }
+
+    public async Task<JobLoadContext> GetOrAddJobLoadContext(DeploymentUnitPaths paths)
+    {
+        await _cacheLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            return GetOrAddImpl();
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
+
+        JobLoadContext GetOrAddImpl()
+        {
+            ref (JobLoadContext Ctx, long Ts) valRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_jobLoadContextCache, paths, out var exists);
+
+            valRef.Ts = Now();
+
+            if (!exists)
+            {
+                valRef.Ctx = DeploymentUnitLoader.GetJobLoadContext(paths);
+            }
+
+            return valRef.Ctx;
+        }
     }
 
     public void Dispose()
