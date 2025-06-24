@@ -18,10 +18,13 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
@@ -480,10 +483,11 @@ public class ClientInboundMessageHandler
             BitSet clientFeatures,
             ProtocolVersion clientVer,
             int clientCode) {
-        // Disable direct mapping if not all required features are supported.
+        // Disable direct mapping if not all required features are supported alltogether.
         boolean supportsDirectMapping = features.get(TX_DIRECT_MAPPING.featureId()) && clientFeatures.get(TX_DIRECT_MAPPING.featureId())
                 && features.get(TX_DELAYED_ACKS.featureId()) && clientFeatures.get(TX_DELAYED_ACKS.featureId())
-                && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId());
+                && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId())
+                && features.get(TX_ALLOW_NOOP_ENLIST.featureId()) && clientFeatures.get(TX_ALLOW_NOOP_ENLIST.featureId());
 
         BitSet actualFeatures;
 
@@ -493,6 +497,7 @@ public class ClientInboundMessageHandler
             actualFeatures.clear(TX_DIRECT_MAPPING.featureId());
             actualFeatures.clear(TX_DELAYED_ACKS.featureId());
             actualFeatures.clear(TX_PIGGYBACK.featureId());
+            actualFeatures.clear(TX_ALLOW_NOOP_ENLIST.featureId());
         } else {
             actualFeatures = this.features;
         }
@@ -612,14 +617,19 @@ public class ClientInboundMessageHandler
     }
 
     private void writeResponseHeader(
-            ClientMessagePacker packer, long requestId, ChannelHandlerContext ctx, boolean isNotification, boolean isError) {
+            ClientMessagePacker packer,
+            long requestId,
+            ChannelHandlerContext ctx,
+            boolean isNotification,
+            boolean isError,
+            long timestamp) {
         packer.packLong(requestId);
         writeFlags(packer, ctx, isNotification, isError);
 
         // Include server timestamp in error and notification responses as well:
         // an operation can modify data and then throw an exception (e.g. Compute task),
         // so we still need to update client-side timestamp to preserve causality guarantees.
-        packer.packLong(clockService.currentLong());
+        packer.packLong(Math.max(clockService.currentLong(), timestamp));
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
@@ -636,7 +646,7 @@ public class ClientInboundMessageHandler
         try {
             assert err != null;
 
-            writeResponseHeader(packer, requestId, ctx, isNotification, true);
+            writeResponseHeader(packer, requestId, ctx, isNotification, true, NULL_HYBRID_TIMESTAMP);
             writeErrorCore(err, packer);
 
             write(packer, ctx);
@@ -924,7 +934,9 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(
-                        partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker);
+                        partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
+                        clientContext.hasFeature(SQL_PARTITION_AWARENESS)
+                );
 
             case ClientOp.OPERATION_CANCEL:
                 return ClientOperationCancelRequest.process(in, cancelHandles);
@@ -966,7 +978,8 @@ public class ClientInboundMessageHandler
                 return ClientStreamerWithReceiverBatchSendRequest.process(
                         in,
                         igniteTables,
-                        clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS));
+                        clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS),
+                        tsTracker);
 
             case ClientOp.TABLES_GET_QUALIFIED:
                 return ClientTablesGetQualifiedRequest.process(igniteTables).thenApply(x -> {
@@ -1123,7 +1136,7 @@ public class ClientInboundMessageHandler
         return null;
     }
 
-    private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {
+    private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err, long timestamp) {
         if (err != null) {
             writeError(requestId, -1, err, channelHandlerContext, true);
             return;
@@ -1132,7 +1145,7 @@ public class ClientInboundMessageHandler
         var packer = getPacker(channelHandlerContext.alloc());
 
         try {
-            writeResponseHeader(packer, requestId, channelHandlerContext, true, false);
+            writeResponseHeader(packer, requestId, channelHandlerContext, true, false, timestamp);
 
             if (writer != null) {
                 writer.accept(packer);
@@ -1148,7 +1161,8 @@ public class ClientInboundMessageHandler
     private NotificationSender notificationSender(long requestId) {
         // Notification can be sent before the response to the current request.
         // This is fine, because the client registers a listener before sending the request.
-        return (writer, err) -> sendNotification(requestId, writer, err);
+        return (writer, err, hybridTimestamp) ->
+                sendNotification(requestId, writer, err, hybridTimestamp);
     }
 
     @Override

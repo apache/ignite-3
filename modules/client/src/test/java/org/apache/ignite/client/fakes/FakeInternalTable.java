@@ -43,6 +43,7 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -561,7 +562,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public CompletableFuture<byte[]> runReceiverAsync(
+    public CompletableFuture<IgniteBiTuple<byte[], Long>> runReceiverAsync(
             byte[] payload,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits,
@@ -578,6 +579,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                         .units(deploymentUnits)
                         .options(jobOptions)
                         .build(),
-                payload);
+                payload)
+                .thenApply(resBytes -> new IgniteBiTuple<>(resBytes, FakeCompute.observableTimestamp.longValue()));
     }
 }

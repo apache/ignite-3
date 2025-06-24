@@ -24,7 +24,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for new metrics exporters implementations.
@@ -40,18 +39,16 @@ public abstract class BasicMetricExporter<CfgT extends ExporterView> implements 
     /** Exporter's configuration view. */
     private CfgT configuration;
 
-    /** {@inheritDoc} */
     @Override
-    public void start(MetricProvider metricsProvider, CfgT configuration, Supplier<UUID> clusterIdSupplier, String nodeName) {
+    public synchronized void start(MetricProvider metricsProvider, CfgT configuration, Supplier<UUID> clusterIdSupplier, String nodeName) {
         this.metricsProvider = metricsProvider;
         this.configuration = configuration;
         this.clusterIdSupplier = clusterIdSupplier;
         this.nodeName = nodeName;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public synchronized void reconfigure(@Nullable CfgT newVal) {
+    public synchronized void reconfigure(CfgT newVal) {
         configuration = newVal;
     }
 
@@ -69,21 +66,21 @@ public abstract class BasicMetricExporter<CfgT extends ExporterView> implements 
      *
      * @return map of metrics
      */
-    protected final IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
+    protected final synchronized IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
         return metricsProvider.metrics();
     }
 
     /**
      * Returns current cluster ID.
      */
-    protected final UUID clusterId() {
+    protected final synchronized UUID clusterId() {
         return clusterIdSupplier.get();
     }
 
     /**
      * Returns the network alias of the node.
      */
-    protected final String nodeName() {
+    protected final synchronized String nodeName() {
         return nodeName;
     }
 }

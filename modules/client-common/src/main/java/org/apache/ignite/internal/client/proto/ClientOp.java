@@ -211,6 +211,9 @@ public class ClientOp {
     /** Write mask. */
     private static final BitSet WRITE_MASK = new BitSet(64);
 
+    /** Batch mask. */
+    private static final BitSet BATCH_MASK = new BitSet(64);
+
     static {
         WRITE_MASK.set(TUPLE_UPSERT);
         WRITE_MASK.set(TUPLE_GET_AND_UPSERT);
@@ -225,15 +228,32 @@ public class ClientOp {
         WRITE_MASK.set(TUPLE_INSERT_ALL);
         WRITE_MASK.set(TUPLE_DELETE_ALL);
         WRITE_MASK.set(TUPLE_DELETE_ALL_EXACT);
+
+        BATCH_MASK.set(TUPLE_CONTAINS_ALL_KEYS);
+        BATCH_MASK.set(TUPLE_GET_ALL);
+        BATCH_MASK.set(TUPLE_UPSERT_ALL);
+        BATCH_MASK.set(TUPLE_INSERT_ALL);
+        BATCH_MASK.set(TUPLE_DELETE_ALL);
+        BATCH_MASK.set(TUPLE_DELETE_ALL_EXACT);
     }
 
     /**
-     * Test if operation is write.
+     * Test if the operation is a write.
      *
      * @param opCode The operation code.
      * @return The status.
      */
     public static boolean isWrite(int opCode) {
         return WRITE_MASK.get(opCode);
+    }
+
+    /**
+     * Test if the operation is a batch.
+     *
+     * @param opCode The operation code.
+     * @return The status.
+     */
+    public static boolean isBatch(int opCode) {
+        return BATCH_MASK.get(opCode);
     }
 }

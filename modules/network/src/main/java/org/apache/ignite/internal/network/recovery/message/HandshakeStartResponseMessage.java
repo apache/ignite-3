@@ -28,7 +28,7 @@ import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 @Transferable(NetworkMessageTypes.HANDSHAKE_START_RESPONSE)
 public interface HandshakeStartResponseMessage extends InternalMessage {
     /** Returns the initiator node that sends this. */
-    ClusterNodeMessage initiatorNode();
+    ClusterNodeMessage clientNode();
 
     /**
      * Returns connection id.

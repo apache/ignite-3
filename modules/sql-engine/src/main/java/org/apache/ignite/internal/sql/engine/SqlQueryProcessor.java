@@ -265,7 +265,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         ClusterNode localNode = clusterSrvc.topologyService().localMember();
         String nodeName = localNode.name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureManager));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(
+                nodeName,
+                nodeCfg.execution().threadCount().value(),
+                failureManager,
+                metricManager));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(this::openedCursors);

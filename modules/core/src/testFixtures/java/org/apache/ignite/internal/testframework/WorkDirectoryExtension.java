@@ -42,8 +42,10 @@ import org.apache.ignite.internal.util.OperatingSystem;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.AfterClassTemplateInvocationCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.BeforeClassTemplateInvocationCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
@@ -73,7 +75,8 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
  * for more information.
  */
 public class WorkDirectoryExtension
-        implements BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback, ParameterResolver {
+        implements BeforeAllCallback, AfterAllCallback, BeforeEachCallback, AfterEachCallback, BeforeClassTemplateInvocationCallback,
+        AfterClassTemplateInvocationCallback, ParameterResolver {
     /** JUnit namespace for the extension. */
     private static final Namespace NAMESPACE = Namespace.create(WorkDirectoryExtension.class);
 
@@ -109,7 +112,7 @@ public class WorkDirectoryExtension
     public void beforeAll(ExtensionContext context) throws Exception {
         Field workDirField = getWorkDirField(context);
 
-        if (workDirField == null || !Modifier.isStatic(workDirField.getModifiers())) {
+        if (workDirField == null || !Modifier.isStatic(workDirField.getModifiers()) || isForcePerClassTemplate(workDirField)) {
             return;
         }
 
@@ -143,7 +146,7 @@ public class WorkDirectoryExtension
     public void beforeEach(ExtensionContext context) throws Exception {
         Field workDirField = getWorkDirField(context);
 
-        if (workDirField == null || Modifier.isStatic(workDirField.getModifiers())) {
+        if (workDirField == null || Modifier.isStatic(workDirField.getModifiers()) || isForcePerClassTemplate(workDirField)) {
             return;
         }
 
@@ -156,6 +159,30 @@ public class WorkDirectoryExtension
     @Override
     public void afterEach(ExtensionContext context) throws Exception {
         cleanupWorkDir(context);
+    }
+
+    @Override
+    public void beforeClassTemplateInvocation(ExtensionContext context) throws Exception {
+        Field workDirField = getWorkDirField(context);
+
+        if (workDirField == null || !isForcePerClassTemplate(workDirField)) {
+            return;
+        }
+
+        workDirField.setAccessible(true);
+
+        workDirField.set(Modifier.isStatic(workDirField.getModifiers()) ? null : context.getRequiredTestInstance(), createWorkDir(context));
+    }
+
+    @Override
+    public void afterClassTemplateInvocation(ExtensionContext context) throws Exception {
+        cleanupWorkDir(context);
+    }
+
+    private static boolean isForcePerClassTemplate(Field field) {
+        WorkDirectory workDirectory = field.getAnnotation(WorkDirectory.class);
+        assert workDirectory != null;
+        return workDirectory.forcePerClassTemplate();
     }
 
     /** {@inheritDoc} */

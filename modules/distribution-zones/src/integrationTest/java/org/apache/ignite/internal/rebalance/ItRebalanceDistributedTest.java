@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.TestRebalanceUtil.plannedPartitionAssig
 import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
@@ -41,7 +42,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -64,6 +64,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -95,7 +96,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -254,7 +254,6 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -294,8 +293,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @Timeout(120)
-// TODO https://issues.apache.org/jira/browse/IGNITE-25074
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
@@ -402,6 +399,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
+
+        // Without default zone preparation we will catch "Critical system error" because test placement driver will return fake primary
+        // replica for default zone out of corresponding assignments.
+        if (colocationEnabled()) {
+            alterDefaultZone(node0);
+
+            assertTrue(
+                    waitForCondition(
+                            () -> getDefaultZonePartitionStableAssignments(node0, 0).size() == NODE_COUNT,
+                            AWAIT_TIMEOUT_MILLIS
+                    )
+            );
+        }
     }
 
     @AfterEach
@@ -546,6 +556,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .localNodes()
                 .stream()
                 .filter(nodeId -> nodeId.groupId().toString().contains("part"))
+                .filter(nodeId -> !nodeId.groupId().toString().contains(defaultZoneId(leaderNode.catalogManager) + "_part"))
                 .findFirst()
                 .orElseThrow();
 
@@ -577,6 +588,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
         checkPartitionNodes(0, 3);
+    }
+
+    private static int defaultZoneId(CatalogManager catalog) {
+        return catalog.catalog(catalog.latestCatalogVersion()).defaultZone().id();
     }
 
     @Test
@@ -630,6 +645,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Node node = getNode(0);
 
         createTableWithOnePartition(node, TABLE_NAME, ZONE_NAME, 3, true);
+
+        // Later in the test, as part of the reaction to the replica factor reduction, the zone storage will be destroyed,
+        // so to verify the correctness of the deletion, it is necessary to make sure that the storage was initially created.
+        if (colocationEnabled()) {
+            nodes.forEach(
+                    n -> assertNotNull(
+                            n.partitionReplicaLifecycleManager.txStatePartitionStorage(getInternalTable(node, TABLE_NAME).zoneId(), 0)));
+        }
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionStableAssignments(node, 0);
 
@@ -732,7 +755,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24072")
     void testRebalanceWithTheSameNodes() throws Exception {
         Node node = getNode(0);
 
@@ -1097,6 +1119,20 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .orElse(Set.of());
     }
 
+    private static Set<Assignment> getDefaultZonePartitionStableAssignments(Node node, int partitionIndex) {
+        var stableAssignmentsFuture = ZoneRebalanceUtil.zonePartitionAssignments(
+                node.metaStorageManager,
+                defaultZoneId(node.catalogManager),
+                partitionIndex
+        );
+
+        assertThat(stableAssignmentsFuture, willCompleteSuccessfully());
+
+        return Optional
+                .ofNullable(stableAssignmentsFuture.join())
+                .orElse(Set.of());
+    }
+
     private static Set<Assignment> getPartitionPendingAssignments(Node node, String tableName, int partNum) {
         TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
 
@@ -1163,6 +1199,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         private final SchemaManager schemaManager;
 
         private final CatalogManager catalogManager;
+
+        final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
         private final SchemaSyncService schemaSyncService;
 
@@ -1361,7 +1399,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             placementDriver = new TestPlacementDriver(() -> PRIMARY_FILTER.apply(clusterService.topologyService().allMembers()));
 
-            threadPoolsManager = new ThreadPoolsManager(name);
+            threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
@@ -1479,7 +1517,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftManager,
                     partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
-                    ForkJoinPool.commonPool(),
+                    threadPoolsManager.tableIoExecutor(),
                     replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
                             .thenApply(Entry::value)
             ));
@@ -1524,7 +1562,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService(), failureManager);
 
-            var replicaLifecycleManager = new PartitionReplicaLifecycleManager(
+            partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                     catalogManager,
                     replicaManager,
                     distributionZoneManager,
@@ -1582,7 +1620,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     transactionInflights,
                     indexMetaStorage,
                     logStorageFactory,
-                    replicaLifecycleManager,
+                    partitionReplicaLifecycleManager,
                     nodeProperties,
                     minTimeCollectorService,
                     systemDistributedConfiguration
@@ -1672,13 +1710,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     dataStorageMgr,
                     schemaManager,
                     sharedTxStateStorage,
+                    partitionReplicaLifecycleManager,
                     tableManager,
                     indexManager
             )).thenComposeAsync(componentFuts -> {
                 CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
                         .thenCompose(rev -> allOf(
-                                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                                 ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(),
                                 componentFuts
                         ));
@@ -1816,10 +1853,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) {
         InternalTable internalTable = getInternalTable(node, tableName);
 
-        verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
-                .destroyPartition(partitionId);
-        verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
-                .destroyTxStateStorage(partitionId);
+        if (colocationEnabled()) {
+            // Assert that zone tx state storage was removed.
+            assertNull(node.partitionReplicaLifecycleManager.txStatePartitionStorage(internalTable.zoneId(), partitionId));
+        } else {
+            verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                    .destroyPartition(partitionId);
+            verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                    .destroyTxStateStorage(partitionId);
+        }
     }
 
     private static void throwExceptionOnInvokeDestroyPartitionStorages(Node node, String tableName, int partitionId) {
@@ -1890,6 +1932,27 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
+    private static void alterDefaultZone(Node node) {
+        node.waitForMetadataCompletenessAtNow();
+
+        CatalogManager catalog = node.catalogManager;
+
+        DistributionZonesTestUtil.alterZone(
+                catalog,
+                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().name(),
+                NODE_COUNT
+        );
+
+        // Setting scaleUp timer to immediate value for default zone is just an optimization for faster tests.
+        DistributionZonesTestUtil.alterZone(
+                catalog,
+                catalog.catalog(catalog.latestCatalogVersion()).defaultZone().name(),
+                IMMEDIATE_TIMER_VALUE,
+                null,
+                null
+        );
+    }
+
     private static void createTable(Node node, String zoneName, String tableName) {
         node.waitForMetadataCompletenessAtNow();
 
@@ -1953,7 +2016,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .flatMap((n) -> {
                     List<JraftGroupEventsListener> nodeRaftGroupServices = new ArrayList<>();
                     n.raftManager.forEach((nodeId, raftGroupService) -> {
-                        nodeRaftGroupServices.add(raftGroupService.getNodeOptions().getRaftGrpEvtsLsnr());
+                        // Excluded default zone raft services.
+                        if (!raftGroupService.getGroupId().startsWith("" + defaultZoneId(nodes.get(0).catalogManager))) {
+                            nodeRaftGroupServices.add(raftGroupService.getNodeOptions().getRaftGrpEvtsLsnr());
+                        }
                     });
 
                     return nodeRaftGroupServices.stream();

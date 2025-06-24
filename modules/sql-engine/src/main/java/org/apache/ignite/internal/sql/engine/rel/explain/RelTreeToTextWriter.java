@@ -55,7 +55,7 @@ import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.QualifiedNameHelper;
 
 class RelTreeToTextWriter {
-    private static final int NEXT_OPERATOR_INDENT = 2;
+    static final int NEXT_OPERATOR_INDENT = 2;
     private static final int OPERATOR_ATTRIBUTES_INDENT = 2 * NEXT_OPERATOR_INDENT;
 
     private static boolean needToAddFieldNames(IgniteRel rel) {
@@ -128,7 +128,9 @@ class RelTreeToTextWriter {
         INVOCATION("invocation"),
         OFFSET("offset"),
         FETCH("fetch"),
-        ALL("all");
+        ALL("all"),
+        SOURCE_FRAGMENT_ID("sourceFragmentId"),
+        TARGET_FRAGMENT_ID("targetFragmentId");
 
         private final String label;
 
@@ -314,13 +316,27 @@ class RelTreeToTextWriter {
 
             return this;
         }
+
+        @Override
+        public IgniteRelWriter addSourceFragmentId(long fragmentId) {
+            attributes.put(AttributeName.SOURCE_FRAGMENT_ID, String.valueOf(fragmentId));
+
+            return this;
+        }
+
+        @Override
+        public IgniteRelWriter addTargetFragmentId(long fragmentId) {
+            attributes.put(AttributeName.TARGET_FRAGMENT_ID, String.valueOf(fragmentId));
+
+            return this;
+        }
     }
 
-    static String dumpTree(IgniteRel rootRel) {
+    static String dumpTree(IgniteRel rootRel, int initialLevel) {
         RelInfoHolder root = collectRelInfo(rootRel);
 
         Deque<ObjectIntPair<RelInfoHolder>> explanationStack = new ArrayDeque<>();
-        explanationStack.add(ObjectIntPair.of(root, 0));
+        explanationStack.add(ObjectIntPair.of(root, initialLevel));
 
         StringBuilder sb = new StringBuilder();
         Spacer spacer = new Spacer();

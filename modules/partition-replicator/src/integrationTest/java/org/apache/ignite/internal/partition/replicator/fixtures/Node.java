@@ -514,7 +514,7 @@ public class Node {
             }
         };
 
-        threadPoolsManager = new ThreadPoolsManager(name);
+        threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
@@ -943,8 +943,6 @@ public class Node {
 
                     return metaStorageManager.recoveryFinishedFuture()
                             .thenCompose(rev -> allOf(
-                                    nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                                    clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
                                     metaStorageManager.notifyRevisionUpdateListenerOnStart(),
                                     componentsStartAfterJoin
                             ));

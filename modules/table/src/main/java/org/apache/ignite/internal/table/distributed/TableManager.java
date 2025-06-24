@@ -110,6 +110,7 @@ import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.NodeProperties;
@@ -581,7 +582,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clockService);
 
-        tablesVv = new IncrementalVersionedValue<>(registry);
+        tablesVv = new IncrementalVersionedValue<>(registry, 100, null);
 
         localPartitionsVv = new IncrementalVersionedValue<>(dependingOn(tablesVv));
 
@@ -2301,7 +2302,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         AssignmentsChain assignmentsChain = assignmentsChainGetLocally(metaStorageMgr, replicaGrpId, revision);
 
-        Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
+        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
+        Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
         return tablesVv.get(revision)
                 .thenApply(ignore -> {
@@ -2327,12 +2329,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                             LOG.info(
                                     "Received update on pending assignments. Check if new raft group should be started [key={}, "
-                                            + "partition={}, table={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
+                                            + "partition={}, table={}, localMemberAddress={}, pendingAssignmentsQueue={}, revision={}]",
                                     stringKey,
                                     replicaGrpId.partitionId(),
                                     table.name(),
                                     localNode().address(),
-                                    pendingAssignments,
+                                    pendingAssignmentsQueue,
                                     revision
                             );
                         }
@@ -2799,15 +2801,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
         return supplyAsync(() -> {
-            Assignments pendingAssignments =
-                    assignmentsService.getPendingAssignmentsFromMetastorage(stableAssignmentsWatchEvent, tablePartitionId, revision);
+            Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(tablePartitionId), revision);
+            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
+            Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
 
                 LOG.info("Received update on stable assignments [key={}, partition={}, localMemberAddress={}, "
-                                + "stableAssignments={}, pendingAssignments={}, revision={}]", stringKey, tablePartitionId,
-                        localNode().address(), stableAssignments, pendingAssignments, revision);
+                                + "stableAssignments={}, pendingAssignmentsQueue={}, revision={}]",
+                        stringKey,
+                        tablePartitionId,
+                        localNode().address(),
+                        stableAssignments,
+                        pendingAssignmentsQueue,
+                        revision
+                );
             }
 
             return stopAndDestroyTablePartitionAndUpdateClients(
@@ -2925,8 +2934,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> stopAndDestroyTablePartition(TablePartitionId tablePartitionId, long causalityToken) {
-        return tablesVv
-                .get(causalityToken)
+        CompletableFuture<?> tokenFuture;
+
+        try {
+            tokenFuture = tablesVv.get(causalityToken);
+        } catch (OutdatedTokenException e) {
+            // Here we need only to ensure that the token has been seen.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25742
+            tokenFuture = nullCompletedFuture();
+        }
+
+        return tokenFuture
                 .thenCompose(ignore -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
                     assert table != null : tablePartitionId;

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
@@ -70,16 +71,25 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     private final IgniteKeyValueGet lookupNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
+    @Nullable
+    private final PartitionAwarenessMetadata partitionAwarenessMetadata;
 
     private volatile Performable<?> operation;
 
-    KeyValueGetPlan(PlanId id, int catalogVersion, IgniteKeyValueGet lookupNode, ResultSetMetadata meta,
-            ParameterMetadata parameterMetadata) {
+    KeyValueGetPlan(
+            PlanId id,
+            int catalogVersion,
+            IgniteKeyValueGet lookupNode,
+            ResultSetMetadata meta,
+            ParameterMetadata parameterMetadata,
+            @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata
+    ) {
         this.id = id;
         this.catalogVersion = catalogVersion;
         this.lookupNode = lookupNode;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
+        this.partitionAwarenessMetadata = partitionAwarenessMetadata;
     }
 
     /** {@inheritDoc} */
@@ -104,6 +114,12 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public ParameterMetadata parameterMetadata() {
         return parameterMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
     }
 
     /** Returns a table in question. */

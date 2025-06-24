@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
@@ -60,6 +62,8 @@ import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadataExtractor;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -106,6 +110,8 @@ public class PrepareServiceImpl implements PrepareService {
             new ParameterMetadata(Collections.emptyList());
 
     private static final long THREAD_TIMEOUT_MS = 60_000;
+
+    private static final String PLANNING_EXECUTOR_SOURCE_NAME = THREAD_POOLS_METRICS_SOURCE_NAME + "sql-planning-executor";
 
     private final UUID prepareServiceId = UUID.randomUUID();
     private final AtomicLong planIdGen = new AtomicLong();
@@ -209,6 +215,9 @@ public class PrepareServiceImpl implements PrepareService {
         metricManager.registerSource(sqlPlanCacheMetricSource);
         metricManager.enable(sqlPlanCacheMetricSource);
 
+        metricManager.registerSource(new ThreadPoolMetricSource(PLANNING_EXECUTOR_SOURCE_NAME, planningPool));
+        metricManager.enable(PLANNING_EXECUTOR_SOURCE_NAME);
+
         IgnitePlanner.warmup();
     }
 
@@ -217,6 +226,7 @@ public class PrepareServiceImpl implements PrepareService {
     public void stop() throws Exception {
         planningPool.shutdownNow();
         metricManager.unregisterSource(sqlPlanCacheMetricSource);
+        metricManager.unregisterSource(PLANNING_EXECUTOR_SOURCE_NAME);
     }
 
     /** {@inheritDoc} */
@@ -434,8 +444,13 @@ public class PrepareServiceImpl implements PrepareService {
                 int catalogVersion = ctx.catalogVersion();
 
                 if (optimizedRel instanceof IgniteKeyValueGet) {
+                    IgniteKeyValueGet kvGet = (IgniteKeyValueGet) optimizedRel;
+                    PartitionAwarenessMetadata partitionAwarenessMetadata =
+                            PartitionAwarenessMetadataExtractor.getMetadata(kvGet);
+
                     return new KeyValueGetPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueGet) optimizedRel, resultSetMetadata, parameterMetadata
+                            nextPlanId(), catalogVersion, kvGet, resultSetMetadata,
+                            parameterMetadata, partitionAwarenessMetadata
                     );
                 }
 
@@ -502,7 +517,8 @@ public class PrepareServiceImpl implements PrepareService {
         ExplainablePlan plan;
         if (optimizedRel instanceof IgniteKeyValueModify) {
             plan = new KeyValueModifyPlan(
-                    nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
+                    nextPlanId(), ctx.catalogVersion(), (IgniteKeyValueModify) optimizedRel, DML_METADATA,
+                    parameterMetadata, null
             );
         } else {
             plan = new MultiStepPlan(
@@ -557,8 +573,13 @@ public class PrepareServiceImpl implements PrepareService {
 
                 ExplainablePlan plan;
                 if (optimizedRel instanceof IgniteKeyValueModify) {
+                    IgniteKeyValueModify kvModify = (IgniteKeyValueModify) optimizedRel;
+                    PartitionAwarenessMetadata partitionAwarenessMetadata =
+                            PartitionAwarenessMetadataExtractor.getMetadata(kvModify);
+
                     plan = new KeyValueModifyPlan(
-                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA, parameterMetadata
+                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) optimizedRel, DML_METADATA,
+                            parameterMetadata, partitionAwarenessMetadata
                     );
                 } else {
                     plan = new MultiStepPlan(

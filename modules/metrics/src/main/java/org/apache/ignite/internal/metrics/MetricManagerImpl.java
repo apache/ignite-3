@@ -165,7 +165,7 @@ public class MetricManagerImpl implements MetricManager {
     }
 
     @Override
-    public MetricSet enable(final String srcName) {
+    public MetricSet enable(String srcName) {
         MetricSet enabled = registry.enable(srcName);
 
         if (enabled != null) {
@@ -183,7 +183,7 @@ public class MetricManagerImpl implements MetricManager {
     }
 
     @Override
-    public void disable(final String srcName) {
+    public void disable(String srcName) {
         registry.disable(srcName);
 
         enabledMetricExporters.values().forEach(e -> e.removeMetricSet(srcName));
@@ -223,17 +223,15 @@ public class MetricManagerImpl implements MetricManager {
 
     /**
      * Load exporters by {@link ServiceLoader} mechanism.
-     *
-     * @return list of loaded exporters.
      */
-    public static Map<String, MetricExporter> loadExporters() {
+    private static Map<String, MetricExporter> loadExporters() {
         var clsLdr = Thread.currentThread().getContextClassLoader();
 
         return ServiceLoader
                 .load(MetricExporter.class, clsLdr)
                 .stream()
                 .map(Provider::get)
-                .collect(Collectors.toMap(e -> e.name(), Function.identity()));
+                .collect(Collectors.toMap(MetricExporter::name, Function.identity()));
     }
 
     private class ExporterConfigurationListener implements ConfigurationNamedListListener<ExporterView> {

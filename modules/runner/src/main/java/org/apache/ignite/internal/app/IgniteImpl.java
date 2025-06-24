@@ -528,13 +528,13 @@ public class IgniteImpl implements Ignite {
 
         lifecycleManager = new LifecycleManager(name);
 
-        threadPoolsManager = new ThreadPoolsManager(name);
+        metricManager = new MetricManagerImpl();
+
+        threadPoolsManager = new ThreadPoolsManager(name, metricManager);
 
         vaultMgr = new VaultManager(new PersistentVaultService(vaultPath(workDir)));
 
         nodeProperties = new NodePropertiesImpl(vaultMgr);
-
-        metricManager = new MetricManagerImpl();
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
@@ -714,6 +714,8 @@ public class IgniteImpl implements Ignite {
                         nodeConfigRegistry.getConfiguration(NodeAttributesExtensionConfiguration.KEY).nodeAttributes(),
                         nodeConfigRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage()
                 );
+
+        nodeAttributesCollector.register(nodeProperties);
 
         var clusterStateStorageMgr =  new ClusterStateStorageManager(clusterStateStorage);
         var validationManager = new ValidationManager(clusterStateStorageMgr, logicalTopology);
@@ -1201,7 +1203,8 @@ public class IgniteImpl implements Ignite {
 
         ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
-        ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(this, stateMachine, computeCfg, clusterSvc.topologyService());
+        ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
+                this, stateMachine, computeCfg, clusterSvc.topologyService(), clockService);
 
         computeComponent = new ComputeComponentImpl(
                 name,
@@ -1221,7 +1224,8 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 computeComponent,
                 clock,
-                nodeProperties
+                nodeProperties,
+                observableTimestampTracker
         );
 
         killCommandHandler.register(computeKillHandler(compute));
@@ -1901,14 +1905,10 @@ public class IgniteImpl implements Ignite {
                 .thenRunAsync(systemDisasterRecoveryManager::markInitConfigApplied, startupExecutor);
     }
 
-    /**
-     * Recovers components state on start by invoking cluster configuration listeners and deploying watches after that.
-     */
     private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor, CompletableFuture<Void> startFuture) {
-        CompletableFuture<Void> startupConfigurationUpdate = clusterConfiguration().notifyCurrentConfigurationListeners();
         CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
 
-        return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
+        return CompletableFuture.allOf(startupRevisionUpdate, startFuture)
                 .thenComposeAsync(unused -> {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     return metaStorageMgr.deployWatches();

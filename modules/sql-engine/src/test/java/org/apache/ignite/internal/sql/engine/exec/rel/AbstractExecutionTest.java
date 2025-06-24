@@ -47,6 +47,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -88,7 +89,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     @BeforeEach
     public void beforeTest() {
         var failureProcessor = new FailureManager(new NoOpFailureHandler());
-        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor);
+        var metricManager = new NoOpMetricManager();
+        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor, metricManager);
         taskExecutor.start();
     }
 

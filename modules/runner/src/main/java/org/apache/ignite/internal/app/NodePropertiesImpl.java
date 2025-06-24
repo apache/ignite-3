@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.app;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
@@ -33,7 +36,7 @@ import org.apache.ignite.internal.vault.VaultManager;
 /**
  * Default implementation of {@link NodeProperties} using {@link VaultManager} for persistence.
  */
-public class NodePropertiesImpl implements NodeProperties, IgniteComponent {
+public class NodePropertiesImpl implements NodeProperties, IgniteComponent, NodeAttributesProvider {
     private static final IgniteLogger LOG = Loggers.forClass(NodePropertiesImpl.class);
 
     public static final ByteArray ZONE_BASED_REPLICATION_KEY = ByteArray.fromString("zone.based.replication");
@@ -104,5 +107,10 @@ public class NodePropertiesImpl implements NodeProperties, IgniteComponent {
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
+    }
+
+    @Override
+    public Map<String, String> nodeAttributes() {
+        return Map.of(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled()));
     }
 }
