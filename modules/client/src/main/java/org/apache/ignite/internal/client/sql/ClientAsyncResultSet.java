@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -63,7 +64,9 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     private final long affectedRows;
 
     /** Metadata. */
-    private final ResultSetMetadata metadata;
+    private final @Nullable ResultSetMetadata metadata;
+
+    private final @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata;
 
     /** Marshaller. Not null when object mapping is used. */
     @Nullable
@@ -97,7 +100,13 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-        metadata = hasRowSet ? ClientResultSetMetadata.read(in) : null;
+        metadata = ClientResultSetMetadata.read(in);
+
+        if (ch.protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS) && !in.tryUnpackNil()) {
+            partitionAwarenessMetadata = ClientPartitionAwarenessMetadata.read(in);
+        } else {
+            partitionAwarenessMetadata = null;
+        }
 
         this.mapper = mapper;
         marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class
@@ -191,6 +200,10 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         closed = true;
 
         return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null);
+    }
+
+    @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
     }
 
     private void requireResultSet() {

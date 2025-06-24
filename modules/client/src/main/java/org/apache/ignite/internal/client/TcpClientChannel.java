@@ -89,7 +89,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING,
             ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB,
             ProtocolBitmaskFeature.TX_DELAYED_ACKS,
-            ProtocolBitmaskFeature.TX_PIGGYBACK
+            ProtocolBitmaskFeature.TX_PIGGYBACK,
+            ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
+            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -396,7 +398,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 }
             });
 
-            if (PublicApiThreading.executingSyncPublicApi()) {
+            // Allow parallelism for batch operations.
+            if (PublicApiThreading.executingSyncPublicApi() && !ClientOp.isBatch(opCode)) {
                 // We are in the public API (user) thread, deserialize the response here.
                 try {
                     ClientMessageUnpacker unpacker = fut.join();

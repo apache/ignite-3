@@ -227,6 +227,8 @@ public class TestClientHandlerModule implements IgniteComponent {
             features.set(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB.featureId());
             features.set(ProtocolBitmaskFeature.TX_DELAYED_ACKS.featureId());
             features.set(ProtocolBitmaskFeature.TX_PIGGYBACK.featureId());
+            features.set(ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST.featureId());
+            features.set(ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME.featureId());
         } else {
             features = new BitSet(ProtocolBitmaskFeature.values().length);
             for (int i = this.features.nextSetBit(0); i != -1; i = this.features.nextSetBit(i + 1)) {

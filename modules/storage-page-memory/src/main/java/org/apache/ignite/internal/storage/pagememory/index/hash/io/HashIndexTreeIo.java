@@ -193,7 +193,13 @@ public interface HashIndexTreeIo {
 
             ByteBuffer indexColumnsBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsSize);
 
-            cmp = indexColumnsBuffer.compareTo(row.indexColumns().valueBuffer().rewind().duplicate().limit(indexColumnsSize));
+            ByteBuffer rowIndexColumnsCopyForComparison = row.indexColumns().valueBuffer().rewind().duplicate();
+
+            if (rowIndexColumnsCopyForComparison.capacity() > indexColumnsSize) {
+                rowIndexColumnsCopyForComparison.limit(indexColumnsSize);
+            }
+
+            cmp = indexColumnsBuffer.compareTo(rowIndexColumnsCopyForComparison);
 
             if (cmp != 0) {
                 return cmp;

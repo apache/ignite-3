@@ -25,16 +25,17 @@ import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIR
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.internal.client.tx.ClientLazyTransaction.ensureStarted;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.QualifiedName;
@@ -118,12 +120,14 @@ public class ClientTable implements Table {
      * @param marshallers Marshallers provider.
      * @param id Table id.
      * @param name Table name.
+     * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache to store partition awareness metadata.
      */
     public ClientTable(
             ReliableChannel ch,
             MarshallersProvider marshallers,
             int id,
-            QualifiedName name
+            QualifiedName name,
+            int sqlPartitionAwarenessMetadataCacheSize
     ) {
         assert ch != null;
         assert marshallers != null;
@@ -134,7 +138,7 @@ public class ClientTable implements Table {
         this.id = id;
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
-        this.sql = new ClientSql(ch, marshallers);
+        this.sql = new ClientSql(ch, marshallers, sqlPartitionAwarenessMetadataCacheSize);
         clientPartitionManager = new ClientPartitionManager(this);
     }
 
@@ -503,8 +507,7 @@ public class ClientTable implements Table {
                     // Direct mode is only possible if:
                     // * a client's connection exists to a corresponding node.
                     // * a transaction has commit partition
-                    @Nullable PartitionMapping pm =
-                            getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, tx == null || tx.isReadOnly());
+                    @Nullable PartitionMapping pm = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema);
 
                     // Write context carries request execution details over async chain.
                     WriteContext ctx = new WriteContext(ch.observableTimestamp());
@@ -522,7 +525,7 @@ public class ClientTable implements Table {
                                 boolean supports = ch0.protocolContext().isFeatureSupported(TX_PIGGYBACK)
                                         && ch0.protocolContext().clusterNode().name().equals(pm.nodeConsistentId());
 
-                                assert ch0.protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS);
+                                assert !supports || ch0.protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS);
 
                                 IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> tuple = ensureStarted(tx, ch,
                                         supports ? null : () -> completedFuture(ch0));
@@ -620,21 +623,15 @@ public class ClientTable implements Table {
                                             fut.completeExceptionally(ex);
                                         } else {
                                             // In case of direct mapping failure for any reason try to roll back the transaction.
-                                            if (!matchAny(unwrapCause(ex), TX_ALREADY_FINISHED_ERR, TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR)) {
-                                                assert tx0 != null && !tx0.isReadOnly() : "Invalid transaction for direct mapping " + tx;
+                                            tx0.rollbackAsync().handle((ignored, err0) -> {
+                                                if (err0 != null) {
+                                                    ex.addSuppressed(err0);
+                                                }
 
-                                                tx0.rollbackAsync().handle((ignored, err0) -> {
-                                                    if (err0 != null) {
-                                                        ex.addSuppressed(err0);
-                                                    }
-
-                                                    fut.completeExceptionally(ex);
-
-                                                    return (T) null;
-                                                });
-                                            } else {
                                                 fut.completeExceptionally(ex);
-                                            }
+
+                                                return (T) null;
+                                            });
                                         }
                                     } else {
                                         fut.complete(ret);
@@ -707,21 +704,26 @@ public class ClientTable implements Table {
             assert tx0 != null;
             assert ctx.pm != null;
 
-            if (in.in().tryUnpackNil()) {
-                // No-op.
+            if (in.in().tryUnpackNil()) { // This may happen on no-op enlistment when a newer client is connected to older server.
                 in.clientChannel().inflights().removeInflight(tx0.txId(), null);
 
-                // Finish enlist on first request only.
+                // If this is first enlistment to a partition, we hit a bug and can't do anything but fail.
                 if (ctx.enlistmentToken == 0) {
-                    tx0.tryFinishEnlist(ctx.pm, null, 0, true);
+                    tx0.tryFailEnlist(ctx.pm, new IgniteException(INTERNAL_ERR,
+                            "Encountered no-op on first direct enlistment, server version upgrade is required"));
                 }
             } else {
                 String consistentId = in.in().unpackString();
                 long token = in.in().unpackLong();
 
+                // Test if no-op enlistment.
+                if (in.in().unpackBoolean()) {
+                    in.clientChannel().inflights().removeInflight(tx0.txId(), null);
+                }
+
                 // Finish enlist on first request only.
                 if (ctx.enlistmentToken == 0) {
-                    tx0.tryFinishEnlist(ctx.pm, consistentId, token, false);
+                    tx0.tryFinishEnlist(ctx.pm, consistentId, token);
                 }
             }
         }
@@ -877,12 +879,137 @@ public class ClientTable implements Table {
         return partitionCount;
     }
 
+    /**
+     * Batch with indexes.
+     *
+     * @param <E> Batch type element.
+     */
+    static class Batch<E> {
+        List<E> batch = new ArrayList<>();
+        List<Integer> originalIndices = new ArrayList<>();
+
+        void add(E entry, int origIdx) {
+            batch.add(entry);
+            originalIndices.add(origIdx);
+        }
+    }
+
+    private static <E> void reduceWithKeepOrder(List<E> agg, List<E> cur, List<Integer> originalIndices) {
+        for (int i = 0; i < cur.size(); i++) {
+            E val = cur.get(i);
+            Integer orig = originalIndices.get(i);
+            agg.set(orig, val);
+        }
+    }
+
+    <R, E> CompletableFuture<R> split(
+            Transaction tx,
+            Collection<E> keys,
+            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<R>> fun,
+            @Nullable R initialValue,
+            Reducer<R> reducer,
+            BiFunction<ClientSchema, E, Integer> hashFunc
+    ) {
+        assert tx != null;
+
+        CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
+        CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
+
+        return CompletableFuture.allOf(schemaFut, partitionsFut)
+                .thenCompose(v -> {
+                    ClientSchema schema = schemaFut.getNow(null);
+
+                    @Nullable List<String> aff = partitionsFut.getNow(null);
+                    if (aff == null) {
+                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
+                    }
+
+                    Map<Integer, List<E>> mapped = IgniteUtils.newHashMap(aff.size());
+                    List<CompletableFuture<R>> res = new ArrayList<>(aff.size());
+
+                    for (E key : keys) {
+                        int hash = hashFunc.apply(schema, key);
+                        Integer part = Math.abs(hash % aff.size());
+                        mapped.computeIfAbsent(part, k -> new ArrayList<>()).add(key);
+                    }
+
+                    for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
+                        res.add(fun.apply(entry.getValue(), PartitionAwarenessProvider.of(entry.getKey())));
+                    }
+
+                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
+                        R in = initialValue;
+
+                        for (CompletableFuture<R> val : res) {
+                            in = reducer.reduce(in, val.getNow(null));
+                        }
+
+                        return in;
+                    });
+                });
+    }
+
+    <E> CompletableFuture<List<E>> split(
+            Transaction tx,
+            Collection<E> keys,
+            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<List<E>>> fun,
+            BiFunction<ClientSchema, E, Integer> hashFunc
+    ) {
+        assert tx != null;
+
+        CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
+        CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
+
+        return CompletableFuture.allOf(schemaFut, partitionsFut)
+                .thenCompose(v -> {
+                    ClientSchema schema = schemaFut.getNow(null);
+
+                    @Nullable List<String> aff = partitionsFut.getNow(null);
+                    if (aff == null) {
+                        return fun.apply(keys, PartitionAwarenessProvider.NULL_PROVIDER);
+                    }
+
+                    Map<Integer, Batch<E>> mapped = IgniteUtils.newHashMap(aff.size());
+
+                    int idx = 0;
+                    for (E key : keys) {
+                        int hash = hashFunc.apply(schema, key);
+                        int part = Math.abs(hash % aff.size());
+                        mapped.computeIfAbsent(part, k -> new Batch<>()).add(key, idx);
+                        idx++;
+                    }
+
+                    List<CompletableFuture<List<E>>> res = new ArrayList<>(aff.size());
+                    List<Batch<E>> batches = new ArrayList<>();
+
+                    for (Entry<Integer, Batch<E>> entry : mapped.entrySet()) {
+                        res.add(fun.apply(entry.getValue().batch, PartitionAwarenessProvider.of(entry.getKey())));
+                        batches.add(entry.getValue());
+                    }
+
+                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
+                        var in = new ArrayList<E>(Collections.nCopies(keys.size(), null));
+
+                        for (int i = 0; i < res.size(); i++) {
+                            CompletableFuture<List<E>> f = res.get(i);
+                            reduceWithKeepOrder(in, f.getNow(null), batches.get(i).originalIndices);
+                        }
+
+                        return in;
+                    });
+                });
+    }
+
+    @FunctionalInterface
+    interface Reducer<R> {
+        R reduce(@Nullable R agg, R cur);
+    }
+
     private static @Nullable PartitionMapping getPreferredNodeName(
             int tableId,
             PartitionAwarenessProvider provider,
             @Nullable List<String> partitions,
-            ClientSchema schema,
-            boolean coord) {
+            ClientSchema schema) {
         assert provider != null;
 
         if (partitions == null || partitions.isEmpty()) {
@@ -899,7 +1026,7 @@ public class ClientTable implements Table {
             return new PartitionMapping(tableId, node, partition);
         }
 
-        Integer hash = provider.getObjectHashCode(schema, coord);
+        Integer hash = provider.getObjectHashCode(schema);
         if (hash == null) {
             return null;
         }

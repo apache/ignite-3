@@ -160,7 +160,7 @@ class ClientPartitionManager implements PartitionManager {
     private CompletableFuture<Partition> getPartition(PartitionAwarenessProvider partitionAwarenessProvider) {
         return tbl.getPartitionAssignment()
                 .thenCompose(partitions -> tbl.getLatestSchema().thenApply(schema -> {
-                    Integer hash = partitionAwarenessProvider.getObjectHashCode(schema, true);
+                    Integer hash = partitionAwarenessProvider.getObjectHashCode(schema);
 
                     assert hash != null;
 

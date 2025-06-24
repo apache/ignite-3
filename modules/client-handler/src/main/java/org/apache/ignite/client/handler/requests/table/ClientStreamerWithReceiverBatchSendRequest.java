@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -28,6 +29,7 @@ import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.ReceiverExecutionOptions;
@@ -42,13 +44,14 @@ public class ClientStreamerWithReceiverBatchSendRequest {
      * @param in Unpacker.
      * @param tables Ignite tables.
      * @param enableExecutionOptions Whether to read execution options.
+     * @param tsTracker Hybrid timestamp tracker.
      * @return Future.
      */
     public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
             IgniteTables tables,
-            boolean enableExecutionOptions
-    ) {
+            boolean enableExecutionOptions,
+            HybridTimestampTracker tsTracker) {
         int tableId = in.unpackInt();
         int partition = in.unpackInt();
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
@@ -77,8 +80,17 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                     .primaryReplicaAsync(new HashPartition(partition))
                     .thenCompose(node -> table.internalTable().streamerReceiverRunner()
                             .runReceiverAsync(payloadArr, node, deploymentUnits, options))
-                    .thenApply(res ->
-                            out -> StreamerReceiverSerializer.serializeReceiverResultsForClient(out, returnResults ? res : null));
+                    .thenApply(res -> {
+                        byte[] resBytes = res.get1();
+                        Long observableTs = res.get2();
+
+                        assert observableTs != null : "Observable timestamp should not be null";
+                        assert observableTs != NULL_HYBRID_TIMESTAMP : "Observable timestamp should not be NULL_HYBRID_TIMESTAMP";
+
+                        tsTracker.update(observableTs);
+
+                        return out -> StreamerReceiverSerializer.serializeReceiverResultsForClient(out, returnResults ? resBytes : null);
+                    });
         });
     }
 }

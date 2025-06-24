@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.service;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -498,8 +499,16 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Marshaller commandsMarshaller = commandsMarshaller(clientNode);
 
-        RaftGroupService client = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, executor, commandsMarshaller);
+        RaftGroupService client = RaftGroupServiceImpl.start(
+                groupId,
+                clientNode,
+                FACTORY,
+                raftConfiguration,
+                initialMemberConf,
+                executor,
+                commandsMarshaller,
+                throttlingContextHolder()
+        );
 
         clients.add(client);
 

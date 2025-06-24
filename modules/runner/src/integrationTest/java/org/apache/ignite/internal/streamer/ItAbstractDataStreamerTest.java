@@ -55,6 +55,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
@@ -785,6 +786,47 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("IGN-COMPUTE-13", dsEx.codeAsString());
     }
 
+    @Test
+    public void testReceiverResultsObservedImmediately() {
+        int count = 10_000;
+
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+
+        DataStreamerReceiverDescriptor<Tuple, Tuple, Void> desc = DataStreamerReceiverDescriptor
+                .builder(UpsertReceiver.class)
+                .build();
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = view.streamData(publisher, desc, Function.identity(), Function.identity(), null, null, null);
+
+            for (int i = 0; i < count; i++) {
+                Tuple tuple = Tuple.create()
+                        .set("id", i)
+                        .set("name", "name-" + i);
+
+                publisher.submit(tuple);
+            }
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+
+        // Check that receiver execution results are observed immediately after the streaming completes.
+        // This is achieved by propagating correct hybridTimestamp to the client after every receiver execution.
+        int resCount = 0;
+
+        try (Cursor<Tuple> cursor = view.query(null, null)) {
+            while (cursor.hasNext()) {
+                resCount++;
+                Tuple item = cursor.next();
+
+                assertEquals("name-" + item.intValue("id"), item.stringValue("name"));
+            }
+        }
+
+        assertEquals(count, resCount);
+    }
+
     private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
         CompletableFuture<Void> streamerFut;
         var resultSubscriber = new TestSubscriber<Tuple>();
@@ -983,6 +1025,15 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         @Override
         public @Nullable Marshaller<String, byte[]> resultMarshaller() {
             return new StringSuffixMarshaller();
+        }
+    }
+
+    private static class UpsertReceiver implements DataStreamerReceiver<Tuple, Tuple, Void> {
+        @Override
+        public @Nullable CompletableFuture<List<Void>> receive(List<Tuple> page, DataStreamerReceiverContext ctx, @Nullable Tuple arg) {
+            RecordView<Tuple> view = ctx.ignite().tables().table(TABLE_NAME).recordView();
+
+            return view.upsertAllAsync(null, page).thenApply(x -> null);
         }
     }
 }
