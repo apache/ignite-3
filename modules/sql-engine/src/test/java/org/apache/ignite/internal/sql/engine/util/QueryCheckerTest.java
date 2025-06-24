@@ -163,8 +163,8 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         assertThrowsWithCause(
                 () -> assertQuery("SELECT * FROM t1")
                         .ordered()
-                        .returns(1, 1)
                         .returns(2, 2)
+                        .returns(1, 1)
                         .check(),
                 AssertionError.class,
                 "Collections are not equal (position 0)"
@@ -214,8 +214,8 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         assertThrowsWithCause(
                 () -> assertQuery("SELECT * FROM t1")
                         .ordered()
-                        .returns(2, 2)
-                        .returns(1, 1L)
+                        .returns(1, 1)
+                        .returns(2, 2L)
                         .check(),
                 AssertionError.class,
                 "Collections are not equal (position 1)"
