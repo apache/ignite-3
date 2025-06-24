@@ -30,6 +30,7 @@ testing {
                 implementation.bundle libs.bundles.mockito
                 implementation.bundle libs.bundles.hamcrest
                 implementation.bundle libs.bundles.log4j
+                implementation libs.jetbrains.annotations
             }
 
             sources {

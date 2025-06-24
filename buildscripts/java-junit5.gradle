@@ -35,4 +35,5 @@ dependencies {
     testImplementation libs.bundles.mockito
     testImplementation libs.bundles.hamcrest
     testImplementation libs.bundles.log4j
+    testImplementation libs.jetbrains.annotations
 }

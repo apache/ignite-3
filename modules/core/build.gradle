@@ -40,9 +40,8 @@ dependencies {
     testFixturesAnnotationProcessor libs.auto.service
     testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
 
-    testFixturesImplementation project(":ignite-api")
+    testFixturesImplementation project(':ignite-api')
     testFixturesImplementation libs.auto.service.annotations
-    testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.junit.testkit
 }
 

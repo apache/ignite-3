@@ -25,7 +25,7 @@ description = 'ignite-cluster-management'
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.micronaut.inject.annotation.processor
     annotationProcessor libs.auto.service
 
@@ -72,7 +72,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
     testFixturesImplementation testFixtures(project(':ignite-raft'))
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
-    testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestImplementation project(':ignite-rest')
@@ -90,5 +89,4 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation libs.awaitility
-    integrationTestImplementation libs.jetbrains.annotations
 }

@@ -43,10 +43,10 @@ dependencies {
     implementation libs.fastutil.core
 
     testImplementation project(':ignite-index')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-metastorage')))
-    testImplementation(testFixtures(project(':ignite-catalog')))
-    testImplementation(testFixtures(project(':ignite-failure-handler')))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-catalog'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation libs.awaitility
 
     integrationTestImplementation libs.fastutil.core
@@ -63,7 +63,7 @@ dependencies {
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
-    integrationTestImplementation(testFixtures(project(':ignite-catalog')))
+    integrationTestImplementation testFixtures(project(':ignite-catalog'))
 }
 
 description = "ignite-catalog-compaction"

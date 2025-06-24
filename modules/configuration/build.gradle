@@ -33,11 +33,10 @@ dependencies {
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation testFixtures(project(':ignite-core'))
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation libs.typesafe.config
 }

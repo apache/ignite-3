@@ -29,8 +29,6 @@ dependencies {
 
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
-
-    testFixturesImplementation libs.jetbrains.annotations
 }
 
 def platformsHeadersDir = file("${buildDir}/platforms/")

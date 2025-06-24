@@ -40,28 +40,26 @@ dependencies {
 
     testAnnotationProcessor libs.auto.service
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
     testImplementation project(':ignite-configuration')
-    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation project(':ignite-failure-handler')
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.auto.service.annotations
 
     testFixturesAnnotationProcessor libs.auto.service
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-failure-handler')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
+    testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.auto.service.annotations
-    testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-file-io')
-    integrationTestImplementation(testFixtures(project))
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
-    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation testFixtures(project)
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
 
 }
 

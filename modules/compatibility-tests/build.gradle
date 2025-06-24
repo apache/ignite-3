@@ -28,9 +28,7 @@ repositories {
 }
 
 dependencies {
-    integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.gradle.tooling.api
-    integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.jackson.databind
     integrationTestImplementation(libs.jsonpath.assert) {

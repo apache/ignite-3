@@ -22,6 +22,7 @@ dependencies {
     testFixturesImplementation libs.bundles.mockito
     testFixturesImplementation libs.bundles.hamcrest
     testFixturesImplementation libs.bundles.log4j
+    testFixturesImplementation libs.jetbrains.annotations
 }
 
 pmdTestFixtures {

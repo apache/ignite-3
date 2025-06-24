@@ -38,6 +38,6 @@ dependencies {
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-configuration')
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation testFixtures(project(':ignite-core'))
 }
 

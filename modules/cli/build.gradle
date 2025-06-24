@@ -80,7 +80,7 @@ dependencies {
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-sql-engine')
-    testImplementation(testFixtures(project(":ignite-core")))
+    testImplementation testFixtures(project(':ignite-core'))
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.test
     testImplementation libs.assertj.core
@@ -94,7 +94,7 @@ dependencies {
     testFixturesImplementation libs.micronaut.inject
     testFixturesImplementation libs.micronaut.picocli
     testFixturesImplementation libs.micronaut.junit5
-    testFixturesImplementation testFixtures(project(":ignite-core"))
+    testFixturesImplementation testFixtures(project(':ignite-core'))
 
     integrationTestAnnotationProcessor libs.picocli.annotation.processor
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
@@ -107,11 +107,10 @@ dependencies {
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-sql-engine')
     integrationTestImplementation project(':ignite-metrics')
-    integrationTestImplementation testFixtures(project(":ignite-core"))
-    integrationTestImplementation testFixtures(project(":ignite-schema"))
-    integrationTestImplementation testFixtures(project(":ignite-api"))
-    integrationTestImplementation testFixtures(project(":ignite-runner"))
-    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-schema'))
+    integrationTestImplementation testFixtures(project(':ignite-api'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.micronaut.picocli
     integrationTestImplementation libs.mock.server.netty
     integrationTestImplementation libs.mock.server.junit

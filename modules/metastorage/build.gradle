@@ -42,7 +42,7 @@ dependencies {
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
 
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-vault'))
@@ -52,17 +52,16 @@ dependencies {
     testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation testFixtures(project(':ignite-configuration-system'))
 
-    integrationTestImplementation libs.jetbrains.annotations
-    integrationTestImplementation project(":ignite-cluster-management")
+    integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-raft')
-    integrationTestImplementation project(":ignite-raft-api")
+    integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-rocksdb')
-    integrationTestImplementation project(":ignite-vault")
-    integrationTestImplementation project(":ignite-security")
+    integrationTestImplementation project(':ignite-vault')
+    integrationTestImplementation project(':ignite-security')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
@@ -92,7 +91,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
-    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-metastorage'

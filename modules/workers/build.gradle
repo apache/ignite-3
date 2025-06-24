@@ -35,10 +35,9 @@ dependencies {
     implementation libs.auto.service.annotations
 
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation testFixtures(project(':ignite-core'))
 
     testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-network')
