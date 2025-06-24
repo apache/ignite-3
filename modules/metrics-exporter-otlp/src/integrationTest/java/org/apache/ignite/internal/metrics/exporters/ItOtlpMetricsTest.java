@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.exporters.otlp.OtlpPushMetricExporter;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.junit.jupiter.api.AfterEach;
@@ -45,6 +50,9 @@ public class ItOtlpMetricsTest extends ClusterPerTestIntegrationTest {
         );
     }
 
+    /**
+     * Mock HTTP server needed to reduce the amount of errors in logs (because we don't start an OTLP server).
+     */
     private HttpServer server;
 
     private final LogInspector logInspector = new LogInspector(
@@ -84,6 +92,12 @@ public class ItOtlpMetricsTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     void otlpMetricsGetCorrectlyReported() {
+        cluster.runningNodes().forEach(node -> {
+            MetricManager metricManager = unwrapIgniteImpl(node).metricManager();
+
+            assertThat(metricManager.enabledExporters(), contains(instanceOf(OtlpPushMetricExporter.class)));
+        });
+
         assertFalse(logInspector.isMatched());
     }
 }
