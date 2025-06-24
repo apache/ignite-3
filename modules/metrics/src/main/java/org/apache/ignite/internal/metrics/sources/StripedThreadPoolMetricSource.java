@@ -54,15 +54,15 @@ public class StripedThreadPoolMetricSource extends AbstractMetricSource<StripedT
         final List<Metric> executorMetrics;
 
         Holder() {
-            executorMetrics = new ArrayList<>(exec.concurrencyLvl() * 9);
+            executorMetrics = new ArrayList<>(exec.concurrencyLevel() * 9);
 
             executorMetrics.add(new IntGauge(
                     "ConcurrencyLevel",
                     "Concurrency level of the striped thread pool executor.",
-                    exec::concurrencyLvl
+                    exec::concurrencyLevel
             ));
 
-            for (int i = 0; i < exec.concurrencyLvl(); i++) {
+            for (int i = 0; i < exec.concurrencyLevel(); i++) {
                 assert exec.stripeExecutor(i) instanceof ThreadPoolExecutor :
                         "Stripe executor should be an instance of ThreadPoolExecutor ["
                                 + "class=" + exec.stripeExecutor(i).getClass() + ", idx=" + i + ']';

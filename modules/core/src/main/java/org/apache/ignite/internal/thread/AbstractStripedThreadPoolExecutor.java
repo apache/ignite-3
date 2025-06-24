@@ -193,7 +193,7 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
      *
      * @return Concurrency level.
      */
-    public int concurrencyLvl() {
+    public int concurrencyLevel() {
         return execs.length;
     }
 
