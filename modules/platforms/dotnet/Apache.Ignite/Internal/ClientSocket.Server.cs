@@ -54,7 +54,8 @@ internal sealed partial class ClientSocket
                 break;
 
             case ServerOp.DeploymentUnitsUndeploy:
-                response.MessageWriter.Write(false);
+                var res = ComputeJobExecutor.UndeployUnits(request);
+                response.MessageWriter.Write(res);
                 break;
 
             default:

@@ -23,6 +23,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
+using Proto.MsgPack;
 using Table.StreamerReceiverExecutor;
 
 /// <summary>
@@ -55,14 +56,7 @@ internal static class ComputeJobExecutor
             var r = request.GetReader();
             long jobId = r.ReadInt64();
             string jobClassName = r.ReadString();
-
-            int cnt = r.ReadInt32();
-            List<string> deploymentUnitPaths = new List<string>(cnt);
-            for (int i = 0; i < cnt; i++)
-            {
-                deploymentUnitPaths.Add(r.ReadString());
-            }
-
+            List<string> deploymentUnitPaths = ReadDeploymentUnitPaths(r);
             bool retainDeploymentUnits = r.ReadBoolean();
 
             if (retainDeploymentUnits)
@@ -75,6 +69,18 @@ internal static class ComputeJobExecutor
 
             return new JobExecuteRequest(jobId, new(deploymentUnitPaths), jobClassName);
         }
+    }
+
+    /// <summary>
+    /// Cleans up deployment units.
+    /// </summary>
+    /// <param name="request">Request.</param>
+    /// <returns>Whether units were cleaned up.</returns>
+    internal static bool UndeployUnits(PooledBuffer request)
+    {
+        List<string> deploymentUnitPaths = ReadDeploymentUnitPaths(request.GetReader());
+
+        return true;
     }
 
     private static async ValueTask ExecuteJobAsync(
@@ -101,6 +107,20 @@ internal static class ComputeJobExecutor
 
         // TODO IGNITE-25153: Cancellation.
         await jobWrapper.ExecuteAsync(context, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Internal.")]
+    private static List<string> ReadDeploymentUnitPaths(MsgPackReader r)
+    {
+        int cnt = r.ReadInt32();
+        List<string> deploymentUnitPaths = new List<string>(cnt);
+
+        for (int i = 0; i < cnt; i++)
+        {
+            deploymentUnitPaths.Add(r.ReadString());
+        }
+
+        return deploymentUnitPaths;
     }
 
     [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "DTO.")]
