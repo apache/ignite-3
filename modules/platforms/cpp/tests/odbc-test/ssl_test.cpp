@@ -61,8 +61,8 @@ public:
         std::string conn_str{};
 
         conn_str += ";ssl_mode=require";
-        conn_str += ";ssl_cert_file=" + get_ssl_file(key_file);
-        conn_str += ";ssl_key_file=" + get_ssl_file(cert_file);
+        conn_str += ";ssl_key_file=" + get_ssl_file(key_file);
+        conn_str += ";ssl_cert_file=" + get_ssl_file(cert_file);
         conn_str += ";ssl_ca_file=" + get_ssl_file(ca_file);
 
         return conn_str;
@@ -136,7 +136,7 @@ TEST_F(ssl_test, ssl_connection_unknown_2)
                 auto conn_str = get_ssl_ca_connection_string("client_unknown.pem", "client_unknown.pem", "ca.pem");
                 odbc_connect_throw(conn_str);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("08001: Failed to send handshake request"), testing::HasSubstr("08001: Failed to get handshake response")));;
+                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("08001: Failed to send handshake request"), testing::HasSubstr("08001: Failed to get handshake response")));
                 throw;
             }
         },
@@ -153,7 +153,7 @@ TEST_F(ssl_test, ssl_connection_reject_2)
             try {
                 odbc_connect_throw(conn_str);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("08001: Failed to send handshake request"), testing::HasSubstr("08001: Failed to get handshake response")));;
+                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("08001: Failed to send handshake request"), testing::HasSubstr("08001: Failed to get handshake response")));
                 throw;
             }
         },
@@ -188,7 +188,7 @@ TEST_F(ssl_test, ssl_connection_no_certs)
             try {
                 odbc_connect_throw(conn_str);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("08001: Failed to send handshake request"), testing::HasSubstr("08001: Failed to get handshake response")));;
+                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("08001: Failed to send handshake request"), testing::HasSubstr("08001: Failed to get handshake response")));
                 throw;
             }
         },
@@ -217,7 +217,7 @@ TEST_F(ssl_test, ssl_connection_error_non_existing_key)
 {
     auto addresses = get_nodes_address(ignite_runner::get_ssl_node_ca_addrs());
     auto conn_str = get_basic_connection_string(addresses)
-        + get_ssl_connection_string_params("client.pem", "non_existing_key.pem", "ca.pem");
+        + get_ssl_connection_string_params("non_existing_key.pem", "client.pem", "ca.pem");
 
     EXPECT_THROW(
         {
@@ -236,7 +236,7 @@ TEST_F(ssl_test, ssl_connection_error_non_existing_cert)
 {
     auto addresses = get_nodes_address(ignite_runner::get_ssl_node_ca_addrs());
     auto conn_str = get_basic_connection_string(addresses)
-        + get_ssl_connection_string_params("non_existing_cert.pem", "client.pem", "ca.pem");
+        + get_ssl_connection_string_params("client.pem", "non_existing_cert.pem", "ca.pem");
 
     EXPECT_THROW(
         {
