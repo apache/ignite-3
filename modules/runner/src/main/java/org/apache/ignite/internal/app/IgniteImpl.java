@@ -283,7 +283,6 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
@@ -502,6 +501,9 @@ public class IgniteImpl implements Ignite {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
+
+    @Nullable
+    private volatile ClusterState clusterState;
 
     /**
      * The Constructor.
@@ -784,8 +786,11 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        eventLog = new EventLogImpl(clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog(),
-                () -> CollectionUtils.last(clusterInfo(clusterStateStorageMgr).idHistory()), name);
+        eventLog = new EventLogImpl(
+                clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog(),
+                () -> clusterState().clusterTag().clusterId(),
+                name
+        );
 
         SystemDistributedConfiguration systemDistributedConfiguration =
                 clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
@@ -893,7 +898,7 @@ public class IgniteImpl implements Ignite {
 
         metricManager.configure(
                 clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics(),
-                () -> CollectionUtils.last(clusterInfo(clusterStateStorageMgr).idHistory()),
+                () -> clusterState().clusterTag().clusterId(),
                 name
         );
 
@@ -1240,7 +1245,11 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                () -> clusterInfo(clusterStateStorageMgr),
+                () -> {
+                    ClusterState localClusterState = clusterState();
+
+                    return new ClusterInfo(localClusterState.clusterTag(), localClusterState.clusterIdHistory());
+                },
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
@@ -1304,15 +1313,12 @@ public class IgniteImpl implements Ignite {
         };
     }
 
-    private static ClusterInfo clusterInfo(ClusterStateStorageManager clusterStateStorageManager) {
-        // It is safe to read cluster state from CMG state as it can only be read when the node is initialized and fully started,
-        // and in those moments the cluster state is already available in the CMG state storage.
+    private ClusterState clusterState() {
+        ClusterState localClusterState = clusterState;
 
-        ClusterState clusterState = clusterStateStorageManager.getClusterState();
+        assert localClusterState != null : "Cluster has not been initialized yet.";
 
-        assert clusterState != null : "Cluster state cannot be null at the moment when a client connects";
-
-        return new ClusterInfo(clusterState.clusterTag(), clusterState.clusterIdHistory());
+        return localClusterState;
     }
 
     private static Map<String, StorageEngine> applyThreadAssertionsIfNeeded(Map<String, StorageEngine> storageEngines) {
@@ -1496,9 +1502,13 @@ public class IgniteImpl implements Ignite {
 
         return cmgMgr.joinFuture()
                 .thenComposeAsync(unused -> cmgMgr.clusterState(), joinExecutor)
-                .thenAcceptAsync(systemDisasterRecoveryManager::saveClusterState, joinExecutor)
+                .thenAcceptAsync(clusterState -> {
+                    this.clusterState = clusterState;
+
+                    systemDisasterRecoveryManager.saveClusterState(clusterState);
+                }, joinExecutor)
                 // Disable REST component during initialization.
-                .thenAcceptAsync(unused -> restComponent.disable(), joinExecutor)
+                .thenRunAsync(restComponent::disable, joinExecutor)
                 .thenComposeAsync(unused -> {
                     LOG.info("Join complete, starting MetaStorage");
 
