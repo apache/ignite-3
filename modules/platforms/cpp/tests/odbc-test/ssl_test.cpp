@@ -171,7 +171,7 @@ TEST_F(ssl_test, ssl_connection_rejected_3)
             try {
                 odbc_connect_throw(conn_str);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not establish secure connection"));
+                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("Can not establish secure connection"), testing::HasSubstr("Error while establishing secure connection")));
                 throw;
             }
         },
