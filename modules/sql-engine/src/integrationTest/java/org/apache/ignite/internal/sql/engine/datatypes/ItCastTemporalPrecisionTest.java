@@ -43,6 +43,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.ListOfListsMatcher;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
@@ -102,7 +103,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "{0} ''{1}''::{2}({3}) = {4}")
     @MethodSource("selectCastArgs")
     public void selectCast(SqlTypeName sourceType, String literal, SqlTypeName targetType, int targetPrecision,
-            Matcher<Iterable<?>> matcher) {
+            Matcher<List<List<?>>> matcher) {
         RelDataType targetDataType = Commons.typeFactory().createSqlType(targetType, targetPrecision);
         ColumnType expectColumnType = TypeUtils.columnType(targetDataType);
         String literalType = sourceType == VARCHAR ? "" : sourceType.getSpaceName();
@@ -113,7 +114,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
             assertQuery(format("SELECT {} '{}'::{}", literalType, literal, targetTypeString))
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .results(matcher)
                     .check();
         }
 
@@ -125,7 +126,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
             assertQuery(query)
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .results(matcher)
                     .check();
         }
 
@@ -140,7 +141,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
                     .withParam(param)
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .results(matcher)
                     .check();
         }
     }
@@ -155,7 +156,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "{0}({1}) {2} :: {3}({4}) = {5}")
     @MethodSource("dmlCastArgs")
     public void dmlCast(SqlTypeName sourceType, int sourcePrecision, String literal, SqlTypeName targetType, int targetPrecision,
-            Matcher<Iterable<?>> matcher) {
+            Matcher<List<List<?>>> matcher) {
         String sourceColumnName = "c" + sourcePrecision;
         String targetColumnName = "c" + targetPrecision;
 
@@ -207,7 +208,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
             assertQuery(format("SELECT {} FROM t_{} WHERE id={}", targetColumnName, targetType.getName(), rowNum))
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .results(matcher)
                     .check();
         }
 
@@ -222,7 +223,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
             assertQuery(format("SELECT {} FROM t_{} WHERE id={}", targetColumnName, targetType.getName(), rowNum))
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .returnMatched(matcher)
+                    .results(matcher)
                     .check();
         }
     }
@@ -457,7 +458,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
         final SqlTypeName targetType;
         final int targetPrecision;
         final Temporal expected;
-        final Matcher<Iterable<?>> matcher;
+        final Matcher<List<List<?>>> matcher;
 
         SelectArgs(SqlTypeName sourceType, String literal, SqlTypeName targetType, int targetPrecision, Temporal expected) {
             this.sourceType = sourceType;
@@ -466,8 +467,8 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
             this.targetPrecision = targetPrecision;
             this.expected = expected;
             this.matcher = sourceType == TIME
-                    ? Matchers.contains(new TimeMatcher(expected))
-                    : Matchers.contains(expected);
+                    ? new ListOfListsMatcher(Matchers.contains(new TimeMatcher(expected)))
+                    : new ListOfListsMatcher(Matchers.contains(expected));
         }
 
         Arguments toArgs() {

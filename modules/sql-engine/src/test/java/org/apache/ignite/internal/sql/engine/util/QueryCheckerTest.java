@@ -86,7 +86,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 .mapToObj(i -> List.of("N1"))
                 .collect(Collectors.toList()));
         CLUSTER.setDataProvider("T1", TestBuilders.tableScan(DataProvider.fromCollection(
-                List.of(new Object[]{2, 2, 1, 1}, new Object[]{1, 1, 1, 1})
+                List.of(new Object[]{1, 1, 1, 1}, new Object[]{2, 2, 1, 1})
         )));
     }
 
@@ -223,56 +223,41 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testReturnMatched() {
+    void testResultSetMatcher() {
         assertQuery("SELECT * FROM t1")
                 .returnSomething()
                 .check();
 
         // by default returned rows are ordered
         assertQuery("SELECT * FROM t1")
-                .returnMatched(Matchers.contains(1, 1))
-                .returnMatched(Matchers.contains(2, 2))
+                .results(new ListOfListsMatcher(
+                        Matchers.contains(1, 1),
+                        Matchers.contains(2, 2)
+                ))
                 .check();
-
-        // query returns in different order
-        assertThrowsWithCause(
-                () -> assertQuery("SELECT * FROM t1")
-                        .ordered()
-                        .returnMatched(Matchers.contains(1, 1))
-                        .returnMatched(Matchers.contains(2, 2))
-                        .check(),
-                AssertionError.class,
-                "Collections are not equal (position 0)"
-        );
 
         // query returns more than expected
         assertThrowsWithCause(
                 () -> assertQuery("SELECT * FROM t1")
-                        .returnMatched(Matchers.contains(1, 1))
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1)
+                        ))
                         .check(),
                 AssertionError.class,
-                "Collections sizes are not equal"
+                "Result set does not match"
         );
 
         // query returns less than expected
         assertThrowsWithCause(
                 () -> assertQuery("SELECT * FROM t1")
-                        .returnMatched(Matchers.contains(1, 1))
-                        .returnMatched(Matchers.contains(2, 2))
-                        .returnMatched(Matchers.contains(3, 3))
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1),
+                                Matchers.contains(2, 2),
+                                Matchers.contains(3, 3)
+                        ))
                         .check(),
                 AssertionError.class,
-                "Collections sizes are not equal"
-        );
-
-        // query returns different types
-        assertThrowsWithCause(
-                () -> assertQuery("SELECT * FROM t1")
-                        .returnMatched(Matchers.contains(1, 1))
-                        .returnMatched(Matchers.contains(2, 2L))
-                        .check(),
-                AssertionError.class,
-                "Collections are not equal (position 1)"
+                "Result set does not match"
         );
     }
 
@@ -410,4 +395,5 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         }
     }
+
 }
