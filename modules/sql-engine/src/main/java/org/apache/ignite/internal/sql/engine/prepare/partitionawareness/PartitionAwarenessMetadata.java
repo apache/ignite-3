@@ -21,8 +21,23 @@ import java.util.Arrays;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Partition awareness metadata. The index array stores a mapping between colocation key indexes and dynamic parameters and hash array.
- * The mapping uses negated 1-based indexes for hashes and 0-based non-negated indexes for dynamic parameters
+ * Partition awareness metadata.
+ *
+ * <p>The {@code indexes} array is used to describe how each element of a colocation
+ * key should be interpreted during evaluation:
+ * <ul>
+ *   <li>If {@code indexes[i] >= 0}, then the value at position {@code i} in the
+ *   colocation key should be taken from a dynamic parameter at index {@code indexes[i]}.</li>
+ *   <li>If {@code indexes[i] < 0}, then the value at position {@code i} is a constant
+ *   literal whose precomputed hash is stored in the {@code hash} array.
+ *   The corresponding hash value is located at index {@code -(indexes[i] + 1)} in the
+ *   {@code hash} array.</li>
+ * </ul>
+ * In other words:
+ * <pre>
+ *   indexes[i] >= 0         => use dynamicParam[indexes[i]]
+ *   indexes[i] < 0          => use hash[-(indexes[i] + 1)]
+ * </pre>
  *
  * @see PartitionAwarenessMetadataExtractor
  */

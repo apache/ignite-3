@@ -25,6 +25,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /**
@@ -84,7 +85,7 @@ public interface MetricManager extends IgniteComponent {
      * @param src Metric source.
      * @return Metric set, or {@code null} if already enabled.
      */
-    MetricSet enable(MetricSource src);
+    @Nullable MetricSet enable(MetricSource src);
 
     /**
      * Enable metric source by name. See {@link MetricRegistry#enable(String)}.
@@ -92,7 +93,7 @@ public interface MetricManager extends IgniteComponent {
      * @param srcName Source name.
      * @return Metric set, or {@code null} if already enabled.
      */
-    MetricSet enable(String srcName);
+    @Nullable MetricSet enable(String srcName);
 
     /**
      * Disable metric source. See {@link MetricRegistry#disable(MetricSource)}.

@@ -70,6 +70,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
+import org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -404,12 +405,54 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Entry switchAppendEntry = values.get(switchAppendKey);
             Entry assignmentsChainEntry = values.get(assignmentsChainKey);
 
+            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingEntry.value());
+
+            if (pendingAssignmentsQueue != null && pendingAssignmentsQueue.size() > 1) {
+
+                if (pendingAssignmentsQueue.peekFirst().nodes().equals(stableFromRaft)) {
+                    pendingAssignmentsQueue.poll(); // remove, first element was already applied to the configuration by pending listeners
+                }
+
+                Assignments stable = Assignments.of(stableFromRaft, pendingAssignmentsQueue.peekFirst().timestamp());
+                pendingAssignmentsQueue = PendingAssignmentsCalculator.pendingAssignmentsCalculator()
+                        .stable(stable)
+                        .target(pendingAssignmentsQueue.peekLast())
+                        .toQueue();
+
+                final AssignmentsQueue pendingAssignmentsQueueFinal = pendingAssignmentsQueue;
+                return metaStorageMgr.invoke(iif(
+                        revision(pendingPartAssignmentsKey).eq(pendingEntry.revision()),
+                        ops(put(pendingPartAssignmentsKey, pendingAssignmentsQueue.toBytes())).yield(true),
+                        ops().yield(false)
+                )).thenCompose(statementResult -> {
+                    boolean updated = statementResult.getAsBoolean();
+
+                    if (updated) {
+                        LOG.info("Pending assignments queue polled and updated [zonePartitionId={}, pendingQueue={}]",
+                                zonePartitionId, pendingAssignmentsQueueFinal);
+                        return nullCompletedFuture(); // quit and wait for new configuration iteration
+                    } else {
+                        LOG.info("Pending assignments queue update retry [zonePartitionId={}, pendingQueue={}]",
+                                zonePartitionId, pendingAssignmentsQueueFinal);
+                        return doStableKeySwitch(
+                                stableFromRaft,
+                                zonePartitionId,
+                                configurationTerm,
+                                configurationIndex,
+                                calculateAssignmentsFn
+                        );
+                    }
+                });
+            }
+
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
-            Assignments pendingAssignments = pendingEntry.value() == null
+
+            Assignments pendingAssignments = pendingAssignmentsQueue == null
                     ? Assignments.EMPTY
-                    : AssignmentsQueue.fromBytes(pendingEntry.value()).poll();
+                    : pendingAssignmentsQueue.poll();
+
             Set<Assignment> retrievedPending = pendingAssignments.nodes();
 
             if (!retrievedPending.equals(stableFromRaft)) {
