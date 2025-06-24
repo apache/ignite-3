@@ -230,16 +230,16 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
 
         // by default returned rows are ordered
         assertQuery("SELECT * FROM t1")
-                .returns(Matchers.contains(1, 1))
-                .returns(Matchers.contains(2, 2))
+                .returnMatched(Matchers.contains(1, 1))
+                .returnMatched(Matchers.contains(2, 2))
                 .check();
 
         // query returns in different order
         assertThrowsWithCause(
                 () -> assertQuery("SELECT * FROM t1")
                         .ordered()
-                        .returns(Matchers.contains(1, 1))
-                        .returns(Matchers.contains(2, 2))
+                        .returnMatched(Matchers.contains(1, 1))
+                        .returnMatched(Matchers.contains(2, 2))
                         .check(),
                 AssertionError.class,
                 "Collections are not equal (position 0)"
@@ -248,7 +248,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         // query returns more than expected
         assertThrowsWithCause(
                 () -> assertQuery("SELECT * FROM t1")
-                        .returns(Matchers.contains(1, 1))
+                        .returnMatched(Matchers.contains(1, 1))
                         .check(),
                 AssertionError.class,
                 "Collections sizes are not equal"
@@ -257,9 +257,9 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         // query returns less than expected
         assertThrowsWithCause(
                 () -> assertQuery("SELECT * FROM t1")
-                        .returns(Matchers.contains(1, 1))
-                        .returns(Matchers.contains(2, 2))
-                        .returns(Matchers.contains(3, 3))
+                        .returnMatched(Matchers.contains(1, 1))
+                        .returnMatched(Matchers.contains(2, 2))
+                        .returnMatched(Matchers.contains(3, 3))
                         .check(),
                 AssertionError.class,
                 "Collections sizes are not equal"
@@ -268,8 +268,8 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         // query returns different types
         assertThrowsWithCause(
                 () -> assertQuery("SELECT * FROM t1")
-                        .returns(Matchers.contains(1, 1))
-                        .returns(Matchers.contains(2, 2L))
+                        .returnMatched(Matchers.contains(1, 1))
+                        .returnMatched(Matchers.contains(2, 2L))
                         .check(),
                 AssertionError.class,
                 "Collections are not equal (position 1)"

@@ -1202,9 +1202,9 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX"))
                 .matches(not(matches("Sort")))
                 .ordered()
-                .returns((Object) null)
-                .returns((Object) null)
-                .returns((Object) null)
+                .returns(null)
+                .returns(null)
+                .returns(null)
                 .returns(3)
                 .returns(4)
                 .returns(5)
@@ -1219,9 +1219,9 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .returns(4)
                 .returns(5)
                 .returns(6)
-                .returns((Object) null)
-                .returns((Object) null)
-                .returns((Object) null)
+                .returns(null)
+                .returns(null)
+                .returns(null)
                 .check();
     }
 

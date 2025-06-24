@@ -292,11 +292,9 @@ public interface QueryChecker {
 
     QueryChecker disableRules(String... rules);
 
-    /** Adds validator that ensures the next row in resultset equals to the one represented by array. */
     QueryChecker returns(Object... res);
 
-    /** Adds validator that ensures the next row in resultset satisfies the given matcher. */
-    QueryChecker returns(Matcher<Iterable<?>> matcher);
+    QueryChecker returnMatched(Matcher<Iterable<?>> matcher);
 
     QueryChecker returnNothing();
 

@@ -303,13 +303,13 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
                 .returns(1)
                 .returns(2)
                 .returns(3)
-                .returns((Object) null)
+                .returns(null)
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 asc nulls first")
                 .matches(containsSubPlan("Sort"))
                 .ordered()
-                .returns((Object) null)
+                .returns(null)
                 .returns(1)
                 .returns(2)
                 .returns(3)
@@ -322,14 +322,14 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
                 .returns(1)
                 .returns(2)
                 .returns(3)
-                .returns((Object) null)
+                .returns(null)
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_DESC"))
                 .matches(not(containsSubPlan("Sort")))
                 .ordered()
-                .returns((Object) null)
+                .returns(null)
                 .returns(3)
                 .returns(2)
                 .returns(1)
@@ -339,7 +339,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_DESC"))
                 .matches(not(containsSubPlan("Sort")))
                 .ordered()
-                .returns((Object) null)
+                .returns(null)
                 .returns(3)
                 .returns(2)
                 .returns(1)
@@ -351,7 +351,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
                 .returns(3)
                 .returns(2)
                 .returns(1)
-                .returns((Object) null)
+                .returns(null)
                 .check();
     }
 

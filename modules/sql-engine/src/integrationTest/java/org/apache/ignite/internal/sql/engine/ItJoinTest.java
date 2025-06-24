@@ -478,7 +478,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 .returns(3)
                 .returns(7)
                 .returns(8)
-                .returns((Object) null)
+                .returns(null)
                 .check();
 
         assertQuery(""
