@@ -31,6 +31,7 @@ pmdMain {
 }
 
 dependencies {
+    implementation platform(project(':ignite-dependency-constraints'))
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation project(':ignite-configuration-api')
@@ -162,12 +163,6 @@ dependencies {
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.awaitility
     testFixturesImplementation libs.junit5.params
-
-    constraints {
-        api('com.google.protobuf:protobuf-java:4.31.1'){
-            because 'previous versions have a CVE'
-        }
-    }
 }
 
 integrationTest {
