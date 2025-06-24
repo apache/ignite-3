@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleTable;
@@ -78,6 +79,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
@@ -121,8 +123,11 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -217,7 +222,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private IndexMetaStorage indexMetaStorage;
 
     // Table internal components
-    @Mock
     private ReplicaManager replicaMgr;
     @Mock
     private LogSyncer logSyncer;
@@ -337,7 +341,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testResetPeersRetry() throws Exception {
+    public void testResetPeersRetry() {
         createSimpleTable(catalogManager, TABLE_NAME);
 
         int tableId = catalogManager.activeCatalog(clock.nowLong()).table(DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
@@ -353,8 +357,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 .target(Assignments.forced(Set.of(Assignment.forPeer(node.name())), assignmentsTimestamp))
                 .toQueue();
 
-        when(replicaMgr.isReplicaStarted(any())).thenReturn(true);
-        when(replicaMgr.replica(any())).thenReturn(completedFuture(mock(Replica.class, RETURNS_DEEP_STUBS)));
+        doReturn(true).when(replicaMgr).isReplicaStarted(any());
+        doReturn(completedFuture(mock(Replica.class, RETURNS_DEEP_STUBS))).when(replicaMgr).replica(any());
         when(replicaMgr.resetPeers(any(), any())).thenThrow(IllegalStateException.class).thenReturn(false).thenReturn(true);
 
         // This is to wait until handleChangePendingAssignments is finished.
@@ -413,20 +417,43 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
 
+        PlacementDriver placementDriver = new TestPlacementDriver(node);
+        ClockService clockService = new TestClockService(clock);
+        FailureProcessor failureProcessor = mock(FailureProcessor.class);
+
+        replicaMgr = spy(new ReplicaManager(
+                NODE_NAME,
+                clusterService,
+                mock(ClusterManagementGroupManager.class, RETURNS_DEEP_STUBS),
+                clockService,
+                Set.of(),
+                placementDriver,
+                partitionOperationsExecutor,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                failureProcessor,
+                null,
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                rm,
+                RaftGroupOptionsConfigurer.EMPTY,
+                new VolatileLogStorageFactoryCreator(NODE_NAME, workDir.resolve("volatile-log-spillout")),
+                ForkJoinPool.commonPool(),
+                replicaGrpId -> nullCompletedFuture()
+        ));
+
         doReturn(nullCompletedFuture())
                 .when(replicaMgr).startReplica(any(RaftGroupEventsListener.class), any(), anyBoolean(), any(), any(), any(), any(), any());
 
         ZonePartitionReplicaListener zonePartitionReplicaListener = mock(ZonePartitionReplicaListener.class);
         Replica replica = mock(Replica.class);
-        when(replicaMgr.startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any()))
-                .then(invocation -> {
-                    partitionReplicaLifecycleManager
-                            .zonePartitionResources(invocation.getArgument(0))
-                            .replicaListenerFuture()
-                            .complete(zonePartitionReplicaListener);
 
-                    return completedFuture(replica);
-                });
+        doAnswer(invocation -> {
+            partitionReplicaLifecycleManager
+                    .zonePartitionResources(invocation.getArgument(0))
+                    .replicaListenerFuture()
+                    .complete(zonePartitionReplicaListener);
+
+            return completedFuture(replica);
+        }).when(replicaMgr).startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
 
         doReturn(trueCompletedFuture()).when(replicaMgr).stopReplica(any());
         doAnswer(invocation -> {
@@ -457,11 +484,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         var revisionUpdater = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
-        PlacementDriver placementDriver = new TestPlacementDriver(node);
-
         lowWatermark = new TestLowWatermark();
         lowWatermark.updateWithoutNotify(savedWatermark);
-        ClockService clockService = new TestClockService(clock);
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
@@ -472,8 +496,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
         sm = new SchemaManager(revisionUpdater, catalogManager);
-
-        FailureProcessor failureProcessor = mock(FailureProcessor.class);
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
                 workDir.resolve("tx-state"),
@@ -584,6 +606,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                             sm,
                             indexMetaStorage,
                             sharedTxStateStorage,
+                            replicaMgr,
                             partitionReplicaLifecycleManager,
                             tableManager
                     );
@@ -610,6 +633,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                                 new ComponentContext(),
                                 tableManager,
                                 partitionReplicaLifecycleManager,
+                                replicaMgr,
                                 sharedTxStateStorage,
                                 dsm,
                                 sm,
