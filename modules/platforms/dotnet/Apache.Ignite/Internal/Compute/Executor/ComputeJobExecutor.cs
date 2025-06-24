@@ -36,6 +36,8 @@ internal static class ComputeJobExecutor
     /// </summary>
     internal static readonly string? IgniteComputeExecutorId = Environment.GetEnvironmentVariable("IGNITE_COMPUTE_EXECUTOR_ID");
 
+    private static readonly JobLoadContextCache Cache = new JobLoadContextCache();
+
     /// <summary>
     /// Executes compute job.
     /// </summary>
@@ -76,11 +78,11 @@ internal static class ComputeJobExecutor
     /// </summary>
     /// <param name="request">Request.</param>
     /// <returns>Whether units were cleaned up.</returns>
-    internal static bool UndeployUnits(PooledBuffer request)
+    internal static async Task<bool> UndeployUnits(PooledBuffer request)
     {
         List<string> deploymentUnitPaths = ReadDeploymentUnitPaths(request.GetReader());
 
-        return true;
+        return await Cache.UndeployUnits(deploymentUnitPaths).ConfigureAwait(false);
     }
 
     private static async ValueTask ExecuteJobAsync(
@@ -89,9 +91,7 @@ internal static class ComputeJobExecutor
         PooledArrayBuffer resBuf,
         IgniteApiAccessor context)
     {
-        // Unload assemblies after job execution.
-        // TODO IGNITE-25257 Cache deployment units and JobLoadContext - see ComputeJobExecutorBenchmarks, expensive.
-        using JobLoadContext jobLoadCtx = DeploymentUnitLoader.GetJobLoadContext(req.DeploymentUnitPaths);
+        JobLoadContext jobLoadCtx = await Cache.GetOrAddJobLoadContext(req.DeploymentUnitPaths).ConfigureAwait(false);
 
         resBuf.MessageWriter.Write(0); // Response flags: success.
 
