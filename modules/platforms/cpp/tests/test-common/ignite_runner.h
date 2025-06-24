@@ -81,6 +81,20 @@ public:
         return NODE_ADDRS;
     }
 
+    /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::vector<std::string> get_ssl_node_addrs() { return SSL_NODE_ADDRS; }
+
+    /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::vector<std::string> get_ssl_node_ca_addrs() { return SSL_NODE_CA_ADDRS; }
+
 private:
     /** Underlying process. */
     std::unique_ptr<CmdProcess> m_process;

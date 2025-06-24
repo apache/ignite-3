@@ -192,27 +192,21 @@ public class CheckpointPagesWriter implements Runnable {
     ) throws IgniteInternalCheckedException {
         CheckpointDirtyPagesView checkpointDirtyPagesView = checkpointDirtyPagesView(pageMemory, partitionId);
 
-        checkpointProgress.blockPartitionDestruction(partitionId);
+        if (shouldWriteMetaPage(partitionId)) {
+            writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
+        }
 
-        try {
-            if (shouldWriteMetaPage(partitionId)) {
-                writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
+        for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
+            updateHeartbeat.run();
+
+            FullPageId pageId = checkpointDirtyPagesView.get(i);
+
+            if (pageId.pageIdx() == 0) {
+                // Skip meta-pages, they are written by "writePartitionMeta".
+                continue;
             }
 
-            for (int i = 0; i < checkpointDirtyPagesView.size() && !shutdownNow.getAsBoolean(); i++) {
-                updateHeartbeat.run();
-
-                FullPageId pageId = checkpointDirtyPagesView.get(i);
-
-                if (pageId.pageIdx() == 0) {
-                    // Skip meta-pages, they are written by "writePartitionMeta".
-                    continue;
-                }
-
-                writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
-            }
-        } finally {
-            checkpointProgress.unblockPartitionDestruction(partitionId);
+            writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
         }
     }
 
@@ -248,30 +242,18 @@ public class CheckpointPagesWriter implements Runnable {
 
             GroupPartitionId partitionId = null;
 
-            try {
-                for (FullPageId pageId : entry.getValue()) {
-                    if (shutdownNow.getAsBoolean()) {
-                        return Map.of();
-                    }
-
-                    updateHeartbeat.run();
-
-                    if (partitionIdChanged(partitionId, pageId)) {
-                        if (partitionId != null) {
-                            checkpointProgress.unblockPartitionDestruction(partitionId);
-                        }
-
-                        partitionId = GroupPartitionId.convert(pageId);
-
-                        checkpointProgress.blockPartitionDestruction(partitionId);
-                    }
-
-                    writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
+            for (FullPageId pageId : entry.getValue()) {
+                if (shutdownNow.getAsBoolean()) {
+                    return Map.of();
                 }
-            } finally {
-                if (partitionId != null) {
-                    checkpointProgress.unblockPartitionDestruction(partitionId);
+
+                updateHeartbeat.run();
+
+                if (partitionIdChanged(partitionId, pageId)) {
+                    partitionId = GroupPartitionId.convert(pageId);
                 }
+
+                writeDirtyPage(pageMemory, pageId, tmpWriteBuf, pageStoreWriter);
             }
         }
 
@@ -314,17 +296,11 @@ public class CheckpointPagesWriter implements Runnable {
 
                     GroupPartitionId partitionId = GroupPartitionId.convert(cpPageId);
 
-                    checkpointProgress.blockPartitionDestruction(partitionId);
-
-                    try {
-                        if (shouldWriteMetaPage(partitionId)) {
-                            writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
-                        }
-
-                        pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
-                    } finally {
-                        checkpointProgress.unblockPartitionDestruction(partitionId);
+                    if (shouldWriteMetaPage(partitionId)) {
+                        writePartitionMeta(pageMemory, partitionId, tmpWriteBuf.rewind());
                     }
+
+                    pageMemory.checkpointWritePage(cpPageId, tmpWriteBuf.rewind(), pageStoreWriter, tracker);
                 }
             }
         }

@@ -2302,7 +2302,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         AssignmentsChain assignmentsChain = assignmentsChainGetLocally(metaStorageMgr, replicaGrpId, revision);
 
-        Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
+        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
+        Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
         return tablesVv.get(revision)
                 .thenApply(ignore -> {
@@ -2328,12 +2329,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                             LOG.info(
                                     "Received update on pending assignments. Check if new raft group should be started [key={}, "
-                                            + "partition={}, table={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
+                                            + "partition={}, table={}, localMemberAddress={}, pendingAssignmentsQueue={}, revision={}]",
                                     stringKey,
                                     replicaGrpId.partitionId(),
                                     table.name(),
                                     localNode().address(),
-                                    pendingAssignments,
+                                    pendingAssignmentsQueue,
                                     revision
                             );
                         }
@@ -2800,15 +2801,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
         return supplyAsync(() -> {
-            Assignments pendingAssignments =
-                    assignmentsService.getPendingAssignmentsFromMetastorage(stableAssignmentsWatchEvent, tablePartitionId, revision);
+            Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(tablePartitionId), revision);
+            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
+            Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(stableAssignmentsWatchEvent.key(), UTF_8);
 
                 LOG.info("Received update on stable assignments [key={}, partition={}, localMemberAddress={}, "
-                                + "stableAssignments={}, pendingAssignments={}, revision={}]", stringKey, tablePartitionId,
-                        localNode().address(), stableAssignments, pendingAssignments, revision);
+                                + "stableAssignments={}, pendingAssignmentsQueue={}, revision={}]",
+                        stringKey,
+                        tablePartitionId,
+                        localNode().address(),
+                        stableAssignments,
+                        pendingAssignmentsQueue,
+                        revision
+                );
             }
 
             return stopAndDestroyTablePartitionAndUpdateClients(
