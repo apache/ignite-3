@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute.executor.platform.dotnet;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.IOException;
@@ -94,6 +95,27 @@ public class DotNetComputeExecutor {
             ComputeJobDataHolder input,
             JobExecutionContext context) {
         return () -> executeJobAsync(deploymentUnitPaths, jobClassName, input, context);
+    }
+
+    // TODO: Subscribe with registerNodeStatusListener and undeploy units.
+    public CompletableFuture<Boolean> undeployUnitsAsync(List<String> deploymentUnitPaths) {
+        return getPlatformComputeConnectionWithRetryAsync()
+                .thenCompose(conn -> conn.connectionFut()
+                        .thenCompose(c -> c.undeployUnitsAsync(deploymentUnitPaths))
+                        .exceptionally(e -> {
+                            var cause = unwrapCause(e);
+
+                            if (cause instanceof TraceableException) {
+                                TraceableException te = (TraceableException) cause;
+
+                                if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                                    // Connection was lost, nothing to do.
+                                    return null;
+                                }
+                            }
+
+                            throw sneakyThrow(e);
+                        }));
     }
 
     /**
