@@ -193,6 +193,43 @@ TEST_F(ssl_test, ssl_connection_error_non_existing_ca)
                 odbc_connect_throw(conn_str);
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not set Certificate Authority path for secure connection"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(ssl_test, ssl_connection_error_non_existing_key)
+{
+    auto addresses = get_nodes_address(ignite_runner::get_ssl_node_ca_addrs());
+    auto conn_str = get_basic_connection_string(addresses)
+        + get_ssl_connection_string_params("client.pem", "non_existing_key.pem", "ca.pem");
+
+    EXPECT_THROW(
+        {
+            try {
+                odbc_connect_throw(conn_str);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not set private key file for secure connection"));
+                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("No such file or directory"), testing::HasSubstr("no such file")));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(ssl_test, ssl_connection_error_non_existing_cert)
+{
+    auto addresses = get_nodes_address(ignite_runner::get_ssl_node_ca_addrs());
+    auto conn_str = get_basic_connection_string(addresses)
+        + get_ssl_connection_string_params("non_existing_cert.pem", "client.pem", "ca.pem");
+
+    EXPECT_THROW(
+        {
+            try {
+                odbc_connect_throw(conn_str);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not set client certificate file for secure connection"));
                 EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("No such file or directory"), testing::HasSubstr("no such file")));
                 throw;
             }
