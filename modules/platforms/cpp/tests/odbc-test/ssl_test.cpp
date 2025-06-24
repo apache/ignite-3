@@ -28,6 +28,12 @@ using namespace ignite;
  */
 class ssl_test : public odbc_suite {
 public:
+    void SetUp() override {
+        odbc_connect(get_basic_connection_string());
+        exec_query("DELETE FROM " + TABLE_NAME_ALL_COLUMNS_SQL);
+        odbc_clean_up();
+    }
+
     /**
      * Get a path to a SSL file.
      * @param file
@@ -100,6 +106,14 @@ public:
      */
     void connect_successfully_to_ssl_server() {
         odbc_connect(get_ssl_connection_string("client.pem", "client.pem", "ca.pem"));
+    }
+
+    /**
+     * Try to connect to SSL server successfully.
+     * @return Client.
+     */
+    void connect_successfully_to_ssl_ca_server() {
+        odbc_connect(get_ssl_ca_connection_string("client.pem", "client.pem", "ca.pem"));
     }
 };
 
@@ -235,4 +249,16 @@ TEST_F(ssl_test, ssl_connection_error_non_existing_cert)
             }
         },
         ignite_error);
+}
+
+TEST_F(ssl_test, ssl_batch_select_1000_345) {
+    connect_successfully_to_ssl_server();
+
+    insert_non_full_batch_select(1000, 345);
+}
+
+TEST_F(ssl_test, ssl_ca_batch_select_1000_345) {
+    connect_successfully_to_ssl_ca_server();
+
+    insert_non_full_batch_select(1000, 345);
 }
