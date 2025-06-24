@@ -1409,14 +1409,12 @@ public class PartitionReplicaLifecycleManager extends
                 }), ioExecutor);
     }
 
-    private CompletableFuture<Void> resetWithRetry(ZonePartitionId replicaGrpId, Assignments assignments) {
-        return supplyAsync(() ->
-                inBusyLock(busyLock, () -> {
-                    assert replicaMgr.isReplicaStarted(replicaGrpId)
-                            : "The local node is outside of the replication group: " + replicaGrpId;
+    private CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments) {
+        return supplyAsync(() -> inBusyLock(busyLock, () -> {
+            assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
 
-                    return replicaMgr.resetPeers(replicaGrpId, fromAssignments(assignments.nodes()));
-                }), ioExecutor)
+            return replicaMgr.resetPeers(replicaGrpId, fromAssignments(assignments.nodes()));
+        }), ioExecutor)
                 .handleAsync((resetSuccessful, ex) -> {
                     if (ex != null) {
                         if (isRetriable(ex)) {

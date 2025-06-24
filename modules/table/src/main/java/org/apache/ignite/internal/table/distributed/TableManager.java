@@ -2510,8 +2510,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }), ioExecutor);
     }
 
-
-    private CompletableFuture<Void> resetWithRetry(TablePartitionId replicaGrpId, Assignments assignments) {
+    private CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments) {
         return supplyAsync(() -> inBusyLock(busyLock, () -> {
             assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
 
