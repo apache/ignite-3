@@ -41,6 +41,27 @@ internal sealed class JobLoadContextCache : IDisposable
         _ = StartCacheCleanupAsync(cacheCleanupIntervalMs);
     }
 
+    public void Dispose()
+    {
+        _cts.Cancel();
+
+        _cacheLock.Wait();
+
+        try
+        {
+            foreach (var cachedJobCtx in _jobLoadContextCache)
+            {
+                cachedJobCtx.Value.Ctx.Dispose();
+            }
+        }
+        finally
+        {
+            _cacheLock.Release();
+            _cacheLock.Dispose();
+            _cts.Dispose();
+        }
+    }
+
     private static long Now() => Stopwatch.GetTimestamp();
 
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
@@ -83,29 +104,22 @@ internal sealed class JobLoadContextCache : IDisposable
 
         foreach (var cachedJobCtx in toRemove)
         {
-            _jobLoadContextCache.Remove(cachedJobCtx.Key);
+            var paths = cachedJobCtx.Key;
+            _jobLoadContextCache.Remove(paths);
             cachedJobCtx.Value.Ctx.Dispose();
-        }
-    }
 
-    public void Dispose()
-    {
-        _cts.Cancel();
-
-        _cacheLock.Wait();
-
-        try
-        {
-            foreach (var cachedJobCtx in _jobLoadContextCache)
+            foreach (var unitPath in paths.Paths)
             {
-                cachedJobCtx.Value.Ctx.Dispose();
+                if (_deploymentUnitSets.TryGetValue(unitPath, out var unitSet))
+                {
+                    unitSet.Remove(paths);
+
+                    if (unitSet.Count == 0)
+                    {
+                        _deploymentUnitSets.Remove(unitPath);
+                    }
+                }
             }
-        }
-        finally
-        {
-            _cacheLock.Release();
-            _cacheLock.Dispose();
-            _cts.Dispose();
         }
     }
 }
