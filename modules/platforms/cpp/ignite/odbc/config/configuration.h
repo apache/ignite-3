@@ -19,6 +19,7 @@
 
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/value_with_default.h"
+#include "ignite/odbc/ssl_mode.h"
 
 #include "ignite/common/end_point.h"
 
@@ -51,6 +52,9 @@ public:
 
         /** Default value for Timezone attribute. */
         static inline const std::string timezone{};
+
+        /** Default value for SSL mode. */
+        static inline const ssl_mode_t ssl_mode{ssl_mode_t::DISABLE};
     };
 
     // Default.
@@ -104,7 +108,7 @@ public:
     void set_schema(std::string schema) { m_schema = {std::move(schema), true}; }
 
     /**
-     * Get authentication type.
+     * Get an authentication type.
      *
      * @return Authentication type.
      */
@@ -167,13 +171,25 @@ private:
     value_with_default<std::string> m_schema{default_value::schema, false};
 
     /** Identity. */
-    value_with_default<std::string> m_auth_identity{"", false};
+    value_with_default<std::string> m_auth_identity{{}, false};
 
     /** Secret. */
-    value_with_default<std::string> m_auth_secret{"", false};
+    value_with_default<std::string> m_auth_secret{{}, false};
 
     /** Timezone. */
-    value_with_default<std::string> m_timezone{"", false};
+    value_with_default<std::string> m_timezone{default_value::timezone, false};
+
+    /** SSL mode. */
+    value_with_default<ssl_mode_t> m_ssl_mode{default_value::ssl_mode, false};
+
+    /** SSL private key file path. */
+    value_with_default<std::string> m_ssl_key_file{{}, false};
+
+    /** SSL certificate file path. */
+    value_with_default<std::string> m_ssl_cert_file{{}, false};
+
+    /** SSL certificate authority file path. */
+    value_with_default<std::string> m_ssl_ca_file{{}, false};
 };
 
 } // namespace ignite
