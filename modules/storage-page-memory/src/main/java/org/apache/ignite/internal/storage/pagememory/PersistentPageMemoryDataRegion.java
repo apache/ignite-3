@@ -64,7 +64,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of {@link DataRegion} for persistent case.
  */
-class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
+public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryDataRegion.class);
 
