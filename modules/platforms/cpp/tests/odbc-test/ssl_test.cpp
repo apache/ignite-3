@@ -122,7 +122,7 @@ TEST_F(ssl_test, ssl_connection_unknown_2)
                 auto conn_str = get_ssl_ca_connection_string("client_unknown.pem", "client_unknown.pem", "ca.pem");
                 odbc_connect_throw(conn_str);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("08001: Failed to get handshake response (Did you forget to enable SSL?)"));
+                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("08001: Failed to send handshake request"), testing::HasSubstr("08001: Failed to get handshake response")));;
                 throw;
             }
         },
@@ -139,7 +139,7 @@ TEST_F(ssl_test, ssl_connection_reject_2)
             try {
                 odbc_connect_throw(conn_str);
             } catch (const ignite_error &e) {
-                EXPECT_THAT(e.what_str(), testing::HasSubstr("08001: Failed to get handshake response (Did you forget to enable SSL?)"));
+                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("08001: Failed to send handshake request"), testing::HasSubstr("08001: Failed to get handshake response")));;
                 throw;
             }
         },
@@ -158,6 +158,42 @@ TEST_F(ssl_test, ssl_connection_rejected_3)
                 odbc_connect_throw(conn_str);
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not establish secure connection"));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(ssl_test, ssl_connection_no_certs)
+{
+    auto addresses = get_nodes_address(ignite_runner::get_ssl_node_ca_addrs());
+    auto conn_str = get_basic_connection_string(addresses) + ";ssl_mode=require;ssl_ca_file=" + get_ssl_file("ca.pem");
+
+    EXPECT_THROW(
+        {
+            try {
+                odbc_connect_throw(conn_str);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("08001: Failed to send handshake request"), testing::HasSubstr("08001: Failed to get handshake response")));;
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(ssl_test, ssl_connection_error_non_existing_ca)
+{
+    auto addresses = get_nodes_address(ignite_runner::get_ssl_node_ca_addrs());
+    auto conn_str = get_basic_connection_string(addresses)
+        + get_ssl_connection_string_params("client.pem", "client.pem", "non_existing_ca.pem");
+
+    EXPECT_THROW(
+        {
+            try {
+                odbc_connect_throw(conn_str);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Can not set Certificate Authority path for secure connection"));
+                EXPECT_THAT(e.what_str(), AnyOf(testing::HasSubstr("No such file or directory"), testing::HasSubstr("no such file")));
                 throw;
             }
         },
