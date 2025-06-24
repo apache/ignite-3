@@ -25,8 +25,7 @@ import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
@@ -75,9 +74,9 @@ public class NodeFinderFactory {
         }
     }
 
-    private static Collection<NetworkAddress> addressesToAdvertise(InetSocketAddress localBindAddress) {
+    private static Set<NetworkAddress> addressesToAdvertise(InetSocketAddress localBindAddress) {
         if (!localBindAddress.getAddress().isAnyLocalAddress()) {
-            return List.of(NetworkAddress.from(localBindAddress));
+            return Set.of(NetworkAddress.from(localBindAddress));
         }
 
         try {

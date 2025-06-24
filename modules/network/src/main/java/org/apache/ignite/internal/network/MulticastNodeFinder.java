@@ -115,13 +115,13 @@ public class MulticastNodeFinder implements NodeFinder {
             int resultWaitMillis,
             int ttl,
             String nodeName,
-            Collection<NetworkAddress> addressesToAdvertise
+            Set<NetworkAddress> addressesToAdvertise
     ) {
         this.multicastSocketAddress = new InetSocketAddress(multicastGroup, multicastPort);
         this.multicastPort = multicastPort;
         this.resultWaitMillis = resultWaitMillis;
         this.ttl = ttl;
-        this.addressesToAdvertise = new HashSet<>(addressesToAdvertise);
+        this.addressesToAdvertise = addressesToAdvertise;
         this.nodeName = nodeName;
 
         this.listenerThreadPool = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "multicast-listener", LOG));
