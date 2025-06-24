@@ -80,37 +80,6 @@ public:
     static std::string get_basic_connection_string() {
         return get_basic_connection_string(get_nodes_address());
     }
-
-    /**
-     * Get a path to a SSL file.
-     * @param file
-     * @return
-     */
-    static std::string get_ssl_file(const std::string &file)
-    {
-        auto test_dir = resolve_test_dir();
-        auto ssl_files_dir = test_dir / "odbc-test" / "ssl";
-        if (!std::filesystem::is_directory(ssl_files_dir))
-            throw ignite_error("Can not find an 'ssl' directory in the current 'tests' directory: " + ssl_files_dir.string());
-
-        return (ssl_files_dir / file).string();
-    }
-
-    /**
-     * Try to connect to SSL server successfully.
-     * @return Client.
-     */
-    void connect_successfully_to_ssl_server() {
-        auto addresses = get_nodes_address(ignite_runner::get_ssl_node_addrs());
-        auto conn_str = get_basic_connection_string(addresses);
-
-        conn_str += ";ssl_mode=require";
-        conn_str += ";ssl_cert_file=" + get_ssl_file("client.pem");
-        conn_str += ";ssl_key_file=" + get_ssl_file("client.pem");
-        conn_str += ";ssl_ca_file=" + get_ssl_file("ca.pem");
-
-        odbc_connect(conn_str);
-    }
 };
 
 } // namespace ignite
