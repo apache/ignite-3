@@ -29,7 +29,6 @@ dependencies {
     implementation project(':ignite-api')
 
     testImplementation project(':ignite-core')
-    testImplementation libs.hamcrest.core
 
     integrationTestImplementation project(':ignite-core')
     integrationTestImplementation project(':ignite-api')
@@ -39,7 +38,6 @@ dependencies {
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-configuration')
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation testFixtures(project(':ignite-core'))
 }
 
