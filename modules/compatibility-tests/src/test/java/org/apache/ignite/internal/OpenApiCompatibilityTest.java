@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.OpenAPIMatcher.isCompatibleWith;
+import static org.apache.ignite.internal.OpenApiMatcher.isCompatibleWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -53,5 +53,5 @@ class OpenApiCompatibilityTest {
 
         OpenAPI currentApi = new OpenAPIV3Parser().read(currentSpec.toString());
         assertThat(currentApi, isCompatibleWith(baseApi));
-     }
+    }
 }

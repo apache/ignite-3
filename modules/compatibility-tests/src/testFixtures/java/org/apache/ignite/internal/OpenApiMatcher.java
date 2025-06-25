@@ -34,15 +34,18 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
 
-public class OpenAPIMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
+/**
+ * Matcher for checking OpenAPI compatibility between versions. Checks include missing paths, missing operations and others.
+ */
+public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
     private final OpenAPI baseApi;
 
-    private OpenAPIMatcher(OpenAPI baseApi) {
+    private OpenApiMatcher(OpenAPI baseApi) {
         this.baseApi = baseApi;
     }
 
     public static Matcher<OpenAPI> isCompatibleWith(OpenAPI baseApi) {
-        return new OpenAPIMatcher(baseApi);
+        return new OpenApiMatcher(baseApi);
     }
 
     @Override
@@ -135,8 +138,8 @@ public class OpenAPIMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
             HttpMethod operation,
             List<Parameter> baseParameters,
             List<Parameter> currentParameters,
-            Description mismatchDescription)
-    {
+            Description mismatchDescription
+    ) {
         if (currentParameters != null) {
             Set<String> baseRequiredParameters;
             if (baseParameters != null) {

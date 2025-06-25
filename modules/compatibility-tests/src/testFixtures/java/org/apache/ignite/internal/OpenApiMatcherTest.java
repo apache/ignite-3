@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.OpenAPIMatcher.isCompatibleWith;
+import static org.apache.ignite.internal.OpenApiMatcher.isCompatibleWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
