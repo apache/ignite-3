@@ -36,7 +36,7 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.NodeUtils;
@@ -141,9 +141,9 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
                 WriteActionRequest writeActionRequest = (WriteActionRequest) msg;
 
                 if (replicationGrp.toString().equals(writeActionRequest.groupId())
-                        && writeActionRequest.deserializedCommand() instanceof UpdateCommand
+                        && writeActionRequest.deserializedCommand() instanceof UpdateCommandV2
                         && !fullTxReplicationAttemptFuture.isDone()) {
-                    UpdateCommand updateCommand = (UpdateCommand) writeActionRequest.deserializedCommand();
+                    UpdateCommandV2 updateCommand = (UpdateCommandV2) writeActionRequest.deserializedCommand();
 
                     if (updateCommand.full()) {
                         fullTxReplicationAttemptFuture.complete(null);

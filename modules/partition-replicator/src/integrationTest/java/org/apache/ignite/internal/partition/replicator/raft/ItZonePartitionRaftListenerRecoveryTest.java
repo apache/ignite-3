@@ -76,7 +76,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
@@ -548,7 +548,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         return commands;
     }
 
-    private UpdateCommand createUpdateCommand(UUID id, int tableId) {
+    private UpdateCommandV2 createUpdateCommand(UUID id, int tableId) {
         HybridTimestamp now = clock.now();
 
         var binaryRow = new BinaryRowImpl(0, ByteBuffer.allocate(10));
@@ -561,7 +561,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                         .build())
                 .build();
 
-        return MESSAGE_FACTORY.updateCommand()
+        return MESSAGE_FACTORY.updateCommandV2()
                 .tableId(tableId)
                 .commitPartitionId(toReplicationGroupIdMessage(new ReplicaMessagesFactory(), PARTITION_ID))
                 .rowUuid(id)

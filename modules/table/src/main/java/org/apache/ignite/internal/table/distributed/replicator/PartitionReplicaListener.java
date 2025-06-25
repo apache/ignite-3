@@ -115,8 +115,8 @@ import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessageBuilder;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandBuilder;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2Builder;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
@@ -2385,7 +2385,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             boolean skipDelayedAck,
             long leaseStartTime
     ) {
-        UpdateCommand cmd = updateCommand(
+        UpdateCommandV2 cmd = updateCommand(
                 commitPartitionId,
                 rowUuid,
                 row,
@@ -3412,7 +3412,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 });
     }
 
-    private UpdateCommand updateCommand(
+    private UpdateCommandV2 updateCommand(
             ReplicationGroupId commitPartitionId,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -3424,7 +3424,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             int catalogVersion,
             @Nullable Long leaseStartTime
     ) {
-        UpdateCommandBuilder bldr = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+        UpdateCommandV2Builder bldr = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                 .tableId(tableId)
                 .commitPartitionId(replicationGroupIdMessage(commitPartitionId))
                 .rowUuid(rowUuid)

@@ -72,7 +72,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
@@ -302,7 +302,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
-                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                         .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .rowUuid(UUID.randomUUID())
@@ -417,7 +417,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
             int part = intTable.partitionId(r);
 
-            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateCommand.class)));
+            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateCommandV2.class)));
         }
     }
 

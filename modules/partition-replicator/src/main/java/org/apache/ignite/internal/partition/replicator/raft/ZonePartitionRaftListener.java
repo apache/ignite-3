@@ -221,7 +221,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                             commandHandlers.handler(command.groupType(), command.messageType());
 
                     if (commandHandler == null) {
-                        LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
+                        LOG.info("Message type {} is not supported by the zone partition RAFT listener yet", command.getClass());
 
                         result = EMPTY_APPLIED_RESULT;
                     } else {

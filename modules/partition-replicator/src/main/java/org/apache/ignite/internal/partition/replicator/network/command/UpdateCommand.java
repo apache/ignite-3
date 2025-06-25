@@ -20,16 +20,22 @@ package org.apache.ignite.internal.partition.replicator.network.command;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * State machine command to update a row specified by a row id.
+ * State machine command to update a row specified by a row ID.
+ *
+ * <p>Not removed to maintain backward compatibility.</p>
+ *
+ * @deprecated Use {@link UpdateCommandV2} instead.
  */
-@Transferable(PartitionReplicationMessageGroup.Commands.UPDATE)
-public interface UpdateCommand extends PartitionCommand, TableAwareCommand {
+@Deprecated
+@Transferable(Commands.UPDATE_V1)
+public interface UpdateCommand extends PartitionCommand {
+    // TODO: IGNITE-25733 Не забыть исправить
     ReplicationGroupIdMessage commitPartitionId();
 
     UUID rowUuid();

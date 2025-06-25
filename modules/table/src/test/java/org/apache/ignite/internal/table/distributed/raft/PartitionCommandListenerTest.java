@@ -88,7 +88,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -422,7 +422,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage.lastApplied(10L, 1L);
 
-        UpdateCommand updateCommand = mock(UpdateCommand.class);
+        UpdateCommandV2 updateCommand = mock(UpdateCommandV2.class);
         WriteIntentSwitchCommand writeIntentSwitchCommand = mock(WriteIntentSwitchCommand.class);
         SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
         FinishTxCommand finishTxCommand = mock(FinishTxCommand.class);
@@ -593,7 +593,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void updatesLastAppliedForUpdateCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 
-        UpdateCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+        UpdateCommandV2 command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                 .rowUuid(UUID.randomUUID())
                 .tableId(TABLE_ID)
                 .commitPartitionId(defaultPartitionIdMessage())
@@ -1021,7 +1021,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(
-                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                             .tableId(TABLE_ID)
                             .commitPartitionId(defaultPartitionIdMessage())
                             .rowUuid(readResult.rowId().uuid())
@@ -1076,7 +1076,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(
-                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                             .tableId(TABLE_ID)
                             .commitPartitionId(defaultPartitionIdMessage())
                             .rowUuid(readResult.rowId().uuid())
@@ -1152,7 +1152,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(
-                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                             .tableId(TABLE_ID)
                             .commitPartitionId(defaultPartitionIdMessage())
                             .rowUuid(UUID.randomUUID())
@@ -1222,7 +1222,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             doAnswer(invocation -> {
-                if (cmd instanceof UpdateCommand || cmd instanceof UpdateAllCommand) {
+                if (cmd instanceof UpdateCommandV2 || cmd instanceof UpdateAllCommand) {
                     assertTrue(invocation.getArgument(0) instanceof UpdateCommandResult);
                 } else {
                     assertNull(invocation.getArgument(0));
