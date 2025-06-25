@@ -27,6 +27,14 @@ using System.Threading.Tasks;
 
 /// <summary>
 /// Cache for job load contexts.
+/// <para />
+/// Every job load context is associated with a set of deployment unit paths. For example, [unit1, unit2] and [unit1, unit3] sets
+/// represent a different set of assemblies, so they will have different job load contexts. Unit order matters too.
+/// <para />
+/// Loading assemblies and resolving types can take from ~100us to several seconds, depending on the number of assemblies,
+/// type initializers (static constructors), and other factors.
+/// <para />
+/// If a deployment unit U is undeployed, all job load contexts with U in their set will be removed from the cache immediately.
 /// </summary>
 internal sealed class JobLoadContextCache : IDisposable
 {
@@ -47,7 +55,7 @@ internal sealed class JobLoadContextCache : IDisposable
     /// </summary>
     /// <param name="ttlMs">Cache entry time-to-live in milliseconds.</param>
     /// <param name="cacheCleanupIntervalMs">Cache cleanup interval.</param>
-    internal JobLoadContextCache(int ttlMs = 10_000, int cacheCleanupIntervalMs = 5_000)
+    internal JobLoadContextCache(int ttlMs = 30_000, int cacheCleanupIntervalMs = 5_000)
     {
         _ttlMs = ttlMs;
 
