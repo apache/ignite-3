@@ -28,9 +28,9 @@ using Tests.TestHelpers;
 /// Measures the performance of assembly loading and job execution.
 /// Results on i9-12900H, .NET SDK 8.0.15, Ubuntu 22.04:
 ///
-/// | Method          | Mean     | Error     | StdDev    | Allocated |
-/// |---------------- |---------:|----------:|----------:|----------:|
-/// | ExecuteJobAsync | 1.811 us | 0.0179 us | 0.0168 us |   1.13 KB |
+/// | Method          | Mean     | Error   | StdDev  | Gen0   | Allocated |
+/// |---------------- |---------:|--------:|--------:|-------:|----------:|
+/// | ExecuteJobAsync | 416.7 ns | 4.64 ns | 4.34 ns | 0.0014 |     544 B |
 /// </summary>
 [MemoryDiagnoser]
 public class ComputeJobExecutorBenchmarks
