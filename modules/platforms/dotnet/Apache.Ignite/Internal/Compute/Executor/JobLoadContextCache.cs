@@ -42,8 +42,10 @@ internal sealed class JobLoadContextCache : IDisposable
 
     private readonly int _ttlMs;
 
+    /** Main cache of job load contexts. */
     private readonly Dictionary<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)> _jobLoadContextCache = new();
 
+    /** Additional map to quickly find all job load contexts that use a given deployment unit path. */
     private readonly Dictionary<string, List<DeploymentUnitPaths>> _deploymentUnitSets = new();
 
     private readonly SemaphoreSlim _cacheLock = new(1);
@@ -200,9 +202,9 @@ internal sealed class JobLoadContextCache : IDisposable
     private void CleanUpExpiredJobContexts()
     {
         List<KeyValuePair<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)>>? toRemove = null;
-        var now = NowMs();
+        long now = NowMs();
 
-        foreach (var cachedJobCtx in _jobLoadContextCache)
+        foreach (KeyValuePair<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)> cachedJobCtx in _jobLoadContextCache)
         {
             if (cachedJobCtx.Value.Ts + _ttlMs < now)
             {
@@ -216,9 +218,9 @@ internal sealed class JobLoadContextCache : IDisposable
             return;
         }
 
-        foreach (var cachedJobCtx in toRemove)
+        foreach (KeyValuePair<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)> cachedJobCtx in toRemove)
         {
-            var paths = cachedJobCtx.Key;
+            DeploymentUnitPaths paths = cachedJobCtx.Key;
             _jobLoadContextCache.Remove(paths);
             cachedJobCtx.Value.Ctx.Dispose();
 
