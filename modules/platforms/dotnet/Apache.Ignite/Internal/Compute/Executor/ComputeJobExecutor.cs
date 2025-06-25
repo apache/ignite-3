@@ -59,13 +59,7 @@ internal static class ComputeJobExecutor
             long jobId = r.ReadInt64();
             string jobClassName = r.ReadString();
             List<string> deploymentUnitPaths = ReadDeploymentUnitPaths(ref r);
-            bool retainDeploymentUnits = r.ReadBoolean();
-
-            if (retainDeploymentUnits)
-            {
-                // TODO IGNITE-25257 Cache deployment units and JobLoadContext.
-                throw new NotSupportedException("Caching deployment units is not supported yet.");
-            }
+            var _ = r.ReadBoolean(); // Retain deployment units.
 
             request.Position += r.Consumed;
 
