@@ -74,7 +74,7 @@ internal sealed class JobLoadContextCache : IDisposable
         {
             ref (JobLoadContext Ctx, long Ts) valRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_jobLoadContextCache, paths, out var exists);
 
-            valRef.Ts = Now();
+            valRef.Ts = NowMs();
 
             if (!exists)
             {
@@ -159,7 +159,7 @@ internal sealed class JobLoadContextCache : IDisposable
         }
     }
 
-    private static long Now() => Stopwatch.GetTimestamp();
+    private static long NowMs() => Stopwatch.GetTimestamp() / TimeSpan.TicksPerMillisecond;
 
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
     private async Task StartCacheCleanupAsync(int cacheCleanupIntervalMs)
@@ -190,7 +190,7 @@ internal sealed class JobLoadContextCache : IDisposable
     private void CleanUpExpiredJobContexts()
     {
         List<KeyValuePair<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)>>? toRemove = null;
-        var now = Now();
+        var now = NowMs();
 
         foreach (var cachedJobCtx in _jobLoadContextCache)
         {
