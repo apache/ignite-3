@@ -89,6 +89,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.FinishTxC
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -422,7 +423,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void testSkipWriteCommandByAppliedIndex() {
         mvPartitionStorage.lastApplied(10L, 1L);
 
-        UpdateCommand updateCommand = mock(UpdateCommand.class);
+        UpdateCommandV2 updateCommand = mock(UpdateCommandV2.class);
         WriteIntentSwitchCommand writeIntentSwitchCommand = mock(WriteIntentSwitchCommand.class);
         SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
         FinishTxCommand finishTxCommand = mock(FinishTxCommand.class);
@@ -593,7 +594,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void updatesLastAppliedForUpdateCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 
-        UpdateCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+        UpdateCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                 .rowUuid(UUID.randomUUID())
                 .tableId(TABLE_ID)
                 .commitPartitionId(defaultPartitionIdMessage())
@@ -613,7 +614,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void updatesLastAppliedForUpdateAllCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 
-        UpdateAllCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+        UpdateAllCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .messageRowsToUpdate(singletonMap(
                         UUID.randomUUID(),
                         PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage().build())
@@ -900,7 +901,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = hybridClock.now();
 
-        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .tableId(TABLE_ID)
                 .commitPartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
                 .messageRowsToUpdate(rows)
@@ -943,7 +944,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = hybridClock.now();
 
-        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .tableId(TABLE_ID)
                 .commitPartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
                 .messageRowsToUpdate(rows)
@@ -981,7 +982,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = hybridClock.now();
 
-        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .tableId(TABLE_ID)
                 .commitPartitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, commitPartId))
                 .messageRowsToUpdate(keyRows)
@@ -1021,7 +1022,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(
-                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                             .tableId(TABLE_ID)
                             .commitPartitionId(defaultPartitionIdMessage())
                             .rowUuid(readResult.rowId().uuid())
@@ -1076,7 +1077,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(
-                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                             .tableId(TABLE_ID)
                             .commitPartitionId(defaultPartitionIdMessage())
                             .rowUuid(readResult.rowId().uuid())
@@ -1152,7 +1153,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             when(clo.command()).thenReturn(
-                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                    PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                             .tableId(TABLE_ID)
                             .commitPartitionId(defaultPartitionIdMessage())
                             .rowUuid(UUID.randomUUID())
