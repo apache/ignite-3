@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -82,14 +83,13 @@ internal sealed class JobLoadContextCache : IDisposable
 
                 foreach (var path in paths.Paths)
                 {
-                    ref var list = ref CollectionsMarshal.GetValueRefOrNullRef(_deploymentUnitSets, path);
-
-                    if (list == null!)
+                    ref var listRef = ref CollectionsMarshal.GetValueRefOrNullRef(_deploymentUnitSets, path);
+                    if (Unsafe.IsNullRef(ref listRef))
                     {
-                        list = new List<DeploymentUnitPaths>();
+                        listRef = new List<DeploymentUnitPaths>();
                     }
 
-                    list.Add(paths);
+                    listRef.Add(paths);
                 }
             }
 
