@@ -1208,7 +1208,7 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(DeploymentExtensionConfiguration.KEY).deployment(),
                 cmgMgr,
                 name,
-                computeExecutor::onUnitRemoving
+                computeExecutor::onUnitRemoving // TODO IGNITE-25759 cleaner platform unit removal.
         );
         deploymentManager = deploymentManagerImpl;
 

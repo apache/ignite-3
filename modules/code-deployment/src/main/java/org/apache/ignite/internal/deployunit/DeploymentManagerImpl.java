@@ -142,6 +142,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
      * @param configuration Deployment configuration.
      * @param cmgManager Cluster management group manager.
      * @param nodeName Node consistent ID.
+     * @param onPathRemoving Consumer to call when a deployment unit path is being removed.
      */
     public DeploymentManagerImpl(
             ClusterService clusterService,
