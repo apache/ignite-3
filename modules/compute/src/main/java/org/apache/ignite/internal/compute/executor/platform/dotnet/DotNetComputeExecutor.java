@@ -115,7 +115,7 @@ public class DotNetComputeExecutor {
 
                                 if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
                                     // Connection was lost, nothing to do.
-                                    return null;
+                                    return false;
                                 }
                             }
 

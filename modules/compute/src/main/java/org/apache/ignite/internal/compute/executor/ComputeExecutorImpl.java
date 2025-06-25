@@ -272,7 +272,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         if (dotNetExec != null) {
             try {
                 // Do not wait for the future to complete.
-                CompletableFuture<Boolean> ignored = dotNetExec.undeployUnitsAsync(List.of(unitPath.toRealPath().toString()));
+                dotNetExec.undeployUnitsAsync(List.of(unitPath.toRealPath().toString()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
