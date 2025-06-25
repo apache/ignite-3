@@ -71,8 +71,8 @@ import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
@@ -254,8 +254,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     return set;
                 });
 
-                if (cmd instanceof UpdateAllCommandV2) {
-                    return completedFuture(((UpdateAllCommandV2) cmd).rowsToUpdate().keySet().stream()
+                if (cmd instanceof UpdateAllCommand) {
+                    return completedFuture(((UpdateAllCommand) cmd).rowsToUpdate().keySet().stream()
                             .map(uuid -> new NullBinaryRow())
                             .collect(Collectors.toList()));
                 } else {
@@ -417,7 +417,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
             int part = intTable.partitionId(r);
 
-            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateCommandV2.class)));
+            assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateCommand.class)));
         }
     }
 
@@ -450,7 +450,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         assertEquals(CMDS_MAP.size(), partsMap.size());
 
         CMDS_MAP.forEach((p, set) -> {
-            UpdateAllCommandV2 cmd = (UpdateAllCommandV2) CollectionUtils.first(set);
+            UpdateAllCommand cmd = (UpdateAllCommand) CollectionUtils.first(set);
             assertEquals(partsMap.get(p), cmd.rowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
 
             cmd.rowsToUpdate().values().forEach(rowMessage -> {

@@ -31,8 +31,8 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
@@ -77,7 +77,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
     @Param({"128", "2048", "8192"})
     private int payloadSize;
 
-    /** Whether we create {@link UpdateCommandV2} or {@link UpdateAllCommandV2}. */
+    /** Whether we create {@link UpdateCommand} or {@link UpdateAllCommand}. */
     @Param({"false", "true"})
     private boolean updateAll;
 

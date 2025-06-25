@@ -87,7 +87,8 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
@@ -593,7 +594,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void updatesLastAppliedForUpdateCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 
-        UpdateCommandV2 command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
+        UpdateCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                 .rowUuid(UUID.randomUUID())
                 .tableId(TABLE_ID)
                 .commitPartitionId(defaultPartitionIdMessage())
@@ -613,7 +614,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void updatesLastAppliedForUpdateAllCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 
-        UpdateAllCommandV2 command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
+        UpdateAllCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .messageRowsToUpdate(singletonMap(
                         UUID.randomUUID(),
                         PARTITION_REPLICATION_MESSAGES_FACTORY.timedBinaryRowMessage().build())
@@ -1222,7 +1223,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             doAnswer(invocation -> {
-                if (cmd instanceof UpdateCommandV2 || cmd instanceof UpdateAllCommandV2) {
+                if (cmd instanceof UpdateCommand || cmd instanceof UpdateAllCommand) {
                     assertTrue(invocation.getArgument(0) instanceof UpdateCommandResult);
                 } else {
                     assertNull(invocation.getArgument(0));

@@ -115,7 +115,7 @@ import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessageBuilder;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2Builder;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
@@ -2385,7 +2385,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             boolean skipDelayedAck,
             long leaseStartTime
     ) {
-        UpdateCommandV2 cmd = updateCommand(
+        UpdateCommand cmd = updateCommand(
                 commitPartitionId,
                 rowUuid,
                 row,
@@ -3412,7 +3412,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 });
     }
 
-    private UpdateCommandV2 updateCommand(
+    private UpdateCommand updateCommand(
             ReplicationGroupId commitPartitionId,
             UUID rowUuid,
             @Nullable BinaryRow row,
