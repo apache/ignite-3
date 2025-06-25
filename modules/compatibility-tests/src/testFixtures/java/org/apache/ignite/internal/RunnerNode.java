@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -46,8 +47,14 @@ public class RunnerNode {
 
     private final Process process;
 
-    private RunnerNode(Process process) {
+    private final String nodeName;
+
+    private final IgniteLogger processLogger;
+
+    private RunnerNode(Process process, String nodeName, IgniteLogger processLogger) {
         this.process = process;
+        this.nodeName = nodeName;
+        this.processLogger = processLogger;
     }
 
     /**
@@ -93,7 +100,7 @@ public class RunnerNode {
         IgniteLogger processLogger = Loggers.forName(nodeName);
         createStreamGrabber(process, processLogger, process::getInputStream, "input");
         createStreamGrabber(process, processLogger, process::getErrorStream, "error");
-        return new RunnerNode(process);
+        return new RunnerNode(process, nodeName, processLogger);
     }
 
     private static Thread createStreamGrabber(
@@ -120,6 +127,25 @@ public class RunnerNode {
      */
     public void stop() {
         process.destroy();
+        try {
+            if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                processLogger.info("Process did not respond to destroy, destroying forcibly.");
+                process.destroyForcibly();
+                if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                    processLogger.info("Process did not respond to forced destroy.");
+                } else {
+                    processLogger.info("Process stopped.");
+                }
+            } else {
+                processLogger.info("Process stopped.");
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public String nodeName() {
+        return nodeName;
     }
 
     private static Map<String, Map<String, String>> getTestDefaultsPerVersion() {
