@@ -98,6 +98,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
+import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
@@ -276,6 +277,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         metricManager.registerSource(sqlClientMetricSource);
         metricManager.enable(sqlClientMetricSource);
 
+        SqlQueryMetricSource sqlQueryMetricSource = new SqlQueryMetricSource();
+        metricManager.registerSource(sqlQueryMetricSource);
+        metricManager.enable(sqlQueryMetricSource);
+
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
                 CACHE_FACTORY,
@@ -370,7 +375,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 executionSrvc,
                 txTracker,
                 new QueryIdGenerator(nodeName.hashCode()),
-                eventLog
+                eventLog,
+                sqlQueryMetricSource
         ));
 
         queriesViewProvider.init(queryExecutor);
