@@ -69,6 +69,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -146,7 +147,6 @@ import org.apache.ignite.internal.partition.replicator.network.command.CatalogVe
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandImpl;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
@@ -1722,9 +1722,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         cleanup(tx0);
 
         raftClientFutureClosure = partitionCommand -> {
-            assertTrue(partitionCommand instanceof UpdateCommandImpl);
+            assertInstanceOf(UpdateCommand.class, partitionCommand);
 
-            UpdateCommandImpl impl = (UpdateCommandImpl) partitionCommand;
+            UpdateCommand impl = (UpdateCommand) partitionCommand;
 
             assertNotNull(impl.messageRowToUpdate());
             assertNotNull(impl.messageRowToUpdate().binaryRow());
