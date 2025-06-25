@@ -221,7 +221,7 @@ public interface PartitionReplicationMessageGroup {
         short FINISH_TX = 40;
 
         /**
-         * Message type for {@link WriteIntentSwitchCommand} for non-colocated tables.
+         * Message type for {@link WriteIntentSwitchCommand} for non-collocated distribution zones.
          *
          * @see #WRITE_INTENT_SWITCH_V2
          */
