@@ -80,4 +80,29 @@ public class JobLoadContextCacheTests
 
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await cache.GetOrAddJobLoadContext(paths));
     }
+
+    [Test]
+    public async Task TestUndeployUnitsRemovesAllRelatedContexts()
+    {
+        using var cache = new JobLoadContextCache();
+
+        var paths1 = new DeploymentUnitPaths(["unit1", "unit2"]);
+        var paths2 = new DeploymentUnitPaths(["unit2", "unit3"]);
+        var paths3 = new DeploymentUnitPaths(["unit3", "unit4"]);
+
+        var ctx1 = await cache.GetOrAddJobLoadContext(paths1);
+        var ctx2 = await cache.GetOrAddJobLoadContext(paths2);
+        var ctx3 = await cache.GetOrAddJobLoadContext(paths3);
+
+        await cache.UndeployUnits(["unit1", "unit2"]);
+
+        var ctx10 = await cache.GetOrAddJobLoadContext(paths1);
+        var ctx20 = await cache.GetOrAddJobLoadContext(paths2);
+        var ctx30 = await cache.GetOrAddJobLoadContext(paths3);
+
+        // ctx1 and ctx2 should be disposed, ctx3 should remain intact.
+        Assert.AreNotSame(ctx1.AssemblyLoadContext, ctx10.AssemblyLoadContext);
+        Assert.AreNotSame(ctx2.AssemblyLoadContext, ctx20.AssemblyLoadContext);
+        Assert.AreSame(ctx3.AssemblyLoadContext, ctx30.AssemblyLoadContext);
+    }
 }
