@@ -29,6 +29,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
@@ -221,8 +222,12 @@ public interface PartitionReplicationMessageGroup {
         /** Message type for {@link FinishTxCommand}. */
         short FINISH_TX = 40;
 
-        /** Message type for {@link WriteIntentSwitchCommand}. */
-        short WRITE_INTENT_SWITCH = 41;
+        /**
+         * Message type for {@link WriteIntentSwitchCommand} for non-collocated distribution zones.
+         *
+         * @see #WRITE_INTENT_SWITCH_V2
+         */
+        short WRITE_INTENT_SWITCH_V1 = 41;
 
         /**
          * Message type for {@link UpdateAllCommand}.
@@ -244,11 +249,14 @@ public interface PartitionReplicationMessageGroup {
         /** Message type for {@link UpdateMinimumActiveTxBeginTimeCommand}. */
         short UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND = 45;
 
+        /** Message type for {@link WriteIntentSwitchCommandV2}. */
+        short WRITE_INTENT_SWITCH_V2 = 46;
+
         /** Message type for {@link UpdateCommandV2}. */
-        short UPDATE_V2 = 46;
+        short UPDATE_V2 = 47;
 
         /** Message type for {@link UpdateAllCommandV2}. */
-        short UPDATE_ALL_V2 = 47;
+        short UPDATE_ALL_V2 = 48;
     }
 
     /**

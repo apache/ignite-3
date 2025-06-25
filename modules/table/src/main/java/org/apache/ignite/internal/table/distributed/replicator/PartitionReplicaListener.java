@@ -1617,7 +1617,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     }
 
     private CompletableFuture<?> applyWriteIntentSwitchCommandToGroup(WriteIntentSwitchReplicaRequest request, int catalogVersion) {
-        WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+        WriteIntentSwitchCommand wiSwitchCmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(request.txId())
                 .commit(request.commit())
                 .commitTimestamp(request.commitTimestamp())
