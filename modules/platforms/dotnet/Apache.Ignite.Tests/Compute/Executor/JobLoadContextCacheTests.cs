@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Compute.Executor;
 
+using System;
 using System.Threading.Tasks;
 using Internal.Compute.Executor;
 using NUnit.Framework;
@@ -52,5 +53,17 @@ public class JobLoadContextCacheTests
 
         Assert.AreSame(ctx0.AssemblyLoadContext, ctx1.AssemblyLoadContext);
         Assert.AreNotSame(ctx1.AssemblyLoadContext, ctx2.AssemblyLoadContext);
+    }
+
+    [Test]
+    public async Task TestUseAfterDisposeThrows()
+    {
+        var cache = new JobLoadContextCache();
+        var paths = new DeploymentUnitPaths(["a", "b"]);
+
+        await cache.GetOrAddJobLoadContext(paths);
+        cache.Dispose();
+
+        Assert.ThrowsAsync<ObjectDisposedException>(async () => await cache.GetOrAddJobLoadContext(paths));
     }
 }
