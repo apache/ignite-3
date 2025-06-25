@@ -805,12 +805,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments) {
         var result = new CompletableFuture<Void>();
 
-        resetWithRetry(replicaGrpId, assignments, result);
+        resetWithRetry(replicaGrpId, assignments, result, 1);
 
         return result;
     }
 
-    private void resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments, CompletableFuture<Void> result) {
+    private void resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments, CompletableFuture<Void> result, int iteration) {
+        if (iteration % 1000 == 0) {
+            LOG.info("Retrying reset [iter={}, groupId={}, assignments={}]", iteration, replicaGrpId, assignments);
+        }
         supplyAsync(() -> inBusyLock(busyLock, () -> {
             assert isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
 
@@ -821,16 +824,22 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (isRetriable(ex)) {
                             LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
 
-                            replicaLifecycleExecutor
-                                    .schedule(() -> resetWithRetry(replicaGrpId, assignments), 500, TimeUnit.MILLISECONDS);
+                            replicaLifecycleExecutor.schedule(
+                                    () -> resetWithRetry(replicaGrpId, assignments, result, iteration + 1),
+                                    500,
+                                    TimeUnit.MILLISECONDS
+                            );
                         } else {
                             result.completeExceptionally(ex);
                         }
                     } else if (!resetSuccessful) {
                         LOG.debug("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
 
-                        replicaLifecycleExecutor
-                                .schedule(() -> resetWithRetry(replicaGrpId, assignments), 500, TimeUnit.MILLISECONDS);
+                        replicaLifecycleExecutor.schedule(
+                                () -> resetWithRetry(replicaGrpId, assignments, result, iteration + 1),
+                                500,
+                                TimeUnit.MILLISECONDS
+                        );
                     } else {
                         result.complete(null);
                     }
