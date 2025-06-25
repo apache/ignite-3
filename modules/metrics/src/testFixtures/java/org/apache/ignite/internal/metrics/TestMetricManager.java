@@ -56,7 +56,7 @@ public class TestMetricManager implements MetricManager {
     }
 
     @Override
-    public void start(Iterable<MetricExporter<?>> exporters) {
+    public void start(Iterable<MetricExporter> exporters) {
         throw new UnsupportedOperationException();
     }
 

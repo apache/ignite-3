@@ -135,7 +135,7 @@ public class MetricRegistry {
      * @return Metric set, or {@code null} if the metric set is already enabled.
      * @throws IllegalStateException If metric source with the given name doesn't exist.
      */
-    public MetricSet enable(final String srcName) {
+    public @Nullable MetricSet enable(String srcName) {
         lock.lock();
 
         try {
@@ -188,7 +188,7 @@ public class MetricRegistry {
      * @param srcName Metric source name.
      * @throws IllegalStateException If metric source with given name doesn't exist.
      */
-    public void disable(final String srcName) {
+    public void disable(String srcName) {
         lock.lock();
 
         try {

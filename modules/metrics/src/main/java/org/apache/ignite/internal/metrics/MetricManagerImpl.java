@@ -58,7 +58,7 @@ public class MetricManagerImpl implements MetricManager {
     private final Map<String, MetricExporter> enabledMetricExporters = new ConcurrentHashMap<>();
 
     /** Metrics' exporters. */
-    private Map<String, MetricExporter> availableExporters;
+    private volatile Map<String, MetricExporter> availableExporters;
 
     private MetricConfiguration metricConfiguration;
 
@@ -105,7 +105,7 @@ public class MetricManagerImpl implements MetricManager {
     @Override
     @VisibleForTesting
     public void start(Map<String, MetricExporter> availableExporters) {
-        this.availableExporters = availableExporters;
+        this.availableExporters = Map.copyOf(availableExporters);
 
         MetricView conf = metricConfiguration.value();
 
@@ -117,19 +117,21 @@ public class MetricManagerImpl implements MetricManager {
     }
 
     @Override
-    public void start(Iterable<MetricExporter<?>> exporters) {
-        this.availableExporters = new HashMap<>();
+    public void start(Iterable<MetricExporter> exporters) {
+        var availableExporters = new HashMap<String, MetricExporter>();
 
-        for (MetricExporter<?> exporter : exporters) {
+        for (MetricExporter exporter : exporters) {
             exporter.start(metricsProvider, null, clusterIdSupplier, nodeName);
 
             availableExporters.put(exporter.name(), exporter);
             enabledMetricExporters.put(exporter.name(), exporter);
         }
+
+        this.availableExporters = Map.copyOf(availableExporters);
     }
 
     @Override public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        for (MetricExporter<?> metricExporter : enabledMetricExporters.values()) {
+        for (MetricExporter metricExporter : enabledMetricExporters.values()) {
             metricExporter.stop();
         }
 
@@ -228,7 +230,7 @@ public class MetricManagerImpl implements MetricManager {
      * Load exporters by {@link ServiceLoader} mechanism.
      */
     private static Map<String, MetricExporter> loadExporters() {
-        var clsLdr = Thread.currentThread().getContextClassLoader();
+        ClassLoader clsLdr = Thread.currentThread().getContextClassLoader();
 
         return ServiceLoader
                 .load(MetricExporter.class, clsLdr)
@@ -240,14 +242,22 @@ public class MetricManagerImpl implements MetricManager {
     private class ExporterConfigurationListener implements ConfigurationNamedListListener<ExporterView> {
         @Override
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ExporterView> ctx) {
-            checkAndStartExporter(ctx.newValue().exporterName(), ctx.newValue());
+            ExporterView newValue = ctx.newValue();
+
+            assert newValue != null;
+
+            checkAndStartExporter(newValue.exporterName(), newValue);
 
             return nullCompletedFuture();
         }
 
         @Override
         public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<ExporterView> ctx) {
-            var removed = enabledMetricExporters.remove(ctx.oldValue().exporterName());
+            ExporterView oldValue = ctx.oldValue();
+
+            assert oldValue != null;
+
+            MetricExporter removed = enabledMetricExporters.remove(oldValue.exporterName());
 
             if (removed != null) {
                 removed.stop();
@@ -258,10 +268,14 @@ public class MetricManagerImpl implements MetricManager {
 
         @Override
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<ExporterView> ctx) {
-            MetricExporter exporter = enabledMetricExporters.get(ctx.newValue().exporterName());
+            ExporterView newValue = ctx.newValue();
+
+            assert newValue != null;
+
+            MetricExporter exporter = enabledMetricExporters.get(newValue.exporterName());
 
             if (exporter != null) {
-                exporter.reconfigure(ctx.newValue());
+                exporter.reconfigure(newValue);
             }
 
             return nullCompletedFuture();

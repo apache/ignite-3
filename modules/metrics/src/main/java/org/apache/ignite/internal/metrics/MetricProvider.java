@@ -25,7 +25,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
  */
 public class MetricProvider {
     /** Metrics registry. */
-    private MetricRegistry metricRegistry;
+    private final MetricRegistry metricRegistry;
 
     /**
      * Constructor.
