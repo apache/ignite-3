@@ -35,8 +35,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -148,7 +150,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
             Path workDir,
             DeploymentConfiguration configuration,
             ClusterManagementGroupManager cmgManager,
-            String nodeName
+            String nodeName,
+            Consumer<Path> onPathRemoving
     ) {
         this.deploymentUnitStore = deploymentUnitStore;
         this.configuration = configuration;
@@ -161,7 +164,10 @@ public class DeploymentManagerImpl implements IgniteDeployment {
         undeployer = new DeploymentUnitAcquiredWaiter(
                 nodeName,
                 deploymentUnitAccessor,
-                unit -> deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING)
+                unit -> {
+                    onPathRemoving.accept(deployer.unitPath(unit.name(), unit.version(), false));
+                    deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING);
+                }
         );
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
         unitDownloader = new UnitDownloader(deploymentUnitStore, nodeName, deployer, tracker, messaging);

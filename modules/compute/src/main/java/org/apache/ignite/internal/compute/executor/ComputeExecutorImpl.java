@@ -24,7 +24,9 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -256,6 +258,19 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
         if (dotNetExec != null) {
             dotNetExec.stop();
+        }
+    }
+
+    public void onUnitRemoving(Path unitPath) {
+        DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
+
+        if (dotNetExec != null) {
+            try {
+                // Do not wait for the future to complete.
+                dotNetExec.undeployUnitsAsync(List.of(unitPath.toRealPath().toString()));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }
