@@ -22,13 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.net.JarURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -182,21 +180,6 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
                     .map(Path::toString)
                     .filter(p -> p.endsWith(".bin"))
                     .map(Arguments::of);
-        } else if ("jar".equals(dirUrl.getProtocol())) {
-            JarURLConnection jarConnection = (JarURLConnection) dirUrl.openConnection();
-            JarFile jarFile = jarConnection.getJarFile();
-            String dirEntry = jarConnection.getEntryName();
-            return jarFile.stream()
-                    .filter(e -> !e.isDirectory() && e.getName().startsWith(dirEntry) && !e.getName().equals(dirEntry))
-                    .filter(e -> !e.getName().substring(dirEntry.length() + 1).contains("/")) // non-recursive
-                    .map(e -> {
-                        try {
-                            URL url = new URL("jar:" + jarFile.getName() + "!/" + e.getName());
-                            return Arguments.of(e.getName());
-                        } catch (Exception ex) {
-                            throw new RuntimeException(ex);
-                        }
-                    });
         } else {
             throw new UnsupportedOperationException("Unsupported protocol: " + dirUrl.getProtocol());
         }
