@@ -19,6 +19,8 @@ package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
+import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.checkPropertyNames;
+import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.propertyName;
 
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -137,12 +139,15 @@ public class MessageDeserializerGenerator {
                 .addCode("\n");
 
         if (!getters.isEmpty()) {
+            checkPropertyNames(getters);
+
             method.beginControlFlow("switch (reader.state())");
 
             for (int i = 0; i < getters.size(); ++i) {
                 ExecutableElement getter = getters.get(i);
 
                 String getterName = getter.getSimpleName().toString();
+                String propertyName = propertyName(getter);
 
                 if (getter.getAnnotation(Marshallable.class) != null) {
                     getterName = addByteArrayPostfix(getterName);
@@ -155,7 +160,7 @@ public class MessageDeserializerGenerator {
 
                     // At the beginning we read the shifted ID, shifted by +1 to efficiently transfer null (since we use "var int").
                     // If we read garbage then we should not convert to an enumeration, the check below does this.
-                    method.addStatement("int shiftedId = reader.readInt($S)", getterName);
+                    method.addStatement("int shiftedId = reader.readInt($S)", propertyName);
                 } else {
                     method.addStatement(readMessageCodeBlock(getter));
                 }
