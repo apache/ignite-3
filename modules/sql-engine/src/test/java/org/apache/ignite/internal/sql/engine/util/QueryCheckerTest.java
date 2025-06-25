@@ -259,6 +259,18 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 AssertionError.class,
                 "Result set does not match"
         );
+
+        // query returns different types
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1),
+                                Matchers.contains(2, 2L)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
+        );
     }
 
     @Test
