@@ -30,7 +30,7 @@ using System.Threading.Tasks;
 /// </summary>
 internal sealed class JobLoadContextCache : IDisposable
 {
-    private const int CacheTtlMs = 10_000;
+    private readonly int _ttlMs;
 
     private readonly Dictionary<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)> _jobLoadContextCache = new();
 
@@ -43,9 +43,12 @@ internal sealed class JobLoadContextCache : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="JobLoadContextCache"/> class.
     /// </summary>
+    /// <param name="ttlMs">Cache entry time-to-live in milliseconds.</param>
     /// <param name="cacheCleanupIntervalMs">Cache cleanup interval.</param>
-    internal JobLoadContextCache(int cacheCleanupIntervalMs = 5_000)
+    internal JobLoadContextCache(int ttlMs = 10_000, int cacheCleanupIntervalMs = 5_000)
     {
+        _ttlMs = ttlMs;
+
         _ = StartCacheCleanupAsync(cacheCleanupIntervalMs);
     }
 
@@ -95,7 +98,7 @@ internal sealed class JobLoadContextCache : IDisposable
     }
 
     /// <summary>
-    /// Undeploys the specified deployment unit paths and cleans up associated job load contexts.
+    /// Un-deploys the specified deployment unit paths and cleans up associated job load contexts.
     /// </summary>
     /// <param name="deploymentUnitPaths">Deployment unit paths to undeploy.</param>
     /// <returns><see cref="Task"/> representing the asynchronous operation.</returns>
@@ -148,6 +151,9 @@ internal sealed class JobLoadContextCache : IDisposable
             {
                 cachedJobCtx.Value.Ctx.Dispose();
             }
+
+            _jobLoadContextCache.Clear();
+            _deploymentUnitSets.Clear();
         }
         finally
         {
@@ -191,7 +197,7 @@ internal sealed class JobLoadContextCache : IDisposable
 
         foreach (var cachedJobCtx in _jobLoadContextCache)
         {
-            if (cachedJobCtx.Value.Ts + CacheTtlMs < Now())
+            if (cachedJobCtx.Value.Ts + _ttlMs < Now())
             {
                 toRemove.Add(cachedJobCtx);
             }
