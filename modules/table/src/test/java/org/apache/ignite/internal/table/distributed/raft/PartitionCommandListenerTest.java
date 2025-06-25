@@ -789,7 +789,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void updatesLastAppliedForWriteIntentSwitchCommands() {
         safeTimeTracker.update(hybridClock.now(), null);
 
-        WriteIntentSwitchCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+        WriteIntentSwitchCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(TestTransactionIds.newTransactionId())
                 .tableIds(Set.of(1))
                 .initiatorTime(hybridClock.now())
@@ -910,7 +910,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txCoordinatorId(UUID.randomUUID())
                 .build());
 
-        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(txId)
                 .commit(true)
                 .commitTimestamp(commitTimestamp)
@@ -953,7 +953,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txCoordinatorId(UUID.randomUUID())
                 .build());
 
-        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(txId)
                 .commit(true)
                 .commitTimestamp(commitTimestamp)
@@ -991,7 +991,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 .txCoordinatorId(UUID.randomUUID())
                 .build());
 
-        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+        invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(txId)
                 .commit(true)
                 .commitTimestamp(commitTimestamp)
@@ -1043,7 +1043,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = hybridClock.now();
 
-        txIds.forEach(txId -> invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+        txIds.forEach(txId -> invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(txId)
                 .commit(true)
                 .commitTimestamp(commitTimestamp)
@@ -1095,7 +1095,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp commitTimestamp = hybridClock.now();
 
-        txIds.forEach(txId -> invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+        txIds.forEach(txId -> invokeBatchedCommand(PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(txId)
                 .commit(true)
                 .tableIds(Set.of(defaultPartitionIdMessage().tableId()))
@@ -1175,7 +1175,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         HybridTimestamp commitTimestamp = hybridClock.now();
 
         txIds.forEach(txId -> invokeBatchedCommand(
-                PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+                PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                         .txId(txId)
                         .commit(true)
                         .commitTimestamp(commitTimestamp)
