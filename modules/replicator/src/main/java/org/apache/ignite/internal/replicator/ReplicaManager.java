@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -122,7 +121,6 @@ import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteStripedBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -184,7 +182,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile tables. */
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
-    private final Executor replicaStartStopExecutor;
+    private final ScheduledExecutorService replicaLifecycleExecutor;
 
     /** Raft command marshaller for raft server endpoints starting. */
     private final Marshaller raftCommandsMarshaller;
@@ -244,7 +242,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
-     * @param replicaStartStopExecutor Executor for asynchronous replicas lifecycle management.
+     * @param replicaLifecycleExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
      */
     public ReplicaManager(
@@ -262,7 +260,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            Executor replicaStartStopExecutor,
+            ScheduledExecutorService replicaLifecycleExecutor,
             Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
@@ -281,10 +279,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
-        this.replicaStartStopExecutor = replicaStartStopExecutor;
+        this.replicaLifecycleExecutor = replicaLifecycleExecutor;
 
         this.replicaStateManager = new ReplicaStateManager(
-                replicaStartStopExecutor,
+                replicaLifecycleExecutor,
                 placementDriver,
                 this,
                 failureProcessor
@@ -608,7 +606,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @param storageIndexTracker Storage index tracker.
      * @param newConfiguration A configuration for new raft group.
-     *
      * @return Future that promises ready new replica when done.
      */
     public CompletableFuture<Replica> startReplica(
@@ -806,31 +803,38 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param assignments New assignments.
      */
     public CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments) {
-        return supplyAsync(() -> inBusyLock(busyLock, () -> {
+        var result = new CompletableFuture<Void>();
+
+        resetWithRetry(replicaGrpId, assignments, result);
+
+        return result;
+    }
+
+    private void resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments, CompletableFuture<Void> result) {
+        supplyAsync(() -> inBusyLock(busyLock, () -> {
             assert isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
 
             return resetPeers(replicaGrpId, fromAssignments(assignments.nodes()));
-        }), replicaStartStopExecutor)
-                .handleAsync((resetSuccessful, ex) -> {
+        }), replicaLifecycleExecutor)
+                .whenComplete((resetSuccessful, ex) -> {
                     if (ex != null) {
                         if (isRetriable(ex)) {
                             LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
 
-                            return resetWithRetry(replicaGrpId, assignments);
+                            replicaLifecycleExecutor
+                                    .schedule(() -> resetWithRetry(replicaGrpId, assignments), 500, TimeUnit.MILLISECONDS);
+                        } else {
+                            result.completeExceptionally(ex);
                         }
-
-                        return CompletableFuture.<Void>failedFuture(ex);
-                    }
-
-                    if (!resetSuccessful) {
+                    } else if (!resetSuccessful) {
                         LOG.debug("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
 
-                        return resetWithRetry(replicaGrpId, assignments);
+                        replicaLifecycleExecutor
+                                .schedule(() -> resetWithRetry(replicaGrpId, assignments), 500, TimeUnit.MILLISECONDS);
+                    } else {
+                        result.complete(null);
                     }
-
-                    return CompletableFutures.<Void>nullCompletedFuture();
-                }, replicaStartStopExecutor)
-                .thenCompose(identity());
+                });
     }
 
     private static boolean isRetriable(Throwable ex) {
@@ -950,7 +954,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     return true;
-                }, replicaStartStopExecutor);
+                }, replicaLifecycleExecutor);
     }
 
     /** {@inheritDoc} */

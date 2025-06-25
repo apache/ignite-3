@@ -72,6 +72,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
@@ -436,7 +437,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 rm,
                 RaftGroupOptionsConfigurer.EMPTY,
                 new VolatileLogStorageFactoryCreator(NODE_NAME, workDir.resolve("volatile-log-spillout")),
-                ForkJoinPool.commonPool(),
+                Executors.newSingleThreadScheduledExecutor(),
                 replicaGrpId -> nullCompletedFuture()
         ));
 
