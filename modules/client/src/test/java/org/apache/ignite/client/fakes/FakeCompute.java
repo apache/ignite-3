@@ -24,7 +24,6 @@ import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
-import java.net.URL;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;

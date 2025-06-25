@@ -97,7 +97,12 @@ public class DotNetComputeExecutor {
         return () -> executeJobAsync(deploymentUnitPaths, jobClassName, input, context);
     }
 
-    // TODO: Subscribe with registerNodeStatusListener and undeploy units.
+    /**
+     * Undeploys the specified deployment units asynchronously.
+     *
+     * @param deploymentUnitPaths Paths to deployment units to undeploy.
+     * @return CompletableFuture that completes when the undeployment is done.
+     */
     public CompletableFuture<Boolean> undeployUnitsAsync(List<String> deploymentUnitPaths) {
         return getPlatformComputeConnectionWithRetryAsync()
                 .thenCompose(conn -> conn.connectionFut()

@@ -50,10 +50,20 @@ public class JobClassLoader implements AutoCloseable {
         this.parent = parent;
     }
 
+    /**
+     * Returns the list of deployment units.
+     *
+     * @return List of deployment units.
+     */
     public List<DisposableDeploymentUnit> units() {
         return units;
     }
 
+    /**
+     * Returns the inner class loader.
+     *
+     * @return Class loader.
+     */
     public ClassLoader classLoader() {
         if (impl != null) {
             return impl;

@@ -261,13 +261,18 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         }
     }
 
+    /**
+     * Handles the removal of a deployment unit.
+     *
+     * @param unitPath Path to the deployment unit that is being removed.
+     */
     public void onUnitRemoving(Path unitPath) {
         DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
 
         if (dotNetExec != null) {
             try {
                 // Do not wait for the future to complete.
-                dotNetExec.undeployUnitsAsync(List.of(unitPath.toRealPath().toString()));
+                CompletableFuture<Boolean> ignored = dotNetExec.undeployUnitsAsync(List.of(unitPath.toRealPath().toString()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

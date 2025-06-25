@@ -29,6 +29,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 import java.util.stream.Stream;
@@ -86,7 +87,7 @@ class JobClassLoaderTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void unitsReleasedOnClose() {
+    public void unitsReleasedOnClose() throws IOException {
         DisposableDeploymentUnit unit1 = mock(DisposableDeploymentUnit.class);
         DisposableDeploymentUnit unit2 = mock(DisposableDeploymentUnit.class);
 
