@@ -30,7 +30,7 @@ public class JobLoadContextCacheTests
     public async Task TestGetOrAddJobLoadContextReturnsSameInstanceForSamePaths()
     {
         using var cache = new JobLoadContextCache();
-        var paths = new DeploymentUnitPaths(["/tmp/path1"]);
+        var paths = new DeploymentUnitPaths(["foo", "bar"]);
 
         var ctx1 = await cache.GetOrAddJobLoadContext(paths);
         var ctx2 = await cache.GetOrAddJobLoadContext(paths);
@@ -42,12 +42,15 @@ public class JobLoadContextCacheTests
     public async Task TestExpiredContextsAreCleanedUp()
     {
         using var cache = new JobLoadContextCache(ttlMs: 100, cacheCleanupIntervalMs: 50);
-        var paths = new DeploymentUnitPaths(["/tmp/path5"]);
+        var paths = new DeploymentUnitPaths(["x", "y", "z"]);
 
+        var ctx0 = await cache.GetOrAddJobLoadContext(paths);
         var ctx1 = await cache.GetOrAddJobLoadContext(paths);
-        await Task.Delay(200);
 
+        await Task.Delay(200);
         var ctx2 = await cache.GetOrAddJobLoadContext(paths);
+
+        Assert.AreSame(ctx0.AssemblyLoadContext, ctx1.AssemblyLoadContext);
         Assert.AreNotSame(ctx1.AssemblyLoadContext, ctx2.AssemblyLoadContext);
     }
 }
