@@ -49,21 +49,14 @@ And possible EXPLAIN output:
 
 [source,sql]
 ----
-EXPLAIN SELECT id FROM t WHERE col1 = '1';
-╔═══════════════════════════════════╗
-║ PLAN                              ║
-╠═══════════════════════════════════╣
-║ Exchange                          ║
-║     distribution: single          ║
-║     est: (rows=1)                 ║
-║   TableScan                       ║
-║       table: PUBLIC.T             ║
-║       filters: =(COL1, _UTF-8'1') ║
-║       fields: [ID]                ║
-║       projects: [ID]              ║
-║       est: (rows=1)               ║
-╚═══════════════════════════════════╝
+   TableScan
+       table: PUBLIC.T
+       predicate: =(COL1, _UTF-8'1')
+       fieldNames: [ID]
+       est: (rows=1)
 ----
+
+NOTE: For simplicity, here and below, information that is not related to the example is omitted from the EXPLAIN output.
 
 We can see a full scan (*TableScan* operator) with predicate.
 The execution planner chooses which scan implementation (**TableScan** or **IndexScan**) to use.
@@ -78,24 +71,15 @@ Will show a different plan, like:
 
 [source,sql]
 ----
-EXPLAIN SELECT /*+ FORCE_INDEX(t_col1_idx) */ id FROM t WHERE col1 = '1';
-╔═════════════════════════════════════════════════════╗
-║ PLAN                                                ║
-╠═════════════════════════════════════════════════════╣
-║ Exchange                                            ║
-║     distribution: single                            ║
-║     est: (rows=1)                                   ║
-║   IndexScan                                         ║
-║       table: PUBLIC.T                               ║
-║       index: T_COL1_IDX                             ║
-║       type: SORTED                                  ║
-║       searchBounds: [ExactBounds [bound=_UTF-8'1']] ║
-║       filters: =(COL1, _UTF-8'1')                   ║
-║       fields: [ID]                                  ║
-║       projects: [ID]                                ║
-║       collation: []                                 ║
-║       est: (rows=1)                                 ║
-╚═════════════════════════════════════════════════════╝
+   IndexScan
+       table: PUBLIC.T
+       index: T_COL1_IDX
+       type: SORTED
+       predicate: =(COL1, _UTF-8'1')
+       searchBounds: [ExactBounds [bound=_UTF-8'1']]
+       ieldNames: [ID]
+       collation: []
+       est: (rows=1)
 ----
 
 == Suboptimal Indexes
@@ -114,37 +98,23 @@ and a possible plan would be:
 
 [source,sql]
 ----
-EXPLAIN SELECT id FROM t WHERE col1 = '1' AND col2 = '2';
-╔════════════════════════════════════════════════════════════╗
-║ PLAN                                                       ║
-╠════════════════════════════════════════════════════════════╣
-║ Exchange                                                   ║
-║     distribution: single                                   ║
-║     est: (rows=1)                                          ║
-║   IndexScan                                                ║
-║       table: PUBLIC.T                                      ║
-║       index: T_COL1_IDX                                    ║
--- (unrelated explain info )
+   IndexScan
+       table: PUBLIC.T
+       index: T_COL1_IDX
+       ...
 ----
 
 We can see that the execution uses the **T_COL1_IDX** index, through both predicates **COL1 = '1' AND COL2 = '2'** are involved and the **T_COL1_COL2_IDX** is preferable. In this case, the optimal plan would be:
 
 [source,sql]
 ----
-EXPLAIN SELECT id FROM t WHERE col1 = '1' AND col2 = '2';
-╔════════════════════════════════════════════════════════════════════════════════════╗
-║ PLAN                                                                               ║
-╠════════════════════════════════════════════════════════════════════════════════════╣
-║ Exchange                                                                           ║
-║     distribution: single                                                           ║
-║     est: (rows=1)                                                                  ║
-║   IndexScan                                                                        ║
-║       table: PUBLIC.T                                                              ║
-║       index: T_COL1_COL2_IDX                                                       ║
--- (unrelated explain info )
+   IndexScan
+       table: PUBLIC.T
+       index: T_COL1_COL2_IDX
+       ...
 ----
 
-Similar to the previous case, you can use the `FORCE_INDEX` hint to achieve this:
+You can also use the `FORCE_INDEX` hint to achieve this:
 
 [source,sql]
 ----
@@ -172,39 +142,14 @@ And the possible execution plan looks like this:
 
 [source,sql]
 ----
-EXPLAIN SELECT t1.id as t1id, t2.id as t2id FROM t1 JOIN t2 USING (col1);
-╔═════════════════════════════════╗
-║ PLAN                            ║
-╠═════════════════════════════════╣
-║ Project                         ║
-║     fields: [T1ID, T2ID]        ║
-║     exprs: [ID, ID0]            ║
-║     est: (rows=1)               ║
-║   MergeJoin                     ║
-║       condition: =(COL1, COL10) ║
-║       joinType: inner           ║
-║       est: (rows=1)             ║
-║     Exchange                    ║
-║         distribution: single    ║
-║         est: (rows=1)           ║
-║       Sort                      ║
-║           collation: [COL1 ASC] ║
-║           est: (rows=1)         ║
-║         TableScan               ║
-║             table: PUBLIC.T1    ║
-║             fields: [ID, COL1]  ║
-║             est: (rows=1)       ║
-║     Exchange                    ║
-║         distribution: single    ║
-║         est: (rows=1)           ║
-║       IndexScan                 ║
-║           table: PUBLIC.T2      ║
-║           index: T2_COL1_IDX    ║
-║           type: SORTED          ║
-║           fields: [ID, COL1]    ║
-║           collation: [COL1 ASC] ║
-║           est: (rows=1)         ║
-╚═════════════════════════════════╝
+   MergeJoin
+         ...
+       Sort
+           collation: [COL1 ASC]
+           ...
+       IndexScan
+           index: T2_COL1_IDX
+           ...
 ----
 
 In the example above, the planner adds the **Sort** operation before performing the **IndexScan**,
@@ -221,39 +166,14 @@ And plan will no longer display the **Sort** operation, improving query executio
 
 [source,sql]
 ----
-EXPLAIN SELECT t1.id as t1id, t2.id as t2id FROM t1 JOIN t2 USING (col1);
-╔═════════════════════════════════╗
-║ PLAN                            ║
-╠═════════════════════════════════╣
-║ Project                         ║
-║     fields: [T1ID, T2ID]        ║
-║     exprs: [ID, ID0]            ║
-║     est: (rows=1)               ║
-║   MergeJoin                     ║
-║       condition: =(COL1, COL10) ║
-║       joinType: inner           ║
-║       est: (rows=1)             ║
-║     Exchange                    ║
-║         distribution: single    ║
-║         est: (rows=1)           ║
-║       IndexScan                 ║
-║           table: PUBLIC.T1      ║
-║           index: T1_COL1_IDX    ║
-║           type: SORTED          ║
-║           fields: [ID, COL1]    ║
-║           collation: [COL1 ASC] ║
-║           est: (rows=1)         ║
-║     Exchange                    ║
-║         distribution: single    ║
-║         est: (rows=1)           ║
-║       IndexScan                 ║
-║           table: PUBLIC.T2      ║
-║           index: T2_COL1_IDX    ║
-║           type: SORTED          ║
-║           fields: [ID, COL1]    ║
-║           collation: [COL1 ASC] ║
-║           est: (rows=1)         ║
-╚═════════════════════════════════╝
+   MergeJoin
+         ...
+       IndexScan
+           index: T1_COL1_IDX
+           ...
+       IndexScan
+           index: T2_COL1_IDX
+           ...
 ----
 
 == Performance Impact of Correlated Subqueries
@@ -275,44 +195,18 @@ We can see nested correlated subquery here, lets check the plan:
 
 [source,sql]
 ----
-EXPLAIN SELECT emp.name, (SELECT dept.name FROM dept WHERE emp.dept_id=dept.id)
-FROM emp
-WHERE emp.salary > 1000;
-╔═══════════════════════════════════════════╗
-║ PLAN                                      ║
-╠═══════════════════════════════════════════╣
-║ Project                                   ║
-║     fields: [NAME, EXPR$1]                ║
-║     exprs: [NAME, $f0]                    ║
-║     est: (rows=1)                         ║
-║   CorrelatedNestedLoopJoin                ║
-║       condition: true                     ║
-║       joinType: left                      ║
-║       variablesSet: [$cor1]               ║
-║       est: (rows=1)                       ║
-║     Exchange                              ║
-║         distribution: single              ║
-║         est: (rows=1)                     ║
-║       TableScan                           ║
-║           table: PUBLIC.EMP               ║
-║           filters: >(SALARY, 1000)        ║
-║           fields: [DEPT_ID, NAME]         ║
-║           projects: [DEPT_ID, NAME]       ║
-║           est: (rows=1)                   ║
-║     ColocatedHashAggregate                ║
-║         group: []                         ║
-║         aggs: [SINGLE_VALUE(NAME)]        ║
-║         est: (rows=1)                     ║
-║       Exchange                            ║
-║           distribution: single            ║
-║           est: (rows=1)                   ║
-║         TableScan                         ║
-║             table: PUBLIC.DEPT            ║
-║             filters: =($cor1.DEPT_ID, ID) ║
-║             fields: [NAME]                ║
-║             projects: [NAME]              ║
-║             est: (rows=1)                 ║
-╚═══════════════════════════════════════════╝
+   CorrelatedNestedLoopJoin
+         ...
+       TableScan
+           table: PUBLIC.EMP
+           predicate: >(SALARY, 1000)
+           ...
+     ColocatedHashAggregate
+         ...
+         TableScan
+             table: PUBLIC.DEPT
+             predicate: =($cor1.DEPT_ID, ID)
+             ...
 ----
 
 The example above shows the slow **CorrelatedNestedLoopJoin** operation. Queries with this operation may cause a number of issues:
@@ -333,36 +227,16 @@ WHERE emp.salary > 1000 AND emp.dept_id=dept.id;
 And new plan becomes:
 [source,sql]
 ----
-EXPLAIN SELECT emp.name, dept.name
-FROM emp, dept
-WHERE emp.salary > 1000 AND emp.dept_id=dept.id;
-╔════════════════════════════════════════════════════════════╗
-║ PLAN                                                       ║
-╠════════════════════════════════════════════════════════════╣
-║ Exchange                                                   ║
-║     distribution: single                                   ║
-║     est: (rows=1)                                          ║
-║   Project                                                  ║
-║       fields: [NAME, NAME0]                                ║
-║       exprs: [NAME, NAME0]                                 ║
-║       est: (rows=1)                                        ║
-║     HashJoin                                               ║
-║         condition: =(DEPT_ID, ID)                          ║
-║         joinType: inner                                    ║
-║         est: (rows=1)                                      ║
-║       TableScan                                            ║
-║           table: PUBLIC.EMP                                ║
-║           filters: >(SALARY, 1000)                         ║
-║           fields: [DEPT_ID, NAME, SALARY]                  ║
-║           est: (rows=1)                                    ║
-║       Exchange                                             ║
-║           distribution: affinity[tableId=56, zoneId=56][0] ║
-║           est: (rows=1)                                    ║
-║         TableScan                                          ║
-║             table: PUBLIC.DEPT                             ║
-║             fields: [ID, NAME]                             ║
-║             est: (rows=1)                                  ║
-╚════════════════════════════════════════════════════════════╝
+     HashJoin
+         predicate: =(DEPT_ID, ID)
+         ...
+       TableScan
+           table: PUBLIC.EMP
+           predicate: >(SALARY, 1000)
+           ...
+         TableScan
+             table: PUBLIC.DEPT
+             ...
 ----
 
 Without the **CorrelatedNestedLoopJoin** operation, the query should perform much better than the previous one.
@@ -387,27 +261,13 @@ But the real execution plan shows a different result:
 
 [source,sql]
 ----
-EXPLAIN SELECT dept_id FROM emp WHERE salary = 1 ORDER BY name;
-╔═════════════════════════════════════╗
-║ PLAN                                ║
-╠═════════════════════════════════════╣
-║ Project                             ║
-║     fields: [DEPT_ID]               ║
-║     exprs: [DEPT_ID]                ║
-║     est: (rows=1)                   ║
-║   Exchange                          ║
-║       distribution: single          ║
-║       est: (rows=1)                 ║
-║     Sort                            ║
-║         collation: [NAME ASC]       ║
-║         est: (rows=1)               ║
-║       TableScan                     ║
-║           table: PUBLIC.EMP         ║
-║           filters: =(SALARY, 1)     ║
-║           fields: [DEPT_ID, NAME]   ║
-║           projects: [DEPT_ID, NAME] ║
-║           est: (rows=1)             ║
-╚═════════════════════════════════════╝
+     Sort
+         collation: [NAME ASC]
+         ...
+       TableScan
+           table: PUBLIC.EMP
+           predicate: =(SALARY, 1)
+           ...
 ----
 
 We can see a redundant **Sort** operator. A bit query refactoring can help to avoid excessive sorting:
@@ -421,28 +281,11 @@ And the plan becomes as follows:
 
 [source,sql]
 ----
-EXPLAIN SELECT dept_id FROM emp WHERE salary = 1 ORDER BY salary, name;
-╔═════════════════════════════════════════════════════╗
-║ PLAN                                                ║
-╠═════════════════════════════════════════════════════╣
-║ Project                                             ║
-║     fields: [DEPT_ID]                               ║
-║     exprs: [DEPT_ID]                                ║
-║     est: (rows=1)                                   ║
-║   Exchange                                          ║
-║       distribution: single                          ║
-║       est: (rows=1)                                 ║
-║     IndexScan                                       ║
-║         table: PUBLIC.EMP                           ║
-║         index: EMP_SALARY_NAME_IDX                  ║
-║         type: SORTED                                ║
-║         searchBounds: [ExactBounds [bound=1], null] ║
-║         filters: =(SALARY, 1)                       ║
-║         fields: [DEPT_ID, SALARY, NAME]             ║
-║         projects: [DEPT_ID, SALARY, NAME]           ║
-║         collation: [NAME ASC, SALARY ASC]           ║
-║         est: (rows=1)                               ║
-╚═════════════════════════════════════════════════════╝
+     IndexScan
+         table: PUBLIC.EMP
+         index: EMP_SALARY_NAME_IDX
+         predicate: =(SALARY, 1)
+         ...
 ----
 
 == Colocated Data Misses
@@ -466,33 +309,16 @@ We would expect a colocated join here, but plan shows a different result:
 
 [source,sql]
 ----
-EXPLAIN SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id;
-╔════════════════════════════════════════════════════════════╗
-║ PLAN                                                       ║
-╠════════════════════════════════════════════════════════════╣
-║ Exchange                                                   ║
-║     distribution: single                                   ║
-║     est: (rows=1)                                          ║
-║   Project                                                  ║
-║       fields: [NAME, NAME0]                                ║
-║       exprs: [NAME, NAME0]                                 ║
-║       est: (rows=1)                                        ║
-║     HashJoin                                               ║
-║         condition: =(DEPT_ID, ID)                          ║
-║         joinType: inner                                    ║
-║         est: (rows=1)                                      ║
-║       TableScan                                            ║
-║           table: PUBLIC.EMP                                ║
-║           fields: [DEPT_ID, NAME]                          ║
-║           est: (rows=1)                                    ║
-║       Exchange                                             ║
-║           distribution: affinity[tableId=64, zoneId=64][0] ║
-║           est: (rows=1)                                    ║
-║         TableScan                                          ║
-║             table: PUBLIC.DEPT                             ║
-║             fields: [ID, NAME]                             ║
-║             est: (rows=1)                                  ║
-╚════════════════════════════════════════════════════════════╝
+     HashJoin
+         ...
+       TableScan
+           table: PUBLIC.EMP
+           ...
+       Exchange
+           distribution: table PUBLIC.EMP in zone "Default" by [ID]
+           ...
+         TableScan
+             table: PUBLIC.DEPT
 ----
 
 We can see the **Exchange** operator between two table scans, which means that predicate involved rows belonging to the same table
@@ -516,30 +342,14 @@ Possible plan will show correct colocated join:
 
 [source,sql]
 ----
-EXPLAIN SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id;
-╔════════════════════════════════════════════════════════════╗
-║ PLAN                                                       ║
-╠════════════════════════════════════════════════════════════╣
-║ Exchange                                                   ║
-║     distribution: single                                   ║
-║     est: (rows=1)                                          ║
-║   Project                                                  ║
-║       fields: [NAME, NAME0]                                ║
-║       exprs: [NAME, NAME0]                                 ║
-║       est: (rows=1)                                        ║
-║     HashJoin                                               ║
-║         condition: =(DEPT_ID, ID)                          ║
-║         joinType: inner                                    ║
-║         est: (rows=1)                                      ║
-║       TableScan                                            ║
-║           table: PUBLIC.EMP                                ║
-║           fields: [DEPT_ID, NAME]                          ║
-║           est: (rows=1)                                    ║
-║       TableScan                                            ║
-║           table: PUBLIC.DEPT                               ║
-║           fields: [ID, NAME]                               ║
-║           est: (rows=1)                                    ║
-╚════════════════════════════════════════════════════════════╝
+     HashJoin
+         ...
+       TableScan
+           table: PUBLIC.EMP
+           ...
+       TableScan
+           table: PUBLIC.DEPT
+           ...
 ----
 
 Now, both tables are colocated by predicate involved columns. No more intermediate **Exchange** contained in plan,
@@ -558,14 +368,10 @@ Can look like this:
 
 [source,sql]
 ----
-EXPLAIN SELECT COUNT(*) FROM emp;
-╔══════════════════════════╗
-║ PLAN                     ║
-╠══════════════════════════╣
-║ SelectCount              ║
-║     table: [PUBLIC, EMP] ║
-║     est: (rows=1)        ║
-╚══════════════════════════╝
+ SelectCount
+     table: PUBLIC.EMP
+     est: (rows=43)
+     ...
 ----
 
 But there are numerous cases where such optimization is not applicable. In such a cases, a plan can be different and the execution may require more time.
@@ -574,33 +380,14 @@ The same query as above, but with explicit transaction may produce a different p
 
 [source,sql]
 ----
-START TRANSACTION; EXPLAIN SELECT COUNT (*) FROM emp; COMMIT;
-╔═════════════════════════════════════════════════════════════╗
-║ PLAN                                                        ║
-╠═════════════════════════════════════════════════════════════╣
-║ Project                                                     ║
-║     fields: [EXPR$0]                                        ║
-║     exprs: [CAST(f0_0):BIGINT NOT NULL]                     ║
-║     est: (rows=1)                                           ║
-║   ReduceSortAggregate                                       ║
-║       rowType: RecordType(BIGINT f0_0)                      ║
-║       group: []                                             ║
-║       aggs: [COUNT_0_MAP_SUM=$SUM0(_ACC0)]                  ║
-║       collation: []                                         ║
-║       est: (rows=1)                                         ║
-║     Exchange                                                ║
-║         distribution: single                                ║
-║         est: (rows=1)                                       ║
-║       MapSortAggregate                                      ║
-║           group: []                                         ║
-║           aggs: [EXPR$0=COUNT()]                            ║
-║           collation: []                                     ║
-║           est: (rows=1)                                     ║
-║         TableScan                                           ║
-║             table: PUBLIC.EMP                               ║
-║             fields: [DEPT_ID, NAME, SALARY, __PART, __part] ║
-║             est: (rows=1)                                   ║
-╚═════════════════════════════════════════════════════════════╝
+   ReduceSortAggregate
+       ...
+       MapSortAggregate
+           ...
+         TableScan
+             table: PUBLIC.EMP
+             est: (rows=43)
+             ...
 ----
 
 == Index Scan Without Exact Search Bounds
@@ -623,26 +410,14 @@ And possible plan would look like this:
 
 [source,sql]
 ----
-EXPLAIN SELECT id FROM t WHERE col1 = 43;
-╔═════════════════════════════════════════════════════╗
-║ PLAN                                                ║
-╠═════════════════════════════════════════════════════╣
-║ Exchange                                            ║
-║     distribution: single                            ║
-║     est: (rows=1)                                   ║
-║   IndexScan                                         ║
-║       table: PUBLIC.T                               ║
-║       index: T_COL1_IDX                             ║
-║       type: SORTED                                  ║
-║       filters: =(CAST(COL1):DECIMAL(13, 3), 43.000) ║
-║       fields: [ID]                                  ║
-║       projects: [ID]                                ║
-║       collation: []                                 ║
-║       est: (rows=1)                                 ║
-╚═════════════════════════════════════════════════════╝
+   IndexScan
+       table: PUBLIC.T
+       index: T_COL1_IDX
+       predicate: =(CAST(COL1):DECIMAL(13, 3), 43.000)
+       ...
 ----
 
-We can see here - only **predicate** which means that **all** rows from index will go through predicate and bring additional performance penalty.
+We can see here - only **predicate** (and no **searchBounds**) which means that **all** rows from index will go through predicate and bring additional performance penalty.
 
 Two type of solutions are possible here:
 
@@ -666,20 +441,10 @@ As a result, you will have a plan similar to this:
 
 [source,sql]
 ----
-EXPLAIN SELECT /*+ NO_INDEX(t_col1_idx) */ id FROM t WHERE col1 = 43;
-╔═════════════════════════════════════════════════════╗
-║ PLAN                                                ║
-╠═════════════════════════════════════════════════════╣
-║ Exchange                                            ║
-║     distribution: single                            ║
-║     est: (rows=1)                                   ║
-║   TableScan                                         ║
-║       table: PUBLIC.T                               ║
-║       filters: =(CAST(COL1):DECIMAL(13, 3), 43.000) ║
-║       fields: [ID]                                  ║
-║       projects: [ID]                                ║
-║       est: (rows=1)                                 ║
-╚═════════════════════════════════════════════════════╝
+   TableScan
+       table: PUBLIC.T
+       predicate: =(CAST(COL1):DECIMAL(13, 3), 43.000)
+       ...
 ----
 
 === Manual Type Casting
@@ -693,23 +458,12 @@ SELECT id FROM t WHERE col1 = 43::DECIMAL(5, 3);
 
 [source,sql]
 ----
-EXPLAIN SELECT id FROM t WHERE col1 = 43::DECIMAL(5, 3);
-╔════════════════════════════════════════════════════════════════╗
-║ PLAN                                                           ║
-╠═══════════════════════════════════════════════════════════════ ╣
-║ Exchange                                                       ║
-║     distribution: single                                       ║
-║     est: (rows=1)                                              ║
-║   TableScan                                                    ║
-║       table: PUBLIC.T                                          ║
-║       index: T_COL1_IDX                                        ║
-║       predicate: =(COL1, 43.000)                               ║
-║       searchBounds: [ExactBounds [bound=43.000:DECIMAL(5, 3)]] ║
-║       filters: =(COL1, 43.000)                                 ║
-║       fields: [ID]                                             ║
-║       projects: [ID]                                           ║
-║       est: (rows=1)                                            ║
-╚════════════════════════════════════════════════════════════════╝
+   IndexScan
+       table: PUBLIC.T
+       index: T_COL1_IDX
+       predicate: =(COL1, 43.000)
+       searchBounds: [ExactBounds [bound=43.000:DECIMAL(5, 3)]]
+       ...
 ----
 
 We can see here both **searchBounds** and **predicate** which means that only exact lookup through index will be involved.
@@ -728,19 +482,11 @@ SELECT * FROM t WHERE col1::varchar = SUBSTR(CURRENT_DATE::varchar, 4);
 Possible plan:
 [source,sql]
 ----
-EXPLAIN SELECT * FROM t WHERE col1::varchar = SUBSTR(CURRENT_DATE::varchar, 4);
-╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
-║ PLAN                                                                                                                               ║
-╠════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣
-║ Exchange                                                                                                                           ║
-║     distribution: single                                                                                                           ║
-║     est: (rows=1)                                                                                                                  ║
-║   TableScan                                                                                                                        ║
-║       table: PUBLIC.T                                                                                                              ║
-║       predicate: =(CAST(COL1):VARCHAR CHARACTER SET "UTF-8", SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)) ║
-║       fieldNames: [ID, COL1]                                                                                                       ║
-║       est: (rows=1)                                                                                                                ║
-╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+   IndexScan
+       table: PUBLIC.T
+       index: T_COL1_IDX
+       predicate: =(CAST(COL1):VARCHAR CHARACTER SET "UTF-8", SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4))
+       ...
 ----
 And we also can see that no **search bounds** are involved here.
 
@@ -754,20 +500,12 @@ SELECT * FROM t WHERE col1 = SUBSTR(CURRENT_DATE::varchar, 4)::int;
 And the possible plan will become:
 [source,sql]
 ----
-EXPLAIN SELECT * FROM t WHERE col1::varchar = SUBSTR(CURRENT_DATE::varchar, 4);
-╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
-║ PLAN                                                                                                                               ║
-╠════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣
-║ Exchange                                                                                                                           ║
-║     distribution: single                                                                                                           ║
-║     est: (rows=1)                                                                                                                  ║
-║   TableScan                                                                                                                        ║
-║       table: PUBLIC.T                                                                                                              ║
-║       predicate: =(CAST(COL1):VARCHAR CHARACTER SET "UTF-8", SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)) ║
-║       searchBounds: [ExactBounds [bound=CAST(SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)):INTEGER]]       ║
-║       fieldNames: [ID, COL1]                                                                                                       ║
-║       est: (rows=1)                                                                                                                ║
-╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+   IndexScan
+       table: PUBLIC.T
+       index: T_COL1_ASC_IDX
+       predicate: =(COL1, CAST(SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)):INTEGER NOT NULL)
+       searchBounds: [ExactBounds [bound=CAST(SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)):INTEGER]]
+       ...
 ----
 We can see that **searchBounds** are present - thus more productive execution flow is expected here.
 
@@ -779,7 +517,7 @@ For example, if initially tables are created without any thoughts about further 
 
 [source,sql]
 ----
--- implicitly colocated by PRIMARY KEY
+-- by default the table is implicitly colocated by PRIMARY KEY
 CREATE TABLE emp(dept_id INTEGER, name VARCHAR, salary INTEGER, PRIMARY KEY(dept_id, name));
 
 -- implicitly colocated by PRIMARY KEY
@@ -793,44 +531,32 @@ SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id AND emp.s
 Bring plan like:
 [source,sql]
 ----
-EXPLAIN SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id AND emp.salary > 1000;
-╔══════════════════════════════════════════════════════╗
-║ PLAN                                                 ║
-╠══════════════════════════════════════════════════════╣
-║ Project                                              ║
-║     fieldNames: [NAME, NAME0]                        ║
-║     projection: [NAME, NAME0]                        ║
-║     est: (rows=1)                                    ║
-║   HashJoin                                           ║
-║       predicate: =(DEPT_ID, ID)                      ║
-║       fieldNames: [DEPT_ID, NAME, SALARY, ID, NAME0] ║
-║       type: inner                                    ║
-║       est: (rows=1)                                  ║
-║     Exchange                                         ║
-║         distribution: single                         ║
-║         est: (rows=1)                                ║
-║       TableScan                                      ║
-║           table: PUBLIC.EMP                          ║
-║           predicate: >(SALARY, 1000)                 ║
-║           fieldNames: [DEPT_ID, NAME, SALARY]        ║
-║           est: (rows=1)                              ║
-║     Exchange                                         ║
-║         distribution: single                         ║
-║         est: (rows=1)                                ║
-║       TableScan                                      ║
-║           table: PUBLIC.DEPT                         ║
-║           fieldNames: [ID, NAME]                     ║
-║           est: (rows=1)                              ║
-╚══════════════════════════════════════════════════════╝
+   HashJoin
+       predicate: =(DEPT_ID, ID)
+       ...
+     Exchange
+         ...
+       TableScan
+           table: PUBLIC.EMP
+           ...
+     Exchange
+         ...
+       TableScan
+           table: PUBLIC.DEPT
+           ...
 ----
 
 We can see two **Exchange** operators, which means that all rows are transferred into a single node and then are joined.
-This execution flow brings a performance cost and slows down query execution. Let`s try to improve it:
+This execution flow brings a performance cost and slows down query execution.
+
+Let`s try to improve it by adding explicit colocation for the **dept** table by **ID** column:
 
 [source,sql]
 ----
+-- implicitly colocated by PRIMARY KEY
 CREATE TABLE emp(dept_id INTEGER, name VARCHAR, salary INTEGER, PRIMARY KEY(dept_id, name));
-CREATE TABLE dept(id INTEGER PRIMARY KEY, name VARCHAR);
+-- explicitly colocated by ID
+CREATE TABLE dept(id INTEGER, name VARCHAR, PRIMARY KEY(name, id)) COLOCATE BY (id);
 ----
 
 Now the dependent rows from **emp** table are transferred into the appropriate
@@ -838,49 +564,30 @@ node where **dept** holds the rows according to **DEPT.ID** distribution:
 
 [source,sql]
 ----
-EXPLAIN SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id AND emp.salary > 1000;
-╔══════════════════════════════════════════════════════════════════════════╗
-║ PLAN                                                                     ║
-╠══════════════════════════════════════════════════════════════════════════╣
-║ Exchange                                                                 ║
-║     distribution: single                                                 ║
-║     est: (rows=1)                                                        ║
-║   Project                                                                ║
-║       fieldNames: [NAME, NAME0]                                          ║
-║       projection: [NAME, NAME0]                                          ║
-║       est: (rows=1)                                                      ║
-║     HashJoin                                                             ║
-║         predicate: =(DEPT_ID, ID)                                        ║
-║         fieldNames: [DEPT_ID, NAME, SALARY, ID, NAME0]                   ║
-║         type: inner                                                      ║
-║         est: (rows=1)                                                    ║
-║       Exchange                                                           ║
-║           distribution: table PUBLIC.DEPT in zone "Default" by [DEPT_ID] ║
-║           est: (rows=1)                                                  ║
-║         TableScan                                                        ║
-║             table: PUBLIC.EMP                                            ║
-║             predicate: >(SALARY, 1000)                                   ║
-║             fieldNames: [DEPT_ID, NAME, SALARY]                          ║
-║             est: (rows=1)                                                ║
-║       TableScan                                                          ║
-║           table: PUBLIC.DEPT                                             ║
-║           fieldNames: [ID, NAME]                                         ║
-║           est: (rows=1)                                                  ║
-╚══════════════════════════════════════════════════════════════════════════╝
+     HashJoin
+         predicate: =(DEPT_ID, ID)
+         ...
+       Exchange
+           distribution: table PUBLIC.DEPT in zone "Default" by [DEPT_ID]
+           ...
+         TableScan
+             table: PUBLIC.EMP
+             ...
+       TableScan
+           table: PUBLIC.DEPT
+           ...
 ----
 
 Only one **Exchange** operator for now, which, once again, mean only rows transferring
 from **Emp** table to appropriate **DEPT** one.
+
 And finally, both join predicate related columns are colocated:
 
 [source,sql]
 ----
--- implicit colocation by PRIMARY KEY
-CREATE TABLE emp(dept_id INTEGER PRIMARY KEY, name VARCHAR, salary INTEGER);
-CREATE TABLE dept(id INTEGER PRIMARY KEY, name VARCHAR);
-
--- or explicit colocation by COLOCATE BY
+-- explicitly colocated by DEPT_ID
 CREATE TABLE emp(dept_id INTEGER, name VARCHAR, salary INTEGER, PRIMARY KEY(dept_id, name)) COLOCATE BY(dept_id);
+-- explicitly colocated by ID
 CREATE TABLE dept(id INTEGER, name VARCHAR, PRIMARY KEY(id, name)) COLOCATE BY(id);
 ----
 
@@ -889,31 +596,15 @@ And plan will look like this:
 
 [source,sql]
 ----
-╔════════════════════════════════════════════════════════════════════╗
-║ PLAN                                                               ║
-╠════════════════════════════════════════════════════════════════════╣
-║ Exchange                                                           ║
-║     distribution: single                                           ║
-║     est: (rows=1)                                                  ║
-║   Project                                                          ║
-║       fieldNames: [NAME, NAME0]                                    ║
-║       projection: [NAME, NAME0]                                    ║
-║       est: (rows=1)                                                ║
-║     HashJoin                                                       ║
-║         predicate: =(DEPT_ID, ID)                                  ║
-║         fieldNames: [DEPT_ID, NAME, SALARY, ID, NAME0]             ║
-║         type: inner                                                ║
-║         est: (rows=1)                                              ║
-║       TableScan                                                    ║
-║           table: PUBLIC.EMP                                        ║
-║           predicate: >(SALARY, 1000)                               ║
-║           fieldNames: [DEPT_ID, NAME, SALARY]                      ║
-║           est: (rows=1)                                            ║
-║       TableScan                                                    ║
-║           table: PUBLIC.DEPT                                       ║
-║           fieldNames: [ID, NAME]                                   ║
-║           est: (rows=1)                                            ║
-╚════════════════════════════════════════════════════════════════════╝
+     HashJoin
+        predicate: =(DEPT_ID, ID)
+         ...
+       TableScan
+           table: PUBLIC.EMP
+           ...
+       TableScan
+           table: PUBLIC.DEPT
+           ...
 ----
 
 No **Exchange** operators are involved in the explanation, which means that no excessive rows transfer has occurred.
