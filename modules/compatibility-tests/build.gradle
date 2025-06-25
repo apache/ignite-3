@@ -19,6 +19,7 @@ import groovy.json.JsonSlurper
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 description = 'ignite-compatibility-tests'
@@ -29,6 +30,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation libs.swagger.parser
+
     integrationTestImplementation testFixtures(project(':ignite-compatibility-tests'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation project(':ignite-api')
@@ -37,6 +40,7 @@ dependencies {
     testFixturesImplementation libs.gradle.tooling.api
     testFixturesImplementation libs.awaitility
     testFixturesImplementation libs.jackson.databind
+    testFixturesImplementation libs.swagger.parser
     testFixturesImplementation(libs.jsonpath.assert) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
@@ -109,4 +113,16 @@ tasks.register('constructArgFile') {
             }
         }
     }
+}
+
+configurations {
+    openapiSpec
+}
+
+dependencies {
+    openapiSpec(project(path: ':ignite-rest-api', configuration: 'openapiSpec'))
+}
+
+processTestResources {
+    from configurations.openapiSpec
 }
