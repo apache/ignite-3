@@ -91,7 +91,7 @@ spring-boot = "3.5.1"
 spring-data = "3.5.1"
 testcontainers = "1.21.2"
 gradleToolingApi = "8.6"
-protobuf = "4.30.2"
+protobuf = "4.31.1"
 
 #Tools
 pmdTool = "6.55.0"
