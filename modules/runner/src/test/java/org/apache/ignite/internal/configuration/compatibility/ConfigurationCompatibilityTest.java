@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.configuration.compatibility;
 
+import static org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager.loadSnapshotFromResource;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.net.JarURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Enumeration;
 import java.util.List;
+import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -53,22 +58,10 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     private static final String DEFAULT_FILE_NAME = "snapshot.bin";
-    private static final String SNAPSHOTS_DIRECTORY = "./src/test/resources/";
-    private static final String DEFAULT_SNAPSHOT_FILE = "./modules/runner/build/compatibility/configuration/" + DEFAULT_FILE_NAME;
+    private static final String SNAPSHOTS_RESOURCE_LOCATION = "compatibility/configuration/";
+    private static final Path DEFAULT_SNAPSHOT_FILE = Path.of("modules", "runner", "build", "work", DEFAULT_FILE_NAME);
 
     private static final IgniteLogger LOG = Loggers.forClass(ConfigurationCompatibilityTest.class);
-
-    /** Return previously saved snapshot files. */
-    public static Stream<Arguments> getSnapshots() throws IOException {
-        Path baseDir = Path.of(SNAPSHOTS_DIRECTORY);
-
-        assert Files.exists(baseDir) : "No snapshots found";
-
-        return Files.walk(baseDir)
-                .filter(Files::isRegularFile)
-                .filter(p -> p.getFileName().toString().endsWith(".bin"))
-                .map(p -> Arguments.of(p.getFileName().toString(), p));
-    }
 
     /**
      * This test ensures that the current configuration can be serialized and deserialized correctly.
@@ -96,27 +89,28 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     }
 
     /**
-     * This test ensures that the current configuration metadata wasn't changed.
-     * If the test fails, it means that the current configuration metadata has changed,
-     * then current snapshot should be renamed to the latest release version, and a new snapshot should be created.
+     * This test ensures that the current configuration metadata wasn't changed. If the test fails, it means that the current configuration
+     * metadata has changed, then current snapshot should be renamed to the latest release version, and a new snapshot should be created.
+     *
+     * @see #main(String[]) method for generating a new snapshot.
      */
     @Test
     void testConfigurationChanged() throws IOException {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
-        List<ConfigNode> snapshotMetadata = ConfigurationSnapshotManager.loadSnapshot(Path.of(SNAPSHOTS_DIRECTORY, DEFAULT_FILE_NAME));
+        List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + DEFAULT_FILE_NAME);
 
         ConfigurationTreeComparator.compare(currentMetadata, snapshotMetadata);
     }
 
     /**
-     * This test ensures that the current configuration metadata is compatible with the snapshots.
-     * If the test fails, it means that the current configuration is incompatible with the snapshot, and compatibility should be fixed.
+     * This test ensures that the current configuration metadata is compatible with the snapshots. If the test fails, it means that the
+     * current configuration is incompatible with the snapshot, and compatibility should be fixed.
      */
     @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("getSnapshots")
-    void testConfigurationCompatibility(String testName, Path snapshotFile) throws IOException {
+    void testConfigurationCompatibility(String fileName) throws IOException {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
-        List<ConfigNode> snapshotMetadata = ConfigurationSnapshotManager.loadSnapshot(snapshotFile);
+        List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + fileName);
 
         ConfigurationTreeComparator.ensureCompatible(currentMetadata, snapshotMetadata);
     }
@@ -168,7 +162,43 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         LOG.info("DUMP TREE:");
         configNodes.forEach(c -> c.accept(shuttle));
 
-        Path file = Path.of(DEFAULT_SNAPSHOT_FILE).toAbsolutePath();
-        ConfigurationSnapshotManager.saveSnapshot(configNodes, file);
+        ConfigurationSnapshotManager.saveSnapshotToFile(configNodes, DEFAULT_SNAPSHOT_FILE);
+    }
+
+    /**
+     * List directory contents for a resource folder. Not recursive. Works for regular files and also JARs.
+     */
+    private static Stream<Arguments> getSnapshots() throws IOException {
+        Enumeration<URL> resources = ConfigurationSnapshotManager.class.getClassLoader().getResources(SNAPSHOTS_RESOURCE_LOCATION);
+        URL dirUrl = resources.nextElement();
+        if (dirUrl == null) {
+            return Stream.empty();
+        }
+        if ("file".equals(dirUrl.getProtocol())) {
+            Path dirPath = Path.of(dirUrl.getPath());
+            return Files.list(dirPath)
+                    .filter(Files::isRegularFile)
+                    .map(Path::getFileName)
+                    .map(Path::toString)
+                    .filter(p -> p.endsWith(".bin"))
+                    .map(Arguments::of);
+        } else if ("jar".equals(dirUrl.getProtocol())) {
+            JarURLConnection jarConnection = (JarURLConnection) dirUrl.openConnection();
+            JarFile jarFile = jarConnection.getJarFile();
+            String dirEntry = jarConnection.getEntryName();
+            return jarFile.stream()
+                    .filter(e -> !e.isDirectory() && e.getName().startsWith(dirEntry) && !e.getName().equals(dirEntry))
+                    .filter(e -> !e.getName().substring(dirEntry.length() + 1).contains("/")) // non-recursive
+                    .map(e -> {
+                        try {
+                            URL url = new URL("jar:" + jarFile.getName() + "!/" + e.getName());
+                            return Arguments.of(e.getName());
+                        } catch (Exception ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    });
+        } else {
+            throw new UnsupportedOperationException("Unsupported protocol: " + dirUrl.getProtocol());
+        }
     }
 }

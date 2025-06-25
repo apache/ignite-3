@@ -35,30 +35,33 @@ import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
  */
 public class ConfigurationSnapshotManager {
     /**
-     * Loads configuration trees from the given snapshot file.
+     * Loads configuration trees from the given snapshot resource path.
      */
-    public static List<ConfigNode> loadSnapshot(Path snapshotFile) throws IOException {
-        assert Files.isRegularFile(snapshotFile);
+    public static List<ConfigNode> loadSnapshotFromResource(String path) throws IOException {
+        try (InputStream is = ConfigurationSnapshotManager.class.getClassLoader().getResourceAsStream(path)) {
+            if (is == null) {
+                throw new IllegalArgumentException("Resource does not exist: " + path);
+            }
 
-        List<ConfigNode> restoredNodes;
-        try (InputStream finStream = Files.newInputStream(snapshotFile, StandardOpenOption.READ)) {
-            ZipInputStream zinStream = new ZipInputStream(finStream);
-            zinStream.getNextEntry(); // Read the first entry in the zip file.
+            try (ZipInputStream zinStream = new ZipInputStream(is)) {
+                zinStream.getNextEntry(); // Read the first entry in the zip file.
 
-            IgniteUnsafeDataInput input = new IgniteUnsafeDataInput();
-            input.inputStream(zinStream);
+                IgniteUnsafeDataInput input = new IgniteUnsafeDataInput();
+                input.inputStream(zinStream);
 
-            restoredNodes = ConfigNodeSerializer.readAsJson(input);
+                List<ConfigNode> restoredNodes = ConfigNodeSerializer.readAsJson(input);
 
-            assert zinStream.getNextEntry() == null : "More than one entry in the snapshot file";
+                assert zinStream.getNextEntry() == null : "More than one entry in the snapshot file";
+
+                return restoredNodes;
+            }
         }
-        return restoredNodes;
     }
 
     /**
      * Saves the given configuration trees to a snapshot file.
      */
-    public static void saveSnapshot(List<ConfigNode> trees, Path file) throws IOException {
+    public static void saveSnapshotToFile(List<ConfigNode> trees, Path file) throws IOException {
         Files.createDirectories(file.getParent());
 
         try (OutputStream foStream =
