@@ -37,10 +37,8 @@ using Tests.TestHelpers;
 /// | JavaJob   | 191.2 us | 10.18 us | 27.34 us |  1.02 |    0.19 |
 ///
 /// Notes:
-/// 1. Presence of a deployment unit in the job descriptor
-///    slows down the Java side of things by ~150us, even when no Java classes are loaded.
-/// 2. Dev mode executor uses Debug build (hardcoded path) - we should measure Release to be more fair.
-/// 3. Disable Netty leak detector.
+/// 1. Change DotNetComputeExecutor$resolveDotNetBinaryDir in Java to use Release executor in dev mode.
+/// 2. Disable Netty leak detector.
 /// </summary>
 public class PlatformJobBenchmarks : ServerBenchmarkBase
 {
