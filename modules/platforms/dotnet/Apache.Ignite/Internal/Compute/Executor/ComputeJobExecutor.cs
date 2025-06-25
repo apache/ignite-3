@@ -58,7 +58,7 @@ internal static class ComputeJobExecutor
             var r = request.GetReader();
             long jobId = r.ReadInt64();
             string jobClassName = r.ReadString();
-            List<string> deploymentUnitPaths = ReadDeploymentUnitPaths(r);
+            List<string> deploymentUnitPaths = ReadDeploymentUnitPaths(ref r);
             bool retainDeploymentUnits = r.ReadBoolean();
 
             if (retainDeploymentUnits)
@@ -80,9 +80,13 @@ internal static class ComputeJobExecutor
     /// <returns>Whether units were cleaned up.</returns>
     internal static async Task<bool> UndeployUnits(PooledBuffer request)
     {
-        List<string> deploymentUnitPaths = ReadDeploymentUnitPaths(request.GetReader());
+        return await Cache.UndeployUnits(Read()).ConfigureAwait(false);
 
-        return await Cache.UndeployUnits(deploymentUnitPaths).ConfigureAwait(false);
+        List<string> Read()
+        {
+            var r = request.GetReader();
+            return ReadDeploymentUnitPaths(ref r);
+        }
     }
 
     private static async ValueTask ExecuteJobAsync(
@@ -110,7 +114,7 @@ internal static class ComputeJobExecutor
     }
 
     [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Internal.")]
-    private static List<string> ReadDeploymentUnitPaths(MsgPackReader r)
+    private static List<string> ReadDeploymentUnitPaths(ref MsgPackReader r)
     {
         int cnt = r.ReadInt32();
         List<string> deploymentUnitPaths = new List<string>(cnt);
