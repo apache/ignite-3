@@ -31,10 +31,10 @@ using Tests.TestHelpers;
 /// Not entirely fair, because the Java job does not require class loading.
 /// Results on i9-12900H, .NET SDK 8.0.15, Ubuntu 22.04:
 ///
-/// | Method    | Mean     | Error    | StdDev   | Median   | Ratio | RatioSD |
-/// |---------- |---------:|---------:|---------:|---------:|------:|--------:|
-/// | DotNetJob | 776.0 us | 15.16 us | 28.09 us | 772.3 us |  2.86 |    0.40 |
-/// | JavaJob   | 276.4 us | 14.63 us | 41.27 us | 258.6 us |  1.02 |    0.21 |
+/// | Method    | Mean     | Error    | StdDev   | Ratio | RatioSD |
+/// |---------- |---------:|---------:|---------:|------:|--------:|
+/// | DotNetJob | 170.1 us |  3.40 us |  9.30 us |  0.91 |    0.12 |
+/// | JavaJob   | 191.2 us | 10.18 us | 27.34 us |  1.02 |    0.19 |
 ///
 /// Notes:
 /// 1. Presence of a deployment unit in the job descriptor
