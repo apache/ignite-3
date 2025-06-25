@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.Loader;
 using Ignite.Compute;
@@ -30,6 +31,8 @@ using Table.StreamerReceiverExecutor;
 /// <param name="AssemblyLoadContext">Assembly load context.</param>
 internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext) : IDisposable
 {
+    private readonly ConcurrentDictionary<(string TypeName, Type OpenWrapperType), (Type Type, Type ClosedWrapperType)> _typeCache = new();
+
     /// <summary>
     /// Gets or creates a job delegate for the specified type name.
     /// </summary>
@@ -37,7 +40,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <returns>Job execution delegate.</returns>
     public IComputeJobWrapper CreateJobWrapper(string typeName) =>
         CreateWrapper<IComputeJobWrapper>(
-            typeName, typeof(IComputeJob<,>), typeof(ComputeJobWrapper<,,>), AssemblyLoadContext);
+            typeName, typeof(IComputeJob<,>), typeof(ComputeJobWrapper<,,>));
 
     /// <summary>
     /// Gets or creates a receiver delegate for the specified type name.
@@ -46,22 +49,18 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <returns>Receiver execution delegate.</returns>
     public IDataStreamerReceiverWrapper CreateReceiverWrapper(string typeName) =>
         CreateWrapper<IDataStreamerReceiverWrapper>(
-            typeName, typeof(IDataStreamerReceiver<,,>), typeof(DataStreamerReceiverWrapper<,,,>), AssemblyLoadContext);
+            typeName, typeof(IDataStreamerReceiver<,,>), typeof(DataStreamerReceiverWrapper<,,,>));
 
     /// <inheritdoc/>
     public void Dispose() => AssemblyLoadContext.Unload();
 
-    private static T CreateWrapper<T>(string wrappedTypeName, Type openInterfaceType, Type openWrapperType, AssemblyLoadContext ctx)
+    private T CreateWrapper<T>(string wrappedTypeName, Type openInterfaceType, Type openWrapperType)
     {
-        var type = LoadType(wrappedTypeName, ctx);
-        var closedInterfaceType = FindInterface(type, openInterfaceType);
+        var (type, closedWrapperType) = GetClosedWrapperType(wrappedTypeName, openInterfaceType, openWrapperType);
 
         try
         {
-            var genericArgs = closedInterfaceType.GenericTypeArguments;
-            var jobWrapperType = openWrapperType.MakeGenericType([type, .. genericArgs]);
-
-            return (T)Activator.CreateInstance(jobWrapperType)!;
+            return (T)Activator.CreateInstance(closedWrapperType)!;
         }
         catch (Exception e)
         {
@@ -72,6 +71,17 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
 
             throw;
         }
+    }
+
+    private (Type Type, Type ClosedWrapperType) GetClosedWrapperType(string typeName, Type openInterfaceType, Type openWrapperType)
+    {
+        var type = LoadType(typeName, AssemblyLoadContext);
+        var closedInterfaceType = FindInterface(type, openInterfaceType);
+
+        var genericArgs = closedInterfaceType.GenericTypeArguments;
+        var closedWrapperType = openWrapperType.MakeGenericType([type, .. genericArgs]);
+
+        return (type, closedWrapperType);
     }
 
     private static Type LoadType(string typeName, AssemblyLoadContext ctx)
