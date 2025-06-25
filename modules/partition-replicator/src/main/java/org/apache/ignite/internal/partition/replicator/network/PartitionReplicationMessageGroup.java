@@ -24,6 +24,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
@@ -223,8 +224,12 @@ public interface PartitionReplicationMessageGroup {
         /** Message type for {@link WriteIntentSwitchCommand}. */
         short WRITE_INTENT_SWITCH = 41;
 
-        /** Message type for {@link UpdateAllCommand}. */
-        short UPDATE_ALL = 42;
+        /**
+         * Message type for {@link UpdateAllCommand}.
+         *
+         * @see #UPDATE_ALL_V2
+         */
+        short UPDATE_ALL_V1 = 42;
 
         /**
          * Message type for {@link UpdateCommand}.
@@ -241,6 +246,9 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link UpdateCommandV2}. */
         short UPDATE_V2 = 46;
+
+        /** Message type for {@link UpdateAllCommandV2}. */
+        short UPDATE_ALL_V2 = 47;
     }
 
     /**

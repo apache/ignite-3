@@ -47,6 +47,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
@@ -456,6 +457,9 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     /**
      * Handler for the {@link UpdateAllCommand}.
+     *
+     * <p>We will also handle {@link UpdateAllCommandV2}, since there is no specific logic for {@link UpdateAllCommandV2}, we will leave it
+     * as is to support backward compatibility.</p>
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.

@@ -71,7 +71,7 @@ import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
@@ -254,8 +254,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                     return set;
                 });
 
-                if (cmd instanceof UpdateAllCommand) {
-                    return completedFuture(((UpdateAllCommand) cmd).rowsToUpdate().keySet().stream()
+                if (cmd instanceof UpdateAllCommandV2) {
+                    return completedFuture(((UpdateAllCommandV2) cmd).rowsToUpdate().keySet().stream()
                             .map(uuid -> new NullBinaryRow())
                             .collect(Collectors.toList()));
                 } else {
@@ -289,7 +289,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                                                 .build())
                         );
 
-                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                         .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .messageRowsToUpdate(rows)
@@ -450,7 +450,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         assertEquals(CMDS_MAP.size(), partsMap.size());
 
         CMDS_MAP.forEach((p, set) -> {
-            UpdateAllCommand cmd = (UpdateAllCommand) CollectionUtils.first(set);
+            UpdateAllCommandV2 cmd = (UpdateAllCommandV2) CollectionUtils.first(set);
             assertEquals(partsMap.get(p), cmd.rowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
 
             cmd.rowsToUpdate().values().forEach(rowMessage -> {

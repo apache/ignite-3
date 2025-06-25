@@ -20,7 +20,7 @@ package org.apache.ignite.internal.partition.replicator.network.command;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 
-/** Extension of {@link UpdateCommand} with new fields to support backward compatibility. */
-@Transferable(Commands.UPDATE_V2)
-public interface UpdateCommandV2 extends UpdateCommand, TableAwareCommand {
+/** Extension of {@link UpdateAllCommand} with new fields to support backward compatibility. */
+@Transferable(Commands.UPDATE_ALL_V2)
+public interface UpdateAllCommandV2 extends UpdateAllCommand, TableAwareCommand {
 }

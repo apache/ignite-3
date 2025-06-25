@@ -28,11 +28,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * State machine command to update a row specified by a row ID.
  *
- * <p>Not removed to maintain backward compatibility.</p>
- *
- * @deprecated Use {@link UpdateCommandV2} instead.
+ * <p>This command is replaced with {@link UpdateCommandV2} and only exists in the source code for backward compatibility.</p>
  */
-@Deprecated
 @Transferable(Commands.UPDATE_V1)
 public interface UpdateCommand extends PartitionCommand {
     // TODO: IGNITE-25733 Не забыть исправить

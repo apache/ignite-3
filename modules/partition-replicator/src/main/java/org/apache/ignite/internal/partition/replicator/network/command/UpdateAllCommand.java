@@ -30,9 +30,12 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command for updating a batch of entries.
+ *
+ * <p>This command is replaced with {@link UpdateAllCommandV2} and only exists in the source code for backward compatibility.</p>
  */
-@Transferable(PartitionReplicationMessageGroup.Commands.UPDATE_ALL)
-public interface UpdateAllCommand extends PartitionCommand, TableAwareCommand {
+@Transferable(PartitionReplicationMessageGroup.Commands.UPDATE_ALL_V1)
+public interface UpdateAllCommand extends PartitionCommand {
+    // TODO: IGNITE-25733 Не забыть исправить
     ReplicationGroupIdMessage commitPartitionId();
 
     Map<UUID, TimedBinaryRowMessage> messageRowsToUpdate();

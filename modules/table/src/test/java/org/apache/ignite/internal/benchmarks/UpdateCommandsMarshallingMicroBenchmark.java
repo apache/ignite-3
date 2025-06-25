@@ -31,7 +31,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
@@ -77,7 +77,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
     @Param({"128", "2048", "8192"})
     private int payloadSize;
 
-    /** Whether we create {@link UpdateCommandV2} or {@link UpdateAllCommand}. */
+    /** Whether we create {@link UpdateCommandV2} or {@link UpdateAllCommandV2}. */
     @Param({"false", "true"})
     private boolean updateAll;
 
@@ -113,7 +113,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
             for (int i = 0; i < 100; i++) {
                 map.put(UUID.randomUUID(), timedBinaryRowMessage);
             }
-            message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+            message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                     .txId(uuid)
                     .leaseStartTime(timestamp.longValue())
                     .safeTime(timestamp)

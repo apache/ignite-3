@@ -114,7 +114,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessageBuilder;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2Builder;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
@@ -2526,7 +2526,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             boolean skipDelayedAck,
             long leaseStartTime
     ) {
-        UpdateAllCommand cmd = updateAllCommand(
+        UpdateAllCommandV2 cmd = updateAllCommand(
                 rowsToUpdate,
                 commitPartitionId,
                 txId,
@@ -3459,7 +3459,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 .build();
     }
 
-    private UpdateAllCommand updateAllCommand(
+    private UpdateAllCommandV2 updateAllCommand(
             Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
             ReplicationGroupIdMessage commitPartitionId,
             UUID transactionId,
@@ -3469,7 +3469,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             int catalogVersion,
             @Nullable Long leaseStartTime
     ) {
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                 .tableId(tableId)
                 .commitPartitionId(commitPartitionId)
                 .messageRowsToUpdate(rowsToUpdate)
