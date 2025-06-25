@@ -72,16 +72,16 @@ public class JobLoadContextCacheTests
     [Test]
     public async Task TestFrequentlyUsedContextsAreNotCleanedUp()
     {
-        using var cache = new JobLoadContextCache(ttlMs: 100, cacheCleanupIntervalMs: 50);
+        using var cache = new JobLoadContextCache(ttlMs: 500, cacheCleanupIntervalMs: 50);
         var paths1 = new DeploymentUnitPaths(["a", "b", "c"]);
         var paths2 = new DeploymentUnitPaths(["c", "b", "a"]);
 
         var ctx1 = await cache.GetOrAddJobLoadContext(paths1);
         var ctx2 = await cache.GetOrAddJobLoadContext(paths2);
 
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 60; i++)
         {
-            await Task.Delay(20);
+            await Task.Delay(millisecondsDelay: 10);
 
             var ctx10 = await cache.GetOrAddJobLoadContext(paths1);
             Assert.AreSame(ctx1.AssemblyLoadContext, ctx10.AssemblyLoadContext, "Iteration {0}", i);
