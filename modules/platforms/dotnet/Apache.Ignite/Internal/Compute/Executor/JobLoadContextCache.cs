@@ -83,11 +83,8 @@ internal sealed class JobLoadContextCache : IDisposable
 
                 foreach (var path in paths.Paths)
                 {
-                    ref var listRef = ref CollectionsMarshal.GetValueRefOrNullRef(_deploymentUnitSets, path);
-                    if (Unsafe.IsNullRef(ref listRef))
-                    {
-                        listRef = new List<DeploymentUnitPaths>();
-                    }
+                    ref var listRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_deploymentUnitSets, path, out _);
+                    listRef ??= new List<DeploymentUnitPaths>();
 
                     listRef.Add(paths);
                 }
