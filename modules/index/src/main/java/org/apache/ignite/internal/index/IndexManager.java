@@ -123,7 +123,7 @@ public class IndexManager implements IgniteComponent {
         this.ioExecutor = ioExecutor;
         this.lowWatermark = lowWatermark;
 
-        handleMetastoreEventVv = new IncrementalVersionedValue<>(registry);
+        handleMetastoreEventVv = new IncrementalVersionedValue<>("IndexManager#handleMetastoreEvent", registry);
     }
 
     @Override
