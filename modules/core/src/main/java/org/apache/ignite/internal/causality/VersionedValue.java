@@ -29,6 +29,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface VersionedValue<T> {
     /**
+     * Returns the name of this versioned value.
+     */
+    String name();
+
+    /**
      * Creates a future for this value and causality token, or returns it if it already exists.
      *
      * <p>The returned future is associated with an update having the given causality token and completes when this update is finished.
