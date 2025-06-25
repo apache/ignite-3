@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.PropertyName;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
@@ -35,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(PartitionReplicationMessageGroup.Commands.UPDATE_ALL_V1)
 public interface UpdateAllCommand extends PartitionCommand {
-    // TODO: IGNITE-25733 Не забыть исправить
+    @PropertyName("tablePartitionId")
     ReplicationGroupIdMessage commitPartitionId();
 
     Map<UUID, TimedBinaryRowMessage> messageRowsToUpdate();
