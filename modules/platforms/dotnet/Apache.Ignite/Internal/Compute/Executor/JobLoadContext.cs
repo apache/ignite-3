@@ -68,12 +68,16 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
         catch (Exception e)
         {
-            if (type.GetConstructor(BindingFlags.Public, []) == null)
-            {
-                throw new InvalidOperationException($"No public parameterless constructor for type '{wrappedTypeName}'", e);
-            }
-
+            CheckPublicCtor(type, e);
             throw;
+        }
+    }
+
+    private static void CheckPublicCtor(Type type, Exception e)
+    {
+        if (type.GetConstructor(BindingFlags.Public, []) == null)
+        {
+            throw new InvalidOperationException($"No public parameterless constructor for type '{type.AssemblyQualifiedName}'", e);
         }
     }
 
@@ -83,10 +87,18 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         var type = LoadType(typeName, ctx);
         var closedInterfaceType = FindInterface(type, openInterfaceType);
 
-        var genericArgs = closedInterfaceType.GenericTypeArguments;
-        var closedWrapperType = openWrapperType.MakeGenericType([type, .. genericArgs]);
+        try
+        {
+            var genericArgs = closedInterfaceType.GenericTypeArguments;
+            var closedWrapperType = openWrapperType.MakeGenericType([type, .. genericArgs]);
 
-        return (type, closedWrapperType);
+            return (type, closedWrapperType);
+        }
+        catch (Exception e)
+        {
+            CheckPublicCtor(type, e);
+            throw;
+        }
     }
 
     private static Type LoadType(string typeName, AssemblyLoadContext ctx)
