@@ -36,6 +36,7 @@ import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateSto
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
@@ -130,7 +131,12 @@ public class MockNode {
                 vaultManager,
                 new SystemDisasterRecoveryStorage(vaultManager),
                 clusterService,
-                new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
+                new ClusterInitializer(
+                        clusterService,
+                        hocon -> hocon,
+                        new TestConfigurationValidator(),
+                        new SystemPropertiesNodeProperties()
+                ),
                 raftManager,
                 clusterStateStorage,
                 new LogicalTopologyImpl(clusterStateStorage, failureManager),

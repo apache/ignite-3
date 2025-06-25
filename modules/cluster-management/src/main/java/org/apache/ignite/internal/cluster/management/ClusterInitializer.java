@@ -37,8 +37,10 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.configuration.validation.ConfigurationDuplicatesValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -66,15 +68,19 @@ public class ClusterInitializer {
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
+    private final NodeProperties nodeProperties;
+
     /** Constructor. */
     public ClusterInitializer(
             ClusterService clusterService,
             ConfigurationDynamicDefaultsPatcher configurationDynamicDefaultsPatcher,
-            ConfigurationValidator clusterConfigurationValidator
+            ConfigurationValidator clusterConfigurationValidator,
+            NodeProperties nodeProperties
     ) {
         this.clusterService = clusterService;
         this.configurationDynamicDefaultsPatcher = configurationDynamicDefaultsPatcher;
         this.clusterConfigurationValidator = clusterConfigurationValidator;
+        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -185,6 +191,10 @@ public class ClusterInitializer {
 
             validateConfiguration(patchedClusterConfiguration, clusterConfiguration);
 
+            CmgPrepareInitMessage prepareInitMessage = msgFactory.cmgPrepareInitMessage()
+                    .initInitiatorColocationEnabled(nodeProperties.colocationEnabled())
+                    .build();
+
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
                     .metaStorageNodes(msNodeNameSet)
                     .cmgNodes(cmgNodeNameSet)
@@ -193,34 +203,36 @@ public class ClusterInitializer {
                     .initialClusterConfiguration(patchedClusterConfiguration)
                     .build();
 
-            return invokeMessage(cmgNodes, initMessage)
-                    .handle((v, e) -> {
-                        if (e == null) {
-                            LOG.info(
-                                    "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
-                                    initMessage.clusterName(),
-                                    initMessage.cmgNodes(),
-                                    initMessage.metaStorageNodes()
-                            );
+            // Within prepareInitMessage we validate that all CMG nodes have enabledColocation mode.
+            return invokeMessage(cmgNodes, prepareInitMessage)
+                    .thenCompose(ignored -> invokeMessage(cmgNodes, initMessage)
+                            .handle((v, e) -> {
+                                if (e == null) {
+                                    LOG.info(
+                                            "Cluster initialized [clusterName={}, cmgNodes={}, msNodes={}]",
+                                            initMessage.clusterName(),
+                                            initMessage.cmgNodes(),
+                                            initMessage.metaStorageNodes()
+                                    );
 
-                            return CompletableFutures.<Void>nullCompletedFuture();
-                        } else {
-                            if (e instanceof CompletionException) {
-                                e = e.getCause();
-                            }
+                                    return CompletableFutures.<Void>nullCompletedFuture();
+                                } else {
+                                    if (e instanceof CompletionException) {
+                                        e = e.getCause();
+                                    }
 
-                            LOG.info("Initialization failed [reason={}]", e, e.getMessage());
+                                    LOG.info("Initialization failed [reason={}]", e, e.getMessage());
 
-                            if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
-                                return CompletableFuture.<Void>failedFuture(e);
-                            } else {
-                                LOG.debug("Critical error encountered, rolling back the init procedure");
+                                    if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
+                                        return CompletableFuture.<Void>failedFuture(e);
+                                    } else {
+                                        LOG.debug("Critical error encountered, rolling back the init procedure");
 
-                                return cancelInit(cmgNodes, e);
-                            }
-                        }
-                    })
-                    .thenCompose(Function.identity());
+                                        return cancelInit(cmgNodes, e);
+                                    }
+                                }
+                            })
+                            .thenCompose(Function.identity()));
         } catch (Exception e) {
             return failedFuture(e);
         }
