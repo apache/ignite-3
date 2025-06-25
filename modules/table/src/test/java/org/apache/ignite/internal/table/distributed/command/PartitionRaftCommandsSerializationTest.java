@@ -227,7 +227,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     public void testTxCleanupCommand() {
         HybridClock clock = new HybridClockImpl();
 
-        WriteIntentSwitchCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+        WriteIntentSwitchCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .tableIds(Set.of(1))
@@ -292,7 +292,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         } else if (cmd instanceof WriteIntentSwitchCommand) {
             WriteIntentSwitchCommand writeIntentSwitchCommand = (WriteIntentSwitchCommand) cmd;
 
-            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
+            return (T) PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommandV2()
                     .txId(writeIntentSwitchCommand.txId())
                     .commit(writeIntentSwitchCommand.commit())
                     .commitTimestamp(writeIntentSwitchCommand.commitTimestamp())
