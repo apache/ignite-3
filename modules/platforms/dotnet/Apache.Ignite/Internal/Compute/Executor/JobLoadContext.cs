@@ -31,7 +31,7 @@ using Table.StreamerReceiverExecutor;
 /// <param name="AssemblyLoadContext">Assembly load context.</param>
 internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext) : IDisposable
 {
-    private readonly ConcurrentDictionary<(string TypeName, Type OpenWrapperType), (Type Type, Type ClosedWrapperType)> _typeCache = new();
+    private readonly ConcurrentDictionary<(string TypeName, Type OpenInterfaceType), (Type Type, Type ClosedWrapperType)> _typeCache = new();
 
     /// <summary>
     /// Gets or creates a job delegate for the specified type name.
@@ -56,7 +56,11 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
 
     private T CreateWrapper<T>(string wrappedTypeName, Type openInterfaceType, Type openWrapperType)
     {
-        var (type, closedWrapperType) = GetClosedWrapperType(wrappedTypeName, openInterfaceType, openWrapperType);
+        var (type, closedWrapperType) = _typeCache.GetOrAdd(
+            key: (wrappedTypeName, openInterfaceType),
+            valueFactory: static (key, arg) =>
+                GetClosedWrapperType(key.TypeName, key.OpenInterfaceType, arg.openWrapperType, arg.AssemblyLoadContext),
+            factoryArgument: (openWrapperType, AssemblyLoadContext));
 
         try
         {
@@ -73,9 +77,10 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
     }
 
-    private (Type Type, Type ClosedWrapperType) GetClosedWrapperType(string typeName, Type openInterfaceType, Type openWrapperType)
+    private static (Type Type, Type ClosedWrapperType) GetClosedWrapperType(
+        string typeName, Type openInterfaceType, Type openWrapperType, AssemblyLoadContext ctx)
     {
-        var type = LoadType(typeName, AssemblyLoadContext);
+        var type = LoadType(typeName, ctx);
         var closedInterfaceType = FindInterface(type, openInterfaceType);
 
         var genericArgs = closedInterfaceType.GenericTypeArguments;
