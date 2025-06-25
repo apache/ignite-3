@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobDescriptor;
@@ -69,13 +70,11 @@ import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 
 /**
  * Client compatibility tests. Interface to allow "multiple inheritance" of test methods.
  */
 @SuppressWarnings({"resource", "DataFlowIssue"})
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public interface ClientCompatibilityTests {
     String TABLE_NAME_TEST = "TEST";
     String TABLE_NAME_ALL_COLUMNS = "ALL_COLUMNS";
@@ -571,21 +570,21 @@ public interface ClientCompatibilityTests {
     /**
      * Creates default tables for testing.
      */
-    default void createDefaultTables() {
-        if (!ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
-            sql("DELETE FROM " + TABLE_NAME_TEST);
+    default void createDefaultTables(Ignite client) {
+        if (!ddl(client, "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
+            sql(client, "DELETE FROM " + TABLE_NAME_TEST);
         }
 
-        sql("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
+        sql(client, "INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
 
-        if (!ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, "
+        if (!ddl(client, "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, "
                 + "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL(10,1), "
                 + "string VARCHAR, uuid UUID, dt DATE, tm TIME(9), ts TIMESTAMP(9), "
                 + "tstz TIMESTAMP WITH LOCAL TIME ZONE, bool BOOLEAN, bytes VARBINARY)")) {
-            sql("DELETE FROM " + TABLE_NAME_ALL_COLUMNS);
+            sql(client, "DELETE FROM " + TABLE_NAME_ALL_COLUMNS);
         }
 
-        sql("INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, "
+        sql(client, "INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, "
                 + "string, uuid, dt, tm, ts, tstz, bool, bytes) VALUES "
                 + "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, "
                 + "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', "
@@ -593,7 +592,11 @@ public interface ClientCompatibilityTests {
     }
 
     private @Nullable List<SqlRow> sql(String sql, Object... arguments) {
-        try (var cursor = client().sql().execute(null, sql, arguments)) {
+        return sql(client(), sql, arguments);
+    }
+
+    private static @Nullable List<SqlRow> sql(Ignite client, String sql, Object... arguments) {
+        try (var cursor = client.sql().execute(null, sql, arguments)) {
             if (cursor.hasRowSet()) {
                 List<SqlRow> rows = new ArrayList<>();
                 cursor.forEachRemaining(rows::add);
@@ -605,8 +608,8 @@ public interface ClientCompatibilityTests {
     }
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    private boolean ddl(String sql) {
-        try (var cursor = client().sql().execute(null, sql)) {
+    private static boolean ddl(Ignite client, String sql) {
+        try (var cursor = client.sql().execute(null, sql)) {
             return cursor.wasApplied();
         }
     }

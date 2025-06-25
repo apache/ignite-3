@@ -129,7 +129,7 @@ class CMakeBuild(build_ext):
 
 def run_setup():
     setuptools.setup(
-        name=PACKAGE_NAME.replace('_', '-'),
+        name=PACKAGE_NAME,
         version=version,
         python_requires='>=3.8',
         author='The Apache Software Foundation',
@@ -158,7 +158,6 @@ def run_setup():
             'Intended Audience :: Developers',
             'Topic :: Database :: Front-Ends',
             'Topic :: Software Development :: Libraries :: Python Modules',
-            'License :: Free for non-commercial use',
             'Operating System :: MacOS',
             'Operating System :: Microsoft :: Windows',
             'Operating System :: POSIX :: Linux',

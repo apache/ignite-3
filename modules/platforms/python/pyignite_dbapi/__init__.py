@@ -555,7 +555,6 @@ class Connection:
     NotSupportedError = NotSupportedError
 
     def __init__(self):
-        self._autocommit = True
         self._py_connection = None
         self._cursors = {}
         self._cursor_cnt = 0
@@ -672,7 +671,8 @@ def connect(address: [str], **kwargs) -> Connection:
     Parameters
     ----------
     address: [str]
-        A list of addresses of cluster nodes for client to choose from. Used for initial connection and fail-over.
+        A list of cluster nodes addresses for the client to choose from.
+        Used for initial connection and fail-over.
 
     Keyword Arguments
     -----------------
@@ -684,13 +684,22 @@ def connect(address: [str], **kwargs) -> Connection:
         A schema name to be used by default. Default value: 'PUBLIC'.
     timezone: str, optional
         A timezone to use as a client's timezone. Required to correctly work with date/time values, received from
-        client. By default, a server's timezone is used.
+        the client. By default, a server's timezone is used.
     page_size: int, optional
         Maximum number of rows that can be received or sent in a single request. Default value: 1024.
     timeout: int, optional
         A timeout for network operations, in seconds. Default value: 30.
     autocommit: bool, optional
         Connection autocommit mode. Default value: True (enabled).
+    use_ssl: bool, optional
+        Set to True if you like to use SSL for your connection. Make sure it's configured on the server side as well.
+    ssl_keyfile: str, optional
+        A path to SSL key file to identify the local (client) party.
+    ssl_certfile: str, optional
+        A path to ssl certificate file to identify the local (client) party.
+    ssl_ca_certfile: str, optional
+        A path to a trusted certificate or a certificate chain.
+        Required to check the validity of the remote (server-side) certificate.
     """
     return _pyignite_dbapi_extension.connect(address=address, **kwargs)
 

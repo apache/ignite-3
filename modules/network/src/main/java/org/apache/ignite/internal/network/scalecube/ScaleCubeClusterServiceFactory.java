@@ -186,6 +186,7 @@ public class ScaleCubeClusterServiceFactory {
                 );
 
                 ClusterConfig clusterConfig = clusterConfig(configView.membership());
+
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(
                         configView.nodeFinder(),
                         nodeName(),

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
@@ -29,7 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -129,7 +129,7 @@ public class MetricManagerImpl implements MetricManager {
     }
 
     @Override public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        for (MetricExporter metricExporter : enabledMetricExporters.values()) {
+        for (MetricExporter<?> metricExporter : enabledMetricExporters.values()) {
             metricExporter.stop();
         }
 
@@ -199,10 +199,13 @@ public class MetricManagerImpl implements MetricManager {
         return registry.metricSources();
     }
 
-    private <T extends ExporterView> void checkAndStartExporter(
-            String exporterName,
-            T exporterConfiguration) {
-        MetricExporter<T> exporter = availableExporters.get(exporterName);
+    @Override
+    public Collection<MetricExporter> enabledExporters() {
+        return enabledMetricExporters.values();
+    }
+
+    private void checkAndStartExporter(String exporterName, ExporterView exporterConfiguration) {
+        MetricExporter exporter = availableExporters.get(exporterName);
 
         if (exporter != null) {
             enabledMetricExporters.computeIfAbsent(exporter.name(), name -> {
@@ -231,7 +234,7 @@ public class MetricManagerImpl implements MetricManager {
                 .load(MetricExporter.class, clsLdr)
                 .stream()
                 .map(Provider::get)
-                .collect(Collectors.toMap(MetricExporter::name, Function.identity()));
+                .collect(toUnmodifiableMap(MetricExporter::name, Function.identity()));
     }
 
     private class ExporterConfigurationListener implements ConfigurationNamedListListener<ExporterView> {

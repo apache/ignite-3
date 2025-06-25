@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metrics;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -102,6 +103,11 @@ public class TestMetricManager implements MetricManager {
     @Override
     public Collection<MetricSource> metricSources() {
         return registry.metricSources();
+    }
+
+    @Override
+    public Collection<MetricExporter> enabledExporters() {
+        return List.of();
     }
 
     /** Returns the metric for the arguments if it exists. */
