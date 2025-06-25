@@ -74,8 +74,6 @@ internal sealed class JobLoadContextCache : IDisposable
         {
             ref (JobLoadContext Ctx, long Ts) valRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_jobLoadContextCache, paths, out var exists);
 
-            valRef.Ts = NowMs();
-
             if (!exists)
             {
                 valRef.Ctx = DeploymentUnitLoader.GetJobLoadContext(paths);
@@ -88,6 +86,8 @@ internal sealed class JobLoadContextCache : IDisposable
                     listRef.Add(paths);
                 }
             }
+
+            valRef.Ts = NowMs();
 
             return valRef.Ctx;
         }
