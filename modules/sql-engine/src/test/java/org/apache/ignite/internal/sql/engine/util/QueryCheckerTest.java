@@ -44,6 +44,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -222,6 +223,57 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testResultSetMatcher() {
+        assertQuery("SELECT * FROM t1")
+                .returnSomething()
+                .check();
+
+        // by default returned rows are ordered
+        assertQuery("SELECT * FROM t1")
+                .results(new ListOfListsMatcher(
+                        Matchers.contains(1, 1),
+                        Matchers.contains(2, 2)
+                ))
+                .check();
+
+        // query returns more than expected
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
+        );
+
+        // query returns less than expected
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1),
+                                Matchers.contains(2, 2),
+                                Matchers.contains(3, 3)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
+        );
+
+        // query returns different types
+        assertThrowsWithCause(
+                () -> assertQuery("SELECT * FROM t1")
+                        .results(new ListOfListsMatcher(
+                                Matchers.contains(1, 1),
+                                Matchers.contains(2, 2L)
+                        ))
+                        .check(),
+                AssertionError.class,
+                "Result set does not match"
+        );
+    }
+
+    @Test
     void testMetadata() {
         assertQueryMeta("SELECT * FROM t1")
                 .columnNames("ID", "VAL")
@@ -355,4 +407,5 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         }
     }
+
 }

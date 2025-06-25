@@ -123,4 +123,9 @@ public interface MetricManager extends IgniteComponent {
      * @return collection of metric sources
      */
     Collection<MetricSource> metricSources();
+
+    /**
+     * Returns a collection of currently enabled metric exporters.
+     */
+    Collection<MetricExporter> enabledExporters();
 }

@@ -59,7 +59,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testGetValueBeforeReady() throws OutdatedTokenException {
-        CompletableVersionedValue<Integer> intVersionedValue = new CompletableVersionedValue<>();
+        CompletableVersionedValue<Integer> intVersionedValue = new CompletableVersionedValue<>("test");
 
         CompletableFuture<Integer> fut = intVersionedValue.get(0);
 
@@ -79,7 +79,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testManualCompleteSeveralTokens() {
-        CompletableVersionedValue<Integer> intVersionedValue = new CompletableVersionedValue<>();
+        CompletableVersionedValue<Integer> intVersionedValue = new CompletableVersionedValue<>("test");
 
         IntStream.range(5, 10).forEach(token -> {
             CompletableFuture<Integer> fut = intVersionedValue.get(token);
@@ -101,7 +101,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testManualExceptionallyCompleteSeveralTokens() {
-        CompletableVersionedValue<Integer> intVersionedValue = new CompletableVersionedValue<>();
+        CompletableVersionedValue<Integer> intVersionedValue = new CompletableVersionedValue<>("test");
 
         IntStream.range(5, 10).forEach(token -> {
             CompletableFuture<Integer> fut = intVersionedValue.get(token);
@@ -126,7 +126,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testMissValueUpdate() throws OutdatedTokenException {
-        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>();
+        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>("test");
 
         longVersionedValue.complete(0, TEST_VALUE);
 
@@ -146,7 +146,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testObsoleteToken() {
-        CompletableVersionedValue<Integer> versionedValue = new CompletableVersionedValue<>(2);
+        CompletableVersionedValue<Integer> versionedValue = new CompletableVersionedValue<>("test", 2);
 
         versionedValue.complete(0, TEST_VALUE);
         versionedValue.complete(1, TEST_VALUE);
@@ -161,7 +161,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testNewTokensNotGetRemoved() {
-        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>(2);
+        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>("test", 2);
 
         longVersionedValue.complete(0, TEST_VALUE);
         longVersionedValue.complete(1, TEST_VALUE);
@@ -181,7 +181,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testAutocompleteFuture() throws OutdatedTokenException {
-        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>();
+        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>("test");
 
         longVersionedValue.complete(0, TEST_VALUE);
 
@@ -201,7 +201,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testWhenComplete() {
-        var vv = new CompletableVersionedValue<Integer>();
+        var vv = new CompletableVersionedValue<Integer>("test");
 
         CompletionListener<Integer> listener = mock(CompletionListener.class);
 
@@ -249,7 +249,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
     public void testDefaultValue() throws Exception {
         int defaultValue = 5;
 
-        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>(() -> defaultValue);
+        CompletableVersionedValue<Integer> longVersionedValue = new CompletableVersionedValue<>("test", () -> defaultValue);
 
         CompletableFuture<Integer> fut1 = longVersionedValue.get(1);
         CompletableFuture<Integer> fut2 = longVersionedValue.get(2);
@@ -270,7 +270,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testLatest() {
-        CompletableVersionedValue<Integer> vv = new CompletableVersionedValue<>();
+        CompletableVersionedValue<Integer> vv = new CompletableVersionedValue<>("test");
 
         assertEquals(-1, vv.latestCausalityToken());
 
@@ -287,7 +287,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
 
     @RepeatedTest(100)
     void testConcurrentGetAndComplete() throws Exception {
-        var versionedValue = new CompletableVersionedValue<Integer>();
+        var versionedValue = new CompletableVersionedValue<Integer>("test");
 
         // Set initial value.
         versionedValue.complete(1, 1);
@@ -304,7 +304,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
 
     @RepeatedTest(100)
     void testConcurrentGetAndCompleteWithHistoryTrimming() {
-        var versionedValue = new CompletableVersionedValue<Integer>(2);
+        var versionedValue = new CompletableVersionedValue<Integer>("test", 2);
 
         // Set initial value (history size 1).
         versionedValue.complete(2, 2);
@@ -333,7 +333,7 @@ public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCompleteMultipleFutures() {
-        var versionedValue = new CompletableVersionedValue<Integer>();
+        var versionedValue = new CompletableVersionedValue<Integer>("test");
 
         // Set initial value.
         versionedValue.complete(1, 1);
