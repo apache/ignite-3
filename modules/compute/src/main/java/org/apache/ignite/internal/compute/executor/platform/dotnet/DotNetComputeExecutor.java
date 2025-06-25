@@ -103,6 +103,7 @@ public class DotNetComputeExecutor {
      * @param deploymentUnitPaths Paths to deployment units to undeploy.
      */
     public void beginUndeployUnits(List<String> deploymentUnitPaths) {
+        // Start the async undeploy process, do not wait for it to complete.
         getPlatformComputeConnectionWithRetryAsync()
                 .thenCompose(conn -> conn.connectionFut()
                         .thenCompose(c -> c.undeployUnitsAsync(deploymentUnitPaths))
