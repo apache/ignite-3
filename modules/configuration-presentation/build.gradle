@@ -36,7 +36,4 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
 }

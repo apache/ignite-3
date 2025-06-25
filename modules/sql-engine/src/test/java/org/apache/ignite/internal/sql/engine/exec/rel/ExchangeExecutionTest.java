@@ -48,6 +48,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -647,7 +648,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
     private static QueryTaskExecutor getOrCreateTaskExecutor(String name) {
         return executors.computeIfAbsent(name, name0 -> {
             var failureProcessor = new FailureManager(new NoOpFailureHandler());
-            var executor = new QueryTaskExecutorImpl(name0, 4, failureProcessor);
+            var metricManager = new NoOpMetricManager();
+            var executor = new QueryTaskExecutorImpl(name0, 4, failureProcessor, metricManager);
 
             executor.start();
 
