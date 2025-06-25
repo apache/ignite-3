@@ -30,6 +30,8 @@ using System.Threading.Tasks;
 /// </summary>
 internal sealed class JobLoadContextCache : IDisposable
 {
+    private static readonly long TicksPerMs = Stopwatch.Frequency / 1000L;
+
     private readonly int _ttlMs;
 
     private readonly Dictionary<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)> _jobLoadContextCache = new();
@@ -159,7 +161,7 @@ internal sealed class JobLoadContextCache : IDisposable
         }
     }
 
-    private static long NowMs() => Stopwatch.GetTimestamp() / TimeSpan.TicksPerMillisecond;
+    private static long NowMs() => Stopwatch.GetTimestamp() / TicksPerMs;
 
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
     private async Task StartCacheCleanupAsync(int cacheCleanupIntervalMs)
