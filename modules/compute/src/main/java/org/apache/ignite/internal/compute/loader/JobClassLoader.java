@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.compute.loader;
 
 import java.net.URL;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -69,17 +71,18 @@ public class JobClassLoader implements AutoCloseable {
             return impl;
         }
 
-        // TODO: PrivilegedAction?
-        URL[] classpath = units.stream()
-                .map(DisposableDeploymentUnit::path)
-                .flatMap(JobClasspath::collectClasspath)
-                .toArray(URL[]::new);
+        impl = AccessController.doPrivileged((PrivilegedAction<JobClassLoaderImpl>) () -> {
+            URL[] classpath = units.stream()
+                    .map(DisposableDeploymentUnit::path)
+                    .flatMap(JobClasspath::collectClasspath)
+                    .toArray(URL[]::new);
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
-        }
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
+            }
 
-        impl = new JobClassLoaderImpl(units, classpath, parent);
+            return new JobClassLoaderImpl(units, classpath, parent);
+        });
 
         return impl;
     }
