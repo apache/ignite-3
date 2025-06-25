@@ -23,6 +23,9 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 
 /**
  * State machine command to cleanup on a transaction commit.
+ *
+ * <p>Unline {@link WriteIntentSwitchCommand}, this implementation can be used in both collocated and non-collocated zones, and should be
+ * considered its replacement. Old command is kept for backward compatibility and should not be instantiated outside of tests.
  */
 @Transferable(PartitionReplicationMessageGroup.Commands.WRITE_INTENT_SWITCH_V2)
 public interface WriteIntentSwitchCommandV2 extends WriteIntentSwitchCommand {

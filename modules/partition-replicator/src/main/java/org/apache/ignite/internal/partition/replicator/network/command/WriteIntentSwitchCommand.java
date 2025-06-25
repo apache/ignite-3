@@ -24,6 +24,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command to cleanup on a transaction commit.
+ *
+ * <p>This command is replaced with {@link WriteIntentSwitchCommandV2} and only exists in the source code for backward compatibility.
  */
 @Transferable(PartitionReplicationMessageGroup.Commands.WRITE_INTENT_SWITCH_V1)
 public interface WriteIntentSwitchCommand extends PartitionCommand {
