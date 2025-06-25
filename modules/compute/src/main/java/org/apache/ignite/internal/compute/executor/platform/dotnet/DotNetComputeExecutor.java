@@ -98,13 +98,12 @@ public class DotNetComputeExecutor {
     }
 
     /**
-     * Undeploys the specified deployment units asynchronously.
+     * Starts undeploy process for the specified deployment units.
      *
      * @param deploymentUnitPaths Paths to deployment units to undeploy.
-     * @return CompletableFuture that completes when the undeployment is done.
      */
-    public CompletableFuture<Boolean> undeployUnitsAsync(List<String> deploymentUnitPaths) {
-        return getPlatformComputeConnectionWithRetryAsync()
+    public void beginUndeployUnits(List<String> deploymentUnitPaths) {
+        getPlatformComputeConnectionWithRetryAsync()
                 .thenCompose(conn -> conn.connectionFut()
                         .thenCompose(c -> c.undeployUnitsAsync(deploymentUnitPaths))
                         .exceptionally(e -> {

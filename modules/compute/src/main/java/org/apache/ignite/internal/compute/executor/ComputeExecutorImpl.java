@@ -272,7 +272,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         if (dotNetExec != null) {
             try {
                 // Do not wait for the future to complete.
-                dotNetExec.undeployUnitsAsync(List.of(unitPath.toRealPath().toString()));
+                dotNetExec.beginUndeployUnits(List.of(unitPath.toRealPath().toString()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
