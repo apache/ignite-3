@@ -27,7 +27,7 @@ using System.Text;
 /// - A set of deployment unit paths is considered equal if it contains the same paths in the same order.
 /// - Unit order affects assembly resolution order.
 /// - A given deployment unit (name+ver) is always located at the same path (after it is uploaded to the cluster).
-///   Example: ignite-3/target/work/PlatformTestNodeRunner/o.a.i.internal.runner.app.PlatformTestNodeRunner/deployment/UNIT_NAME/UNIT_VER
+///   Example: ignite-3/target/work/PlatformTestNodeRunner/o.a.i.internal.runner.app.PlatformTestNodeRunner/deployment/UNIT_NAME/UNIT_VER.
 /// </summary>
 /// <param name="Paths">The list of deployment unit paths.</param>
 internal readonly record struct DeploymentUnitPaths(IReadOnlyList<string> Paths)

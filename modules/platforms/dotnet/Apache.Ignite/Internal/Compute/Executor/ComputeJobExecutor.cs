@@ -59,7 +59,7 @@ internal static class ComputeJobExecutor
             long jobId = r.ReadInt64();
             string jobClassName = r.ReadString();
             List<string> deploymentUnitPaths = ReadDeploymentUnitPaths(ref r);
-            var _ = r.ReadBoolean(); // Retain deployment units.
+            _ = r.ReadBoolean(); // Retain deployment units.
 
             request.Position += r.Consumed;
 
