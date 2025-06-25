@@ -189,14 +189,21 @@ internal sealed class JobLoadContextCache : IDisposable
 
     private void CleanUpExpiredJobContexts()
     {
-        List<KeyValuePair<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)>> toRemove = new();
+        List<KeyValuePair<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)>>? toRemove = null;
+        var now = Now();
 
         foreach (var cachedJobCtx in _jobLoadContextCache)
         {
-            if (cachedJobCtx.Value.Ts + _ttlMs < Now())
+            if (cachedJobCtx.Value.Ts + _ttlMs < now)
             {
+                toRemove ??= new();
                 toRemove.Add(cachedJobCtx);
             }
+        }
+
+        if (toRemove is null)
+        {
+            return;
         }
 
         foreach (var cachedJobCtx in toRemove)
