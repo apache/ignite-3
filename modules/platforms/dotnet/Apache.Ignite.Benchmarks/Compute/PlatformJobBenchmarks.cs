@@ -44,7 +44,7 @@ using Tests.TestHelpers;
 /// </summary>
 public class PlatformJobBenchmarks : ServerBenchmarkBase
 {
-    private static readonly DeploymentUnit Unit = new(nameof(PlatformJobBenchmarks), "1.0.0");
+    private DeploymentUnit _unit = null!;
 
     private JobDescriptor<object?, object?> _echoJobJava = null!;
 
@@ -62,15 +62,15 @@ public class PlatformJobBenchmarks : ServerBenchmarkBase
         var asmName = nameof(PlatformJobBenchmarks);
         var asmDll = JobGenerator.EmitEchoJob(_tempDir, asmName);
 
-        await ManagementApi.UnitDeploy(Unit.Name, Unit.Version, [asmDll]);
+        _unit = await ManagementApi.UnitDeploy(nameof(PlatformJobBenchmarks), ManagementApi.GetRandomUnitVersion(), [asmDll]);
 
         _echoJobDotNet = new JobDescriptor<object?, object?>(
             JobClassName: $"TestNamespace.EchoJob, {asmName}",
-            DeploymentUnits: [Unit],
+            DeploymentUnits: [_unit],
             Options: new() { ExecutorType = JobExecutorType.DotNetSidecar });
 
         _echoJobJava = new(
-            "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$EchoJob", [Unit]);
+            "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$EchoJob", [_unit]);
 
         var nodes = await Client.GetClusterNodesAsync();
         var firstNode = nodes.Single(x => x.Name.EndsWith("PlatformTestNodeRunner", StringComparison.Ordinal));
@@ -81,7 +81,7 @@ public class PlatformJobBenchmarks : ServerBenchmarkBase
     {
         await base.GlobalCleanup();
 
-        await ManagementApi.UnitUndeploy(Unit);
+        await ManagementApi.UnitUndeploy(_unit);
 
         _tempDir.Dispose();
     }
