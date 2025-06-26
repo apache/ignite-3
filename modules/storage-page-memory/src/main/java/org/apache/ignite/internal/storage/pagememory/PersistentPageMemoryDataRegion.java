@@ -149,10 +149,10 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
      * Starts a persistent data region.
      */
     public void start() {
-        PersistentPageMemoryProfileView dataRegionConfigView = cfg.value();
+        var dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
 
         PersistentPageMemory pageMemory = new PersistentPageMemory(
-                regionConfiguration(cfg.value(), pageSize),
+                regionConfiguration(dataRegionConfigView, pageSize),
                 metricSource,
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView.sizeBytes(), Runtime.getRuntime().availableProcessors()),
