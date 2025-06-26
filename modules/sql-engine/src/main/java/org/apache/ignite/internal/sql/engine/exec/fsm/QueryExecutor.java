@@ -76,7 +76,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -678,7 +677,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         queryMetricSource.failure();
 
         if (t instanceof QueryCancelledException) {
-            if (t.getMessage().contains(QueryCancelledException.TIMEOUT_MSG)) {
+            if (QueryCancelledException.TIMEOUT_MSG.equals(t.getMessage())) {
                 queryMetricSource.timedOut();
             } else {
                 queryMetricSource.cancel();

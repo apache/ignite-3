@@ -414,6 +414,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             closeAll(services.stream().map(s -> s::stop));
         } catch (Exception e) {
             return failedFuture(e);
+        } finally {
+            // Calling unregisterSource after closeAll ensures that
+            // we are collecting metrics for queries interrupted during node termination,
+            metricManager.unregisterSource(SqlQueryMetricSource.NAME);
         }
 
         return nullCompletedFuture();

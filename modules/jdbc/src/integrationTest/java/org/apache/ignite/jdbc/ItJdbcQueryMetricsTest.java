@@ -183,13 +183,13 @@ public class ItJdbcQueryMetricsTest extends AbstractJdbcSelfTest {
                     success1, failed1, cancelled1, timedout1);
 
             return Map.of(
-                    SUCCESSFUL_QUERIES, success1 - success0, 
+                    SUCCESSFUL_QUERIES, success1 - success0,
                     FAILED_QUERIES, failed1 - failed0,
                     CANCELED_QUERIES, cancelled1 - cancelled0,
                     TIMED_OUT_QUERIES, timedout1 - timedout0
             );
         };
-        
+
         Map<String, Long> delta = Map.of(
                 SUCCESSFUL_QUERIES, 1L, FAILED_QUERIES, 2L, CANCELED_QUERIES, 0L, TIMED_OUT_QUERIES, 2L
         );
