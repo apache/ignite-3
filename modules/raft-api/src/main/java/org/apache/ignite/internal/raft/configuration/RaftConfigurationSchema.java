@@ -74,12 +74,14 @@ public class RaftConfigurationSchema {
     /**
      * Amount of Disruptors that will handle the RAFT server.
      */
+    // TODO: IGNITE-25776 move to DisruptorConfigurationSchema
     @Value(hasDefault = true)
     public int stripes = Runtime.getRuntime().availableProcessors();
 
     /**
      * Amount of log manager Disruptors stripes.
      */
+    // TODO: IGNITE-25776 move to DisruptorConfigurationSchema
     @Value(hasDefault = true)
     public int logStripesCount = 4;
 
@@ -95,4 +97,8 @@ public class RaftConfigurationSchema {
      */
     @Value(hasDefault = true)
     public double maxInflightOverflowRate = 1.3;
+
+    /** Configuration for RAFT disruptor's. */
+    @ConfigValue
+    public DisruptorConfigurationSchema disruptor;
 }
