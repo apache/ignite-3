@@ -517,7 +517,7 @@ For example, if initially tables are created without any thoughts about further 
 
 [source,sql]
 ----
--- by default the table is implicitly colocated by PRIMARY KEY
+-- by default, the table is implicitly colocated by PRIMARY KEY
 CREATE TABLE emp(dept_id INTEGER, name VARCHAR, salary INTEGER, PRIMARY KEY(dept_id, name));
 
 -- implicitly colocated by PRIMARY KEY
@@ -549,7 +549,7 @@ Bring plan like:
 We can see two **Exchange** operators, which means that all rows are transferred into a single node and then are joined.
 This execution flow brings a performance cost and slows down query execution.
 
-Let`s try to improve it by adding explicit colocation for the **dept** table by **ID** column:
+Let`s try to improve it by adding explicit colocation for the **dept** table by the **ID** column:
 
 [source,sql]
 ----
