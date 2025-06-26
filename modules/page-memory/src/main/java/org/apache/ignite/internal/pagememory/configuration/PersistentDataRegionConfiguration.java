@@ -60,7 +60,7 @@ public class PersistentDataRegionConfiguration implements DataRegionConfiguratio
         private String name;
         private int pageSize;
         private long size;
-        private ReplacementMode replacementMode;
+        private ReplacementMode replacementMode = ReplacementMode.CLOCK;
 
         public PersistentDataRegionConfigurationBuilder name(String name) {
             this.name = name;
