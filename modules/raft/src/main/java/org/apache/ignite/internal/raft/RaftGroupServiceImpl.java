@@ -907,9 +907,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     private void scheduleRetry(CompletableFuture<? extends NetworkMessage> fut, RetryContext retryContext) {
-        assert busyLock.blockedByCurrentThread()
-                : "Cannot schedule retry when busy lock is not blocked by the current thread [groupId=" + groupId + ']';
-
         executor.schedule(
                 () -> {
                     retryContext.onNewAttempt();
