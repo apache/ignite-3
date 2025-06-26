@@ -42,6 +42,7 @@ Suppose related sql execution flow looks like:
 ----
 CREATE TABLE t (id INT PRIMARY KEY, col1 VARCHAR);
 CREATE INDEX t_col1_idx ON t(col1);
+
 SELECT id FROM t WHERE col1 = '1';
 ----
 
@@ -91,6 +92,7 @@ Indexes with less prediction can be chosen, for example schema and query may loo
 CREATE TABLE t (id INT PRIMARY KEY, col1 VARCHAR, col2 VARCHAR);
 CREATE INDEX t_col1_col2_idx ON T(col1, col2);
 CREATE INDEX t_col1_idx ON t(col1);
+
 SELECT id FROM t WHERE col1 = '1' AND col2 = '2';
 ----
 
@@ -249,6 +251,7 @@ Lets explain we have an index involved two columns one of them is participate in
 ----
 CREATE TABLE emp(dept_id INTEGER PRIMARY KEY, name VARCHAR, salary INTEGER);
 CREATE INDEX emp_salary_name_idx ON emp(salary, name);
+
 SELECT dept_id FROM emp WHERE salary = 1 ORDER BY name;
 ----
 
