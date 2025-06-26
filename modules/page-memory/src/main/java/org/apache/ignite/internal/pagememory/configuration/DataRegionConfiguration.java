@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.pagememory.configuration;
 
-/**
- * Data region based on {@link PageMemory}.
- */
-public interface DataRegion<T extends PageMemory> {
-    /**
-     * Returns page memory.
-     */
-    T pageMemory();
+/** Common interface for volatile and persistent regions. */
+public interface DataRegionConfiguration {
+    /** Page size in bytes. */
+    int pageSize();
+
+    /** Data region's name. */
+    String name();
 }

@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.pagememory.configuration;
 
-/**
- * Data region based on {@link PageMemory}.
- */
-public interface DataRegion<T extends PageMemory> {
-    /**
-     * Returns page memory.
-     */
-    T pageMemory();
+/** Page replacement mode for persistent regions. */
+public enum ReplacementMode {
+    /** Random-LRU page replacement algorithm. */
+    RANDOM_LRU,
+
+    /** Segmented-LRU page replacement algorithm. */
+    SEGMENTED_LRU,
+
+    /** CLOCK page replacement algorithm. */
+    CLOCK
 }
