@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.compute.executor.platform.dotnet;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.IOException;
@@ -100,27 +99,34 @@ public class DotNetComputeExecutor {
     /**
      * Starts undeploy process for the specified deployment units.
      *
-     * @param deploymentUnitPaths Paths to deployment units to undeploy.
+     * @param unitPath Paths to deployment units to undeploy.
      */
-    public void beginUndeployUnits(List<String> deploymentUnitPaths) {
-        // Start the async undeploy process, do not wait for it to complete.
-        getPlatformComputeConnectionWithRetryAsync()
-                .thenCompose(conn -> conn.connectionFut()
-                        .thenCompose(c -> c.undeployUnitsAsync(deploymentUnitPaths))
-                        .exceptionally(e -> {
-                            var cause = unwrapCause(e);
+    public void beginUndeployUnit(Path unitPath) {
+        try {
+            String unitPathStr = unitPath.toRealPath().toString();
 
-                            if (cause instanceof TraceableException) {
-                                TraceableException te = (TraceableException) cause;
+            // Start the async undeploy process, do not wait for it to complete.
+            getPlatformComputeConnectionWithRetryAsync()
+                    .thenCompose(conn -> conn.connectionFut()
+                            .thenCompose(c -> c.undeployUnitsAsync(List.of(unitPathStr)))
+                            .exceptionally(e -> {
+                                var cause = unwrapCause(e);
 
-                                if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
-                                    // Connection was lost, nothing to do.
-                                    return false;
+                                if (cause instanceof TraceableException) {
+                                    TraceableException te = (TraceableException) cause;
+
+                                    if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                                        // Connection was lost (process exited), nothing to do.
+                                        return true;
+                                    }
                                 }
-                            }
 
-                            throw sneakyThrow(e);
-                        }));
+                                LOG.warn(".NET unit undeploy error: " + e.getMessage(), e);
+                                return false;
+                            }));
+        } catch (Throwable t) {
+            LOG.warn(".NET unit undeploy error: " + t.getMessage(), t);
+        }
     }
 
     /**
