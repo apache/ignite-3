@@ -25,8 +25,6 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-metrics')
-    // TODO IGNITE-24764 Remove this dependency.
-    implementation project(':ignite-storage-api')
     implementation project(':ignite-file-io')
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-configuration-root')
