@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.replacement;
+package org.apache.ignite.internal.pagememory.configuration;
 
-import static org.apache.ignite.internal.pagememory.configuration.ReplacementMode.SEGMENTED_LRU;
+/** Page replacement mode for persistent regions. */
+public enum ReplacementMode {
+    /** Random-LRU page replacement algorithm. */
+    RANDOM_LRU,
 
-import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
+    /** Segmented-LRU page replacement algorithm. */
+    SEGMENTED_LRU,
 
-/**
- * Tests for the {@link SegmentedLruPageReplacementPolicy}.
- */
-public class SegmentedLruPageReplacementTest extends AbstractPageReplacementTest {
-    @Override
-    protected ReplacementMode replacementMode() {
-        return SEGMENTED_LRU;
-    }
+    /** CLOCK page replacement algorithm. */
+    CLOCK
 }

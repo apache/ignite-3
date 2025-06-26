@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.replacement;
+package org.apache.ignite.internal.pagememory.configuration;
 
-import static org.apache.ignite.internal.pagememory.configuration.ReplacementMode.SEGMENTED_LRU;
+/** Common interface for volatile and persistent regions. */
+public interface DataRegionConfiguration {
+    /** Page size in bytes. */
+    int pageSize();
 
-import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
-
-/**
- * Tests for the {@link SegmentedLruPageReplacementPolicy}.
- */
-public class SegmentedLruPageReplacementTest extends AbstractPageReplacementTest {
-    @Override
-    protected ReplacementMode replacementMode() {
-        return SEGMENTED_LRU;
-    }
+    /** Data region's name. */
+    String name();
 }
