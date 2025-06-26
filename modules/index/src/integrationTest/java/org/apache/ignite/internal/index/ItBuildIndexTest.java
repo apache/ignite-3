@@ -57,7 +57,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -282,7 +281,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                 assertNotNull(command);
 
                 if (command instanceof BuildIndexCommand) {
-                    sendBuildIndexCommandFuture.complete(((BuildIndexCommandV2) command).indexId());
+                    sendBuildIndexCommandFuture.complete(((BuildIndexCommand) command).indexId());
 
                     return dropBuildIndexCommand;
                 }
