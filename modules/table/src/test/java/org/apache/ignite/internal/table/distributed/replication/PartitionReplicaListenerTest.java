@@ -143,7 +143,6 @@ import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
@@ -3280,13 +3279,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ValueSource(booleans = {false, true})
     void testBuildIndexReplicaRequest(boolean failCmd) {
         var continueNotBuildIndexCmdFuture = new CompletableFuture<Void>();
-        var buildIndexCommandFuture = new CompletableFuture<BuildIndexCommandV2>();
+        var buildIndexCommandFuture = new CompletableFuture<BuildIndexCommand>();
 
         when(mockRaftClient.run(any())).thenAnswer(invocation -> {
             Command cmd = invocation.getArgument(0);
 
             if (cmd instanceof BuildIndexCommand) {
-                buildIndexCommandFuture.complete((BuildIndexCommandV2) cmd);
+                buildIndexCommandFuture.complete((BuildIndexCommand) cmd);
 
                 return raftClientFutureClosure.apply(cmd);
             }
