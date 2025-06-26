@@ -93,7 +93,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -220,7 +220,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.localTopologyMetricsSource = new LocalTopologyMetricsSource(clusterService.topologyService());
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
+                IgniteThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
         );
 
         cmgMessageHandler = createMessageHandler();
