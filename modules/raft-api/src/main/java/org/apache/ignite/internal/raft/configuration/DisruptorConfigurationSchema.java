@@ -29,7 +29,7 @@ public class DisruptorConfigurationSchema {
     static int DEFAULT_STRIPES_COUNT = Runtime.getRuntime().availableProcessors();
 
     /** Default value for {@link #logManagerStripes}. */
-    static int DEFAULT_LOG_MANAGER_STRIPES_COUNT = Runtime.getRuntime().availableProcessors();
+    static int DEFAULT_LOG_MANAGER_STRIPES_COUNT = 4;
 
     /** Size of queue in entries for disruptor's. */
     @PowerOfTwo
