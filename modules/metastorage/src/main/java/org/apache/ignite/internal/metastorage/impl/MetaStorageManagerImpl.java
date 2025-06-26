@@ -1179,13 +1179,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             RaftGroupService raftGroupService = raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, raftClientConfiguration, true);
 
             return action.apply(raftGroupService)
-                    .whenComplete((res, ex) -> {
+                    // This callback should be executed asynchronously due to
+                    // its code might be done under a busyLock of the raftGroupService,
+                    // and so, it results in a deadlock on shutting down the service.
+                    .whenCompleteAsync((res, ex) -> {
                         if (ex != null) {
                             LOG.error("One-off raft group action on {} failed", ex, raftClientConfiguration);
                         }
 
                         raftGroupService.shutdown();
-                    });
+                    }, ioExecutor);
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
