@@ -54,7 +54,7 @@ public class RaftConfigurationModuleTest extends BaseIgniteAbstractTest {
     void testMigrateDeprecatedConfigurationsForDisruptorConfiguration() {
         SuperRootChange superRootChange = mock(SuperRootChange.class);
 
-        RaftExtensionView view = createRaftExtensionView(10, 11);
+        RaftExtensionView view = createRaftExtensionView(DEFAULT_STRIPES_COUNT + 1, DEFAULT_LOG_MANAGER_STRIPES_COUNT + 1);
         RaftExtensionChange change = createRaftExtensionChange();
 
         add(superRootChange, RaftExtensionConfiguration.KEY, view, change);
@@ -62,8 +62,8 @@ public class RaftConfigurationModuleTest extends BaseIgniteAbstractTest {
         configModule.migrateDeprecatedConfigurations(superRootChange);
 
         DisruptorChange disruptorChange = change.changeRaft().changeDisruptor();
-        verify(disruptorChange).changeStripes(10);
-        verify(disruptorChange).changeLogManagerStripes(11);
+        verify(disruptorChange).changeStripes(DEFAULT_STRIPES_COUNT + 1);
+        verify(disruptorChange).changeLogManagerStripes(DEFAULT_LOG_MANAGER_STRIPES_COUNT + 1);
     }
 
     private static <V, C extends V> void add(SuperRootChange superRootChange, RootKey<?, V, C> rootKey, V view, C change) {
