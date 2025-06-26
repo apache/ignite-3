@@ -29,9 +29,10 @@ public class ConfigurationTreeComparator {
      * Validates the current configuration tree is compatible with the snapshot.
      */
     public static void ensureCompatible(List<ConfigNode> snapshot, List<ConfigNode> current) {
-        // TODO: add more sophisticated comparison logic here
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25575
         String currentDump = dumpTree(current);
         String snapshotDump = dumpTree(snapshot);
+
         assertEquals(currentDump, snapshotDump, "Configuration metadata is incompatible");
     }
 
