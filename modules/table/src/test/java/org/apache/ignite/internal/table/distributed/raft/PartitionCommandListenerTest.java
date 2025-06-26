@@ -84,7 +84,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
@@ -769,7 +769,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         inOrder.verify(partitionDataStorage, never()).lastApplied(5, 1);
     }
 
-    private BuildIndexCommandV2 createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {
+    private BuildIndexCommand createBuildIndexCommand(int indexId, List<UUID> rowUuids, boolean finish) {
         return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommandV2()
                 .indexId(indexId)
                 .tableId(TABLE_ID)

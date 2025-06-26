@@ -142,6 +142,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
@@ -3284,7 +3285,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         when(mockRaftClient.run(any())).thenAnswer(invocation -> {
             Command cmd = invocation.getArgument(0);
 
-            if (cmd instanceof BuildIndexCommandV2) {
+            if (cmd instanceof BuildIndexCommand) {
                 buildIndexCommandFuture.complete((BuildIndexCommandV2) cmd);
 
                 return raftClientFutureClosure.apply(cmd);
@@ -3341,7 +3342,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         assertThat(buildIndexCommandFuture, willCompleteSuccessfully());
 
-        BuildIndexCommandV2 buildIndexCommand = buildIndexCommandFuture.join();
+        BuildIndexCommand buildIndexCommand = buildIndexCommandFuture.join();
         assertThat(buildIndexCommand.indexId(), equalTo(indexId));
         assertThat(buildIndexCommand.requiredCatalogVersion(), equalTo(startBuildingIndexCatalogVersion));
     }

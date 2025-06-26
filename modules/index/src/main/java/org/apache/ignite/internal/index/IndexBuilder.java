@@ -33,7 +33,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -92,7 +92,7 @@ class IndexBuilder implements ManuallyCloseable {
      *
      * <p>Notes:</p>
      * <ul>
-     *     <li>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommandV2}
+     *     <li>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommand}
      *     on the replica, batches are sent sequentially.</li>
      *     <li>It is expected that the index building is triggered by the primary replica.</li>
      *     <li>If the index has already been built or after the building is complete, {@link IndexBuildCompletionListener#onBuildCompletion}
@@ -158,7 +158,7 @@ class IndexBuilder implements ManuallyCloseable {
      *
      * <p>Notes:</p>
      * <ul>
-     *     <li>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommandV2}
+     *     <li>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommand}
      *     on the replica, batches are sent sequentially.</li>
      *     <li>It is expected that the index building is triggered by the primary replica.</li>
      *     <li>If the index has already been built, then nothing will happen.</li>
