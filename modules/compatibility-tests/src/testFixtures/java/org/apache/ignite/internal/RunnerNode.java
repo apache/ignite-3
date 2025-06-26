@@ -83,7 +83,8 @@ public class RunnerNode {
             writeConfigurationFileApplyingTestDefaults(
                     configStr,
                     configPath,
-                    defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS
+                    defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS,
+                    true
             );
         } else {
             writeConfigurationFile(configStr, configPath);
