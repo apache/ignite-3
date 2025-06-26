@@ -24,9 +24,12 @@ import org.apache.ignite.internal.partition.replicator.network.command.BuildInde
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateMinimumActiveTxBeginTimeCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
@@ -219,20 +222,41 @@ public interface PartitionReplicationMessageGroup {
         /** Message type for {@link FinishTxCommand}. */
         short FINISH_TX = 40;
 
-        /** Message type for {@link WriteIntentSwitchCommand}. */
-        short WRITE_INTENT_SWITCH = 41;
+        /**
+         * Message type for {@link WriteIntentSwitchCommand} for non-collocated distribution zones.
+         *
+         * @see #WRITE_INTENT_SWITCH_V2
+         */
+        short WRITE_INTENT_SWITCH_V1 = 41;
 
-        /** Message type for {@link UpdateAllCommand}. */
-        short UPDATE_ALL = 42;
+        /**
+         * Message type for {@link UpdateAllCommand}.
+         *
+         * @see #UPDATE_ALL_V2
+         */
+        short UPDATE_ALL_V1 = 42;
 
-        /** Message type for {@link UpdateCommand}. */
-        short UPDATE = 43;
+        /**
+         * Message type for {@link UpdateCommand}.
+         *
+         * @see #UPDATE_V2
+         */
+        short UPDATE_V1 = 43;
 
         /** Message type for {@link BuildIndexCommand}. */
         short BUILD_INDEX = 44;
 
         /** Message type for {@link UpdateMinimumActiveTxBeginTimeCommand}. */
         short UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND = 45;
+
+        /** Message type for {@link WriteIntentSwitchCommandV2}. */
+        short WRITE_INTENT_SWITCH_V2 = 46;
+
+        /** Message type for {@link UpdateCommandV2}. */
+        short UPDATE_V2 = 47;
+
+        /** Message type for {@link UpdateAllCommandV2}. */
+        short UPDATE_ALL_V2 = 48;
     }
 
     /**

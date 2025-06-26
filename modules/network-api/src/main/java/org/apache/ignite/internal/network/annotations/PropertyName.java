@@ -15,23 +15,14 @@
  * limitations under the License.
  */
 
-apply plugin: 'java-test-fixtures'
+package org.apache.ignite.internal.network.annotations;
 
-dependencies {
-    testFixturesImplementation libs.bundles.junit
-    testFixturesImplementation libs.bundles.mockito
-    testFixturesImplementation libs.bundles.hamcrest
-    testFixturesImplementation libs.bundles.log4j
-    testFixturesImplementation libs.jetbrains.annotations
+/**
+ * Annotation for methods of {@link Transferable} interface, that generated serializer/deserializer use a different name instead of the
+ * method name. This can be very useful for support backwards compatibility so that we can change the name of a method and not break
+ * serialization/deserialization.
+ */
+public @interface PropertyName {
+    /** Property name. */
+    String value();
 }
-
-pmdTestFixtures {
-    enabled = false
-}
-
-spotbugsTestFixtures {
-    enabled(false)
-}
-
-components.java.withVariantsFromConfiguration(configurations.testFixturesApiElements) { skip() }
-components.java.withVariantsFromConfiguration(configurations.testFixturesRuntimeElements) { skip() }

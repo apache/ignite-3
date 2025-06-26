@@ -120,6 +120,7 @@ import org.locationtech.jts.geom.Geometry;
  *      Cast VARCHAR to DATE is updated to use our implementation (see IgniteMethod.DATE_STRING_TO_DATE).
  *      Cast TIMESTAMP to TIMESTAMP WITH LOCAL TIMEZONE use our implementation, see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
  *      Cast TIMESTAMP LTZ accepts FORMAT. (See IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
+ *      Cast between TIME, TIMESTAMP amd TIMESTAMP_LTZ takes precision into account (see {@link IgniteMethod#ADJUST_TIMESTAMP_MILLIS}).
  * 6. Translate literals changes:
  *      DECIMAL use own implementation see IgniteSqlFunctions.class, "toBigDecimal"
  *      TIMESTAMP_WITH_LOCAL_TIME_ZONE use own implementation
@@ -371,13 +372,13 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       return translateCastToDate(sourceType, operand, format, defaultExpression);
 
     case TIME:
-      return translateCastToTime(sourceType, operand, format, defaultExpression);
+      return translateCastToTime(sourceType, targetType, operand, format, defaultExpression);
 
     case TIME_WITH_LOCAL_TIME_ZONE:
       return translateCastToTimeWithLocalTimeZone(sourceType, operand, defaultExpression);
 
     case TIMESTAMP:
-      return translateCastToTimestamp(sourceType, operand, format, defaultExpression);
+      return translateCastToTimestamp(sourceType, targetType, operand, format, defaultExpression);
 
     case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
       return translateCastToTimestampWithLocalTimeZone(sourceType, targetType, operand, format, defaultExpression);
@@ -635,16 +636,18 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     }
   }
 
-  private Expression translateCastToTime(RelDataType sourceType,
+  private Expression translateCastToTime(RelDataType sourceType, RelDataType targetType,
       Expression operand, ConstantExpression format, Supplier<Expression> defaultExpression) {
 
     switch (sourceType.getSqlTypeName()) {
     case CHAR:
     case VARCHAR:
       // If format string is supplied, parse formatted string into time
-      return Expressions.isConstantNull(format)
+      Expression result = Expressions.isConstantNull(format)
           ? Expressions.call(IgniteMethod.STRING_TO_TIME.method(), operand)
           : Expressions.call(IgniteMethod.TIME_STRING_TO_TIME.method(), operand, format);
+
+      return adjustTimeMillis(sourceType, targetType, result);
 
     case TIME_WITH_LOCAL_TIME_ZONE:
       return
@@ -656,20 +659,26 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     case TIMESTAMP:
       return
-          Expressions.convert_(
-              Expressions.call(BuiltInMethod.FLOOR_MOD.method,
-                  operand,
-                  Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
-              int.class);
-
+          adjustTimeMillis(sourceType, targetType,
+              Expressions.convert_(
+                  Expressions.call(BuiltInMethod.FLOOR_MOD.method,
+                      operand,
+                      Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
+                  int.class)
+          );
 
     case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
       return
-          RexImpTable.optimize2(
-              operand, Expressions.call(
-                  BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_TIME.method,
-                  operand,
-                  Expressions.call(BuiltInMethod.TIME_ZONE.method, root)));
+          adjustTimeMillis(sourceType, targetType,
+              RexImpTable.optimize2(
+                  operand, Expressions.call(
+                      BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_TIME.method,
+                      operand,
+                      Expressions.call(BuiltInMethod.TIME_ZONE.method, root)))
+          );
+
+    case TIME:
+      return adjustTimeMillis(sourceType, targetType, operand);
 
     default:
       return defaultExpression.get();
@@ -715,16 +724,18 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     }
   }
 
-  private Expression translateCastToTimestamp(RelDataType sourceType,
+  private Expression translateCastToTimestamp(RelDataType sourceType, RelDataType targetType,
       Expression operand, ConstantExpression format, Supplier<Expression> defaultExpression) {
 
     switch (sourceType.getSqlTypeName()) {
     case CHAR:
     case VARCHAR:
       // If format string is supplied, parse formatted string into timestamp
-      return Expressions.isConstantNull(format)
+      Expression result = Expressions.isConstantNull(format)
           ? Expressions.call(IgniteMethod.TO_TIMESTAMP_EXACT.method(), Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand))
           : Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP.method(), operand, format);
+
+      return adjustTimestampMillis(sourceType, targetType, result);
 
     case DATE:
       return
@@ -733,13 +744,15 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     case TIME:
       return
-          Expressions.add(
-              Expressions.multiply(
-                  Expressions.convert_(
-                      Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
-                      long.class),
-                  Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
-              Expressions.convert_(operand, long.class));
+          adjustTimestampMillis(sourceType, targetType,
+              Expressions.add(
+                  Expressions.multiply(
+                      Expressions.convert_(
+                          Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
+                          long.class),
+                      Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
+                  Expressions.convert_(operand, long.class))
+          );
 
     case TIME_WITH_LOCAL_TIME_ZONE:
       return
@@ -753,11 +766,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
       return
-          RexImpTable.optimize2(
-              operand, Expressions.call(
-                  BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_TIMESTAMP.method,
-                  operand,
-                  Expressions.call(BuiltInMethod.TIME_ZONE.method, root)));
+          adjustTimestampMillis(sourceType, targetType,
+              RexImpTable.optimize2(
+                  operand, Expressions.call(
+                      BuiltInMethod.TIMESTAMP_WITH_LOCAL_TIME_ZONE_TO_TIMESTAMP.method,
+                      operand,
+                      Expressions.call(BuiltInMethod.TIME_ZONE.method, root)))
+          );
+
+    case TIMESTAMP:
+      return adjustTimestampMillis(sourceType, targetType, operand);
 
     default:
       return defaultExpression.get();
@@ -775,17 +793,21 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       // so we prohibit the user from explicitly setting a timezone.
       Expression getTimeZone = Expressions.call(BuiltInMethod.TIME_ZONE.method, root);
 
+      Expression result;
+
       if (Expressions.isConstantNull(format)) {
-        return Expressions.call(
+        result = Expressions.call(
                 IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
                 Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method, operand, getTimeZone)
         );
       } else {
-        return Expressions.call(
+        result = Expressions.call(
                 IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
                 Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(), operand, format, getTimeZone)
         );
       }
+
+      return adjustTimestampMillis(sourceType, targetType, result);
 
     case DATE:
       return
@@ -803,17 +825,20 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     case TIME:
       return
-          Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-              RexImpTable.optimize2(operand,
-                  Expressions.call(BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
-                      Expressions.add(
-                          Expressions.multiply(
-                              Expressions.convert_(
-                                  Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
-                                  long.class),
-                              Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
-                          Expressions.convert_(operand, long.class)))),
-              Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
+            Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                RexImpTable.optimize2(operand,
+                    Expressions.call(
+                        IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
+                        Expressions.add(
+                            Expressions.multiply(
+                                Expressions.convert_(
+                                    Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
+                                    long.class),
+                                Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
+                            Expressions.convert_(operand, long.class)),
+                        constant(targetType.getPrecision())
+                    )),
+                Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
 
     case TIME_WITH_LOCAL_TIME_ZONE:
       return
@@ -839,9 +864,42 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                           Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
               );
 
+    case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+      return adjustTimestampMillis(sourceType, targetType, operand);
+
     default:
       return defaultExpression.get();
     }
+  }
+
+  private static Expression adjustTimestampMillis(RelDataType sourceType, RelDataType targetType, Expression operand) {
+    if (sourceType.getSqlTypeName() == SqlTypeName.VARCHAR
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove filtering by TIME.
+            || sourceType.getSqlTypeName() == SqlTypeName.TIME
+            || sourceType.getPrecision() > targetType.getPrecision()) {
+        return Expressions.call(
+                IgniteMethod.ADJUST_TIMESTAMP_MILLIS.method(),
+                operand,
+                constant(targetType.getPrecision())
+      );
+    }
+
+    return operand;
+  }
+
+  private static Expression adjustTimeMillis(RelDataType sourceType, RelDataType targetType, Expression operand) {
+    if (sourceType.getSqlTypeName() == SqlTypeName.VARCHAR
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove filtering by TIME.
+            || sourceType.getSqlTypeName() == SqlTypeName.TIME
+            || sourceType.getPrecision() > targetType.getPrecision()) {
+          return Expressions.call(
+                  IgniteMethod.ADJUST_TIME_MILLIS.method(),
+                  operand,
+                  constant(targetType.getPrecision())
+        );
+    }
+
+    return operand;
   }
 
   /**

@@ -22,7 +22,7 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
-    annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.micronaut.inject.annotation.processor
 
     implementation project(':ignite-core')
@@ -33,15 +33,13 @@ dependencies {
 
     annotationProcessor libs.auto.service
 
-    testAnnotationProcessor project(":ignite-configuration-annotation-processor")
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
+    testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation libs.awaitility
     testImplementation project(':ignite-core')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
 
-    integrationTestAnnotationProcessor project(":ignite-configuration-annotation-processor")
+    integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.auto.service
     integrationTestImplementation project(':ignite-core')
     integrationTestImplementation testFixtures(project(':ignite-core'))
@@ -50,7 +48,6 @@ dependencies {
     integrationTestImplementation libs.auto.service.annotations
 
     testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-metrics'

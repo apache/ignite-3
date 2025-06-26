@@ -15,23 +15,12 @@
  * limitations under the License.
  */
 
-apply plugin: 'java-test-fixtures'
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-dependencies {
-    testFixturesImplementation libs.bundles.junit
-    testFixturesImplementation libs.bundles.mockito
-    testFixturesImplementation libs.bundles.hamcrest
-    testFixturesImplementation libs.bundles.log4j
-    testFixturesImplementation libs.jetbrains.annotations
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
+
+/** Extension of {@link UpdateCommand} with new fields to support backward compatibility. */
+@Transferable(Commands.UPDATE_V2)
+public interface UpdateCommandV2 extends UpdateCommand, TableAwareCommand {
 }
-
-pmdTestFixtures {
-    enabled = false
-}
-
-spotbugsTestFixtures {
-    enabled(false)
-}
-
-components.java.withVariantsFromConfiguration(configurations.testFixturesApiElements) { skip() }
-components.java.withVariantsFromConfiguration(configurations.testFixturesRuntimeElements) { skip() }

@@ -23,8 +23,7 @@ dependencies {
     implementation project(':ignite-core')
 
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.hamcrest.core
+    testImplementation testFixtures(project(':ignite-core'))
 }
 
 description = 'ignite-file-io'
