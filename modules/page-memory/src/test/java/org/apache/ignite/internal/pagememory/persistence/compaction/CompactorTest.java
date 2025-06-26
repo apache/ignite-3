@@ -42,7 +42,6 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -65,7 +64,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         var compactor = new Compactor(
                 log,
                 "test",
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
                 mock(FailureManager.class)
@@ -99,7 +98,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = new Compactor(
                 log,
                 "test",
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
                 mock(FailureManager.class));
@@ -151,7 +150,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                threadsConfig(1),
+                1,
                 filePageStoreManager,
                 PAGE_SIZE,
                 mock(FailureManager.class)));
@@ -183,7 +182,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
                 mock(FailureManager.class)));
@@ -208,7 +207,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
                 mock(FailureManager.class)));
@@ -227,7 +226,7 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
                 mock(FailureManager.class)));
@@ -244,13 +243,5 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         assertFalse(Thread.currentThread().isInterrupted());
 
         waitDeltaFilesFuture.get(100, MILLISECONDS);
-    }
-
-    private static ConfigurationValue<Integer> threadsConfig(int threads) {
-        ConfigurationValue<Integer> configValue = mock(ConfigurationValue.class);
-
-        when(configValue.value()).thenReturn(threads);
-
-        return configValue;
     }
 }

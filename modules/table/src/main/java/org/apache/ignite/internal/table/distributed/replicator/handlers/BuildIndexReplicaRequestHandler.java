@@ -95,7 +95,7 @@ public class BuildIndexReplicaRequestHandler {
     }
 
     private static BuildIndexCommand toBuildIndexCommand(BuildIndexReplicaRequest request, MetaIndexStatusChange buildingChangeInfo) {
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommand()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.buildIndexCommandV2()
                 .indexId(request.indexId())
                 .tableId(request.tableId())
                 .rowIds(request.rowIds())

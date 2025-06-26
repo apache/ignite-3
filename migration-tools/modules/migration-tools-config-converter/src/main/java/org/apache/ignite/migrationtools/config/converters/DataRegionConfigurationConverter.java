@@ -23,11 +23,11 @@ import org.apache.ignite.configuration.DataRegionConfiguration;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.migrationtools.config.registry.ConfigurationRegistryInterface;
-import org.apache.ignite3.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
-import org.apache.ignite3.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
 import org.apache.ignite3.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite3.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite3.internal.storage.configurations.StorageProfileChange;
+import org.apache.ignite3.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite3.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

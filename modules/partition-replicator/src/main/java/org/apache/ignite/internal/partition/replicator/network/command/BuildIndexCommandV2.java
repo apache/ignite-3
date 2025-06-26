@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-/**
- * Data region based on {@link PageMemory}.
- */
-public interface DataRegion<T extends PageMemory> {
-    /**
-     * Returns page memory.
-     */
-    T pageMemory();
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
+
+/** Extension of {@link BuildIndexCommand} with new fields to support backward compatibility. */
+@Transferable(Commands.BUILD_INDEX_V2)
+public interface BuildIndexCommandV2 extends BuildIndexCommand, TableAwareCommand {
 }

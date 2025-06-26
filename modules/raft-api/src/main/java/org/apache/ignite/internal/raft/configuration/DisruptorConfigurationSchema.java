@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.raft.configuration;
 
-/**
- * Data region based on {@link PageMemory}.
- */
-public interface DataRegion<T extends PageMemory> {
-    /**
-     * Returns page memory.
-     */
-    T pageMemory();
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.PowerOfTwo;
+
+/** Configuration schema for RAFT disruptor's. */
+@Config
+public class DisruptorConfigurationSchema {
+    /** Size of queue in entries for disruptor's. */
+    @PowerOfTwo
+    @Value(hasDefault = true)
+    public int queueSize = 16_384;
 }

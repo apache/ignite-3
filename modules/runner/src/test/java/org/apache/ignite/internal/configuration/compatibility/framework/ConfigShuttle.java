@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.configuration.compatibility.framework;
 
 /**
- * Data region based on {@link PageMemory}.
+ * A visitor to traverse configuration metadata tree.
  */
-public interface DataRegion<T extends PageMemory> {
+@FunctionalInterface
+public interface ConfigShuttle {
     /**
-     * Returns page memory.
+     * Visits a configuration tree node.
+     *
+     * @param node The configuration node to visit.
      */
-    T pageMemory();
+    void visit(ConfigNode node);
 }
