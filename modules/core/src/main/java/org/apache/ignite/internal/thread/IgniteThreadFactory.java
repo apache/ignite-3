@@ -59,8 +59,8 @@ public class IgniteThreadFactory implements ThreadFactory {
     }
 
     @Override
-    public Thread newThread(Runnable r) {
-        Thread t = new IgniteThread(prefix + counter.getAndIncrement(), r, allowedOperations);
+    public IgniteThread newThread(Runnable r) {
+        IgniteThread t = new IgniteThread(prefix + counter.getAndIncrement(), r, allowedOperations);
 
         t.setDaemon(this.daemon);
         t.setUncaughtExceptionHandler(exHnd);
@@ -77,7 +77,7 @@ public class IgniteThreadFactory implements ThreadFactory {
      * @param allowedOperations Operations that are allowed to be executed on threads produced by this factory.
      * @return Thread factory.
      */
-    public static ThreadFactory create(String nodeName, String poolName, IgniteLogger logger, ThreadOperation... allowedOperations) {
+    public static IgniteThreadFactory create(String nodeName, String poolName, IgniteLogger logger, ThreadOperation... allowedOperations) {
         return create(nodeName, poolName, false, logger, allowedOperations);
     }
 
@@ -91,7 +91,7 @@ public class IgniteThreadFactory implements ThreadFactory {
      * @param allowedOperations Operations that are allowed to be executed on threads produced by this factory.
      * @return Thread factory.
      */
-    public static ThreadFactory create(
+    public static IgniteThreadFactory create(
             String nodeName,
             String poolName,
             boolean daemon,
@@ -102,7 +102,7 @@ public class IgniteThreadFactory implements ThreadFactory {
     }
 
     @TestOnly
-    public static ThreadFactory withPrefix(String prefix, IgniteLogger logger, ThreadOperation... allowedOperations) {
+    public static IgniteThreadFactory withPrefix(String prefix, IgniteLogger logger, ThreadOperation... allowedOperations) {
         return new IgniteThreadFactory(prefix, false, logger, allowedOperations);
     }
 }
