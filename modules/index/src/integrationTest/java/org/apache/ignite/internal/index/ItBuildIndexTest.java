@@ -56,7 +56,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -153,7 +153,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * <ul>
      *     <li>Creates a table (replicas = {@link #initialNodes()}, partitions = 1) and populates it;</li>
      *     <li>Creates an index;</li>
-     *     <li>Drop send {@link BuildIndexCommand} from the primary replica.</li>
+     *     <li>Drop send {@link BuildIndexCommandV2} from the primary replica.</li>
      * </ul>
      */
     private IgniteImpl prepareBuildIndexToChangePrimaryReplica() throws Exception {
@@ -263,12 +263,12 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Creates a drop {@link BuildIndexCommand} predicate for the node and also allows you to track when this command will be sent and for
+     * Creates a drop {@link BuildIndexCommandV2} predicate for the node and also allows you to track when this command will be sent and for
      * which index.
      *
-     * @param sendBuildIndexCommandFuture Future that completes when {@link BuildIndexCommand} is sent with the index ID for which
+     * @param sendBuildIndexCommandFuture Future that completes when {@link BuildIndexCommandV2} is sent with the index ID for which
      *         the command was sent.
-     * @param dropBuildIndexCommand {@code True} to drop {@link BuildIndexCommand}.
+     * @param dropBuildIndexCommand {@code True} to drop {@link BuildIndexCommandV2}.
      */
     private static BiPredicate<String, NetworkMessage> waitSendBuildIndexCommand(
             CompletableFuture<Integer> sendBuildIndexCommandFuture,
@@ -280,8 +280,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
                 assertNotNull(command);
 
-                if (command instanceof BuildIndexCommand) {
-                    sendBuildIndexCommandFuture.complete(((BuildIndexCommand) command).indexId());
+                if (command instanceof BuildIndexCommandV2) {
+                    sendBuildIndexCommandFuture.complete(((BuildIndexCommandV2) command).indexId());
 
                     return dropBuildIndexCommand;
                 }

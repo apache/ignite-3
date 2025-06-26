@@ -142,7 +142,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
@@ -3279,13 +3279,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ValueSource(booleans = {false, true})
     void testBuildIndexReplicaRequest(boolean failCmd) {
         var continueNotBuildIndexCmdFuture = new CompletableFuture<Void>();
-        var buildIndexCommandFuture = new CompletableFuture<BuildIndexCommand>();
+        var buildIndexCommandFuture = new CompletableFuture<BuildIndexCommandV2>();
 
         when(mockRaftClient.run(any())).thenAnswer(invocation -> {
             Command cmd = invocation.getArgument(0);
 
-            if (cmd instanceof BuildIndexCommand) {
-                buildIndexCommandFuture.complete((BuildIndexCommand) cmd);
+            if (cmd instanceof BuildIndexCommandV2) {
+                buildIndexCommandFuture.complete((BuildIndexCommandV2) cmd);
 
                 return raftClientFutureClosure.apply(cmd);
             }
@@ -3341,7 +3341,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         assertThat(buildIndexCommandFuture, willCompleteSuccessfully());
 
-        BuildIndexCommand buildIndexCommand = buildIndexCommandFuture.join();
+        BuildIndexCommandV2 buildIndexCommand = buildIndexCommandFuture.join();
         assertThat(buildIndexCommand.indexId(), equalTo(indexId));
         assertThat(buildIndexCommand.requiredCatalogVersion(), equalTo(startBuildingIndexCatalogVersion));
     }
