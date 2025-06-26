@@ -33,7 +33,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -398,7 +398,7 @@ public class DistributionZonesTestUtil {
             Set<Node> actualNodes = nodesGetter.get();
 
             return Objects.equals(actualNodes, nodes);
-        }, SECONDS.toMillis(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds()) + 2000);
+        }, SECONDS.toMillis(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(colocationEnabled())) + 2000);
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
@@ -731,7 +731,7 @@ public class DistributionZonesTestUtil {
 
     /** Returns default distribution zone. */
     public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
-        Catalog catalog = catalogService.catalog(catalogService.activeCatalogVersion(timestamp));
+        Catalog catalog = catalogService.activeCatalog(timestamp);
 
         requireNonNull(catalog);
 
@@ -771,7 +771,7 @@ public class DistributionZonesTestUtil {
      * @return Stable partition assignments key.
      */
     public static ByteArray stablePartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionGroupId);
         } else {
             return RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) partitionGroupId);
@@ -785,7 +785,7 @@ public class DistributionZonesTestUtil {
      * @return Pending partition assignments key.
      */
     public static ByteArray pendingPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) partitionGroupId);
         } else {
             return RebalanceUtil.pendingPartAssignmentsQueueKey((TablePartitionId) partitionGroupId);
@@ -799,7 +799,7 @@ public class DistributionZonesTestUtil {
      * @return Planned partition assignments key.
      */
     public static ByteArray plannedPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) partitionGroupId);
         } else {
             return RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) partitionGroupId);

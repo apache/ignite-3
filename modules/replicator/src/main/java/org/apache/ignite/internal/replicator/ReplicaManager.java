@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -51,7 +52,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -85,6 +85,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -147,7 +148,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /** Executor for the throttled log. */
     // TODO: IGNITE-20063 Maybe get rid of it
-    private final ExecutorService throttledLogExecutor;
+    private final ThreadPoolExecutor throttledLogExecutor;
 
     private final IgniteThrottledLogger throttledLog;
 
@@ -280,7 +281,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         this.replicaStateManager = new ReplicaStateManager(
                 replicaStartStopExecutor,
-                clockService,
                 placementDriver,
                 this,
                 failureProcessor
@@ -296,10 +296,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 1,
                 1,
                 30,
-                TimeUnit.SECONDS,
+                SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "throttled-log-replica-manager", LOG)
         );
+        throttledLogExecutor.allowCoreThreadTimeOut(true);
 
         throttledLog = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
     }
@@ -421,7 +422,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 if (ex0 == null) {
                                     msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
                                 } else {
-                                    LOG.warn("Failed to process delayed response [request={}]", ex0, request);
+                                    if (indicatesUnexpectedProblem(ex0)) {
+                                        LOG.warn("Failed to process delayed response [request={}]", ex0, request);
+                                    }
 
                                     msg0 = prepareReplicaErrorResponse(sendTimestamp, ex0);
                                 }
@@ -445,7 +448,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private static boolean indicatesUnexpectedProblem(Throwable ex) {
         Throwable unwrapped = unwrapCause(ex);
         return !(unwrapped instanceof ExpectedReplicationException)
-                && !hasCause(ex, NodeStoppingException.class, TrackerClosedException.class, ComponentStoppingException.class);
+                && !hasCause(
+                        ex,
+                        NodeStoppingException.class,
+                        TrackerClosedException.class,
+                        ComponentStoppingException.class,
+                        GroupOverloadedException.class
+                );
     }
 
     /**
@@ -631,8 +640,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 replicaStateManager::reserveReplica,
                                 requestsExecutor,
                                 storageIndexTracker,
-                                raftClient,
-                                failureProcessor
+                                raftClient
                         );
 
                         return new ReplicaImpl(
@@ -696,8 +704,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 replicaStateManager::reserveReplica,
                                 requestsExecutor,
                                 storageIndexTracker,
-                                raftClient,
-                                failureProcessor
+                                raftClient
                         );
 
                         return new ZonePartitionReplicaImpl(
@@ -840,6 +847,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
+        LOG.info("Replica is stopping [replicationGroupId={}].", replicaGrpId);
+
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
                 failureProcessor.process(new FailureContext(e, "Error when notifying about BEFORE_REPLICA_STOPPED event."));
@@ -947,8 +956,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         int shutdownTimeoutSeconds = 10;
 
-        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(throttledLogExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, SECONDS);
+        shutdownAndAwaitTermination(throttledLogExecutor, shutdownTimeoutSeconds, SECONDS);
 
         // There we're closing replicas' futures that was created by requests and should be completed with NodeStoppingException.
         try {
@@ -1104,7 +1113,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         NodeStoppingException.class,
                         ComponentStoppingException.class,
                         // Not a problem, there will be a retry.
-                        TimeoutException.class
+                        TimeoutException.class,
+                        GroupOverloadedException.class
                 )) {
                     failureProcessor.process(
                             new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));

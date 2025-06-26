@@ -185,7 +185,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         // Ensure the plan contains full table scan.
         assertInstanceOf(MultiStepPlan.class, plan);
-        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).root()));
+        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).getRel()));
 
         for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
@@ -212,7 +212,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         // Ensure the plan contains full table scan.
         assertInstanceOf(MultiStepPlan.class, plan);
-        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).root()));
+        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).getRel()));
     }
 
     @Test
@@ -247,8 +247,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         // Ensure the plan uses index.
         assertInstanceOf(MultiStepPlan.class, plan);
-        assertInstanceOf(IgniteIndexScan.class, lastNode(((MultiStepPlan) plan).root()));
-        assertEquals("SORTED_IDX", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).root())).indexName());
+        assertInstanceOf(IgniteIndexScan.class, lastNode(((MultiStepPlan) plan).getRel()));
+        assertEquals("SORTED_IDX", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).getRel())).indexName());
     }
 
     /** Check that already stopped message service correctly process incoming message. */

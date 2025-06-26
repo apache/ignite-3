@@ -21,8 +21,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -118,7 +118,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
         Ignite ignite0 = cluster.node(0);
         Ignite ignite1 = cluster.node(1);
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setDefaultZoneAutoAdjustScaleUpToImmediate(ignite1);
@@ -306,8 +306,9 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
     }
 
     private static void setDefaultZoneAutoAdjustScaleUpToImmediate(Ignite ignite0) {
-        CatalogManager catalogManager = unwrapIgniteImpl(ignite0).catalogManager();
-        CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+        IgniteImpl node = unwrapIgniteImpl(ignite0);
+        CatalogManager catalogManager = node.catalogManager();
+        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
 
         setZoneAutoAdjustScaleUpToImmediate(catalogManager, defaultZone.name());
     }
@@ -325,7 +326,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
             for (int partId = 0; partId < numberOfPartitions; ++partId) {
                 ByteArray key;
 
-                if (enabledColocation()) {
+                if (colocationEnabled()) {
                     key = ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId));
                 } else {
                     key = RebalanceUtil.stablePartAssignmentsKey(new TablePartitionId(zoneId, partId));

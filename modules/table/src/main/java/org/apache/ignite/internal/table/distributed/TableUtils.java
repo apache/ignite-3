@@ -96,6 +96,7 @@ public class TableUtils {
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         Catalog lwmCatalog = catalogService.activeCatalog(lowWatermark.longValue());
 
+        // Originally this set will contain IDs of tables that exist at LWM and, hence, should NOT be destroyed yet.
         Set<Integer> tableIds = lwmCatalog.tables().stream()
                 .map(CatalogObjectDescriptor::id)
                 .collect(toCollection(HashSet::new));
@@ -104,6 +105,8 @@ public class TableUtils {
 
         for (int catalogVersion = lwmCatalog.version() - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
             for (CatalogTableDescriptor table : catalogService.catalog(catalogVersion).tables()) {
+                // The addition to this set fails either if the ID was in this set originally (because the table is alive at LWM),
+                // or because we already noted that it has to be destroyed.
                 if (tableIds.add(table.id())) {
                     res.add(new DroppedTableInfo(table.id(), catalogVersion + 1));
                 }

@@ -33,6 +33,6 @@ dependencies {
 
     testImplementation libs.spring.boot.test
     testImplementation libs.assertj.core
-    testImplementation(testFixtures project(':ignite-runner'))
-    testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation testFixtures(project(':ignite-runner'))
+    testImplementation testFixtures(project(':ignite-core'))
 }

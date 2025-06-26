@@ -40,7 +40,10 @@ import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
@@ -49,6 +52,7 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -200,7 +204,7 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        // Tere are several rules:
+        // There are several rules:
         // 1) any join is possible on broadcast or single distribution
         // 2) hash distributed join is possible when join keys equal to source distribution keys
         // 3) hash and broadcast distributed tables can be joined when join keys equal to hash
@@ -230,15 +234,17 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
 
                 // We cannot provide random distribution without unique constraint on join keys,
                 // so, we require hash distribution (wich satisfies random distribution) instead.
-                DistributionFunction function = distrType == HASH_DISTRIBUTED
-                        ? distribution.function()
-                        : DistributionFunction.hash();
-
-                IgniteDistribution outDistr = hash(joinInfo.leftKeys, function);
+                IgniteDistribution outDistr = distrType == HASH_DISTRIBUTED
+                        ? IgniteDistributions.clone(distribution, joinInfo.leftKeys)
+                        : hash(joinInfo.leftKeys);
 
                 if (distrType != HASH_DISTRIBUTED || outDistr.satisfies(distribution)) {
+                    IgniteDistribution rightDistribution = distrType == HASH_DISTRIBUTED
+                            ? IgniteDistributions.clone(distribution, joinInfo.rightKeys)
+                            : hash(joinInfo.rightKeys);
+
                     return Pair.of(nodeTraits.replace(outDistr),
-                            List.of(left.replace(outDistr), right.replace(hash(joinInfo.rightKeys, function))));
+                            List.of(left.replace(outDistr), right.replace(rightDistribution)));
                 }
 
                 break;
@@ -279,9 +285,41 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     }
 
     @Override
+    protected RelDataType deriveRowType() {
+        return deriveRowTypeAsFor(joinType);
+    }
+
+    @Override
     public IgniteRelWriter explain(IgniteRelWriter writer) {
         return writer
-                .addPredicate(condition, getRowType())
+                // Predicate is composed based on joint row type, therefore if original join doesn't projects rhs,
+                // then we have to rebuild row type just for predicate.
+                .addPredicate(condition, joinType.projectsRight() ? getRowType() : deriveRowTypeAsFor(JoinRelType.INNER))
                 .addJoinType(joinType);
+    }
+
+    private RelDataType deriveRowTypeAsFor(JoinRelType joinType) {
+        List<String> fieldNames = new ArrayList<>(left.getRowType().getFieldNames());
+
+        RelDataTypeFactory typeFactory = getCluster().getTypeFactory();
+
+        if (joinType.projectsRight()) {
+            fieldNames.addAll(right.getRowType().getFieldNames());
+
+            fieldNames = SqlValidatorUtil.uniquify(
+                    fieldNames,
+                    (original, attempt, size) -> original + "$" + attempt,
+                    typeFactory.getTypeSystem().isSchemaCaseSensitive()
+            );
+        }
+
+        return SqlValidatorUtil.deriveJoinRowType(
+                left.getRowType(),
+                right.getRowType(),
+                joinType,
+                getCluster().getTypeFactory(),
+                fieldNames,
+                List.of()
+        );
     }
 }

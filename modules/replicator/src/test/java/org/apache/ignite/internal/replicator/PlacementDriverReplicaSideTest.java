@@ -40,7 +40,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -55,7 +54,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
-import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -90,7 +88,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
     private int countOfTimeoutExceptionsOnReadIndexToThrow = 0;
 
-    private boolean reservationSuccess = true;
+    private Runnable reservationClosure;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             NamedThreadFactory.create("common", "replica", log)
@@ -134,11 +132,10 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 LOCAL_NODE,
                 placementDriver,
                 new TestClockService(new HybridClockImpl()),
-                (unused0, unused1) -> reservationSuccess,
+                (unused0, unused1) -> reservationClosure.run(),
                 executor,
                 storageIndexTracker,
-                raftClient,
-                new NoOpFailureManager()
+                raftClient
         );
 
         return new ReplicaImpl(
@@ -158,6 +155,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         indexOnLeader.set(1L);
         currentLeader = null;
         countOfTimeoutExceptionsOnReadIndexToThrow = 0;
+        reservationClosure = () -> { };
         replica = startReplica();
     }
 
@@ -380,11 +378,13 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @MuteFailureManagerLogging // Failure is expected.
     public void testReservationFailed() {
-        reservationSuccess = false;
-
         long leaseStartTime = 10;
+
+        reservationClosure = () -> {
+            throw new ReplicaReservationFailedException("Test: replica reservation failed");
+        };
+
         leaderElection(LOCAL_NODE);
 
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);

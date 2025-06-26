@@ -275,12 +275,6 @@
     </Or>
   </Match>
   <Match>
-    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21691 -->
-    <Bug pattern="IS2_INCONSISTENT_SYNC"/>
-    <Class name="org.apache.ignite.internal.metrics.exporters.BasicMetricExporter"/>
-    <Field name="configuration"/>
-  </Match>
-  <Match>
     <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21692 -->
     <Bug pattern="UPM_UNCALLED_PRIVATE_METHOD"/>
     <Class name="org.apache.ignite.internal.pagememory.freelist.FreeListImpl"/>

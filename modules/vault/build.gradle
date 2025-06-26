@@ -27,11 +27,9 @@ dependencies {
     implementation libs.rocksdb.jni
 
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.hamcrest.core
+    testImplementation testFixtures(project(':ignite-core'))
 
     testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-vault'

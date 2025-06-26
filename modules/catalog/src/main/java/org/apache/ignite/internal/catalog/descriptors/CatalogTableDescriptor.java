@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table descriptor.
  */
-public class CatalogTableDescriptor extends CatalogObjectDescriptor implements MarshallableEntry {
+public class CatalogTableDescriptor extends CatalogObjectDescriptor implements MarshallableEntry, CatalogColumnContainer {
     public static final int INITIAL_TABLE_VERSION = 1;
 
     private final int zoneId;
@@ -223,9 +223,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor implements M
         return colocationColumns;
     }
 
-    /**
-     * Returns a list column descriptors for the table.
-     */
+    /** {@inheritDoc} */
+    @Override
     public List<CatalogTableColumnDescriptor> columns() {
         return columns;
     }

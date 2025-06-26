@@ -41,8 +41,8 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -81,8 +81,7 @@ public class MappingServiceImpl implements MappingService {
     private final PartitionPruner partitionPruner;
     private final LongSupplier logicalTopologyVerSupplier;
     private final ExecutionDistributionProvider distributionProvider;
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    private final NodeProperties nodeProperties;
 
     /**
      * Constructor.
@@ -102,7 +101,8 @@ public class MappingServiceImpl implements MappingService {
             int cacheSize,
             PartitionPruner partitionPruner,
             LongSupplier logicalTopologyVerSupplier,
-            ExecutionDistributionProvider distributionProvider
+            ExecutionDistributionProvider distributionProvider,
+            NodeProperties nodeProperties
     ) {
         this.localNodeName = localNodeName;
         this.clock = clock;
@@ -111,6 +111,7 @@ public class MappingServiceImpl implements MappingService {
         this.partitionPruner = partitionPruner;
         this.logicalTopologyVerSupplier = logicalTopologyVerSupplier;
         this.distributionProvider = distributionProvider;
+        this.nodeProperties = nodeProperties;
     }
 
     /** Called when the primary replica has expired. */
@@ -119,7 +120,7 @@ public class MappingServiceImpl implements MappingService {
 
         int tableOrZoneId;
 
-        if (enabledColocation) {
+        if (nodeProperties.colocationEnabled()) {
             tableOrZoneId = ((ZonePartitionId) parameters.groupId()).zoneId();
         } else {
             tableOrZoneId = ((TablePartitionId) parameters.groupId()).tableId();
@@ -163,7 +164,7 @@ public class MappingServiceImpl implements MappingService {
             for (Fragment fragment : template.fragments) {
                 topologyAware = topologyAware || !fragment.systemViews().isEmpty();
                 for (IgniteTable source : fragment.tables().values()) {
-                    if (enabledColocation) {
+                    if (nodeProperties.colocationEnabled()) {
                         tableOrZoneIds.add(source.zoneId());
                     } else {
                         tableOrZoneIds.add(source.id());
@@ -370,7 +371,7 @@ public class MappingServiceImpl implements MappingService {
 
             RelOptCluster cluster = Commons.cluster();
 
-            List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.root());
+            List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.getRel());
 
             return new FragmentsTemplate(
                     idGenerator.nextId(), cluster, fragments

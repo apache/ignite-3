@@ -59,7 +59,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -80,7 +79,6 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
@@ -325,19 +323,6 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         LOG.info("Lease is accepted by [nodeConsistentId={}].", primary.join().getLeaseholder());
     }
 
-    private @Nullable String getPrimaryReplicaName() {
-        IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
-
-        CompletableFuture<ReplicaMeta> primary = node.placementDriver().getPrimaryReplica(
-                cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME),
-                node.clockService().now()
-        );
-
-        assertThat(primary, willCompleteSuccessfully());
-
-        return primary.join().getLeaseholder();
-    }
-
     private void putToNode(int nodeIndex, int key, String value) {
         putToNode(nodeIndex, key, value, null);
     }
@@ -456,18 +441,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     }
 
     private void transferPrimaryOnSolePartitionTo(int nodeIndex) throws InterruptedException {
-        String proposedPrimaryName = cluster.node(nodeIndex).name();
-
-        if (!proposedPrimaryName.equals(getPrimaryReplicaName())) {
-
-            String newPrimaryName = NodeUtils.transferPrimary(
-                    cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
-                    cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME),
-                    proposedPrimaryName
-            );
-
-            assertEquals(proposedPrimaryName, newPrimaryName);
-        }
+        cluster.transferPrimaryTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME));
     }
 
     /**
@@ -572,12 +546,6 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         // The leader (0) has fed the follower (2). Now, change roles: the new leader will be node 2, it will feed node 0.
 
         transferLeadershipOnSolePartitionTo(2);
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-25277 - without colocation, primary is obtained within its timeout,
-        // but with colocation, we have to wait for data nodes longer, so we fail with a timeout on attempt to get primary replica.
-        // The following line fixes the problem by explicitly transferring the primary; this line should be removed after IGNITE-25277
-        // is sorted out.
-        transferPrimaryOnSolePartitionTo(2);
 
         knockoutNode(0);
 

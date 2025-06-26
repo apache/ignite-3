@@ -26,6 +26,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
+import org.apache.ignite.internal.metastorage.timebag.TimeBag;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -264,7 +266,7 @@ public class WatchProcessor implements ManuallyCloseable {
             CompletableFuture<Void> newNotificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
                     .thenRunAsync(() -> inBusyLock(() -> invokeOnRevisionCallback(newRevision, time)), watchExecutor);
 
-            newNotificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
+            newNotificationFuture.whenComplete((u, e) -> maybeLogLongProcessing(filteredUpdatedEntries, watchAndEvents, startTimeNanos));
 
             return newNotificationFuture;
         }, updatedEntriesKeysInfo(updatedEntries));
@@ -293,9 +295,16 @@ public class WatchProcessor implements ManuallyCloseable {
             CompletableFuture<Void> notifyWatchFuture;
 
             try {
-                var event = new WatchEvent(watchAndEvents.events, revision, time);
+                var event = new WatchEvent(watchAndEvents.events, revision, time, watchAndEvents.timeBag);
+
+                event.timeBag().start();
 
                 notifyWatchFuture = watchAndEvents.watch.onUpdate(event);
+
+                event.timeBag().finishGlobalStage("Sync notification");
+
+                notifyWatchFuture = notifyWatchFuture
+                        .whenComplete((unused, e) -> event.timeBag().finishGlobalStage("Async notification"));
             } catch (Throwable throwable) {
                 notifyWatchFuture = failedFuture(throwable);
             }
@@ -306,8 +315,8 @@ public class WatchProcessor implements ManuallyCloseable {
         return allOf(notifyWatchFutures);
     }
 
-    private static void maybeLogLongProcessing(List<Entry> updatedEntries, long startTimeNanos) {
-        if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false)) {
+    private static void maybeLogLongProcessing(List<Entry> updatedEntries, List<WatchAndEvents> watchAndEvents, long startTimeNanos) {
+        if (!getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false)) {
             return;
         }
 
@@ -327,6 +336,17 @@ public class WatchProcessor implements ManuallyCloseable {
                     keysHead,
                     keysTail
             );
+
+            String timingsHead = watchAndEvents.stream()
+                    .limit(WATCH_EVENT_PROCESSING_LOG_KEYS)
+                    .map(watchAndEventsItem -> {
+                        String listenerName = watchAndEventsItem.watch.listener().getClass().getName();
+                        String stages = watchAndEventsItem.timeBag.stagesTimings().stream().collect(joining(",", "[", "]"));
+
+                        return "lsnr=" + listenerName + ", stages=" + stages;
+                    }).collect(joining(", "));
+
+            LOG.warn("Watch event processing timings [{}{}]", timingsHead, keysTail);
         }
     }
 
@@ -336,6 +356,7 @@ public class WatchProcessor implements ManuallyCloseable {
         }
 
         var watchAndEvents = new ArrayList<WatchAndEvents>();
+        boolean timeBagEnabled = getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false);
 
         for (Watch watch : watches) {
             List<EntryEvent> events = List.of();
@@ -357,7 +378,7 @@ public class WatchProcessor implements ManuallyCloseable {
             }
 
             if (!events.isEmpty()) {
-                watchAndEvents.add(new WatchAndEvents(watch, events));
+                watchAndEvents.add(new WatchAndEvents(watch, events, TimeBag.createTimeBag(timeBagEnabled, false)));
             }
         }
 

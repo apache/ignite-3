@@ -31,14 +31,9 @@ test {
 }
 
 dependencies {
-    testImplementation libs.junit5.impl
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
-    testImplementation libs.junit.pioneer
-
-    testImplementation libs.jansi.core
-    testImplementation libs.log4j.api
-    testImplementation libs.log4j.core
-    testImplementation libs.log4j.bridge
-    testImplementation libs.slf4j.log4j
+    testImplementation libs.bundles.junit
+    testImplementation libs.bundles.mockito
+    testImplementation libs.bundles.hamcrest
+    testImplementation libs.bundles.log4j
+    testImplementation libs.jetbrains.annotations
 }

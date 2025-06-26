@@ -213,7 +213,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         var nullOpFields = new ArrayList<String>();
 
         for (var field : ClientOp.class.getDeclaredFields()) {
-            if ("WRITE_MASK".equals(field.getName())) {
+            if ("WRITE_MASK".equals(field.getName()) || "BATCH_MASK".equals(field.getName())) {
                 continue;
             }
 
@@ -242,7 +242,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     @Test
     public void testRetryReadPolicyAllOperationsSupported() {
         var plc = new RetryReadPolicy();
-        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, null, 0, 0, null, null, null, false, null, 0);
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, null, 0, 0, null, null, null, false, null, 0, 1024);
 
         for (var op : ClientOperationType.values()) {
             var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);

@@ -1,8 +1,14 @@
+# description: Tests for printout of [Trim]Exchange operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
 statement ok
 CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
 
 # exchange with `single` and `table` distribution
-plan
+explain plan
 INSERT INTO test_table SELECT x, x, x FROM system_range(1, 10);
 ----
 Project
@@ -35,7 +41,7 @@ Project
                 est: (rows=100)
 
 # exchange with `identity` distribution
-plan
+explain plan
 SELECT 1
   FROM system.sql_queries sq 
   JOIN (SELECT rand_uuid()::varchar || x::varchar as node_name FROM (VALUES (1), (2)) ids(x)) as nodes
@@ -77,7 +83,7 @@ Exchange
 statement ok
 CREATE TABLE another_table (c1 INT, c2 INT, c3 INT, c4 INT, primary key (c1, c2, c3)) COLOCATE BY (c3, c1);
 
-plan
+explain plan
 INSERT INTO another_table VALUES (0, 0, 0, 0), (1, 1, 1, 1), (2, 2, 2, 2);
 ----
 Project

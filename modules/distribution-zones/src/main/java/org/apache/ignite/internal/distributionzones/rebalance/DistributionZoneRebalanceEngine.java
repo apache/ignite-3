@@ -23,16 +23,15 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
@@ -84,6 +84,8 @@ public class DistributionZoneRebalanceEngine {
     /** Catalog service. */
     private final CatalogService catalogService;
 
+    private final NodeProperties nodeProperties;
+
     /** Zone rebalance manager. */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 this class will replace DistributionZoneRebalanceEngine
     // TODO: after switching to zone-based replication
@@ -106,12 +108,14 @@ public class DistributionZoneRebalanceEngine {
             IgniteSpinBusyLock busyLock,
             MetaStorageManager metaStorageManager,
             DistributionZoneManager distributionZoneManager,
-            CatalogManager catalogService
+            CatalogManager catalogService,
+            NodeProperties nodeProperties
     ) {
         this.busyLock = busyLock;
         this.metaStorageManager = metaStorageManager;
         this.distributionZoneManager = distributionZoneManager;
         this.catalogService = catalogService;
+        this.nodeProperties = nodeProperties;
 
         this.dataNodesListener = createDistributionZonesDataNodesListener();
         this.distributionZoneRebalanceEngineV2 = new DistributionZoneRebalanceEngineV2(
@@ -148,7 +152,7 @@ public class DistributionZoneRebalanceEngine {
                 return nullCompletedFuture();
             }
 
-            if (enabledColocation()) {
+            if (nodeProperties.colocationEnabled()) {
                 return recoveryRebalanceTrigger(recoveryRevision, catalogVersion)
                         .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
             } else {
@@ -195,7 +199,7 @@ public class DistributionZoneRebalanceEngine {
             return;
         }
 
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             distributionZoneRebalanceEngineV2.stop();
         }
 
@@ -267,14 +271,12 @@ public class DistributionZoneRebalanceEngine {
                 return nullCompletedFuture();
             }
 
-            List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, catalog);
-
             return triggerPartitionsRebalanceForAllTables(
                     evt.entryEvent().newEntry().revision(),
                     evt.entryEvent().newEntry().timestamp(),
                     zoneDescriptor,
                     filteredDataNodes,
-                    tableDescriptors,
+                    catalog.tables(zoneId),
                     assignmentsTimestamp
             );
         });
@@ -304,7 +306,6 @@ public class DistributionZoneRebalanceEngine {
             HybridTimestamp timestamp,
             int catalogVersion
     ) {
-
         return distributionZoneManager.dataNodes(timestamp, catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> {
                     if (dataNodes.isEmpty()) {
@@ -313,14 +314,12 @@ public class DistributionZoneRebalanceEngine {
 
                     Catalog catalog = catalogService.catalog(catalogVersion);
 
-                    List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneDescriptor.id(), catalog);
-
                     return triggerPartitionsRebalanceForAllTables(
                             causalityToken,
                             timestamp,
                             zoneDescriptor,
                             dataNodes,
-                            tableDescriptors,
+                            catalog.tables(zoneDescriptor.id()),
                             catalog.time()
                     );
                 });
@@ -331,7 +330,7 @@ public class DistributionZoneRebalanceEngine {
             HybridTimestamp timestamp,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
-            List<CatalogTableDescriptor> tableDescriptors,
+            Collection<CatalogTableDescriptor> tableDescriptors,
             long assignmentsTimestamp
     ) {
         List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());

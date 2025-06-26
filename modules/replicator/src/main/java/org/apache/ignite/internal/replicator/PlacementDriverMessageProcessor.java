@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions.isRecoverable;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
@@ -28,9 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.BiFunction;
-import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import java.util.function.BiConsumer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ComponentStoppingException;
@@ -45,8 +44,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -72,7 +69,7 @@ public class PlacementDriverMessageProcessor {
 
     private final ClockService clockService;
 
-    private final BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure;
+    private final BiConsumer<ReplicationGroupId, HybridTimestamp> replicaReservationClosure;
 
     // TODO: IGNITE-20063 Maybe get rid of it
     private final Executor executor;
@@ -92,8 +89,6 @@ public class PlacementDriverMessageProcessor {
 
     private final TopologyAwareRaftGroupService raftClient;
 
-    private final FailureProcessor failureProcessor;
-
     /**
      * The constructor of a replica server.
      *
@@ -106,18 +101,16 @@ public class PlacementDriverMessageProcessor {
      * @param executor Executor for handling requests.
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Raft client.
-     * @param failureProcessor Failure processor.
      */
     PlacementDriverMessageProcessor(
             ReplicationGroupId groupId,
             ClusterNode localNode,
             PlacementDriver placementDriver,
             ClockService clockService,
-            BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure,
+            BiConsumer<ReplicationGroupId, HybridTimestamp> replicaReservationClosure,
             Executor executor,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TopologyAwareRaftGroupService raftClient,
-            FailureProcessor failureProcessor
+            TopologyAwareRaftGroupService raftClient
     ) {
         this.groupId = groupId;
         this.localNode = localNode;
@@ -127,7 +120,6 @@ public class PlacementDriverMessageProcessor {
         this.executor = executor;
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
-        this.failureProcessor = failureProcessor;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -143,20 +135,11 @@ public class PlacementDriverMessageProcessor {
             return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
                     .handle((v, e) -> {
                         if (e != null) {
-                            if (!hasCause(
-                                    e,
-                                    NodeStoppingException.class,
-                                    ComponentStoppingException.class,
-                                    TrackerClosedException.class,
-                                    TimeoutException.class,
-                                    ReplicationException.class,
-                                    ReplicationTimeoutException.class
-                            )) {
-                                String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
-                                failureProcessor.process(new FailureContext(e, errorMessage));
+                            if (!hasCause(e, NodeStoppingException.class, ComponentStoppingException.class, TrackerClosedException.class)
+                                    && !isRecoverable(e)) {
+                                LOG.warn("Failed to process the lease granted message, lease negotiation will be retried [msg={}].",
+                                        e, msg);
                             }
-
-                            LOG.warn("Failed to process the lease granted message, lease negotiation will be retried [msg={}].", e, msg);
 
                             // Just restart the negotiation in case of exception.
                             return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
@@ -278,9 +261,7 @@ public class PlacementDriverMessageProcessor {
     private CompletableFuture<Void> waitForActualState(HybridTimestamp startTime, long expirationTime) {
         LOG.info("Waiting for actual storage state, group=" + groupId);
 
-        if (!replicaReservationClosure.apply(groupId, startTime)) {
-            throw new IllegalStateException("Replica reservation failed [groupId=" + groupId + ", leaseStartTime=" + startTime + "].");
-        }
+        replicaReservationClosure.accept(groupId, startTime);
 
         long timeout = expirationTime - currentTimeMillis();
         if (timeout <= 0) {

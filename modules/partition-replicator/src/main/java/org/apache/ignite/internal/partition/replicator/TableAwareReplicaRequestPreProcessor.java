@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
-
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -49,15 +48,19 @@ public class TableAwareReplicaRequestPreProcessor {
 
     private final SchemaSyncService schemaSyncService;
 
+    private final NodeProperties nodeProperties;
+
     /** Constructor. */
     public TableAwareReplicaRequestPreProcessor(
             ClockService clockService,
             SchemaCompatibilityValidator schemaCompatValidator,
-            SchemaSyncService schemaSyncService
+            SchemaSyncService schemaSyncService,
+            NodeProperties nodeProperties
     ) {
         this.clockService = clockService;
         this.schemaCompatValidator = schemaCompatValidator;
         this.schemaSyncService = schemaSyncService;
+        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -78,7 +81,7 @@ public class TableAwareReplicaRequestPreProcessor {
 
         HybridTimestamp opTs = getOperationTimestamp(request);
 
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             assert opTs != null : "Table aware operation timestamp must not be null [request=" + request + ']';
         }
 
@@ -140,7 +143,7 @@ public class TableAwareReplicaRequestPreProcessor {
     public @Nullable HybridTimestamp getOperationTimestamp(ReplicaRequest request) {
         HybridTimestamp opStartTs;
 
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             if (request instanceof ReadOnlyReplicaRequest) {
                 opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
             } else {

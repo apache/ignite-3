@@ -68,10 +68,6 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestAnnotationProcessor testFixtures(project(':ignite-core'))

@@ -58,6 +58,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -402,6 +403,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 executor,
                 placementDriver,
                 clockService,
+                new SystemPropertiesNodeProperties(),
                 new ZonePartitionId(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())
         );
     }
@@ -559,7 +561,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                         .build())
                 .build();
 
-        return MESSAGE_FACTORY.updateCommand()
+        return MESSAGE_FACTORY.updateCommandV2()
                 .tableId(tableId)
                 .commitPartitionId(toReplicationGroupIdMessage(new ReplicaMessagesFactory(), PARTITION_ID))
                 .rowUuid(id)

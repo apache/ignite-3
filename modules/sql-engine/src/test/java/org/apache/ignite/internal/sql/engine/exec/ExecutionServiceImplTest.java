@@ -75,6 +75,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -82,7 +83,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -227,13 +229,15 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     private ClusterNode firstNode;
 
+    private final MetricManager metricManager = new NoOpMetricManager();
+
     @BeforeEach
     public void init(TestInfo info) {
         if (info.getTags().stream().anyMatch(CUSTOM_CLUSTER_SETUP_TAG::equals)) {
             return;
         }
 
-        setupCluster(EmptyCacheFactory.INSTANCE, name -> new QueryTaskExecutorImpl(name, 4, NOOP_FAILURE_PROCESSOR));
+        setupCluster(EmptyCacheFactory.INSTANCE, name -> new QueryTaskExecutorImpl(name, 4, NOOP_FAILURE_PROCESSOR, metricManager));
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
@@ -251,7 +255,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 converter,
                 PLANNING_TIMEOUT,
                 PLANNING_THREAD_COUNT,
-                new MetricManagerImpl(),
+                metricManager,
                 new PredefinedSchemaManager(schema)
         );
         parserService = new ParserServiceImpl();
@@ -1159,6 +1163,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, capturingMailbox, exchangeService, deps, tableFunctionRegistry),
                 clockService,
+                new SystemPropertiesNodeProperties(),
                 killCommandHandler,
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
@@ -1188,7 +1193,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         LongSupplier topologyVerSupplier = () -> Long.MAX_VALUE;
 
         return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologyVerSupplier,
-                new TestExecutionDistributionProvider(logicalNodes, () -> mappingException));
+                new TestExecutionDistributionProvider(logicalNodes, () -> mappingException),
+                new SystemPropertiesNodeProperties()
+        );
     }
 
     private SqlOperationContext createContext() {

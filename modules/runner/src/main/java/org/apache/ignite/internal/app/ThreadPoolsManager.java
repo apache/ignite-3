@@ -17,24 +17,27 @@
 
 package org.apache.ignite.internal.app;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_METRICS_SOURCE_NAME;
 import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -58,19 +61,20 @@ public class ThreadPoolsManager implements IgniteComponent {
 
     private final ScheduledExecutorService commonScheduler;
 
+    private final MetricManager metricManager;
+
+    private final List<ThreadPoolMetricSource> metricSources;
+
     /**
      * Constructor.
      */
-    public ThreadPoolsManager(String nodeName) {
+    public ThreadPoolsManager(String nodeName, MetricManager metricManager) {
         int cpus = Runtime.getRuntime().availableProcessors();
 
-        tableIoExecutor = new ThreadPoolExecutor(
+        tableIoExecutor = Executors.newFixedThreadPool(
                 Math.min(cpus * 3, 25),
-                Integer.MAX_VALUE,
-                100,
-                MILLISECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
+                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE)
+        );
 
         int partitionsOperationsThreads = Math.min(cpus * 3, 25);
         partitionOperationsExecutor = Executors.newFixedThreadPool(
@@ -87,11 +91,24 @@ public class ThreadPoolsManager implements IgniteComponent {
         );
 
         commonScheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "common-scheduler", LOG));
+
+        this.metricManager = metricManager;
+
+        metricSources = new ArrayList<>();
+        metricSources.add(
+                new ThreadPoolMetricSource(
+                        THREAD_POOLS_METRICS_SOURCE_NAME + "partitions-executor",
+                        (ThreadPoolExecutor) partitionOperationsExecutor)
+        );
     }
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        // No-op.
+        metricSources.forEach(metricSource -> {
+            metricManager.registerSource(metricSource);
+            metricManager.enable(metricSource);
+        });
+
         return nullCompletedFuture();
     }
 
@@ -100,6 +117,11 @@ public class ThreadPoolsManager implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(tableIoExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, SECONDS);
+
+        metricSources.forEach(metricSource -> {
+            metricManager.disable(metricSource);
+            metricManager.unregisterSource(metricSource);
+        });
 
         return nullCompletedFuture();
     }

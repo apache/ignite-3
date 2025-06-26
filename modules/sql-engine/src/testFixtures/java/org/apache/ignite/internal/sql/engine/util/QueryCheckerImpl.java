@@ -61,7 +61,9 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
+import org.hamcrest.StringDescription;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -213,6 +215,17 @@ abstract class QueryCheckerImpl implements QueryChecker {
         return this;
     }
 
+    @Override
+    public QueryChecker results(Matcher<List<List<?>>> matcher) {
+        assert resultChecker == null : "Result checker already set to " + resultChecker.getClass().getSimpleName();
+
+        Objects.requireNonNull(matcher, "matcher");
+
+        resultChecker = new ResultSetMatcher(matcher);
+
+        return this;
+    }
+
     /**
      * Check that return empty result.
      *
@@ -320,6 +333,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
                 .defaultSchema(defaultSchema);
 
         String qry = queryTemplate.createQuery();
+        boolean containExplain = "EXPLAIN ".equalsIgnoreCase(qry.substring(0, 8));
         String queryToLog;
         if (qry.length() < MAX_QUERY_DISPLAY_LENGTH) {
             queryToLog = qry;
@@ -335,7 +349,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
                     observableTimeTracker(),
                     tx,
                     null,
-                    "EXPLAIN PLAN FOR " + qry,
+                    containExplain ? qry : "EXPLAIN PLAN FOR " + qry,
                     params
             );
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
@@ -528,6 +542,30 @@ abstract class QueryCheckerImpl implements QueryChecker {
             }
 
             QueryChecker.assertEqualsCollections(expectedResult, rows);
+        }
+    }
+
+    private static class ResultSetMatcher implements ResultChecker {
+        private final Matcher<List<List<?>>> matcher;
+
+        ResultSetMatcher(Matcher<List<List<?>>> matcher) {
+            this.matcher = matcher;
+        }
+
+        @Override
+        public void check(List<List<Object>> rows, boolean ordered) {
+            if (!matcher.matches(rows)) {
+                Description desc = new StringDescription();
+                desc.appendText("Result set does not match ")
+                        .appendText(System.lineSeparator())
+                        .appendText("Expected: ")
+                        .appendDescriptionOf(matcher)
+                        .appendText(System.lineSeparator())
+                        .appendText("     but: ");
+                matcher.describeMismatch(rows, desc);
+
+                throw new AssertionError(desc.toString());
+            }
         }
     }
 

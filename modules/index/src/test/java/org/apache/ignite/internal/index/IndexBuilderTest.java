@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -72,7 +73,12 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private final ExecutorService executorService = newSingleThreadExecutor();
 
-    private final IndexBuilder indexBuilder = new IndexBuilder(executorService, replicaService, new NoOpFailureManager());
+    private final IndexBuilder indexBuilder = new IndexBuilder(
+            executorService,
+            replicaService,
+            new NoOpFailureManager(),
+            new SystemPropertiesNodeProperties()
+    );
 
     @AfterEach
     void tearDown() throws Exception {

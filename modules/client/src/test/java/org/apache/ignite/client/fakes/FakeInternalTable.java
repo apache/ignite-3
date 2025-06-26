@@ -43,6 +43,7 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -61,8 +62,8 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.QualifiedName;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -551,13 +552,17 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(ReceiverDescriptor<A> receiver, @Nullable A receiverArg,
-            Collection<I> items, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+    public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
+            DataStreamerReceiverDescriptor<I, A, R> receiver,
+            @Nullable A receiverArg,
+            Collection<I> items,
+            ClusterNode node,
+            List<DeploymentUnit> deploymentUnits) {
         throw new UnsupportedOperationException("Not implemented");
     }
 
     @Override
-    public CompletableFuture<byte[]> runReceiverAsync(
+    public CompletableFuture<IgniteBiTuple<byte[], Long>> runReceiverAsync(
             byte[] payload,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits,
@@ -574,6 +579,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                         .units(deploymentUnits)
                         .options(jobOptions)
                         .build(),
-                payload);
+                payload)
+                .thenApply(resBytes -> new IgniteBiTuple<>(resBytes, FakeCompute.observableTimestamp.longValue()));
     }
 }

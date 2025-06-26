@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ComputeUtils.convertToComputeFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -64,8 +63,11 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -83,8 +85,8 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.QualifiedName;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -106,17 +108,29 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     private final HybridClock clock;
 
+    private final NodeProperties nodeProperties;
+
+    private final HybridTimestampTracker observableTimestampTracker;
+
     /**
      * Create new instance.
      */
-    public IgniteComputeImpl(PlacementDriver placementDriver, TopologyService topologyService,
-            IgniteTablesInternal tables, ComputeComponent computeComponent,
-            HybridClock clock) {
+    public IgniteComputeImpl(
+            PlacementDriver placementDriver,
+            TopologyService topologyService,
+            IgniteTablesInternal tables,
+            ComputeComponent computeComponent,
+            HybridClock clock,
+            NodeProperties nodeProperties,
+            HybridTimestampTracker observableTimestampTracker
+    ) {
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
         this.clock = clock;
+        this.nodeProperties = nodeProperties;
+        this.observableTimestampTracker = observableTimestampTracker;
 
         tables.setStreamerReceiverRunner(this);
     }
@@ -140,7 +154,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                     executeAsyncWithFailover(
                             nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), argHolder, cancellationToken
                     ),
-                    descriptor
+                    descriptor,
+                    observableTimestampTracker
             );
         }
 
@@ -156,7 +171,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, mapper)
                                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
-                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
+                                        new NextColocatedWorkerSelector<>(
+                                                placementDriver,
+                                                topologyService,
+                                                clock,
+                                                nodeProperties,
+                                                table,
+                                                key,
+                                                mapper
+                                        ),
                                         descriptor.units(),
                                         descriptor.jobClassName(),
                                         descriptor.options(),
@@ -177,7 +200,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ));
             }
 
-            return unmarshalResult(jobFut, descriptor);
+            return unmarshalResult(jobFut, descriptor, observableTimestampTracker);
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
@@ -273,7 +296,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .build();
 
         PartitionNextWorkerSelector nextWorkerSelector = new PartitionNextWorkerSelector(
-                placementDriver, topologyService, clock,
+                placementDriver, topologyService, clock, nodeProperties,
                 zoneId, tableId, partition
         );
         return submitForBroadcast(node, descriptor, options, nextWorkerSelector, argHolder, cancellationToken);
@@ -301,18 +324,21 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         argHolder,
                         cancellationToken
                 ),
-                descriptor
+                descriptor,
+                observableTimestampTracker
         );
     }
 
     private static <T, R> CompletableFuture<JobExecution<R>> unmarshalResult(
             CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFuture,
-            JobDescriptor<T, R> descriptor
+            JobDescriptor<T, R> descriptor,
+            HybridTimestampTracker observableTimestampTracker
     ) {
         return executionFuture.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
                 execution,
                 descriptor.resultMarshaller(),
-                descriptor.resultClass()
+                descriptor.resultClass(),
+                observableTimestampTracker
         ));
     }
 
@@ -450,7 +476,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
-                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
+                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, nodeProperties, table, key),
                         units, jobClassName, options, arg, cancellationToken
                 ));
     }
@@ -477,7 +503,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new PartitionNextWorkerSelector(
-                                placementDriver, topologyService, clock, table.zoneId(), table.tableId(), partition),
+                                placementDriver, topologyService, clock, nodeProperties,
+                                table.zoneId(), table.tableId(), partition),
                         units, jobClassName, options, arg, cancellationToken
                 ));
     }
@@ -501,7 +528,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private CompletableFuture<ClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
-        PartitionGroupId replicationGroupId = enabledColocation()
+        PartitionGroupId replicationGroupId = nodeProperties.colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), partitionIndex)
                 : new TablePartitionId(table.tableId(), partitionIndex);
 
@@ -587,19 +614,29 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     @Override
     public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
-            ReceiverDescriptor<A> receiver,
+            DataStreamerReceiverDescriptor<I, A, R> receiver,
             @Nullable A receiverArg,
             Collection<I> items,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits) {
-        var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(receiver, receiverArg, items);
+        var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(
+                receiver, receiverArg, receiver.payloadMarshaller(), receiver.argumentMarshaller(), items);
 
         return runReceiverAsync(payload, node, deploymentUnits, receiver.options())
-                .thenApply(StreamerReceiverSerializer::deserializeReceiverJobResults);
+                .thenApply(r -> {
+                    byte[] resBytes = r.get1();
+
+                    assert r.get2() != null : "Observable timestamp should not be null";
+                    long observableTimestamp = r.get2();
+                    observableTimestampTracker.update(observableTimestamp);
+
+                    //noinspection DataFlowIssue
+                    return StreamerReceiverSerializer.deserializeReceiverJobResults(resBytes, receiver.resultMarshaller());
+                });
     }
 
     @Override
-    public CompletableFuture<byte[]> runReceiverAsync(
+    public CompletableFuture<IgniteBiTuple<byte[], Long>> runReceiverAsync(
             byte[] payload,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits,
@@ -631,7 +668,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ExceptionUtils.sneakyThrow(err);
                     }
 
-                    return SharedComputeUtils.unmarshalArgOrResult(res, null, null);
+                    byte[] resBytes = SharedComputeUtils.unmarshalArgOrResult(res, null, null);
+
+                    return new IgniteBiTuple<>(resBytes, res.observableTimestamp());
                 });
     }
 

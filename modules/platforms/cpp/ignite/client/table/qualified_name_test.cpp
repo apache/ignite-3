@@ -24,6 +24,14 @@
 using namespace ignite;
 using namespace detail;
 
+namespace {
+
+template<typename T>
+std::string PrintTestIndex(const testing::TestParamInfo<typename T::ParamType>& info) {
+    return "_" + std::to_string(info.index);
+}
+
+}
 
 TEST(client_qualified_name, create_empty_schema_empty_name_throws) {
     EXPECT_THROW(
@@ -94,7 +102,8 @@ INSTANTIATE_TEST_SUITE_P(
         "A\xCC\x80.A\xC2\xB7",
         R"("foo"."bar")",
         "\"\xF0\x9F\x98\x85\".\"\xC2\xB7\""
-    )
+    ),
+    PrintTestIndex<canonical_values_fixture>
 );
 
 class valid_simple_names_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
@@ -140,7 +149,8 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("\"f\"\"\"\"f\"", "f\"\"f"),
         std::make_tuple("\"\"\"bar\"\"\"", "\"bar\""),
         std::make_tuple("\"\"\"\"\"bar\"\"\"", "\"\"bar\"")
-    )
+    ),
+    PrintTestIndex<valid_simple_names_fixture>
 );
 
 class malformed_simple_name_fixture : public ::testing::TestWithParam<std::string> {};
@@ -210,7 +220,8 @@ INSTANTIATE_TEST_SUITE_P(
         "f\"\"f",
         "\"foo",
         "\"fo\"o\""
-    )
+    ),
+    PrintTestIndex<malformed_simple_name_fixture>
 );
 
 class malformed_canonical_name_fixture : public ::testing::TestWithParam<std::string> {};
@@ -245,7 +256,8 @@ INSTANTIATE_TEST_SUITE_P(
         "1oo.bar",
         "foo.1ar",
         "1oo"
-    )
+    ),
+    PrintTestIndex<malformed_canonical_name_fixture>
 );
 
 class valid_simple_name_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
@@ -291,7 +303,8 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("\"f\"\"\"\"f\"", "f\"\"f"),
         std::make_tuple("\"\"\"bar\"\"\"", "\"bar\""),
         std::make_tuple("\"\"\"\"\"bar\"\"\"", "\"\"bar\"")
-    )
+    ),
+    PrintTestIndex<valid_simple_name_fixture>
 );
 
 class valid_canonical_name_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string, std::string>> {};
@@ -319,7 +332,8 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("foo.\"bar.\"\"baz\"", "FOO", "bar.\"baz"),
         std::make_tuple("_foo.bar", "_FOO", "BAR"),
         std::make_tuple("foo._bar", "FOO", "_BAR")
-    )
+    ),
+    PrintTestIndex<valid_canonical_name_fixture>
 );
 
 class parsing_error_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
@@ -350,5 +364,6 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("\"xx\"yy\"", "Unexpected character '121' after quote: '\"xx\"yy\"'"),
         std::make_tuple("123", "Invalid identifier start '49' : 123. Unquoted identifiers must begin with a letter or an underscore."),
         std::make_tuple("x.y.z", "Canonical name should have at most two parts: 'x.y.z'")
-    )
+    ),
+    PrintTestIndex<parsing_error_fixture>
 );

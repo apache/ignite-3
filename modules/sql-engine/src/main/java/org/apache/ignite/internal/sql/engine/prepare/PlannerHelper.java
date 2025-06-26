@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.FORCE_INDEX;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.NO_INDEX;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimizationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -85,7 +86,6 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -193,7 +193,7 @@ public final class PlannerHelper {
 
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)
-                    .replace(IgniteDistributions.single())
+                    .replace(single())
                     .replace(root.collation == null ? RelCollations.EMPTY : root.collation)
                     .simplify();
 
@@ -517,7 +517,7 @@ public final class PlannerHelper {
 
         IgniteSelectCount rel = new IgniteSelectCount(
                 planner.cluster(),
-                planner.cluster().traitSetOf(IgniteConvention.INSTANCE),
+                planner.cluster().traitSetOf(IgniteConvention.INSTANCE).replace(single()),
                 targetTable,
                 expressions
         );

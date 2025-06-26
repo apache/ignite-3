@@ -21,7 +21,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -33,7 +34,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
@@ -77,7 +77,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     void explicitReadOnlyTxDoesNotLookBeforeTableCreation() throws Exception {
         Ignite node = cluster.node(0);
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
@@ -113,8 +113,9 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     }
 
     private void setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate() {
-        CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
-        CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+        IgniteImpl node = unwrapIgniteImpl(node(0));
+        CatalogManager catalogManager = node.catalogManager();
+        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
 
         node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
     }
@@ -122,7 +123,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     private static void awaitAssignmentsStabilization(Ignite node) throws InterruptedException {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
         TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-        int tableOrZoneId = enabledColocation() ? table.zoneId() : table.tableId();
+        int tableOrZoneId = colocationEnabled() ? table.zoneId() : table.tableId();
 
         HybridTimestamp timestamp = igniteImpl.clock().now();
 
@@ -132,7 +133,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
             // Within given test default zone is used.
             for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
                 CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
-                        enabledColocation()
+                        colocationEnabled()
                                 ? new ZonePartitionId(tableOrZoneId, p)
                                 : new TablePartitionId(tableOrZoneId, p),
                         timestamp);

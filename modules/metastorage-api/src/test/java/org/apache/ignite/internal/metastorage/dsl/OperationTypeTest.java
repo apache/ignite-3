@@ -19,33 +19,44 @@ package org.apache.ignite.internal.metastorage.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.stream.Stream;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests that persisted enum ordinals have not been accidentally changed by a developer.
+ * Tests that persisted enum IDs have not been accidentally changed by a developer.
  */
 class OperationTypeTest {
-    @Test
-    void testOrdinal() {
-        assertEquals(0, OperationType.NO_OP.ordinal());
-
-        assertEquals(1, OperationType.PUT.ordinal());
-
-        assertEquals(2, OperationType.REMOVE.ordinal());
+    private static Stream<Arguments> operationIds() {
+        return Stream.of(
+                arguments(OperationType.NO_OP, 0),
+                arguments(OperationType.PUT, 1),
+                arguments(OperationType.REMOVE, 2)
+        );
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @ParameterizedTest
+    @MethodSource("operationIds")
+    void testId(OperationType operationType, int expectedId) {
+        assertEquals(expectedId, operationType.id());
+    }
+
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @ParameterizedTest
+    @MethodSource("operationIds")
+    void testFromId(OperationType expectedOperationType, int id) {
+        assertEquals(expectedOperationType, OperationType.fromId(id));
+
+    }
+
     @Test
-    void testFromOrdinal() {
-        assertEquals(OperationType.NO_OP, OperationType.fromOrdinal(0));
-
-        assertEquals(OperationType.PUT, OperationType.fromOrdinal(1));
-
-        assertEquals(OperationType.REMOVE, OperationType.fromOrdinal(2));
-
-        assertThrows(IllegalArgumentException.class, () -> OperationType.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> OperationType.fromOrdinal(3));
+    void testFromIdThrows() {
+        assertThrows(IllegalArgumentException.class, () -> OperationType.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> OperationType.fromId(3));
     }
 }

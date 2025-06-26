@@ -43,10 +43,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadPoolExecutor;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
@@ -548,19 +546,6 @@ public class DistributionZonesUtil {
                 namedThreadFactory,
                 new ThreadPoolExecutor.DiscardPolicy()
         );
-    }
-
-    /**
-     * Returns list of table descriptors bound to the zone.
-     *
-     * @param zoneId Zone id.
-     * @param catalog Catalog.
-     * @return List of table descriptors from the zone.
-     */
-    public static List<CatalogTableDescriptor> findTablesByZoneId(int zoneId, Catalog catalog) {
-        return catalog.tables().stream()
-                .filter(table -> table.zoneId() == zoneId)
-                .collect(toList());
     }
 
     public static Set<String> nodeNames(Set<NodeWithAttributes> nodes) {

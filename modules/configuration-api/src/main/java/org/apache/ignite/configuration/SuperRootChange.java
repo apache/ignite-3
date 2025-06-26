@@ -24,10 +24,10 @@ public interface SuperRootChange {
     /**
      * Returns a root view for the root key.
      */
-    <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey);
+    <V> V viewRoot(RootKey<?, V, ?> rootKey);
 
     /**
      * Returns a root change for the root key.
      */
-    <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey);
+    <C> C changeRoot(RootKey<?, ? super C, C> rootKey);
 }

@@ -193,7 +193,7 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertKeyExpressions(KeyValueGetPlan plan, String... expectedExpressions) {
-        List<String> keyExpressions = plan.lookupNode().keyExpressions().stream()
+        List<String> keyExpressions = (plan.getRel()).keyExpressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
@@ -205,20 +205,20 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
 
     private static void assertCondition(KeyValueGetPlan plan, String expectedCondition) {
         assertThat(
-                plan.lookupNode().condition().toString(),
+                (plan.getRel()).condition().toString(),
                 equalTo(expectedCondition)
         );
     }
 
     private static void assertEmptyCondition(KeyValueGetPlan plan) {
         assertThat(
-                plan.lookupNode().condition(),
+                (plan.getRel()).condition(),
                 nullValue()
         );
     }
 
     private static void assertProjection(KeyValueGetPlan plan, String... expectedProjections) {
-        List<String> projections = plan.lookupNode().projects().stream()
+        List<String> projections = (plan.getRel()).projects().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
