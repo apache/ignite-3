@@ -47,13 +47,14 @@ public class RaftConfigurationModule implements ConfigurationModule {
         );
     }
 
-    @Override
-    public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
-        RaftExtensionChange raftExtensionChange = rootChange.changeRoot(RaftExtensionConfiguration.KEY);
-        RaftExtensionView raftExtensionView = rootChange.viewRoot(RaftExtensionConfiguration.KEY);
 
-        RaftView raftView = raftExtensionView.raft();
+    @Override
+    public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
+        RaftExtensionChange raftExtensionChange = superRootChange.changeRoot(RaftExtensionConfiguration.KEY);
+        RaftExtensionView raftExtensionView = superRootChange.viewRoot(RaftExtensionConfiguration.KEY);
+
         RaftChange raftChange = raftExtensionChange.changeRaft();
+        RaftView raftView = raftExtensionView.raft();
 
         changeDisruptorStripesIfNeeded(raftView, raftChange);
         changeDisruptorLogManagerStripesIfNeeded(raftView, raftChange);

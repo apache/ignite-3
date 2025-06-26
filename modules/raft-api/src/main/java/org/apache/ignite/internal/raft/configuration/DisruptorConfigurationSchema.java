@@ -43,6 +43,6 @@ public class DisruptorConfigurationSchema {
 
     /** Amount of disruptor's for RAFT log manager. */
     @Range(min = 1)
-    @Value
+    @Value(hasDefault = true)
     public int logManagerStripes = DEFAULT_LOG_MANAGER_STRIPES_COUNT;
 }

@@ -76,8 +76,8 @@ public class RaftConfigurationSchema {
      *
      * @see DisruptorConfigurationSchema#stripes
      */
-    @Value(hasDefault = true)
     @Deprecated
+    @Value(hasDefault = true)
     public int stripes = DisruptorConfigurationSchema.DEFAULT_STRIPES_COUNT;
 
     /**
