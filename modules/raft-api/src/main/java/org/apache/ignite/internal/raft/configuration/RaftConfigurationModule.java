@@ -47,7 +47,6 @@ public class RaftConfigurationModule implements ConfigurationModule {
         );
     }
 
-
     @Override
     public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
         RaftExtensionChange raftExtensionChange = superRootChange.changeRoot(RaftExtensionConfiguration.KEY);
