@@ -19,7 +19,11 @@ package org.apache.ignite.internal.configuration.compatibility.framework;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Compares two configuration trees (snapshot and current).
@@ -29,11 +33,57 @@ public class ConfigurationTreeComparator {
      * Validates the current configuration tree is compatible with the snapshot.
      */
     public static void ensureCompatible(List<ConfigNode> snapshot, List<ConfigNode> current) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-25575
-        String currentDump = dumpTree(current);
-        String snapshotDump = dumpTree(snapshot);
+        TreeValidatorShuttle shuttle = new TreeValidatorShuttle(current);
 
-        assertEquals(currentDump, snapshotDump, "Configuration metadata is incompatible");
+        for (ConfigNode tree : snapshot) {
+            tree.accept(shuttle);
+        }
+    }
+
+    /**
+     * Naive tree validator that checks the current configuration tree is compatible with the snapshot. Note: we rely here the tree is
+     * traversed in the depth-first order.
+     */
+    private static class TreeValidatorShuttle implements ConfigShuttle {
+        private final List<ConfigNode> roots;
+        private final Deque<ConfigNode> actualStack = new ArrayDeque<>();
+        private final Deque<ConfigNode> snapshotStack = new ArrayDeque<>();
+
+        TreeValidatorShuttle(List<ConfigNode> roots) {
+            this.roots = roots;
+        }
+
+        @Override
+        public void visit(ConfigNode snapshotNode) {
+            // Get back to last common parent.
+            while (!snapshotStack.isEmpty() && snapshotStack.peek() != snapshotNode.getParent()) {
+                snapshotStack.pop();
+                actualStack.pop();
+            }
+
+            // If stack is empty, we should search for the root node.
+            Collection<ConfigNode> candidates = actualStack.isEmpty() ? roots : actualStack.peek().childNodes();
+
+            ConfigNode node = find(candidates, snapshotNode);
+            snapshotStack.push(snapshotNode);
+            actualStack.push(node);
+        }
+
+        private ConfigNode find(Collection<ConfigNode> candidates, ConfigNode node) {
+            for (ConfigNode cand : candidates) {
+                if (match(cand, node)) {
+                    return cand;
+                }
+            }
+
+            throw new IllegalStateException("No match found for node: " + node + " in candidates: \n" + candidates);
+        }
+
+        private boolean match(ConfigNode node1, ConfigNode node2) {
+            return node1.isRoot() == node2.isRoot()
+                    && Objects.equals(node1.kind(), node2.kind())
+                    && Objects.equals(node1.name(), node2.name());
+        }
     }
 
     /**

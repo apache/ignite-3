@@ -62,10 +62,14 @@ public class ConfigNode {
         Map<String, String> attrs = new LinkedHashMap<>();
         attrs.put(Attributes.NAME, rootName);
         attrs.put(Attributes.CLASS, className.getCanonicalName());
-        attrs.put("TYPE", type.toString());
-        attrs.put("INTERNAL", String.valueOf(internal));
+        attrs.put(Attributes.KIND, type.toString());
 
-        return new ConfigNode(null, attrs, EnumSet.of(Flags.IS_ROOT));
+        EnumSet<Flags> flags = EnumSet.of(Flags.IS_ROOT);
+        if (internal) {
+            flags.add(Flags.IS_INTERNAL);
+        }
+
+        return new ConfigNode(null, attrs, flags);
     }
 
     /**
@@ -82,6 +86,10 @@ public class ConfigNode {
         return attributes.get(Attributes.CLASS);
     }
 
+    public String kind() {
+        return attributes.get(Attributes.KIND);
+    }
+
     /**
      * Returns the child nodes of this node.
      */
@@ -91,6 +99,13 @@ public class ConfigNode {
 
     public void setParent(ConfigNode parent) {
         this.parent = parent;
+    }
+
+    /**
+     * Returns the parent node of this node.
+     */
+    public ConfigNode getParent() {
+        return parent;
     }
 
     /**
@@ -177,7 +192,8 @@ public class ConfigNode {
     enum Flags {
         IS_ROOT(1),
         IS_VALUE(1 << 1),
-        IS_DEPRECATED(1 << 2);
+        IS_DEPRECATED(1 << 2),
+        IS_INTERNAL(1 << 3);
 
         private final int mask;
 
@@ -213,8 +229,8 @@ public class ConfigNode {
      */
     static class Attributes {
         static String NAME = "name";
+        static String KIND = "kind";
         static String CLASS = "class";
-        static String FLAGS = "flags";
         static String ANNOTATIONS = "annotations";
     }
 }
