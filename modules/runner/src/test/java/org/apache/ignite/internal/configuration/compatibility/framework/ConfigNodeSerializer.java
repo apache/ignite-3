@@ -47,6 +47,8 @@ public class ConfigNodeSerializer {
 
         List<ConfigNode> configNodes = objectMappingIterator.readAll();
 
+        // Init roots, then restore parent links.
+        configNodes.forEach(root -> root.init(null));
         configNodes.forEach(ConfigNodeSerializer::restoreParentLinks);
 
         return configNodes;
@@ -57,7 +59,7 @@ public class ConfigNodeSerializer {
      */
     private static void restoreParentLinks(ConfigNode node) {
         for (ConfigNode child : node.childNodes()) {
-            child.setParent(node);
+            child.init(node);
             restoreParentLinks(child);
         }
     }

@@ -46,8 +46,6 @@ import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNo
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 
 /*
- TODO: https://issues.apache.org/jira/browse/IGNITE-25575
-   implement tree compatibility checks.
  TODO: https://issues.apache.org/jira/browse/IGNITE-25573
    support removed nodes. {@link ConfigurationModule#deletedPrefixes()}.
    support user names. See {@link org.apache.ignite.configuration.annotation.Name} annotation. @PublicName ?
@@ -57,7 +55,6 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
  TODO: https://issues.apache.org/jira/browse/IGNITE-25572
    support polymorphic nodes. See {@link org.apache.ignite.configuration.annotation.PolymorphicConfig} annotation.
  TODO https://issues.apache.org/jira/browse/IGNITE-25747
-   support {@link java.lang.Deprecated} annotation.
    support {@link org.apache.ignite.configuration.validation.Range} annotation.
    support {@link org.apache.ignite.configuration.validation.Endpoint} annotation.
    support {@link org.apache.ignite.configuration.validation.PowerOfTwo} annotation.
@@ -75,7 +72,8 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
  */
 public class ConfigurationTreeScanner {
     private static final Set<Class<?>> SUPPORTED_FIELD_ANNOTATIONS = Set.of(
-            Value.class
+            Value.class,
+            Deprecated.class // See flags.
     );
 
     /**
@@ -132,25 +130,27 @@ public class ConfigurationTreeScanner {
         return classes;
     }
 
-    private static String collectAdditionalAnnotations(Field field) {
+    /**
+     * Collects annotations that are not supported.
+     */
+    private static List<ConfigAnnotation> collectAdditionalAnnotations(Field field) {
         return Arrays.stream(field.getDeclaredAnnotations())
                 .map(Annotation::annotationType)
                 .filter(not(SUPPORTED_FIELD_ANNOTATIONS::contains))
-                .map(Class::getSimpleName)
-                .collect(Collectors.joining(",", "[", "]"));
+                .map(a -> new ConfigAnnotation(a.getName(), null))
+                .collect(Collectors.toList());
     }
 
     private static ConfigNode createNodeForField(ConfigNode parent, Field field) {
-        String annotations = collectAdditionalAnnotations(field);
+        List<ConfigAnnotation> annotations = collectAdditionalAnnotations(field);
 
         EnumSet<ConfigNode.Flags> flags = extractFlags(field);
 
         Map<String, String> attributes = new LinkedHashMap<>();
         attributes.put(Attributes.NAME, field.getName());
         attributes.put(Attributes.CLASS, field.getType().getCanonicalName());
-        attributes.put(Attributes.ANNOTATIONS, annotations);
 
-        return new ConfigNode(parent, attributes, flags);
+        return new ConfigNode(parent, attributes, annotations, flags);
     }
 
     private static EnumSet<ConfigNode.Flags> extractFlags(Field field) {
