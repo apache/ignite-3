@@ -105,7 +105,6 @@ public class DotNetComputeExecutor {
         try {
             String unitPathStr = unitPath.toRealPath().toString();
 
-            // Start the async undeploy process, do not wait for it to complete.
             getPlatformComputeConnectionWithRetryAsync()
                     .thenCompose(conn -> conn.connectionFut()
                             .thenCompose(c -> c.undeployUnitsAsync(List.of(unitPathStr)))
