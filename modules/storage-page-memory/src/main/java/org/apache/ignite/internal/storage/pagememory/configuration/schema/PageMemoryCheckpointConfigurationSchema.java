@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.configuration.schema;
+package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 
 /**
  * Checkpoint configuration schema for persistent page memory.
@@ -31,7 +32,7 @@ public class PageMemoryCheckpointConfigurationSchema {
     @Range(min = 0)
     @Value(hasDefault = true)
     @PublicName(legacyNames = "interval")
-    public long intervalMillis = 180_000;
+    public long intervalMillis = CheckpointConfiguration.DEFAULT_CHECKPOINT_INTERVAL;
 
     /**
      * Max deviation (in percent) of intervals between checkpoints. If this is 20 and {@link #intervalMillis} is 1000, then the effective
@@ -40,7 +41,7 @@ public class PageMemoryCheckpointConfigurationSchema {
     @Range(min = 0, max = 100)
     @Value(hasDefault = true)
     @PublicName(legacyNames = "intervalDeviation")
-    public int intervalDeviationPercent = 40;
+    public int intervalDeviationPercent = CheckpointConfiguration.DEFAULT_CHECKPOINT_INTERVAL_DEVIATION;
 
     /** Delay before executing a checkpoint triggered by RAFT. */
     @Range(min = 0)
@@ -50,24 +51,24 @@ public class PageMemoryCheckpointConfigurationSchema {
     /** Number of checkpoint threads. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public int checkpointThreads = 4;
+    public int checkpointThreads = CheckpointConfiguration.DEFAULT_CHECKPOINT_THREADS;
 
     /** Number of threads to compact delta files. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public int compactionThreads = 4;
+    public int compactionThreads = CheckpointConfiguration.DEFAULT_COMPACTION_THREADS;
 
     /** Timeout for checkpoint read lock acquisition in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
     @PublicName(legacyNames = "readLockTimeout")
-    public long readLockTimeoutMillis = 10_000;
+    public long readLockTimeoutMillis = CheckpointConfiguration.DEFAULT_CHECKPOINT_READ_LOCK_TIMEOUT;
 
     /** Threshold for logging (if greater than zero) read lock holders in milliseconds. */
     @Range(min = 0)
     @Value(hasDefault = true)
     @PublicName(legacyNames = "logReadLockThresholdTimeout")
-    public long logReadLockThresholdTimeoutMillis = 0;
+    public long logReadLockThresholdTimeoutMillis = CheckpointConfiguration.DEFAULT_CHECKPOINT_LOG_READ_LOCK_THRESHOLD_TIMEOUT;
 
     /** Use an asynchronous file I/O operations provider. */
     @Value(hasDefault = true)

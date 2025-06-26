@@ -63,7 +63,7 @@ import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
@@ -145,10 +145,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     @Test
-    void testDirtyPages(
-            @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
-            @WorkDirectory Path workDir
-    ) throws Exception {
+    void testDirtyPages(@WorkDirectory Path workDir) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, StoragePartitionMeta.FACTORY);
@@ -156,7 +153,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
         CheckpointManager checkpointManager = createCheckpointManager(
-                checkpointConfig,
+                CheckpointConfiguration.builder().build(),
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegions
@@ -207,10 +204,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     @Test
-    void testCheckpointUrgency(
-            @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
-            @WorkDirectory Path workDir
-    ) throws Exception {
+    void testCheckpointUrgency(@WorkDirectory Path workDir) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, StoragePartitionMeta.FACTORY);
@@ -218,7 +212,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
         CheckpointManager checkpointManager = createCheckpointManager(
-                checkpointConfig,
+                CheckpointConfiguration.builder().build(),
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegions
@@ -297,10 +291,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     @Test
-    void testDeltaFilePageStore(
-            @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
-            @WorkDirectory Path workDir
-    ) throws Exception {
+    void testDeltaFilePageStore(@WorkDirectory Path workDir) throws Exception {
         FilePageStoreManager filePageStoreManager = spy(createFilePageStoreManager(workDir));
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, StoragePartitionMeta.FACTORY);
@@ -308,7 +299,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
         CheckpointManager checkpointManager = createCheckpointManager(
-                checkpointConfig,
+                CheckpointConfiguration.builder().build(),
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegions
@@ -361,10 +352,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     @Test
-    void testPageReplacement(
-            @InjectConfiguration("mock.checkpointThreads=1") PageMemoryCheckpointConfiguration checkpointConfig,
-            @WorkDirectory Path workDir
-    ) throws Exception {
+    void testPageReplacement(@WorkDirectory Path workDir) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
         PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE, StoragePartitionMeta.FACTORY);
@@ -373,7 +361,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
         CheckpointManager checkpointManager = createCheckpointManager(
-                checkpointConfig,
+                CheckpointConfiguration.builder().checkpointThreads(1).build(),
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegions
@@ -506,7 +494,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     private CheckpointManager createCheckpointManager(
-            PageMemoryCheckpointConfiguration checkpointConfig,
+            CheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
             Collection<DataRegion<PersistentPageMemory>> dataRegions

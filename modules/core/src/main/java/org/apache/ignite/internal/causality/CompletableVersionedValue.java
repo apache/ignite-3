@@ -30,16 +30,21 @@ public class CompletableVersionedValue<T> implements VersionedValue<T> {
     /**
      * Constructor with a default history size and no default value.
      */
-    public CompletableVersionedValue() {
-        this.versionedValue = new BaseVersionedValue<>(null);
+    public CompletableVersionedValue(String name) {
+        this.versionedValue = new BaseVersionedValue<>(name, null);
     }
 
-    public CompletableVersionedValue(int maxHistorySize) {
-        this.versionedValue = new BaseVersionedValue<>(maxHistorySize, null);
+    public CompletableVersionedValue(String name, int maxHistorySize) {
+        this.versionedValue = new BaseVersionedValue<>(name, maxHistorySize, null);
     }
 
-    public CompletableVersionedValue(Supplier<T> defaultValueSupplier) {
-        this.versionedValue = new BaseVersionedValue<>(defaultValueSupplier);
+    public CompletableVersionedValue(String name, Supplier<T> defaultValueSupplier) {
+        this.versionedValue = new BaseVersionedValue<>(name, defaultValueSupplier);
+    }
+
+    @Override
+    public String name() {
+        return versionedValue.name();
     }
 
     @Override
