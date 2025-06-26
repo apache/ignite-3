@@ -54,7 +54,7 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
@@ -98,9 +98,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     private static final int PAGE_COUNT = 1024;
 
     private static final int MAX_MEMORY_SIZE = PAGE_COUNT * PAGE_SIZE;
-
-    @InjectConfiguration("mock.checkpointThreads = 1")
-    private PageMemoryCheckpointConfiguration checkpointConfig;
 
     @InjectConfiguration(
             polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
@@ -148,7 +145,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 NODE_NAME,
                 null,
                 failureManager,
-                checkpointConfig,
+                CheckpointConfiguration.builder().checkpointThreads(1).build(),
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegionList,
