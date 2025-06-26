@@ -50,8 +50,9 @@ public class RaftConfigurationModule implements ConfigurationModule {
     @Override
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
         RaftExtensionChange raftExtensionChange = rootChange.changeRoot(RaftExtensionConfiguration.KEY);
+        RaftExtensionView raftExtensionView = rootChange.viewRoot(RaftExtensionConfiguration.KEY);
 
-        RaftView raftView = raftExtensionChange.raft();
+        RaftView raftView = raftExtensionView.raft();
         RaftChange raftChange = raftExtensionChange.changeRaft();
 
         changeDisruptorStripesIfNeeded(raftView, raftChange);
