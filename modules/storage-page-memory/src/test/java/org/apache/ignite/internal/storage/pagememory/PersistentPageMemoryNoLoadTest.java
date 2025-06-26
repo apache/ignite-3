@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
@@ -56,7 +55,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
@@ -64,9 +62,7 @@ import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.PartitionMetaSnapshot;
@@ -79,7 +75,6 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMa
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -99,14 +94,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelfTest {
     private static PageIoRegistry ioRegistry;
 
-    @InjectConfiguration(
-            polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
-            value = "mock.engine = aipersist"
-    )
-    private StorageProfileConfiguration dataRegionCfg;
-
     @InjectExecutorService
     private ExecutorService executorService;
+
+    private int dataRegionSize;
 
     @BeforeAll
     static void beforeAll() {
@@ -117,7 +108,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSizeBytes(MAX_MEMORY_SIZE)).get(1, SECONDS);
+        dataRegionSize = MAX_MEMORY_SIZE;
     }
 
     @AfterAll
@@ -218,12 +209,12 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 dataRegions
         );
 
-        long systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
+        int systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
 
-        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSizeBytes(128 * systemPageSize)).get(1, SECONDS);
+        dataRegionSize = 100 * systemPageSize;
 
         PersistentPageMemory pageMemory = createPageMemory(
-                new long[]{100 * systemPageSize},
+                new long[]{dataRegionSize},
                 28 * systemPageSize,
                 filePageStoreManager,
                 checkpointManager,
@@ -454,7 +445,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
             WriteDirtyPage flushDirtyPageForReplacement
     ) {
         return new PersistentPageMemory(
-                (PersistentPageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
+                PersistentDataRegionConfiguration.builder().pageSize(PAGE_SIZE).size(dataRegionSize).build(),
                 new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 segmentSizes,
@@ -462,7 +453,6 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                 filePageStoreManager == null ? new TestPageReadWriteManager() : filePageStoreManager,
                 flushDirtyPageForReplacement,
                 checkpointManager == null ? mockCheckpointTimeoutLock(true) : checkpointManager.checkpointTimeoutLock(),
-                PAGE_SIZE,
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
     }

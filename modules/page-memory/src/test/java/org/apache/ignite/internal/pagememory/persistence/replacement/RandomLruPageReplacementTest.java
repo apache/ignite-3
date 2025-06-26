@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.ReplacementMode.RANDOM_LRU;
+
+import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 
 /**
  * Tests for the {@link RandomLruPageReplacementPolicy}.
  */
 public class RandomLruPageReplacementTest extends AbstractPageReplacementTest {
     @Override
-    protected String replacementMode() {
-        return RANDOM_LRU_REPLACEMENT_MODE;
+    protected ReplacementMode replacementMode() {
+        return RANDOM_LRU;
     }
 }

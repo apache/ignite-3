@@ -201,6 +201,9 @@ public class ConfigurationProcessor extends AbstractProcessor {
             // Is an instance of a polymorphic configuration.
             boolean isPolymorphicInstance = clazz.getAnnotation(PolymorphicConfigInstance.class) != null;
 
+            // Is an abstract configuration.
+            boolean isAbstractConfiguration = clazz.getAnnotation(AbstractConfiguration.class) != null;
+
             // Create VIEW and CHANGE classes.
             createPojoBindings(
                     classWrapper,
@@ -229,6 +232,15 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     .addAnnotation(Override.class)
                     .returns(configInterface).build()
             );
+
+            if (!isAbstractConfiguration) {
+                // Generates "public FooView value();" in the configuration interface.
+                configurationInterfaceBuilder.addMethod(MethodSpec.methodBuilder("value")
+                        .addModifiers(PUBLIC, ABSTRACT)
+                        .addAnnotation(Override.class)
+                        .returns(getViewName(schemaClassName)).build()
+                );
+            }
 
             // Write configuration interface.
             buildClass(packageName, configurationInterfaceBuilder.build());

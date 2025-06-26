@@ -41,8 +41,8 @@ import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
+import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
@@ -57,6 +57,8 @@ import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteTh
 import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioPagesWriteThrottle;
 import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingType;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
@@ -147,10 +149,10 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
      * Starts a persistent data region.
      */
     public void start() {
-        PersistentPageMemoryProfileView dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
+        PersistentPageMemoryProfileView dataRegionConfigView = cfg.value();
 
         PersistentPageMemory pageMemory = new PersistentPageMemory(
-                cfg,
+                regionConfiguration(cfg.value(), pageSize),
                 metricSource,
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView.sizeBytes(), Runtime.getRuntime().availableProcessors()),
@@ -158,7 +160,6 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
                 filePageStoreManager,
                 this::flushDirtyPageOnReplacement,
                 checkpointManager.checkpointTimeoutLock(),
-                pageSize,
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 
@@ -174,6 +175,15 @@ public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPage
         pageListCacheLimit = new AtomicLong((long) (pageMemory.totalPages() * PAGE_LIST_CACHE_LIMIT_THRESHOLD));
 
         this.pageMemory = pageMemory;
+    }
+
+    private static PersistentDataRegionConfiguration regionConfiguration(PersistentPageMemoryProfileView cfg, int pageSize) {
+        return PersistentDataRegionConfiguration.builder()
+                .name(cfg.name())
+                .pageSize(pageSize)
+                .size(cfg.sizeBytes())
+                .replacementMode(ReplacementMode.valueOf(cfg.replacementMode()))
+                .build();
     }
 
     // TODO IGNITE-24933 refactor.
