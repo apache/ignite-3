@@ -20,12 +20,29 @@ package org.apache.ignite.internal.raft.configuration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.PowerOfTwo;
+import org.apache.ignite.configuration.validation.Range;
 
 /** Configuration schema for RAFT disruptor's. */
 @Config
 public class DisruptorConfigurationSchema {
+    /** Default value for {@link #stripes}. */
+    static int DEFAULT_STRIPES_COUNT = Runtime.getRuntime().availableProcessors();
+
+    /** Default value for {@link #logManagerStripes}. */
+    static int DEFAULT_LOG_MANAGER_STRIPES_COUNT = 4;
+
     /** Size of queue in entries for disruptor's. */
     @PowerOfTwo
     @Value(hasDefault = true)
     public int queueSize = 16_384;
+
+    /** Amount of disruptor's that will handle the RAFT server. */
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public int stripes = DEFAULT_STRIPES_COUNT;
+
+    /** Amount of disruptor's for RAFT log manager. */
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public int logManagerStripes = DEFAULT_LOG_MANAGER_STRIPES_COUNT;
 }
