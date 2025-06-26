@@ -27,10 +27,11 @@ import static org.mockito.Mockito.when;
 
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /** For {@link RaftConfigurationModule} testing. */
-public class RaftConfigurationModuleTest {
+public class RaftConfigurationModuleTest extends BaseIgniteAbstractTest {
     private final RaftConfigurationModule configModule = new RaftConfigurationModule();
 
     @Test
