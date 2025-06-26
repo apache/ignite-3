@@ -161,6 +161,8 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         configNodes.forEach(c -> c.accept(shuttle));
 
         ConfigurationSnapshotManager.saveSnapshotToFile(configNodes, DEFAULT_SNAPSHOT_FILE);
+
+        LOG.info("Snapshot saved to: " + DEFAULT_SNAPSHOT_FILE.toAbsolutePath());
     }
 
     /**
