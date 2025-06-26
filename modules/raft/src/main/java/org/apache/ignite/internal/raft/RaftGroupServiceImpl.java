@@ -615,11 +615,21 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         ThrottlingContextHolder peerThrottlingContextHolder = throttlingContextHolder.peerContextHolder(peer.consistentId());
 
         if (throttleOnOverload && peerThrottlingContextHolder.isOverloaded()) {
-            executor.schedule(
-                    () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
-                    100,
-                    TimeUnit.MILLISECONDS
-            );
+            if (!busyLock.enterBusy()) {
+                future.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId + "]."));
+
+                return future;
+            }
+
+            try {
+                executor.schedule(
+                        () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
+                        100,
+                        TimeUnit.MILLISECONDS
+                );
+            } finally {
+                busyLock.leaveBusy();
+            }
 
             return future;
         }
@@ -692,6 +702,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                         peerThrottlingContextHolder.afterRequest(requestStartTime, retriableError(err, resp));
 
+                        if (!busyLock.enterBusy()) {
+                            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId + "]."));
+
+                            return;
+                        }
+
                         try {
                             if (err != null) {
                                 handleThrowable(fut, err, retryContext);
@@ -710,6 +726,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                             } else {
                                 fut.completeExceptionally(e);
                             }
+                        } finally {
+                            busyLock.leaveBusy();
                         }
                     });
         } finally {
@@ -725,11 +743,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         err = unwrapCause(err);
 
         if (!recoverable(err)) {
-            if (hasCause(err, RejectedExecutionException.class)) {
-                fut.completeExceptionally(wrapInComponentStoppingException(err));
-            } else {
-                fut.completeExceptionally(err);
-            }
+            fut.completeExceptionally(err);
 
             return;
         }
@@ -893,6 +907,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     private void scheduleRetry(CompletableFuture<? extends NetworkMessage> fut, RetryContext retryContext) {
+        assert busyLock.blockedByCurrentThread()
+                : "Cannot schedule retry when busy lock is not blocked by the current thread [groupId=" + groupId + ']';
+
         executor.schedule(
                 () -> {
                     retryContext.onNewAttempt();
