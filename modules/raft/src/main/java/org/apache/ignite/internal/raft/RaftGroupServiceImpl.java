@@ -1058,11 +1058,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             public void onDisappeared(ClusterNode member) {
                 // Peers in throttling context are used for retries, so we use retry timeout here. Also, the retries themselves
                 // also can be delayed for any reasons, so here is the multiplier.
-                executor.schedule(
-                        () -> throttlingContextHolder.onNodeLeft(member.name()),
-                        configuration.retryTimeoutMillis().value() * 3,
-                        TimeUnit.MILLISECONDS
-                );
+                if (!busyLock.enterBusy()) {
+                    // Replica is stopping, so we do not need to schedule the retry.
+                    return;
+                }
+
+                try {
+                    executor.schedule(
+                            () -> throttlingContextHolder.onNodeLeft(member.name()),
+                            configuration.retryTimeoutMillis().value() * 3,
+                            TimeUnit.MILLISECONDS
+                    );
+                } finally {
+                    busyLock.leaveBusy();
+                }
             }
         };
     }
