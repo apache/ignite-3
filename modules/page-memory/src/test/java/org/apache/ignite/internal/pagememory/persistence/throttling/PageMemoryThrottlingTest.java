@@ -54,7 +54,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -102,8 +102,10 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private static PageIoRegistry ioRegistry;
 
     // We use very small readLock timeout here on purpose.
-    @InjectConfiguration("mock {checkpointThreads = 1, readLockTimeoutMillis = 50}")
-    private PageMemoryCheckpointConfiguration checkpointConfig;
+    private CheckpointConfiguration checkpointConfig = CheckpointConfiguration.builder()
+            .checkpointThreads(1)
+            .readLockTimeoutMillis(() -> 50)
+            .build();
 
     @InjectConfiguration("mock.engine = aipersist")
     private StorageProfileConfiguration profileConfig;

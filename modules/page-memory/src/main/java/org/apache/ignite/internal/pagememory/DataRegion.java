@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.pagememory;
 
 
-import org.apache.ignite.internal.storage.StorageException;
-
 /**
  * Data region based on {@link PageMemory}.
  */
@@ -27,7 +25,7 @@ public interface DataRegion<T extends PageMemory> {
     /**
      * Returns page memory.
      *
-     * @throws StorageException If the data region did not start.
+     * @throws PageMemoryException If the data region did not start.
      */
     T pageMemory();
 }

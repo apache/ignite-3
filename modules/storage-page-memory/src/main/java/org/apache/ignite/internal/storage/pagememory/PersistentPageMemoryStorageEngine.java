@@ -45,6 +45,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -201,7 +203,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                     igniteInstanceName,
                     longJvmPauseDetector,
                     failureManager,
-                    engineConfig.checkpoint(),
+                    checkpointConfiguration(engineConfig.checkpoint()),
                     filePageStoreManager,
                     partitionMetaManager,
                     regions.values(),
@@ -241,6 +243,17 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         executor.allowCoreThreadTimeOut(true);
 
         destructionExecutor = executor;
+    }
+
+    private static CheckpointConfiguration checkpointConfiguration(PageMemoryCheckpointConfiguration checkpointCfg) {
+        return CheckpointConfiguration.builder()
+                .checkpointThreads(checkpointCfg.value().checkpointThreads())
+                .compactionThreads(checkpointCfg.value().compactionThreads())
+                .intervalMillis(checkpointCfg.intervalMillis()::value)
+                .intervalDeviationPercent(checkpointCfg.intervalDeviationPercent()::value)
+                .readLockTimeoutMillis(checkpointCfg.readLockTimeoutMillis()::value)
+                .logReadLockThresholdTimeoutMillis(checkpointCfg.logReadLockThresholdTimeoutMillis()::value)
+                .build();
     }
 
     @Override

@@ -57,8 +57,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteSpeedFormatter;
@@ -135,7 +134,7 @@ public class Checkpointer extends IgniteWorker {
     private final int pageSize;
 
     /** Checkpoint config. */
-    private final PageMemoryCheckpointConfiguration checkpointConfig;
+    private final CheckpointConfiguration checkpointConfig;
 
     /** Strategy of where and how to get the pages. */
     private final CheckpointWorkflow checkpointWorkflow;
@@ -202,7 +201,7 @@ public class Checkpointer extends IgniteWorker {
             FilePageStoreManager filePageStoreManager,
             Compactor compactor,
             int pageSize,
-            PageMemoryCheckpointConfiguration checkpointConfig,
+            CheckpointConfiguration checkpointConfig,
             LogSyncer logSyncer
     ) {
         super(LOG, igniteInstanceName, "checkpoint-thread");
@@ -219,7 +218,7 @@ public class Checkpointer extends IgniteWorker {
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
-        int checkpointWritePageThreads = checkpointConfig.checkpointThreads().value();
+        int checkpointWritePageThreads = checkpointConfig.checkpointThreads();
 
         if (checkpointWritePageThreads > 1) {
             checkpointWritePagesPool = new ThreadPoolExecutor(
@@ -820,10 +819,8 @@ public class Checkpointer extends IgniteWorker {
      * <p>It helps when the cluster makes a checkpoint in the same time in every node.
      */
     long nextCheckpointInterval() {
-        PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
-
-        long interval = checkpointConfigView.intervalMillis();
-        int deviation = checkpointConfigView.intervalDeviationPercent();
+        long interval = checkpointConfig.intervalMillis();
+        int deviation = checkpointConfig.intervalDeviationPercent();
 
         if (deviation == 0) {
             return interval;
