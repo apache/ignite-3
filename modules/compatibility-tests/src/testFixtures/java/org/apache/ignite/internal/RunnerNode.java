@@ -127,18 +127,20 @@ public class RunnerNode {
      */
     public void stop() {
         process.destroy();
+
         try {
             if (!process.waitFor(30, TimeUnit.SECONDS)) {
-                processLogger.info("Process did not respond to destroy, destroying forcibly.");
+                processLogger.info("Process did not respond to destroy, destroying forcibly: {}", nodeName);
                 process.destroyForcibly();
+
                 if (!process.waitFor(30, TimeUnit.SECONDS)) {
-                    processLogger.info("Process did not respond to forced destroy.");
-                } else {
-                    processLogger.info("Process stopped.");
+                    processLogger.info("Process did not respond to forced destroy: {}", nodeName);
+
+                    return;
                 }
-            } else {
-                processLogger.info("Process stopped.");
             }
+
+            processLogger.info("Process stopped: {}", nodeName);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

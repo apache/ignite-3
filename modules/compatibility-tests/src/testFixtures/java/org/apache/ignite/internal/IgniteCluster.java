@@ -149,12 +149,13 @@ public class IgniteCluster {
             List<String> nodeNames = runnerNodes.stream()
                     .map(RunnerNode::nodeName)
                     .collect(toList());
-            LOG.info("Shutting the runner nodes down [nodes={}]", nodeNames);
+
+            LOG.info("Shutting the runner nodes down: [nodes={}]", nodeNames);
 
             runnerNodes.forEach(RunnerNode::stop);
             runnerNodes.clear();
 
-            LOG.info("Shut the runner nodes down");
+            LOG.info("Shutting down nodes is complete: [nodes={}]", nodeNames);
         }
 
         started = false;

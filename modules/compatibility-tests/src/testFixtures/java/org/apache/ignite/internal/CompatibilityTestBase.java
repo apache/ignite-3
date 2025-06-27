@@ -82,7 +82,8 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
     void startCluster(String baseVersion, TestInfo testInfo) {
-        log.info("Starting nodes for base version {}", baseVersion);
+        log.info("Starting nodes for base version: {}", baseVersion);
+        
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
                 .build();
