@@ -78,9 +78,28 @@ public class IgniteCommand : DbCommand
         return (int)resultSet.AffectedRows;
     }
 
-    public override Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
+    public override async Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var args = GetArgs();
+        var statement = GetStatement();
+
+        // TODO: Remove debug output.
+        Console.WriteLine($"IgniteCommand.ExecuteScalarAsync [statement={statement}, parameters={string.Join(", ", args)}]");
+
+        // TODO: Propagate transaction somehow.
+        await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
+            transaction: null,
+            statement,
+            cancellationToken,
+            args);
+
+        await foreach (var row in resultSet)
+        {
+            // Return the first result.
+            return row;
+        }
+
+        throw new InvalidOperationException("Query returned no results: " + statement);
     }
 
     public override object ExecuteScalar() => ExecuteScalarAsync().GetAwaiter().GetResult();
