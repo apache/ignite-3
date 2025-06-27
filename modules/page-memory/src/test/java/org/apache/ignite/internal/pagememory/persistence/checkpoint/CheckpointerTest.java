@@ -20,9 +20,11 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static java.lang.System.nanoTime;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta.FACTORY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
@@ -470,6 +472,48 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 checkpointer.nextCheckpointInterval(),
                 allOf(greaterThanOrEqualTo(1_800L), lessThanOrEqualTo(2_200L))
         );
+    }
+
+    @Test
+    void testPrepareToDestroyPartition() throws Exception {
+        Checkpointer checkpointer = new Checkpointer(
+                "test",
+                null,
+                mock(FailureManager.class),
+                mock(CheckpointWorkflow.class),
+                mock(CheckpointPagesWriterFactory.class),
+                mock(FilePageStoreManager.class),
+                mock(Compactor.class),
+                PAGE_SIZE,
+                checkpointConfig,
+                mock(LogSyncer.class)
+        );
+
+        GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);
+
+        // Everything should be fine as there is no current running checkpoint.
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
+
+        CheckpointProgressImpl checkpointProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
+
+        checkpointer.startCheckpointProgress();
+
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
+
+        checkpointProgress.transitTo(LOCK_RELEASED);
+        assertTrue(checkpointProgress.inProgress());
+
+        // Everything should be fine so on a "working" checkpoint we don't process the partition anyhow.
+        checkpointer.prepareToDestroyPartition(groupPartitionId).get(1, SECONDS);
+
+        // Let's emulate that we are processing a partition and check that everything will be fine after processing is completed.
+        checkpointProgress.blockPartitionDestruction(groupPartitionId);
+
+        CompletableFuture<?> onPartitionDestructionFuture = checkpointer.prepareToDestroyPartition(groupPartitionId);
+
+        checkpointProgress.unblockPartitionDestruction(groupPartitionId);
+
+        onPartitionDestructionFuture.get(1, SECONDS);
     }
 
     private static CheckpointDirtyPages dirtyPages(PersistentPageMemory pageMemory, FullPageId... pageIds) {
