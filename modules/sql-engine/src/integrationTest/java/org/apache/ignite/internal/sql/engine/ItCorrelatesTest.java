@@ -25,7 +25,8 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for correlated queries. */
 public class ItCorrelatesTest extends BaseSqlIntegrationTest {
-    private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ ";
+    private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter', "
+            + "'HashJoinConverter') */ ";
 
     @AfterEach
     public void dropTables() {
@@ -45,11 +46,53 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    void testProcessCorrelatesFromLeft() {
+        //noinspection ConcatenationWithEmptyString
+        sqlScript(""
+                + "CREATE TABLE t0 ("
+                + " id INT PRIMARY KEY,"
+                + " padding_col1 INT,"
+                + " padding_col2 INT,"
+                + " val INT);"
+                + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT);");
+
+        sql("insert into t0 values(1, 1, 1, 10), (2, 2, 2, 20);");
+        sql("insert into t1 values(1, 10), (2, 20);");
+
+        assertQuery("SELECT t1.ID FROM t0 JOIN t1 ON "
+                + "(t1.id = (SELECT inner_t1.id FROM t1 AS inner_t1 WHERE inner_t1.val = t0.val)) ORDER BY 1")
+                .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
+                .returns(1)
+                .returns(2)
+                .check();
+    }
+
+    @Test
+    void testProcessCorrelatesFromRight() {
+        //noinspection ConcatenationWithEmptyString
+        sqlScript(""
+                + "CREATE TABLE t0 ("
+                + " id INT PRIMARY KEY,"
+                + " val INT);"
+                + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT);");
+
+        sql("insert into t0 values(1, 10), (2, 20);");
+        sql("insert into t1 values(1, 10), (2, 20);");
+
+        assertQuery("SELECT t1.ID FROM t0 JOIN t1 ON "
+                + "(t0.id = (SELECT inner_t0.id FROM t0 AS inner_t0 WHERE inner_t0.val = t1.val)) ORDER BY 1")
+                .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
+                .returns(1)
+                .returns(2)
+                .check();
+    }
+
     /**
      * Tests resolving of collisions in correlates with correlate variables in the left hand.
      */
     @Test
-    public void testCorrelatesCollisionLeft() throws InterruptedException {
+    public void testCorrelatesCollisionLeft() {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
         sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
 
@@ -68,7 +111,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
      * Tests resolving of collisions in correlates with correlate variables in both, left and right hands.
      */
     @Test
-    public void testCorrelatesCollisionRight() throws InterruptedException {
+    public void testCorrelatesCollisionRight() {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
         sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
 

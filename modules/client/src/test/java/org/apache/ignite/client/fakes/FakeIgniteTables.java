@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
@@ -26,6 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.client.handler.FakePlacementDriver;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
@@ -33,13 +36,17 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,25 +56,34 @@ import org.jetbrains.annotations.Nullable;
 public class FakeIgniteTables implements IgniteTablesInternal {
     public static final String TABLE_EXISTS = "Table exists";
 
-    public static final String TABLE_ALL_COLUMNS = "all-columns";
+    public static final String TABLE_ALL_COLUMNS = "ALL_COLUMNS";
 
-    public static final String TABLE_ONE_COLUMN = "one-column";
+    public static final String TABLE_ONE_COLUMN = "ONE_COLUMN";
 
-    public static final String TABLE_WITH_DEFAULT_VALUES = "default-columns";
+    public static final String TABLE_WITH_DEFAULT_VALUES = "DEFAULT_COLUMNS";
 
-    public static final String TABLE_COMPOSITE_KEY = "composite-key";
+    public static final String TABLE_COMPOSITE_KEY = "COMPOSITE_KEY";
 
-    public static final String TABLE_COLOCATION_KEY = "colocation-key";
+    public static final String TABLE_COLOCATION_KEY = "COLOCATION_KEY";
 
-    public static final String BAD_TABLE = "bad-table";
+    public static final String BAD_TABLE = "BAD_TABLE";
 
     public static final String BAD_TABLE_ERR = "Err!";
 
-    private final ConcurrentHashMap<String, TableViewInternal> tables = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<QualifiedName, TableViewInternal> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, TableViewInternal> tablesById = new ConcurrentHashMap<>();
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
+
+    private final IgniteCompute compute;
+
+    private final FakePlacementDriver placementDriver;
+
+    FakeIgniteTables(IgniteCompute compute, FakePlacementDriver placementDriver) {
+        this.compute = compute;
+        this.placementDriver = placementDriver;
+    }
 
     /**
      * Creates a table.
@@ -87,12 +103,12 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @return Table.
      */
     public TableViewInternal createTable(String name, int id) {
-        var newTable = getNewTable(name, id);
+        TableViewInternal newTable = getNewTable(name, id);
 
-        var oldTable = tables.putIfAbsent(name, newTable);
+        TableViewInternal oldTable = tables.putIfAbsent(QualifiedName.parse(name), newTable);
 
         if (oldTable != null) {
-            throw new IgniteException(TABLE_EXISTS);
+            throw new IgniteException(INTERNAL_ERR, TABLE_EXISTS);
         }
 
         tablesById.put(newTable.tableId(), newTable);
@@ -106,6 +122,15 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @param name Table name.
      */
     public void dropTable(String name) {
+        dropTable(QualifiedName.parse(name));
+    }
+
+    /**
+     * Drops a table.
+     *
+     * @param name Table name.
+     */
+    public void dropTable(QualifiedName name) {
         var table = tables.remove(name);
 
         if (table != null) {
@@ -127,8 +152,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public Table table(String name) {
-        if (BAD_TABLE.equals(name)) {
+    public Table table(QualifiedName name) {
+        if (name.toCanonicalForm().contains(BAD_TABLE)) {
             throw new RuntimeException(BAD_TABLE_ERR);
         }
 
@@ -143,7 +168,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Table> tableAsync(String name) {
+    public CompletableFuture<Table> tableAsync(QualifiedName name) {
         return completedFuture(table(name));
     }
 
@@ -155,19 +180,23 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public TableViewInternal tableView(String name) {
+    public TableViewInternal tableView(QualifiedName name) {
         return tables.get(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
+    public CompletableFuture<TableViewInternal> tableViewAsync(QualifiedName name) {
         return completedFuture(tableView(name));
     }
 
     @Override
     public @Nullable TableViewInternal cachedTable(int tableId) {
         return table(tableId);
+    }
+
+    @Override
+    public void setStreamerReceiverRunner(StreamerReceiverRunner runner) {
     }
 
     private TableViewInternal getNewTable(String name, int id) {
@@ -207,10 +236,11 @@ public class FakeIgniteTables implements IgniteTablesInternal {
             return BinaryRowConverter.keyExtractor(schema).extractColumns(row);
         };
 
+        QualifiedName tableName = QualifiedName.parse(name);
         return new TableImpl(
-                new FakeInternalTable(name, id, keyExtractor),
+                new FakeInternalTable(tableName, id, keyExtractor, compute, placementDriver),
                 schemaReg,
-                new HeapLockManager(),
+                lockManager(),
                 new SchemaVersions() {
                     @Override
                     public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
@@ -218,13 +248,19 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                     }
 
                     @Override
-                    public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
+                    public CompletableFuture<Integer> schemaVersionAtCurrentTime(int tableId) {
                         return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
                 },
                 mock(IgniteSql.class),
                 -1
         );
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     /**
@@ -281,9 +317,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         new Column("zstring".toUpperCase(), NativeTypes.STRING, true),
                         new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
                         new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),
-                        new Column("zbitmask".toUpperCase(), NativeTypes.bitmaskOf(16), true),
                         new Column("zdecimal".toUpperCase(), NativeTypes.decimalOf(20, 10), true),
-                        new Column("znumber".toUpperCase(), NativeTypes.numberOf(24), true),
                 });
     }
 
@@ -333,8 +367,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @return Schema descriptor.
      */
     private SchemaDescriptor getColocationKeySchema(Integer v) {
-        Column colocationCol1 = new Column("COLO-1", NativeTypes.STRING, false);
-        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, false);
+        Column colocationCol1 = new Column("COLO1", NativeTypes.STRING, false);
+        Column colocationCol2 = new Column("COLO2", NativeTypes.INT64, false);
 
         return new SchemaDescriptor(
                 v,

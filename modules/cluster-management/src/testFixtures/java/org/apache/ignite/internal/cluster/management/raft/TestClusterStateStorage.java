@@ -32,6 +32,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,7 +41,11 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,6 +54,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestClusterStateStorage implements ClusterStateStorage {
     private static final String SNAPSHOT_FILE = "snapshot.bin";
+
+    private static final CmgMessagesFactory CMG_MESSAGES_FACTORY = new CmgMessagesFactory();
 
     private final Map<ByteArray, byte[]> map = new HashMap<>();
 
@@ -58,8 +66,27 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /**
+     * Returns a {@link TestClusterStateStorage} containing cluster state.
+     */
+    public static TestClusterStateStorage initializedClusterStateStorage() {
+        TestClusterStateStorage storage = new TestClusterStateStorage();
+
+        // ClusterStateStorageManager instance is created here just to put cluster state to the storage in the correct format.
+        new ClusterStateStorageManager(storage).putClusterState(
+                CMG_MESSAGES_FACTORY.clusterState()
+                        .cmgNodes(Set.of("test"))
+                        .metaStorageNodes(Set.of("test"))
+                        .clusterTag(ClusterTag.clusterTag(CMG_MESSAGES_FACTORY, "cluster", new UUID(1, 1)))
+                        .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                        .build()
+        );
+
+        return storage;
+    }
+
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
@@ -71,6 +98,15 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     @Override
     public void put(byte[] key, byte[] value) {
         inBusyWriteLock(() -> map.put(new ByteArray(key), value));
+    }
+
+    @Override
+    public void putAll(List<byte[]> keys, List<byte[]> values) {
+        inBusyWriteLock(() -> {
+            for (int i = 0; i < keys.size(); i++) {
+                map.put(new ByteArray(keys.get(i)), values.get(i));
+            }
+        });
     }
 
     @Override
@@ -149,7 +185,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

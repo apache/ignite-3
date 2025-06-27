@@ -17,22 +17,27 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.fromCursor;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
+import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -45,7 +50,9 @@ import org.junit.jupiter.api.BeforeEach;
  * Tests for the {@link DistributedConfigurationStorage}.
  */
 public class DistributedConfigurationStorageTest extends ConfigurationStorageTest {
-    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage("test");
+    private static final String NODE_NAME = "test";
+
+    private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage(NODE_NAME);
 
     private final MetaStorageManager metaStorageManager = mockMetaStorageManager();
 
@@ -55,7 +62,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     @BeforeEach
     void start() {
         metaStorage.start();
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
@@ -63,14 +70,14 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
      */
     @AfterEach
     void stop() throws Exception {
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         metaStorage.close();
     }
 
     /** {@inheritDoc} */
     @Override
     public ConfigurationStorage getStorage() {
-        return new DistributedConfigurationStorage("test", metaStorageManager);
+        return new DistributedConfigurationStorage(NODE_NAME, metaStorageManager);
     }
 
     /**
@@ -79,12 +86,18 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     private MetaStorageManager mockMetaStorageManager() {
         var mock = mock(MetaStorageManager.class);
 
-        when(mock.invoke(any(), anyCollection(), anyCollection())).thenAnswer(invocation -> {
+        when(mock.invoke(any(), anyList(), anyList())).thenAnswer(invocation -> {
             SimpleCondition condition = invocation.getArgument(0);
-            Collection<Operation> success = invocation.getArgument(1);
-            Collection<Operation> failure = invocation.getArgument(2);
+            List<Operation> success = invocation.getArgument(1);
+            List<Operation> failure = invocation.getArgument(2);
 
-            boolean invokeResult = metaStorage.invoke(toServerCondition(condition), success, failure, HybridTimestamp.MIN_VALUE);
+            boolean invokeResult = metaStorage.invoke(
+                    toServerCondition(condition),
+                    success,
+                    failure,
+                    kvContext(HybridTimestamp.MIN_VALUE),
+                    new CommandIdGenerator(UUID.randomUUID()).newId()
+            );
 
             return CompletableFuture.completedFuture(invokeResult);
         });
@@ -95,8 +108,8 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             return fromCursor(metaStorage.range(prefix.bytes(), metaStorage.nextKey(prefix.bytes())));
         });
 
-        when(mock.startAsync()).thenReturn(nullCompletedFuture());
-        when(mock.stopAsync()).thenReturn(nullCompletedFuture());
+        when(mock.startAsync(any())).thenReturn(nullCompletedFuture());
+        when(mock.stopAsync(any())).thenReturn(nullCompletedFuture());
 
         return mock;
     }
@@ -109,13 +122,13 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             case REV_LESS_OR_EQUAL:
                 return new RevisionCondition(
                         RevisionCondition.Type.LESS_OR_EQUAL,
-                        condition.key(),
+                        toByteArray(condition.key()),
                         ((SimpleCondition.RevisionCondition) condition).revision()
                 );
             case KEY_NOT_EXISTS:
                 return new ExistenceCondition(
                         ExistenceCondition.Type.NOT_EXISTS,
-                        condition.key()
+                        toByteArray(condition.key())
                 );
             default:
                 throw new UnsupportedOperationException("Unsupported condition type: " + condition.type());

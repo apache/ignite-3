@@ -53,37 +53,16 @@ public class ItNodeBootstrapConfigurationTest {
                 IgniteException.class,
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir)
         );
-        assertThat(igniteException.getCause(), is(instanceOf(NodeConfigParseException.class)));
+        assertThat(igniteException, is(instanceOf(NodeConfigParseException.class)));
         assertThat(
-                igniteException.getCause().getMessage(),
+                igniteException.getMessage(),
                 containsString("Failed to parse config content from file " + workDir.resolve(TestIgnitionManager.DEFAULT_CONFIG_NAME))
         );
     }
 
     @Test
-    public void illegalConfigurationValueType(TestInfo testInfo) {
-        String config =
-                "{\n"
-                + "  rest: {\n"
-                + "    ssl: {\n"
-                + "      enabled: true,\n"
-                + "      clientAuth: none,\n"
-                + "      keyStore: {\n"
-                + "        path: 123\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }\n"
-                + "}";
-
-        assertThrowsWithCause(
-                () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
-                ConfigurationValidationException.class,
-                "'String' is expected as a type for the 'rest.ssl.keyStore.path' configuration value");
-    }
-
-    @Test
     public void illegalConfigurationValue(TestInfo testInfo) {
-        String config = "{\n"
+        String config = "ignite {\n"
                 + "  rest: {\n"
                 + "    ssl: {\n"
                 + "      enabled: true,\n"
@@ -98,6 +77,23 @@ public class ItNodeBootstrapConfigurationTest {
         assertThrowsWithCause(
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
                 ConfigurationValidationException.class,
-                "Validation did not pass for keys: [rest.ssl.keyStore, Key store file doesn't exist at bad_path]");
+                "Validation did not pass for keys: [ignite.rest.ssl.keyStore, Key store file doesn't exist at bad_path]");
+    }
+
+    @Test
+    public void testConfigurationValidationFailsWithDuplicates(TestInfo testInfo) {
+        String config = "ignite {\n"
+                + "  rest: {\n"
+                + "    ssl: {\n"
+                + "      enabled: false,\n"
+                + "      enabled: true\n"
+                + "    }\n"
+                + "  }\n"
+                + "}";
+
+        assertThrowsWithCause(
+                () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
+                ConfigurationValidationException.class,
+                "Validation did not pass for keys: [ignite.rest.ssl.enabled, Duplicated key]");
     }
 }

@@ -39,6 +39,8 @@ public class CacheKey {
 
     private final Object[] paramTypes;
 
+    private int hashCode = 0;
+
     /**
      * Constructor.
      *
@@ -87,11 +89,16 @@ public class CacheKey {
 
     @Override
     public int hashCode() {
-        int result = catalogVersion;
-        result = 31 * result + schemaName.hashCode();
-        result = 31 * result + query.hashCode();
-        result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
-        result = 31 * result + Arrays.deepHashCode(paramTypes);
-        return result;
+        if (hashCode == 0) {
+            int result = catalogVersion;
+            result = 31 * result + schemaName.hashCode();
+            result = 31 * result + query.hashCode();
+            result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
+            result = 31 * result + Arrays.deepHashCode(paramTypes);
+
+            hashCode = result;
+        }
+
+        return hashCode;
     }
 }

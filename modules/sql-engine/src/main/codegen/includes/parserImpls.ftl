@@ -24,41 +24,7 @@ boolean IfNotExistsOpt() :
     { return false; }
 }
 
-SqlNodeList CreateTableOptionList() :
-{
-    List<SqlNode> list = new ArrayList<SqlNode>();
-    final Span s = Span.of();
-}
-{
-    CreateTableOption(list)
-    (
-        <COMMA> { s.add(this); } CreateTableOption(list)
-    )*
-    {
-        return new SqlNodeList(list, s.end(this));
-    }
-}
-
-void CreateTableOption(List<SqlNode> list) :
-{
-    final Span s;
-    final SqlIdentifier key;
-    final SqlNode val;
-}
-{
-    key = SimpleIdentifier() { s = span(); }
-    <EQ>
-    (
-        val = Literal()
-    |
-        val = SimpleIdentifier()
-    )
-    {
-        list.add(new IgniteSqlCreateTableOption(key, val, s.end(this)));
-    }
-}
-
-SqlDataTypeSpec DataTypeEx() :
+SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType, boolean allowBinaryType) :
 {
     final SqlDataTypeSpec dt;
 }
@@ -69,6 +35,15 @@ SqlDataTypeSpec DataTypeEx() :
         dt = IntervalType()
     )
     {
+        if(dt.getTypeName().isSimple()) {
+            String typeName = dt.getTypeName().getSimple();
+            if (!allowCharType && ("CHAR".equals(typeName) || "CHARACTER".equals(typeName))) {
+               throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.charDataTypeIsNotSupportedInTable());
+            }
+            if (!allowBinaryType && "BINARY".equals(typeName)) {
+                throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.binaryDataTypeIsNotSupportedInTable());
+            }
+        }
         return dt;
     }
 }
@@ -84,18 +59,6 @@ SqlDataTypeSpec IntervalType() :
     }
 }
 
-SqlTypeNameSpec UuidType(Span s) :
-{
-    final SqlIdentifier typeName;
-}
-{
-    <UUID> { s = span(); typeName = new SqlIdentifier(UuidType.NAME, s.pos()); }
-    {
-        return new IgniteSqlTypeNameSpec(typeName, s.end(this));
-    }
-}
-
-
 void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
@@ -108,13 +71,11 @@ void TableElement(List<SqlNode> list) :
     IgniteSqlPrimaryKeyIndexType primaryIndexType = IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH;
 }
 {
-    id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
+    id = SimpleIdentifier() type = DataTypeEx(s, false, false) nullable = NullableOptDefaultNull()
     (
         <DEFAULT_> { s.add(this); }
         (
-            dflt = Literal()
-        |
-            dflt = SimpleIdentifier()
+            dflt = DefaultExpression()
         )  {
             strategy = ColumnStrategy.DEFAULT;
         }
@@ -199,7 +160,8 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final boolean ifNotExists;
     final SqlIdentifier id;
     final SqlNodeList columnList;
-    SqlNodeList optionList = null;
+    SqlIdentifier zoneName = null;
+    SqlNode storageProfile = null;
     SqlNodeList colocationColumns = null;
 }
 {
@@ -212,10 +174,13 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
             colocationColumns = ParenthesizedSimpleIdentifierList()
     ]
     [
-        <WITH> { s.add(this); } optionList = CreateTableOptionList()
+        <ZONE> {s.add(this);} zoneName = SimpleIdentifier()
+    ]
+    [
+        <STORAGE> <PROFILE> {s.add(this);} storageProfile = StringLiteral()
     ]
     {
-        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, optionList);
+        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, zoneName, storageProfile);
     }
 }
 
@@ -232,6 +197,18 @@ SqlNode ColumnNameWithSortDirection() :
             col = SqlStdOperatorTable.DESC.createCall(getPos(), col);
         }
     )?
+
+    (
+        LOOKAHEAD(2)
+        <NULLS> <FIRST> {
+            col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
+        }
+    |
+        <NULLS> <LAST> {
+            col = SqlStdOperatorTable.NULLS_LAST.createCall(getPos(), col);
+        }
+    )?
+
     {
         return col;
     }
@@ -309,6 +286,20 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
     }
 }
 
+SqlCreate SqlCreateSchema(Span s, boolean replace) :
+{
+        final boolean ifNotExists;
+        final SqlIdentifier id;
+}
+{
+    <SCHEMA> { s.add(this); }
+        ifNotExists = IfNotExistsOpt()
+        id = CompoundIdentifier()
+    {
+        return new IgniteSqlCreateSchema(s.end(this), ifNotExists, id);
+    }
+}
+
 boolean IfExistsOpt() :
 {
 }
@@ -340,6 +331,32 @@ SqlDrop SqlDropIndex(Span s, boolean replace) :
     }
 }
 
+SqlDrop SqlDropSchema(Span s, boolean replace) :
+{
+    final SqlIdentifier schemaName;
+    final boolean ifExists;
+    IgniteSqlDropSchemaBehavior dropBehavior = IgniteSqlDropSchemaBehavior.IMPLICIT_RESTRICT;
+}
+{
+    <SCHEMA> { s.add(this); }
+        ifExists = IfExistsOpt()
+        schemaName = CompoundIdentifier()
+    [
+        (
+          <CASCADE> {
+            dropBehavior = IgniteSqlDropSchemaBehavior.CASCADE;
+          }
+          |
+          <RESTRICT> {
+            dropBehavior = IgniteSqlDropSchemaBehavior.RESTRICT;
+          }
+        )
+    ]
+    {
+        return new IgniteSqlDropSchema(s.end(this), ifExists, schemaName, dropBehavior);
+    }
+}
+
 void InfixCast(List<Object> list, ExprContext exprContext, Span s) :
 {
     final SqlDataTypeSpec dt;
@@ -348,7 +365,7 @@ void InfixCast(List<Object> list, ExprContext exprContext, Span s) :
     <INFIX_CAST> {
         checkNonQueryExpression(exprContext);
     }
-    dt = DataTypeEx() {
+    dt = DataTypeEx(s, true, true) {
         list.add(
             new SqlParserUtil.ToTreeListItem(SqlLibraryOperators.INFIX_CAST,
                 s.pos()));
@@ -383,8 +400,8 @@ SqlNode ColumnWithType() :
     final Span s = Span.of();
 }
 {
-    id = SimpleIdentifier()
-    type = DataTypeEx()
+    id = SimpleIdentifier() { s.add(this); }
+    type = DataTypeEx(s, false, false)
     [
         <NOT> <NULL> {
             nullable = false;
@@ -395,7 +412,7 @@ SqlNode ColumnWithType() :
         }
     ]
     (
-        <DEFAULT_> { s.add(this); } dflt = Literal() {
+        <DEFAULT_> { s.add(this); } dflt = DefaultExpression() {
             strategy = ColumnStrategy.DEFAULT;
         }
     |
@@ -408,6 +425,13 @@ SqlNode ColumnWithType() :
     {
         return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
     }
+}
+
+SqlNode DefaultExpression():
+{
+   SqlNode node;
+} {
+   node = Expression(ExprContext.ACCEPT_NON_QUERY) { return node; }
 }
 
 SqlNodeList ColumnWithTypeOrList() :
@@ -459,7 +483,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
     id = SimpleIdentifier()
     (
         LOOKAHEAD(2)
-        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx() nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
+        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx(s, false, false) nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, false, dflt, nullable == null ? null : !nullable);
         }
     |
@@ -473,7 +497,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, null, false);
         }
     |
-        <SET> <DEFAULT_> { s.add(this); } dflt = Literal()
+        <SET> <DEFAULT_> { s.add(this); } dflt = DefaultExpression()
         {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, dflt, null);
         }
@@ -489,7 +513,7 @@ SqlNode DefaultLiteralOrNull() :
     SqlNode dflt;
 }
 {
-    <DEFAULT_> dflt = Literal()
+    <DEFAULT_> dflt = DefaultExpression()
     {
         return dflt;
     }
@@ -515,11 +539,169 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
     <ZONE> { s.add(this); }
         ifNotExists = IfNotExistsOpt()
         id = CompoundIdentifier()
-    [
-        <WITH> { s.add(this); } optionList = CreateZoneOptionList()
-    ]
+        (
+            <WITH> { s.add(this); } optionList = CreateZoneOptionList()
+            {
+                return IgniteSqlCreateZone.create(s.end(this), ifNotExists, id, optionList);
+            }
+            |
+            (
+                [ optionList = ZoneOptionsList() ]
+
+                <STORAGE> <PROFILES> {
+                    SqlNodeList storageProfiles = StorageProfiles();
+                }
+            )
+            {
+                return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList, storageProfiles);
+            }
+        )
+}
+
+SqlNodeList StorageProfiles() :
+{
+    final Span s = Span.of();
+    final List<SqlNode> list = new ArrayList<SqlNode>();
+}
+{
+    <LBRACKET>
+    StorageProfileOption(list)
+    (
+        <COMMA> { s.add(this); } StorageProfileOption(list)
+    )*
+    <RBRACKET> {
+        return new SqlNodeList(list, s.end(this));
+    }
+}
+
+void StorageProfileOption(List<SqlNode> list) :
+{
+    final SqlCharStringLiteral val;
+}
+{
+    val = NonEmptyCharacterStringLiteral() { list.add(val); }
+}
+
+SqlCharStringLiteral NonEmptyCharacterStringLiteral() :
+{
+}
+{
+    <QUOTED_STRING> {
+        String val = SqlParserUtil.parseString(token.image).trim();
+        if (val.isEmpty()) {
+            throw SqlUtil.newContextException(getPos(),
+                RESOURCE.validationError("Empty character literal is not allowed in this context."));
+        }
+        SqlCharStringLiteral literal = SqlLiteral.createCharString(val, getPos());
+        return literal;
+    }
+}
+
+SqlNodeList ZoneOptionsList() :
+{
+    List<SqlNode> zoneOptions = new ArrayList<SqlNode>();
+
+    final Span s;
+}
+{
+    <LPAREN> { s = span(); s.add(this); }
+    ZoneElement(zoneOptions)
+    (
+        <COMMA> ZoneElement(zoneOptions)
+    )*
+     <RPAREN>
     {
-        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
+        return new SqlNodeList(zoneOptions, s.end(this));
+    }
+}
+
+void ZoneElement(List<SqlNode> zoneOptions) :
+{
+    final Span s;
+    final SqlIdentifier key;
+    final SqlNode option;
+    final SqlParserPos pos;
+}
+{
+  { s = span(); }
+  (
+      <AUTO> { pos = getPos(); }
+      (
+          <SCALE>
+          (
+              <UP> option = UnsignedIntegerLiteral()
+              {
+                  key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
+                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+              }
+              |
+              <DOWN> option = UnsignedIntegerLiteral()
+              {
+                  key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
+                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+              }
+          )
+          |
+          <ADJUST> option = UnsignedIntegerLiteral()
+          {
+              key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.name(), pos);
+              zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+          }
+      )
+      |
+      <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.PARTITIONS.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+      }
+      |
+      <REPLICAS> { pos = getPos(); }
+      (
+          option = UnsignedIntegerLiteral()
+          {
+              key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
+              zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+          }
+          |
+          <ALL>
+          {
+              key = new SqlIdentifier(ZoneOptionEnum.REPLICAS.name(), pos);
+              zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
+          }
+      )
+      |
+      <QUORUM> { pos = getPos(); } <SIZE> option = UnsignedIntegerLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.QUORUM_SIZE.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+      }
+      |
+      <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = NonEmptyCharacterStringLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.DISTRIBUTION_ALGORITHM.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+      }
+      |
+      <NODES> { pos = getPos(); } <FILTER> option = NonEmptyCharacterStringLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_FILTER.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+      }
+      |
+      <CONSISTENCY> { pos = getPos(); } <MODE> option = NonEmptyCharacterStringLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.CONSISTENCY_MODE.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+      }
+  )
+}
+
+SqlNumericLiteral UnsignedIntegerLiteral() :
+{
+}
+{
+    <UNSIGNED_INTEGER_LITERAL> {
+        return SqlLiteral.createExactNumeric(token.image, getPos());
     }
 }
 
@@ -547,10 +729,15 @@ void CreateZoneOption(List<SqlNode> list) :
 {
     key = SimpleIdentifier() { s = span(); }
     <EQ>
-    val = Literal()
-    {
-        list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
-    }
+    (
+        <ALL> {
+            list.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
+        }
+    |
+        val = Literal() {
+            list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
+        }
+    )
 }
 
 SqlDrop SqlDropZone(Span s, boolean replace) :
@@ -589,11 +776,34 @@ SqlNode SqlAlterZone() :
           return new IgniteSqlAlterZoneSetDefault(s.end(this), zoneId, ifExists);
         }
         |
+        LOOKAHEAD(2)
         { s.add(this); } optionList = AlterZoneOptions() {
+          return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
+        }
+        |
+        { s.add(this); } optionList = ZoneOptionsList() {
+          return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
+        }
+        |
+        optionList = ZoneOption()
+        {
           return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
         }
       )
     )
+}
+
+SqlNodeList ZoneOption() :
+{
+    List<SqlNode> zoneOptions = new ArrayList<SqlNode>();
+
+    final Span s = Span.of();
+}
+{
+    ZoneElement(zoneOptions)
+    {
+        return new SqlNodeList(zoneOptions, s.end(this));
+    }
 }
 
 SqlNodeList AlterZoneOptions() :
@@ -618,18 +828,23 @@ void AlterZoneOption(List<SqlNode> list) :
     final SqlNode val;
 }
 {
-  key = SimpleIdentifier() { s = span(); }
-  <EQ>
-  val = Literal()
-  {
-      list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
-  }
+    key = SimpleIdentifier() { s = span(); }
+    <EQ>
+    (
+        <ALL> {
+            list.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
+        }
+    |
+        val = Literal() {
+            list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
+        }
+    )
 }
 
 /**
 * Parse datetime types: date, time, timestamp.
 *
-* TODO Method doesn't recognize 'TIME_WITH_LOCAL_TIME_ZONE' type and should be removed after IGNITE-21555.
+* TODO Method doesn't recognize TIME_WITH_LOCAL_TIME_ZONE, TIME_TZ and TIMESTAMP_TZ types and should be removed after IGNITE-21555.
 */
 SqlTypeNameSpec IgniteDateTimeTypeName() :
 {
@@ -646,6 +861,7 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIME> { s = span(); }
     precision = PrecisionOpt()
+    (<WITHOUT> <TIME> <ZONE>)?
     {
         typeName = SqlTypeName.TIME;
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
@@ -653,15 +869,21 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIMESTAMP> { s = span(); }
     precision = PrecisionOpt()
-    withLocalTimeZone = TimeZoneOpt()
+    typeName = TimestampZoneOpt()
     {
-        if (withLocalTimeZone) {
-            typeName = SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
-        } else {
-            typeName = SqlTypeName.TIMESTAMP;
-        }
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
     }
+}
+
+SqlTypeName TimestampZoneOpt() :
+{
+}
+{
+    <WITHOUT> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP; }
+|
+    <WITH> <LOCAL> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE; }
+|
+    { return SqlTypeName.TIMESTAMP; }
 }
 
 SqlNode SqlStartTransaction() :
@@ -695,5 +917,104 @@ SqlNode SqlCommitTransaction() :
 {
     <COMMIT> { s = span(); } {
        return new IgniteSqlCommitTransaction(s.end(this));
+    }
+}
+
+SqlNode SqlKill() :
+{
+    final Span s;
+    final SqlNode objectId;
+    final IgniteSqlKillObjectType objectType;
+    final Boolean noWait;
+}
+{
+    <KILL> {
+        s = span();
+        objectType = SqlKillObjectType();
+        objectId = StringLiteral();
+        noWait = SqlKillNoWait();
+    }
+    {
+        return new IgniteSqlKill(s.end(this), objectType, (SqlLiteral) objectId, noWait);
+    }
+}
+
+IgniteSqlKillObjectType SqlKillObjectType():
+{
+    final IgniteSqlKillObjectType objectType;
+}
+{
+    (
+        <QUERY> { objectType = IgniteSqlKillObjectType.QUERY; }
+        |
+        <TRANSACTION> { objectType = IgniteSqlKillObjectType.TRANSACTION; }
+        |
+        <COMPUTE> { objectType = IgniteSqlKillObjectType.COMPUTE; }
+    )
+    {
+        return objectType;
+    }
+}
+
+Boolean SqlKillNoWait():
+{
+    Boolean noWait = null;
+}
+{
+    (
+        <NO> <WAIT> { noWait = true; }
+    )?
+    {
+        return noWait;
+    }
+}
+
+/**
+ * Parses an EXPLAIN PLAN statement.
+ */
+SqlNode SqlIgniteExplain() :
+{
+    SqlNode stmt;
+    Span s;
+    IgniteSqlExplainMode mode = IgniteSqlExplainMode.PLAN;
+}
+{
+    <EXPLAIN> { s = span(); }
+    [ mode = ExplainMode() ]
+    stmt = SqlQueryOrDml() {
+        return new IgniteSqlExplain(s.end(this),
+            stmt, mode.symbol(getPos()),
+            nDynamicParams);
+    }
+}
+
+IgniteSqlExplainMode ExplainMode() :
+{
+    IgniteSqlExplainMode mode = IgniteSqlExplainMode.PLAN;
+}
+{
+    (
+        <MAPPING> <FOR>
+        {
+            mode = IgniteSqlExplainMode.MAPPING;
+        }
+        |
+        <PLAN> <FOR>
+        {
+        }
+    )
+    {
+        return mode;
+    }
+}
+
+/**
+ * DESCRIBE is actually not supported, therefore let's throw an exception.
+ */
+SqlNode SqlIgniteDescribe() :
+{ }
+{
+    <DESCRIBE> {
+        throw SqlUtil.newContextException(span().pos(), IgniteResource.INSTANCE.unexpectedStatement(token.image));
     }
 }

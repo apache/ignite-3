@@ -18,10 +18,8 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NodaTime;
@@ -369,6 +367,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         await TestKey(1.1f, (float?)1.1f, TableFloatName);
         await TestKey(1.1d, (double?)1.1d, TableDoubleName);
         await TestKey(1.234m, (decimal?)1.234m, TableDecimalName);
+        await TestKey(new BigDecimal(1.234m), (BigDecimal?)new BigDecimal(1.234m), TableDecimalName);
         await TestKey("foo", "foo", TableStringName);
 
         var localDateTime = new LocalDateTime(2022, 10, 13, 8, 4, 42);
@@ -380,19 +379,13 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         var instant = Instant.FromUnixTimeMilliseconds(123456789101112);
         await TestKey(instant, (Instant?)instant, TableTimestampName);
 
-        var bigInteger = new BigInteger(123456789101112);
-        await TestKey(bigInteger, (BigInteger?)bigInteger, TableNumberName);
-
         await TestKey(new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 3, 4 }, TableBytesName);
-
-        var bitArray = new BitArray(new[] { byte.MaxValue });
-        await TestKey(bitArray, bitArray, TableBitmaskName);
     }
 
     [Test]
     public void TestToString()
     {
-        StringAssert.StartsWith("KeyValueView`2[Int64, String] { Table = Table { Name = TBL1, Id =", KvView.ToString());
+        StringAssert.StartsWith("KeyValueView`2[Int64, String] { Table = Table { Name = PUBLIC.TBL1, Id =", KvView.ToString());
     }
 
     private static async Task TestKey<TK, TV>(TK key, TV val, IKeyValueView<TK, TV> kvView)

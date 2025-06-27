@@ -21,6 +21,9 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageBudget;
+import org.apache.ignite.internal.raft.storage.impl.OnHeapLogs;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorage;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;

@@ -29,27 +29,27 @@ import java.util.List;
  *     loop variable start-value end-value-exclusive
  * </pre>
  * When an SQL statement or an SQL query is executed inside a loop, all placeholders {@code ${variable}}
- * in that statement/query are replaced with the current value of that {@code variable}.
+ * in that statement/query including results and error messages are replaced with the current value of that {@code variable}.
  * <pre>
- *     # Executes the query 10 times with i=[0, 2)
+ *     # Executes the query 2 times with i=[0, 2)
  *     loop i 0 2
  *     query I
- *     SELECT MIN(c1) FROM (VALUES(${i}), (-1)) t(c1);
+ *     SELECT c1 FROM (VALUES (${i})) t(c1);
  *     ----
- *     -1
+ *     ${i}
  *     # A loop must be terminated by a EndLoop command.
  *     endloop
  *
  *     # The above loop is equivalent to two query commands:
  *     query I
- *     SELECT MIN(c1) FROM (VALUES(0), (-1)) t(c1);
+ *     SELECT c1 FROM (VALUES (0) t(c1);
  *     ----
- *     -1
+ *     0
  *
  *     query I
- *     SELECT MIN(c1) FROM (VALUES(1), (-1)) t(c1);
+ *     SELECT MIN(c1) FROM (VALUES(1)) t(c1);
  *     ----
- *     -1
+ *     1
  * </pre>
  *
  * @see EndLoop endloop command
@@ -88,7 +88,7 @@ final class Loop extends Command {
     @Override
     void execute(ScriptContext ctx) {
         for (int i = begin; i < end; ++i) {
-            ctx.loopVars.put(var, i);
+            ctx.loopVars.put(var, Integer.toString(i));
 
             for (Command cmd : cmds) {
                 cmd.execute(ctx);

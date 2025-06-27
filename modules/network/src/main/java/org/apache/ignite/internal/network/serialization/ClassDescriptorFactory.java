@@ -20,7 +20,11 @@ package org.apache.ignite.internal.network.serialization;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.network.serialization.Classes.getReadResolve;
 import static org.apache.ignite.internal.network.serialization.Classes.hasWriteReplace;
+import static org.apache.ignite.internal.network.serialization.Classes.isExternalizable;
+import static org.apache.ignite.internal.network.serialization.Classes.isSerializable;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.Externalizable;
 import java.io.ObjectInputStream;
@@ -111,10 +115,10 @@ public class ClassDescriptorFactory {
 
         int descriptorId = registry.getId(clazz);
 
-        if (Classes.isExternalizable(clazz)) {
+        if (isExternalizable(clazz)) {
             //noinspection unchecked
             return externalizable(descriptorId, (Class<? extends Externalizable>) clazz);
-        } else if (Classes.isSerializable(clazz)) {
+        } else if (isSerializable(clazz)) {
             //noinspection unchecked
             return serializable(descriptorId, (Class<? extends Serializable>) clazz);
         } else {
@@ -210,7 +214,7 @@ public class ClassDescriptorFactory {
         }
 
         if (!hasPublicNoArgConstructor) {
-            throw new IgniteException(
+            throw new IgniteException(INTERNAL_ERR,
                 "Externalizable class " + clazz.getName() + " has no public no-arg constructor");
         }
     }
@@ -240,19 +244,19 @@ public class ClassDescriptorFactory {
         );
     }
 
-    private boolean hasReadResolve(Class<? extends Serializable> clazz) {
+    private static boolean hasReadResolve(Class<? extends Serializable> clazz) {
         return getReadResolve(clazz) != null;
     }
 
-    private boolean hasReadObject(Class<? extends Serializable> clazz) {
+    private static boolean hasReadObject(Class<? extends Serializable> clazz) {
         return getReadObject(clazz) != null;
     }
 
-    private boolean hasWriteObject(Class<? extends Serializable> clazz) {
+    private static boolean hasWriteObject(Class<? extends Serializable> clazz) {
         return getWriteObject(clazz) != null;
     }
 
-    private boolean hasReadObjectNoData(Class<? extends Serializable> clazz) {
+    private static boolean hasReadObjectNoData(Class<? extends Serializable> clazz) {
         return getReadObjectNoData(clazz) != null;
     }
 
@@ -288,7 +292,7 @@ public class ClassDescriptorFactory {
 
     @SuppressWarnings("CodeBlock2Expr")
     private Optional<List<FieldDescriptor>> maybeSerialPersistentFields(Class<?> clazz) {
-        if (!Classes.isSerializable(clazz)) {
+        if (!isSerializable(clazz)) {
             return Optional.empty();
         }
 
@@ -351,22 +355,6 @@ public class ClassDescriptorFactory {
                 })
                 .map(field -> FieldDescriptor.local(field, registry.getId(field.getType())))
                 .collect(toList());
-    }
-
-    /**
-     * Gets a method with the signature
-     * {@code ANY-ACCESS-MODIFIER Object readResolve() throws ObjectStreamException}.
-     *
-     * @param clazz Class.
-     * @return Method.
-     */
-    @Nullable
-    private static Method getReadResolve(Class<? extends Serializable> clazz) {
-        try {
-            return clazz.getDeclaredMethod("readResolve");
-        } catch (NoSuchMethodException e) {
-            return null;
-        }
     }
 
     /**

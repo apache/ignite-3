@@ -72,6 +72,30 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <summary>
+        /// Gets the colocation hash.
+        /// </summary>
+        /// <param name="schema">Schema.</param>
+        /// <param name="key">Key.</param>
+        /// <returns>Colocation hash.</returns>
+        int GetKeyColocationHash(Schema schema, T key)
+        {
+            var tupleBuilder = new BinaryTupleBuilder(
+                numElements: schema.KeyColumns.Length,
+                hashedColumnsPredicate: schema.KeyOnlyHashedColumnIndexProvider);
+
+            try
+            {
+                Write(ref tupleBuilder, key, schema, keyOnly: true, Span<byte>.Empty);
+
+                return tupleBuilder.GetHash();
+            }
+            finally
+            {
+                tupleBuilder.Dispose();
+            }
+        }
+
+        /// <summary>
         /// Writes a record.
         /// </summary>
         /// <param name="tupleBuilder">Tuple builder.</param>

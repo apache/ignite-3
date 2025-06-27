@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.metastorage.server.RevisionCondition.Ty
 import static org.apache.ignite.internal.metastorage.server.RevisionCondition.Type.NOT_EQUAL;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.junit.jupiter.api.Test;
 
@@ -35,10 +37,12 @@ import org.junit.jupiter.api.Test;
  */
 public class RevisionConditionTest {
     /** Entry key. */
-    private static final byte[] KEY = new byte[]{1};
+    private static final byte[] KEY = {1};
 
     /** Entry value. */
-    private static final byte[] VAL = new byte[]{2};
+    private static final byte[] VAL = {2};
+
+    private final HybridClock clock = new HybridClockImpl();
 
     /**
      * Tests revisions equality.
@@ -48,7 +52,7 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(EQUAL, KEY, 1);
 
         // 1 == 1.
-        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, clock.now())));
     }
 
     /**
@@ -59,7 +63,7 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(NOT_EQUAL, KEY, 1);
 
         // 2 != 1.
-        assertTrue(cond.test(new EntryImpl(KEY, VAL, 2, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 2, clock.now())));
     }
 
     /**
@@ -70,7 +74,7 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(GREATER, KEY, 1);
 
         // 2 > 1.
-        assertTrue(cond.test(new EntryImpl(KEY, VAL, 2, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 2, clock.now())));
     }
 
     /**
@@ -81,10 +85,10 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(GREATER_OR_EQUAL, KEY, 1);
 
         // 2 >= 1 (2 > 1).
-        assertTrue(cond.test(new EntryImpl(KEY, VAL, 2, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 2, clock.now())));
 
         // 1 >= 1 (1 == 1).
-        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, clock.now())));
     }
 
     /**
@@ -95,7 +99,7 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(LESS, KEY, 2);
 
         // 1 < 2
-        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, clock.now())));
     }
 
     /**
@@ -106,9 +110,9 @@ public class RevisionConditionTest {
         Condition cond = new RevisionCondition(LESS_OR_EQUAL, KEY, 2);
 
         // 1 <= 2 (1 < 2)
-        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, clock.now())));
 
         // 1 <= 1 (1 == 1).
-        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, 1)));
+        assertTrue(cond.test(new EntryImpl(KEY, VAL, 1, clock.now())));
     }
 }

@@ -88,8 +88,8 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                 isInstanceOf(IgniteLimit.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteSort.class)
-                                        .and(s -> doubleFromRex(s.fetch, -1) == 5.0)
-                                        .and(s -> doubleFromRex(s.offset, -1) == 10.0))))));
+                                        .and(s -> doubleFromRex(s.fetch, -1) == 15.0)
+                                        .and(s -> s.offset == null))))));
 
         // Same simple case but witout offset.
         assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 5", publicSchema,
@@ -163,8 +163,8 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(e -> e.distribution() == IgniteDistributions.single())
                                 .and(input(isInstanceOf(IgniteSort.class)
-                                        .and(s -> doubleFromRex(s.offset, -1) == 1)
-                                        .and(s -> doubleFromRex(s.fetch, -1) == 1)))))));
+                                        .and(s -> doubleFromRex(s.fetch, -1) == 2)
+                                        .and(s -> s.offset == null)))))));
 
         publicSchema = createSchemaWithTable(IgniteDistributions.random(), "ID");
 
@@ -191,6 +191,83 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                 isInstanceOf(IgniteLimit.class)
                     .and(input(isInstanceOf(IgniteSort.class)))
                     .and(hasChildThat(isInstanceOf(IgniteExchange.class)).negate()));
+    }
+
+    @Test
+    public void testNestedOffset() throws Exception {
+        // Tests for planner for limit/sort in nested subqueries
+        // See bug https://issues.apache.org/jira/browse/IGNITE-21946
+
+        TableBuilder builder = TestBuilders.table()
+                .name("TEST")
+                .addColumn("A", NativeTypes.INT32)
+                .size(ROW_CNT)
+                .distribution(IgniteDistributions.random());
+
+        IgniteSchema publicSchema = createSchema(builder.build());
+
+        assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2)", publicSchema,
+                isInstanceOf(IgniteLimit.class)
+                        .and(s -> doubleFromRex(s.offset(), -1) == 2.0)
+                        .and(input(isInstanceOf(IgniteExchange.class))
+                                .and(hasChildThat(isInstanceOf(IgniteSort.class)
+                                ))));
+
+        assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a FROM test",
+                publicSchema, isInstanceOf(IgniteUnionAll.class)
+                        .and(hasChildThat(isInstanceOf(IgniteLimit.class)
+                                .and(s -> doubleFromRex(s.offset(), -1) == 2.0)
+                                .and(input(isInstanceOf(IgniteExchange.class))
+                                        .and(hasChildThat(isInstanceOf(IgniteSort.class)
+                                                .and(s -> s.offset == null)))))
+                        )
+                        .and(hasChildThat(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteTableScan.class))))
+                        ));
+
+        assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a FROM test ORDER BY a",
+                publicSchema, isInstanceOf(IgniteSort.class)
+                        .and(s -> s.offset == null && s.fetch == null)
+                        .and(hasChildThat(isInstanceOf(IgniteUnionAll.class)
+                                .and(hasChildThat(isInstanceOf(IgniteLimit.class)
+                                        .and(s -> doubleFromRex(s.offset(), -1) == 2.0)
+                                        .and(input(isInstanceOf(IgniteExchange.class))
+                                                .and(hasChildThat(isInstanceOf(IgniteSort.class)
+                                                        .and(s -> s.offset == null)))))
+                                )
+                                .and(hasChildThat(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isInstanceOf(IgniteTableScan.class))))
+                                )
+                        ))
+        );
+    }
+
+    @Test
+    public void testOffsetFetchPropagationForSort() throws Exception {
+        TableBuilder builder = TestBuilders.table()
+                .name("TEST")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("A", NativeTypes.INT32)
+                .size(ROW_CNT)
+                .distribution(TestBuilders.affinity(0, 1, 1));
+
+        IgniteSchema publicSchema = createSchema(builder.build());
+
+        assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a LIMIT 3 OFFSET 2) i(a) ORDER BY a OFFSET 1",
+                publicSchema, isInstanceOf(IgniteLimit.class)
+                        .and(l -> doubleFromRex(l.offset(), -1) == 1.0)
+                        .and(input(isInstanceOf(IgniteLimit.class)
+                                .and(l -> doubleFromRex(l.offset(), -1) == 2.0)
+                                .and(l -> doubleFromRex(l.fetch(), -1) == 3.0)
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(
+                                                isInstanceOf(IgniteSort.class)
+                                                        .and(l -> l.offset == null)
+                                                        .and(l -> doubleFromRex(l.fetch, -1) == 5.0)
+                                        ))
+                                ))
+                        ))
+        );
     }
 
     /**

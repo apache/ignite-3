@@ -38,23 +38,30 @@ public class RestManager {
     private static final String CLUSTER_NOT_INITIALIZED_REASON = "Cluster is not initialized. "
             + "Call /management/v1/cluster/init in order to initialize cluster.";
 
-    private static final String[] DEFAULT_ENDPOINTS = {
+    private static final String[] DEFAULT_AVAILABLE_ON_START_ENDPOINTS = {
             "/management/v1/configuration/node",
             "/management/v1/cluster/init",
             "/management/v1/cluster/topology/physical",
-            "/management/v1/node"
+            "/management/v1/node",
+            "/management/v1/recovery/cluster"
+    };
+
+    private static final String[] DEFAULT_AVAILABLE_DURING_INITIALIZATION_ENDPOINTS = {
+            "/management/v1/recovery/cluster"
     };
 
     private final String[] availableOnStartEndpoints;
+    private final String[] availableDuringInitializationEndpoints;
 
     private RestState state = RestState.NOT_INITIALIZED;
 
     public RestManager() {
-        this(DEFAULT_ENDPOINTS);
+        this(DEFAULT_AVAILABLE_ON_START_ENDPOINTS, DEFAULT_AVAILABLE_DURING_INITIALIZATION_ENDPOINTS);
     }
 
-    public RestManager(String[] availableOnStartEndpoints) {
+    public RestManager(String[] availableOnStartEndpoints, String[] availableDuringInitializationEndpoints) {
         this.availableOnStartEndpoints = availableOnStartEndpoints;
+        this.availableDuringInitializationEndpoints = availableDuringInitializationEndpoints;
     }
 
     /**
@@ -68,7 +75,9 @@ public class RestManager {
             case INITIALIZED:
                 return available();
             case INITIALIZATION:
-                return unavailable(DURING_INITIALIZATION_TITLE, DURING_INITIALIZATION_REASON);
+                return pathDisabledForInitializationPhase(requestPath)
+                        ? unavailable(DURING_INITIALIZATION_TITLE, DURING_INITIALIZATION_REASON)
+                        : available();
             case NOT_INITIALIZED:
                 return pathDisabledForNotInitializedCluster(requestPath)
                         ? unavailable(CLUSTER_NOT_INITIALIZED_TITLE, CLUSTER_NOT_INITIALIZED_REASON)
@@ -79,7 +88,22 @@ public class RestManager {
     }
 
     /**
-     * Returns disabled or not path of REST method.
+     * Returns disabled or not path of REST method during {@link RestState#INITIALIZATION} phase.
+     *
+     * @param path REST method path.
+     * @return {@code true} in case when path disable or {@code false} if not.
+     */
+    private boolean pathDisabledForInitializationPhase(String path) {
+        for (String enabledPath : availableDuringInitializationEndpoints) {
+            if (path.startsWith(enabledPath)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns disabled or not path of REST method during {@link RestState#NOT_INITIALIZED} phase.
      *
      * @param path REST method path.
      * @return {@code true} in case when path disable or {@code false} if not.

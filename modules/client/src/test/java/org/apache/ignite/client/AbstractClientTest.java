@@ -21,18 +21,16 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import io.netty.util.ResourceLeakDetector;
 import java.util.Arrays;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
@@ -43,11 +41,11 @@ import org.junit.jupiter.api.BeforeEach;
  * Base class for client tests.
  */
 public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
-    protected static final String DEFAULT_TABLE = "default_test_table";
+    protected static final String DEFAULT_TABLE = "DEFAULT_TEST_TABLE";
 
     protected static TestServer testServer;
 
-    protected static Ignite server;
+    protected static FakeIgnite server;
 
     protected static IgniteClient client;
 
@@ -60,8 +58,6 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     @BeforeAll
     public static void beforeAll() {
-        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
-
         server = new FakeIgnite("server-1");
 
         testServer = startServer(0, server);
@@ -77,17 +73,13 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
     @AfterAll
     public static void afterAll() throws Exception {
         closeAll(client, testServer);
-
-        // Force GC to detect Netty buffer leaks.
-        //noinspection CallToSystemGC
-        System.gc();
     }
 
     /**
      * After each.
      */
     @BeforeEach
-    public void beforeEach() throws InterruptedException {
+    public void beforeEach() {
         FakeSchemaRegistry.setLastVer(1);
 
         dropTables(server);
@@ -95,7 +87,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
 
     protected void dropTables(Ignite ignite) {
         for (var t : ignite.tables().tables()) {
-            ((FakeIgniteTables) ignite.tables()).dropTable(t.name());
+            ((FakeIgniteTables) ignite.tables()).dropTable(t.qualifiedName());
         }
     }
 
@@ -124,7 +116,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     public static TestServer startServer(
             long idleTimeout,
-            Ignite ignite
+            FakeIgnite ignite
     ) {
         return startServer(idleTimeout, ignite, null);
     }
@@ -139,7 +131,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     public static TestServer startServer(
             long idleTimeout,
-            Ignite ignite,
+            FakeIgnite ignite,
             String nodeName
     ) {
         return new TestServer(idleTimeout, ignite, null, null, nodeName, clusterId, null, null);
@@ -182,7 +174,6 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
 
         return IgniteClient.builder()
                 .addresses(addresses)
-                .reconnectThrottlingPeriod(0)
                 .retryPolicy(new RetryLimitPolicy().retryLimit(3))
                 .build();
     }
@@ -193,9 +184,9 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      * @param names Names.
      * @return Nodes.
      */
-    public static Set<ClusterNode> getClusterNodes(String... names) {
-        return Arrays.stream(names)
-                .map(s -> new ClientClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
-                .collect(Collectors.toSet());
+    public static JobTarget getClusterNodes(String... names) {
+        return JobTarget.anyNode(Arrays.stream(names)
+                .map(s -> new ClientClusterNode(new UUID(1, 2), s, new NetworkAddress("127.0.0.1", 8080)))
+                .collect(Collectors.toSet()));
     }
 }

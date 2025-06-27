@@ -17,11 +17,26 @@
 
 package org.apache.ignite.internal.cli.commands.sql.help;
 
+import static java.lang.System.lineSeparator;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.ABBREVIATE_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.COMMAND_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.DESCRIPTION_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.OPTION_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.PARAMETER_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.REQUIRED_OPTION_MARKER;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_OPTIONS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
+
 import java.io.PrintWriter;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.StringJoiner;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -32,11 +47,22 @@ import picocli.CommandLine.Parameters;
 /** Help command in SQL repl mode. */
 @Command(name = "help",
         header = "Display help information about the specified SQL command.",
-        synopsisHeading = "%nUsage: ",
         helpCommand = true,
         description = {
                 "%nWhen no SQL command is given, the usage help for the main command is displayed.",
-                "If a SQL command is specified, the help for that command is shown.%n"}
+                "If a SQL command is specified, the help for that command is shown.%n"
+        },
+
+        descriptionHeading = DESCRIPTION_HEADING,
+        optionListHeading = OPTION_LIST_HEADING,
+        synopsisHeading = SYNOPSIS_HEADING,
+        requiredOptionMarker = REQUIRED_OPTION_MARKER,
+        usageHelpAutoWidth = USAGE_HELP_AUTO_WIDTH,
+        sortOptions = SORT_OPTIONS,
+        sortSynopsis = SORT_SYNOPSIS,
+        abbreviateSynopsis = ABBREVIATE_SYNOPSIS,
+        commandListHeading = COMMAND_LIST_HEADING,
+        parameterListHeading = PARAMETER_LIST_HEADING
 )
 public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnable {
 
@@ -54,7 +80,7 @@ public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnabl
     @Override
     public void run() {
         if (parameters != null) {
-            String command = String.join(" ", this.parameters);
+            String command = String.join(" ", parameters);
             String commandUsage = IgniteSqlCommand.find(command)
                     .map(IgniteSqlCommand::getSyntax)
                     .or(() -> {
@@ -65,22 +91,26 @@ public final class SqlHelpCommand implements IHelpCommandInitializable2, Runnabl
             outWriter.println(commandUsage);
         } else {
             String helpMessage = self.getParent().getUsageMessage(colorScheme)
-                    + System.lineSeparator()
+                    + lineSeparator()
                     + sqlCommands()
-                    + System.lineSeparator()
-                    + System.lineSeparator()
-                    + "\nPress Ctrl-D to exit";
+                    + lineSeparator()
+                    + lineSeparator()
+                    + "Press Ctrl-D to exit.";
             outWriter.println(helpMessage);
         }
     }
 
-    private static String sqlCommands() {
-        StringJoiner joiner = new StringJoiner(System.lineSeparator());
-        joiner.add("SQL commands: ");
-        Arrays.stream(IgniteSqlCommand.values())
-                .map(IgniteSqlCommand::getTopic)
-                .forEach(joiner::add);
-        return joiner.toString();
+    private String sqlCommands() {
+        Set<String> topicsSet = new HashSet<>();
+        List<String> topics = new ArrayList<>();
+        for (IgniteSqlCommand command : IgniteSqlCommand.values()) {
+            // Take each command only once.
+            if (topicsSet.add(command.getTopic().toLowerCase())) {
+                topics.add(colorScheme.commandText("  " + command.getTopic()).toString());
+            }
+        }
+
+        return topics.stream().collect(Collectors.joining(lineSeparator(), "SQL commands" + lineSeparator(), ""));
     }
 
     @Override

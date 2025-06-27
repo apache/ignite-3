@@ -25,6 +25,7 @@ import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.tx.LockManager;
+import org.jetbrains.annotations.Nullable;
 
 /** Class that creates index storage and locker decorators for given partition. */
 abstract class IndexWrapper {
@@ -41,11 +42,11 @@ abstract class IndexWrapper {
     }
 
     /**
-     * Creates schema aware index storage wrapper.
+     * Creates schema aware index storage wrapper, {@code null} if the index has been destroyed.
      *
-     * @param partitionId Partition id.
+     * @param partitionId Partition ID.
      */
-    abstract TableSchemaAwareIndexStorage getStorage(int partitionId);
+    abstract @Nullable TableSchemaAwareIndexStorage getStorage(int partitionId);
 
     /**
      * Creates schema aware index locker.
@@ -56,15 +57,21 @@ abstract class IndexWrapper {
 
     /** {@link IndexWrapper} for sorted indexes. */
     static class SortedIndexWrapper extends IndexWrapper {
-        SortedIndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, ColumnsExtractor indexRowResolver) {
+        private final boolean unique;
+
+        SortedIndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, ColumnsExtractor indexRowResolver, boolean unique) {
             super(tbl, lockManager, indexId, indexRowResolver);
+
+            this.unique = unique;
         }
 
         @Override
-        TableSchemaAwareIndexStorage getStorage(int partitionId) {
+        @Nullable TableSchemaAwareIndexStorage getStorage(int partitionId) {
             IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
 
-            assert index != null : tbl.name() + " part " + partitionId;
+            if (index == null) {
+                return null;
+            }
 
             return new TableSchemaAwareIndexStorage(
                     indexId,
@@ -84,7 +91,8 @@ abstract class IndexWrapper {
                     partitionId,
                     lockManager,
                     (SortedIndexStorage) index,
-                    indexRowResolver
+                    indexRowResolver,
+                    unique
             );
         }
     }
@@ -100,10 +108,12 @@ abstract class IndexWrapper {
         }
 
         @Override
-        TableSchemaAwareIndexStorage getStorage(int partitionId) {
+        @Nullable TableSchemaAwareIndexStorage getStorage(int partitionId) {
             IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
 
-            assert index != null : "tableId=" + tbl.tableId() + ", indexId=" + indexId + ", partitionId=" + partitionId;
+            if (index == null) {
+                return null;
+            }
 
             return new TableSchemaAwareIndexStorage(
                     indexId,

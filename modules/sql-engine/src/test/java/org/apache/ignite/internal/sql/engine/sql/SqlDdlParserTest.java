@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static java.util.Collections.singleton;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -26,29 +27,38 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlBinaryStringLiteral;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNumericLiteral;
+import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test suite to verify parsing of the DDL command.
  */
-public class SqlDdlParserTest extends AbstractDdlParserTest {
+public class SqlDdlParserTest extends AbstractParserTest {
     /**
      * Very simple case where only table name and a few columns are presented.
      */
@@ -78,7 +88,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void createTableAutogenFuncDefault() {
-        String query = "create table my_table(id varchar default gen_random_uuid primary key, val varchar)";
+        String query = "create table my_table(id uuid default rand_uuid primary key, val varchar)";
 
         SqlNode node = parse(query);
 
@@ -92,7 +102,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 SqlColumnDeclaration.class,
                 col -> "ID".equals(col.name.getSimple())
                         && col.expression instanceof SqlIdentifier
-                        && "GEN_RANDOM_UUID".equals(((SqlIdentifier) col.expression).getSimple())
+                        && "RAND_UUID".equals(((SqlIdentifier) col.expression).getSimple())
         )));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
                 "PK constraint with name \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
@@ -104,9 +114,169 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
                 + "PRIMARY KEY (\"ID\"), "
-                + "\"ID\" VARCHAR DEFAULT (\"GEN_RANDOM_UUID\"), "
+                + "\"ID\" UUID DEFAULT (\"RAND_UUID\"), "
                 + "\"VAL\" VARCHAR)"
         );
+    }
+
+    /**
+     * Parsing of CREATE TABLE with a literal as a default expression.
+     */
+    @Test
+    public void createTableWithDefaultLiteral() {
+        String query = "CREATE TABLE my_table("
+                + "id BIGINT DEFAULT 1, "
+                + "valdate DATE DEFAULT DATE '2001-12-21',"
+                + "valdate2 DATE DEFAULT '2001-12-21',"
+                + "valtime TIME DEFAULT TIME '11:22:33.444',"
+                + "valtime2 TIME DEFAULT '11:22:33.444',"
+                + "valts TIMESTAMP DEFAULT TIMESTAMP '2001-12-21 11:22:33.444',"
+                + "valts2 TIMESTAMP DEFAULT '2001-12-21 11:22:33.444',"
+                + "valbin VARBINARY DEFAULT x'ff',"
+                + "valstr VARCHAR DEFAULT 'string'"
+                + ")";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.columnList(), hasColumnWithDefault("ID", SqlNumericLiteral.class, "1"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALSTR", SqlCharStringLiteral.class, "string"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALBIN", SqlBinaryStringLiteral.class, "11111111"));
+
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALDATE", SqlUnknownLiteral.class, "2001-12-21"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTIME", SqlUnknownLiteral.class, "11:22:33.444"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTS", SqlUnknownLiteral.class, "2001-12-21 11:22:33.444"));
+
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALDATE2", SqlCharStringLiteral.class, "2001-12-21"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTIME2", SqlCharStringLiteral.class, "11:22:33.444"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTS2", SqlCharStringLiteral.class, "2001-12-21 11:22:33.444"));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
+                + "(\"ID\" BIGINT DEFAULT (1), "
+                + "\"VALDATE\" DATE DEFAULT (DATE '2001-12-21'), "
+                + "\"VALDATE2\" DATE DEFAULT ('2001-12-21'), "
+                + "\"VALTIME\" TIME DEFAULT (TIME '11:22:33.444'), "
+                + "\"VALTIME2\" TIME DEFAULT ('11:22:33.444'), "
+                + "\"VALTS\" TIMESTAMP DEFAULT (TIMESTAMP '2001-12-21 11:22:33.444'), "
+                + "\"VALTS2\" TIMESTAMP DEFAULT ('2001-12-21 11:22:33.444'), "
+                + "\"VALBIN\" VARBINARY DEFAULT (X'FF'), "
+                + "\"VALSTR\" VARCHAR DEFAULT ('string'))"
+        );
+    }
+
+    /**
+     * Parsing of CREATE TABLE with a expression in DEFAULT.
+     */
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "1+2; 1 + 2",
+            "a=100; \"A\" = 100",
+            "RANDOM(); \"RANDOM\"()",
+            "LENGTH('abc'); \"LENGTH\"('abc')",
+            "LENGTH('abc') + 1; \"LENGTH\"('abc') + 1",
+            "42 +LENGTH('abc') + 1; 42 + \"LENGTH\"('abc') + 1",
+            "LENGTH(CAST(1234 AS VARCHAR)); \"LENGTH\"(CAST(1234 AS VARCHAR))",
+            "LENGTH(1234::VARCHAR); \"LENGTH\"(1234 :: VARCHAR)",
+    })
+    public void createTableWithDefaultExpression(String expr, String normExpr) {
+        {
+            SqlNode node = parse(format("CREATE TABLE t(id INT DEFAULT {} PRIMARY KEY, val INT)", expr));
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+            // Use a SQL string in error message because matchers are not good at producing a meaningful error
+            // when an object does not have its own toString method
+            assertThat(unparse(createTable.columnList()), createTable.columnList(), hasColumnWithDefaultExpr("ID",
+                    SqlBasicCall.class,
+                    "Unexpected expression",
+                    (dflt) -> normExpr.equals(unparse(dflt)))
+            );
+            // Output expression is parenthesized by the unparse
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER DEFAULT (" + normExpr + "), "
+                    + "\"VAL\" INTEGER"
+                    + ")"
+            );
+        }
+
+        {
+            SqlNode node = parse(format("CREATE TABLE t(id INT PRIMARY KEY, val INT DEFAULT {})", expr));
+            assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+            IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+            assertThat(unparse(createTable.columnList()), createTable.columnList(), hasColumnWithDefaultExpr("VAL",
+                    SqlBasicCall.class,
+                    "Unexpected expression",
+                    (dflt) -> normExpr.equals(unparse(dflt)))
+            );
+            expectUnparsed(node, "CREATE TABLE \"T\" ("
+                    + "PRIMARY KEY (\"ID\"), "
+                    + "\"ID\" INTEGER, "
+                    + "\"VAL\" INTEGER DEFAULT (" + normExpr + ")"
+                    + ")"
+            );
+        }
+    }
+
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "CREATE TABLE t(id int DEFAULT (SELECT count(col) FROM t), val int); Query expression encountered in illegal context",
+            "CREATE TABLE t(id int DEFAULT (SELECT 100), val int); Query expression encountered in illegal context",
+            "CREATE TABLE t(id int DEFAULT (UPDATE t SET col=1) PRIMARY KEY, val int); Incorrect syntax near the keyword 'UPDATE'",
+            "CREATE TABLE t(id int DEFAULT (INSERT INTO t VALUES(1)), val int); Incorrect syntax near the keyword 'INSERT'",
+            "CREATE TABLE t(id int DEFAULT (DELETE FROM t WHERE col = 1), val int); Incorrect syntax near the keyword 'DELETE'",
+
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (SELECT count(*) FROM xyz); Query expression encountered in illegal context",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (UPDATE t SET col=1); Incorrect syntax near the keyword 'UPDATE'",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (INSERT INTO t VALUES(1)); Incorrect syntax near the keyword 'INSERT",
+            "ALTER TABLE t ADD COLUMN val int DEFAULT (DELETE FROM t WHERE col = 1); Incorrect syntax near the keyword 'DELETE'",
+
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (SELECT count(*) FROM xyz); Query expression encountered in illegal context",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (SELECT 100); Query expression encountered in illegal context",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (UPDATE t SET col=1); Incorrect syntax near the keyword 'UPDATE'",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (INSERT INTO t VALUES(1)); Incorrect syntax near the keyword 'INSERT",
+            "ALTER TABLE t ALTER COLUMN val SET DEFAULT (DELETE FROM t WHERE col = 1); Incorrect syntax near the keyword 'DELETE'",
+    })
+    public void rejectNonExpressionsInDefault(String stmt, String error) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                error,
+                () -> parse(stmt));
+    }
+
+    private <T extends SqlLiteral>  Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
+            String columnName,
+            Class<T> nodeType,
+            String literalValue
+    ) {
+        return hasColumnWithDefaultExpr(
+                columnName,
+                nodeType,
+                format("Column with {} as default: columnName={}", nodeType.getCanonicalName(), columnName),
+                (lit) -> literalValue.equals(lit.toValue())
+        );
+    }
+
+    private static <T extends SqlNode> Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefaultExpr(
+            String columnName,
+            Class<T> nodeType,
+            String message,
+            Predicate<T> valCheck
+    ) {
+        return hasItem(ofTypeMatching(
+                message,
+                SqlColumnDeclaration.class,
+                col -> columnName.equals(col.name.getSimple())
+                        && nodeType.isInstance(col.expression)
+                        && valCheck.test(nodeType.cast(col.expression))
+        ));
     }
 
     /**
@@ -308,6 +478,50 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         );
     }
 
+    @Test
+    public void createTableWithSortedPkAndParticularNullOrdering() {
+        String query = "create table my_table(id1 int, id2 int, val varchar, " 
+                + "primary key using sorted (id1 ASC NULLS FIRST, id2 DESC NULLS LAST))";
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.ifNotExists, is(false));
+
+        SqlNode lastItem = CollectionUtils.last(createTable.columnList());
+
+        assertThat(lastItem, instanceOf((IgniteSqlPrimaryKeyConstraint.class)));
+
+        IgniteSqlPrimaryKeyConstraint pkConstraint = (IgniteSqlPrimaryKeyConstraint) lastItem;
+
+        assertThat(
+                pkConstraint.getColumnList().get(0),
+                ofTypeMatching("\"ID1\" NULLS FIRST", SqlBasicCall.class, bc -> bc.isA(Set.of(SqlKind.NULLS_FIRST))
+                        && bc.getOperandList().get(0) instanceof SqlIdentifier
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).isSimple()
+                        && ((SqlIdentifier) bc.getOperandList().get(0)).getSimple().equals("ID1"))
+        );
+
+        assertThat(
+                pkConstraint.getColumnList().get(1),
+                ofTypeMatching("\"ID2\" DESC NULLS LAST", SqlBasicCall.class, bc -> bc.isA(Set.of(SqlKind.NULLS_LAST))
+                        && bc.getOperandList().get(0) instanceof SqlBasicCall
+                        && (bc.getOperandList().get(0)).isA(Set.of(SqlKind.DESCENDING))
+                        && ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0) instanceof SqlIdentifier
+                        && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0)).isSimple() 
+                        && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0)).getSimple().equals("ID2"))
+        );
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
+                + "(\"ID1\" INTEGER, "
+                + "\"ID2\" INTEGER, "
+                + "\"VAL\" VARCHAR, "
+                + "PRIMARY KEY USING SORTED (\"ID1\" NULLS FIRST, \"ID2\" DESC NULLS LAST))"
+        );
+    }
+
     /**
      * Parsing of CREATE TABLE with primary key index type HASH.
      */
@@ -397,45 +611,19 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
         // Check uparse 'COLOCATE' and 'WITH' together.
         createTable = parseCreateTable(
-                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0) "
-                        + "with "
-                        + "replicas=2, "
-                        + "partitions=3"
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0)"
         );
 
         expectUnparsed(createTable, "CREATE TABLE \"MY_TABLE\" ("
                 + "\"ID0\" INTEGER, \"ID1\" INTEGER, "
                 + "\"ID2\" INTEGER, \"VAL\" INTEGER, PRIMARY KEY (\"ID0\", \"ID1\", \"ID2\")"
-                + ") COLOCATE BY (\"ID0\") WITH \"REPLICAS\" = 2, \"PARTITIONS\" = 3"
-        );
-    }
-
-    @Test
-    public void createTableWithOptions() {
-        String query = "create table my_table(id int) with"
-                + " replicas=2,"
-                + " partitions=3,"
-                + " primary_zone='zone123'";
-
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThatOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
-        assertThatOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
-        assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
-
-        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
-                + "\"ID\" INTEGER"
-                + ") WITH \"REPLICAS\" = 2, \"PARTITIONS\" = 3, \"PRIMARY_ZONE\" = 'zone123'"
+                + ") COLOCATE BY (\"ID0\")"
         );
     }
 
     @Test
     public void createTableWithIdentifierZone() {
-        String sqlQuery = "create table my_table(id int) with primary_zone=zone123";
+        String sqlQuery = "create table my_table(id int) zone \"zone123\"";
 
         SqlNode node = parse(sqlQuery);
 
@@ -443,24 +631,9 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
         IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
 
-        assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "ZONE123");
+        assertThat(createTable.zone().getSimple(), equalTo("zone123"));
 
-        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) WITH \"PRIMARY_ZONE\" = \"ZONE123\"");
-    }
-
-    @Test
-    public void createTableWithLiteralZone() {
-        String sqlQuery = "create table my_table(id int) with primary_zone='zone123'";
-
-        SqlNode node = parse(sqlQuery);
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
-
-        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) WITH \"PRIMARY_ZONE\" = 'zone123'");
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) ZONE \"zone123\"");
     }
 
     @Test
@@ -600,7 +773,6 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_SCHEMA\".\"MY_TABLE\" (\"COL\")");
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21672")
     @Test
     public void createIndexExplicitNullDirection() {
         var query = "create index my_index on my_table (col1 nulls first, col2 nulls last, col3 desc nulls first)";
@@ -634,7 +806,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         && ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0) instanceof SqlIdentifier
                         && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0)).isSimple()
                         && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0))
-                                .getSimple().equals("COL3"))));
+                        .getSimple().equals("COL3"))));
 
         expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" ("
                 + "\"COL1\" NULLS FIRST, \"COL2\" NULLS LAST, \"COL3\" DESC NULLS FIRST)"
@@ -738,15 +910,32 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
-     * Ensures that the user cannot use the TIME_WITH_LOCAL_TIME_ZONE and TIMESTAMP_WITH_LOCAL_TIME_ZONE types for table columns.
+     * Ensures that the parser throws the expected exception when attempting to use the following unsupported types for table columns.
+     *
+     * <ol>
+     *     <li>{@link SqlTypeName#TIME_TZ TIME WITH TIME ZONE}</li>
+     *     <li>{@link SqlTypeName#TIME_WITH_LOCAL_TIME_ZONE TIME WITH LOCAL TIME ZONE}</li>
+     *     <li>{@link SqlTypeName#TIMESTAMP_TZ TIMESTAMP WITH TIME ZONE}</li>
+     * </ol>
      */
     // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-21555 is implemented.
-    @Test
-    public void timeWithLocalTimeZoneIsNotSupported() {
+    @ParameterizedTest(name = "type={0}")
+    @CsvSource({
+            "TIME WITH TIME ZONE, Encountered \"WITH\"",
+            "TIME WITH LOCAL TIME ZONE, Encountered \"WITH\"",
+            "TIMESTAMP WITH TIME ZONE, Encountered \"TIME\""
+    })
+    public void unsupportedTimeZoneAwareTableColumnTypes(String typeName, String expectedError) {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
-                "Encountered \"WITH\"",
-                () -> parse("CREATE TABLE test (ts TIME WITH LOCAL TIME ZONE)")
+                expectedError,
+                () -> parse(format("CREATE TABLE test (ts {})", typeName))
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                expectedError,
+                () -> parse(format("ALTER TABLE test ADD COLUMN ts {}", typeName))
         );
     }
 
@@ -804,6 +993,88 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
+     * CHAR datatype has certain storage assignment rules, namely it requires value to be padded with `space` character up to declared
+     * length. This currently not supported in storage, thus let's forbid usage of CHAR datatype for table's columns.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c CHAR)",
+            "CREATE TABLE t (c CHAR(5))",
+            "CREATE TABLE t (c CHARACTER)",
+            "CREATE TABLE t (c CHARACTER(5))",
+            "ALTER TABLE t ADD COLUMN c CHAR",
+            "ALTER TABLE t ADD COLUMN c CHAR(5)",
+            "ALTER TABLE t ADD COLUMN c CHARACTER",
+            "ALTER TABLE t ADD COLUMN c CHARACTER(5)",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHAR",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHAR(5)",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHARACTER",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHARACTER(5)"
+    })
+    void charTypeIsNotAllowedInTable(String statement) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "CHAR datatype is not supported in table",
+                () -> parse(statement)
+        );
+    }
+
+    /**
+     * Test makes sure exception is not thrown for CHARACTER VARYING type and in CAST operation where CHARACTER is allowed.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c VARCHAR)",
+            "CREATE TABLE t (c CHARACTER VARYING)",
+            "SELECT CAST(1 AS CHAR)",
+            "SELECT CAST(1 AS CHARACTER)",
+            "SELECT 1::CHAR",
+            "SELECT 1::CHARACTER",
+    })
+    void restrictionOfCharTypeIsNotAppliedToVarcharAndCast(String statement) {
+        SqlNode node = parse(statement);
+
+        assertNotNull(node);
+    }
+
+    /**
+     * BINARY datatype has certain storage assignment rules, namely it requires value to be padded with X'00' symbol up to declared
+     * length. This currently not supported in storage, thus let's forbid usage of BINARY datatype for table's columns.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c BINARY)",
+            "CREATE TABLE t (c BINARY(5))",
+            "ALTER TABLE t ADD COLUMN c BINARY",
+            "ALTER TABLE t ADD COLUMN c BINARY(5)",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE BINARY",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE BINARY(5)",
+    })
+    void binaryTypeIsNotAllowedInTable(String statement) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "BINARY datatype is not supported in table",
+                () -> parse(statement)
+        );
+    }
+
+    /**
+     * Test makes sure exception is not thrown for BINARY VARYING type and in CAST operation where BINARY is allowed.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c VARBINARY)",
+            "CREATE TABLE t (c BINARY VARYING)",
+            "SELECT CAST(1 AS BINARY)",
+            "SELECT 1::BINARY",
+    })
+    void restrictionOfBinaryTypeIsNotAppliedToVarbinaryAndCast(String statement) {
+        SqlNode node = parse(statement);
+
+        assertNotNull(node);
+    }
+
+    /**
      * Matcher to verify name in the column declaration.
      *
      * @param name Expected name.
@@ -829,24 +1100,5 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(columnStrategy, is(declaration.strategy));
         assertThat(List.of(typeName), is(declaration.dataType.getTypeName().names));
         assertThat(nullable, is(declaration.dataType.getNullable()));
-    }
-
-    private void assertThatOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
-        assertThat(optionList, hasItem(ofTypeMatching(
-                option + "=" + expVal,
-                IgniteSqlCreateTableOption.class,
-                opt -> {
-                    if (opt.key().getSimple().equals(option)) {
-                        SqlNode valNode = opt.value();
-                        if (valNode instanceof SqlLiteral) {
-                            return Objects.equals(expVal, ((SqlLiteral) valNode).getValueAs(expVal.getClass()));
-                        } else if (valNode instanceof SqlIdentifier) {
-                            return Objects.equals(expVal, ((SqlIdentifier) valNode).getSimple());
-                        }
-                    }
-
-                    return false;
-                }
-        )));
     }
 }

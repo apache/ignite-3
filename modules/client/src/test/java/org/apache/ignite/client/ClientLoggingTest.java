@@ -49,7 +49,7 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void loggersSetToDifferentClientsNotInterfereWithEachOther() throws Exception {
+    public void loggersSetToDifferentClientsNotInterfereWithEachOther() {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
@@ -61,8 +61,8 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
         var client1 = createClient(loggerFactory1, 10901, 10902);
         var client2 = createClient(loggerFactory2, 10901, 10902);
 
-        assertEquals("t", client1.tables().tables().get(0).name());
-        assertEquals("t", client2.tables().tables().get(0).name());
+        assertEquals("T", client1.tables().tables().get(0).qualifiedName().objectName());
+        assertEquals("T", client2.tables().tables().get(0).qualifiedName().objectName());
 
         server.close();
 
@@ -71,8 +71,8 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
 
         server2 = startServer(ignite2, 10902);
 
-        assertEquals("t2", client1.tables().tables().get(0).name());
-        assertEquals("t2", client2.tables().tables().get(0).name());
+        assertEquals("T2", client1.tables().tables().get(0).qualifiedName().objectName());
+        assertEquals("T2", client2.tables().tables().get(0).qualifiedName().objectName());
 
         assertThat(loggerFactory1.logger.entries(), not(empty()));
         assertThat(loggerFactory2.logger.entries(), not(empty()));
@@ -99,7 +99,7 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
             client.tables().table("t");
 
             loggerFactory.waitForLogContains("Connection established", 5000);
-            loggerFactory.waitForLogContains("c:Sending request [opCode=3, remoteAddress=127.0.0.1", 5000);
+            loggerFactory.waitForLogContains("c:Sending request [opCode=72, remoteAddress=127.0.0.1", 5000);
             loggerFactory.waitForLogMatches(".*c:Failed to establish connection to 127\\.0\\.0\\.1(/<unresolved>)?:43210.*", 5000);
         }
     }

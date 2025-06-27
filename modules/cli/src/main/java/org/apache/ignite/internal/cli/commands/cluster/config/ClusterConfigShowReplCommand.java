@@ -21,13 +21,11 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.FormatMixin;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
-import org.apache.ignite.internal.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -55,25 +53,20 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
     @Inject
     private ConnectToClusterQuestion question;
 
-    @Inject
-    private ConfigManagerProvider configManagerProvider;
+    @Mixin
+    private FormatMixin format;
 
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::configShowCallInput)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show cluster config", "cluster init"))
-                .verbose(verbose)
-                .print(new JsonDecorator(isHighlightEnabled()))
-                .start();
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot show cluster config"))
+                .print(format.decorator())
+        );
     }
 
     private ClusterConfigShowCallInput configShowCallInput(String clusterUrl) {
         return ClusterConfigShowCallInput.builder().selector(selector).clusterUrl(clusterUrl).build();
-    }
-
-    private boolean isHighlightEnabled() {
-        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
     }
 }

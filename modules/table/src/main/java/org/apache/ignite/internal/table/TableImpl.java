@@ -24,14 +24,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
@@ -44,13 +45,15 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -66,6 +69,8 @@ public class TableImpl implements TableViewInternal {
 
     /** Ignite SQL facade. */
     private final IgniteSql sql;
+
+    private final FailureProcessor failureProcessor;
 
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
@@ -84,6 +89,7 @@ public class TableImpl implements TableViewInternal {
      * @param schemaVersions Schema versions access.
      * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
+     * @param failureProcessor Failure processor.
      * @param pkId ID of a primary index.
      */
     public TableImpl(
@@ -92,6 +98,7 @@ public class TableImpl implements TableViewInternal {
             SchemaVersions schemaVersions,
             MarshallersProvider marshallers,
             IgniteSql sql,
+            FailureProcessor failureProcessor,
             int pkId
     ) {
         this.tbl = tbl;
@@ -99,6 +106,7 @@ public class TableImpl implements TableViewInternal {
         this.schemaVersions = schemaVersions;
         this.marshallers = marshallers;
         this.sql = sql;
+        this.failureProcessor = failureProcessor;
         this.pkId = pkId;
     }
 
@@ -121,7 +129,15 @@ public class TableImpl implements TableViewInternal {
             IgniteSql sql,
             int pkId
     ) {
-        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql, pkId);
+        this(
+                tbl,
+                lockManager,
+                schemaVersions,
+                new ReflectionMarshallersProvider(),
+                sql,
+                new FailureManager(new NoOpFailureHandler()),
+                pkId
+        );
 
         this.schemaReg = schemaReg;
     }
@@ -129,6 +145,11 @@ public class TableImpl implements TableViewInternal {
     @Override
     public int tableId() {
         return tbl.tableId();
+    }
+
+    @Override
+    public int zoneId() {
+        return tbl.zoneId();
     }
 
     @Override
@@ -141,7 +162,12 @@ public class TableImpl implements TableViewInternal {
         return tbl;
     }
 
-    @Override public String name() {
+    @Override
+    public PartitionManager partitionManager() {
+        return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
+    }
+
+    @Override public QualifiedName qualifiedName() {
         return tbl.name();
     }
 
@@ -157,16 +183,14 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public void schemaView(SchemaRegistry schemaReg) {
-        assert this.schemaReg == null : "Schema registry is already set [tableName=" + name() + ']';
-
-        Objects.requireNonNull(schemaReg, "Schema registry must not be null [tableName=" + name() + ']');
+        Objects.requireNonNull(schemaReg, () -> "Schema registry must not be null [tableName=" + name() + ']');
 
         this.schemaReg = schemaReg;
     }
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<R>(tbl, schemaReg, schemaVersions, sql, marshallers, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, sql, marshallers, recMapper);
     }
 
     @Override
@@ -185,51 +209,40 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
-    public int partition(Tuple key) {
+    public int partitionId(Tuple key) {
         Objects.requireNonNull(key);
 
-        try {
-            // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
-            // columns never change (so they are the same for all schema versions of the table),
-            Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
+        // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
+        // columns never change (so they are the same for all schema versions of the table),
+        Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
-            return tbl.partition(keyRow);
-        } catch (TupleMarshallerException e) {
-            throw new IgniteInternalException(e);
-        }
+        return tbl.partitionId(keyRow);
     }
 
     @Override
-    public <K> int partition(K key, Mapper<K> keyMapper) {
+    public <K> int partitionId(K key, Mapper<K> keyMapper) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
 
-        BinaryRowEx keyRow;
         var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, keyMapper, keyMapper);
-        try {
-            keyRow = marshaller.marshal(key);
-        } catch (MarshallerException e) {
-            throw new IgniteInternalException("Cannot marshal key", e);
-        }
+        BinaryRowEx keyRow = marshaller.marshal(key);
 
-        return tbl.partition(keyRow);
-    }
-
-    @Override
-    public ClusterNode leaderAssignment(int partition) {
-        return tbl.tableRaftService().leaderAssignment(partition);
+        return tbl.partitionId(keyRow);
     }
 
     /** Returns a supplier of index storage wrapper factories for given partition. */
-    public TableIndexStoragesSupplier indexStorageAdapters(int partId) {
+    public TableIndexStoragesSupplier indexStorageAdapters(int partitionId) {
         return () -> {
-            List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
+            var factories = new ArrayList<>(indexWrapperById.values());
 
-            Map<Integer, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
+            var adapters = new HashMap<Integer, TableSchemaAwareIndexStorage>();
 
-            for (IndexWrapper factory : factories) {
-                TableSchemaAwareIndexStorage storage = factory.getStorage(partId);
-                adapters.put(storage.id(), storage);
+            for (int i = 0; i < factories.size(); i++) {
+                TableSchemaAwareIndexStorage storage = factories.get(i).getStorage(partitionId);
+
+                if (storage != null) {
+                    adapters.put(storage.id(), storage);
+                }
             }
 
             return adapters;
@@ -263,7 +276,7 @@ public class TableImpl implements TableViewInternal {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
         partitions.stream().forEach(partitionId -> {
-            tbl.storage().getOrCreateHashIndex(partitionId, indexDescriptor);
+            tbl.storage().createHashIndex(partitionId, indexDescriptor);
         });
 
         indexWrapperById.put(indexId, new HashIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
@@ -272,6 +285,7 @@ public class TableImpl implements TableViewInternal {
     @Override
     public void registerSortedIndex(
             StorageSortedIndexDescriptor indexDescriptor,
+            boolean unique,
             ColumnsExtractor searchRowResolver,
             PartitionSet partitions
     ) {
@@ -279,16 +293,21 @@ public class TableImpl implements TableViewInternal {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19112 Create storages once.
         partitions.stream().forEach(partitionId -> {
-            tbl.storage().getOrCreateSortedIndex(partitionId, indexDescriptor);
+            tbl.storage().createSortedIndex(partitionId, indexDescriptor);
         });
 
-        indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver));
+        indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
     }
 
     @Override
     public void unregisterIndex(int indexId) {
         indexWrapperById.remove(indexId);
 
-        tbl.storage().destroyIndex(indexId);
+        tbl.storage().destroyIndex(indexId)
+                .whenComplete((res, e) -> {
+                    if (e != null) {
+                        failureProcessor.process(new FailureContext(e, String.format("Unable to destroy index %s", indexId)));
+                    }
+                });
     }
 }

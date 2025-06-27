@@ -22,11 +22,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
@@ -41,20 +43,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests thin client connecting to a real server node.
  */
+@SuppressWarnings("resource")
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     /**
      * Check that thin client can connect to any server node and work with table API.
      */
     @Test
-    void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() throws Exception {
+    void testThinClientConnectsToServerNodesAndExecutesBasicTableOperations() {
         for (var addr : getClientAddresses()) {
             try (var client = IgniteClient.builder().addresses(addr).build()) {
                 List<Table> tables = client.tables().tables();
                 assertEquals(1, tables.size());
 
                 Table table = tables.get(0);
-                assertEquals(TABLE_NAME, table.name());
+                assertEquals(TABLE_NAME, table.qualifiedName().objectName());
 
                 var tuple = Tuple.create().set(COLUMN_KEY, 1).set(COLUMN_VAL, "Hello");
                 var keyTuple = Tuple.create().set(COLUMN_KEY, 1);
@@ -95,5 +98,48 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     @Test
     void clusterName() {
         assertThat(((TcpIgniteClient) client()).clusterName(), is("cluster"));
+    }
+
+    @Test
+    void testHeartbeat() {
+        var client = (TcpIgniteClient) client();
+
+        List<ClientChannel> channels = client.channel().channels();
+
+        assertEquals(2, channels.size());
+
+        for (var channel : channels) {
+            assertFalse(channel.closed());
+
+            channel.heartbeatAsync(null).join();
+            channel.heartbeatAsync(w -> w.out().packString("foo-bar")).join();
+            channel.heartbeatAsync(w -> w.out().writePayload(new byte[]{1, 2, 3})).join();
+        }
+    }
+
+    @Test
+    void testExceptionHasHint() {
+        var client = IgniteClient.builder().addresses(getClientAddresses().get(0)).build();
+
+        IgniteException ex = assertThrows(IgniteException.class, () -> client.sql().execute(null, "select x from bad"));
+        assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true",
+                ex.getCause().getCause().getCause().getCause().getMessage());
+    }
+
+    @Test
+    void testServerReturnsActualTableName() {
+        // Quoting is not necessary.
+        Table table = client().tables().table("tbl1");
+        assertEquals("TBL1", table.qualifiedName().objectName());
+
+        // Quoting is necessary.
+        client().sql().execute(null, "CREATE TABLE IF NOT EXISTS \"tbl-2\" (key INTEGER PRIMARY KEY)");
+
+        try {
+            Table table2 = client().tables().table("\"tbl-2\"");
+            assertEquals("tbl-2", table2.qualifiedName().objectName());
+        } finally {
+            client().sql().execute(null, "DROP TABLE \"tbl-2\"");
+        }
     }
 }

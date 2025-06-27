@@ -38,12 +38,11 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,7 +56,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -71,10 +72,13 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.thread.ThreadAttributes;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.jetbrains.annotations.Nullable;
 
@@ -122,7 +126,7 @@ public class IgniteUtils {
     /**
      * Root package for JMX MBeans.
      */
-    private static final String JMX_MBEAN_PACKAGE = "org.apache";
+    private static final String JMX_MBEAN_PACKAGE = "org.apache.ignite";
 
     /**
      * Get JDK version.
@@ -214,6 +218,17 @@ public class IgniteUtils {
      */
     public static <K, V> HashMap<K, V> newHashMap(int expSize) {
         return new HashMap<>(capacity(expSize));
+    }
+
+    /**
+     * Creates new {@link HashSet} with expected size.
+     *
+     * @param expSize Expected size of the created set.
+     * @param <E> the type of elements maintained by this set.
+     * @return New map.
+     */
+    public static <E> HashSet<E> newHashSet(int expSize) {
+        return new HashSet<>(capacity(expSize));
     }
 
     /**
@@ -416,7 +431,7 @@ public class IgniteUtils {
     }
 
     /**
-     * Deletes a file or a directory with all sub-directories and files.
+     * Deletes a file or a directory with all sub-directories and files if exists.
      *
      * @param path File or directory to delete.
      * @return {@code true} if the file or directory is successfully deleted or does not exist, {@code false} otherwise
@@ -425,39 +440,44 @@ public class IgniteUtils {
         try {
             deleteIfExistsThrowable(path);
             return true;
-        } catch (NoSuchFileException e) {
-            return true;
         } catch (IOException e) {
             return false;
         }
     }
 
     /**
-     * Deletes a file or a directory with all sub-directories and files.
+     * Deletes a file or a directory with all sub-directories and files if exists.
      *
      * @param path File or directory to delete.
      * @throws IOException if an I/O error is thrown by a visitor method
      */
     public static void deleteIfExistsThrowable(Path path) throws IOException {
-        Files.walkFileTree(path, new SimpleFileVisitor<>() {
+        var visitor = new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
                 if (exc != null) {
                     throw exc;
                 }
 
-                Files.delete(dir);
+                Files.deleteIfExists(dir);
 
                 return FileVisitResult.CONTINUE;
             }
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                Files.delete(file);
+                Files.deleteIfExists(file);
 
                 return FileVisitResult.CONTINUE;
             }
-        });
+        };
+
+        try {
+            Files.walkFileTree(path, visitor);
+        } catch (NoSuchFileException ignored) {
+            // Do nothing if file doesn't exist.
+            // Using Files.exists() could lead to a race.
+        }
     }
 
     /**
@@ -644,34 +664,6 @@ public class IgniteUtils {
     }
 
     /**
-     * Short date format pattern for log messages in "quiet" mode. Only time is included since we don't expect "quiet" mode to be used for
-     * longer runs.
-     */
-    private static final DateTimeFormatter SHORT_DATE_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
-
-    /**
-     * Prints stack trace of the current thread to provided logger.
-     *
-     * @param log Logger.
-     * @param msg Message to print with the stack.
-     * @deprecated Calls to this method should never be committed to master.
-     */
-    @Deprecated
-    public static void dumpStack(IgniteLogger log, String msg, Object... params) {
-        String reason = "Dumping stack";
-
-        var err = new Exception(IgniteStringFormatter.format(msg, params));
-
-        if (log != null) {
-            log.warn(reason, err);
-        } else {
-            System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " + reason);
-
-            err.printStackTrace(System.err);
-        }
-    }
-
-    /**
      * Atomically moves or renames a file to a target file.
      *
      * @param sourcePath The path to the file to move.
@@ -774,7 +766,7 @@ public class IgniteUtils {
      * @throws CancellationException If this future was cancelled.
      * @throws ExecutionException If this future completed exceptionally.
      */
-    public static <T> T getUninterruptibly(CompletableFuture<T> future) throws ExecutionException {
+    public static <T> T getUninterruptibly(Future<T> future) throws ExecutionException {
         boolean interrupted = false;
 
         try {
@@ -791,6 +783,62 @@ public class IgniteUtils {
             }
         }
     }
+
+    /**
+     * Waits if necessary for this future to complete, and then returns its result ignoring interrupts.
+     *
+     * @param future Future to wait on.
+     * @param timeout Timeout in milliseconds.
+     * @return Result value.
+     * @throws CancellationException If this future was cancelled.
+     * @throws ExecutionException If this future completed exceptionally.
+     */
+    public static <T> T getUninterruptibly(Future<T> future, long timeout) throws ExecutionException, TimeoutException {
+        boolean interrupted = false;
+
+        try {
+            long start = System.currentTimeMillis();
+            while (true) {
+                long current = System.currentTimeMillis();
+                long wait = timeout - (current - start);
+                if (wait < 0) {
+                    throw new TimeoutException("Timeout waiting for future completion [timeout=" + timeout + "ms]");
+                }
+
+                try {
+                    return future.get(wait, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /**
+     * Blocks until the future is completed and either returns the value from the normal completion, or throws an exception if the future
+     * was completed exceptionally. The exception might be wrapped in a copy preserving the error code.
+     *
+     * <p>The wait is interruptible. That is, the thread can be interrupted; in such case, {@link InterruptedException} is thrown sneakily.
+     *
+     * @param future Future to wait on.
+     * @return Value from the future.
+     */
+    public static <T> T getInterruptibly(Future<T> future) {
+        try {
+            return future.get();
+        } catch (ExecutionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw ExceptionUtils.sneakyThrow(e);
+        }
+    }
+
 
     /**
      * Stops workers from given collection and waits for their completion.
@@ -954,6 +1002,25 @@ public class IgniteUtils {
     public static <T> void cancelOrConsume(CompletableFuture<T> future, Consumer<T> consumer) {
         future.cancel(true);
 
+        consumeIfFinishedSuccessfully(future, consumer);
+    }
+
+    /**
+     * Fails the future and runs a consumer on future's result if it was completed before being failed. Does nothing if future is
+     * cancelled or completed exceptionally.
+     *
+     * @param future Future.
+     * @param failure With what to fail the future.
+     * @param consumer Consumer that accepts future's result.
+     * @param <T> Future's result type.
+     */
+    public static <T> void failOrConsume(CompletableFuture<T> future, Throwable failure, Consumer<T> consumer) {
+        future.completeExceptionally(failure);
+
+        consumeIfFinishedSuccessfully(future, consumer);
+    }
+
+    private static <T> void consumeIfFinishedSuccessfully(CompletableFuture<T> future, Consumer<T> consumer) {
         if (future.isCancelled() || future.isCompletedExceptionally()) {
             return;
         }
@@ -1040,6 +1107,21 @@ public class IgniteUtils {
     }
 
     /**
+     * Iterates over the given collection and applies the given closure to each element using the collection element and its index.
+     *
+     * @param collection Collection.
+     * @param closure Closure to apply.
+     * @param <T> Type of collection element.
+     */
+    public static <T> void forEachIndexed(Collection<T> collection, BiConsumer<T, Integer> closure) {
+        int i = 0;
+
+        for (T t : collection) {
+            closure.accept(t, i++);
+        }
+    }
+
+    /**
      * Retries operation until it succeeds or fails with exception that is different than the given.
      *
      * @param operation Operation.
@@ -1105,7 +1187,7 @@ public class IgniteUtils {
      * Serializes collection to bytes.
      *
      * @param collection Collection.
-     * @param transform Tranform function for the collection element.
+     * @param transform Transform function for the collection element.
      * @return Byte array.
      */
     public static <T> byte[] collectionToBytes(Collection<T> collection, Function<T, byte[]> transform) {
@@ -1176,39 +1258,41 @@ public class IgniteUtils {
         }
     }
 
-    private static CompletableFuture<Void> startAsync(Stream<? extends IgniteComponent> components) {
+    private static CompletableFuture<Void> startAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
-                .map(IgniteComponent::startAsync)
+                .map(component -> component.startAsync(componentContext))
                 .toArray(CompletableFuture[]::new));
     }
 
     /**
      * Asynchronously starts all ignite components.
      *
-     * @param components Array of ignite components to start.
+     * @param componentContext Ignite component context.
+     * @param components Array of ignite components to start, may contain {@code null} elements.
      * @return CompletableFuture that will be completed when all components are started.
      */
-    public static CompletableFuture<Void> startAsync(IgniteComponent... components) {
-        return startAsync(Stream.of(components));
+    public static CompletableFuture<Void> startAsync(ComponentContext componentContext, @Nullable IgniteComponent... components) {
+        return startAsync(componentContext, Stream.of(components));
     }
 
     /**
      * Asynchronously starts all ignite components.
      *
+     * @param componentContext Ignite component context.
      * @param components Collection of ignite components to start.
      * @return CompletableFuture that will be completed when all components are started.
      */
-    public static CompletableFuture<Void> startAsync(Collection<? extends IgniteComponent> components) {
-        return startAsync(components.stream());
+    public static CompletableFuture<Void> startAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
+        return startAsync(componentContext, components.stream());
     }
 
-    private static CompletableFuture<Void> stopAsync(Stream<? extends IgniteComponent> components) {
+    private static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
                 .map(igniteComponent -> {
                     try {
-                        return igniteComponent.stopAsync();
+                        return igniteComponent.stopAsync(componentContext);
                     } catch (Throwable e) {
                         // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
                         return failedFuture(e);
@@ -1240,38 +1324,56 @@ public class IgniteUtils {
     /**
      * Asynchronously stops all ignite components.
      *
-     * @param components Array of ignite components to stop.
+     * @param componentContext Ignite component context.
+     * @param components Array of ignite components to stop, may contain {@code null} elements.
      * @return CompletableFuture that will be completed when all components are stopped.
      */
-    public static CompletableFuture<Void> stopAsync(IgniteComponent... components) {
-        return stopAsync(Stream.of(components));
+    public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, @Nullable IgniteComponent... components) {
+        return stopAsync(componentContext, Stream.of(components));
     }
 
     /**
      * Asynchronously stops all ignite components.
      *
+     * @param componentContext Ignite component context.
      * @param components Collection of ignite components to stop.
      * @return CompletableFuture that will be completed when all components are stopped.
      */
-    public static CompletableFuture<Void> stopAsync(Collection<? extends IgniteComponent> components) {
-        return stopAsync(components.stream());
+    public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
+        return stopAsync(componentContext, components.stream());
     }
 
     /**
-     * Creates a consumer that, when passed to a {@link CompletableFuture#whenComplete} call, will copy the outcome (either successful or
-     * not) of the target future to the given future.
+     * The method checks the list of allowed operations in the current thread and returns false if the thread is fit to continue or true if
+     * we must switch to another.
      *
-     * @param future Future to copy the outcome to.
-     * @param <T> Future result type.
-     * @return Consumer for transferring a future outcome to another future.
+     * @param requiredOperationPermissions Set of thread operations that have to be supported by the current thread.
+     * @return True if we have to switch to a specific pool, otherwise we can continue in the current thread.
      */
-    public static <T> BiConsumer<T, Throwable> copyStateTo(CompletableFuture<? super T> future) {
-        return (v, e) -> {
-            if (e != null) {
-                future.completeExceptionally(e);
-            } else {
-                future.complete(v);
+    public static boolean shouldSwitchToRequestsExecutor(ThreadOperation... requiredOperationPermissions) {
+        if (Thread.currentThread() instanceof ThreadAttributes) {
+            ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
+
+            for (ThreadOperation op : requiredOperationPermissions) {
+                if (!thread.allows(op)) {
+                    return true;
+                }
             }
-        };
+
+            return false;
+        } else {
+            if (PublicApiThreading.executingSyncPublicApi()) {
+                // It's a user thread, it executes a sync public API call, so it can do anything, no switch is needed.
+                return false;
+            }
+            if (PublicApiThreading.executingAsyncPublicApi()) {
+                // It's a user thread, it executes an async public API call, so it cannot do anything, a switch is needed.
+                return true;
+            }
+
+            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
+            // let's switch: false negative can produce assertion errors.
+            return true;
+        }
     }
 }

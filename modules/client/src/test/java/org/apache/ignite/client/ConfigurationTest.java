@@ -32,7 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
@@ -62,7 +61,7 @@ public class ConfigurationTest extends AbstractClientTest {
     }
 
     @Test
-    public void testAddressFinderWorksWithoutAddresses() throws Exception {
+    public void testAddressFinderWorksWithoutAddresses() {
         String addr = "127.0.0.1:" + serverPort;
 
         IgniteClient.Builder builder = IgniteClient.builder();
@@ -77,7 +76,7 @@ public class ConfigurationTest extends AbstractClientTest {
     }
 
     @Test
-    public void testClientBuilderPropagatesAllConfigurationValues() throws Exception {
+    public void testClientBuilderPropagatesAllConfigurationValues() {
         String addr = "127.0.0.1:" + serverPort;
 
         IgniteClient.Builder builder = IgniteClient.builder();
@@ -85,16 +84,12 @@ public class ConfigurationTest extends AbstractClientTest {
         IgniteClient client = builder
                 .addresses(addr)
                 .connectTimeout(1234)
-                .reconnectThrottlingPeriod(123)
-                .reconnectThrottlingRetries(8)
                 .addressFinder(() -> new String[]{addr})
                 .build();
 
         // Builder can be reused, and it won't affect already created clients.
         IgniteClient client2 = builder
                 .connectTimeout(2345)
-                .reconnectThrottlingPeriod(1234)
-                .reconnectThrottlingRetries(88)
                 .build();
 
         try (client) {
@@ -104,8 +99,6 @@ public class ConfigurationTest extends AbstractClientTest {
             // Check config values.
             assertEquals("thin-client", client.name());
             assertEquals(1234, client.configuration().connectTimeout());
-            assertEquals(123, client.configuration().reconnectThrottlingPeriod());
-            assertEquals(8, client.configuration().reconnectThrottlingRetries());
             assertArrayEquals(new String[]{addr}, client.configuration().addresses());
             assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
         }
@@ -116,8 +109,6 @@ public class ConfigurationTest extends AbstractClientTest {
 
             // Check config values.
             assertEquals(2345, client2.configuration().connectTimeout());
-            assertEquals(1234, client2.configuration().reconnectThrottlingPeriod());
-            assertEquals(88, client2.configuration().reconnectThrottlingRetries());
             assertArrayEquals(new String[]{addr}, client.configuration().addresses());
             assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
         }
@@ -144,12 +135,12 @@ public class ConfigurationTest extends AbstractClientTest {
     }
 
     @Test
-    public void testDirectAsyncContinuationExecutorUsesNettyThread() throws Exception {
+    public void testDirectAsyncContinuationExecutorUsesNettyThread() {
         IgniteClient.Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:" + serverPort)
                 .asyncContinuationExecutor(Runnable::run);
 
-        try (Ignite ignite = builder.build()) {
+        try (IgniteClient ignite = builder.build()) {
             String threadName = ignite.tables().tablesAsync().thenApply(unused -> Thread.currentThread().getName()).join();
 
             // Current thread is used when future completes quickly.
@@ -158,7 +149,7 @@ public class ConfigurationTest extends AbstractClientTest {
     }
 
     @Test
-    public void testCustomAsyncContinuationExecutor() throws Exception {
+    public void testCustomAsyncContinuationExecutor() {
         Function<Integer, Integer> responseDelay = x -> 50;
 
         try (var testServer = new TestServer(0, server, x -> false, responseDelay, "n2", clusterId, null, null)) {

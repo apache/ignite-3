@@ -23,20 +23,45 @@ package org.apache.ignite.internal.network.recovery.message;
 public enum HandshakeRejectionReason {
     /** The sender is stopping. */
     STOPPING,
+
+    /**
+     * An attempt to establish a connection to itself. This should never happen and indicates a programming error.
+     */
+    LOOP,
+
     /**
      * The sender has detected that the counterpart launch ID is stale (was earlier used to establish a connection).
      * After this is received it makes no sense to retry connections with same node identity (launch ID must be changed
      * to make a retry).
      */
     STALE_LAUNCH_ID,
+
     /** The sender has detected a clinch and decided to terminate this handshake in favor of the competitor. */
-    CLINCH;
+    CLINCH,
 
     /**
-     * Returns {@code true} iff the rejection is not expected and should be treated as a critical failure (requiring
-     * the rejected node to restart).
+     * Cluster ID of the sender does not match the cluster ID of the counterpart.
      */
-    public boolean critical() {
-        return this == STALE_LAUNCH_ID;
+    CLUSTER_ID_MISMATCH,
+
+    /**
+     * Product (Ignite or a derivative product) of the sender does not match the product of the counterpart.
+     */
+    PRODUCT_MISMATCH,
+
+    /**
+     * Version of the sender product does not match the version of the counterpart.
+     */
+    VERSION_MISMATCH;
+
+    /**
+     * Returns {@code true} iff the rejection should be logged at a WARN level.
+     */
+    public boolean logAsWarn() {
+        return this == LOOP
+                || this == STALE_LAUNCH_ID
+                || this == CLUSTER_ID_MISMATCH
+                || this == PRODUCT_MISMATCH
+                || this == VERSION_MISMATCH;
     }
 }

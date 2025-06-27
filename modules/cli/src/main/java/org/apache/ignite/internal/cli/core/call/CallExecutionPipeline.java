@@ -27,8 +27,8 @@ public interface CallExecutionPipeline<I extends CallInput, T> {
      *
      * @return builder for {@link CallExecutionPipeline}.
      */
-    static <I extends CallInput, T> CallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
-        return new CallExecutionPipelineBuilder<>(call);
+    static <I extends CallInput, T> SingleCallExecutionPipelineBuilder<I, T> builder(Call<I, T> call) {
+        return new SingleCallExecutionPipelineBuilder<>(call);
     }
 
     /** Builder helper method. */

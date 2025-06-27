@@ -23,7 +23,10 @@ import java.util.UUID;
 
 /**
  * Exception is thrown when a specified schema cannot be found.
+ *
+ * @deprecated No longer used. Use {@link org.apache.ignite.sql.SqlException} with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR} error code.
  */
+@Deprecated
 public class SchemaNotFoundException extends IgniteException {
     /**
      * Creates an exception with the given schema name.

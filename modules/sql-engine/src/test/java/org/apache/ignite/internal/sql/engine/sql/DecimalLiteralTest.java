@@ -39,13 +39,12 @@ public class DecimalLiteralTest extends AbstractPlannerTest {
     /**
      * Type of numeric decimal literal and type of decimal literal should match.
      */
-    // TODO: uncomment below after https://issues.apache.org/jira/browse/IGNITE-21243")
     @ParameterizedTest
     @CsvSource({
-            /* "-0.01",
+            "-0.01",
             "-0.1",
             "-10.0",
-            "-10.122",*/
+            "-10.122",
             "0.0",
             "0.1",
             "0.01",

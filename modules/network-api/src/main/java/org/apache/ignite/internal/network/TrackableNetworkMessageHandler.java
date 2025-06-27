@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.network.ClusterNode;
@@ -48,7 +49,17 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
         targetHandler.onReceived(message, sender, correlationId);
 
-        maybeLogLongProcessing(message, startTimeNanos);
+        if (longHandlingLoggingEnabled() && isNetworkThread()) {
+            maybeLogLongProcessing(message, startTimeNanos);
+        }
+    }
+
+    private static boolean isNetworkThread() {
+        return Thread.currentThread() instanceof IgniteMessageServiceThread;
+    }
+
+    private static boolean longHandlingLoggingEnabled() {
+        return IgniteSystemProperties.getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false);
     }
 
     private static void maybeLogLongProcessing(NetworkMessage message, long startTimeNanos) {
@@ -56,10 +67,10 @@ public class TrackableNetworkMessageHandler implements NetworkMessageHandler {
 
         if (durationMillis > MESSAGING_PROCESSING_LOG_THRESHOLD_MILLIS) {
             LOG.warn(
-                    "Message handling has been too long [duration={}ms, message=[{}]]",
+                    "Message handling has been too long [duration={}ms, message={}]",
                     durationMillis,
                     // Message may include sensitive data, however it seems useful to print full message content while testing.
-                    includeSensitive() ? message : message.getClass()
+                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging()
             );
         }
     }

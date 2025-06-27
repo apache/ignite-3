@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.client;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.hlc.HybridTimestampTracker.EMPTY_TS_PROVIDER;
+import static org.apache.ignite.internal.hlc.HybridTimestampTracker.emptyTracker;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -32,10 +36,13 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 /**
  * Tests repeated commit/rollback operations.
@@ -46,15 +53,23 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
         CountDownLatch secondFinishLatch = new CountDownLatch(1);
 
-        TestClientChannel clientChannel = new TestClientChannel(txFinishStartedLatch, secondFinishLatch);
+        ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
+        when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false);
+        TestClientChannel clientChannel = new TestClientChannel(txFinishStartedLatch, secondFinishLatch) {
+            @Override
+            public ProtocolContext protocolContext() {
+                return ctx;
+            }
+        };
+
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
         CompletableFuture<Void> firstCommitFut = fut.thenComposeAsync((ignored) -> tx.commitAsync());
 
-        fut.complete(null);
+        fut.complete(null); // commitAsync will be called from common pool.
 
         txFinishStartedLatch.await();
 
@@ -84,9 +99,17 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
         CountDownLatch secondFinishLatch = new CountDownLatch(1);
 
-        TestClientChannel clientChannel = new TestClientChannel(txFinishStartedLatch, secondFinishLatch);
+        ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
+        when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false);
+        TestClientChannel clientChannel = new TestClientChannel(txFinishStartedLatch, secondFinishLatch) {
+            @Override
+            public ProtocolContext protocolContext() {
+                return ctx;
+            }
+        };
+
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -119,11 +142,16 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
     @Test
     public void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
-        TestClientChannel clientChannel = mock(TestClientChannel.class);
+        TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
+        ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
+        when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
+
+        when(clientChannel.protocolContext()).thenReturn(ctx);
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -145,11 +173,16 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
     @Test
     public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
-        TestClientChannel clientChannel = mock(TestClientChannel.class);
+        TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
+        ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
+        when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
+
+        when(clientChannel.protocolContext()).thenReturn(ctx);
         when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false);
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), null, randomUUID(), EMPTY_TS_PROVIDER, 0);
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -169,10 +202,72 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         tx.rollbackAsync().get(3, TimeUnit.SECONDS);
     }
 
+    @Test
+    public void testEnlistFailAfterCommit() {
+        ReliableChannel ch = mock(ReliableChannel.class, Mockito.RETURNS_DEEP_STUBS);
+
+        TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
+
+        ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
+        when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
+
+        when(clientChannel.protocolContext()).thenReturn(ctx);
+        when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(nullCompletedFuture());
+
+        PartitionMapping pm = new PartitionMapping(1, "test", 1);
+
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), pm, randomUUID(), EMPTY_TS_PROVIDER, 0);
+
+        tx.commit();
+
+        WriteContext wc = new WriteContext(emptyTracker());
+        wc.pm = pm;
+
+        try {
+            tx.enlistFuture(ch, clientChannel, wc.pm, ClientOp.TUPLE_UPSERT);
+
+            fail();
+        } catch (TransactionException e) {
+            assertEquals(Transactions.TX_ALREADY_FINISHED_ERR, e.code());
+        }
+    }
+
+    @Test
+    public void testEnlistFailAfterRollback() {
+        ReliableChannel ch = mock(ReliableChannel.class, Mockito.RETURNS_DEEP_STUBS);
+
+        TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
+
+        ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
+        when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
+
+        when(clientChannel.protocolContext()).thenReturn(ctx);
+        when(clientChannel.serviceAsync(anyInt(), any(), any())).thenReturn(nullCompletedFuture());
+
+        PartitionMapping pm = new PartitionMapping(1, "test", 1);
+
+        ClientTransaction tx = new ClientTransaction(clientChannel, 1, false, randomUUID(), pm, randomUUID(), EMPTY_TS_PROVIDER, 0);
+
+        tx.rollback();
+
+        WriteContext wc = new WriteContext(emptyTracker());
+        wc.pm = pm;
+
+        try {
+            tx.enlistFuture(ch, clientChannel, wc.pm, ClientOp.TUPLE_UPSERT);
+
+            fail();
+        } catch (TransactionException e) {
+            assertEquals(Transactions.TX_ALREADY_FINISHED_ERR, e.code());
+        }
+    }
+
     private static class TestClientChannel implements ClientChannel {
         private final CountDownLatch txFinishStartedLatch;
-
         private final CountDownLatch secondFinishLatch;
+        private final ClientTransactionInflights inflights = new ClientTransactionInflights();
 
         TestClientChannel(CountDownLatch txFinishStartedLatch, CountDownLatch secondFinishLatch) {
             this.txFinishStartedLatch = txFinishStartedLatch;
@@ -204,13 +299,13 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         }
 
         @Override
-        public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
-            // No-op.
+        public ClientTransactionInflights inflights() {
+            return inflights;
         }
 
         @Override
-        public void addObservableTimestampListener(Consumer<Long> listener) {
-            // No-op.
+        public String endpoint() {
+            return "test";
         }
 
         @Override

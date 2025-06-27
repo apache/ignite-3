@@ -42,8 +42,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -62,16 +61,14 @@ public class CompactorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartAndStop() throws Exception {
-        Compactor compactor = new Compactor(
+        var compactor = new Compactor(
                 log,
                 "test",
-                null,
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class));
-
-        compactor.start();
+                mock(FailureManager.class)
+        );
 
         assertNull(compactor.runner());
 
@@ -82,6 +79,10 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         compactor.start();
 
         assertTrue(waitForCondition(() -> compactor.runner() != null, 10, 1_000));
+
+        assertFalse(compactor.isCancelled());
+        assertFalse(compactor.isDone());
+        assertFalse(Thread.currentThread().isInterrupted());
 
         compactor.stop();
 
@@ -97,11 +98,10 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = new Compactor(
                 log,
                 "test",
-                null,
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class));
+                mock(FailureManager.class));
 
         FilePageStore filePageStore = mock(FilePageStore.class);
         DeltaFilePageStoreIo deltaFilePageStoreIo = mock(DeltaFilePageStoreIo.class);
@@ -119,10 +119,10 @@ public class CompactorTest extends BaseIgniteAbstractTest {
                     return true;
                 });
 
-        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo);
+        compactor.mergeDeltaFileToMainFile(filePageStore, deltaFilePageStoreIo, new CompactionMetricsTracker());
 
         verify(deltaFilePageStoreIo, times(1)).readWithMergedToFilePageStoreCheck(eq(0L), eq(0L), any(ByteBuffer.class), anyBoolean());
-        verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class), anyBoolean());
+        verify(filePageStore, times(1)).write(eq(1L), any(ByteBuffer.class));
 
         verify(filePageStore, times(1)).sync();
         verify(filePageStore, times(1)).removeDeltaFile(eq(deltaFilePageStoreIo));
@@ -150,11 +150,10 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                null,
-                threadsConfig(1),
+                1,
                 filePageStoreManager,
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         doAnswer(answer -> {
             assertSame(filePageStore, answer.getArgument(0));
@@ -165,13 +164,17 @@ public class CompactorTest extends BaseIgniteAbstractTest {
             return null;
         })
                 .when(compactor)
-                .mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
+                .mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class), any(CompactionMetricsTracker.class));
 
         compactor.doCompaction();
 
         verify(filePageStore, times(2)).getDeltaFileToCompaction();
 
-        verify(compactor, times(1)).mergeDeltaFileToMainFile(any(FilePageStore.class), any(DeltaFilePageStoreIo.class));
+        verify(compactor, times(1)).mergeDeltaFileToMainFile(
+                any(FilePageStore.class),
+                any(DeltaFilePageStoreIo.class),
+                any(CompactionMetricsTracker.class)
+        );
     }
 
     @Test
@@ -179,11 +182,10 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                null,
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         doNothing().when(compactor).waitDeltaFiles();
 
@@ -205,11 +207,10 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                null,
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         CompletableFuture<?> waitDeltaFilesFuture = runAsync(compactor::waitDeltaFiles);
 
@@ -225,11 +226,10 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         Compactor compactor = spy(new Compactor(
                 log,
                 "test",
-                null,
-                threadsConfig(1),
+                1,
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)));
+                mock(FailureManager.class)));
 
         assertFalse(compactor.isCancelled());
 
@@ -243,13 +243,5 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         assertFalse(Thread.currentThread().isInterrupted());
 
         waitDeltaFilesFuture.get(100, MILLISECONDS);
-    }
-
-    private static ConfigurationValue<Integer> threadsConfig(int threads) {
-        ConfigurationValue<Integer> configValue = mock(ConfigurationValue.class);
-
-        when(configValue.value()).thenReturn(threads);
-
-        return configValue;
     }
 }

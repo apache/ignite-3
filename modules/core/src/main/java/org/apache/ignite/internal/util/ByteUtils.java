@@ -18,13 +18,19 @@
 package org.apache.ignite.internal.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.unmodifiableList;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,11 +48,11 @@ public class ByteUtils {
     public static long bytesToLong(byte[] bytes, int off) {
         assert bytes != null;
 
-        int bytesCnt = Math.min(Long.BYTES, bytes.length - off);
+        int bytesCount = Math.min(Long.BYTES, bytes.length - off);
 
         long res = 0;
 
-        for (int i = 0; i < bytesCnt; i++) {
+        for (int i = 0; i < bytesCount; i++) {
             res = (res << 8) | (0xffL & bytes[off + i]);
         }
 
@@ -65,6 +71,16 @@ public class ByteUtils {
     }
 
     /**
+     * Constructs {@code long} from byte array created with {@link #longToBytesKeepingOrder(long)}.
+     *
+     * @param bytes Array of bytes.
+     * @return Long value.
+     */
+    public static long bytesToLongKeepingOrder(byte[] bytes) {
+        return bytesToLong(bytes) ^ 0x0080808080808080L;
+    }
+
+    /**
      * Converts a primitive {@code long} value to a byte array in Big Endian order.
      *
      * @param l Long value.
@@ -72,6 +88,17 @@ public class ByteUtils {
      */
     public static byte[] longToBytes(long l) {
         return putLongToBytes(l, new byte[8], 0);
+    }
+
+    /**
+     * Converts a primitive {@code long} value to a byte array than can be compared with {@link ByteBuffer#compareTo(ByteBuffer)} with the
+     * same order as the original {@code long}.
+     *
+     * @param l Long value.
+     * @return Array of bytes.
+     */
+    public static byte[] longToBytesKeepingOrder(long l) {
+        return longToBytes(l ^ 0x0080808080808080L);
     }
 
     /**
@@ -104,11 +131,11 @@ public class ByteUtils {
     public static int bytesToInt(byte[] bytes, int off) {
         assert bytes != null;
 
-        int bytesCnt = Math.min(Integer.BYTES, bytes.length - off);
+        int bytesCount = Math.min(Integer.BYTES, bytes.length - off);
 
         int res = 0;
 
-        for (int i = 0; i < bytesCnt; i++) {
+        for (int i = 0; i < bytesCount; i++) {
             res = (res << 8) | (0xff & bytes[off + i]);
         }
 
@@ -127,6 +154,37 @@ public class ByteUtils {
     }
 
     /**
+     * Constructs {@code int} from byte array created with {@link #intToBytesKeepingOrder(int)}.
+     *
+     * @param bytes Array of bytes.
+     * @return Integer value.
+     */
+    public static int bytesToIntKeepingOrder(byte[] bytes) {
+        return bytesToInt(bytes) ^ 0x00808080;
+    }
+
+    /**
+     * Constructs {@code short} from byte array in Big Endian order.
+     *
+     * @param bytes Array of bytes.
+     * @param off Offset in {@code bytes} array.
+     * @return Short value.
+     */
+    public static short bytesToShort(byte[] bytes, int off) {
+        assert bytes != null;
+
+        int bytesCount = Math.min(Short.BYTES, bytes.length - off);
+
+        int res = 0;
+
+        for (int i = 0; i < bytesCount; i++) {
+            res = (res << 8) | (0xff & bytes[off + i]);
+        }
+
+        return (short) res;
+    }
+
+    /**
      * Converts a primitive {@code int} value to a byte array in Big Endian order.
      *
      * @param i Integer value.
@@ -134,6 +192,17 @@ public class ByteUtils {
      */
     public static byte[] intToBytes(int i) {
         return putIntToBytes(i, new byte[4], 0);
+    }
+
+    /**
+     * Converts a primitive {@code int} value to a byte array than can be compared with {@link ByteBuffer#compareTo(ByteBuffer)} with the
+     * same order as the original {@code int}.
+     *
+     * @param i Integer value.
+     * @return Array of bytes.
+     */
+    public static byte[] intToBytesKeepingOrder(int i) {
+        return intToBytes(i ^ 0x00808080);
     }
 
     /**
@@ -145,15 +214,33 @@ public class ByteUtils {
      * @return The array.
      */
     public static byte[] putIntToBytes(int i, byte[] bytes, int off) {
-        assert bytes != null;
-        assert bytes.length >= off + Integer.BYTES;
-
-        for (int k = Integer.BYTES - 1; k >= 0; k--) {
-            bytes[off + k] = (byte) i;
-            i >>>= 8;
-        }
+        putToBytes(i, Integer.BYTES, bytes, off);
 
         return bytes;
+    }
+
+    /**
+     * Converts a primitive {@code short} value to a byte array in Big Endian order and stores it in the specified byte array.
+     *
+     * @param s Unsigned int value.
+     * @param bytes Bytes array to write result to.
+     * @param off Offset in the target array to write result to.
+     * @return The array.
+     */
+    public static byte[] putShortToBytes(short s, byte[] bytes, int off) {
+        putToBytes(s, Short.BYTES, bytes, off);
+
+        return bytes;
+    }
+
+    private static void putToBytes(long value, int sizeInBytes, byte[] bytes, int off) {
+        assert bytes != null;
+        assert off + sizeInBytes <= bytes.length;
+
+        for (int k = sizeInBytes - 1; k >= 0; k--) {
+            bytes[off + k] = (byte) value;
+            value >>>= Byte.SIZE;
+        }
     }
 
     /**
@@ -221,6 +308,26 @@ public class ByteUtils {
     }
 
     /**
+     * Deserializes an object from byte array using native java serialization mechanism.
+     *
+     * @param bytes Byte array.
+     * @param from – the offset in the buffer of the first byte to read.
+     * @param length – the maximum number of bytes to read from the buffer.
+     * @return Object.
+     */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22894 Extend test coverage.
+    public static <T> T fromBytes(byte[] bytes, int from, int length) {
+        try (
+                var bis = new ByteArrayInputStream(bytes, from, length);
+                var in = new ObjectInputStream(bis)
+        ) {
+            return (T) in.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            throw new IgniteInternalException("Could not deserialize an object", e);
+        }
+    }
+
+    /**
      * Converts a string to a byte array using {@link StandardCharsets#UTF_8}, {@code null} if {@code s} is {@code null}.
      *
      * @param s String to convert.
@@ -237,5 +344,72 @@ public class ByteUtils {
      */
     public static @Nullable String stringFromBytes(byte @Nullable [] bytes) {
         return bytes == null ? null : new String(bytes, UTF_8);
+    }
+
+    /**
+     * Converts a byte buffer to a byte array.
+     *
+     * @param buffer Byte buffer to copy bytes from.
+     */
+    public static byte[] toByteArray(ByteBuffer buffer) {
+        int remaining = buffer.remaining();
+
+        if (remaining == 0) {
+            return BYTE_EMPTY_ARRAY;
+        }
+
+        var bytes = new byte[remaining];
+        buffer.get(bytes);
+        buffer.flip();
+        return bytes;
+    }
+
+    /**
+     * Converts a byte array list to a byte buffer list.
+     *
+     * @param byteBufferList List of byte buffers.
+     * @return Immutable list of byte arrays.
+     */
+    public static List<byte[]> toByteArrayList(List<ByteBuffer> byteBufferList) {
+        if (byteBufferList.isEmpty()) {
+            return List.of();
+        }
+
+        var result = new ArrayList<byte[]>(byteBufferList.size());
+
+        for (int i = 0; i < byteBufferList.size(); i++) {
+            result.add(toByteArray(byteBufferList.get(i)));
+        }
+
+        return unmodifiableList(result);
+    }
+
+    /**
+     * Converts a UUID to bytes.
+     */
+    public static byte[] uuidToBytes(UUID uuid) {
+        byte[] bytes = new byte[2 * Long.BYTES];
+
+        putLongToBytes(uuid.getMostSignificantBits(), bytes, 0);
+        putLongToBytes(uuid.getLeastSignificantBits(), bytes, Long.BYTES);
+
+        return bytes;
+    }
+
+    /**
+     * Converts a UUID back from bytes.
+     */
+    public static UUID bytesToUuid(byte[] bytes) {
+        return bytesToUuid(bytes, 0);
+    }
+
+    /**
+     * Converts a UUID back from bytes.
+     */
+    public static UUID bytesToUuid(byte[] bytes, int offset) {
+        long higher = bytesToLong(bytes, offset);
+        long lower = bytesToLong(bytes, offset + Long.BYTES);
+
+        return new UUID(higher, lower);
     }
 }

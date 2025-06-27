@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -30,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -63,7 +63,9 @@ import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlExplainFormat;
@@ -71,12 +73,19 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.BasicSqlType;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
+import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.TimeString;
+import org.apache.calcite.util.TimestampString;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.mapping.IdGenerator;
 import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
@@ -86,11 +95,13 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders.SortedIndexB
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -102,10 +113,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -169,42 +178,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         };
     }
 
-    interface TestVisitor {
-        void visit(RelNode node, int ordinal, RelNode parent);
-    }
-
-    /**
-     * TestRelVisitor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static class TestRelVisitor extends RelVisitor {
-        final TestVisitor visitor;
-
-        /**
-         * Constructor.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-         */
-        TestRelVisitor(TestVisitor visitor) {
-            this.visitor = visitor;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void visit(RelNode node, int ordinal, RelNode parent) {
-            visitor.visit(node, ordinal, parent);
-
-            super.visit(node, ordinal, parent);
-        }
-    }
-
-    protected static void relTreeVisit(RelNode n, TestVisitor v) {
-        v.visit(n, -1, null);
-
-        n.childrenAccept(new TestRelVisitor(v));
-    }
-
     protected static IgniteDistribution someAffinity() {
-        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
+        return TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
     }
 
     protected static int nextTableId() {
@@ -285,52 +260,64 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             }
         }
 
-        PlanningContext ctx = PlanningContext.builder()
-                .parentContext(baseQueryContext(schemas, hintStrategies, params.toArray()))
-                .query(sql)
-                .parameters(paramsMap)
-                .build();
-
-        IgnitePlanner planner = ctx.planner();
-
-        assertNotNull(planner);
-
-        planner.setDisabledRules(Set.copyOf(Arrays.asList(disabledRules)));
-
-        return ctx;
-    }
-
-    protected BaseQueryContext baseQueryContext(
-            Collection<IgniteSchema> schemas,
-            @Nullable HintStrategyTable hintStrategies,
-            Object... params
-    ) {
-        SchemaPlus rootSchema = createRootSchema(false);
-        SchemaPlus dfltSchema = null;
-
-        for (IgniteSchema igniteSchema : schemas) {
-            SchemaPlus schema = rootSchema.add(igniteSchema.getName(), igniteSchema);
-
-            if (dfltSchema == null || DEFAULT_SCHEMA.equals(schema.getName())) {
-                dfltSchema = schema;
-            }
-        }
-
         SqlToRelConverter.Config relConvCfg = FRAMEWORK_CONFIG.getSqlToRelConverterConfig();
 
         if (hintStrategies != null) {
             relConvCfg = relConvCfg.withHintStrategyTable(hintStrategies);
         }
 
+        SchemaPlus rootSchema = createRootSchema(schemas);
+        SchemaPlus defaultSchema = rootSchema.getSubSchema(DEFAULT_SCHEMA);
 
-        return BaseQueryContext.builder()
-                .queryId(UUID.randomUUID())
+        if (defaultSchema == null && !schemas.isEmpty()) {
+            defaultSchema = rootSchema.getSubSchema(schemas.iterator().next().getName());
+        }
+
+        assertNotNull(defaultSchema);
+
+        PlanningContext ctx = PlanningContext.builder()
                 .frameworkConfig(
                         newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(dfltSchema)
+                                .defaultSchema(defaultSchema)
                                 .sqlToRelConverterConfig(relConvCfg)
                                 .build()
                 )
+                .catalogVersion(1)
+                .defaultSchemaName(defaultSchema.getName())
+                .query(sql)
+                .parameters(paramsMap)
+                // Assume that we use explicit transactions by default.
+                .explicitTx(true)
+                .build();
+
+        IgnitePlanner planner = ctx.planner();
+
+        assertNotNull(planner);
+
+        planner.disableRules(Arrays.asList(disabledRules));
+
+        return ctx;
+    }
+
+    protected static SchemaPlus createRootSchema(Collection<IgniteSchema> subSchemas) {
+        SchemaPlus rootSchema = Frameworks.createRootSchema(false);
+
+        for (IgniteSchema igniteSchema : subSchemas) {
+            rootSchema.add(igniteSchema.getName(), igniteSchema);
+        }
+
+        return rootSchema;
+    } 
+
+    protected static SqlOperationContext operationContext(
+            Object... params
+    ) {
+        return SqlOperationContext.builder()
+                .queryId(UUID.randomUUID())
+                .timeZoneId(ZoneId.systemDefault())
+                .operationTime(new HybridClockImpl().now())
+                .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .cancel(new QueryCancel())
                 .parameters(params)
                 .build();
     }
@@ -425,7 +412,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         try {
             return PlannerHelper.optimize(sqlNode, planner);
         } catch (Throwable ex) {
-            System.err.println(planner.dump());
+            // no need to trigger TC with inner NPE
+            System.err.println(planner.dump().replace("java.lang.NullPointerException", "RedefinedNullPointerException"));
 
             throw ex;
         }
@@ -680,7 +668,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @return Public schema.
      */
     protected static IgniteSchema createSchema(IgniteTable... tbls) {
-        return createSchema(CatalogService.DEFAULT_SCHEMA_NAME, tbls);
+        return createSchema(SqlCommon.DEFAULT_SCHEMA_NAME, tbls);
     }
 
     /**
@@ -698,7 +686,17 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         checkSplitAndSerialization(rel, Collections.singleton(publicSchema));
     }
 
+    // Set of Relational operators that do not support serialization and shouldn't be sent between cluster nodes.
+    private static final Set<Class> unsupportSerializationOperators = Set.of(
+            IgniteKeyValueModify.class,
+            IgniteKeyValueGet.class
+    );
+
     protected void checkSplitAndSerialization(IgniteRel rel, Collection<IgniteSchema> schemas) {
+        if (unsupportSerializationOperators.contains(rel.getClass())) {
+            return;
+        }
+
         assertNotNull(rel);
         assertFalse(schemas.isEmpty());
 
@@ -719,10 +717,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
-        BaseQueryContext ctx = baseQueryContext(schemas, null);
+        SchemaPlus rootSchema = createRootSchema(schemas);
 
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
+            RelJsonReader reader = new RelJsonReader(rootSchema);
             deserializedNodes.add(reader.read(s));
         }
 
@@ -741,6 +739,13 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
             // Hints are not serializable.
             clearHints(expected);
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Remove this rewriter
+            //  when the issue with sub-millisecond precision is resolved.
+            RelNode replaced = new RewriteTimeTimestampLiterals().visit((IgniteRel) expected);
+            if (replaced != expected) {
+                expected = replaced;
+            }
 
             if (!expected.deepEquals(deserialized)) {
                 IgniteStringBuilder sb = new IgniteStringBuilder();
@@ -777,6 +782,24 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 });
     }
 
+    /**
+     * Predicate builder for any "Index scan" condition.
+     */
+    protected <T extends RelNode> Predicate<IgniteIndexScan> isAnyIndexScan(String tableName) {
+        return isInstanceOf(IgniteIndexScan.class).and(
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
+
+                    if (!tableName.equalsIgnoreCase(scanTableName)) {
+                        lastErrorMsg = "Unexpected table name [exp=" + tableName + ", act=" + scanTableName + ']';
+
+                        return false;
+                    }
+
+                    return true;
+                });
+    }
+
     protected void clearTraits(RelNode rel) {
         IgniteTestUtils.setFieldValue(rel, AbstractRelNode.class, "traitSet", RelTraitSet.createEmpty());
         rel.getInputs().forEach(this::clearTraits);
@@ -790,15 +813,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         rel.getInputs().forEach(this::clearHints);
     }
 
-    protected Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
-        return nodeOrAnyChild(
-                isInstanceOf(IgniteProject.class)
-                        .and(projection -> {
-                            String actualProjStr = projection.getProjects().toString();
-                            String expectedProjStr = Arrays.asList(exprs).toString();
-                            return actualProjStr.equals(expectedProjStr);
-                        })
-                        .and(input(isTableScan(tableName)))
+    protected Predicate<? extends RelNode> tableWithProjection(String tableName, String... exprs) {
+        return nodeOrAnyChild(isTableScan(tableName)
+                .and(scan -> scan.projects() != null)
+                .and(table -> {
+                    String actualProjStr = table.projects().toString();
+                    String expectedProjStr = Arrays.asList(exprs).toString();
+                    return actualProjStr.equals(expectedProjStr);
+                })
         );
     }
 
@@ -834,6 +856,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns) {
+            return rowType;
+        }
+
+        @Override
+        public RelDataType rowTypeSansHidden() {
             return rowType;
         }
 
@@ -1109,5 +1136,48 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     public enum Unspecified {
         /** Placeholder for unspecified dynamic parameter. */
         UNKNOWN
+    }
+
+    /**
+     * Truncates TIME/TIMESTAMP literals to millis, because sub-millisecond values are lost during serilization,
+     * since calcite's runtime does not support sub-millisecond precision for these types.
+     */
+    private static class RewriteTimeTimestampLiterals extends IgniteRelShuttle {
+
+        final RexShuttle rexVisitor = new RexShuttle() {
+            @Override
+            public RexNode visitLiteral(RexLiteral literal) {
+                RelDataType type = literal.getType();
+                SqlTypeName sqlTypeName = type.getSqlTypeName();
+
+                if (sqlTypeName == SqlTypeName.TIME) {
+                    TimeString time = literal.getValueAs(TimeString.class);
+
+                    assert time != null;
+                    assert type.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED;
+
+                    TimeString truncated = type.getPrecision() > 3 ? time.round(3) : time;
+
+                    return Commons.rexBuilder().makeLiteral(truncated, type);
+                } else if (sqlTypeName == SqlTypeName.TIMESTAMP || sqlTypeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                    TimestampString ts = literal.getValueAs(TimestampString.class);
+
+                    assert ts != null;
+                    assert type.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED;
+
+                    TimestampString truncated = type.getPrecision() > 3 ? ts.round(3) : ts;
+
+                    return Commons.rexBuilder().makeLiteral(truncated, type);
+                } else {
+                    return super.visitLiteral(literal);
+                }
+            }
+        };
+
+        @Override
+        public IgniteRel visit(IgniteRel rel) {
+            rel = (IgniteRel) rel.accept(rexVisitor);
+            return super.visit(rel);
+        }
     }
 }

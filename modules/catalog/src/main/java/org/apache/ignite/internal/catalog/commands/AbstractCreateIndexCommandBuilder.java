@@ -21,6 +21,9 @@ import java.util.List;
 
 /** Builder that covers attributes which is common among all types of indexes. */
 interface AbstractCreateIndexCommandBuilder<T extends AbstractIndexCommandBuilder<T>> extends AbstractIndexCommandBuilder<T> {
+    /** Sets a flag indicating whether the {@code IF NOT EXISTS} was specified. */
+    T ifNotExists(boolean ifNotExists);
+
     /** A name of the table an index belongs to. Should not be null or blank. */
     T tableName(String tableName);
 

@@ -30,7 +30,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -707,9 +707,12 @@ public class IgniteToStringBuilder {
      * @param val1  Additional parameter value.
      * @return String presentation of the given object.
      */
-    public static <T> String toString(Class<T> cls, T obj,
-            String name0, Object val0,
-            String name1, Object val1) {
+    public static <T> String toString(
+            Class<T> cls,
+            T obj,
+            String name0, @Nullable Object val0,
+            String name1, @Nullable Object val1
+    ) {
         return toString(cls, obj, name0, val0, false, name1, val1, false);
     }
 
@@ -891,7 +894,7 @@ public class IgniteToStringBuilder {
      * @param cls value class.
      * @param val value to print.
      */
-    private static void toString(StringBuilderLimitedLength buf, Class<?> cls, Object val) {
+    private static void toString(StringBuilderLimitedLength buf, @Nullable Class<?> cls, @Nullable Object val) {
         if (val == null) {
             buf.app("null");
 
@@ -1766,9 +1769,9 @@ public class IgniteToStringBuilder {
         try {
             ClassDescriptor cd = getClassDescriptor(cls);
 
-            assert cd != null;
+            assert cd != null : cls;
 
-            buf.app(cd.getSimpleClassName());
+            buf.app(cd.getName());
 
             EntryReference ref = savedObjects.get().get(obj);
 
@@ -1780,67 +1783,80 @@ public class IgniteToStringBuilder {
 
             buf.app(" [");
 
+            @Nullable Stringifier<T> classStringifier = (Stringifier<T>) cd.getStringifier();
+
             boolean first = true;
 
-            for (FieldDescriptor fd : cd.getFields()) {
-                if (!first) {
-                    buf.app(", ");
-                } else {
-                    first = false;
-                }
+            if (classStringifier != null) {
+                buf.app(classStringifier.toString(obj));
 
-                buf.app(fd.getName()).app('=');
+                first = false;
+            } else {
+                for (FieldDescriptor fd : cd.getFields()) {
+                    if (!first) {
+                        buf.app(", ");
+                    } else {
+                        first = false;
+                    }
 
-                final VarHandle fH = fd.varHandle();
+                    buf.app(fd.getName()).app('=');
 
-                switch (fd.type()) {
-                    case FieldDescriptor.FIELD_TYPE_OBJECT:
-                        try {
-                            toString(buf, fd.fieldClass(), fH.get(obj));
-                        } catch (RuntimeException e) {
-                            if (IGNORE_RUNTIME_EXCEPTION) {
-                                buf.app("Runtime exception was caught when building string representation: "
-                                        + e.getMessage());
-                            } else {
-                                throw e;
+                    @Nullable Object fieldValue = fd.varHandle().get(obj);
+                    @Nullable Stringifier<Object> fieldStringifier = (Stringifier<Object>) fd.stringifier();
+
+                    if (fieldStringifier != null && fieldValue != null) {
+                        fieldValue = fieldStringifier.toString(fieldValue);
+                    }
+
+                    switch (fd.type()) {
+                        case FieldDescriptor.FIELD_TYPE_OBJECT:
+                            try {
+                                toString(buf, fd.fieldClass(), fieldValue);
+                            } catch (RuntimeException e) {
+                                if (IGNORE_RUNTIME_EXCEPTION) {
+                                    buf.app("Runtime exception was caught when building string representation: "
+                                            + e.getMessage());
+                                } else {
+                                    throw e;
+                                }
                             }
-                        }
 
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_BYTE:
-                        buf.app((byte) fH.get(obj));
+                            break;
+                        case FieldDescriptor.FIELD_TYPE_BYTE:
+                            buf.app((byte) fieldValue);
 
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_BOOLEAN:
-                        buf.app((boolean) fH.get(obj));
+                            break;
+                        case FieldDescriptor.FIELD_TYPE_BOOLEAN:
+                            buf.app((boolean) fieldValue);
 
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_CHAR:
-                        buf.app((char) fH.get(obj));
+                            break;
+                        case FieldDescriptor.FIELD_TYPE_CHAR:
+                            buf.app((char) fieldValue);
 
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_SHORT:
-                        buf.app((short) fH.get(obj));
+                            break;
+                        case FieldDescriptor.FIELD_TYPE_SHORT:
+                            buf.app((short) fieldValue);
 
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_INT:
-                        buf.app((int) fH.get(obj));
+                            break;
+                        case FieldDescriptor.FIELD_TYPE_INT:
+                            buf.app((int) fieldValue);
 
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_FLOAT:
-                        buf.app((float) fH.get(obj));
+                            break;
+                        case FieldDescriptor.FIELD_TYPE_FLOAT:
+                            buf.app((float) fieldValue);
 
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_LONG:
-                        buf.app((long) fH.get(obj));
+                            break;
+                        case FieldDescriptor.FIELD_TYPE_LONG:
+                            buf.app((long) fieldValue);
 
-                        break;
-                    case FieldDescriptor.FIELD_TYPE_DOUBLE:
-                        buf.app((double) fH.get(obj));
+                            break;
+                        case FieldDescriptor.FIELD_TYPE_DOUBLE:
+                            buf.app((double) fieldValue);
 
-                        break;
-                    default:
-                        break;
+                            break;
+                        default:
+                            break;
+                    }
                 }
             }
 
@@ -2009,20 +2025,25 @@ public class IgniteToStringBuilder {
 
             Class<?> type = f.getType();
 
-            final IgniteToStringInclude incFld = f.getAnnotation(IgniteToStringInclude.class);
-            final IgniteToStringInclude incType = type.getAnnotation(IgniteToStringInclude.class);
+            IgniteToStringInclude incFld = f.getAnnotation(IgniteToStringInclude.class);
+            IgniteToStringInclude incType = type.getAnnotation(IgniteToStringInclude.class);
 
-            if (incFld != null || incType != null) {
+            IgniteStringifier stringifierField = f.getAnnotation(IgniteStringifier.class);
+            IgniteStringifier stringifierType = type.getAnnotation(IgniteStringifier.class);
+
+            if (stringifierField != null || stringifierType != null) {
+                add = true;
+            } else if (incFld != null || incType != null) {
                 // Information is not sensitive when both the field and the field type are not sensitive.
                 // When @IgniteToStringInclude is not present then the flag is false by default for that attribute.
-                final boolean notSens = (incFld == null || !incFld.sensitive()) && (incType == null || !incType.sensitive());
+                boolean notSens = (incFld == null || !incFld.sensitive()) && (incType == null || !incType.sensitive());
                 add = notSens || includeSensitive();
             } else if (!f.isAnnotationPresent(IgniteToStringExclude.class)
                     && !type.isAnnotationPresent(IgniteToStringExclude.class)
             ) {
                 if (
-                        // Include only private non-static
-                        Modifier.isPrivate(f.getModifiers()) && !Modifier.isStatic(f.getModifiers())
+                        // Include only non-static fields.
+                        !Modifier.isStatic(f.getModifiers())
                                 // No direct objects & serializable.
                                 && Object.class != type
                                 && Serializable.class != type
@@ -2048,15 +2069,7 @@ public class IgniteToStringBuilder {
             }
 
             if (add) {
-                FieldDescriptor fd = new FieldDescriptor(f, lookup.unreflectVarHandle(f));
-
-                // Get order, if any.
-                final IgniteToStringOrder annOrder = f.getAnnotation(IgniteToStringOrder.class);
-                if (annOrder != null) {
-                    fd.setOrder(annOrder.value());
-                }
-
-                cd.addField(fd);
+                cd.addField(new FieldDescriptor(f, lookup.unreflectVarHandle(f)));
             }
         }
 
@@ -2200,6 +2213,28 @@ public class IgniteToStringBuilder {
                 ref.pos = pos + hashLen;
             }
         }
+    }
+
+    /**
+     * Converts Tuple to string representation.
+     *
+     * @param tuple Tuple.
+     * @return String.
+     */
+    public static String tupleToString(Tuple tuple) {
+        // Keep the same as TupleImpl.toString().
+        StringBuilder b = new StringBuilder();
+
+        b.append(tuple.getClass().getSimpleName()).append(" [");
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(tuple.columnName(i)).append('=').append((Object) tuple.value(i));
+        }
+        b.append(']');
+
+        return b.toString();
     }
 
     /**

@@ -33,4 +33,9 @@ public class ReadIndexColumnsValue extends ReadPageMemoryRowValue {
     protected int valueOffsetInFirstSlot() {
         return IndexColumns.VALUE_OFFSET;
     }
+
+    @Override
+    protected byte dataType() {
+        return IndexColumns.DATA_TYPE;
+    }
 }

@@ -25,14 +25,17 @@ import io.netty.buffer.ByteBufUtil;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid
- * extra buffers and indirection.
+ * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid extra buffers and indirection.
  *
  * <p>Releases wrapped buffer on {@link #close()} .
  */
@@ -46,11 +49,6 @@ public class ClientMessagePacker implements AutoCloseable {
      * Closed flag.
      */
     private boolean closed;
-
-    /**
-     * Metadata.
-     */
-    private @Nullable Object meta;
 
     /**
      * Constructor.
@@ -206,6 +204,29 @@ public class ClientMessagePacker implements AutoCloseable {
      */
     public void setLong(int index, long v) {
         buf.setLong(index, v);
+    }
+
+    /**
+     * Reserve space for int value.
+     *
+     * @return Index of reserved space.
+     */
+    public int reserveInt() {
+        buf.writeByte(Code.INT32);
+        var index = buf.writerIndex();
+
+        buf.writeInt(0);
+        return index;
+    }
+
+    /**
+     * Set int value at reserved index (see {@link #reserveInt()}).
+     *
+     * @param index Index.
+     * @param v Value.
+     */
+    public void setInt(int index, int v) {
+        buf.setInt(index, v);
     }
 
     /**
@@ -375,7 +396,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * <p>Should be followed by {@link #writePayload(byte[])} method to write the extension body.
      *
-     * @param extType    the extension type tag to be written.
+     * @param extType the extension type tag to be written.
      * @param payloadLen number of bytes of a payload binary to be written.
      */
     public void packExtensionTypeHeader(byte extType, int payloadLen) {
@@ -506,6 +527,12 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeBytes(src, off, len);
     }
 
+    void writeIntRawLittleEndian(int payload) {
+        assert !closed : "Packer is closed";
+
+        buf.writeIntLE(payload);
+    }
+
     /**
      * Writes a UUID.
      *
@@ -595,7 +622,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(Object[] vals) {
+    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals) {
         assert !closed : "Packer is closed";
 
         if (vals == null) {
@@ -622,11 +649,44 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Packs batched arguments into binary tuples.
+     *
+     * @param batchedArguments Batched arguments.
+     */
+    public void packBatchedArgumentsAsBinaryTupleArray(BatchedArguments batchedArguments) {
+        assert !closed : "Packer is closed";
+
+        if (batchedArguments == null || batchedArguments.isEmpty()) {
+            packNil();
+
+            return;
+        }
+
+        int rowLen = batchedArguments.get(0).size();
+
+        packInt(rowLen);
+        packInt(batchedArguments.size());
+        packBoolean(false); // unused now, but we will need it in case of arguments load by pages.
+
+        for (List<Object> values : batchedArguments) {
+            // Builder with inline schema.
+            // Every element in vals is represented by 3 tuple elements: type, scale, value.
+            var builder = new BinaryTupleBuilder(rowLen * 3);
+
+            for (Object value : values) {
+                ClientBinaryTupleUtils.appendObject(builder, value);
+            }
+
+            packBinaryTuple(builder);
+        }
+    }
+
+    /**
      * Packs an objects in BinaryTuple format.
      *
      * @param val Object array.
      */
-    public void packObjectAsBinaryTuple(Object val) {
+    public <T> void packObjectAsBinaryTuple(@Nullable T val) {
         assert !closed : "Packer is closed";
 
         if (val == null) {
@@ -637,7 +697,7 @@ public class ClientMessagePacker implements AutoCloseable {
 
         // Builder with inline schema.
         // Value is represented by 3 tuple elements: type, scale, value.
-        var builder = new BinaryTupleBuilder(3, 3);
+        var builder = new BinaryTupleBuilder(3, 3, false);
         ClientBinaryTupleUtils.appendObject(builder, val);
 
         packBinaryTuple(builder);
@@ -682,6 +742,18 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Pack binary.
+     *
+     * @param buf Byte array.
+     */
+    public void packBinary(byte[] buf) {
+        assert !closed : "Packer is closed";
+
+        packBinaryHeader(buf.length);
+        writePayload(buf);
+    }
+
+    /**
      * Pack ByteBuffer.
      *
      * @param buf ByteBuffer object.
@@ -708,21 +780,26 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Gets metadata.
+     * Packs deployment units.
      *
-     * @return Metadata.
+     * @param units Units.
      */
-    public @Nullable Object meta() {
-        return meta;
+    public void packDeploymentUnits(List<DeploymentUnit> units) {
+        packInt(units.size());
+        for (DeploymentUnit unit : units) {
+            packString(unit.name());
+            packString(unit.version().render());
+        }
     }
 
     /**
-     * Sets metadata.
+     * Packs qualified name.
      *
-     * @param meta Metadata.
+     * @param name Qualified name.
      */
-    public void meta(@Nullable Object meta) {
-        this.meta = meta;
+    public void packQualifiedName(QualifiedName name) {
+        packString(name.schemaName());
+        packString(name.objectName());
     }
 
     /**

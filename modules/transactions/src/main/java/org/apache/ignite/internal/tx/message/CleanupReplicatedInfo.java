@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx.message;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
  * The result of a replicated cleanup request.
@@ -31,9 +31,9 @@ public class CleanupReplicatedInfo implements Serializable {
 
     private final UUID txId;
 
-    private final Collection<TablePartitionId> partitions;
+    private final Collection<ReplicationGroupId> partitions;
 
-    public CleanupReplicatedInfo(UUID txId, Collection<TablePartitionId> partitions) {
+    public CleanupReplicatedInfo(UUID txId, Collection<ReplicationGroupId> partitions) {
         this.txId = txId;
         this.partitions = partitions;
     }
@@ -42,7 +42,7 @@ public class CleanupReplicatedInfo implements Serializable {
         return txId;
     }
 
-    public Collection<TablePartitionId> partitions() {
+    public Collection<ReplicationGroupId> partitions() {
         return partitions;
     }
 }

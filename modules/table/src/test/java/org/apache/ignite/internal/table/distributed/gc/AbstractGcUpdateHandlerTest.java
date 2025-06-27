@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -32,8 +33,10 @@ import static org.mockito.Mockito.verify;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -41,7 +44,6 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -198,6 +200,56 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         }
     }
 
+    /**
+     * Tests a particular scenario when some data is inserted into multiple partition storages, then removed by the GC and then inserted
+     * again.
+     */
+    @Test
+    void testVacuumThenInsert() {
+        int numPartitions = 3;
+
+        int numRows = 1000;
+
+        IndexUpdateHandler indexUpdateHandler = createIndexUpdateHandler();
+
+        List<TestPartitionDataStorage> partitionStorages = IntStream.range(0, numPartitions)
+                .mapToObj(partId -> new TestPartitionDataStorage(TABLE_ID, partId, getOrCreateMvPartition(tableStorage, partId)))
+                .collect(toList());
+
+        List<GcUpdateHandler> gcUpdateHandlers = partitionStorages.stream()
+                .map(partitionStorage -> createGcUpdateHandler(partitionStorage, indexUpdateHandler))
+                .collect(toList());
+
+        BinaryRow row = binaryRow(new TestKey(0, "key"), new TestValue(0, "value"));
+
+        HybridTimestamp timestamp = clock.now();
+
+        for (int i = 0; i < numPartitions; i++) {
+            TestPartitionDataStorage storage = partitionStorages.get(i);
+
+            for (int j = 0; j < numRows; j++) {
+                var rowId = new RowId(i);
+
+                addWriteCommitted(storage, rowId, row, timestamp);
+                addWriteCommitted(storage, rowId, null, timestamp);
+            }
+        }
+
+        for (GcUpdateHandler gcUpdateHandler : gcUpdateHandlers) {
+            gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, Integer.MAX_VALUE, true);
+        }
+
+        for (int i = 0; i < numPartitions; i++) {
+            TestPartitionDataStorage storage = partitionStorages.get(i);
+
+            for (int j = 0; j < numRows; j++) {
+                var rowId = new RowId(i);
+
+                addWriteCommitted(storage, rowId, row, timestamp);
+            }
+        }
+    }
+
     private TestPartitionDataStorage createPartitionDataStorage() {
         return new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, getOrCreateMvPartition(tableStorage, PARTITION_ID));
     }
@@ -228,13 +280,15 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         );
     }
 
-    private static void addWriteCommitted(PartitionDataStorage storage, RowId rowId, @Nullable BinaryRow row, HybridTimestamp timestamp) {
+    private void addWriteCommitted(PartitionDataStorage storage, RowId rowId, @Nullable BinaryRow row, HybridTimestamp timestamp) {
         storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.addWrite(rowId, row, UUID.randomUUID(), 999, PARTITION_ID);
+            UUID txId = newTransactionId();
 
-            storage.commitWrite(rowId, timestamp);
+            storage.addWrite(rowId, row, txId, 999, PARTITION_ID);
+
+            storage.commitWrite(rowId, timestamp, txId);
 
             return null;
         });

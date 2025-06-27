@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.table.criteria;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+import static org.apache.ignite.table.QualifiedName.fromSimple;
 import static org.apache.ignite.table.criteria.Criteria.and;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
@@ -46,17 +45,17 @@ class SqlSerializerIndexHintTest extends AbstractPlannerTest {
 
     @BeforeAll
     public static void setup() {
-        SCHEMA = AbstractPlannerTest.createSchemaFrom(
+        SCHEMA = createSchemaFrom(
                 createSimpleTable(TBL1, 100)
-                        .andThen(AbstractPlannerTest.addHashIndex("ID"))
-                        .andThen(AbstractPlannerTest.addSortIndex("NAME"))
+                        .andThen(addHashIndex("ID"))
+                        .andThen(addSortIndex("NAME"))
         );
     }
 
     @Test
     void testForceIndexHint() throws Exception {
         SqlSerializer ser = new SqlSerializer.Builder()
-                .tableName(TBL1)
+                .tableName(fromSimple(TBL1))
                 .indexName("idx_name")
                 .columns(Set.of("ID", "NAME"))
                 .where(and(columnValue("id", equalTo(1)), columnValue("name", equalTo("v"))))
@@ -64,7 +63,7 @@ class SqlSerializerIndexHintTest extends AbstractPlannerTest {
 
         String sql = ser.toString();
 
-        assertThat(sql, startsWith(format("SELECT /*+ FORCE_INDEX({}) */ * FROM", quote("IDX_NAME"))));
+        assertThat(sql, startsWith("SELECT /*+ FORCE_INDEX(IDX_NAME) */ * FROM"));
         assertArrayEquals(new Object[]{1, "v"}, ser.getArguments());
 
         assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(TBL1, "IDX_NAME")));

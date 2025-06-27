@@ -17,17 +17,18 @@
 
 package org.apache.ignite.internal.cli.commands.connect;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
 
 import jakarta.inject.Inject;
 import java.net.URL;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.ReplManager;
-import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
+import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.converters.UrlConverter;
+import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -39,14 +40,14 @@ import picocli.CommandLine.Parameters;
 public class ConnectCommand extends BaseCommand implements Callable<Integer> {
 
     /** Node URL option. */
-    @Parameters(description = NODE_URL_OPTION_DESC, converter = UrlConverter.class)
+    @Parameters(description = NODE_URL_OPTION_DESC, descriptionKey = CLUSTER_URL_KEY, converter = RestEndpointUrlConverter.class)
     private URL nodeUrl;
 
     @ArgGroup(exclusive = false)
     private ConnectOptions connectOptions;
 
     @Inject
-    private ConnectCall connectCall;
+    private ConnectWizardCall connectCall;
 
     @Inject
     private ReplManager replManager;
@@ -54,13 +55,12 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        int exitCode = CallExecutionPipeline.builder(connectCall)
+        // We need to do this before the connect call since it will fire events even before repl start.
+        replManager.subscribe();
+
+        int exitCode = runPipeline(CallExecutionPipeline.builder(connectCall)
                 .inputProvider(this::connectCallInput)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
         if (exitCode == 0) {
             replManager.startReplMode();
         }
@@ -72,6 +72,7 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
                 .url(nodeUrl.toString())
                 .username(connectOptions != null ? connectOptions.username() : null)
                 .password(connectOptions != null ? connectOptions.password() : null)
+                .checkClusterInit(true)
                 .build();
     }
 }

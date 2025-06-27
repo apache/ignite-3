@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreem
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -42,7 +41,7 @@ public class LeaseNegotiator {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Lease agreements which are in progress of negotiation. */
-    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate;
+    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate = new ConcurrentHashMap<>();
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -54,33 +53,28 @@ public class LeaseNegotiator {
      */
     public LeaseNegotiator(ClusterService clusterService) {
         this.clusterService = clusterService;
-
-        this.leaseToNegotiate = new ConcurrentHashMap<>();
     }
 
     /**
      * Tries negotiating a lease with its leaseholder.
      * The negotiation will achieve after the method is invoked. Use {@link #getAndRemoveIfReady(ReplicationGroupId)} to check a result.
      *
-     * @param lease Lease to negotiate.
-     * @param force If the flag is true, the process tries to insist of apply the lease.
+     * @param agreement Lease agreement to negotiate.
      */
-    public void negotiate(Lease lease, boolean force) {
-        var fut = new CompletableFuture<LeaseGrantedMessageResponse>();
-
-        ReplicationGroupId groupId = lease.replicationGroupId();
-
-        leaseToNegotiate.put(groupId, new LeaseAgreement(lease, fut));
+    public void negotiate(LeaseAgreement agreement) {
+        Lease lease = agreement.getLease();
 
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
+
+        leaseToNegotiate.put(agreement.groupId(), agreement);
 
         clusterService.messagingService().invoke(
                         lease.getLeaseholder(),
                         PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
-                                .groupId(groupId)
-                                .leaseStartTimeLong(lease.getStartTime().longValue())
-                                .leaseExpirationTimeLong(lease.getExpirationTime().longValue())
-                                .force(force)
+                                .groupId(agreement.groupId())
+                                .leaseStartTime(lease.getStartTime())
+                                .leaseExpirationTime(lease.getExpirationTime())
+                                .force(agreement.forced())
                                 .build(),
                         leaseInterval)
                 .whenComplete((msg, throwable) -> {
@@ -90,13 +84,15 @@ public class LeaseNegotiator {
 
                         LeaseGrantedMessageResponse response = (LeaseGrantedMessageResponse) msg;
 
-                        fut.complete(response);
+                        agreement.onResponse(response);
                     } else {
                         if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
                             LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                         }
 
-                        fut.complete(null);
+                        leaseToNegotiate.remove(agreement.groupId(), agreement);
+
+                        agreement.cancel();
                     }
                 });
     }
@@ -125,7 +121,11 @@ public class LeaseNegotiator {
      *
      * @param groupId Lease to expire.
      */
-    public void onLeaseRemoved(ReplicationGroupId groupId) {
-        leaseToNegotiate.remove(groupId);
+    public void cancelAgreement(ReplicationGroupId groupId) {
+        LeaseAgreement agreement = leaseToNegotiate.remove(groupId);
+
+        if (agreement != null) {
+            agreement.cancel();
+        }
     }
 }

@@ -39,7 +39,7 @@ public class NodeConfigUpdateReplCommand extends BaseCommand implements Runnable
 
     /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgsAndFile;
 
     @Inject
     NodeConfigUpdateCall call;
@@ -50,15 +50,17 @@ public class NodeConfigUpdateReplCommand extends BaseCommand implements Runnable
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
+        runFlow(question.askQuestionIfNotConnected(nodeUrl.getNodeUrl())
                 .map(this::nodeConfigUpdateCallInput)
                 .then(Flows.fromCall(call))
-                .verbose(verbose)
                 .print()
-                .start();
+        );
     }
 
     private NodeConfigUpdateCallInput nodeConfigUpdateCallInput(String nodeUrl) {
-        return NodeConfigUpdateCallInput.builder().config(config.toString()).nodeUrl(nodeUrl).build();
+        return NodeConfigUpdateCallInput.builder()
+                .config(configFromArgsAndFile.formUpdateConfig())
+                .nodeUrl(nodeUrl)
+                .build();
     }
 }

@@ -17,25 +17,28 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageEndPrefix;
+import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageStartPrefix;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
-import org.apache.ignite.raft.jraft.storage.impl.OnHeapLogs;
-import org.apache.ignite.raft.jraft.storage.impl.RocksDbSpillout;
-import org.apache.ignite.raft.jraft.storage.impl.VolatileLogStorage;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 
 /**
  * Log storage factory based on {@link VolatileLogStorage}.
@@ -97,16 +100,30 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
     @Override
-    public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
-        RocksDbSpillout spiltOnDisk = new RocksDbSpillout(db, columnFamily, groupId, executor);
+    public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
+        RocksDbSpillout spiltOnDisk = new RocksDbSpillout(db, columnFamily, raftNodeStorageId, executor);
         return new VolatileLogStorage(createLogStorageBudget(), new OnHeapLogs(), spiltOnDisk);
+    }
+
+    @Override
+    public void destroyLogStorage(String uri) {
+        try {
+            RocksDbSpillout.deleteAllEntriesBetween(db, columnFamily, raftNodeStorageStartPrefix(uri), raftNodeStorageEndPrefix(uri));
+        } catch (RocksDBException e) {
+            throw new LogStorageException("Fail to destroy the log storage spillout for " + uri, e);
+        }
     }
 
     private LogStorageBudget createLogStorageBudget() {
@@ -122,12 +139,6 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         }
 
         return factory.create(logStorageBudgetConfig);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void close() {
-        // No-op.
     }
 
     @Override

@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
@@ -43,10 +44,12 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteTable {
     private final ImmutableIntList keyColumns;
     private final @Nullable ImmutableBitSet columnsToInsert;
+    private final @Nullable ImmutableBitSet columnsToUpdate;
 
     private final Map<String, IgniteIndex> indexMap;
 
     private final int partitions;
+    private final int zoneId;
 
     private final Lazy<NativeType[]> colocationColumnTypes;
 
@@ -59,14 +62,22 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
             ImmutableIntList keyColumns,
             Statistic statistic,
             Map<String, IgniteIndex> indexMap,
-            int partitions
+            int partitions,
+            int zoneId
     ) {
         super(name, id, version, desc, statistic);
 
         this.keyColumns = keyColumns;
         this.indexMap = indexMap;
         this.partitions = partitions;
+        this.zoneId = zoneId;
         this.columnsToInsert = deriveColumnsToInsert(desc);
+
+        int virtualColumnsCount = (int) StreamSupport.stream(desc.spliterator(), false)
+                .filter(ColumnDescriptor::virtual)
+                .count();
+
+        this.columnsToUpdate = ImmutableBitSet.range(desc.columnsCount() - virtualColumnsCount);
 
         colocationColumnTypes = new Lazy<>(this::evaluateTypes);
     }
@@ -156,6 +167,11 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     }
 
     @Override
+    public int zoneId() {
+        return zoneId;
+    }
+
+    @Override
     public ImmutableIntList keyColumns() {
         return keyColumns;
     }
@@ -163,19 +179,26 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     /** {@inheritDoc} */
     @Override
     protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
-        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
+        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, null, null, null, null);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isUpdateAllowed(int colIdx) {
-        return !descriptor().columnDescriptor(colIdx).key();
+        ColumnDescriptor columnDescriptor = descriptor().columnDescriptor(colIdx);
+        return !columnDescriptor.key() && !columnDescriptor.virtual();
     }
 
     /** {@inheritDoc} */
     @Override
     public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
         return descriptor().rowType(factory, columnsToInsert);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType rowTypeForUpdate(IgniteTypeFactory factory) {
+        return descriptor().rowType(factory, columnsToUpdate);
     }
 
     /** {@inheritDoc} */

@@ -34,13 +34,14 @@ import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PagePool;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.Segment;
 import org.apache.ignite.internal.pagememory.persistence.ReplaceCandidate;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
 
 /**
  * Random-LRU page replacement policy implementation.
  */
 public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
     /** Number of random pages that will be picked for eviction. */
-    public static final int RANDOM_PAGES_EVICT_NUM = 5;
+    private static final int RANDOM_PAGES_EVICT_NUM = 5;
 
     private static final double FULL_SCAN_THRESHOLD = 0.4;
 
@@ -49,19 +50,18 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
      *
      * @param seg Page memory segment.
      */
-    protected RandomLruPageReplacementPolicy(Segment seg) {
+    public RandomLruPageReplacementPolicy(Segment seg) {
         super(seg);
     }
 
-    /** {@inheritDoc} */
     @Override
     public long replace() throws IgniteInternalCheckedException {
-        final ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
         LoadedPagesMap loadedPages = seg.loadedPages();
         PagePool pool = seg.pool();
 
-        final int cap = loadedPages.capacity();
+        int cap = loadedPages.capacity();
 
         // With big number of random picked pages we may fall into infinite loop, because
         // every time the same page may be found.
@@ -97,7 +97,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 int partGen = nearest.generation();
 
-                final long absPageAddr = seg.absolute(rndAddr);
+                long absPageAddr = seg.absolute(rndAddr);
 
                 FullPageId fullId = fullPageId(absPageAddr);
 
@@ -115,17 +115,19 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 boolean skip = ignored != null && ignored.contains(rndAddr);
 
-                final boolean dirty = PageHeader.dirty(absPageAddr);
+                boolean dirty = PageHeader.dirty(absPageAddr);
 
-                if (relRmvAddr == rndAddr || pinned || skip || dirty) {
+                CheckpointPages checkpointPages = seg.checkpointPages();
+
+                if (relRmvAddr == rndAddr || pinned || skip || (dirty && (checkpointPages == null || !checkpointPages.contains(fullId)))) {
                     i--;
 
                     continue;
                 }
 
-                final long pageTs = PageHeader.readTimestamp(absPageAddr);
+                long pageTs = PageHeader.readTimestamp(absPageAddr);
 
-                final boolean storMeta = isStoreMetadataPage(absPageAddr);
+                boolean storMeta = isStoreMetadataPage(absPageAddr);
 
                 if (pageTs < cleanTs && !dirty && !storMeta) {
                     cleanAddr = rndAddr;
@@ -154,9 +156,9 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
                 return tryToFindSequentially(cap);
             }
 
-            final long absRmvAddr = seg.absolute(relRmvAddr);
+            long absRmvAddr = seg.absolute(relRmvAddr);
 
-            final FullPageId fullPageId = fullPageId(absRmvAddr);
+            FullPageId fullPageId = fullPageId(absRmvAddr);
 
             if (!seg.tryToRemovePage(fullPageId, absRmvAddr)) {
                 if (iterations > 10) {
@@ -208,15 +210,15 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
         LoadedPagesMap loadedPages = seg.loadedPages();
 
         for (int i = 0; i < cap; i++) {
-            final ReplaceCandidate nearest = loadedPages.getNearestAt(i);
+            ReplaceCandidate nearest = loadedPages.getNearestAt(i);
 
             assert nearest != null && nearest.relativePointer() != INVALID_REL_PTR;
 
-            final long addr = nearest.relativePointer();
+            long addr = nearest.relativePointer();
 
             int partGen = nearest.generation();
 
-            final long absPageAddr = seg.absolute(addr);
+            long absPageAddr = seg.absolute(addr);
 
             FullPageId fullId = fullPageId(absPageAddr);
 
@@ -230,9 +232,9 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
                 continue;
             }
 
-            final long absEvictAddr = seg.absolute(addr);
+            long absEvictAddr = seg.absolute(addr);
 
-            final FullPageId fullPageId = fullPageId(absEvictAddr);
+            FullPageId fullPageId = fullPageId(absEvictAddr);
 
             if (seg.tryToRemovePage(fullPageId, absEvictAddr)) {
                 return addr;

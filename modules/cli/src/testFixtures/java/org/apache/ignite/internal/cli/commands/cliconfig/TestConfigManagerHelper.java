@@ -30,6 +30,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
+import java.security.SecureRandom;
 import java.util.Set;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.util.OperatingSystem;
@@ -54,6 +55,8 @@ public class TestConfigManagerHelper {
 
     private static final String CLUSTER_CONFIGURATION_WITH_ENABLED_AUTH = "cluster-configuration-with-enabled-auth.conf";
 
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     public static File createEmptyConfig() {
         return copyResourceToTempFile(EMPTY);
     }
@@ -61,6 +64,11 @@ public class TestConfigManagerHelper {
     /** Creates and returns the empty secret file config. */
     public static File createEmptySecretConfig() {
         return copyResourceToTempSecretFile(EMPTY_SECRET);
+    }
+
+    /** Creates and returns a non-existing secret file config. */
+    public static File createNonExistingSecretConfig() {
+        return generateTempFile();
     }
 
     public static File createOneSectionWithDefaultProfileConfig() {
@@ -158,6 +166,17 @@ public class TestConfigManagerHelper {
     private static void setFilePermissions(File file, Set<PosixFilePermission> perms) throws IOException {
         if (OperatingSystem.current() != OperatingSystem.WINDOWS) {
             Files.setPosixFilePermissions(file.toPath(), perms);
+        }
+    }
+
+    private static File generateTempFile() {
+        String tmpDir = System.getProperty("java.io.tmpdir");
+        while (true) {
+            String fileName = "cli" + Long.toUnsignedString(RANDOM.nextLong());
+            File file = new File(tmpDir, fileName);
+            if (!file.exists()) {
+                return file;
+            }
         }
     }
 }

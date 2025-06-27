@@ -95,7 +95,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                 connectionChecker.saveSettings(input, result.value());
 
                 askQuestionToStoreCredentials(configManagerProvider.get(), input.username(), input.password());
-                return connectSuccessCall.execute(sessionInfo);
+                return connectSuccessCall.execute(sessionInfo, input.checkClusterInit());
             } catch (ApiException exception) {
                 Throwable apiCause = exception.getCause();
 
@@ -130,7 +130,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                 SessionInfo sessionInfo = connectionChecker.checkConnection(connectCallInput);
                 connectionChecker.saveSettings(connectCallInput, null);
                 askQuestionToStoreCredentials(configManagerProvider.get(), username, password);
-                return connectSuccessCall.execute(sessionInfo);
+                return connectSuccessCall.execute(sessionInfo, input.checkClusterInit());
             } catch (ApiException e) {
                 return DefaultCallOutput.failure(new IgniteCliApiException(e, input.url()));
             }

@@ -24,6 +24,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.Benchmarks", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.Internal.Generators", "Apache.Ignite.Internal.Generators\Apache.Ignite.Internal.Generators.csproj", "{7BC74F53-FF5F-4CBF-A559-9E4BE3A63A0F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Extensions.Caching.Ignite", "Apache.Extensions.Caching.Ignite\Apache.Extensions.Caching.Ignite.csproj", "{44DD1DDD-801A-4346-8683-B9C52A99046F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Extensions.Caching.Ignite.Tests", "Apache.Extensions.Caching.Ignite.Tests\Apache.Extensions.Caching.Ignite.Tests.csproj", "{F9214A37-C4CC-46CB-95A0-A5D2246BD32A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.Internal.ComputeExecutor", "Apache.Ignite.Internal.ComputeExecutor\Apache.Ignite.Internal.ComputeExecutor.csproj", "{63E709E0-04FD-4FE0-8787-845106E98AB3}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.EntityFrameworkCore", "Apache.Ignite.EntityFrameworkCore\Apache.Ignite.EntityFrameworkCore.csproj", "{C33E3201-71A9-40FA-AE69-C3F325E285D8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.EntityFrameworkCore.Tests", "Apache.Ignite.EntityFrameworkCore.Tests\Apache.Ignite.EntityFrameworkCore.Tests.csproj", "{30752D89-C9EB-4116-913E-BEBB49CEBB10}"
@@ -53,6 +59,18 @@ Global
 		{7BC74F53-FF5F-4CBF-A559-9E4BE3A63A0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7BC74F53-FF5F-4CBF-A559-9E4BE3A63A0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7BC74F53-FF5F-4CBF-A559-9E4BE3A63A0F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44DD1DDD-801A-4346-8683-B9C52A99046F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44DD1DDD-801A-4346-8683-B9C52A99046F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44DD1DDD-801A-4346-8683-B9C52A99046F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44DD1DDD-801A-4346-8683-B9C52A99046F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9214A37-C4CC-46CB-95A0-A5D2246BD32A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9214A37-C4CC-46CB-95A0-A5D2246BD32A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9214A37-C4CC-46CB-95A0-A5D2246BD32A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9214A37-C4CC-46CB-95A0-A5D2246BD32A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{63E709E0-04FD-4FE0-8787-845106E98AB3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63E709E0-04FD-4FE0-8787-845106E98AB3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63E709E0-04FD-4FE0-8787-845106E98AB3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63E709E0-04FD-4FE0-8787-845106E98AB3}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C33E3201-71A9-40FA-AE69-C3F325E285D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C33E3201-71A9-40FA-AE69-C3F325E285D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C33E3201-71A9-40FA-AE69-C3F325E285D8}.Release|Any CPU.ActiveCfg = Release|Any CPU

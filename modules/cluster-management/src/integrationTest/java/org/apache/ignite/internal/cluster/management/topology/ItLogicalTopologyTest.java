@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.topology;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItems;
@@ -38,7 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -57,30 +57,21 @@ import org.junit.jupiter.api.TestInfo;
 class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private final BlockingQueue<Event> events = new LinkedBlockingQueue<>();
 
-    private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
-
-    private static final String STORAGE_PROFILES = "{lru_rocks:{engine:\"rocksDb\"},segmented_aipersist:{engine:\"aipersist\"}}";
-
     private static final Map<String, String> NODE_ATTRIBUTES_MAP = Map.of("region", "US", "storage", "SSD");
 
     private static final String[] STORAGE_PROFILES_LIST = {"lru_rocks", "segmented_aipersist"};
 
-    @Language("JSON")
-    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "{\n"
+    @Language("HOCON")
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
-            + "  nodeAttributes: {\n"
-            + "    nodeAttributes: " + NODE_ATTRIBUTES
-            + "  },\n"
-            + "  storage: {\n"
-            + "    profiles: " + STORAGE_PROFILES
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
+            + "  nodeAttributes.nodeAttributes: {region = US, storage = SSD},\n"
+            + "  storage.profiles: {lru_rocks.engine = rocksdb, segmented_aipersist.engine = aipersist},\n"
+            + "  clientConnector.port: {},\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
@@ -120,24 +111,25 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     void receivesLogicalTopologyEvents() throws Exception {
         cluster.startAndInit(1);
 
-        IgniteImpl entryNode = node(0);
+        IgniteImpl entryNode = unwrapIgniteImpl(node(0));
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
         // Checking that onAppeared() is received.
         Ignite secondIgnite = startNode(1);
+        String secondIgniteName = secondIgnite.name();
 
         Event event = events.poll(10, TimeUnit.SECONDS);
 
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.VALIDATED));
-        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.node.name(), is(secondIgniteName));
 
         event = events.poll(10, TimeUnit.SECONDS);
 
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.JOINED));
-        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.node.name(), is(secondIgniteName));
         assertThat(event.topologyVersion, is(2L));
 
         assertThat(events, is(empty()));
@@ -149,7 +141,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.LEFT));
-        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.node.name(), is(secondIgniteName));
         assertThat(event.topologyVersion, is(3L));
 
         assertThat(events, is(empty()));
@@ -159,18 +151,19 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     void receivesLogicalTopologyEventsWithAttributes() throws Exception {
         cluster.startAndInit(1);
 
-        IgniteImpl entryNode = node(0);
+        IgniteImpl entryNode = unwrapIgniteImpl(node(0));
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
         // Checking that onAppeared() is received.
         Ignite secondIgnite = startNode(1, NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES);
+        String secondIgniteName = secondIgnite.name();
 
         Event event = events.poll(10, TimeUnit.SECONDS);
 
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.VALIDATED));
-        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.node.name(), is(secondIgniteName));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
         assertThat(event.node.storageProfiles(), hasItems(STORAGE_PROFILES_LIST));
 
@@ -178,7 +171,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.JOINED));
-        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.node.name(), is(secondIgniteName));
         assertThat(event.topologyVersion, is(2L));
         assertThat(event.node.userAttributes(), is(NODE_ATTRIBUTES_MAP));
         assertThat(event.node.storageProfiles(), hasItems(STORAGE_PROFILES_LIST));
@@ -192,7 +185,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.LEFT));
-        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.node.name(), is(secondIgniteName));
         assertThat(event.topologyVersion, is(3L));
         assertThat(event.node.userAttributes(), is(Collections.emptyMap()));
         assertThat(event.node.storageProfiles(), is(Collections.emptyList()));
@@ -204,9 +197,9 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     void receiveLogicalTopologyFromLeaderWithAttributes() throws Exception {
         cluster.startAndInit(1);
 
-        IgniteImpl entryNode = node(0);
+        IgniteImpl entryNode = unwrapIgniteImpl(node(0));
 
-        IgniteImpl secondIgnite = startNode(1, NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES);
+        Ignite secondIgnite = startNode(1, NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES);
 
         List<LogicalNode> logicalTopologyFromLeader = new ArrayList<>(
                 entryNode.logicalTopologyService().logicalTopologyOnLeader().get(5, TimeUnit.SECONDS).nodes()
@@ -226,9 +219,10 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     void receivesLogicalTopologyEventsCausedByNodeRestart() throws Exception {
         cluster.startAndInit(1);
 
-        IgniteImpl entryNode = node(0);
+        IgniteImpl entryNode = unwrapIgniteImpl(node(0));
 
         Ignite secondIgnite = startNode(1);
+        String secondIgniteName = secondIgnite.name();
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
@@ -238,20 +232,20 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
 
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.LEFT));
-        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.node.name(), is(secondIgniteName));
         assertThat(event.topologyVersion, is(3L));
 
         event = events.poll(10, TimeUnit.SECONDS);
 
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.VALIDATED));
-        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.node.name(), is(secondIgniteName));
 
         event = events.poll(10, TimeUnit.SECONDS);
 
         assertThat(event, is(notNullValue()));
         assertThat(event.eventType, is(EventType.JOINED));
-        assertThat(event.node.name(), is(secondIgnite.name()));
+        assertThat(event.node.name(), is(secondIgniteName));
         assertThat(event.topologyVersion, is(4L));
 
         assertThat(events, is(empty()));
@@ -261,9 +255,9 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     void nodeReturnedToPhysicalTopologyDoesNotReturnToLogicalTopology() throws Exception {
         cluster.startAndInit(1);
 
-        IgniteImpl entryNode = node(0);
+        IgniteImpl entryNode = unwrapIgniteImpl(node(0));
 
-        IgniteImpl secondIgnite = startNode(1);
+        IgniteImpl secondIgnite = unwrapIgniteImpl(startNode(1));
 
         makeSecondNodeDisappearForFirstNode(entryNode, secondIgnite);
 
@@ -305,9 +299,9 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     void nodeLeavesLogicalTopologyImmediatelyAfterBeingLostBySwim() throws Exception {
         cluster.startAndInit(1);
 
-        IgniteImpl entryNode = node(0);
+        IgniteImpl entryNode = unwrapIgniteImpl(node(0));
 
-        IgniteImpl secondNode = startNode(1);
+        Ignite secondNode = startNode(1);
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
@@ -325,7 +319,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     void nodeThatCouldNotJoinShouldBeInvalidated(TestInfo testInfo) throws Exception {
         cluster.startAndInit(1);
 
-        IgniteImpl entryNode = node(0);
+        IgniteImpl entryNode = unwrapIgniteImpl(node(0));
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
@@ -338,7 +332,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             }
         });
 
-        cluster.startNodeAsync(1);
+        IgniteServer node = cluster.startEmbeddedNode(1).server();
 
         try {
             Event event = events.poll(10, TimeUnit.SECONDS);
@@ -354,7 +348,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             assertThat(event.node.name(), is(not(entryNode.name())));
         } finally {
             // Stop the second node manually, because it couldn't start successfully.
-            IgnitionManager.stop(testNodeName(testInfo, 1));
+            node.shutdown();
         }
     }
 
@@ -362,9 +356,10 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     void nodeLeavesLogicalTopologyImmediatelyOnGracefulStop() throws Exception {
         cluster.startAndInit(1, DISABLED_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE, ignored -> {});
 
-        IgniteImpl entryNode = node(0);
+        IgniteImpl entryNode = unwrapIgniteImpl(node(0));
 
-        IgniteImpl secondIgnite = startNode(1);
+        Ignite secondIgnite = startNode(1);
+        String secondIgniteName = secondIgnite.name();
 
         entryNode.logicalTopologyService().addEventListener(listener);
 
@@ -377,7 +372,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
         assertThat("Leave event not received in time", leaveEvent, is(notNullValue()));
 
         assertThat(leaveEvent.eventType, is(EventType.LEFT));
-        assertThat(leaveEvent.node.name(), is(secondIgnite.name()));
+        assertThat(leaveEvent.node.name(), is(secondIgniteName));
     }
 
     private static class Event {

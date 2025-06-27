@@ -29,11 +29,10 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
@@ -101,7 +100,7 @@ public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
     @CsvSource({
             // UPDATE SET c1, INSERT src.c2
             "src.c2 + 2",
-            "CAST((src.c2 + 2) AS VARCHAR)",
+            "CAST((src.c2 + 2) AS BIGINT)",
     })
     public void testMergeInsert(String insertC2) {
         sql("CREATE TABLE T1 (id INTEGER PRIMARY KEY, c1 INTEGER, c2 INTEGER)");
@@ -128,8 +127,8 @@ public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
             // UPDATE SET c1, INSERT src.c2\
             "100, src.c2 + 2",
             "'100', src.c2 + 2",
-            "100, CAST((src.c2 + 2) AS VARCHAR)",
-            "'100', CAST((src.c2 + 2) AS VARCHAR)",
+            "100, CAST((src.c2 + 2) AS BIGINT)",
+            "'100', CAST((src.c2 + 2) AS BIGINT)",
     })
     public void testMergeUpdateInsert(String updateC1, String insertC2) {
         sql("CREATE TABLE T1 (id INTEGER PRIMARY KEY, c1 INTEGER, c2 INTEGER)");
@@ -166,28 +165,6 @@ public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
         columnPairs.add(new ColumnPair(typeFactory.createSqlType(SqlTypeName.INTEGER), typeFactory.createSqlType(SqlTypeName.FLOAT)));
         columnPairs.add(new ColumnPair(typeFactory.createSqlType(SqlTypeName.DOUBLE), typeFactory.createSqlType(SqlTypeName.BIGINT)));
 
-        // IgniteCustomType: test cases for custom data types in join and filter conditions.
-        // Implicit casts must be added to the types a custom data type can be converted from.
-        IgniteCustomTypeCoercionRules customTypeCoercionRules = typeFactory.getCustomTypeCoercionRules();
-        for (String typeName : typeFactory.getCustomTypeSpecs().keySet()) {
-            IgniteCustomType customType = typeFactory.createCustomType(typeName);
-
-            for (SqlTypeName sourceTypeName : customTypeCoercionRules.canCastFrom(typeName)) {
-
-                RelDataType sourceType;
-                if (sourceTypeName == SqlTypeName.CHAR) {
-                    // Generate sample value to use its length as precision for CHAR type is order to avoid data truncation.
-                    String sampleValue = ColumnPair.generateValue(customType, 0, false);
-                    sourceType = typeFactory.createSqlType(SqlTypeName.CHAR, sampleValue.length());
-                } else {
-                    sourceType = typeFactory.createSqlType(sourceTypeName);
-                }
-
-                ColumnPair columnPair = new ColumnPair(customType, sourceType);
-                columnPairs.add(columnPair);
-            }
-        }
-
         List<ColumnPair> result = new ArrayList<>(columnPairs);
         Collections.reverse(columnPairs);
 
@@ -222,28 +199,19 @@ public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
         }
 
         String lhsLiteral(int idx) {
-            return generateValue(lhs, idx, true);
+            return generateValue(lhs, idx);
         }
 
-        static String generateValue(RelDataType type, int i, boolean literal) {
+        static String generateValue(RelDataType type, int i) {
             if (SqlTypeUtil.isNumeric(type)) {
                 return Integer.toString(i);
-            } else if (type instanceof UuidType
-                    || type.getSqlTypeName() == SqlTypeName.CHAR
+            } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
+                return SqlTestUtils.makeLiteral(new UUID(i, i), NativeTypes.UUID);
+            } else if (type.getSqlTypeName() == SqlTypeName.CHAR
                     || type.getSqlTypeName() == SqlTypeName.VARCHAR) {
-                // We need to generate valid UUID string so cast operations won't fail at runtime.
-                return generateUuid(i, literal);
+                return SqlTestUtils.makeLiteral(new UUID(i, i), NativeTypes.STRING);
             } else {
                 throw new IllegalArgumentException("Unsupported type: " + type);
-            }
-        }
-
-        private static String generateUuid(int i, boolean literal) {
-            UUID val = new UUID(i, i);
-            if (!literal) {
-                return val.toString();
-            } else {
-                return format("'{}'", val);
             }
         }
     }

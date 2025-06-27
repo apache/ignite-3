@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.lang.Math.max;
 import static java.lang.System.nanoTime;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -26,13 +27,14 @@ import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
@@ -47,7 +49,7 @@ import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -55,11 +57,10 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.WriteSpeedFormatter;
 import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
-import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.apache.ignite.internal.util.worker.WorkProgressDispatcher;
 import org.jetbrains.annotations.Nullable;
 
@@ -82,7 +82,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Responsiblity:
  * <ul>
  * <li>Provide the API for schedule/trigger the checkpoint.</li>
- * <li>Schedule new checkpoint after current one according to checkpoint frequency.</li>
+ * <li>Schedule new checkpoint after current one according to checkpoint interval.</li>
  * <li>Failure handling.</li>
  * <li>Managing of page write threads.</li>
  * <li>Logging and metrics of checkpoint.</li>
@@ -97,16 +97,32 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class Checkpointer extends IgniteWorker {
-    private static final String CHECKPOINT_STARTED_LOG_FORMAT = "Checkpoint started ["
-            + "checkpointId=%s, "
-            + "checkpointBeforeWriteLockTime=%dms, "
-            + "checkpointWriteLockWait=%dms, "
-            + "checkpointListenersExecuteTime=%dms, "
-            + "checkpointWriteLockHoldTime=%dms, "
-            + "splitAndSortPagesDuration=%dms, "
-            + "%s"
-            + "pages=%d, "
-            + "reason='%s']";
+    private static final String CHECKPOINT_STARTED_LOG_TEMPLATE = "Checkpoint started ["
+            + "checkpointId={}, "
+            + "beforeWriteLockTime={}ms, "
+            + "writeLockWait={}us, "
+            + "listenersExecuteTime={}us, "
+            + "writeLockHoldTime={}us, "
+            + "splitAndSortPagesDuration={}ms, "
+            + "{}"
+            + "pages={}, "
+            + "reason='{}']";
+
+    private static final String CHECKPOINT_SKIPPED_LOG_TEMPLATE = "Skipping checkpoint (no pages were modified) ["
+            + "beforeWriteLockTime={}ms, "
+            + "writeLockWait={}us, "
+            + "listenersExecuteTime={}us, "
+            + "writeLockHoldTime={}us, reason='{}']";
+
+    private static final String CHECKPOINT_FINISHED_LOG_TEMPLATE = "Checkpoint finished ["
+            + "checkpointId={}, "
+            + "pages={}, "
+            + "pagesWriteTime={}ms, "
+            + "fsyncTime={}ms, "
+            + "replicatorLogSyncTime={}ms, "
+            + "waitCompletePageReplacementTime={}ms, "
+            + "totalTime={}ms, "
+            + "avgWriteSpeed={}MB/s]";
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Checkpointer.class);
@@ -114,8 +130,11 @@ public class Checkpointer extends IgniteWorker {
     /** Pause detector. */
     private final @Nullable LongJvmPauseDetector pauseDetector;
 
+    /** Page size. */
+    private final int pageSize;
+
     /** Checkpoint config. */
-    private final PageMemoryCheckpointConfiguration checkpointConfig;
+    private final CheckpointConfiguration checkpointConfig;
 
     /** Strategy of where and how to get the pages. */
     private final CheckpointWorkflow checkpointWorkflow;
@@ -131,6 +150,13 @@ public class Checkpointer extends IgniteWorker {
 
     /** Current checkpoint progress. This field is updated only by checkpoint thread. */
     private volatile @Nullable CheckpointProgressImpl currentCheckpointProgress;
+
+    /**
+     * Checkpoint progress instance with a more limited range of visibility. It is initialized when checkpoint write lick is acquired, and
+     * nullified when checkpoint finishes (unlike {@link #currentCheckpointProgress} that is updated before we started notifying checkpoint
+     * listeners and is never nullified).
+     */
+    private volatile @Nullable CheckpointProgressImpl currentCheckpointProgressForThrottling;
 
     /** Checkpoint progress after releasing write lock. */
     private volatile @Nullable CheckpointProgressImpl afterReleaseWriteLockCheckpointProgress;
@@ -148,7 +174,7 @@ public class Checkpointer extends IgniteWorker {
     private final Compactor compactor;
 
     /** Failure processor. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     private final LogSyncer logSyncer;
 
@@ -156,50 +182,52 @@ public class Checkpointer extends IgniteWorker {
      * Constructor.
      *
      * @param igniteInstanceName Name of the Ignite instance.
-     * @param workerListener Listener for life-cycle worker events.
      * @param detector Long JVM pause detector.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param failureManager Failure processor that is used to handle critical errors.
      * @param checkpointWorkFlow Implementation of checkpoint.
      * @param factory Page writer factory.
      * @param filePageStoreManager File page store manager.
      * @param compactor Delta file compactor.
+     * @param pageSize Page size.
      * @param checkpointConfig Checkpoint configuration.
      * @param logSyncer Write-ahead log synchronizer.
      */
     Checkpointer(
             String igniteInstanceName,
-            @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector detector,
-            FailureProcessor failureProcessor,
+            FailureManager failureManager,
             CheckpointWorkflow checkpointWorkFlow,
             CheckpointPagesWriterFactory factory,
             FilePageStoreManager filePageStoreManager,
             Compactor compactor,
-            PageMemoryCheckpointConfiguration checkpointConfig,
+            int pageSize,
+            CheckpointConfiguration checkpointConfig,
             LogSyncer logSyncer
     ) {
-        super(LOG, igniteInstanceName, "checkpoint-thread", workerListener);
+        super(LOG, igniteInstanceName, "checkpoint-thread");
 
         this.pauseDetector = detector;
+        this.pageSize = pageSize;
         this.checkpointConfig = checkpointConfig;
         this.checkpointWorkflow = checkpointWorkFlow;
         this.checkpointPagesWriterFactory = factory;
         this.filePageStoreManager = filePageStoreManager;
         this.compactor = compactor;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
         this.logSyncer = logSyncer;
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
-        int checkpointWritePageThreads = checkpointConfig.checkpointThreads().value();
+        int checkpointWritePageThreads = checkpointConfig.checkpointThreads();
 
         if (checkpointWritePageThreads > 1) {
             checkpointWritePagesPool = new ThreadPoolExecutor(
                     checkpointWritePageThreads,
                     checkpointWritePageThreads,
-                    30_000,
+                    0L,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
+                    // TODO IGNITE-25590 Add node name.
                     new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", log)
             );
         } else {
@@ -237,9 +265,9 @@ public class Checkpointer extends IgniteWorker {
 
             // We need to handle OutOfMemoryError and the rest in different ways
             if (t instanceof OutOfMemoryError) {
-                failureProcessor.process(new FailureContext(CRITICAL_ERROR, t));
+                failureManager.process(new FailureContext(CRITICAL_ERROR, t));
             } else {
-                failureProcessor.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
+                failureManager.process(new FailureContext(SYSTEM_WORKER_TERMINATION, t));
             }
 
             throw new IgniteInternalException(t);
@@ -300,9 +328,11 @@ public class Checkpointer extends IgniteWorker {
         Checkpoint chp = null;
 
         try {
-            CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
+            var tracker = new CheckpointMetricsTracker();
 
-            startCheckpointProgress();
+            tracker.onCheckpointStart();
+
+            CheckpointProgressImpl currentCheckpointProgress = startCheckpointProgress();
 
             try {
                 chp = checkpointWorkflow.markCheckpointBegin(
@@ -318,7 +348,7 @@ public class Checkpointer extends IgniteWorker {
                 }
 
                 // In case of checkpoint initialization error node should be invalidated and stopped.
-                failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
                 // Re-throw as unchecked exception to force stopping checkpoint thread.
                 throw new IgniteInternalCheckedException(e);
@@ -331,49 +361,43 @@ public class Checkpointer extends IgniteWorker {
                     long possibleJvmPauseDuration = possibleLongJvmPauseDuration(tracker);
 
                     if (log.isInfoEnabled()) {
-                        log.info(String.format(
-                                CHECKPOINT_STARTED_LOG_FORMAT,
+                        log.info(
+                                CHECKPOINT_STARTED_LOG_TEMPLATE,
                                 chp.progress.id(),
-                                tracker.beforeWriteLockDuration(),
-                                tracker.writeLockWaitDuration(),
-                                tracker.onMarkCheckpointBeginDuration(),
-                                tracker.writeLockHoldDuration(),
-                                tracker.splitAndSortCheckpointPagesDuration(),
+                                tracker.beforeWriteLockDuration(MILLISECONDS),
+                                tracker.writeLockWaitDuration(MICROSECONDS),
+                                tracker.onMarkCheckpointBeginDuration(MICROSECONDS),
+                                tracker.writeLockHoldDuration(MICROSECONDS),
+                                tracker.splitAndSortCheckpointPagesDuration(MILLISECONDS),
                                 possibleJvmPauseDuration > 0 ? "possibleJvmPauseDuration=" + possibleJvmPauseDuration + "ms, " : "",
                                 chp.dirtyPagesSize,
                                 chp.progress.reason()
-                        ));
+                        );
                     }
                 }
 
-                try {
-                    logSyncer.sync();
-                } catch (Exception e) {
-                    log.error("Failed to sync write-ahead log during checkpoint", e);
-
-                    throw new IgniteInternalCheckedException(e);
-                }
+                replicatorLogSync(tracker);
 
                 if (!writePages(tracker, chp.dirtyPages, chp.progress, this, this::isShutdownNow)) {
                     return;
                 }
             } else {
                 if (log.isInfoEnabled()) {
-                    log.info(String.format(
-                            "Skipping checkpoint (no pages were modified) ["
-                                    + "checkpointBeforeWriteLockTime=%dms, checkpointWriteLockWait=%dms, "
-                                    + "checkpointListenersExecuteTime=%dms, checkpointWriteLockHoldTime=%dms, reason='%s']",
-                            tracker.beforeWriteLockDuration(),
-                            tracker.writeLockWaitDuration(),
-                            tracker.onMarkCheckpointBeginDuration(),
-                            tracker.writeLockHoldDuration(),
+                    log.info(
+                            CHECKPOINT_SKIPPED_LOG_TEMPLATE,
+                            tracker.beforeWriteLockDuration(MILLISECONDS),
+                            tracker.writeLockWaitDuration(MICROSECONDS),
+                            tracker.onMarkCheckpointBeginDuration(MICROSECONDS),
+                            tracker.writeLockHoldDuration(MICROSECONDS),
                             chp.progress.reason()
-                    ));
+                    );
                 }
-
-                tracker.onPagesWriteStart();
-                tracker.onFsyncStart();
             }
+
+            currentCheckpointProgress.setPagesWriteTimeMillis(
+                    tracker.pagesWriteDuration(MILLISECONDS) + tracker.splitAndSortCheckpointPagesDuration(MILLISECONDS)
+            );
+            currentCheckpointProgress.setFsyncTimeMillis(tracker.fsyncDuration(MILLISECONDS));
 
             // Must mark successful checkpoint only if there are no exceptions or interrupts.
             checkpointWorkflow.markCheckpointEnd(chp);
@@ -382,14 +406,20 @@ public class Checkpointer extends IgniteWorker {
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
-                    log.info(String.format(
-                            "Checkpoint finished [checkpointId=%s, pages=%d, pagesWriteTime=%dms, fsyncTime=%dms, totalTime=%dms]",
+                    float totalDurationInSeconds = tracker.checkpointDuration(MILLISECONDS) / 1000.0f;
+                    float avgWriteSpeedInBytes = ((long) pageSize * chp.dirtyPagesSize) / totalDurationInSeconds;
+
+                    log.info(
+                            CHECKPOINT_FINISHED_LOG_TEMPLATE,
                             chp.progress.id(),
                             chp.dirtyPagesSize,
-                            tracker.pagesWriteDuration(),
-                            tracker.fsyncDuration(),
-                            tracker.totalDuration()
-                    ));
+                            tracker.pagesWriteDuration(MILLISECONDS),
+                            tracker.fsyncDuration(MILLISECONDS),
+                            tracker.replicatorLogSyncDuration(MILLISECONDS),
+                            tracker.waitPageReplacementDuration(MILLISECONDS),
+                            tracker.checkpointDuration(MILLISECONDS),
+                            WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
+                    );
                 }
             }
         } catch (IgniteInternalCheckedException e) {
@@ -397,9 +427,11 @@ public class Checkpointer extends IgniteWorker {
                 chp.progress.fail(e);
             }
 
-            failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+            failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
             throw e;
+        } finally {
+            currentCheckpointProgressForThrottling = null;
         }
     }
 
@@ -413,7 +445,7 @@ public class Checkpointer extends IgniteWorker {
      * @param shutdownNow Checker of stop operation.
      * @throws IgniteInternalCheckedException If failed.
      */
-    boolean writePages(
+    private boolean writePages(
             CheckpointMetricsTracker tracker,
             CheckpointDirtyPages checkpointDirtyPages,
             CheckpointProgressImpl currentCheckpointProgress,
@@ -431,12 +463,16 @@ public class Checkpointer extends IgniteWorker {
 
         tracker.onPagesWriteStart();
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = checkpointDirtyPages.toDirtyPageIdQueue();
+        List<PersistentPageMemory> pageMemoryList = checkpointDirtyPages.dirtyPageMemoryInstances();
+
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue
+                = checkpointDirtyPages.toDirtyPartitionQueue();
 
         for (int i = 0; i < checkpointWritePageThreads; i++) {
             CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
                     tracker,
-                    writePageIds,
+                    dirtyPartitionQueue,
+                    pageMemoryList,
                     updatedPartitions,
                     futures[i] = new CompletableFuture<>(),
                     workProgressDispatcher::updateHeartbeat,
@@ -456,8 +492,27 @@ public class Checkpointer extends IgniteWorker {
         // Wait and check for errors.
         CompletableFuture.allOf(futures).join();
 
-        // Must re-check shutdown flag here because threads may have skipped some pages.
-        // If so, we should not put finish checkpoint mark.
+        tracker.onPagesWriteEnd();
+
+        // Must re-check shutdown flag here because threads may have skipped some pages because of it.
+        // If so, we should not finish checkpoint.
+        if (shutdownNow.getAsBoolean()) {
+            currentCheckpointProgress.fail(new NodeStoppingException("Node is stopping."));
+
+            return false;
+        }
+
+        tracker.onWaitPageReplacementStart();
+
+        // Waiting for the completion of all page replacements if present.
+        // Will complete normally or with the first error on one of the page replacements.
+        // join() is used intentionally as above.
+        currentCheckpointProgress.getUnblockFsyncOnPageReplacementFuture().join();
+
+        tracker.onWaitPageReplacementEnd();
+
+        // Must re-check shutdown flag here because threads could take a long time to complete the page replacement.
+        // If so, we should not finish checkpoint.
         if (shutdownNow.getAsBoolean()) {
             currentCheckpointProgress.fail(new NodeStoppingException("Node is stopping."));
 
@@ -466,7 +521,9 @@ public class Checkpointer extends IgniteWorker {
 
         tracker.onFsyncStart();
 
-        syncUpdatedPageStores(updatedPartitions, currentCheckpointProgress);
+        syncUpdatedPageStores(updatedPartitions);
+
+        tracker.onFsyncEnd();
 
         compactor.triggerCompaction();
 
@@ -479,10 +536,7 @@ public class Checkpointer extends IgniteWorker {
         return true;
     }
 
-    private void syncUpdatedPageStores(
-            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
-            CheckpointProgressImpl currentCheckpointProgress
-    ) throws IgniteInternalCheckedException {
+    private void syncUpdatedPageStores(ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions) throws IgniteInternalCheckedException {
         ThreadPoolExecutor pageWritePool = checkpointWritePagesPool;
 
         if (pageWritePool == null) {
@@ -491,7 +545,7 @@ public class Checkpointer extends IgniteWorker {
                     return;
                 }
 
-                fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
+                fsyncDeltaFile(entry.getKey(), entry.getValue());
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -516,7 +570,7 @@ public class Checkpointer extends IgniteWorker {
                                 break;
                             }
 
-                            fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
+                            fsyncDeltaFile(entry.getKey(), entry.getValue());
 
                             entry = queue.poll();
                         }
@@ -539,7 +593,6 @@ public class Checkpointer extends IgniteWorker {
     }
 
     private void fsyncDeltaFile(
-            CheckpointProgressImpl currentCheckpointProgress,
             GroupPartitionId partitionId,
             LongAdder pagesWritten
     ) throws IgniteInternalCheckedException {
@@ -549,15 +602,9 @@ public class Checkpointer extends IgniteWorker {
             return;
         }
 
-        currentCheckpointProgress.onStartPartitionProcessing(partitionId);
+        fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, pagesWritten);
 
-        try {
-            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, pagesWritten);
-
-            renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
-        } finally {
-            currentCheckpointProgress.onFinishPartitionProcessing(partitionId);
-        }
+        renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
     }
 
     /**
@@ -594,7 +641,9 @@ public class Checkpointer extends IgniteWorker {
      */
     private long possibleLongJvmPauseDuration(CheckpointMetricsTracker tracker) {
         if (pauseDetector != null) {
-            if (tracker.writeLockWaitDuration() + tracker.writeLockHoldDuration() > pauseDetector.longJvmPauseThreshold()) {
+            long lockDuration = tracker.writeLockWaitDuration(MILLISECONDS) + tracker.writeLockHoldDuration(MILLISECONDS);
+
+            if (lockDuration > pauseDetector.longJvmPauseThreshold()) {
                 long now = coarseCurrentTimeMillis();
 
                 // We must get last wake-up time before search possible pause in events map.
@@ -618,7 +667,7 @@ public class Checkpointer extends IgniteWorker {
     /**
      * Update the current checkpoint info from the scheduled one.
      */
-    void startCheckpointProgress() {
+    CheckpointProgressImpl startCheckpointProgress() {
         long checkpointStartTimestamp = coarseCurrentTimeMillis();
 
         // This can happen in an unlikely event of two checkpoints happening within a currentTimeMillis() granularity window.
@@ -639,6 +688,10 @@ public class Checkpointer extends IgniteWorker {
             scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
             currentCheckpointProgress = curr;
+
+            curr.futureFor(PAGES_SNAPSHOT_TAKEN).thenRun(() -> currentCheckpointProgressForThrottling = curr);
+
+            return curr;
         }
     }
 
@@ -730,6 +783,14 @@ public class Checkpointer extends IgniteWorker {
         }
     }
 
+    @Nullable CheckpointProgress currentCheckpointProgress() {
+        return currentCheckpointProgress;
+    }
+
+    public @Nullable CheckpointProgress currentCheckpointProgressForThrottling() {
+        return currentCheckpointProgressForThrottling;
+    }
+
     /**
      * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */
@@ -758,21 +819,19 @@ public class Checkpointer extends IgniteWorker {
      * <p>It helps when the cluster makes a checkpoint in the same time in every node.
      */
     long nextCheckpointInterval() {
-        PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
-
-        long frequency = checkpointConfigView.frequency();
-        int deviation = checkpointConfigView.frequencyDeviation();
+        long interval = checkpointConfig.intervalMillis();
+        int deviation = checkpointConfig.intervalDeviationPercent();
 
         if (deviation == 0) {
-            return frequency;
+            return interval;
         }
 
-        long deviationMills = frequency * deviation;
+        long deviationMillis = interval * deviation;
 
-        long startDelay = ThreadLocalRandom.current().nextLong(max(safeAbs(deviationMills) / 100, 1))
-                - max(safeAbs(deviationMills) / 200, 1);
+        long startDelay = ThreadLocalRandom.current().nextLong(max(safeAbs(deviationMillis) / 100, 1))
+                - max(safeAbs(deviationMillis) / 200, 1);
 
-        return safeAbs(frequency + startDelay);
+        return safeAbs(interval + startDelay);
     }
 
     private void fsyncDeltaFilePageStoreOnCheckpointThread(
@@ -832,27 +891,17 @@ public class Checkpointer extends IgniteWorker {
         afterReleaseWriteLockCheckpointProgress = currentCheckpointProgress;
     }
 
-    /**
-     * Prepares the checkpointer to destroy a partition.
-     *
-     * <p>If the checkpoint is in progress, then wait until it finishes processing the partition that we are going to destroy, in order to
-     * prevent the situation when we want to destroy the partition file along with its delta files, and at this time the checkpoint performs
-     * I/O operations on them.
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @return Future that will end when the checkpoint is ready to destroy the partition.
-     */
-    CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
-        CheckpointProgressImpl currentCheckpointProgress = this.currentCheckpointProgress;
+    private void replicatorLogSync(CheckpointMetricsTracker tracker) throws IgniteInternalCheckedException {
+        try {
+            tracker.onReplicatorLogSyncStart();
 
-        // If the checkpoint starts after this line, then the data region will already know that we want to destroy the partition, and when
-        // reading the page for writing to the delta file, we will receive an "outdated" page that we will not write to disk.
-        if (currentCheckpointProgress == null || !currentCheckpointProgress.inProgress()) {
-            return nullCompletedFuture();
+            logSyncer.sync();
+
+            tracker.onReplicatorLogSyncEnd();
+        } catch (Exception e) {
+            log.error("Failed to sync write-ahead log during checkpoint", e);
+
+            throw new IgniteInternalCheckedException(e);
         }
-
-        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getProcessedPartitionFuture(groupPartitionId);
-
-        return processedPartitionFuture == null ? nullCompletedFuture() : processedPartitionFuture;
     }
 }

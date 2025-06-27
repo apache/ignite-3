@@ -45,7 +45,7 @@ public class StripeAwareLogManager extends LogManagerImpl {
     private LogStorage logStorage;
 
     /** Stripe, that corresponds to the current log storage instance. */
-    private final Stripe stripe;
+    private Stripe stripe;
 
     /** Size threshold of log entries list, that will trigger the flush upon the excess. */
     private int maxAppendBufferSize;
@@ -56,15 +56,6 @@ public class StripeAwareLogManager extends LogManagerImpl {
      */
     private boolean sharedLogStorage;
 
-    /**
-     * Constructor.
-     *
-     * @param stripe Stripe that corresponds to a worker thread in {@link LogManagerOptions#getLogManagerDisruptor()}.
-     */
-    public StripeAwareLogManager(Stripe stripe) {
-        this.stripe = stripe;
-    }
-
     @Override
     public boolean init(LogManagerOptions opts) {
         LogStorage logStorage = opts.getLogStorage();
@@ -73,7 +64,15 @@ public class StripeAwareLogManager extends LogManagerImpl {
         this.logStorage = logStorage;
         this.maxAppendBufferSize = opts.getRaftOptions().getMaxAppendBufferSize();
 
-        return super.init(opts);
+        boolean isInitSuccessfully = super.init(opts);
+
+        int stripe = opts.getLogManagerDisruptor().getStripe(opts.getNode().getNodeId());
+
+        assert stripe != -1;
+
+        this.stripe = opts.getLogStripes().get(stripe);
+
+        return isInitSuccessfully;
     }
 
     /**
@@ -228,23 +227,22 @@ public class StripeAwareLogManager extends LogManagerImpl {
                 appendBatcher.appendToStorage();
             }
 
-            if (!appendBatchers.isEmpty()) {
-                // Since the storage is shared, any batcher can flush it.
-                // This is a little confusing and hacky, but it doesn't require explicit access to the log storage factory,
-                // which makes it far easier to use in current jraft code.
-                // The reason why we don't call this method on log factory, for example, is because the factory doesn't have proper access
-                // to the RAFT configuration, and can't say, whether it should use "fsync" or not, for example.
-                try {
-                    appendBatchers.iterator().next().commitWriteBatch();
-                } catch (Exception e) {
-                    LOG.error("**Critical error**, failed to appendEntries.", e);
-
-                    for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
-                        appendBatcher.reportError(RaftError.EIO.getNumber(), "Fail to append log entries");
-                    }
-
-                    return;
+            // Calling "commitWriteBatch" on StripeAwareAppendBatcher is confusing and hacky, but it doesn't require explicit access
+            // to the log storage factory, which makes it far easier to use in current jraft code.
+            // The reason why we don't call this method on log factory, for example, is because the factory doesn't have proper access
+            // to the RAFT configuration, and can't say, whether it should use "fsync" or not, for example.
+            try {
+                for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
+                    appendBatcher.commitWriteBatch();
                 }
+            } catch (Exception e) {
+                LOG.error("**Critical error**, failed to appendEntries.", e);
+
+                for (StripeAwareAppendBatcher appendBatcher : appendBatchers) {
+                    appendBatcher.reportError(RaftError.EIO.getNumber(), "Fail to append log entries");
+                }
+
+                return;
             }
 
             // When data is committed, we can notify all stable closures and send response messages.

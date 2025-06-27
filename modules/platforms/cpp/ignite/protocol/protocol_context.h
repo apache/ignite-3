@@ -18,9 +18,13 @@
 #pragma once
 
 #include "ignite/protocol/protocol_version.h"
+#include "ignite/protocol/bitset_span.h"
+#include "ignite/protocol/bitmask_feature.h"
 
-#include "ignite/common/server_version.h"
+#include "ignite/common/detail/server_version.h"
 #include "ignite/common/uuid.h"
+
+#include <vector>
 
 namespace ignite::protocol {
 
@@ -46,32 +50,32 @@ public:
     void set_version(protocol_version ver) { m_version = ver; }
 
     /**
-     * Get cluster ID.
+     * Get cluster IDs.
      *
-     * @return Cluster ID.
+     * @return Cluster IDs.
      */
-    [[nodiscard]] uuid get_cluster_id() const { return m_cluster_id; }
+    [[nodiscard]] const std::vector<uuid> &get_cluster_ids() const { return m_cluster_ids; }
 
     /**
-     * Set Cluster ID.
+     * Set Cluster IDs.
      *
-     * @param id Cluster ID to set.
+     * @param ids Cluster IDs to set.
      */
-    void set_cluster_id(uuid id) { m_cluster_id = id; }
+    void set_cluster_ids(std::vector<uuid> &&ids) { m_cluster_ids = std::move(ids); }
 
     /**
      * Get server version.
      *
      * @return cluster version.
      */
-    [[nodiscard]] server_version get_server_version() const { return m_server_version; }
+    [[nodiscard]] detail::server_version get_server_version() const { return m_server_version; }
 
     /**
      * Set server version.
      *
      * @param ver Version to set.
      */
-    void set_server_version(server_version ver) { m_server_version = std::move(ver); }
+    void set_server_version(detail::server_version ver) { m_server_version = std::move(ver); }
 
     /**
      * Get cluster name.
@@ -83,22 +87,49 @@ public:
     /**
      * Set cluster name.
      *
-     * @param ver Name to set.
+     * @param name Name to set.
      */
     void set_cluster_name(std::string name) { m_cluster_name = std::move(name); }
+
+    /**
+     * Get features.
+     *
+     * @return Features.
+     */
+    [[nodiscard]] bytes_view get_features() const { return m_features; }
+
+    /**
+     * Set features.
+     *
+     * @param features Features.
+     */
+    void set_features(std::vector<std::byte> features) { m_features = std::move(features); }
+
+    /**
+     * Check if the bitmask feature supported.
+     *
+     * @param feature Bitmask feature to test.
+     * @return Features.
+     */
+    [[nodiscard]] bool is_feature_supported(bitmask_feature feature) const {
+        return bitset_span(m_features).test(static_cast<std::size_t>(feature));
+    }
 
 private:
     /** Protocol version. */
     protocol_version m_version{protocol_version::get_current()};
 
-    /** Cluster ID. */
-    uuid m_cluster_id;
+    /** Cluster IDs. */
+    std::vector<uuid> m_cluster_ids;
 
     /** Server version. */
-    server_version m_server_version{};
+    detail::server_version m_server_version{};
 
     /** Cluster name. */
     std::string m_cluster_name{};
+
+    /** Features. */
+    std::vector<std::byte> m_features{};
 };
 
 } // namespace ignite::protocol

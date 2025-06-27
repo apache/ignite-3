@@ -109,7 +109,7 @@ public partial class LinqTests
     [Test]
     public void TestAverage()
     {
-        Assert.AreEqual(1.0d, PocoByteView.AsQueryable().Average(x => x.Val));
+        Assert.AreEqual(1.2d, PocoByteView.AsQueryable().Average(x => x.Val));
         Assert.AreEqual(9.0d, PocoShortView.AsQueryable().Average(x => x.Val));
         Assert.AreEqual(450d, PocoIntView.AsQueryable().Average(x => x.Val));
         Assert.AreEqual(9.0d, PocoLongView.AsQueryable().Average(x => x.Val));

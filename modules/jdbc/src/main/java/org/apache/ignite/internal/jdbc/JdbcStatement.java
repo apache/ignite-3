@@ -43,11 +43,13 @@ import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCancelResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,7 +72,7 @@ public class JdbcStatement implements Statement {
     private volatile boolean closed;
 
     /** Query timeout. */
-    private int timeout;
+    long queryTimeoutMillis;
 
     /** Rows limit. */
     private int maxRows;
@@ -89,6 +91,8 @@ public class JdbcStatement implements Statement {
 
     /** Current result index. */
     private int curRes;
+
+    private volatile @Nullable Long lastCorrelationToken;
 
     /**
      * Creates new statement.
@@ -136,10 +140,13 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
+        long correlationToken = nextToken();
+
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
-                conn.getAutoCommit(), multiStatement);
+                conn.getAutoCommit(), multiStatement, queryTimeoutMillis, correlationToken, conn.observableTimestamp());
 
         JdbcQueryExecuteResponse res;
+
         try {
             res = (JdbcQueryExecuteResponse) conn.handler().queryAsync(conn.connectionId(), req).get();
         } catch (InterruptedException e) {
@@ -150,29 +157,25 @@ public class JdbcStatement implements Statement {
             throw new SQLException("Query execution canceled.", SqlStateCode.QUERY_CANCELLED, e);
         }
 
-        if (!res.hasResult()) {
+        if (!res.success()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
         }
 
         JdbcQuerySingleResult executeResult = res.result();
 
-        if (!executeResult.resultAvailable()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(executeResult.err(), executeResult.status());
-        }
-
         resSets = new ArrayList<>();
 
         JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(res.getChannel());
 
-        List<ColumnType> columnTypes = executeResult.columnTypes();
-        columnTypes = columnTypes == null ? List.of() : columnTypes;
-        int[] decimalScales = executeResult.decimalScales();
+        List<JdbcColumnMeta> meta = executeResult.meta();
 
-        Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
+        Function<BinaryTupleReader, List<Object>> transformer = meta != null ? createTransformer(meta) : null;
 
-        resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize,
-                executeResult.last(), executeResult.items(), executeResult.isQuery(), executeResult.updateCount(),
-                closeOnCompletion, columnTypes.size(), transformer));
+        int colCount = meta != null ? meta.size() : 0;
+
+        resSets.add(new JdbcResultSet(handler, this, executeResult.cursorId(), pageSize, !executeResult.hasMoreData(),
+                executeResult.items(), meta, executeResult.hasResultSet(), executeResult.hasNextResult(),
+                executeResult.updateCount(), closeOnCompletion, colCount, transformer));
     }
 
     /** {@inheritDoc} */
@@ -290,21 +293,18 @@ public class JdbcStatement implements Statement {
     public int getQueryTimeout() throws SQLException {
         ensureNotClosed();
 
-        return timeout / 1000;
+        long seconds = queryTimeoutMillis / 1000;
+        if (seconds >= Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+
+        return (int) seconds;
     }
 
     /** {@inheritDoc} */
     @Override
     public void setQueryTimeout(int timeout) throws SQLException {
-        ensureNotClosed();
-
-        if (timeout < 0) {
-            throw new SQLException("Invalid timeout value.");
-        }
-
-        // The timeout value of 0 will be converted to Integer.MAX_VALUE timeout to avoid further checks to 0.
-        // This is because zero means there is no timeout limit.
-        timeout(timeout * 1000 > timeout ? timeout * 1000 : Integer.MAX_VALUE);
+        timeout(timeout * 1000L);
     }
 
     /** {@inheritDoc} */
@@ -312,7 +312,25 @@ public class JdbcStatement implements Statement {
     public void cancel() throws SQLException {
         ensureNotClosed();
 
-        throw new SQLException("Cancellation is not supported.");
+        Long correlationToken = lastCorrelationToken;
+
+        if (correlationToken == null) {
+            return;
+        }
+
+        try {
+            JdbcQueryCancelResult res = conn.handler().cancelAsync(conn.connectionId(), correlationToken).get();
+
+            if (res.status() != Response.STATUS_SUCCESS) {
+                throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+            }
+        } catch (CancellationException e) {
+            throw new SQLException("Request to cancel the statement has been canceled.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Request to cancel the statement has failed.", e);
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        }
     }
 
     /** {@inheritDoc} */
@@ -399,7 +417,7 @@ public class JdbcStatement implements Statement {
 
         @Nullable JdbcResultSet rs = resSets.get(curRes);
 
-        if (rs == null || !rs.isQuery()) {
+        if (rs == null || !rs.hasResultSet()) {
             return null;
         }
 
@@ -417,7 +435,7 @@ public class JdbcStatement implements Statement {
 
         @Nullable JdbcResultSet rs = resSets.get(curRes);
 
-        if (rs == null || rs.isQuery()) {
+        if (rs == null || rs.hasResultSet()) {
             return -1;
         }
 
@@ -572,12 +590,16 @@ public class JdbcStatement implements Statement {
             return INT_EMPTY_ARRAY;
         }
 
-        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
+        long correlationToken = nextToken();
+
+        JdbcBatchExecuteRequest req = new JdbcBatchExecuteRequest(
+                conn.getSchema(), batch, conn.getAutoCommit(), queryTimeoutMillis, correlationToken
+        );
 
         try {
             JdbcBatchExecuteResult res = conn.handler().batchAsync(conn.connectionId(), req).get();
 
-            if (!res.hasResults()) {
+            if (!res.success()) {
                 throw new BatchUpdateException(res.err(),
                         IgniteQueryErrorCode.codeToSqlState(res.getErrorCode()),
                         res.getErrorCode(),
@@ -690,7 +712,7 @@ public class JdbcStatement implements Statement {
      * @return isQuery flag.
      */
     protected boolean isQuery() {
-        return Objects.requireNonNull(resSets).get(0).isQuery();
+        return Objects.requireNonNull(resSets).get(0).hasResultSet();
     }
 
     /**
@@ -733,6 +755,8 @@ public class JdbcStatement implements Statement {
             resSets = null;
             curRes = 0;
         }
+
+        lastCorrelationToken = null;
     }
 
     /**
@@ -767,14 +791,24 @@ public class JdbcStatement implements Statement {
      * <p>For test purposes.
      *
      * @param timeout Timeout.
-     * @throws SQLException If timeout condition is not satisfied.
+     * @throws SQLException If timeout value is invalid.
      */
-    public final void timeout(int timeout) throws SQLException {
+    public final void timeout(long timeout) throws SQLException {
+        ensureNotClosed();
+
         if (timeout < 0) {
-            throw new SQLException("Condition timeout >= 0 is not satisfied.");
+            throw new SQLException("Invalid timeout value.");
         }
 
-        this.timeout = timeout;
+        this.queryTimeoutMillis = timeout;
+    }
+
+    long nextToken() {
+        long correlationToken = conn.nextToken();
+
+        lastCorrelationToken = correlationToken;
+
+        return correlationToken;
     }
 
     private static SQLException toSqlException(ExecutionException e) {

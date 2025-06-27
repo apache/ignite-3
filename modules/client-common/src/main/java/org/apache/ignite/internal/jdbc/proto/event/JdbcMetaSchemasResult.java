@@ -46,8 +46,6 @@ public class JdbcMetaSchemasResult extends Response {
         Objects.requireNonNull(schemas);
 
         this.schemas = schemas;
-
-        this.hasResults = true;
     }
 
     /** {@inheritDoc} */
@@ -55,7 +53,7 @@ public class JdbcMetaSchemasResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
@@ -71,7 +69,7 @@ public class JdbcMetaSchemasResult extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 

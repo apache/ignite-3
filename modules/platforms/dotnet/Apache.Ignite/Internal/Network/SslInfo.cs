@@ -21,6 +21,15 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using Ignite.Network;
 
+/// <summary>
+/// SSL info.
+/// </summary>
+/// <param name="TargetHostName">Target host name.</param>
+/// <param name="NegotiatedCipherSuiteName">Negotiated cipher suite name.</param>
+/// <param name="IsMutuallyAuthenticated">Whether client and server are mutually authenticated.</param>
+/// <param name="LocalCertificate">Local certificate.</param>
+/// <param name="RemoteCertificate">Remote certificate.</param>
+/// <param name="SslProtocol">SSL protocol.</param>
 internal sealed record SslInfo(
     string TargetHostName,
     string NegotiatedCipherSuiteName,

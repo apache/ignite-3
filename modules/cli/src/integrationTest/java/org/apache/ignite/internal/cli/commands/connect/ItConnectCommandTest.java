@@ -17,13 +17,22 @@
 
 package org.apache.ignite.internal.cli.commands.connect;
 
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createEmptySecretConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createIntegrationTestsConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createJdbcTestsBasicSecretConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createNonExistingSecretConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.io.IOException;
+import java.io.File;
+import java.util.List;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class ItConnectCommandTest extends ItConnectToClusterTestBase {
 
@@ -39,7 +48,8 @@ class ItConnectCommandTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputContains("Connected to http://localhost:10300"),
+                this::assertTerminalOutputIsEmpty
         );
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
@@ -54,7 +64,22 @@ class ItConnectCommandTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10301")
+                () -> assertOutputContains("Connected to http://localhost:10301"),
+                this::assertTerminalOutputIsEmpty
+        );
+    }
+
+    @Test
+    @DisplayName("Should connect to cluster with given url with trailing slash")
+    void connectWithGivenUrlWithTrailingSlash() {
+        // When connect with given url with trailing slash
+        execute("connect", "http://localhost:10301/");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10301"),
+                this::assertTerminalOutputIsEmpty
         );
     }
 
@@ -67,7 +92,8 @@ class ItConnectCommandTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 () -> assertErrOutputIs("Node unavailable" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:11111" + System.lineSeparator())
+                        + "Could not connect to node with URL http://localhost:11111" + System.lineSeparator()),
+                this::assertTerminalOutputIsEmpty
         );
         // And prompt is
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -86,15 +112,28 @@ class ItConnectCommandTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Disconnected from http://localhost:10300")
+                () -> assertOutputContains("Disconnected from http://localhost:10300"),
+                this::assertTerminalOutputIsEmpty
         );
         // And prompt is changed
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
     }
 
-    @Test
+    private static List<Arguments> secretConfigs() {
+        return List.of(
+                Arguments.of(Named.of("createEmptySecretConfig", createEmptySecretConfig())),
+                Arguments.of(Named.of("createNonExistingSecretConfig", createNonExistingSecretConfig())),
+                Arguments.of(Named.of("createJdbcTestsBasicSecretConfig", createJdbcTestsBasicSecretConfig()))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("secretConfigs")
     @DisplayName("Should state that already connected")
-    void connectTwice() {
+    void connectTwice(File secretConfig) {
+        // Given secret config
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), secretConfig);
+
         // Given connected to cluster
         execute("connect");
         // And output is
@@ -106,13 +145,13 @@ class ItConnectCommandTest extends ItConnectToClusterTestBase {
         assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
 
         // When connect again
-        resetOutput();
         execute("connect");
 
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("You are already connected to http://localhost:10300" + System.lineSeparator())
+                () -> assertOutputIs("You are already connected to http://localhost:10300" + System.lineSeparator()),
+                this::assertTerminalOutputIsEmpty
         );
         // And prompt is still connected
         assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
@@ -120,7 +159,7 @@ class ItConnectCommandTest extends ItConnectToClusterTestBase {
 
     @Test
     @DisplayName("Should throw error if cluster without authentication but command invoked with username/password")
-    void clusterWithoutAuthButUsernamePasswordProvided() throws IOException {
+    void clusterWithoutAuthButUsernamePasswordProvided() {
 
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -130,8 +169,10 @@ class ItConnectCommandTest extends ItConnectToClusterTestBase {
 
         // Then
         assertAll(
+                this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Authentication is not enabled on cluster but username or password were provided."
-                        + System.lineSeparator())
+                        + System.lineSeparator()),
+                this::assertTerminalOutputIsEmpty
         );
 
         // And prompt is

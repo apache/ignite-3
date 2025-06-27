@@ -33,10 +33,10 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.RetryPolicyContextImpl;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.table.RecordView;
@@ -60,17 +60,17 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testNoRetryPolicySecondRequestFails() throws Exception {
+    public void testNoRetryPolicySecondRequestFails() {
         initServer(reqId -> reqId % 3 == 0);
 
         try (var client = getClient(null)) {
-            assertEquals("t", client.tables().tables().get(0).name());
+            assertEquals("T", client.tables().tables().get(0).qualifiedName().objectName());
             assertThrows(IgniteException.class, () -> client.tables().tables().get(0).name());
         }
     }
 
     @Test
-    public void testRetryPolicyCompletesOperationWithoutException() throws Exception {
+    public void testRetryPolicyCompletesOperationWithoutException() {
         // Every 3 network message fails, including handshake.
         initServer(reqId -> reqId % 4 == 0);
 
@@ -79,7 +79,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
 
         try (var client = getClient(plc)) {
             for (int i = 0; i < ITER; i++) {
-                assertEquals("t", client.tables().tables().get(0).name());
+                assertEquals("T", client.tables().tables().get(0).qualifiedName().objectName());
             }
 
             assertEquals(ITER / 2 - 1, plc.invocations.size());
@@ -87,7 +87,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryPolicyDoesNotRetryUnrelatedErrors() throws Exception {
+    public void testRetryPolicyDoesNotRetryUnrelatedErrors() {
         initServer(reqId -> reqId % 33 == 0);
         var plc = new TestRetryPolicy();
 
@@ -98,13 +98,13 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryPolicyDoesNotRetryTxCommit() throws Exception {
+    public void testRetryPolicyDoesNotRetryTxCommit() {
         initServer(reqId -> reqId % 3 == 0);
         var plc = new TestRetryPolicy();
 
         try (var client = getClient(plc)) {
             Transaction tx = client.transactions().begin();
-            ClientLazyTransaction.ensureStarted(tx, IgniteTestUtils.getFieldValue(client, "ch"), null).join();
+            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel()).get1().join();
 
             assertThrows(IgniteClientConnectionException.class, tx::commit);
             assertEquals(0, plc.invocations.size());
@@ -112,7 +112,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryLimitPolicyThrowsOnLimitExceeded() throws Exception {
+    public void testRetryLimitPolicyThrowsOnLimitExceeded() {
         initServer(reqId -> reqId % 2 == 0);
         var plc = new TestRetryPolicy();
         plc.retryLimit(5);
@@ -126,7 +126,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testCustomRetryPolicyIsInvokedWithCorrectContext() throws Exception {
+    public void testCustomRetryPolicyIsInvokedWithCorrectContext() {
         initServer(reqId -> reqId % 2 == 0);
         var plc = new TestRetryPolicy();
         plc.retryLimit(2);
@@ -146,7 +146,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testTableOperationWithoutTxIsRetried() throws Exception {
+    public void testTableOperationWithoutTxIsRetried() {
         initServer(reqId -> reqId % 4 == 0);
         var plc = new TestRetryPolicy();
 
@@ -160,14 +160,14 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testTableOperationWithTxIsNotRetried() throws Exception {
+    public void testTableOperationWithTxIsNotRetried() {
         initServer(reqId -> reqId % 4 == 0);
         var plc = new TestRetryPolicy();
 
         try (var client = getClient(plc)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
             Transaction tx = client.transactions().begin();
-            ClientLazyTransaction.ensureStarted(tx, IgniteTestUtils.getFieldValue(client, "ch"), null).join();
+            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel()).get1().join();
 
             var ex = assertThrows(IgniteException.class, () -> recView.get(tx, Tuple.create().set("id", 1)));
             assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors."));
@@ -177,7 +177,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryReadPolicyRetriesReadOperations() throws Exception {
+    public void testRetryReadPolicyRetriesReadOperations() {
         // Standard requests are:
         // 1: Handshake
         // 2: SCHEMAS_GET
@@ -198,7 +198,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRetryReadPolicyDoesNotRetryWriteOperations() throws Exception {
+    public void testRetryReadPolicyDoesNotRetryWriteOperations() {
         initServer(reqId -> reqId % 6 == 0);
 
         try (var client = getClient(new RetryReadPolicy())) {
@@ -213,7 +213,16 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         var nullOpFields = new ArrayList<String>();
 
         for (var field : ClientOp.class.getDeclaredFields()) {
+            if ("WRITE_MASK".equals(field.getName()) || "BATCH_MASK".equals(field.getName())) {
+                continue;
+            }
+
             var opCode = (int) field.get(null);
+
+            if (opCode == ClientOp.RESERVED_EXTENSION_RANGE_START || opCode == ClientOp.RESERVED_EXTENSION_RANGE_END) {
+                continue;
+            }
+
             var publicOp = ClientUtils.opCodeToClientOperationType(opCode);
 
             if (publicOp == null) {
@@ -221,7 +230,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
             }
         }
 
-        long expectedNullCount = 22;
+        long expectedNullCount = 24;
 
         String msg = nullOpFields.size()
                 + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "
@@ -233,7 +242,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     @Test
     public void testRetryReadPolicyAllOperationsSupported() {
         var plc = new RetryReadPolicy();
-        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, 0, 0, null, 0, 0, null, null, null, false, null, 0);
+        var cfg = new IgniteClientConfigurationImpl(null, null, 0, 0, null, 0, 0, null, null, null, false, null, 0, 1024);
 
         for (var op : ClientOperationType.values()) {
             var ctx = new RetryPolicyContextImpl(cfg, op, 0, null);
@@ -242,7 +251,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testDefaultRetryPolicyIsRetryReadPolicyWithLimit() throws Exception {
+    public void testDefaultRetryPolicyIsRetryReadPolicyWithLimit() {
         initServer(reqId -> false);
 
         try (var client = IgniteClient.builder().addresses("127.0.0.1:" + server.port()).build()) {
@@ -254,7 +263,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testExceptionInRetryPolicyPropagatesToCaller() throws Exception {
+    public void testExceptionInRetryPolicyPropagatesToCaller() {
         initServer(reqId -> reqId % 2 == 0);
         var plc = new TestRetryPolicy();
         plc.shouldThrow = true;
@@ -275,7 +284,6 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .retryPolicy(retryPolicy)
-                .reconnectThrottlingPeriod(0)
                 .loggerFactory(loggerFactory)
                 .build();
     }

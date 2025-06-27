@@ -24,11 +24,15 @@ uuid job_execution::get_id() const {
     return m_impl->get_id();
 }
 
-void job_execution::get_status_async(ignite_callback<std::optional<job_status>> callback) {
-    m_impl->get_status_async(std::move(callback));
+const cluster_node &job_execution::get_node() const {
+    return m_impl->get_node();
 }
 
-void job_execution::get_result_async(ignite_callback<std::optional<primitive>> callback) {
+void job_execution::get_state_async(ignite_callback<std::optional<job_state>> callback) {
+    m_impl->get_state_async(std::move(callback));
+}
+
+void job_execution::get_result_async(ignite_callback<std::optional<binary_object>> callback) {
     m_impl->get_result_async(std::move(callback));
 }
 

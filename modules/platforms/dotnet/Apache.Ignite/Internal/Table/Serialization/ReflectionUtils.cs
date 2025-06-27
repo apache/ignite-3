@@ -24,7 +24,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq.Expressions;
     using System.Reflection;
     using System.Runtime.CompilerServices;
-    using System.Runtime.Serialization;
 
     /// <summary>
     /// Reflection utilities.
@@ -35,7 +34,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// GetUninitializedObject method.
         /// </summary>
         public static readonly MethodInfo GetUninitializedObjectMethod = GetMethodInfo(
-            () => FormatterServices.GetUninitializedObject(null!));
+            () => RuntimeHelpers.GetUninitializedObject(null!));
 
         /// <summary>
         /// GetTypeFromHandle method.
@@ -213,14 +212,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             // C# auto property backing field (<MyProperty>k__BackingField)
             // or anonymous type backing field (<MyProperty>i__Field):
-            if (fieldName.StartsWith("<", StringComparison.Ordinal)
-                && fieldName.IndexOf(">", StringComparison.Ordinal) is var endIndex and > 0)
+            if (fieldName.StartsWith('<')
+                && fieldName.IndexOf('>', StringComparison.Ordinal) is var endIndex and > 0)
             {
                 return fieldName.Substring(1, endIndex - 1);
             }
 
             // F# backing field:
-            if (fieldName.EndsWith("@", StringComparison.Ordinal))
+            if (fieldName.EndsWith('@'))
             {
                 return fieldName.Substring(0, fieldName.Length - 1);
             }

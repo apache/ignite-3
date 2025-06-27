@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.message;
 
 import java.util.List;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 
 /**
  * QueryBatchMessage interface.

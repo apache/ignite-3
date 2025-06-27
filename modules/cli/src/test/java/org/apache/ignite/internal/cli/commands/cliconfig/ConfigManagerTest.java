@@ -17,17 +17,24 @@
 
 package org.apache.ignite.internal.cli.commands.cliconfig;
 
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createEmptyConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createEmptySecretConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createNonExistingSecretConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createSectionWithDefaultProfileConfig;
+import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.createSectionWithoutDefaultProfileConfig;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.io.File;
+import org.apache.ignite.internal.cli.config.CliConfigKeys.Constants;
 import org.apache.ignite.internal.cli.config.ini.IniConfigManager;
 import org.junit.jupiter.api.Test;
 
 class ConfigManagerTest {
     @Test
     public void testSaveLoadConfig() {
-        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfileConfig();
-        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
+        File tempFile = createSectionWithDefaultProfileConfig();
+        File tempSecretFile = createEmptySecretConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
         configManager.setProperty("ignite.cluster-endpoint-url", "test");
@@ -38,28 +45,38 @@ class ConfigManagerTest {
 
     @Test
     public void testLoadConfigWithoutDefaultProfile() {
-        File tempFile = TestConfigManagerHelper.createSectionWithoutDefaultProfileConfig();
-        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
-        IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
-
+        IniConfigManager configManager = new IniConfigManager(createSectionWithoutDefaultProfileConfig(), createEmptySecretConfig());
 
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("owner");
     }
 
     @Test
     public void testEmptyConfigLoad() {
-        File tempFile = TestConfigManagerHelper.createEmptyConfig();
-        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
-        IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
+        IniConfigManager configManager = new IniConfigManager(createEmptyConfig(), createEmptySecretConfig());
 
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("default");
+        assertThat(configManager.getCurrentProperty(Constants.CLUSTER_URL)).isEqualTo("http://localhost:10300");
+        assertThat(configManager.getCurrentProperty(Constants.BASIC_AUTHENTICATION_USERNAME)).isNull();
     }
 
+    @Test
+    public void testNonExistingSecretConfigLoad() {
+        IniConfigManager configManager = new IniConfigManager(createEmptyConfig(), createNonExistingSecretConfig());
+
+        assertThat(configManager.getCurrentProfile().getName()).isEqualTo("default");
+        assertThat(configManager.getCurrentProperty(Constants.CLUSTER_URL)).isEqualTo("http://localhost:10300");
+
+        String username = configManager.getCurrentProperty(Constants.BASIC_AUTHENTICATION_USERNAME);
+        assertAll(
+                () -> assertThat(username).isNotNull(),
+                () -> assertThat(username).isBlank()
+        );
+    }
 
     @Test
     public void testRemoveConfigFileOnRuntime() {
-        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfileConfig();
-        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
+        File tempFile = createSectionWithDefaultProfileConfig();
+        File tempSecretFile = createEmptySecretConfig();
         IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
 
         assertThat(configManager.getCurrentProfile().getName()).isEqualTo("database");
@@ -78,9 +95,8 @@ class ConfigManagerTest {
 
     @Test
     public void testRemoveProperty() {
-        File tempFile = TestConfigManagerHelper.createSectionWithDefaultProfileConfig();
-        File tempSecretFile = TestConfigManagerHelper.createEmptySecretConfig();
-        IniConfigManager configManager = new IniConfigManager(tempFile, tempSecretFile);
+        File tempFile = createSectionWithDefaultProfileConfig();
+        IniConfigManager configManager = new IniConfigManager(tempFile, createEmptySecretConfig());
 
         assertThat(configManager.removeProperty("server", configManager.getCurrentProfile().getName())).isEqualTo("127.0.0.1");
 

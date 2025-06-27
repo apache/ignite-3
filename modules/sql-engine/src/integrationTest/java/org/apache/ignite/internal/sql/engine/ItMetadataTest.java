@@ -70,8 +70,8 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
         assertQuery("select trim(name) tr_name from person").columnNames("TR_NAME").check();
         assertQuery("select trim(name) from person").columnNames("TRIM(BOTH ' ' FROM NAME)").check();
-        assertQuery("select ceil(salary), floor(salary), position('text' IN salary) from person")
-                .columnNames("CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN SALARY)").check();
+        assertQuery("select ceil(salary), floor(salary), position('text' IN name) from person")
+                .columnNames("CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN NAME)").check();
 
         assertQuery("select count(*) from person").columnNames("COUNT(*)").check();
         assertQuery("select count(name) from person").columnNames("COUNT(NAME)").check();
@@ -86,6 +86,9 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
         assertQuery("select salary, count(name) from person group by salary").columnNames("SALARY", "COUNT(NAME)").check();
 
         assertQuery("select 1, -1, 'some string' from person").columnNames("1", "-1", "'some string'").check();
+
+        // id, name, salary
+        assertQuery("SELECT SUM(sal) FROM person as p (i, n, sal)").columnNames("SUM(SAL)").check();
     }
 
     @Test
@@ -162,10 +165,10 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                 + "REAL_C REAL, " + "DOUBLE_C DOUBLE, "
 
                 // Character string types
-                + "CHAR_C CHAR, " + "CHAR_C2 CHAR(65536), " + "VARCHAR_C VARCHAR, " + "VARCHAR_C2 VARCHAR(125), "
+                + "VARCHAR_C VARCHAR, " + "VARCHAR_C2 VARCHAR(125), "
 
                 // Binary string types
-                + "BINARY_C BINARY, " + "BINARY_C2 BINARY(65536), " + "VARBINARY_C VARBINARY, " + "VARBINARY_C2 VARBINARY(125), "
+                + "VARBINARY_C VARBINARY, " + "VARBINARY_C2 VARBINARY(125), "
 
                 // Datetime types
                 // ANSI`99 syntax "WITH TIME ZONE" is not supported,
@@ -189,9 +192,6 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
                 // Custom types
                 + "UUID_C UUID, "
-                // TODO: IGNITE-18431: Sql. BitSet is not supported.
-                // + "BITSET_C BITMASK, "
-                // + "BITSET_C BITMASK(8), "
 
                 // Nullability constraint
                 + "NULLABLE_C INT, " + "NON_NULL_C INT NOT NULL " + ")");
@@ -220,14 +220,10 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                         new MetadataMatcher().name("DOUBLE_C").type(ColumnType.DOUBLE).precision(15).scale(UNDEFINED_SCALE),
 
                         // Character string types
-                        new MetadataMatcher().name("CHAR_C").type(ColumnType.STRING).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("CHAR_C2").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARCHAR_C").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARCHAR_C2").type(ColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
 
                         // Binary string types
-                        new MetadataMatcher().name("BINARY_C").type(ColumnType.BYTE_ARRAY).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("BINARY_C2").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARBINARY_C").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARBINARY_C2").type(ColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
 
@@ -255,9 +251,6 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
                         // Custom types
                         new MetadataMatcher().name("UUID_C"),
-                        // TODO: IGNITE-18431: Sql. BitSet is not supported.
-                        // new MetadataMatcher().name("BITSET_C"),
-                        // new MetadataMatcher().name("BITSET_C2"),
 
                         // Nullability constraint
                         new MetadataMatcher().name("NULLABLE_C").nullable(true),

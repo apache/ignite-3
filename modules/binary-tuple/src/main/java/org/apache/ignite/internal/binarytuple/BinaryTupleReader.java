@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -28,8 +27,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.UUID;
+import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,6 +59,17 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public BinaryTupleReader(int numElements, ByteBuffer buffer) {
         super(numElements, buffer);
+    }
+
+    /**
+     * Constructor with a specific factory function for creating a `ByteBufferAccessor`.
+     *
+     * @param numElements Number of tuple elements.
+     * @param buffer Buffer with a binary tuple.
+     * @param byteBufferAccessorFactory A factory function to create a `ByteBufferAccessor` for accessing the buffer.
+     */
+    public BinaryTupleReader(int numElements, ByteBuffer buffer, Function<ByteBuffer, ByteBufferAccessor> byteBufferAccessorFactory) {
+        super(numElements, buffer, byteBufferAccessorFactory);
     }
 
     /** {@inheritDoc} */
@@ -244,17 +254,6 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * Reads value of specified element.
      *
      * @param index Element index.
-     * @return Element value.
-     */
-    public @Nullable BigInteger numberValue(int index) {
-        seek(index);
-        return begin == end ? null : numberValue(begin, end);
-    }
-
-    /**
-     * Reads value of specified element.
-     *
-     * @param index Element index.
      * @param scale Decimal scale. If equal to {@link Integer#MIN_VALUE}, then the value will be returned with whatever scale it is
      *         stored in.
      * @return Element value.
@@ -298,11 +297,11 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * Reads value of specified element.
      *
      * @param index Element index.
-     * @return Element value.
+     * @return Element value as a {@link ByteBuffer}.
      */
-    public @Nullable UUID uuidValue(int index) {
+    public @Nullable ByteBuffer bytesValueAsBuffer(int index) {
         seek(index);
-        return begin == end ? null : uuidValue(begin, end);
+        return begin == end ? null : bytesValueAsBuffer(begin, end);
     }
 
     /**
@@ -311,9 +310,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * @param index Element index.
      * @return Element value.
      */
-    public @Nullable BitSet bitmaskValue(int index) {
+    public @Nullable UUID uuidValue(int index) {
         seek(index);
-        return begin == end ? null : bitmaskValue(begin, end);
+        return begin == end ? null : uuidValue(begin, end);
     }
 
     /**
@@ -407,5 +406,20 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public void seek(int index) {
         fetch(index, this);
+    }
+
+    /**
+     * Copies raw value of the specified element to the builder.
+     *
+     * @param builder Builder to copy value to.
+     * @param index Index of the element.
+     */
+    protected void copyRawValue(BinaryTupleBuilder builder, int index) {
+        seek(index);
+        if (begin == end) {
+            builder.appendNull();
+        } else {
+            builder.appendElementBytes(buffer, begin, end - begin);
+        }
     }
 }

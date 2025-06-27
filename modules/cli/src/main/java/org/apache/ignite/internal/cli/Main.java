@@ -33,8 +33,11 @@ import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.config.StateFolderProvider;
 import org.apache.ignite.internal.cli.core.exception.handler.PicocliExecutionExceptionHandler;
+import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReaderFactory;
+import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProviderImpl;
 import org.fusesource.jansi.AnsiConsole;
+import org.jline.terminal.Terminal;
 import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
 
@@ -56,6 +59,7 @@ public class Main {
         try (MicronautFactory micronautFactory = new MicronautFactory(builder.start())) {
             AnsiConsole.systemInstall();
             initReplExecutor(micronautFactory);
+            initQuestionAsker(micronautFactory);
             if (args.length != 0 || !isatty()) { // do not enter REPL if input or output is redirected
                 try {
                     exitCode = executeCommand(args, micronautFactory);
@@ -83,11 +87,18 @@ public class Main {
         replExecutorProvider.injectFactory(micronautFactory);
     }
 
+    /** Creates an instance of the terminal and sets the question asker factory. */
+    private static void initQuestionAsker(MicronautFactory micronautFactory) throws Exception {
+        Terminal terminal = micronautFactory.create(Terminal.class);
+        QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
+    }
+
     private static void enterRepl(MicronautFactory micronautFactory) throws Exception {
         VersionProvider versionProvider = micronautFactory.create(VersionProvider.class);
         System.out.println(banner(versionProvider));
 
         ReplManager replManager = micronautFactory.create(ReplManager.class);
+        replManager.subscribe();
         replManager.startReplMode();
     }
 
@@ -96,6 +107,7 @@ public class Main {
         cmd.setExecutionExceptionHandler(new PicocliExecutionExceptionHandler());
         cmd.setDefaultValueProvider(micronautFactory.create(ConfigDefaultValueProvider.class));
         cmd.setTrimQuotes(true);
+        cmd.setCaseInsensitiveEnumValuesAllowed(true);
         return cmd.execute(args);
     }
 

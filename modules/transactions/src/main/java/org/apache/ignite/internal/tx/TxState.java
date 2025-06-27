@@ -28,7 +28,7 @@ public enum TxState {
     /**
      * Active transaction that is in progress.
      */
-    PENDING,
+    PENDING(0),
 
     /**
      * Transaction can be put in this state on a transaction coordinator or a commit partition on a start of finalization process
@@ -37,23 +37,23 @@ public enum TxState {
      * commit partition on a coordinator, or finishes the transaction recovery on a commit partition. This state can be also seen locally
      * on data nodes if they are colocated with the coordinator or the commit partition.
      */
-    FINISHING,
+    FINISHING(1),
 
     /**
      * Aborted (rolled back) transaction.
      */
-    ABORTED,
+    ABORTED(2),
 
     /**
      * Committed transaction.
      */
-    COMMITTED,
+    COMMITTED(3),
 
     /**
      * State that is assigned to a transaction due to absence of coordinator. It is temporary and can be changed to
      * {@link TxState#COMMITTED} or {@link TxState#ABORTED} after recovery or successful write intent resolution.
      */
-    ABANDONED;
+    ABANDONED(4);
 
     private static final boolean[][] TRANSITION_MATRIX = {
             { false, true,  true, true,  true,  true },
@@ -88,5 +88,34 @@ public enum TxState {
         int afterOrd = after.ordinal() + 1;
 
         return TRANSITION_MATRIX[beforeOrd][afterOrd];
+    }
+
+
+    private final int id;
+
+    TxState(int id) {
+        this.id = id;
+    }
+
+    /**
+     * Returns the enumerated value from its id.
+     *
+     * @param id Id of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by id.
+     */
+    public static TxState fromId(int id) throws IllegalArgumentException {
+        switch (id) {
+            case 0: return PENDING;
+            case 1: return FINISHING;
+            case 2: return ABORTED;
+            case 3: return COMMITTED;
+            case 4: return ABANDONED;
+            default:
+                throw new IllegalArgumentException("No enum constant from id: " + id);
+        }
+    }
+
+    public int id() {
+        return id;
     }
 }

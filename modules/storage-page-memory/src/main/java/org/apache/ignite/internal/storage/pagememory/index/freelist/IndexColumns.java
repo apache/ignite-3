@@ -22,17 +22,17 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.io.IndexColumnsDataIo;
+import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Index columns to store in free list.
  */
 public class IndexColumns implements Storable {
+    public static final byte DATA_TYPE = 1;
+
     /** Size offset. */
-    public static final int SIZE_OFFSET = 0;
+    public static final int SIZE_OFFSET = DATA_TYPE_OFFSET + DATA_TYPE_SIZE_BYTES;
 
     /** Value offset. Value goes right after the size. */
     public static final int VALUE_OFFSET = SIZE_OFFSET + Integer.BYTES;
@@ -113,7 +113,38 @@ public class IndexColumns implements Storable {
     }
 
     @Override
-    public IoVersions<? extends AbstractDataPageIo<?>> ioVersions() {
-        return IndexColumnsDataIo.VERSIONS;
+    public void writeRowData(long pageAddr, int dataOff, int payloadSize, boolean newRow) {
+        PageUtils.putShort(pageAddr, dataOff, (short) payloadSize);
+
+        dataOff += Short.BYTES;
+
+        PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, DATA_TYPE);
+
+        PageUtils.putInt(pageAddr, dataOff + SIZE_OFFSET, valueSize());
+
+        PageUtils.putByteBuffer(pageAddr, dataOff + VALUE_OFFSET, valueBuffer());
+    }
+
+    @Override
+    public void writeFragmentData(
+            ByteBuffer pageBuf,
+            int rowOff,
+            int payloadSize
+    ) {
+        if (rowOff == 0) {
+            // First fragment.
+            assert headerSize() <= payloadSize;
+
+            pageBuf.put(DATA_TYPE);
+
+            pageBuf.putInt(valueSize());
+
+            Storable.putValueBufferIntoPage(pageBuf, valueBuffer, 0, payloadSize - VALUE_OFFSET);
+        } else {
+            // Not a first fragment.
+            assert rowOff >= headerSize();
+
+            Storable.putValueBufferIntoPage(pageBuf, valueBuffer, rowOff - VALUE_OFFSET, payloadSize);
+        }
     }
 }

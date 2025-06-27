@@ -17,25 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-
-import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.Matcher;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * A set of test to verify behavior of type coercion for binary arithmetic, when operands belongs to the NUMERIC type family.
+ * A set of tests to verify behavior of type coercion for binary arithmetic, when operands belongs to the NUMERIC type family.
  *
  * <p>This tests aim to help to understand in which cases implicit cast will be added to which operand when does arithmetic with a given
  * numeric type pair.
@@ -44,54 +42,69 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
 
     // No any type changes for `addition` operation from planner perspective.
     @ParameterizedTest
-    @MethodSource("allNumericPairs")
-    public void additionOp(NumericPair pair) throws Exception {
-        IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
+    @MethodSource("plusMinusArgs")
+    public void additionOp(
+            TypePair typePair,
+            Matcher<RexNode> firstOperandMatcher,
+            Matcher<RexNode> secondOperandMatcher,
+            Matcher<RexCall> resultsMatcher
+    ) throws Exception {
+        IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        Matcher<RexNode> first = ofTypeWithoutCast(pair.first());
-        Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
-
-        assertPlan("SELECT c1 + c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
-        assertPlan("SELECT c2 + c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 + c2 FROM t", schema,
+                operandsWithResultMatcher(firstOperandMatcher, secondOperandMatcher, resultsMatcher)::matches, List.of());
+        assertPlan("SELECT c2 + c1 FROM t", schema,
+                operandsWithResultMatcher(secondOperandMatcher, firstOperandMatcher, resultsMatcher)::matches, List.of());
     }
 
     // No any type changes for `subtraction` operation from planner perspective.
     @ParameterizedTest
-    @MethodSource("allNumericPairs")
-    public void subtractionOp(NumericPair pair) throws Exception {
-        IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
+    @MethodSource("plusMinusArgs")
+    public void subtractionOp(
+            TypePair typePair,
+            Matcher<RexNode> firstOperandMatcher,
+            Matcher<RexNode> secondOperandMatcher,
+            Matcher<RexCall> resultsMatcher
+    ) throws Exception {
+        IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        Matcher<RexNode> first = ofTypeWithoutCast(pair.first());
-        Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
-
-        assertPlan("SELECT c1 - c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
-        assertPlan("SELECT c2 - c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 - c2 FROM t", schema,
+                operandsWithResultMatcher(firstOperandMatcher, secondOperandMatcher, resultsMatcher)::matches, List.of());
+        assertPlan("SELECT c2 - c1 FROM t", schema,
+                operandsWithResultMatcher(secondOperandMatcher, firstOperandMatcher, resultsMatcher)::matches, List.of());
     }
 
     // No any type changes for `division` operation from planner perspective.
     @ParameterizedTest
-    @MethodSource("allNumericPairs")
-    public void divisionOp(NumericPair pair) throws Exception {
-        IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
+    @MethodSource("divArgs")
+    public void divisionOp(
+            TypePair typePair,
+            Matcher<RexNode> firstOperandMatcher,
+            Matcher<RexNode> secondOperandMatcher,
+            Matcher<RexCall> resultsMatcher
+    ) throws Exception {
+        IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        Matcher<RexNode> first = ofTypeWithoutCast(pair.first());
-        Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
-
-        assertPlan("SELECT c1 / c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
-        assertPlan("SELECT c2 / c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 / c2 FROM t", schema,
+                operandsWithResultMatcher(firstOperandMatcher, secondOperandMatcher, resultsMatcher)::matches, List.of());
+        assertPlan("SELECT c2 / c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 
     // No any type changes for `multiplication` operation from planner perspective.
     @ParameterizedTest
-    @MethodSource("allNumericPairs")
-    public void multiplicationOp(NumericPair pair) throws Exception {
-        IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
+    @MethodSource("multArgs")
+    public void multiplicationOp(
+            TypePair typePair,
+            Matcher<RexNode> firstOperandMatcher,
+            Matcher<RexNode> secondOperandMatcher,
+            Matcher<RexCall> resultsMatcher
+    ) throws Exception {
+        IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        Matcher<RexNode> first = ofTypeWithoutCast(pair.first());
-        Matcher<RexNode> second = ofTypeWithoutCast(pair.second());
-
-        assertPlan("SELECT c1 * c2 FROM t", schema, operandMatcher(first, second)::matches, List.of());
-        assertPlan("SELECT c2 * c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
+        assertPlan("SELECT c1 * c2 FROM t", schema,
+                operandsWithResultMatcher(firstOperandMatcher, secondOperandMatcher, resultsMatcher)::matches, List.of());
+        assertPlan("SELECT c2 * c1 FROM t", schema,
+                operandsWithResultMatcher(secondOperandMatcher, firstOperandMatcher, resultsMatcher)::matches, List.of());
     }
 
     // Have the following casts for modulo operation:
@@ -103,728 +116,1059 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
     public void moduloOp(
             TypePair typePair,
             Matcher<RexNode> firstOperandMatcher,
-            Matcher<RexNode> secondOperandMatcher
+            Matcher<RexNode> secondOperandMatcher,
+            Matcher<RexCall> resultsMatcher
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
-        assertPlan("SELECT c1 % c2 FROM t", schema, operandMatcher(firstOperandMatcher, secondOperandMatcher)::matches, List.of());
-        assertPlan("SELECT c2 % c1 FROM t", schema, operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
+        assertPlan("SELECT c1 % c2 FROM t", schema,
+                operandsWithResultMatcher(firstOperandMatcher, secondOperandMatcher, resultsMatcher)::matches, List.of());
+        assertPlan("SELECT c2 % c1 FROM t", schema,
+                operandMatcher(secondOperandMatcher, firstOperandMatcher)::matches, List.of());
     }
 
     /**
      * This test ensures that {@link #moduloArgs()} doesn't miss any type pair from {@link NumericPair}.
      */
     @Test
-    void moduloArgsIncludesAllTypePairs() {
-        EnumSet<NumericPair> remainingPairs = EnumSet.allOf(NumericPair.class);
-
-        moduloArgs().map(Arguments::get).map(arg -> (NumericPair) arg[0]).forEach(remainingPairs::remove);
-
-        assertThat(remainingPairs, Matchers.empty());
+    void checkAllTypePairs() {
+        checkIncludesAllNumericTypePairs(moduloArgs());
+        checkIncludesAllNumericTypePairs(plusMinusArgs());
+        checkIncludesAllNumericTypePairs(multArgs());
+        checkIncludesAllNumericTypePairs(divArgs());
     }
 
     private static Stream<Arguments> moduloArgs() {
         return Stream.of(
-                forTypePair(NumericPair.TINYINT_TINYINT)
+                forTypePairEx(NumericPair.TINYINT_TINYINT)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT8),
 
-                forTypePair(NumericPair.TINYINT_SMALLINT)
+                forTypePairEx(NumericPair.TINYINT_SMALLINT)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT16),
 
-                forTypePair(NumericPair.TINYINT_INT)
+                forTypePairEx(NumericPair.TINYINT_INT)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT32),
 
-                forTypePair(NumericPair.TINYINT_BIGINT)
+                forTypePairEx(NumericPair.TINYINT_BIGINT)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT64),
 
-                forTypePair(NumericPair.TINYINT_NUMBER_1)
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_1_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_1_0),
 
-                forTypePair(NumericPair.TINYINT_NUMBER_2)
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_2_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.TINYINT_NUMBER_5)
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_4_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.TINYINT_DECIMAL_1_0)
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_2_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_0),
 
-                forTypePair(NumericPair.TINYINT_DECIMAL_2_1)
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_3_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_3_1),
 
-                forTypePair(NumericPair.TINYINT_DECIMAL_4_3)
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.TINYINT_DECIMAL_2_0)
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_0),
 
-                forTypePair(NumericPair.TINYINT_DECIMAL_3_1)
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_1),
 
-                forTypePair(NumericPair.TINYINT_DECIMAL_5_3)
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_6_3),
 
-                forTypePair(NumericPair.TINYINT_DECIMAL_5_0)
+                forTypePairEx(NumericPair.TINYINT_REAL)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_10_7),
 
-                forTypePair(NumericPair.TINYINT_DECIMAL_6_1)
+                forTypePairEx(NumericPair.TINYINT_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_18_15),
 
-                forTypePair(NumericPair.TINYINT_DECIMAL_8_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.TINYINT_REAL)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
-
-                forTypePair(NumericPair.TINYINT_DOUBLE)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
-
-
-                forTypePair(NumericPair.SMALLINT_SMALLINT)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_INT)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_BIGINT)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_NUMBER_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_DECIMAL_1_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_DECIMAL_2_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_DECIMAL_4_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_DECIMAL_2_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_DECIMAL_3_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_DECIMAL_5_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_DECIMAL_5_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_DECIMAL_6_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_DECIMAL_8_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.SMALLINT_REAL)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
-
-                forTypePair(NumericPair.SMALLINT_DOUBLE)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
-
-
-                forTypePair(NumericPair.INT_INT)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.INT_BIGINT)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.INT_NUMBER_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.INT_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.INT_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.INT_DECIMAL_1_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
 
-                forTypePair(NumericPair.INT_DECIMAL_2_1)
+                forTypePairEx(NumericPair.SMALLINT_SMALLINT)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT16),
 
-                forTypePair(NumericPair.INT_DECIMAL_4_3)
+                forTypePairEx(NumericPair.SMALLINT_INT)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT32),
 
-                forTypePair(NumericPair.INT_DECIMAL_2_0)
+                forTypePairEx(NumericPair.SMALLINT_BIGINT)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT64),
 
-                forTypePair(NumericPair.INT_DECIMAL_3_1)
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_1_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_1_0),
 
-                forTypePair(NumericPair.INT_DECIMAL_5_3)
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_2_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.INT_DECIMAL_5_0)
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_4_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.INT_DECIMAL_6_1)
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_2_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_0),
 
-                forTypePair(NumericPair.INT_DECIMAL_8_3)
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_3_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_3_1),
 
-                forTypePair(NumericPair.INT_REAL)
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.INT_DOUBLE)
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_0),
 
-
-                forTypePair(NumericPair.BIGINT_BIGINT)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_NUMBER_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_DECIMAL_1_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_DECIMAL_2_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_DECIMAL_4_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_DECIMAL_2_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_DECIMAL_3_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_DECIMAL_5_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_DECIMAL_5_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_DECIMAL_6_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_DECIMAL_8_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.BIGINT_REAL)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
-
-                forTypePair(NumericPair.BIGINT_DOUBLE)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
-
-
-                forTypePair(NumericPair.NUMBER_1_NUMBER_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_NUMBER_5)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_1_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_2_1)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_4_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_2_0)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_3_1)
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_6_1),
 
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_5_3)
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_8_3),
 
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_5_0)
+                forTypePairEx(NumericPair.SMALLINT_REAL)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_12_7),
 
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_6_1)
+                forTypePairEx(NumericPair.SMALLINT_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_20_15),
 
-                forTypePair(NumericPair.NUMBER_1_DECIMAL_8_3)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_1_REAL)
-                        .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
 
-                forTypePair(NumericPair.NUMBER_1_DOUBLE)
+                forTypePairEx(NumericPair.INT_INT)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT32),
 
-
-                forTypePair(NumericPair.NUMBER_2_NUMBER_2)
-                        .firstOpBeSame()
-                        .secondOpBeSame(),
-
-                forTypePair(NumericPair.NUMBER_2_NUMBER_5)
+                forTypePairEx(NumericPair.INT_BIGINT)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT64),
 
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_1_0)
+                forTypePairEx(NumericPair.INT_DECIMAL_1_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_1_0),
 
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_2_1)
+                forTypePairEx(NumericPair.INT_DECIMAL_2_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_4_3)
+                forTypePairEx(NumericPair.INT_DECIMAL_4_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_2_0)
+                forTypePairEx(NumericPair.INT_DECIMAL_2_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_0),
 
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_3_1)
+                forTypePairEx(NumericPair.INT_DECIMAL_3_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_3_1),
 
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_5_3)
+                forTypePairEx(NumericPair.INT_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_5_0)
+                forTypePairEx(NumericPair.INT_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_0),
 
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_6_1)
+                forTypePairEx(NumericPair.INT_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_6_1),
 
-                forTypePair(NumericPair.NUMBER_2_DECIMAL_8_3)
+                forTypePairEx(NumericPair.INT_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_8_3),
 
-                forTypePair(NumericPair.NUMBER_2_REAL)
+                forTypePairEx(NumericPair.INT_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_14_7),
 
-                forTypePair(NumericPair.NUMBER_2_DOUBLE)
+                forTypePairEx(NumericPair.INT_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_25_15),
 
 
-                forTypePair(NumericPair.NUMBER_5_NUMBER_5)
+                forTypePairEx(NumericPair.BIGINT_BIGINT)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(NativeTypes.INT64),
 
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_1_0)
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_1_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_1_0),
 
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_2_1)
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_2_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_4_3)
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_4_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_2_0)
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_2_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_0),
 
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_3_1)
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_3_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_3_1),
 
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_5_3)
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_5_0)
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_0),
 
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_6_1)
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_6_1),
 
-                forTypePair(NumericPair.NUMBER_5_DECIMAL_8_3)
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_8_3),
 
-                forTypePair(NumericPair.NUMBER_5_REAL)
+                forTypePairEx(NumericPair.BIGINT_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_14_7),
 
-                forTypePair(NumericPair.NUMBER_5_DOUBLE)
+                forTypePairEx(NumericPair.BIGINT_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
-
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_30_15),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_1_0)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_1_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_1_0),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_1)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_2_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_4_3)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_4_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_0)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_2_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_0),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_3_1)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_3_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_5_3)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_5_0)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_0),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_6_1)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_8_3)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_1_0_REAL)
+                forTypePairEx(NumericPair.DECIMAL_1_0_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_8_7),
 
-                forTypePair(NumericPair.DECIMAL_1_0_DOUBLE)
+                forTypePairEx(NumericPair.DECIMAL_1_0_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_16_15),
 
 
-                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_1)
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_2_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_4_3)
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_4_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_0)
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_2_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_3_1)
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_3_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_5_3)
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_5_0)
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_6_1)
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_1),
 
-                forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_8_3)
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_2_1_REAL)
+                forTypePairEx(NumericPair.DECIMAL_2_1_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_8_7),
 
-                forTypePair(NumericPair.DECIMAL_2_1_DOUBLE)
+                forTypePairEx(NumericPair.DECIMAL_2_1_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_16_15),
 
 
-                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_4_3)
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_4_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_2_0)
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_2_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_3_1)
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_3_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_5_3)
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_5_0)
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_6_1)
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_4_3_DECIMAL_8_3)
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_4_3),
 
-                forTypePair(NumericPair.DECIMAL_4_3_REAL)
+                forTypePairEx(NumericPair.DECIMAL_4_3_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_8_7),
 
-                forTypePair(NumericPair.DECIMAL_4_3_DOUBLE)
+                forTypePairEx(NumericPair.DECIMAL_4_3_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_16_15),
 
 
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_2_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_2_0),
 
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1)
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_3_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_3_1),
 
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3)
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_0)
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_0),
 
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_6_1)
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_3_1),
 
-                forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_8_3)
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.DECIMAL_2_0_REAL)
+                forTypePairEx(NumericPair.DECIMAL_2_0_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_9_7),
 
-                forTypePair(NumericPair.DECIMAL_2_0_DOUBLE)
+                forTypePairEx(NumericPair.DECIMAL_2_0_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_17_15),
 
 
-                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_3_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_3_1),
 
-                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_3)
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_0)
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_3_1),
 
-                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_6_1)
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_3_1),
 
-                forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_8_3)
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.DECIMAL_3_1_REAL)
+                forTypePairEx(NumericPair.DECIMAL_3_1_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_9_7),
 
-                forTypePair(NumericPair.DECIMAL_3_1_DOUBLE)
+                forTypePairEx(NumericPair.DECIMAL_3_1_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_17_15),
 
 
-                forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_3)
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_5_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_5_0)
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_6_1)
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.DECIMAL_5_3_DECIMAL_8_3)
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_3),
 
-                forTypePair(NumericPair.DECIMAL_5_3_REAL)
+                forTypePairEx(NumericPair.DECIMAL_5_3_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_9_7),
 
-                forTypePair(NumericPair.DECIMAL_5_3_DOUBLE)
+                forTypePairEx(NumericPair.DECIMAL_5_3_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_17_15),
 
 
-                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_5_0)
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_5_0)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_5_0),
 
-                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_6_1)
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_6_1),
 
-                forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_8_3)
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_8_3),
 
-                forTypePair(NumericPair.DECIMAL_5_0_REAL)
+                forTypePairEx(NumericPair.DECIMAL_5_0_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_12_7),
 
-                forTypePair(NumericPair.DECIMAL_5_0_DOUBLE)
+                forTypePairEx(NumericPair.DECIMAL_5_0_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_20_15),
 
 
-                forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_6_1)
+                forTypePairEx(NumericPair.DECIMAL_6_1_DECIMAL_6_1)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_6_1),
 
-                forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_8_3)
+                forTypePairEx(NumericPair.DECIMAL_6_1_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_8_3),
 
-                forTypePair(NumericPair.DECIMAL_6_1_REAL)
+                forTypePairEx(NumericPair.DECIMAL_6_1_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_12_7),
 
-                forTypePair(NumericPair.DECIMAL_6_1_DOUBLE)
+                forTypePairEx(NumericPair.DECIMAL_6_1_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_20_15),
 
 
-                forTypePair(NumericPair.DECIMAL_8_3_DECIMAL_8_3)
+                forTypePairEx(NumericPair.DECIMAL_8_3_DECIMAL_8_3)
                         .firstOpBeSame()
-                        .secondOpBeSame(),
+                        .secondOpBeSame()
+                        .resultWillBe(Types.DECIMAL_8_3),
 
-                forTypePair(NumericPair.DECIMAL_8_3_REAL)
+                forTypePairEx(NumericPair.DECIMAL_8_3_REAL)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_14_7)),
+                        .secondOpMatches(castTo(Types.DECIMAL_14_7))
+                        .resultWillBe(Types.DECIMAL_12_7),
 
-                forTypePair(NumericPair.DECIMAL_8_3_DOUBLE)
+                forTypePairEx(NumericPair.DECIMAL_8_3_DOUBLE)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_20_15),
 
 
-                forTypePair(NumericPair.REAL_REAL)
+                forTypePairEx(NumericPair.REAL_REAL)
                         .firstOpMatches(castTo(Types.DECIMAL_14_7))
-                        .secondOpMatches(castTo((Types.DECIMAL_14_7))),
+                        .secondOpMatches(castTo((Types.DECIMAL_14_7)))
+                        .resultWillBe(Types.DECIMAL_14_7),
 
-                forTypePair(NumericPair.REAL_DOUBLE)
+                forTypePairEx(NumericPair.REAL_DOUBLE)
                         .firstOpMatches(castTo(Types.DECIMAL_14_7))
-                        .secondOpMatches(castTo(Types.DECIMAL_30_15)),
+                        .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_22_15),
 
 
-                forTypePair(NumericPair.DOUBLE_DOUBLE)
+                forTypePairEx(NumericPair.DOUBLE_DOUBLE)
                         .firstOpMatches(castTo(Types.DECIMAL_30_15))
                         .secondOpMatches(castTo(Types.DECIMAL_30_15))
+                        .resultWillBe(Types.DECIMAL_30_15)
+        );
+    }
+
+    private static Stream<Arguments> plusMinusArgs() {
+        return Stream.of(
+                forTypePairEx(NumericPair.TINYINT_TINYINT).checkResult(NativeTypes.INT8),
+                forTypePairEx(NumericPair.TINYINT_SMALLINT).checkResult(NativeTypes.INT16),
+                forTypePairEx(NumericPair.TINYINT_INT).checkResult(NativeTypes.INT32),
+                forTypePairEx(NumericPair.TINYINT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_1_0).checkResult(Types.DECIMAL_4_0),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_2_1).checkResult(Types.DECIMAL_5_1),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_4_3).checkResult(Types.DECIMAL_7_3),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_2_0).checkResult(Types.DECIMAL_4_0),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_3_1).checkResult(Types.DECIMAL_5_1),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_5_3).checkResult(Types.DECIMAL_7_3),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_5_0).checkResult(Types.DECIMAL_6_0),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_6_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.TINYINT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.TINYINT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.SMALLINT_SMALLINT).checkResult(NativeTypes.INT16),
+                forTypePairEx(NumericPair.SMALLINT_INT).checkResult(NativeTypes.INT32),
+                forTypePairEx(NumericPair.SMALLINT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_1_0).checkResult(Types.DECIMAL_6_0),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_2_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_4_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_2_0).checkResult(Types.DECIMAL_6_0),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_3_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_5_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_5_0).checkResult(Types.DECIMAL_6_0),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_6_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.SMALLINT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.SMALLINT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.INT_INT).checkResult(NativeTypes.INT32),
+                forTypePairEx(NumericPair.INT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.INT_DECIMAL_1_0).checkResult(Types.DECIMAL_11_0),
+                forTypePairEx(NumericPair.INT_DECIMAL_2_1).checkResult(Types.DECIMAL_12_1),
+                forTypePairEx(NumericPair.INT_DECIMAL_4_3).checkResult(Types.DECIMAL_14_3),
+                forTypePairEx(NumericPair.INT_DECIMAL_2_0).checkResult(Types.DECIMAL_11_0),
+                forTypePairEx(NumericPair.INT_DECIMAL_3_1).checkResult(Types.DECIMAL_12_1),
+                forTypePairEx(NumericPair.INT_DECIMAL_5_3).checkResult(Types.DECIMAL_14_3),
+                forTypePairEx(NumericPair.INT_DECIMAL_5_0).checkResult(Types.DECIMAL_11_0),
+                forTypePairEx(NumericPair.INT_DECIMAL_6_1).checkResult(Types.DECIMAL_12_1),
+                forTypePairEx(NumericPair.INT_DECIMAL_8_3).checkResult(Types.DECIMAL_14_3),
+                forTypePairEx(NumericPair.INT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.INT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.BIGINT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_1_0).checkResult(Types.DECIMAL_20_0),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_2_1).checkResult(Types.DECIMAL_21_1),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_4_3).checkResult(Types.DECIMAL_23_3),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_2_0).checkResult(Types.DECIMAL_20_0),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_3_1).checkResult(Types.DECIMAL_21_1),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_5_3).checkResult(Types.DECIMAL_23_3),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_5_0).checkResult(Types.DECIMAL_20_0),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_6_1).checkResult(Types.DECIMAL_21_1),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_8_3).checkResult(Types.DECIMAL_23_3),
+                forTypePairEx(NumericPair.BIGINT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.BIGINT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_1_0).checkResult(Types.DECIMAL_2_0),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_2_1).checkResult(Types.DECIMAL_3_1),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_4_3).checkResult(Types.DECIMAL_5_3),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_2_0).checkResult(Types.DECIMAL_3_0),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_3_1).checkResult(Types.DECIMAL_4_1),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_5_3).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_5_0).checkResult(Types.DECIMAL_6_0),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_6_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_1_0_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_2_1).checkResult(Types.DECIMAL_3_1),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_4_3).checkResult(Types.DECIMAL_5_3),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_2_0).checkResult(Types.DECIMAL_4_1),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_3_1).checkResult(Types.DECIMAL_4_1),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_5_3).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_5_0).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_6_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_2_1_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_4_3).checkResult(Types.DECIMAL_5_3),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_2_0).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_3_1).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_5_3).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_5_0).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_6_1).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_4_3_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_2_0).checkResult(Types.DECIMAL_3_0),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_3_1).checkResult(Types.DECIMAL_4_1),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_5_3).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_5_0).checkResult(Types.DECIMAL_6_0),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_6_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_2_0_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_3_1).checkResult(Types.DECIMAL_4_1),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_5_3).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_5_0).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_6_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_3_1_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_5_3).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_5_0).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_6_1).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_5_3_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_5_0).checkResult(Types.DECIMAL_6_0),
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_6_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_5_0_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_5_0_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_6_1_DECIMAL_6_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_6_1_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_6_1_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_6_1_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_8_3_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_8_3_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_8_3_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.REAL_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.REAL_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DOUBLE_DOUBLE).checkResult(NativeTypes.DOUBLE)
+        );
+    }
+
+    private static Stream<Arguments> multArgs() {
+        return Stream.of(
+                forTypePairEx(NumericPair.TINYINT_TINYINT).checkResult(NativeTypes.INT8),
+                forTypePairEx(NumericPair.TINYINT_SMALLINT).checkResult(NativeTypes.INT16),
+                forTypePairEx(NumericPair.TINYINT_INT).checkResult(NativeTypes.INT32),
+                forTypePairEx(NumericPair.TINYINT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_1_0).checkResult(Types.DECIMAL_4_0),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_2_1).checkResult(Types.DECIMAL_5_1),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_4_3).checkResult(Types.DECIMAL_7_3),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_2_0).checkResult(Types.DECIMAL_5_0),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_3_1).checkResult(Types.DECIMAL_6_1),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_5_3).checkResult(Types.DECIMAL_8_3),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_5_0).checkResult(Types.DECIMAL_8_0),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_6_1).checkResult(Types.DECIMAL_9_1),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_8_3).checkResult(Types.DECIMAL_11_3),
+                forTypePairEx(NumericPair.TINYINT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.TINYINT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.SMALLINT_SMALLINT).checkResult(NativeTypes.INT16),
+                forTypePairEx(NumericPair.SMALLINT_INT).checkResult(NativeTypes.INT32),
+                forTypePairEx(NumericPair.SMALLINT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_1_0).checkResult(Types.DECIMAL_6_0),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_2_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_4_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_2_0).checkResult(Types.DECIMAL_7_0),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_3_1).checkResult(Types.DECIMAL_8_1),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_5_3).checkResult(Types.DECIMAL_10_3),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_5_0).checkResult(Types.DECIMAL_10_0),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_6_1).checkResult(Types.DECIMAL_11_1),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_8_3).checkResult(Types.DECIMAL_13_3),
+                forTypePairEx(NumericPair.SMALLINT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.SMALLINT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.INT_INT).checkResult(NativeTypes.INT32),
+                forTypePairEx(NumericPair.INT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.INT_DECIMAL_1_0).checkResult(Types.DECIMAL_11_0),
+                forTypePairEx(NumericPair.INT_DECIMAL_2_1).checkResult(Types.DECIMAL_12_1),
+                forTypePairEx(NumericPair.INT_DECIMAL_4_3).checkResult(Types.DECIMAL_14_3),
+                forTypePairEx(NumericPair.INT_DECIMAL_2_0).checkResult(Types.DECIMAL_12_0),
+                forTypePairEx(NumericPair.INT_DECIMAL_3_1).checkResult(Types.DECIMAL_13_1),
+                forTypePairEx(NumericPair.INT_DECIMAL_5_3).checkResult(Types.DECIMAL_15_3),
+                forTypePairEx(NumericPair.INT_DECIMAL_5_0).checkResult(Types.DECIMAL_15_0),
+                forTypePairEx(NumericPair.INT_DECIMAL_6_1).checkResult(Types.DECIMAL_16_1),
+                forTypePairEx(NumericPair.INT_DECIMAL_8_3).checkResult(Types.DECIMAL_18_3),
+                forTypePairEx(NumericPair.INT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.INT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.BIGINT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_1_0).checkResult(Types.DECIMAL_20_0),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_2_1).checkResult(Types.DECIMAL_21_1),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_4_3).checkResult(Types.DECIMAL_23_3),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_2_0).checkResult(Types.DECIMAL_21_0),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_3_1).checkResult(Types.DECIMAL_22_1),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_5_3).checkResult(Types.DECIMAL_24_3),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_5_0).checkResult(Types.DECIMAL_24_0),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_6_1).checkResult(Types.DECIMAL_25_1),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_8_3).checkResult(Types.DECIMAL_27_3),
+                forTypePairEx(NumericPair.BIGINT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.BIGINT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_1_0).checkResult(Types.DECIMAL_2_0),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_2_1).checkResult(Types.DECIMAL_3_1),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_4_3).checkResult(Types.DECIMAL_5_3),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_2_0).checkResult(Types.DECIMAL_3_0),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_3_1).checkResult(Types.DECIMAL_4_1),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_5_3).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_5_0).checkResult(Types.DECIMAL_6_0),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_6_1).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_8_3).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_1_0_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_2_1).checkResult(Types.DECIMAL_4_2),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_4_3).checkResult(Types.DECIMAL_6_4),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_2_0).checkResult(Types.DECIMAL_4_1),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_3_1).checkResult(Types.DECIMAL_5_2),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_5_3).checkResult(Types.DECIMAL_7_4),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_5_0).checkResult(Types.DECIMAL_7_1),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_6_1).checkResult(Types.DECIMAL_8_2),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_8_3).checkResult(Types.DECIMAL_10_4),
+                forTypePairEx(NumericPair.DECIMAL_2_1_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_4_3).checkResult(Types.DECIMAL_8_6),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_2_0).checkResult(Types.DECIMAL_6_3),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_3_1).checkResult(Types.DECIMAL_7_4),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_5_3).checkResult(Types.DECIMAL_9_6),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_5_0).checkResult(Types.DECIMAL_9_3),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_6_1).checkResult(Types.DECIMAL_10_4),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_8_3).checkResult(Types.DECIMAL_12_6),
+                forTypePairEx(NumericPair.DECIMAL_4_3_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_2_0).checkResult(Types.DECIMAL_4_0),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_3_1).checkResult(Types.DECIMAL_5_1),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_5_3).checkResult(Types.DECIMAL_7_3),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_5_0).checkResult(Types.DECIMAL_7_0),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_6_1).checkResult(Types.DECIMAL_8_1),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_8_3).checkResult(Types.DECIMAL_10_3),
+                forTypePairEx(NumericPair.DECIMAL_2_0_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_3_1).checkResult(Types.DECIMAL_6_2),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_5_3).checkResult(Types.DECIMAL_8_4),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_5_0).checkResult(Types.DECIMAL_8_1),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_6_1).checkResult(Types.DECIMAL_9_2),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_8_3).checkResult(Types.DECIMAL_11_4),
+                forTypePairEx(NumericPair.DECIMAL_3_1_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_5_3).checkResult(Types.DECIMAL_10_6),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_5_0).checkResult(Types.DECIMAL_10_3),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_6_1).checkResult(Types.DECIMAL_11_4),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_8_3).checkResult(Types.DECIMAL_13_6),
+                forTypePairEx(NumericPair.DECIMAL_5_3_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_5_0).checkResult(Types.DECIMAL_10_0),
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_6_1).checkResult(Types.DECIMAL_11_1),
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_8_3).checkResult(Types.DECIMAL_13_3),
+                forTypePairEx(NumericPair.DECIMAL_5_0_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_5_0_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_6_1_DECIMAL_6_1).checkResult(Types.DECIMAL_12_2),
+                forTypePairEx(NumericPair.DECIMAL_6_1_DECIMAL_8_3).checkResult(Types.DECIMAL_14_4),
+                forTypePairEx(NumericPair.DECIMAL_6_1_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_6_1_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_8_3_DECIMAL_8_3).checkResult(Types.DECIMAL_16_6),
+                forTypePairEx(NumericPair.DECIMAL_8_3_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_8_3_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.REAL_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.REAL_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DOUBLE_DOUBLE).checkResult(NativeTypes.DOUBLE)
+        );
+    }
+
+    private static Stream<Arguments> divArgs() {
+        return Stream.of(
+                forTypePairEx(NumericPair.TINYINT_TINYINT).checkResult(NativeTypes.INT8),
+                forTypePairEx(NumericPair.TINYINT_SMALLINT).checkResult(NativeTypes.INT16),
+                forTypePairEx(NumericPair.TINYINT_INT).checkResult(NativeTypes.INT32),
+                forTypePairEx(NumericPair.TINYINT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_1_0).checkResult(Types.DECIMAL_9_6),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_2_1).checkResult(Types.DECIMAL_10_6),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_4_3).checkResult(Types.DECIMAL_12_6),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_2_0).checkResult(Types.DECIMAL_9_6),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_3_1).checkResult(Types.DECIMAL_10_6),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_5_3).checkResult(Types.DECIMAL_12_6),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_5_0).checkResult(Types.DECIMAL_9_6),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_6_1).checkResult(Types.DECIMAL_11_7),
+                forTypePairEx(NumericPair.TINYINT_DECIMAL_8_3).checkResult(Types.DECIMAL_15_9),
+                forTypePairEx(NumericPair.TINYINT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.TINYINT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.SMALLINT_SMALLINT).checkResult(NativeTypes.INT16),
+                forTypePairEx(NumericPair.SMALLINT_INT).checkResult(NativeTypes.INT32),
+                forTypePairEx(NumericPair.SMALLINT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_1_0).checkResult(Types.DECIMAL_11_6),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_2_1).checkResult(Types.DECIMAL_12_6),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_4_3).checkResult(Types.DECIMAL_14_6),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_2_0).checkResult(Types.DECIMAL_11_6),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_3_1).checkResult(Types.DECIMAL_12_6),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_5_3).checkResult(Types.DECIMAL_14_6),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_5_0).checkResult(Types.DECIMAL_11_6),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_6_1).checkResult(Types.DECIMAL_13_7),
+                forTypePairEx(NumericPair.SMALLINT_DECIMAL_8_3).checkResult(Types.DECIMAL_17_9),
+                forTypePairEx(NumericPair.SMALLINT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.SMALLINT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.INT_INT).checkResult(NativeTypes.INT32),
+                forTypePairEx(NumericPair.INT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.INT_DECIMAL_1_0).checkResult(Types.DECIMAL_16_6),
+                forTypePairEx(NumericPair.INT_DECIMAL_2_1).checkResult(Types.DECIMAL_17_6),
+                forTypePairEx(NumericPair.INT_DECIMAL_4_3).checkResult(Types.DECIMAL_19_6),
+                forTypePairEx(NumericPair.INT_DECIMAL_2_0).checkResult(Types.DECIMAL_16_6),
+                forTypePairEx(NumericPair.INT_DECIMAL_3_1).checkResult(Types.DECIMAL_17_6),
+                forTypePairEx(NumericPair.INT_DECIMAL_5_3).checkResult(Types.DECIMAL_19_6),
+                forTypePairEx(NumericPair.INT_DECIMAL_5_0).checkResult(Types.DECIMAL_16_6),
+                forTypePairEx(NumericPair.INT_DECIMAL_6_1).checkResult(Types.DECIMAL_18_7),
+                forTypePairEx(NumericPair.INT_DECIMAL_8_3).checkResult(Types.DECIMAL_22_9),
+                forTypePairEx(NumericPair.INT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.INT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.BIGINT_BIGINT).checkResult(NativeTypes.INT64),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_1_0).checkResult(Types.DECIMAL_25_6),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_2_1).checkResult(Types.DECIMAL_26_6),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_4_3).checkResult(Types.DECIMAL_28_6),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_2_0).checkResult(Types.DECIMAL_25_6),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_3_1).checkResult(Types.DECIMAL_26_6),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_5_3).checkResult(Types.DECIMAL_28_6),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_5_0).checkResult(Types.DECIMAL_25_6),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_6_1).checkResult(Types.DECIMAL_27_7),
+                forTypePairEx(NumericPair.BIGINT_DECIMAL_8_3).checkResult(Types.DECIMAL_31_9),
+                forTypePairEx(NumericPair.BIGINT_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.BIGINT_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_1_0).checkResult(Types.DECIMAL_7_6),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_2_1).checkResult(Types.DECIMAL_8_6),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_4_3).checkResult(Types.DECIMAL_10_6),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_2_0).checkResult(Types.DECIMAL_7_6),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_3_1).checkResult(Types.DECIMAL_8_6),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_5_3).checkResult(Types.DECIMAL_10_6),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_5_0).checkResult(Types.DECIMAL_7_6),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_6_1).checkResult(Types.DECIMAL_9_7),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DECIMAL_8_3).checkResult(Types.DECIMAL_13_9),
+                forTypePairEx(NumericPair.DECIMAL_1_0_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_1_0_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_2_1).checkResult(Types.DECIMAL_8_6),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_4_3).checkResult(Types.DECIMAL_10_6),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_2_0).checkResult(Types.DECIMAL_7_6),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_3_1).checkResult(Types.DECIMAL_8_6),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_5_3).checkResult(Types.DECIMAL_11_7),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_5_0).checkResult(Types.DECIMAL_8_7),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_6_1).checkResult(Types.DECIMAL_10_8),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DECIMAL_8_3).checkResult(Types.DECIMAL_14_10),
+                forTypePairEx(NumericPair.DECIMAL_2_1_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_2_1_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_4_3).checkResult(Types.DECIMAL_12_8),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_2_0).checkResult(Types.DECIMAL_7_6),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_3_1).checkResult(Types.DECIMAL_9_7),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_5_3).checkResult(Types.DECIMAL_13_9),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_5_0).checkResult(Types.DECIMAL_10_9),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_6_1).checkResult(Types.DECIMAL_12_10),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DECIMAL_8_3).checkResult(Types.DECIMAL_16_12),
+                forTypePairEx(NumericPair.DECIMAL_4_3_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_4_3_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_2_0).checkResult(Types.DECIMAL_8_6),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_3_1).checkResult(Types.DECIMAL_9_6),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_5_3).checkResult(Types.DECIMAL_11_6),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_5_0).checkResult(Types.DECIMAL_8_6),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_6_1).checkResult(Types.DECIMAL_10_7),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DECIMAL_8_3).checkResult(Types.DECIMAL_14_9),
+                forTypePairEx(NumericPair.DECIMAL_2_0_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_2_0_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_3_1).checkResult(Types.DECIMAL_9_6),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_5_3).checkResult(Types.DECIMAL_12_7),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_5_0).checkResult(Types.DECIMAL_9_7),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_6_1).checkResult(Types.DECIMAL_11_8),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DECIMAL_8_3).checkResult(Types.DECIMAL_15_10),
+                forTypePairEx(NumericPair.DECIMAL_3_1_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_3_1_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_5_3).checkResult(Types.DECIMAL_14_9),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_5_0).checkResult(Types.DECIMAL_11_9),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_6_1).checkResult(Types.DECIMAL_13_10),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DECIMAL_8_3).checkResult(Types.DECIMAL_17_12),
+                forTypePairEx(NumericPair.DECIMAL_5_3_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_5_3_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_5_0).checkResult(Types.DECIMAL_11_6),
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_6_1).checkResult(Types.DECIMAL_13_7),
+                forTypePairEx(NumericPair.DECIMAL_5_0_DECIMAL_8_3).checkResult(Types.DECIMAL_17_9),
+                forTypePairEx(NumericPair.DECIMAL_5_0_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_5_0_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_6_1_DECIMAL_6_1).checkResult(Types.DECIMAL_14_8),
+                forTypePairEx(NumericPair.DECIMAL_6_1_DECIMAL_8_3).checkResult(Types.DECIMAL_18_10),
+                forTypePairEx(NumericPair.DECIMAL_6_1_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_6_1_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DECIMAL_8_3_DECIMAL_8_3).checkResult(Types.DECIMAL_20_12),
+                forTypePairEx(NumericPair.DECIMAL_8_3_REAL).checkResult(NativeTypes.DOUBLE),
+                forTypePairEx(NumericPair.DECIMAL_8_3_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.REAL_REAL).checkResult(NativeTypes.FLOAT),
+                forTypePairEx(NumericPair.REAL_DOUBLE).checkResult(NativeTypes.DOUBLE),
+
+                forTypePairEx(NumericPair.DOUBLE_DOUBLE).checkResult(NativeTypes.DOUBLE)
         );
     }
 }

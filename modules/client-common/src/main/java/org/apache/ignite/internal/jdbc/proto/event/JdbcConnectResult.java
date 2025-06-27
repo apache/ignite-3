@@ -50,8 +50,6 @@ public class JdbcConnectResult extends Response {
      */
     public JdbcConnectResult(long connectionId) {
         this.connectionId = connectionId;
-
-        this.hasResults = true;
     }
 
     /** Returns an identifier of the connection. */
@@ -64,7 +62,7 @@ public class JdbcConnectResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 
@@ -76,7 +74,7 @@ public class JdbcConnectResult extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
+        if (!success()) {
             return;
         }
 

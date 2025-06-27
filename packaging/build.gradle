@@ -41,6 +41,7 @@ configurations {
 
 dependencies {
     dbArtifacts project(':ignite-runner')
+    dbArtifacts libs.slf4j.jdk14
     cliArtifacts project(':ignite-cli')
     cliZip project(path: ':packaging-cli', configuration: 'cliZip')
     dbZip project(path: ':packaging-db', configuration: 'dbZip')
@@ -52,7 +53,7 @@ dependencies {
 }
 
 // Task that generates start script for cli
-task cliStartScript(type: CreateStartScripts) {
+def cliStartScript = tasks.register('cliStartScript', CreateStartScripts) {
     // Will be passed to exec "java ... <mainClassName>"
     mainClass = "org.apache.ignite.internal.cli.Main"
     // Forms a classpath string that will be passed to exec "java -cp <classpath> .."
@@ -69,18 +70,21 @@ def tokens = [
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
         MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
         BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
-        SETUP_JAVA_FILE_NAME: 'setup-java.sh'
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh',
+        ADD_OPENS           : project.addOpens.join(' ')
 ]
 
-task replaceVars(type: Copy) {
-    from "$rootDir/packaging/common"
+def replaceVars = tasks.register('replaceVars', Copy) {
+    from "$rootDir/packaging/common/linux"
     from "$rootDir/packaging/docker/docker-entrypoint.sh"
     filter(ReplaceTokens, tokens: tokens)
     into "$buildDir/docker"
 }
 
+ext.docker_image_name = "apacheignite/ignite"
+
 docker {
-    name 'apacheignite/ignite3'
+    name project.docker_image_name
     dockerfile file('docker/Dockerfile')
 
     copySpec.into 'dist', {
@@ -130,6 +134,7 @@ docker {
 dockerPrepare.dependsOn replaceVars
 
 // create an uber zip with all distributions
+// This task cannot be converted to lazy configuration due to some weird incompatibility with distribution plugin
 task allDistZip(type: Zip) {
     archiveBaseName = "ignite3"
     dependsOn configurations.cliZip, configurations.dbZip
@@ -140,7 +145,8 @@ task allDistZip(type: Zip) {
     }
 }
 
-task allSrcZip(type: Exec) {
+// Don't assign local variable so that automatic task reference works in other tasks
+tasks.register('allSrcZip', Exec) {
     workingDir rootDir
 
     def outFile = "$buildDir/distributions/apache-ignite-${project.version}-src.zip"
@@ -151,26 +157,24 @@ task allSrcZip(type: Exec) {
     outputs.file outFile
 }
 
-task createChecksums(type: Checksum) {
-    dependsOn allDistZip, allSrcZip
-
-    inputFiles.from allDistZip.outputs.files, allSrcZip.outputs.files
+def createChecksums = tasks.register('createChecksums', Checksum) {
+    inputFiles.from allDistZip, allSrcZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
 // Need to create a separate task since signing single file doesn't automatically create a task
-task signAllSrcZip(type: Sign) {
+def signAllSrcZip = tasks.register('signAllSrcZip', Sign) {
     dependsOn allSrcZip
 
     sign allSrcZip.outputs.files.singleFile
 }
 
 // Explicitly create task so that the resulting artifact is not added to the configuration
-tasks.register('signAllDistZip', Sign) {
+def signAllDistZip = tasks.register('signAllDistZip', Sign) {
     sign allDistZip
 }
 
-tasks.register('prepareRelease', Copy) {
+def prepareRelease = tasks.register('prepareRelease', Copy) {
     from configurations.release
     dependsOn createChecksums, signAllSrcZip, signAllDistZip
     from file("$buildDir/distributions")

@@ -33,11 +33,12 @@ public class TestIndex extends IgniteIndex {
     static TestIndex createHash(
             String name,
             List<String> columns,
-            TableDescriptor tableDescriptor
+            TableDescriptor tableDescriptor,
+            boolean primary
     ) {
         RelCollation collation = TraitUtils.createCollation(columns, null, tableDescriptor);
 
-        return new TestIndex(name, Type.HASH, tableDescriptor.distribution(), collation);
+        return new TestIndex(name, Type.HASH, tableDescriptor.distribution(), collation, primary);
     }
 
     /** Factory method for creating sorted-index. */
@@ -45,11 +46,12 @@ public class TestIndex extends IgniteIndex {
             String name,
             List<String> columns,
             List<Collation> collations,
-            TableDescriptor tableDescriptor
+            TableDescriptor tableDescriptor,
+            boolean primary
     ) {
         RelCollation collation = TraitUtils.createCollation(columns, collations, tableDescriptor);
 
-        return new TestIndex(name, Type.SORTED, tableDescriptor.distribution(), collation);
+        return new TestIndex(name, Type.SORTED, tableDescriptor.distribution(), collation, primary);
     }
 
     private static final AtomicInteger ID = new AtomicInteger();
@@ -59,8 +61,9 @@ public class TestIndex extends IgniteIndex {
             String name,
             Type type,
             IgniteDistribution distribution,
-            RelCollation collation
+            RelCollation collation,
+            boolean primary
     ) {
-        super(ID.incrementAndGet(), name, type, distribution, collation);
+        super(ID.incrementAndGet(), name, type, distribution, collation, primary);
     }
 }

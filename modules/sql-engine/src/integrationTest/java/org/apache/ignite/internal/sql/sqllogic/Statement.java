@@ -25,9 +25,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.google.common.base.Strings;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
 
@@ -96,10 +100,23 @@ final class Statement extends Command {
             if ("PRAGMA".equals(toks[0])) {
                 String[] pragmaParams = toks[1].split("=");
 
-                if ("null".equals(pragmaParams[0])) {
-                    ctx.nullLbl = pragmaParams[1];
-                } else {
-                    ctx.log.info("Ignore: " + Arrays.toString(pragmaParams));
+                switch (pragmaParams[0]) {
+                    case "null": {
+                        ctx.nullLbl = pragmaParams[1];
+                        break;
+                    }
+                    case "time_zone": {
+                        String pragmaParamValue = pragmaParams[1];
+
+                        if (!"none".equals(pragmaParamValue)) {
+                            ctx.timeZone = ZoneId.of(pragmaParamValue);
+                        } else {
+                            ctx.timeZone = null;
+                        }
+                        break;
+                    }
+                    default:
+                        ctx.log.info("Ignore: " + Arrays.toString(pragmaParams));
                 }
 
                 continue;
@@ -112,14 +129,27 @@ final class Statement extends Command {
                     Assertions.fail("Not expected result at: " + posDesc + ". Statement: " + qry, e);
                 }
             } else {
+                IgniteStringBuilder detailsBuilder = new IgniteStringBuilder("Not expected result at: ")
+                        .app(posDesc).app('.').nl()
+                        .app('\t').app("Statement: ").app(qry).app('.').nl()
+                        .app('\t').app("Loop variables: ").app(ctx.loopVars).nl()
+                        .app('\t').app("Expected: ");
+
                 Throwable err = Assertions.assertThrows(
                         Throwable.class,
                         () -> ctx.executeQuery(qry),
-                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". No error occurred");
+                        () -> detailsBuilder.app("error, but none was occurred.").toString()
+                );
+
+                Matcher<String> errorMatcher = expected.errorMatcher(ctx);
+
+                detailsBuilder.app(expected.errorMessage).nl()
+                        .app('\t').app("Actual: ").nl()
+                        .app(ExceptionUtils.getFullStackTrace(err));
 
                 assertThat(
-                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". Expected: " + expected.errorMessage,
-                        err.getMessage(), expected.errorMessage);
+                        detailsBuilder.toString(),
+                        err.getMessage(), errorMatcher);
             }
         }
     }
@@ -136,9 +166,9 @@ final class Statement extends Command {
 
         private final boolean successful;
 
-        private final org.hamcrest.Matcher<String> errorMessage;
+        private final @Nullable String errorMessage;
 
-        ExpectedStatementStatus(boolean successful, @Nullable org.hamcrest.Matcher<String> errorMessage) {
+        ExpectedStatementStatus(boolean successful, @Nullable String errorMessage) {
             if (successful && errorMessage != null) {
                 throw new IllegalArgumentException("Successful status with error message: " + errorMessage);
             }
@@ -151,11 +181,19 @@ final class Statement extends Command {
         }
 
         static ExpectedStatementStatus error() {
-            return new ExpectedStatementStatus(false, anyOf(nullValue(String.class), any(String.class)));
+            return new ExpectedStatementStatus(false, null);
         }
 
         static ExpectedStatementStatus error(String errorMessage) {
-            return new ExpectedStatementStatus(false, containsString(errorMessage));
+            return new ExpectedStatementStatus(false, errorMessage);
+        }
+
+        Matcher<String> errorMatcher(ScriptContext ctx) {
+            if (errorMessage == null) {
+                return anyOf(nullValue(String.class), any(String.class));
+            } else {
+                return containsString(ctx.replaceVars(errorMessage));
+            }
         }
 
         @Override

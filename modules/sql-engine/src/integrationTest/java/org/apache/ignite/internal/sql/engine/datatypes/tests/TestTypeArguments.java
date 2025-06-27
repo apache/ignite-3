@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
 import java.lang.reflect.Array;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -396,8 +395,7 @@ public final class TestTypeArguments<T extends Comparable<T>> {
             SqlLiteral sqlLiteral;
 
             if (argument instanceof Number) {
-                if (argument instanceof BigInteger
-                        || argument instanceof Long
+                if (argument instanceof Long
                         || argument instanceof Integer
                         || argument instanceof Short
                         || argument instanceof Byte) {

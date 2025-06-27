@@ -17,28 +17,144 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.calcite.tools.Frameworks.createRootSchema;
+import static org.apache.ignite.internal.sql.engine.util.Commons.DISTRIBUTED_TRAITS_SET;
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
+
+import com.google.common.collect.Multimap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
+import org.apache.calcite.config.CalciteConnectionConfig;
+import org.apache.calcite.config.CalciteConnectionConfigImpl;
+import org.apache.calcite.config.CalciteConnectionProperty;
+import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Context;
-import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptSchema;
+import org.apache.calcite.plan.RelTraitDef;
+import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.CalciteCatalogReader;
+import org.apache.calcite.prepare.Prepare;
+import org.apache.calcite.prepare.Prepare.PreparingTable;
+import org.apache.calcite.prepare.RelOptTableImpl;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.metadata.Metadata;
+import org.apache.calcite.rel.metadata.MetadataDef;
+import org.apache.calcite.rel.metadata.MetadataHandler;
+import org.apache.calcite.rel.metadata.RelMetadataProvider;
+import org.apache.calcite.rel.metadata.UnboundMetadata;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.Wrapper;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformance;
+import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.tools.FrameworkConfig;
+import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.RuleSet;
+import org.apache.calcite.tools.RuleSets;
 import org.apache.calcite.util.CancelFlag;
+import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Planning context.
  */
 public final class PlanningContext implements Context {
+    private static final CalciteConnectionConfig CALCITE_CONNECTION_CONFIG;
+
+    public static final RelOptCluster CLUSTER;
+
+    private static final IgniteCostFactory COST_FACTORY = new IgniteCostFactory();
+
+    private static final PlanningContext EMPTY_CONTEXT;
+
+    private static final SchemaPlus EMPTY_SCHEMA;
+
+    static {
+        Properties props = new Properties();
+
+        props.setProperty(CalciteConnectionProperty.CASE_SENSITIVE.camelName(),
+                String.valueOf(FRAMEWORK_CONFIG.getParserConfig().caseSensitive()));
+        props.setProperty(CalciteConnectionProperty.CONFORMANCE.camelName(),
+                String.valueOf(FRAMEWORK_CONFIG.getParserConfig().conformance()));
+        props.setProperty(CalciteConnectionProperty.MATERIALIZATIONS_ENABLED.camelName(),
+                String.valueOf(true));
+
+        CALCITE_CONNECTION_CONFIG = new CalciteConnectionConfigImpl(props);
+
+        RexBuilder defaultRexBuilder = IgniteRexBuilder.INSTANCE;
+
+        EMPTY_CONTEXT = builder().catalogVersion(-1).build();
+        EMPTY_SCHEMA = createRootSchema(false);
+
+        VolcanoPlanner planner = new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT) {
+            @Override
+            public void registerSchema(RelOptSchema schema) {
+                // This method in VolcanoPlanner stores schema in hash map. It can be invoked during relational
+                // operators cloning, so, can be executed even with empty context. Override it for empty context to
+                // prevent memory leaks.
+            }
+        };
+
+        // Dummy planner must contain all trait definitions to create singleton cluster with all default traits.
+        for (RelTraitDef<?> def : DISTRIBUTED_TRAITS_SET) {
+            planner.addRelTraitDef(def);
+        }
+
+        RelOptCluster cluster = RelOptCluster.create(planner, defaultRexBuilder);
+
+        // Forbid using the empty cluster in any planning or mapping procedures to prevent memory leaks.
+        String cantBeUsedMsg = "Empty cluster can't be used for planning or mapping";
+
+        cluster.setMetadataProvider(
+                new RelMetadataProvider() {
+                    @Override
+                    public <M extends Metadata> UnboundMetadata<M> apply(
+                            Class<? extends RelNode> relCls,
+                            Class<? extends M> metadataCls
+                    ) {
+                        throw new AssertionError(cantBeUsedMsg);
+                    }
+
+                    @Override
+                    public <M extends Metadata> Multimap<Method, MetadataHandler<M>> handlers(MetadataDef<M> def) {
+                        throw new AssertionError(cantBeUsedMsg);
+                    }
+
+                    @Override
+                    public List<MetadataHandler<?>> handlers(Class<? extends MetadataHandler<?>> hndCls) {
+                        throw new AssertionError(cantBeUsedMsg);
+                    }
+                }
+        );
+
+        cluster.setMetadataQuerySupplier(() -> {
+            throw new AssertionError(cantBeUsedMsg);
+        });
+
+        CLUSTER = cluster;
+    }
+
     private final Context parentCtx;
+
+    private final FrameworkConfig cfg;
 
     private final String qry;
 
@@ -46,7 +162,7 @@ public final class PlanningContext implements Context {
     private final CancelFlag cancelFlag = new CancelFlag(new AtomicBoolean());
 
     /** Rules which should be excluded for planning. */
-    private Function<RuleSet, RuleSet> rulesFilter;
+    private final Set<String> rulesToDisable = new HashSet<>();
 
     private IgnitePlanner planner;
 
@@ -54,27 +170,45 @@ public final class PlanningContext implements Context {
     private final long plannerTimeout;
 
     /** Flag indicated if planning has been canceled due to timeout. */
-    private boolean timeouted = false;
+    private volatile boolean timeouted;
 
     private final Int2ObjectMap<Object> parameters;
 
+    private @Nullable CalciteCatalogReader catalogReader;
+
+    private final boolean explicitTx;
+
+    private final int catalogVersion;
+
+    private final @Nullable String defaultSchemaName;
+
     /** Private constructor, used by a builder. */
     private PlanningContext(
-            Context parentCtx,
+            FrameworkConfig config,
             String qry,
             long plannerTimeout,
-            Int2ObjectMap<Object> parameters
+            Int2ObjectMap<Object> parameters,
+            boolean explicitTx,
+            int catalogVersion,
+            @Nullable String defaultSchemaName
     ) {
+        this.parentCtx = config.getContext();
+
+        // link frameworkConfig#context() to this.
+        this.cfg = Frameworks.newConfigBuilder(config).context(this).build();
+
         this.qry = qry;
-        this.parentCtx = parentCtx;
 
         this.plannerTimeout = plannerTimeout;
         this.parameters = parameters;
+        this.explicitTx = explicitTx;
+        this.catalogVersion = catalogVersion;
+        this.defaultSchemaName = defaultSchemaName;
     }
 
     /** Get framework config. */
     public FrameworkConfig config() {
-        return unwrap(BaseQueryContext.class).config();
+        return cfg;
     }
 
     /** Get query. */
@@ -114,13 +248,18 @@ public final class PlanningContext implements Context {
     }
 
     /** Get schema name. */
-    public String schemaName() {
-        return schema().getName();
+    public @Nullable String schemaName() {
+        return defaultSchemaName;
     }
 
     /** Get schema. */
     public SchemaPlus schema() {
-        return config().getDefaultSchema();
+        return Objects.requireNonNull(config().getDefaultSchema());
+    }
+
+    /** Get catalog version. */
+    public int catalogVersion() {
+        return catalogVersion;
     }
 
     /** Get type factory. */
@@ -128,9 +267,33 @@ public final class PlanningContext implements Context {
         return IgniteTypeFactory.INSTANCE;
     }
 
-    /** Get new catalog reader. */
+    /**
+     * Returns calcite catalog reader.
+     */
     public CalciteCatalogReader catalogReader() {
-        return unwrap(BaseQueryContext.class).catalogReader();
+        if (catalogReader != null) {
+            return catalogReader;
+        }
+
+        SchemaPlus dfltSchema = config().getDefaultSchema();
+        SchemaPlus rootSchema;
+
+        // Empty PlanningContext has no defaultSchema.
+        if (dfltSchema == null) {
+            dfltSchema = EMPTY_SCHEMA;
+            rootSchema = EMPTY_SCHEMA;
+        } else {
+            rootSchema = dfltSchema;
+            while (rootSchema.getParentSchema() != null) {
+                rootSchema = rootSchema.getParentSchema();
+            }
+        }
+
+        //noinspection NestedAssignment
+        return catalogReader = new IgniteCatalogReader(
+                CalciteSchema.from(rootSchema),
+                CalciteSchema.from(dfltSchema).path(null),
+                IgniteTypeFactory.INSTANCE, CALCITE_CONNECTION_CONFIG);
     }
 
     /** Get cluster based on a planner and its configuration. */
@@ -159,12 +322,23 @@ public final class PlanningContext implements Context {
 
     /** Get rules filer. */
     public RuleSet rules(RuleSet set) {
-        return rulesFilter != null ? rulesFilter.apply(set) : set;
+        if (rulesToDisable.isEmpty()) {
+            return set;
+        }
+
+        List<RelOptRule> filtered = new ArrayList<>();
+        for (RelOptRule r : set) {
+            if (!rulesToDisable.contains(shortRuleName(r))) {
+                filtered.add(r);
+            }
+        }
+
+        return RuleSets.ofList(filtered);
     }
 
-    /** Set rules filter. */
-    public void rulesFilter(Function<RuleSet, RuleSet> rulesFilter) {
-        this.rulesFilter = rulesFilter;
+    /** Add rule with given name to list of exclusions. */
+    public void disableRule(String ruleName) {
+        rulesToDisable.add(ruleName);
     }
 
     /** Set a flag indicating that the planning was canceled due to a timeout. */
@@ -177,12 +351,60 @@ public final class PlanningContext implements Context {
         return timeouted;
     }
 
+    /** Returns {@code true} if planning is taking place within an explicit transaction. */
+    public boolean explicitTx() {
+        return explicitTx;
+    }
+
+    /** Present Catalog reader with supporting snapshot of rows count for tables. */
+    private static class IgniteCatalogReader extends CalciteCatalogReader {
+        private final HashMap<String, Double> cacheSizeOfTables = new HashMap<>();
+
+        public IgniteCatalogReader(CalciteSchema rootSchema, List<String> defaultSchema, RelDataTypeFactory typeFactory,
+                CalciteConnectionConfig config) {
+            super(rootSchema, defaultSchema, typeFactory, config);
+        }
+
+        // It's a copy-paste of original method with adding cache for table size to have statistic snapshot for whole planing stage.
+        @Override
+        public PreparingTable getTable(final List<String> names) {
+            CalciteSchema.TableEntry entry = SqlValidatorUtil.getTableEntry(this, names);
+            if (entry != null) {
+                Table table = entry.getTable();
+                if (table instanceof Wrapper) {
+                    final Prepare.PreparingTable relOptTable =
+                            ((Wrapper) table).unwrap(Prepare.PreparingTable.class);
+                    if (relOptTable != null) {
+                        return relOptTable;
+                    }
+                }
+                Double rowCount = null;
+                if (table instanceof IgniteDataSource) {
+                    IgniteDataSource ds = (IgniteDataSource) table;
+                    rowCount = cacheSizeOfTables.computeIfAbsent(
+                            ds.name(),
+                            k -> ds.getStatistic().getRowCount()
+                    );
+                }
+
+                return RelOptTableImpl.create(this,
+                        table.getRowType(typeFactory), entry, rowCount);
+            }
+            return null;
+        }
+    }
+
     /**
      * Planner context builder.
      */
     public static class Builder {
+        private static final FrameworkConfig EMPTY_CONFIG =
+                Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                        .defaultSchema(createRootSchema(false))
+                        .traitDefs(DISTRIBUTED_TRAITS_SET)
+                        .build();
 
-        private Context parentCtx = Contexts.empty();
+        private FrameworkConfig frameworkConfig = EMPTY_CONFIG;
 
         private String qry;
 
@@ -190,15 +412,32 @@ public final class PlanningContext implements Context {
 
         private Int2ObjectMap<Object> parameters = Int2ObjectMaps.emptyMap();
 
-        /** Parent context. */
-        public Builder parentContext(Context parentCtx) {
-            this.parentCtx = parentCtx;
+        private boolean explicitTx;
+
+        private int catalogVersion;
+
+        private @Nullable String defaultSchemaName;
+
+        public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
+            this.frameworkConfig = Objects.requireNonNull(frameworkCfg);
             return this;
         }
 
         /** SQL statement. */
         public Builder query(String qry) {
             this.qry = qry;
+            return this;
+        }
+
+        /** Catalog version. */
+        public Builder catalogVersion(int catalogVersion) {
+            this.catalogVersion = catalogVersion;
+            return this;
+        }
+
+        /** Default schema name. */
+        public Builder defaultSchemaName(String defaultSchemaName) {
+            this.defaultSchemaName = defaultSchemaName;
             return this;
         }
 
@@ -214,13 +453,19 @@ public final class PlanningContext implements Context {
             return this;
         }
 
+        /** Sets whether explicit transaction is present. */
+        public Builder explicitTx(boolean explicitTx) {
+            this.explicitTx = explicitTx;
+            return this;
+        }
+
         /**
          * Builds planner context.
          *
          * @return Planner context.
          */
         public PlanningContext build() {
-            return new PlanningContext(parentCtx, qry, plannerTimeout, parameters);
+            return new PlanningContext(frameworkConfig, qry, plannerTimeout, parameters, explicitTx, catalogVersion, defaultSchemaName);
         }
     }
 }

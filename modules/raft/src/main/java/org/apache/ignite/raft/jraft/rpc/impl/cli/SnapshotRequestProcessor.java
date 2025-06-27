@@ -43,8 +43,8 @@ public class SnapshotRequestProcessor extends BaseCliRequestProcessor<SnapshotRe
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final SnapshotRequest request,
         final IgniteCliRpcRequestClosure done) {
-        LOG.info("Receive SnapshotRequest to {} from {}", ctx.node.getNodeId(), request.peerId());
-        ctx.node.snapshot(done);
+        LOG.info("Receive SnapshotRequest to {} from {}, forced={}", ctx.node.getNodeId(), request.peerId(), request.forced());
+        ctx.node.snapshot(done, request.forced());
         return null;
     }
 

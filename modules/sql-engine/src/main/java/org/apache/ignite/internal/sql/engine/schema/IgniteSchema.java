@@ -35,16 +35,16 @@ public class IgniteSchema extends AbstractSchema {
 
     private final String name;
 
-    private final int version;
+    private final int catalogVersion;
 
     private final Map<String, IgniteDataSource> tableByName;
 
     private final Int2ObjectMap<IgniteDataSource> tableById;
 
     /** Constructor. */
-    public IgniteSchema(String name, int version, Collection<? extends IgniteDataSource> tables) {
+    public IgniteSchema(String name, int catalogVersion, Collection<? extends IgniteDataSource> tables) {
         this.name = name;
-        this.version = version;
+        this.catalogVersion = catalogVersion;
         this.tableByName = tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Function.identity()));
         this.tableById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteDataSource::id, Function.identity()));
     }
@@ -54,9 +54,9 @@ public class IgniteSchema extends AbstractSchema {
         return name;
     }
 
-    /** Schema version. */
-    public int version() {
-        return version;
+    /** Version of the catalog to which this schema correspond. */
+    public int catalogVersion() {
+        return catalogVersion;
     }
 
     /** {@inheritDoc} */

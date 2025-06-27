@@ -23,7 +23,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl;
+import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,17 +33,12 @@ import org.junit.jupiter.api.Test;
  */
 public class NoWaitDeadlockPreventionTest extends AbstractLockingTest {
     DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return new DeadlockPreventionPolicy() {
-            @Override
-            public long waitTimeout() {
-                return 0;
-            }
-        };
+        return new DeadlockPreventionPolicyImpl(TxIdComparators.NONE, 0);
     }
 
     @Override
     protected LockManager lockManager() {
-        return new HeapLockManager(deadlockPreventionPolicy());
+        return lockManager(deadlockPreventionPolicy());
     }
 
     @Test

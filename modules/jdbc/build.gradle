@@ -36,20 +36,19 @@ dependencies {
     implementation libs.auto.service.annotations
 
     testImplementation testFixtures(project(":ignite-core"))
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
 
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(":ignite-core"))
+    integrationTestImplementation testFixtures(project(":ignite-sql-engine-api"))
     integrationTestImplementation testFixtures(project(":ignite-sql-engine"))
     integrationTestImplementation testFixtures(project(':ignite-jdbc'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(":ignite-runner")
     integrationTestImplementation project(":ignite-api")
+    integrationTestImplementation project(":ignite-system-view-api")
 
     testFixturesImplementation testFixtures(project(":ignite-core"))
-    testFixturesImplementation libs.hamcrest.core
 }
 
 description = 'ignite-jdbc'
@@ -67,6 +66,10 @@ shadowJar {
     ].forEach {
         relocate(it, "${project.group}.shaded.$it")
     }
+    relocate('org.apache.ignite', "${project.group}.shaded.org.apache.ignite") {
+        exclude('org.apache.ignite.jdbc.*')
+        exclude('org.apache.ignite.internal.jdbc.*')
+    }
 }
 
 configurations {
@@ -78,4 +81,8 @@ configurations {
 
 artifacts {
     jdbcRelease shadowJar
+}
+
+tasks.withType(Test).configureEach {
+    jvmArgs += '-Dio.netty.leakDetectionLevel=paranoid'
 }

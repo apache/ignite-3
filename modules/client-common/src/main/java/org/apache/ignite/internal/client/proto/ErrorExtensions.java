@@ -22,4 +22,6 @@ package org.apache.ignite.internal.client.proto;
  */
 public class ErrorExtensions {
     public static final String EXPECTED_SCHEMA_VERSION = "expected-schema-ver";
+
+    public static final String SQL_UPDATE_COUNTERS = "sql-update-counters";
 }

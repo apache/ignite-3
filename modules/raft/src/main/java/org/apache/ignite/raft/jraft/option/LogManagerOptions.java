@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.option;
 
+import java.util.List;
+import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -38,6 +40,15 @@ public class LogManagerOptions {
     private NodeMetrics nodeMetrics;
     private LogEntryCodecFactory logEntryCodecFactory = LogEntryV1CodecFactory.getInstance();
     private StripedDisruptor<LogManagerImpl.StableClosureEvent> logManagerDisruptor;
+    private List<Stripe> logStripes;
+
+    public void setLogStripes(List<Stripe> logStripes) {
+            this.logStripes = logStripes;
+    }
+
+    public List<Stripe> getLogStripes() {
+        return this.logStripes;
+    }
 
     public StripedDisruptor<LogManagerImpl.StableClosureEvent> getLogManagerDisruptor() {
         return logManagerDisruptor;

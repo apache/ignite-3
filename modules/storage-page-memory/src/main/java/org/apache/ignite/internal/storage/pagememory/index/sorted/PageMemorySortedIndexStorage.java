@@ -20,16 +20,17 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.nio.ByteBuffer;
+import java.util.Comparator;
 import java.util.Objects;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
@@ -61,14 +61,14 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
      *
      * @param indexMeta Index meta.
      * @param descriptor Sorted index descriptor.
-     * @param freeList Free list to store index columns.
+     * @param freeList Free list.
      * @param indexTree Sorted index tree instance.
      * @param indexMetaTree Index meta tree instance.
      */
     public PageMemorySortedIndexStorage(
             IndexMeta indexMeta,
             @Nullable StorageSortedIndexDescriptor descriptor,
-            IndexColumnsFreeList freeList,
+            FreeListImpl freeList,
             SortedIndexTree indexTree,
             IndexMetaTree indexMetaTree,
             boolean isVolatile
@@ -251,7 +251,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
             return new ScanCursor<IndexRow>(lower) {
-                private final BinaryTupleComparator comparator = localTree.getBinaryTupleComparator();
+                private final Comparator<ByteBuffer> comparator = localTree.getBinaryTupleComparator();
 
                 @Override
                 public IndexRow map(SortedIndexRow value) {

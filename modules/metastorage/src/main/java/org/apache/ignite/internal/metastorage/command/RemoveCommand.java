@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
@@ -27,5 +28,5 @@ public interface RemoveCommand extends MetaStorageWriteCommand {
     /**
      * Returns the key. Couldn't be {@code null}.
      */
-    byte[] key();
+    ByteBuffer key();
 }

@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.table.Tuple;
 
@@ -131,16 +129,6 @@ public class TupleReader implements MarshallerReader {
 
     @Override
     public byte[] readBytes() {
-        return tuple.value(index++);
-    }
-
-    @Override
-    public BitSet readBitSet() {
-        return tuple.bitmaskValue(index++);
-    }
-
-    @Override
-    public BigInteger readBigInt() {
         return tuple.value(index++);
     }
 

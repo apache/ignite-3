@@ -163,7 +163,7 @@ public class DelayedPageReplacementTracker {
 
                 boolean add = locked.add(id);
 
-                assert add : "Double locking of page for replacement is not possible";
+                assert add : "Double locking of page for replacement is not possible: " + id;
             }
         }
 
@@ -185,7 +185,9 @@ public class DelayedPageReplacementTracker {
                 boolean interrupted = false;
 
                 while (locked.contains(id)) {
-                    log.debug("Found replaced page which is being written to page store, wait for finish replacement [id={}]", id);
+                    if (log.isDebugEnabled()) {
+                        log.debug("Found replaced page which is being written to page store, wait for finish replacement [id={}]", id);
+                    }
 
                     try {
                         // Uninterruptable wait.
@@ -210,7 +212,7 @@ public class DelayedPageReplacementTracker {
             synchronized (locked) {
                 boolean rmv = locked.remove(id);
 
-                assert rmv : "Unlocking page ID never locked, id " + id;
+                assert rmv : "Unlocking page ID never locked, id: " + id;
 
                 if (locked.isEmpty()) {
                     hasLockedPages = false;

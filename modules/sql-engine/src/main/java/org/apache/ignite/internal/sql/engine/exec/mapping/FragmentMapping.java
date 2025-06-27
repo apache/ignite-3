@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.List;
+import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 
 /**
  * Intermediate result returned by {@link FragmentMapper}.
@@ -30,13 +31,19 @@ import java.util.List;
  * <p>That's why we need additional container here.
  */
 class FragmentMapping {
+    private final Fragment fragment;
     private final List<ColocationGroup> groups;
 
-    FragmentMapping(List<ColocationGroup> groups) {
+    FragmentMapping(Fragment fragment, List<ColocationGroup> groups) {
+        this.fragment = fragment;
         this.groups = groups;
     }
 
-    public List<ColocationGroup> groups() {
+    List<ColocationGroup> groups() {
         return groups;
+    }
+
+    Fragment fragment() {
+        return fragment;
     }
 }

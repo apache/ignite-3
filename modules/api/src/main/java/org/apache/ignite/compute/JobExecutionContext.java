@@ -18,17 +18,32 @@
 package org.apache.ignite.compute;
 
 import org.apache.ignite.Ignite;
+import org.apache.ignite.table.partition.Partition;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Context of the {@link ComputeJob} execution.
  */
 public interface JobExecutionContext {
+    /**
+     * Ignite API entry point.
+     *
+     * @return Ignite instance.
+     */
     Ignite ignite();
 
     /**
-     * Flag indicating whether the job was interrupted.
+     * Flag indicating whether the job was cancelled.
      *
-     * @return {@code true} when the job was interrupted.
+     * @return {@code true} when the job was cancelled.
      */
-    boolean isInterrupted();
+    boolean isCancelled();
+
+    /**
+     * Partition associated with this job. Not a {@code null} only when {@link BroadcastJobTarget#table(String)} target is used for
+     * submitting jobs. In this case, the partition is local on a node executing the job.
+     *
+     * @return Partition associated with this job.
+     */
+    @Nullable Partition partition();
 }

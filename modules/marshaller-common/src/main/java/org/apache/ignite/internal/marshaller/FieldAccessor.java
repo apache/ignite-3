@@ -23,14 +23,13 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.TypeConverter;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,60 +75,44 @@ abstract class FieldAccessor {
                 validateColumnType(col, field.getType());
             }
 
-            BinaryMode mode = BinaryMode.forClass(field.getType());
             MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
-
             VarHandle varHandle = lookup.unreflectVarHandle(field);
 
-            assert mode != null : "Invalid mode for type: " + field.getType();
+            // Optimization for primitive types to avoid boxing/unboxing.
+            if (typeConverter == null && field.getType().isPrimitive()) {
+                BinaryMode fieldAccessMode = BinaryMode.forClass(field.getType());
+                assert fieldAccessMode != null : "Invalid fieldAccessMode for type: " + field.getType();
 
-            switch (mode) {
-                case P_BOOLEAN:
-                    return new BooleanPrimitiveAccessor(varHandle, colIdx);
+                switch (fieldAccessMode) {
+                    case P_BOOLEAN:
+                        return new BooleanPrimitiveAccessor(varHandle, colIdx);
 
-                case P_BYTE:
-                    return new BytePrimitiveAccessor(varHandle, colIdx);
+                    case P_BYTE:
+                        return new BytePrimitiveAccessor(varHandle, colIdx);
 
-                case P_SHORT:
-                    return new ShortPrimitiveAccessor(varHandle, colIdx);
+                    case P_SHORT:
+                        return new ShortPrimitiveAccessor(varHandle, colIdx);
 
-                case P_INT:
-                    return new IntPrimitiveAccessor(varHandle, colIdx);
+                    case P_INT:
+                        return new IntPrimitiveAccessor(varHandle, colIdx);
 
-                case P_LONG:
-                    return new LongPrimitiveAccessor(varHandle, colIdx);
+                    case P_LONG:
+                        return new LongPrimitiveAccessor(varHandle, colIdx);
 
-                case P_FLOAT:
-                    return new FloatPrimitiveAccessor(varHandle, colIdx);
+                    case P_FLOAT:
+                        return new FloatPrimitiveAccessor(varHandle, colIdx);
 
-                case P_DOUBLE:
-                    return new DoublePrimitiveAccessor(varHandle, colIdx);
+                    case P_DOUBLE:
+                        return new DoublePrimitiveAccessor(varHandle, colIdx);
 
-                case BOOLEAN:
-                case BYTE:
-                case SHORT:
-                case INT:
-                case LONG:
-                case FLOAT:
-                case DOUBLE:
-                case STRING:
-                case UUID:
-                case BYTE_ARR:
-                case BITSET:
-                case NUMBER:
-                case DECIMAL:
-                case TIME:
-                case DATE:
-                case DATETIME:
-                case TIMESTAMP:
-                case POJO:
-                    return new ReferenceFieldAccessor(varHandle, colIdx, mode, col.scale(), typeConverter);
+                    default:
+                        assert false : "Invalid field access mode " + fieldAccessMode;
+                }
 
-                default:
-                    assert false : "Invalid mode " + mode;
+                throw new IllegalArgumentException("Failed to create accessor for field [name=" + field.getName() + ']');
             }
 
-            throw new IllegalArgumentException("Failed to create accessor for field [name=" + field.getName() + ']');
+            return new ReferenceFieldAccessor(varHandle, colIdx, col.type(), col.scale(), typeConverter);
         } catch (NoSuchFieldException | SecurityException | IllegalAccessException ex) {
             throw new IllegalArgumentException(ex);
         }
@@ -164,8 +147,6 @@ abstract class FieldAccessor {
             case STRING:
             case UUID:
             case BYTE_ARR:
-            case BITSET:
-            case NUMBER:
             case DECIMAL:
             case TIME:
             case DATE:
@@ -246,12 +227,6 @@ abstract class FieldAccessor {
 
             case BYTE_ARR:
                 return reader.readBytes();
-
-            case BITSET:
-                return reader.readBitSet();
-
-            case NUMBER:
-                return reader.readBigInt();
 
             case DECIMAL:
                 return reader.readBigDecimal(scale);
@@ -342,16 +317,6 @@ abstract class FieldAccessor {
 
                 break;
 
-            case BITSET:
-                writer.writeBitSet((BitSet) val);
-
-                break;
-
-            case NUMBER:
-                writer.writeBigInt((BigInteger) val);
-
-                break;
-
             case DECIMAL:
                 writer.writeBigDecimal((BigDecimal) val, scale);
 
@@ -398,7 +363,7 @@ abstract class FieldAccessor {
         try {
             write0(writer, obj);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to write field [id=" + colIdx + ']', ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
@@ -422,7 +387,7 @@ abstract class FieldAccessor {
         try {
             read0(reader, obj);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to read field [id=" + colIdx + ']', ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
@@ -816,6 +781,17 @@ abstract class FieldAccessor {
 
             try {
                 set(obj, typeConverter == null ? val : typeConverter.toObjectType(val));
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
+        }
+
+        @Override
+        Object value(Object obj) {
+            Object value = get(Objects.requireNonNull(obj));
+
+            try {
+                return typeConverter == null ? value : typeConverter.toColumnType(value);
             } catch (Exception e) {
                 throw new IllegalArgumentException(e);
             }

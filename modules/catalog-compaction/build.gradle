@@ -1,0 +1,69 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+
+dependencies {
+    annotationProcessor project(':ignite-network-annotation-processor')
+    annotationProcessor libs.auto.service
+
+    implementation project(':ignite-partition-distribution')
+    implementation project(':ignite-catalog')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-distribution-zones')
+    implementation project(':ignite-core')
+    implementation project(':ignite-network-api')
+    implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-replicator')
+    implementation project(':ignite-partition-replicator')
+    implementation project(':ignite-system-view-api')
+    implementation project(':ignite-table')
+    implementation project(':ignite-schema')
+    implementation project(':ignite-transactions')
+
+    implementation libs.jetbrains.annotations
+    implementation libs.fastutil.core
+
+    testImplementation project(':ignite-index')
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-catalog'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation libs.awaitility
+
+    integrationTestImplementation libs.fastutil.core
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-system-view')
+    integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-catalog'))
+}
+
+description = "ignite-catalog-compaction"

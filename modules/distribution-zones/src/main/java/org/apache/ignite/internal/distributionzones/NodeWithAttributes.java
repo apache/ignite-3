@@ -17,23 +17,26 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Structure that represents node with the attributes and which we store in Meta Storage when we store logical topology.
- * Light-weighted version of the {@link LogicalNode}.
+ * Light-weighted version of the {@link LogicalNode}. This class has to be comparable because it is used into ordered collections,
+ * which are serialized and their byte representation is compared on equality.
  */
-public class NodeWithAttributes implements Serializable {
-    private static final long serialVersionUID = -7778967985161743937L;
-
+public class NodeWithAttributes implements Comparable<NodeWithAttributes> {
     private final Node node;
 
+    @IgniteToStringInclude
     private final Map<String, String> userAttributes;
 
+    @IgniteToStringInclude
     private final List<String> storageProfiles;
 
     /**
@@ -43,7 +46,7 @@ public class NodeWithAttributes implements Serializable {
      * @param nodeId Node consistent identifier.
      * @param userAttributes Key value map of user's node's attributes.
      */
-    public NodeWithAttributes(String nodeName, String nodeId, @Nullable Map<String, String> userAttributes) {
+    public NodeWithAttributes(String nodeName, UUID nodeId, @Nullable Map<String, String> userAttributes) {
         this(nodeName, nodeId, userAttributes, List.of());
     }
 
@@ -57,7 +60,7 @@ public class NodeWithAttributes implements Serializable {
      */
     public NodeWithAttributes(
             String nodeName,
-            String nodeId,
+            UUID nodeId,
             @Nullable Map<String, String> userAttributes,
             @Nullable List<String> storageProfiles) {
         this.node = new Node(nodeName, nodeId);
@@ -91,7 +94,7 @@ public class NodeWithAttributes implements Serializable {
         return node.nodeName();
     }
 
-    public String nodeId() {
+    public UUID nodeId() {
         return node.nodeId();
     }
 
@@ -109,6 +112,11 @@ public class NodeWithAttributes implements Serializable {
 
     @Override
     public String toString() {
-        return node.toString();
+        return S.toString(NodeWithAttributes.class, this);
+    }
+
+    @Override
+    public int compareTo(NodeWithAttributes o) {
+        return node.compareTo(o.node);
     }
 }

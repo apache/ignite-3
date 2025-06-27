@@ -21,17 +21,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.inject.Inject;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.cli.call.cluster.metric.ClusterMetricSourceEnableCall;
+import org.apache.ignite.internal.cli.call.cluster.metric.ClusterMetricSourceListCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
-import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCallInput;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.rest.client.model.MetricSet;
 import org.apache.ignite.rest.client.model.MetricSource;
+import org.apache.ignite.rest.client.model.NodeMetricSources;
+import org.assertj.core.api.ThrowingConsumer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for metrics calls. */
 class ItMetricCallsTest extends CliIntegrationTest {
@@ -41,13 +47,19 @@ class ItMetricCallsTest extends CliIntegrationTest {
     NodeMetricSourceListCall nodeMetricSourceListCall;
 
     @Inject
+    ClusterMetricSourceListCall clusterMetricSourceListCall;
+
+    @Inject
     NodeMetricSetListCall nodeMetricSetListCall;
 
     @Inject
     NodeMetricSourceEnableCall nodeMetricSourceEnableCall;
 
+    @Inject
+    ClusterMetricSourceEnableCall clusterMetricSourceEnableCall;
+
     @Test
-    @DisplayName("Should display disabled jvm node metric source when cluster is up and running")
+    @DisplayName("Should display metric sources when cluster is up and running")
     void nodeMetricSourcesList() {
         // When
         CallOutput<List<MetricSource>> output = nodeMetricSourceListCall.execute(urlInput);
@@ -55,38 +67,64 @@ class ItMetricCallsTest extends CliIntegrationTest {
         // Then
         assertThat(output.hasError()).isFalse();
 
-        MetricSource[] expectedMetricSources = {
-                new MetricSource().name("jvm").enabled(false),
-                new MetricSource().name("client.handler").enabled(false),
-                new MetricSource().name("sql.client").enabled(false),
-                new MetricSource().name("sql.plan.cache").enabled(false)
-        };
-
         // And
-        assertThat(output.body()).contains(expectedMetricSources);
+        assertThat(output.body()).contains(ALL_METRIC_SOURCES);
+        assertThat(output.body()).hasSize(ALL_METRIC_SOURCES.length);
     }
 
     @Test
-    @DisplayName("Should display empty node metric sets list when cluster is up and running")
-    void nodeMetricSetsListEmpty() {
+    @DisplayName("Should display all metric sources when cluster is up and running")
+    void clusterMetricSourcesList() {
         // When
-        CallOutput<List<MetricSet>> output = nodeMetricSetListCall.execute(urlInput);
+        CallOutput<List<NodeMetricSources>> output = clusterMetricSourceListCall.execute(urlInput);
 
         // Then
         assertThat(output.hasError()).isFalse();
 
         // And
-        assertThat(output.body()).isEmpty();
+        //noinspection unchecked
+        ThrowingConsumer<NodeMetricSources>[] assertions = CLUSTER.runningNodes()
+                .map(ignite -> (ThrowingConsumer<NodeMetricSources>) input -> {
+                    assertThat(input.getNode()).isEqualTo(ignite.name());
+                    assertThat(input.getSources()).containsExactlyInAnyOrder(ALL_METRIC_SOURCES);
+                })
+                .toArray(ThrowingConsumer[]::new);
+
+        assertThat(output.body()).satisfiesExactlyInAnyOrder(assertions);
     }
 
     @Test
-    @DisplayName("Should display error message when enabling nonexistent metric source and is cluster up and running")
-    void nodeMetricEnable() {
+    @DisplayName("Should display metric sets when cluster is up and running")
+    void nodeMetricSetsListContainsAllMetrics() {
+        // When
+        CallOutput<List<MetricSet>> metricSetsOutput = nodeMetricSetListCall.execute(urlInput);
+        CallOutput<List<MetricSource>> metricSourcesOutput = nodeMetricSourceListCall.execute(urlInput);
+
+        // Then
+        assertThat(metricSetsOutput.hasError()).isFalse();
+        assertThat(metricSourcesOutput.hasError()).isFalse();
+
+        // And
+        List<String> allMetricsSource =
+                metricSourcesOutput.body().stream().map(MetricSource::getName).collect(Collectors.toList());
+        List<String> enabledMetrics =
+                metricSetsOutput.body().stream().map(MetricSet::getName).collect(Collectors.toList());
+
+        assertThat(allMetricsSource).isNotEmpty();
+        assertThat(enabledMetrics).isNotEmpty();
+
+        // Since all metrics are enabled by default, we must observe metric sets from all metric sources.
+        assertThat(enabledMetrics).containsAll(allMetricsSource);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void nodeMetricEnable(boolean enabled) {
         // Given
-        var input = NodeMetricSourceEnableCallInput.builder()
+        var input = MetricSourceEnableCallInput.builder()
                 .endpointUrl(NODE_URL)
                 .srcName("no.such.metric")
-                .enable(true)
+                .enable(enabled)
                 .build();
 
         // When
@@ -96,18 +134,18 @@ class ItMetricCallsTest extends CliIntegrationTest {
         assertThat(output.hasError()).isTrue();
     }
 
-    @Test
-    @DisplayName("Should display error message when disabling nonexistent metric source and is cluster up and running")
-    void nodeMetricDisable() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void clusterMetricEnable(boolean enabled) {
         // Given
-        var input = NodeMetricSourceEnableCallInput.builder()
+        var input = MetricSourceEnableCallInput.builder()
                 .endpointUrl(NODE_URL)
                 .srcName("no.such.metric")
-                .enable(false)
+                .enable(enabled)
                 .build();
 
         // When
-        CallOutput<String> output = nodeMetricSourceEnableCall.execute(input);
+        CallOutput<String> output = clusterMetricSourceEnableCall.execute(input);
 
         // Then
         assertThat(output.hasError()).isTrue();

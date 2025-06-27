@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
 
 /**
@@ -44,7 +44,10 @@ public class DownloadTracker {
      */
     public <T> CompletableFuture<T> track(String id, Version version, Supplier<CompletableFuture<T>> trackableAction) {
         ClusterStatusKey key = ClusterStatusKey.builder().id(id).version(version).build();
-        return (CompletableFuture<T>) inFlightFutures.computeIfAbsent(key, k -> trackableAction.get());
+        return ((CompletableFuture<T>) inFlightFutures.computeIfAbsent(key,
+                k -> trackableAction.get()
+                        .whenComplete((result, throwable) -> inFlightFutures.remove(key))
+        ));
     }
 
     /**

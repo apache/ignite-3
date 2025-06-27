@@ -18,14 +18,13 @@
 package org.apache.ignite.sql;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
+import java.util.Arrays;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,66 +35,63 @@ public enum ColumnType {
     /** Null. */
     NULL(0, Void.class, false, false, false),
 
-    /** Boolean. */
+    /** Boolean. SQL type: {@code BOOLEAN}. */
     BOOLEAN(1, Boolean.class, false, false, false),
 
-    /** 8-bit signed integer. */
+    /** 8-bit signed integer. SQL type: {@code TINYINT}. */
     INT8(2, Byte.class, false, false, false),
 
-    /** 16-bit signed integer. */
+    /** 16-bit signed integer. SQL type: {@code SMALLINT}. */
     INT16(3, Short.class, false, false, false),
 
-    /** 32-bit signed integer. */
+    /** 32-bit signed integer. SQL type: {@code INT}. */
     INT32(4, Integer.class, false, false, false),
 
-    /** 64-bit signed integer. */
+    /** 64-bit signed integer. SQL type: {@code BIGINT}. */
     INT64(5, Long.class, false, false, false),
 
-    /** 32-bit single-precision floating-point number. */
+    /** 32-bit single-precision floating-point number. SQL type: {@code REAL}. */
     FLOAT(6, Float.class, false, false, false),
 
     /**
-     * 64-bit double-precision floating-point number.
+     * 64-bit double-precision floating-point number.  SQL type: {@code DOUBLE}.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 31, implementation-defined precision
      */
     DOUBLE(7, Double.class, false, false, false),
 
-    /** Arbitrary-precision signed decimal number. */
+    /** Arbitrary-precision signed decimal number. SQL type: {@code DECIMAL}. */
     DECIMAL(8, BigDecimal.class, true, true, false),
 
-    /** Timezone-free date. */
+    /** Timezone-free date. SQL type: {@code DATE}. */
     DATE(9, LocalDate.class, false, false, false),
 
-    /** Timezone-free time with precision. */
+    /** Timezone-free time with precision. SQL type: {@code TIME}. */
     TIME(10, LocalTime.class, true, false, false),
 
-    /** Timezone-free datetime. */
+    /** Timezone-free datetime. SQL type: {@code TIMESTAMP}. */
     DATETIME(11, LocalDateTime.class, true, false, false),
 
-    /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision. */
+    /** Point on the time-line. Number of ticks since {@code 1970-01-01T00:00:00Z}. Tick unit depends on precision.
+     * SQL type: {@code TIMESTAMP WITH LOCAL TIME ZONE}. */
     TIMESTAMP(12, Instant.class, true, false, false),
 
-    /** 128-bit UUID. */
+    /** 128-bit UUID.  SQL type: {@code UUID}. */
     UUID(13, UUID.class, false, false, false),
 
-    /** Bit mask. */
-    BITMASK(14, BitSet.class, false, false, true),
+    // UNUSED id = 14
 
-    /** String. */
+    /** String. SQL type: {@code VARCHAR}. */
     STRING(15, String.class, false, false, true),
 
-    /** Binary data. */
+    /** Binary data. SQL type: {@code VARBINARY}. */
     BYTE_ARRAY(16, byte[].class, false, false, true),
 
-    /** Date interval. */
+    /** Date interval. SQL type: none. */
     PERIOD(17, Period.class, true, false, false),
 
-    /** Time interval. */
-    DURATION(18, Duration.class, true, false, false),
-
-    /** Number. */
-    NUMBER(19, BigInteger.class, true, false, false);
+    /** Time interval. SQL type: none. */
+    DURATION(18, Duration.class, true, false, false);
 
     private final Class<?> javaClass;
     private final boolean precisionAllowed;
@@ -104,16 +100,25 @@ public enum ColumnType {
 
     private final int id;
 
-    private static final ColumnType[] VALS = new ColumnType[values().length];
+    /** Cached array with all enum values. */
+    private static final ColumnType[] VALS;
 
     static {
+        int maxId = Arrays.stream(values()).mapToInt(ColumnType::id).max().orElse(0);
+        ColumnType[] vals = new ColumnType[maxId + 1];
+
         for (ColumnType columnType : values()) {
-            assert VALS[columnType.id] == null : "Found duplicate id " + columnType.id;
-            VALS[columnType.id()] = columnType;
+            ColumnType existing = vals[columnType.id];
+            assert existing == null : "Found duplicate id " + columnType.id;
+            vals[columnType.id] = columnType;
         }
+
+        VALS = vals;
     }
 
     ColumnType(int id, Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined) {
+        assert !lengthDefined || (!precisionDefined && !scaleDefined);
+
         javaClass = clazz;
         this.precisionAllowed = precisionDefined;
         this.scaleAllowed = scaleDefined;
@@ -146,7 +151,7 @@ public enum ColumnType {
         return id;
     }
 
-    /** Returns corresponding {@code ColumnType} by given id, {@code null} for unknown id. */
+    /** Returns the {@link ColumnType} instance by its id, or {@code null} if the id is invalid. */
     public static @Nullable ColumnType getById(int id) {
         return id >= 0 && id < VALS.length ? VALS[id] : null;
     }

@@ -17,46 +17,30 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes drop of an index (it's not the final removal of an index from the Catalog, but it's just a switch to
  * the {@link CatalogIndexStatus#STOPPING} state.
  */
 public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
-    public static final DropIndexEntrySerializer SERIALIZER = new DropIndexEntrySerializer();
-
-    private final int tableId;
-
     /**
      * Constructs the object.
      *
      * @param indexId An id of an index to drop.
-     * @param tableId Table ID for which the index was removed.
      */
-    public DropIndexEntry(int indexId, int tableId) {
+    public DropIndexEntry(int indexId) {
         super(indexId, CatalogIndexStatus.STOPPING);
-
-        this.tableId = tableId;
     }
 
     /** Returns an id of an index to drop. */
     public int indexId() {
         return indexId;
-    }
-
-    /** Returns table ID for which the index was removed. */
-    public int tableId() {
-        return tableId;
     }
 
     @Override
@@ -71,30 +55,11 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new StoppingIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
+        return new StoppingIndexEventParameters(causalityToken, catalogVersion, indexId);
     }
 
     @Override
     public String toString() {
-        return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link DropIndexEntry}.
-     */
-    private static class DropIndexEntrySerializer implements CatalogObjectSerializer<DropIndexEntry> {
-        @Override
-        public DropIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            int indexId = input.readInt();
-            int tableId = input.readInt();
-
-            return new DropIndexEntry(indexId, tableId);
-        }
-
-        @Override
-        public void writeTo(DropIndexEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeInt(entry.indexId());
-            out.writeInt(entry.tableId());
-        }
+        return S.toString(DropIndexEntry.class, this, super.toString());
     }
 }

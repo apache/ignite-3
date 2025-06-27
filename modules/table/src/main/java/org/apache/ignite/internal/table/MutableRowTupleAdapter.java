@@ -19,15 +19,15 @@ package org.apache.ignite.internal.table;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
@@ -199,6 +199,18 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override
+    public BigDecimal decimalValue(String columnName) {
+        return tuple != null ? tuple.decimalValue(columnName) : super.decimalValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return tuple != null ? tuple.decimalValue(columnIndex) : super.decimalValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String stringValue(String columnName) {
         return tuple != null ? tuple.stringValue(columnName) : super.stringValue(columnName);
     }
@@ -211,6 +223,18 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        return tuple != null ? tuple.bytesValue(columnName) : super.bytesValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        return tuple != null ? tuple.bytesValue(columnIndex) : super.bytesValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         return tuple != null ? tuple.uuidValue(columnName) : super.uuidValue(columnName);
     }
@@ -219,18 +243,6 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
     @Override
     public UUID uuidValue(int columnIndex) {
         return tuple != null ? tuple.uuidValue(columnIndex) : super.uuidValue(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(String columnName) {
-        return tuple != null ? tuple.bitmaskValue(columnName) : super.bitmaskValue(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        return tuple != null ? tuple.bitmaskValue(columnIndex) : super.bitmaskValue(columnIndex);
     }
 
     /** {@inheritDoc} */
@@ -299,7 +311,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryTuple binaryTuple() {
+    public @Nullable BinaryTupleReader binaryTuple() {
         return row == null ? null : row.binaryTuple();
     }
 
@@ -308,7 +320,7 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
      */
     private void unmarshalRow() {
         if (tuple == null) {
-            tuple = Tuple.create(this);
+            tuple = Tuple.copy(this);
 
             row = null;
         }

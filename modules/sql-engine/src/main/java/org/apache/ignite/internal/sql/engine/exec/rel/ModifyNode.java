@@ -17,16 +17,21 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.storedRowsCount;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
+import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.core.TableModify;
+import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
@@ -87,6 +92,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private final int[] insertRowMapping;
 
+    private final RowFactory<RowT> mappedRowFactory;
+
+    private final RowFactory<RowT> mappedInsertRowFactory;
+
     private List<RowT> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
     private long updatedRows;
@@ -102,15 +111,18 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      *
      * @param ctx An execution context.
      * @param table A table to update.
+     * @param sourceId Source id.
      * @param op A type of the update operation.
      * @param updateColumns Enumeration of columns to update if applicable.
+     * @param inputRowFactory Row factory for input row.
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
             UpdatableTable table,
             long sourceId,
             TableModify.Operation op,
-            @Nullable List<String> updateColumns
+            @Nullable List<String> updateColumns,
+            RowFactory<RowT> inputRowFactory
     ) {
         super(ctx);
 
@@ -119,8 +131,25 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.modifyOp = op;
         this.updateColumns = updateColumns;
 
-        this.mapping = mapping(table.descriptor(), updateColumns);
-        this.insertRowMapping = IntStream.range(0, table.descriptor().columnsCount()).toArray();
+        RowSchema rowSchema = inputRowFactory.rowSchema();
+        int fullRowSize = rowSchema.fields().size();
+        this.mapping = mapping(table.descriptor(), updateColumns, fullRowSize);
+
+        // insert mapping actually can be required only for INSERT and MERGE operations
+        if (op == Operation.INSERT || op == Operation.MERGE) {
+            this.insertRowMapping = StreamSupport.stream(table.descriptor().spliterator(), false)
+                    .filter(Predicate.not(ColumnDescriptor::virtual))
+                    .mapToInt(ColumnDescriptor::logicalIndex)
+                    .toArray();
+        } else {
+            this.insertRowMapping = null;
+        }
+
+        RowSchema mappedRowSchema =  mapping != null ? RowSchema.map(rowSchema, mapping) : rowSchema;
+        RowSchema mappedInsertRowSchema =  insertRowMapping != null ? RowSchema.map(rowSchema, insertRowMapping) : rowSchema;
+
+        this.mappedRowFactory = ctx.rowHandler().factory(mappedRowSchema);
+        this.mappedInsertRowFactory = ctx.rowHandler().factory(mappedInsertRowSchema);
     }
 
     /** {@inheritDoc} */
@@ -128,8 +157,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public void request(int rowsCnt) throws Exception {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
-
-        checkState();
 
         requested = rowsCnt;
 
@@ -141,8 +168,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -163,9 +188,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         if (needToFlush()) {
             flushTuples();
@@ -193,6 +216,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         return this;
     }
 
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
+    }
+
     private void requestNextBatchIfNeeded() throws Exception {
         if (waiting == 0 && rows.isEmpty()) {
             source().request(waiting = MODIFY_BATCH_SIZE);
@@ -202,7 +232,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     private void tryEnd() throws Exception {
         assert downstream() != null;
 
-        if (waiting == -1 && requested > 0 && !inFlightUpdate && rows.isEmpty()) {
+        if (waiting == NOT_WAITING && requested > 0 && !inFlightUpdate && rows.isEmpty()) {
             downstream().push(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows));
 
             requested = 0;
@@ -228,7 +258,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
                 break;
             case UPDATE:
-                inlineUpdates(0, rows);
+                inlineUpdates(rows);
 
                 modifyResult = table.upsertAll(context(), rows, colocationGroup);
 
@@ -262,7 +292,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                 throw new UnsupportedOperationException(modifyOp.name());
         }
 
-        modifyResult.whenComplete((r, e) -> context().execute(() -> {
+        modifyResult.whenComplete((r, e) -> this.execute(() -> {
             if (e != null) {
                 onError(e);
 
@@ -280,16 +310,16 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             requestNextBatchIfNeeded();
 
             tryEnd();
-        }, this::onError));
+        }));
     }
 
     private boolean needToFlush() {
         return !inFlightUpdate
-                && (rows.size() >= MODIFY_BATCH_SIZE || (!rows.isEmpty() && waiting == -1));
+                && (rows.size() >= MODIFY_BATCH_SIZE || (!rows.isEmpty() && waiting == NOT_WAITING));
     }
 
-    /** See {@link #mapping(TableDescriptor, List)}. */
-    private void inlineUpdates(int offset, List<RowT> rows) {
+    /** See {@link #mapping(TableDescriptor, List, int)}. */
+    private void inlineUpdates(List<RowT> rows) {
         if (mapping == null) {
             // the node inserts or deletes rows only
             return;
@@ -297,26 +327,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         assert updateColumns != null;
 
-        RowHandler<RowT> handler = context().rowHandler();
-
-        int[] targetMapping = applyOffset(mapping, offset);
-
-        rows.replaceAll(row -> handler.map(row, targetMapping));
-    }
-
-    /** Adds the provided offset to each value in the mapping. */
-    private static int[] applyOffset(int[] srcMapping, int offset) {
-        if (offset == 0) {
-            return srcMapping;
-        }
-
-        int[] targetMapping = new int[srcMapping.length];
-
-        for (int i = 0; i < targetMapping.length; i++) {
-            targetMapping[i] = srcMapping[i] + offset;
-        }
-
-        return targetMapping;
+        rows.replaceAll(row -> mappedRowFactory.map(row, mapping));
     }
 
     /**
@@ -336,7 +347,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert mapping != null;
 
         List<RowT> rowsToInsert = null;
-        List<RowT> rowsToUpdate = null;
+        List<RowT> rowsToUpdate;
 
         int rowSize = handler.columnCount(rows.get(0));
 
@@ -345,7 +356,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         // Size of the mapping always matches the size of full row, so in any case we will get
         // an offset of the first column of the update part
         // see javadoc of ModifyNode for details on possible formats of rows passed to the node
-        int updateColumnOffset = rowSize - (mapping.length + updateColumns.size());
+        int fullRowOffset = rowSize - (mapping.length + updateColumns.size());
 
         if (!hasUpsertSemantic(rowSize)) {
             // WHEN MATCHED clause only
@@ -355,10 +366,25 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             rowsToUpdate = new ArrayList<>();
 
             for (RowT row : rows) {
-                // this check doesn't seem correct because NULL could be a legit value for column,
-                // but this is how it was implemented before, so I just file an issue to deal with this later
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-18883
-                if (handler.get(updateColumnOffset, row) == null) {
+                // Merge operation uses a left join as its input, so in order to distinguish between new rows and modified rows
+                // (rows produced by WHEN MATCHED, and rows produces by WHEN NOT MATCHED clauses)
+                // we need to check all columns of a destination table for null values.
+                //
+                // Since every table has a primary key and all primary keys columns are not nullable, we can assume that
+                // a row is produced by the WHEN NOT MATCHED clause iff every column in the subset of input columns
+                // that belongs to the destination table has a NULL value. Otherwise it belongs to the WHEN MATCH clause.
+
+                boolean insertRow = true;
+                // Checks all fields in the original row.
+                // If all of them are null then row existed and need to update it, otherwise insert a new row.
+                for (int i = fullRowOffset; i < fullRowOffset + mapping.length; i++) {
+                    if (!handler.isNull(i, row)) {
+                        insertRow = false;
+                        break;
+                    }
+                }
+
+                if (insertRow) {
                     rowsToInsert.add(row);
                 } else {
                     rowsToUpdate.add(row);
@@ -375,11 +401,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         if (rowsToInsert != null) {
-            rowsToInsert.replaceAll(row -> handler.map(row, insertRowMapping));
+            rowsToInsert.replaceAll(row -> mappedInsertRowFactory.map(row, insertRowMapping));
         }
 
         if (rowsToUpdate != null) {
-            inlineUpdates(updateColumnOffset, rowsToUpdate);
+            inlineUpdates(rowsToUpdate);
         }
 
         return new Pair<>(rowsToInsert, rowsToUpdate);
@@ -427,24 +453,34 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * @param updateColumns Enumeration of columns to update.
      * @return A mapping to inline the updates into the row.
      */
-    private static int @Nullable [] mapping(TableDescriptor descriptor, @Nullable List<String> updateColumns) {
+    private static int @Nullable [] mapping(TableDescriptor descriptor, @Nullable List<String> updateColumns, int fullRowSize) {
         if (updateColumns == null) {
             return null;
         }
 
-        int columnCount = descriptor.columnsCount();
+        int columnCount = storedRowsCount(descriptor);
+
+        // MERGE clause can use format [insert row type] + [full row type] + [columns to update] which is bigger on
+        // size of [full row type] then different type of formats, so we can detect it and use for right column mapping.
+        // see javadoc of ModifyNode for details on possible formats of rows passed to the node
+        int mergeOffset = 0;
+        if (fullRowSize == (columnCount * 2 + updateColumns.size())) {
+            mergeOffset = columnCount;
+        }
 
         int[] mapping = new int[columnCount];
 
         for (int i = 0; i < columnCount; i++) {
-            mapping[i] = i;
+            mapping[i] = i + mergeOffset;
         }
 
         for (int i = 0; i < updateColumns.size(); i++) {
             String columnName = updateColumns.get(i);
             ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(columnName);
 
-            mapping[columnDescriptor.logicalIndex()] = columnCount + i;
+            assert !columnDescriptor.virtual() : "Virtual column can't be updated";
+
+            mapping[columnDescriptor.logicalIndex()] = columnCount + i + mergeOffset;
         }
 
         return mapping;

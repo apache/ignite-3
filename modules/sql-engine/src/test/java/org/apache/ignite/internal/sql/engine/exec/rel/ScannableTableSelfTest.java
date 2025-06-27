@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -224,7 +223,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     eq(tx.commitPartition()),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     condition.lowerValue != null ? any(BinaryTuplePrefix.class) : isNull(),
@@ -246,8 +245,8 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         for (Bound leftBound : Bound.values()) {
             for (Bound rightBound : Bound.values()) {
-                params.add(Arguments.of(NoOpTransaction.readOnly("RO"), leftBound, rightBound));
-                params.add(Arguments.of(NoOpTransaction.readWrite("RW"), leftBound, rightBound));
+                params.add(Arguments.of(NoOpTransaction.readOnly("RO", false), leftBound, rightBound));
+                params.add(Arguments.of(NoOpTransaction.readWrite("RW", false), leftBound, rightBound));
             }
         }
 
@@ -300,7 +299,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     eq(tx.commitPartition()),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     nullable(BinaryTuplePrefix.class),
@@ -422,7 +421,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     eq(tx.commitPartition()),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     prefix.capture(),
@@ -477,7 +476,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     any(),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
@@ -530,7 +529,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     eq(partitionId),
                     eq(tx.id()),
                     any(),
-                    anyString(),
+                    any(UUID.class),
                     eq(primaryReplica),
                     eq(indexId),
                     any(BinaryTuple.class),
@@ -574,8 +573,8 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
     private static Stream<Arguments> transactions() {
         return Stream.of(
-                Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO"))),
-                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readWrite("RW")))
+                Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO", false))),
+                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readWrite("RW", false)))
         );
     }
 
@@ -585,13 +584,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final TestInput input;
 
-        final RowCollectingTableRwoConverter rowConverter;
+        final RowCollectingTableRowConverter rowConverter;
 
         BitSet requiredFields;
 
         Tester(TestInput input) {
             this.input = input;
-            rowConverter = new RowCollectingTableRwoConverter(input);
+            rowConverter = new RowCollectingTableRowConverter(input);
             scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
         }
 
@@ -601,13 +600,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             if (tx.isReadOnly()) {
                 doAnswer(invocation -> input.publisher).when(internalTable)
-                        .scan(anyInt(), any(UUID.class), any(HybridTimestamp.class), any(ClusterNode.class), anyString());
+                        .scan(anyInt(), any(UUID.class), any(HybridTimestamp.class), any(ClusterNode.class), any(UUID.class));
             } else {
                 doAnswer(invocation -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(UUID.class),
                         any(TablePartitionId.class),
-                        any(String.class),
+                        any(UUID.class),
                         any(PrimaryReplica.class),
                         isNull(),
                         isNull(),
@@ -650,13 +649,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         nullable(BinaryTuplePrefix.class),
                         anyInt(),
                         nullable(BitSet.class),
-                        anyString());
+                        any(UUID.class));
             } else {
                 doAnswer(i -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(UUID.class),
                         any(TablePartitionId.class),
-                        any(String.class),
+                        any(UUID.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),
                         nullable(BinaryTuplePrefix.class),
@@ -698,13 +697,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         any(Integer.class),
                         nullable(BinaryTuple.class),
                         nullable(BitSet.class),
-                        anyString());
+                        any(UUID.class));
             } else {
                 doAnswer(i -> input.publisher).when(internalTable).lookup(
                         anyInt(),
                         any(UUID.class),
                         any(TablePartitionId.class),
-                        any(String.class),
+                        any(UUID.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),
                         nullable(BinaryTuple.class),
@@ -806,18 +805,23 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
     }
 
     // Collects rows received from an input source.
-    static class RowCollectingTableRwoConverter implements TableRowConverter {
+    static class RowCollectingTableRowConverter implements TableRowConverter {
 
         final TestInput testInput;
 
         final List<BinaryRow> converted = new ArrayList<>();
 
-        RowCollectingTableRwoConverter(TestInput testData) {
+        RowCollectingTableRowConverter(TestInput testData) {
             this.testInput = testData;
         }
 
         @Override
-        public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+        public <RowT> BinaryRowEx toFullRow(ExecutionContext<RowT> ectx, RowT row) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <RowT> BinaryRowEx toKeyRow(ExecutionContext<RowT> ectx, RowT row) {
             throw new UnsupportedOperationException();
         }
 
@@ -841,9 +845,9 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final AtomicReference<Throwable> err = new AtomicReference<>();
 
-        final RowCollectingTableRwoConverter rowConverter;
+        final RowCollectingTableRowConverter rowConverter;
 
-        ResultCollector(Publisher<?> input, RowCollectingTableRwoConverter rowConverter) {
+        ResultCollector(Publisher<?> input, RowCollectingTableRowConverter rowConverter) {
             this.input = input;
             this.rowConverter = rowConverter;
 

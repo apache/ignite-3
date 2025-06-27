@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import java.io.Serializable;
+import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Node representation that we store in data nodes.
@@ -25,14 +26,12 @@ import java.io.Serializable;
  * {@code nodeId} that is unique identifier of a node, that changes after a restart.
  * {@code nodeId} is needed to get node's attributes from the local state of the distribution zone manager.
  */
-public class Node implements Serializable {
-    private static final long serialVersionUID = 875461392587175703L;
-
+public class Node implements Comparable<Node> {
     private final String nodeName;
 
-    private final String nodeId;
+    private final UUID nodeId;
 
-    public Node(String nodeName, String nodeId) {
+    public Node(String nodeName, UUID nodeId) {
         this.nodeName = nodeName;
         this.nodeId = nodeId;
     }
@@ -61,12 +60,23 @@ public class Node implements Serializable {
         return nodeName;
     }
 
-    public String nodeId() {
+    public UUID nodeId() {
         return nodeId;
     }
 
     @Override
     public String toString() {
-        return nodeName;
+        return S.toString(Node.class, this);
+    }
+
+    @Override
+    public int compareTo(Node o) {
+        int compareConsistentId = nodeName.compareTo(o.nodeName);
+
+        if (compareConsistentId != 0) {
+            return compareConsistentId;
+        } else {
+            return nodeId.compareTo(o.nodeId);
+        }
     }
 }

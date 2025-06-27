@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
@@ -31,9 +32,9 @@ import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -44,6 +45,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItSetOpTest extends BaseSqlIntegrationTest {
     /**
      * Before all.
@@ -93,8 +95,8 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExcept(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExcept(MinusSetOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 EXCEPT SELECT name FROM emp2");
 
         assertEquals(1, rows.size());
@@ -102,16 +104,16 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExceptFromEmpty(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExceptFromEmpty(MinusSetOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 WHERE salary < 0 EXCEPT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExceptSeveralColumns(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExceptSeveralColumns(MinusSetOpVariant setOp) {
         var rows = sql(setOp, "SELECT name, salary FROM emp1 EXCEPT SELECT name, salary FROM emp2");
 
         assertEquals(4, rows.size());
@@ -120,8 +122,8 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExceptAll(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExceptAll(MinusSetOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 EXCEPT ALL SELECT name FROM emp2");
 
         assertEquals(4, rows.size());
@@ -130,8 +132,8 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExceptNested(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExceptNested(MinusSetOpVariant setOp) {
         var rows =
                 sql(setOp, "SELECT name FROM emp1 EXCEPT (SELECT name FROM emp1 EXCEPT SELECT name FROM emp2)");
 
@@ -141,21 +143,20 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18475")
     public void testSetOpBigBatch() {
         sql("CREATE TABLE big_table1(key INT PRIMARY KEY, val INT)");
         sql("CREATE TABLE big_table2(key INT PRIMARY KEY, val INT)");
 
         int key = 0;
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 3; i++) {
             for (int j = 0; j < ((i == 0) ? 1 : (1 << (i * 4 - 1))); j++) {
-                // Cache1 keys count: 1 of "0", 8 of "1", 128 of "2", 2048 of "3", 32768 of "4".
+                // Cache1 keys count: 1 of "0", 8 of "1", 128 of "2".
                 sql("INSERT INTO big_table1 VALUES (?, ?)", key++, i);
 
-                // Cache2 keys count: 1 of "5", 128 of "3", 32768 of "1".
+                // Cache2 keys count: 1 of "3", 128 of "1".
                 if ((i & 1) == 0) {
-                    sql("INSERT INTO big_table2 VALUES (?, ?)", key++, 5 - i);
+                    sql("INSERT INTO big_table2 VALUES (?, ?)", key++, 3 - i);
                 }
             }
         }
@@ -163,35 +164,30 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
         // Check 2 partitioned caches.
         var rows = sql("SELECT val FROM BIG_TABLE1 EXCEPT SELECT val FROM BIG_TABLE2");
 
-        assertEquals(3, rows.size());
+        assertEquals(2, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals(0)));
         assertEquals(1, countIf(rows, r -> r.get(0).equals(2)));
-        assertEquals(1, countIf(rows, r -> r.get(0).equals(4)));
 
         rows = sql("SELECT val FROM BIG_TABLE1 EXCEPT ALL SELECT val FROM BIG_TABLE2");
 
-        assertEquals(34817, rows.size());
+        assertEquals(129, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals(0)));
         assertEquals(128, countIf(rows, r -> r.get(0).equals(2)));
-        assertEquals(1920, countIf(rows, r -> r.get(0).equals(3)));
-        assertEquals(32768, countIf(rows, r -> r.get(0).equals(4)));
 
         rows = sql("SELECT val FROM BIG_TABLE1 INTERSECT SELECT val FROM BIG_TABLE2");
 
-        assertEquals(2, rows.size());
+        assertEquals(1, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals(1)));
-        assertEquals(1, countIf(rows, r -> r.get(0).equals(3)));
 
         rows = sql("SELECT val FROM BIG_TABLE1 INTERSECT ALL SELECT val FROM BIG_TABLE2");
 
-        assertEquals(136, rows.size());
+        assertEquals(8, rows.size());
         assertEquals(8, countIf(rows, r -> r.get(0).equals(1)));
-        assertEquals(128, countIf(rows, r -> r.get(0).equals(3)));
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testIntersect(SetOpVariant setOp) {
+    @EnumSource(IntersectOpVariant.class)
+    public void testIntersect(IntersectOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 INTERSECT SELECT name FROM emp2");
 
         assertEquals(2, rows.size());
@@ -200,8 +196,8 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testIntersectAll(SetOpVariant setOp) {
+    @EnumSource(IntersectOpVariant.class)
+    public void testIntersectAll(IntersectOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 INTERSECT ALL SELECT name FROM emp2");
 
         assertEquals(3, rows.size());
@@ -210,23 +206,22 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testIntersectEmpty(SetOpVariant setOp) {
+    @EnumSource(IntersectOpVariant.class)
+    public void testIntersectEmpty(IntersectOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 WHERE salary < 0 INTERSECT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testIntersectSeveralColumns(SetOpVariant setOp) {
+    @EnumSource(IntersectOpVariant.class)
+    public void testIntersectSeveralColumns(IntersectOpVariant setOp) {
         var rows = sql(setOp, "SELECT name, salary FROM emp1 INTERSECT ALL SELECT name, salary FROM emp2");
 
         assertEquals(2, rows.size());
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18426")
     @Test
     public void testSetOpColocated() {
         sql("CREATE TABLE emp(empid INTEGER, deptid INTEGER, name VARCHAR, PRIMARY KEY(empid, deptid)) COLOCATE BY (deptid)");
@@ -236,24 +231,24 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO dept VALUES (0, 'test0'), (1, 'test1'), (2, 'test2')");
 
         assertQuery("SELECT deptid, name FROM emp EXCEPT SELECT deptid, name FROM dept")
-                .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedMinus.*"))
+                .matches(QueryChecker.matches(".*Exchange.*ColocatedMinus.*"))
                 .returns(0, "test1")
                 .returns(1, "test2")
                 .check();
 
         assertQuery("SELECT deptid, name FROM dept EXCEPT SELECT deptid, name FROM emp")
-                .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedMinus.*"))
+                .matches(QueryChecker.matches(".*Exchange.*ColocatedMinus.*"))
                 .returns(1, "test1")
                 .returns(2, "test2")
                 .check();
 
         assertQuery("SELECT deptid FROM dept EXCEPT SELECT deptid FROM emp")
-                .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedMinus.*"))
+                .matches(QueryChecker.matches(".*Exchange.*ColocatedMinus.*"))
                 .returns(2)
                 .check();
 
         assertQuery("SELECT deptid FROM dept INTERSECT SELECT deptid FROM emp")
-                .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedIntersect.*"))
+                .matches(QueryChecker.matches(".*Exchange.*ColocatedIntersect.*"))
                 .returns(0)
                 .returns(1)
                 .check();
@@ -302,7 +297,7 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
      */
     @ParameterizedTest
     @MethodSource("rewindSetOpVariants")
-    public void testSetOpRewindability(SetOpVariant setOp, int tableNum) {
+    public void testSetOpRewindability(MinusSetOpVariant setOp, int tableNum) {
         sql(format("CREATE TABLE test_{}(id int PRIMARY KEY, i INTEGER)", tableNum));
         sql(format("INSERT INTO test_{} VALUES (1, 1), (2, 2)", tableNum));
 
@@ -319,7 +314,7 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     private static Stream<Arguments> rewindSetOpVariants() {
         List<Arguments> arguments = new ArrayList<>();
 
-        SetOpVariant[] ops = SetOpVariant.values();
+        MinusSetOpVariant[] ops = MinusSetOpVariant.values();
         for (int i = 0; i < ops.length; i++) {
             arguments.add(Arguments.of(ops[i], i));
         }
@@ -357,6 +352,25 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
         assertEquals(3, rows.size());
     }
 
+    @Test
+    public void testUnionNestedSortLimit() {
+        sql("CREATE TABLE test (a INTEGER PRIMARY KEY, v VARCHAR(100))");
+        sql("INSERT INTO test VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')");
+
+        assertQuery("SELECT a FROM\n"
+                + "  (SELECT a FROM test ORDER BY a LIMIT 1 OFFSET 1) t(a)\n"
+                + "UNION ALL\n"
+                + "SELECT a FROM\n"
+                + "  (SELECT a FROM\n"
+                + "    (SELECT a FROM test ORDER BY a LIMIT 3 OFFSET 2) i(a)\n"
+                + "    ORDER BY a OFFSET 1\n"
+                + "  ) t(a)\n"
+                + "\n")
+                .returns(2)
+                .returns(4)
+                .check();
+    }
+
     private static void createTable(String tableName) {
         sql("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
     }
@@ -371,20 +385,48 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Set operation variant.
+     * Minus (EXCEPT) operation variants.
      */
-    public enum SetOpVariant {
+    public enum MinusSetOpVariant implements SetOpVariant {
         COLOCATED("MapReduceMinusConverterRule"),
         MAP_REDUCE("ColocatedMinusConverterRule");
 
         final String[] disabledRules;
 
-        SetOpVariant(String... disabledRules) {
+        MinusSetOpVariant(String... disabledRules) {
             this.disabledRules = disabledRules;
         }
 
-        String hint() {
+        /** {@inheritDoc} */
+        @Override
+        public String hint() {
             return HintUtils.toHint(IgniteHint.DISABLE_RULE, disabledRules);
         }
+    }
+
+    /**
+     * Intersect operation variants.
+     */
+    public enum IntersectOpVariant implements SetOpVariant {
+        COLOCATED("MapReduceIntersectConverterRule"),
+        MAP_REDUCE("ColocatedIntersectConverterRule");
+
+        final String[] disabledRules;
+
+        IntersectOpVariant(String... disabledRules) {
+            this.disabledRules = disabledRules;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String hint() {
+            return HintUtils.toHint(IgniteHint.DISABLE_RULE, disabledRules);
+        }
+    }
+
+    /** Set operation variant. */
+    interface SetOpVariant {
+        /** Hint to restrict the optimizer from considering other plans. */
+        String hint();
     }
 }

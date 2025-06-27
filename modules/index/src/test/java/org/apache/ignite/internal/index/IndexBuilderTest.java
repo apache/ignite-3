@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -40,6 +41,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -47,7 +52,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
@@ -55,6 +59,8 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link IndexBuilder} testing. */
 public class IndexBuilderTest extends BaseIgniteAbstractTest {
+    private static final int ZONE_ID = 0;
+
     private static final int TABLE_ID = 1;
 
     private static final int INDEX_ID = 2;
@@ -63,13 +69,16 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
     private static final long ANY_ENLISTMENT_CONSISTENCY_TOKEN = 100500;
 
-    private static final int ANY_INDEX_CREATION_CATALOG_VERSION = 1;
-
     private final ReplicaService replicaService = mock(ReplicaService.class, invocation -> nullCompletedFuture());
 
     private final ExecutorService executorService = newSingleThreadExecutor();
 
-    private final IndexBuilder indexBuilder = new IndexBuilder(executorService, replicaService);
+    private final IndexBuilder indexBuilder = new IndexBuilder(
+            executorService,
+            replicaService,
+            new NoOpFailureManager(),
+            new SystemPropertiesNodeProperties()
+    );
 
     @AfterEach
     void tearDown() throws Exception {
@@ -83,7 +92,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     void testIndexBuildCompletionListener() {
         CompletableFuture<Void> listenCompletionIndexBuildingFuture = listenCompletionIndexBuilding(INDEX_ID, TABLE_ID, PARTITION_ID);
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
         assertThat(listenCompletionIndexBuildingFuture, willCompleteSuccessfully());
     }
@@ -92,12 +101,17 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     void testStopListenIndexBuildCompletion() {
         CompletableFuture<Void> invokeListenerFuture = new CompletableFuture<>();
 
-        IndexBuildCompletionListener listener = (indexId, tableId, partitionId) -> invokeListenerFuture.complete(null);
+        IndexBuildCompletionListener listener = new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletion(int indexId, int tableId, int partitionId) {
+                invokeListenerFuture.complete(null);
+            }
+        };
 
         indexBuilder.listen(listener);
         indexBuilder.stopListen(listener);
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
         assertThat(invokeListenerFuture, willTimeoutFast());
     }
@@ -114,7 +128,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Void> awaitSecondInvokeForReplicaService = awaitSecondInvokeForReplicaService(secondInvokeReplicaServiceFuture);
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, nextRowIdsToBuild);
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, nextRowIdsToBuild);
 
         assertThat(awaitSecondInvokeForReplicaService, willCompleteSuccessfully());
 
@@ -129,7 +143,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     void testIndexBuildCompletionListenerForAlreadyBuiltIndex() {
         CompletableFuture<Void> listenCompletionIndexBuildingFuture = listenCompletionIndexBuilding(INDEX_ID, TABLE_ID, PARTITION_ID);
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, List.of());
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of());
 
         assertThat(listenCompletionIndexBuildingFuture, willCompleteSuccessfully());
     }
@@ -142,15 +156,26 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 .thenReturn(failedFuture(new ReplicationTimeoutException(new TablePartitionId(TABLE_ID, PARTITION_ID))))
                 .thenReturn(nullCompletedFuture());
 
-        scheduleBuildIndex(INDEX_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
+        scheduleBuildIndex(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
 
         assertThat(listenCompletionIndexBuildingFuture, willCompleteSuccessfully());
 
         verify(replicaService, times(2)).invoke(any(ClusterNode.class), any(BuildIndexReplicaRequest.class));
     }
 
-    private void scheduleBuildIndex(int indexId, int tableId, int partitionId, Collection<RowId> nextRowIdsToBuild) {
+    @Test
+    void testScheduleBuildIndexAfterDisasterRecovery() {
+        CompletableFuture<Void> listenCompletionIndexBuildingAfterDisasterRecoveryFuture =
+                listenCompletionIndexBuildingAfterDisasterRecovery(INDEX_ID, TABLE_ID, PARTITION_ID);
+
+        scheduleBuildIndexAfterDisasterRecovery(INDEX_ID, ZONE_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
+
+        assertThat(listenCompletionIndexBuildingAfterDisasterRecoveryFuture, willCompleteSuccessfully());
+    }
+
+    private void scheduleBuildIndex(int indexId, int zoneId, int tableId, int partitionId, Collection<RowId> nextRowIdsToBuild) {
         indexBuilder.scheduleBuildIndex(
+                zoneId,
                 tableId,
                 partitionId,
                 indexId,
@@ -158,16 +183,64 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                ANY_INDEX_CREATION_CATALOG_VERSION
+                mock(HybridTimestamp.class)
+        );
+    }
+
+    private void scheduleBuildIndexAfterDisasterRecovery(
+            int indexId,
+            int zoneId,
+            int tableId,
+            int partitionId,
+            Collection<RowId> nextRowIdsToBuild
+    ) {
+        indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
+                zoneId,
+                tableId,
+                partitionId,
+                indexId,
+                indexStorage(nextRowIdsToBuild),
+                mock(MvPartitionStorage.class),
+                mock(ClusterNode.class),
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
+                mock(HybridTimestamp.class)
         );
     }
 
     private CompletableFuture<Void> listenCompletionIndexBuilding(int indexId, int tableId, int partitionId) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
+        var future = new CompletableFuture<Void>();
 
-        indexBuilder.listen((indexId1, tableId1, partitionId1) -> {
-            if (indexId1 == indexId && tableId1 == tableId && partitionId1 == partitionId) {
-                future.complete(null);
+        indexBuilder.listen(new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletion(int indexId1, int tableId1, int partitionId1) {
+                if (indexId1 == indexId && tableId1 == tableId && partitionId1 == partitionId) {
+                    future.complete(null);
+                }
+            }
+
+            @Override
+            public void onBuildCompletionAfterDisasterRecovery(int indexId, int tableId, int partitionId) {
+                fail(String.format("indexId=%s, tableId=%s, partitionId=%s", indexId, tableId, partitionId));
+            }
+        });
+
+        return future;
+    }
+
+    private CompletableFuture<Void> listenCompletionIndexBuildingAfterDisasterRecovery(int indexId, int tableId, int partitionId) {
+        var future = new CompletableFuture<Void>();
+
+        indexBuilder.listen(new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletionAfterDisasterRecovery(int indexId1, int tableId1, int partitionId1) {
+                if (indexId1 == indexId && tableId1 == tableId && partitionId1 == partitionId) {
+                    future.complete(null);
+                }
+            }
+
+            @Override
+            public void onBuildCompletion(int indexId, int tableId, int partitionId) {
+                fail(String.format("indexId=%s, tableId=%s, partitionId=%s", indexId, tableId, partitionId));
             }
         });
 

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,9 +28,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.math.BigDecimal;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -139,11 +144,16 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testKvMissingValPojoFields() {
-        Table table = ignite().tables().table(TABLE_NAME);
-        var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo.class);
+        String tableName = "tableWithExtraField";
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR, EXTRA VARCHAR)");
+        Table table = ignite().tables().table(tableName);
 
-        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, new MissingFieldPojo()), IllegalArgumentException.class);
-        assertEquals("No mapped object field found for column 'VAL'", ex.getMessage());
+        var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo2.class);
+
+        kvPojoView.put(null, 1, new MissingFieldPojo2("x"));
+        MissingFieldPojo2 val = kvPojoView.get(null, 1);
+
+        assertEquals("x", val.val);
     }
 
     @Test
@@ -164,9 +174,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var tupleView = table.recordView();
 
         Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create().set("KEY", 1)), IgniteException.class);
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
+        assertThat(ex.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
     }
 
     @Test
@@ -190,9 +198,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create()),
                 IgniteException.class);
 
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
+        assertThat(ex.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
     }
 
     @Test
@@ -236,13 +242,20 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testIncompatibleTupleElementType() {
-        Table table = ignite().tables().table(TABLE_NAME);
+        var tableName = "testIncompatibleTupleElementType";
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+
+        Table table = ignite().tables().table(tableName);
         var tupleView = table.recordView();
 
-        Tuple rec = Tuple.create().set("KEY", "1").set("VAL", BigDecimal.ONE);
+        Tuple rec = Tuple.create().set("KEY", 1).set("VAL", 1L);
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22965.
+        // The validation done on a client side (for a thin client), and messages may differ between embedded clients and thin clients.
+        // For an embedded client the message include type precision, but for a thin client it doesn't.
         Throwable ex = assertThrows(IgniteException.class, () -> tupleView.upsert(null, rec));
-        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
+        assertThat(ex.getMessage(), startsWith("Value type does not match [column='VAL', expected=STRING"));
+        assertThat(ex.getMessage(), endsWith(", actual=INT64]"));
     }
 
     @Test
@@ -276,9 +289,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var tupleView = table.recordView();
 
         Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create().set("KEY", null)), IgniteException.class);
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=0, keyPosition=0, valuePosition=-1, colocationPosition=0, name=KEY"));
+        assertThat(ex.getMessage(), containsString("Column 'KEY' does not allow NULLs"));
     }
 
     @Test
@@ -291,9 +302,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         Tuple rec = Tuple.create().set("KEY", 1).set("VAL", null);
         Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, rec), IgniteException.class);
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
+        assertThat(ex.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
     }
 
     @Test
@@ -317,9 +326,57 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create().set("VAL", null)),
                 IgniteException.class);
 
-        assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): "
-                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
+        assertThat(ex.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
+    }
+
+    @Test
+    public void testVarcharColumnOverflow() {
+        var tableName = "testVarcharColumnOverflow";
+
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR(10))");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(
+                () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create().set("VAL", "1".repeat(20))),
+                IgniteException.class);
+
+        assertThat(ex.getMessage(), containsString("Value too long [column='VAL', type=STRING(10)]"));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22965")
+    public void testDecimalColumnOverflow() {
+        var tableName = "testDecimalColumnOverflow";
+
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL DECIMAL(3,1))");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(
+                () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create().set("VAL", new BigDecimal("12345.1"))),
+                IgniteException.class);
+
+        assertThat(ex.getMessage(), containsString("Numeric field overflow in column 'VAL'"));
+    }
+
+    @Test
+    public void testUnsupportedObjectInTuple() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        RecordView<Tuple> tupleView = table.recordView();
+
+        Tuple rec = Tuple.create()
+                .set("KEY", 1)
+                .set("VAL", new TestPojo2());
+
+        MarshallerException ex = assertThrows(MarshallerException.class, () -> tupleView.upsert(null, rec));
+
+        assertEquals(
+                "Invalid value type provided for column [name='VAL', expected='java.lang.String', actual='"
+                        + TestPojo2.class.getName() + "']",
+                ex.getMessage());
     }
 
     private static class TestPojo2 {
@@ -338,6 +395,18 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     private static class MissingFieldPojo {
         public int unknown;
+    }
+
+    private static class MissingFieldPojo2 {
+        public String val;
+
+        MissingFieldPojo2() {
+            // No-op.
+        }
+
+        public MissingFieldPojo2(String val) {
+            this.val = val;
+        }
     }
 
     private static class IncompatibleFieldPojo {

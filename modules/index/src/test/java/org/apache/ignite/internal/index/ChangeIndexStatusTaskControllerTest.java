@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_ID;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
-import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,22 +40,31 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,13 +76,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /** For {@link ChangeIndexStatusTaskController} testing. */
 @ExtendWith(MockitoExtension.class)
 public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest {
-    private final HybridClock clock = new HybridClockImpl();
+    private static final String PRECREATED_TABLE_NAME = "precreated-table";
+    private static final String NOT_PRECREATED_TABLE_NAME = "not-precreated-table";
 
-    private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
+    private final HybridClock clock = new HybridClockImpl();
 
     private final TestPlacementDriver placementDriver = new TestPlacementDriver();
 
     private final ClusterService clusterService = createClusterService();
+
+    private final TestLowWatermark lowWatermark = new TestLowWatermark();
+
+    private CatalogManager catalogManager;
 
     @Mock
     private ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
@@ -80,20 +96,29 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
 
     @BeforeEach
     void setUp() {
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
 
-        createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        createTable(catalogManager, PRECREATED_TABLE_NAME, COLUMN_NAME);
 
         taskController = new ChangeIndexStatusTaskController(
-                catalogManager, placementDriver, clusterService, changeIndexStatusTaskScheduler
+                catalogManager,
+                placementDriver,
+                clusterService,
+                lowWatermark,
+                new SystemPropertiesNodeProperties(),
+                changeIndexStatusTaskScheduler
         );
+
+        taskController.start();
     }
 
     @AfterEach
     void tearDown() throws Exception {
         closeAllManually(
                 catalogManager::beforeNodeStop,
-                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 taskController
         );
     }
@@ -107,6 +132,15 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
         createIndex();
 
         verify(changeIndexStatusTaskScheduler).scheduleStartBuildingTask(eq(indexDescriptor()));
+    }
+
+    @Test
+    void testDoNotStartTaskOnIndexCreationWithTable() {
+        setPrimaryReplicaLocalNode();
+
+        createTable(catalogManager, NOT_PRECREATED_TABLE_NAME, COLUMN_NAME);
+
+        verify(changeIndexStatusTaskScheduler, never()).scheduleStartBuildingTask(any());
     }
 
     @Test
@@ -171,12 +205,49 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
         verify(changeIndexStatusTaskScheduler).stopTasksForTable(eq(tableId()));
     }
 
+    @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    void testScheduleStartBuildingTasksOnTableAddedToZoneWhereWeArePrimary() {
+        String tableName = NOT_PRECREATED_TABLE_NAME;
+        String indexName = "index2";
+
+        setPrimaryReplicaLocalNode();
+
+        createTable(catalogManager, tableName, COLUMN_NAME);
+        createIndex(tableName, indexName);
+
+        CatalogIndexDescriptor indexDescriptor = indexDescriptor(indexName);
+
+        verify(changeIndexStatusTaskScheduler).scheduleStartBuildingTask(eq(indexDescriptor));
+    }
+
+    @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    void testStopAllTableTasksOnTableDropFromZoneWhereWeArePrimary() {
+        int tableId = tableId();
+
+        setPrimaryReplicaLocalNode();
+
+        dropTable();
+        raiseLowWatermarkToCurrentCatalogVersion();
+
+        verify(changeIndexStatusTaskScheduler).stopTasksForTable(eq(tableId));
+    }
+
     private void createIndex() {
-        TestIndexManagementUtils.createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+        createIndex(PRECREATED_TABLE_NAME, INDEX_NAME);
+    }
+
+    private void createIndex(String tableName, String indexName) {
+        TestIndexManagementUtils.createIndex(catalogManager, tableName, indexName, COLUMN_NAME);
     }
 
     private void dropIndex() {
         TestIndexManagementUtils.dropIndex(catalogManager, INDEX_NAME);
+    }
+
+    private void dropTable() {
+        TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, PRECREATED_TABLE_NAME);
     }
 
     private void setPrimaryReplicaLocalNode() {
@@ -184,23 +255,39 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private void setPrimaryReplicaAnotherNode() {
-        setPrimaryReplica(new ClusterNodeImpl(NODE_ID + "-next", NODE_NAME + "-next", mock(NetworkAddress.class)));
+        setPrimaryReplica(new ClusterNodeImpl(randomUUID(), NODE_NAME + "-next", mock(NetworkAddress.class)));
     }
 
     private void setPrimaryReplica(ClusterNode clusterNode) {
-        TablePartitionId groupId = new TablePartitionId(tableId(), 0);
+        ReplicationGroupId groupId = IgniteSystemProperties.colocationEnabled()
+                ? new ZonePartitionId(zoneId(), 0)
+                : new TablePartitionId(tableId(), 0);
 
         ReplicaMeta replicaMeta = newPrimaryReplicaMeta(clusterNode, groupId, HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE);
 
         assertThat(placementDriver.setPrimaryReplicaMeta(0, groupId, completedFuture(replicaMeta)), willCompleteSuccessfully());
     }
 
+    private void raiseLowWatermarkToCurrentCatalogVersion() {
+        Catalog currentCatalog = catalogManager.activeCatalog(HybridTimestamp.MAX_VALUE.longValue());
+
+        lowWatermark.updateAndNotify(hybridTimestamp(currentCatalog.time()));
+    }
+
     private int tableId() {
-        return TestIndexManagementUtils.tableId(catalogManager, TABLE_NAME, clock);
+        return TestIndexManagementUtils.tableId(catalogManager, PRECREATED_TABLE_NAME, clock);
+    }
+
+    private int zoneId() {
+        return TableTestUtils.getZoneIdByTableNameStrict(catalogManager, PRECREATED_TABLE_NAME, clock.nowLong());
     }
 
     private CatalogIndexDescriptor indexDescriptor() {
-        return TestIndexManagementUtils.indexDescriptor(catalogManager, INDEX_NAME, clock);
+        return indexDescriptor(INDEX_NAME);
+    }
+
+    private CatalogIndexDescriptor indexDescriptor(String indexName) {
+        return TestIndexManagementUtils.indexDescriptor(catalogManager, indexName, clock);
     }
 
     private static ClusterService createClusterService() {

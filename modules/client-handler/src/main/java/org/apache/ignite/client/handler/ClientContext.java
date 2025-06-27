@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import java.util.BitSet;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.tostring.S;
@@ -71,12 +72,28 @@ class ClientContext {
     }
 
     /**
-     * Gets the features.
+     * Checks if a feature is enabled.
      *
-     * @return Features.
+     * @return {@code True} if a feature is enabled.
      */
-    public BitSet features() {
-        return features;
+    public boolean hasFeature(ProtocolBitmaskFeature feature) {
+        return features.get(feature.featureId());
+    }
+
+    /**
+     * Сhecks if all features are enabled.
+     *
+     * @param features Features.
+     * @return {@code True} if all features are enabled.
+     */
+    public boolean hasAllFeatures(ProtocolBitmaskFeature... features) {
+        for (ProtocolBitmaskFeature feature : features) {
+            if (!this.features.get(feature.featureId())) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public UserDetails userDetails() {

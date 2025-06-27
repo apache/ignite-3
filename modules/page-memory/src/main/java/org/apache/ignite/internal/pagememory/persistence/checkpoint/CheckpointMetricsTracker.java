@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.atomic.AtomicIntegerFieldUpdater.newUpdater;
-import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
+import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
  * Tracks various checkpoint phases and stats.
@@ -48,43 +50,25 @@ public class CheckpointMetricsTracker {
 
     private volatile int copyOnWritePagesWritten;
 
-    private final long checkpointStartTimestamp = coarseCurrentTimeMillis();
+    private final long startTimestamp = FastTimestamps.coarseCurrentTimeMillis();
 
-    private long checkpointWriteLockWaitStartTimestamp;
+    private final Duration checkpointDuration = new Duration();
 
-    private long checkpointOnMarkCheckpointBeginStartTimestamp;
+    private final Duration writeLockWaitDuration = new Duration();
 
-    private long checkpointWriteLockReleaseTimestamp;
+    private final Duration onMarkCheckpointBeginDuration = new Duration();
 
-    private long checkpointPagesWriteStartTimestamp;
+    private final Duration writeLockHoldDuration = new Duration();
 
-    private long checkpointFsyncStartTimestamp;
+    private final Duration pagesWriteDuration = new Duration();
 
-    private long checkpointEndTimestamp;
+    private final Duration fsyncDuration = new Duration();
 
-    private long splitAndSortCheckpointPagesStartTimestamp;
+    private final Duration replicatorLogSyncDuration = new Duration();
 
-    private long splitAndSortCheckpointPagesEndTimestamp;
+    private final Duration splitAndSortCheckpointPagesDuration = new Duration();
 
-    private long checkpointOnMarkCheckpointBeginEndTimestamp;
-
-    /**
-     * Returns checkpoint start timestamp in mills.
-     *
-     * <p>Thread safe.
-     */
-    public long checkpointStartTime() {
-        return checkpointStartTimestamp;
-    }
-
-    /**
-     * Callback on checkpoint end.
-     *
-     * <p>Not thread safe.
-     */
-    public void onCheckpointEnd() {
-        checkpointEndTimestamp = coarseCurrentTimeMillis();
-    }
+    private final Duration waitPageReplacement = new Duration();
 
     /**
      * Increments counter if copy on write page was written.
@@ -93,15 +77,6 @@ public class CheckpointMetricsTracker {
      */
     public void onCopyOnWritePageWritten() {
         COPY_ON_WRITE_PAGES_WRITTEN_UPDATER.incrementAndGet(this);
-    }
-
-    /**
-     * Increments counter if data page was written.
-     *
-     * <p>Thread safe.
-     */
-    public void onDataPageWritten() {
-        DATA_PAGES_WRITTEN_UPDATER.incrementAndGet(this);
     }
 
     /**
@@ -114,6 +89,15 @@ public class CheckpointMetricsTracker {
     }
 
     /**
+     * Increments counter if data page was written.
+     *
+     * <p>Thread safe.
+     */
+    public void onDataPageWritten() {
+        DATA_PAGES_WRITTEN_UPDATER.incrementAndGet(this);
+    }
+
+    /**
      * Returns data pages written.
      *
      * <p>Thread safe.
@@ -123,75 +107,30 @@ public class CheckpointMetricsTracker {
     }
 
     /**
-     * Callback before acquiring checkpoint write lock.
+     * Returns checkpoint start timestamp in mills.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public void onWriteLockWaitStart() {
-        checkpointWriteLockWaitStartTimestamp = coarseCurrentTimeMillis();
+    public long checkpointStartTime() {
+        return startTimestamp;
     }
 
     /**
-     * Callback after release checkpoint write lock.
+     * Callback on checkpoint start.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public void onWriteLockRelease() {
-        checkpointWriteLockReleaseTimestamp = coarseCurrentTimeMillis();
+    public void onCheckpointStart() {
+        checkpointDuration.onStart();
     }
 
     /**
-     * Callback before all {@link CheckpointListener#onMarkCheckpointBegin}.
+     * Callback on checkpoint end.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public void onMarkCheckpointBeginStart() {
-        checkpointOnMarkCheckpointBeginStartTimestamp = coarseCurrentTimeMillis();
-    }
-
-    /**
-     * Callback after all {@link CheckpointListener#onMarkCheckpointBegin}.
-     *
-     * <p>Not thread safe.
-     */
-    public void onMarkCheckpointBeginEnd() {
-        checkpointOnMarkCheckpointBeginEndTimestamp = coarseCurrentTimeMillis();
-    }
-
-    /**
-     * Callback on start writes pages to {@link PageStore}s.
-     *
-     * <p>Not thread safe.
-     */
-    public void onPagesWriteStart() {
-        checkpointPagesWriteStartTimestamp = coarseCurrentTimeMillis();
-    }
-
-    /**
-     * Callback on start fsync {@link PageStore}s.
-     *
-     * <p>Not thread safe.
-     */
-    public void onFsyncStart() {
-        checkpointFsyncStartTimestamp = coarseCurrentTimeMillis();
-    }
-
-    /**
-     * Callback before split and sort checkpoint pages.
-     *
-     * <p>Not thread safe.
-     */
-    public void onSplitAndSortCheckpointPagesStart() {
-        splitAndSortCheckpointPagesStartTimestamp = coarseCurrentTimeMillis();
-    }
-
-    /**
-     * Callback after split and sort checkpoint pages.
-     *
-     * <p>Not thread safe.
-     */
-    public void onSplitAndSortCheckpointPagesEnd() {
-        splitAndSortCheckpointPagesEndTimestamp = coarseCurrentTimeMillis();
+    public void onCheckpointEnd() {
+        checkpointDuration.onEnd();
     }
 
     /**
@@ -199,70 +138,232 @@ public class CheckpointMetricsTracker {
      *
      * <p>Not thread safe.
      */
-    public long totalDuration() {
-        return checkpointEndTimestamp - checkpointStartTimestamp;
+    public long checkpointDuration(TimeUnit timeUnit) {
+        return checkpointDuration.duration(timeUnit);
     }
 
     /**
-     * Returns checkpoint write lock wait duration in mills.
+     * Callback before acquiring checkpoint write lock.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public long writeLockWaitDuration() {
-        return checkpointOnMarkCheckpointBeginStartTimestamp - checkpointWriteLockWaitStartTimestamp;
+    public void onWriteLockWaitStart() {
+        writeLockWaitDuration.onStart();
     }
 
     /**
-     * Returns checkpoint action before taken write lock duration in mills.
+     * Callback after acquiring checkpoint write lock.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public long beforeWriteLockDuration() {
-        return checkpointWriteLockWaitStartTimestamp - checkpointStartTimestamp;
+    public void onWriteLockWaitEnd() {
+        writeLockWaitDuration.onEnd();
     }
 
     /**
-     * Returns execution all {@link CheckpointListener#onMarkCheckpointBegin} under write lock duration in mills.
+     * Returns total acquiring checkpoint write lock duration.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public long onMarkCheckpointBeginDuration() {
-        return checkpointOnMarkCheckpointBeginEndTimestamp - checkpointOnMarkCheckpointBeginStartTimestamp;
+    public long writeLockWaitDuration(TimeUnit timeUnit) {
+        return writeLockWaitDuration.duration(timeUnit);
     }
 
     /**
-     * Returns checkpoint write lock hold duration in mills.
+     * Callback before all {@link CheckpointListener#onMarkCheckpointBegin}.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public long writeLockHoldDuration() {
-        return checkpointWriteLockReleaseTimestamp - checkpointOnMarkCheckpointBeginStartTimestamp;
+    public void onMarkCheckpointBeginStart() {
+        onMarkCheckpointBeginDuration.onStart();
     }
 
     /**
-     * Returns pages write duration in mills.
+     * Callback after all {@link CheckpointListener#onMarkCheckpointBegin}.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public long pagesWriteDuration() {
-        return checkpointFsyncStartTimestamp - checkpointPagesWriteStartTimestamp;
+    public void onMarkCheckpointBeginEnd() {
+        onMarkCheckpointBeginDuration.onEnd();
     }
 
     /**
-     * Returns checkpoint fsync duration in mills.
+     * Returns execution all {@link CheckpointListener#onMarkCheckpointBegin} under write lock duration in the given time unit.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public long fsyncDuration() {
-        return checkpointEndTimestamp - checkpointFsyncStartTimestamp;
+    public long onMarkCheckpointBeginDuration(TimeUnit timeUnit) {
+        return onMarkCheckpointBeginDuration.duration(timeUnit);
+    }
+
+    /**
+     * Callback on start writes pages to {@link PageStore}s.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onPagesWriteStart() {
+        pagesWriteDuration.onStart();
+    }
+
+    /**
+     * Callback on end writes pages to {@link PageStore}s.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onPagesWriteEnd() {
+        pagesWriteDuration.onEnd();
+    }
+
+    /**
+     * Returns pages write duration in the given time unit.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public long pagesWriteDuration(TimeUnit timeUnit) {
+        return pagesWriteDuration.duration(timeUnit);
+    }
+
+    /**
+     * Callback on start fsync {@link PageStore}s.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onFsyncStart() {
+        fsyncDuration.onStart();
+    }
+
+    /**
+     * Callback on end fsync {@link PageStore}s.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onFsyncEnd() {
+        fsyncDuration.onEnd();
+    }
+
+    /**
+     * Returns checkpoint fsync duration in the given time unit.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public long fsyncDuration(TimeUnit timeUnit) {
+        return fsyncDuration.duration(timeUnit);
+    }
+
+    /**
+     * Callback before split and sort checkpoint pages.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onSplitAndSortCheckpointPagesStart() {
+        splitAndSortCheckpointPagesDuration.onStart();
+    }
+
+    /**
+     * Callback after split and sort checkpoint pages.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onSplitAndSortCheckpointPagesEnd() {
+        splitAndSortCheckpointPagesDuration.onEnd();
     }
 
     /**
      * Returns duration of splitting and sorting checkpoint pages in mills.
      *
-     * <p>Not thread safe.
+     * <p>Not thread safe.</p>
      */
-    public long splitAndSortCheckpointPagesDuration() {
-        return splitAndSortCheckpointPagesEndTimestamp - splitAndSortCheckpointPagesStartTimestamp;
+    public long splitAndSortCheckpointPagesDuration(TimeUnit timeUnit) {
+        return splitAndSortCheckpointPagesDuration.duration(timeUnit);
+    }
+
+    /**
+     * Callback at the start of the replication protocol write-ahead-log sync.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onReplicatorLogSyncStart() {
+        replicatorLogSyncDuration.onStart();
+    }
+
+    /**
+     * Callback at the end of the replication protocol write-ahead-log sync.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onReplicatorLogSyncEnd() {
+        replicatorLogSyncDuration.onEnd();
+    }
+
+    /**
+     * Returns checkpoint replication protocol write-ahead-log sync duration in the given time unit.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public long replicatorLogSyncDuration(TimeUnit timeUnit) {
+        return replicatorLogSyncDuration.duration(timeUnit);
+    }
+
+    /**
+     * Callback after acquire checkpoint write lock.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onWriteLockHoldStart() {
+        writeLockHoldDuration.onStart();
+    }
+
+    /**
+     * Callback after release checkpoint write lock.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onWriteLockHoldEnd() {
+        writeLockHoldDuration.onEnd();
+    }
+
+    /**
+     * Returns checkpoint write lock hold duration in the given time unit.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public long writeLockHoldDuration(TimeUnit timeUnit) {
+        return writeLockHoldDuration.duration(timeUnit);
+    }
+
+    /**
+     * Returns checkpoint action before taken write lock duration in the given time unit.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public long beforeWriteLockDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(writeLockWaitDuration.startNanos() - checkpointDuration.startNanos(), NANOSECONDS);
+    }
+
+    /**
+     * Callback to start waiting for page replacement to complete for all pages.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onWaitPageReplacementStart() {
+        waitPageReplacement.onStart();
+    }
+
+    /**
+     * Callback on end waiting for page replacement to complete for all pages.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public void onWaitPageReplacementEnd() {
+        waitPageReplacement.onEnd();
+    }
+
+    /**
+     * Returns checkpoint waiting page replacement to complete duration in the given time unit.
+     *
+     * <p>Not thread safe.</p>
+     */
+    public long waitPageReplacementDuration(TimeUnit timeUnit) {
+        return waitPageReplacement.duration(timeUnit);
     }
 }

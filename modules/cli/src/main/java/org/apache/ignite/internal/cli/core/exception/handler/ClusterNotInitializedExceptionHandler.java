@@ -61,4 +61,22 @@ public class ClusterNotInitializedExceptionHandler extends IgniteCliApiException
         }
         return super.handle(err, e);
     }
+
+    /**
+     * Creates handler for Non-REPL command.
+     *
+     * @param message command-specific text like 'cannot list nodes'
+     */
+    public static ClusterNotInitializedExceptionHandler createHandler(String message) {
+        return new ClusterNotInitializedExceptionHandler(message, "ignite cluster init");
+    }
+
+    /**
+     * Creates handler for REPL command.
+     *
+     * @param message command-specific text like 'cannot list nodes'
+     */
+    public static ClusterNotInitializedExceptionHandler createReplHandler(String message) {
+        return new ClusterNotInitializedExceptionHandler(message, "cluster init");
+    }
 }

@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.table;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -66,7 +67,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     /** {@inheritDoc} */
     @Override
     public String columnName(int columnIndex) {
-        return rowColumnByIndex(columnIndex).name();
+        return IgniteNameUtils.quoteIfNeeded(rowColumnByIndex(columnIndex).name());
     }
 
     /** {@inheritDoc} */
@@ -74,7 +75,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public int columnIndex(String columnName) {
         Objects.requireNonNull(columnName);
 
-        Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
+        Column col = row.schema().column(IgniteNameUtils.parseIdentifier(columnName));
 
         if (col == null) {
             return -1;
@@ -88,7 +89,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public <T> T valueOrDefault(String columnName, T defaultValue) {
         Objects.requireNonNull(columnName);
 
-        Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
+        Column col = row.schema().column(IgniteNameUtils.parseIdentifier(columnName));
 
         return col == null ? defaultValue : (T) row.value(correctIndex(col));
     }
@@ -222,6 +223,22 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
 
     /** {@inheritDoc} */
     @Override
+    public BigDecimal decimalValue(String columnName) {
+        Column col = rowColumnByName(columnName);
+
+        return row.decimalValue(correctIndex(col));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        Column col = rowColumnByIndex(columnIndex);
+
+        return row.decimalValue(correctIndex(col));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String stringValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
@@ -238,6 +255,22 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        Column col = rowColumnByName(columnName);
+
+        return row.bytesValue(correctIndex(col));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        Column col = rowColumnByIndex(columnIndex);
+
+        return row.bytesValue(correctIndex(col));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
@@ -250,22 +283,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         Column col = rowColumnByIndex(columnIndex);
 
         return row.uuidValue(correctIndex(col));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(String columnName) {
-        Column col = rowColumnByName(columnName);
-
-        return row.bitmaskValue(correctIndex(col));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        Column col = rowColumnByIndex(columnIndex);
-
-        return row.bitmaskValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -361,10 +378,10 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     protected Column rowColumnByName(String columnName) {
         Objects.requireNonNull(columnName);
 
-        Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
+        Column col = row.schema().column(IgniteNameUtils.parseIdentifier(columnName));
 
         if (col == null) {
-            throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);
+            throw new IllegalArgumentException(IgniteStringFormatter.format("Column doesn't exist [name={}]", columnName));
         }
 
         return col;

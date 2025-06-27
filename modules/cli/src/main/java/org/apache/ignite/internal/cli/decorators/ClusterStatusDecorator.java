@@ -32,14 +32,17 @@ public class ClusterStatusDecorator implements Decorator<ClusterStatus, Terminal
     @Override
     public TerminalOutput decorate(ClusterStatus data) {
         return data.isInitialized()
-                ? () -> ansi(
-                        "[name: %s, nodes: %d, status: %s, cmgNodes: %s, msNodes: %s]",
-                        data.getName(),
-                        data.getNodeCount(),
-                        fg(Color.GREEN).mark("active"),
-                        data.getCmgNodes(),
-                        data.getMsNodes()
-                )
-                : () -> ansi("[nodes: %d, status: %s]", data.getNodeCount(), fg(Color.RED).mark("not initialized"));
+                ? () -> ansi(String.format(
+                "[name: %s, nodes: %s, status: %s, cmgNodes: %s, msNodes: %s]",
+                data.getName(),
+                data.nodeCount(),
+                fg(Color.GREEN).mark("active"),
+                data.getCmgNodes(),
+                data.getMsNodes()
+        ))
+                : () -> ansi(String.format(
+                        "[nodes: %s, status: %s]",
+                        data.nodeCount(), fg(Color.RED).mark("not initialized")
+                ));
     }
 }

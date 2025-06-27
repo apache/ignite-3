@@ -41,23 +41,18 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageTest<HashIndexStorage, StorageHashIndexDescriptor> {
     @Override
     protected HashIndexStorage createIndexStorage(String name, boolean built, ColumnType... columnTypes) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor tableDescriptor = catalog.table(SCHEMA_NAME, TABLE_NAME);
 
         int tableId = tableDescriptor.id();
         int indexId = catalogId.getAndIncrement();
 
-        CatalogHashIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, columnTypes);
+        CatalogHashIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, built, columnTypes);
 
-        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(
+        tableStorage.createHashIndex(
                 TEST_PARTITION,
                 new StorageHashIndexDescriptor(tableDescriptor, indexDescriptor)
         );
-
-        if (built) {
-            completeBuildIndex(indexStorage);
-        }
-
-        return indexStorage;
+        return (HashIndexStorage) tableStorage.getIndex(TEST_PARTITION, indexDescriptor.id());
     }
 
     @Override
@@ -66,15 +61,17 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
     }
 
     @Override
-    CatalogHashIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes) {
+    CatalogHashIndexDescriptor createCatalogIndexDescriptor(
+            int tableId, int indexId, String indexName, boolean built, ColumnType... columnTypes
+    ) {
         var indexDescriptor = new CatalogHashIndexDescriptor(
                 indexId,
                 indexName,
                 tableId,
                 false,
                 AVAILABLE,
-                catalogService.latestCatalogVersion(),
-                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
+                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList()),
+                built
         );
 
         addToCatalog(indexDescriptor);

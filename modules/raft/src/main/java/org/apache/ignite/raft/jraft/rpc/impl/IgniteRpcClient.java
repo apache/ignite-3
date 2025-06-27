@@ -27,11 +27,12 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiPredicate;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.PeerUnavailableException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
 import org.apache.ignite.raft.jraft.error.RemotingException;
@@ -86,23 +87,22 @@ public class IgniteRpcClient implements RpcClientEx {
     ) {
         CompletableFuture<Message> fut = new CompletableFuture<>();
 
-        fut.orTimeout(timeoutMs, TimeUnit.MILLISECONDS).
-            whenComplete((res, err) -> {
-                assert !(res == null && err == null) : res + " " + err;
+        fut.whenComplete((res, err) -> {
+            assert !(res == null && err == null) : res + " " + err;
 
-                if (err == null && recordPred != null && recordPred.test(res, this.toString()))
-                    recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
+            if (err == null && recordPred != null && recordPred.test(res, this.toString()))
+                recordedMsgs.add(new Object[] {res, this.toString(), fut.hashCode(), System.currentTimeMillis(), null});
 
-                if (err instanceof ExecutionException)
-                    err = new RemotingException(err);
-                else if (err instanceof TimeoutException) // Translate timeout exception.
-                    err = new InvokeTimeoutException();
+            if (err instanceof ExecutionException)
+                err = new RemotingException(err);
+            else if (err instanceof TimeoutException) // Translate timeout exception.
+                err = new InvokeTimeoutException();
 
-                Throwable finalErr = err;
+            Throwable finalErr = err;
 
-                // Avoid deadlocks if a closure has completed in the same thread.
-                Utils.runInThread(callback.executor(), () -> callback.complete(res, finalErr));
-            });
+            // Avoid deadlocks if a closure has completed in the same thread.
+            Utils.runInThread(callback.executor(), () -> callback.complete(res, finalErr));
+        });
 
         // Future hashcode used as corellation id.
         if (recordPred != null && recordPred.test(request, peerId.toString()))
@@ -120,6 +120,10 @@ public class IgniteRpcClient implements RpcClientEx {
 
                 blockedMsgs.add(msgData);
 
+                if (timeoutMs > 0) {
+                    fut.orTimeout(timeoutMs, TimeUnit.MILLISECONDS);
+                }
+
                 LOG.info("Blocked message to={} id={} msg={}", peerId.toString(), msgData[2], S.toString(request));
 
                 return fut;
@@ -135,8 +139,8 @@ public class IgniteRpcClient implements RpcClientEx {
         ClusterNode targetNode = service.topologyService().getByConsistentId(peerId.getConsistentId());
 
         if (targetNode == null) {
-            // ConnectException will force a retry by the enclosing components.
-            fut.completeExceptionally(new ConnectException());
+            // PeerUnavailableException will force a retry by the enclosing components.
+            fut.completeExceptionally(new PeerUnavailableException(peerId.getConsistentId()));
 
             return;
         }

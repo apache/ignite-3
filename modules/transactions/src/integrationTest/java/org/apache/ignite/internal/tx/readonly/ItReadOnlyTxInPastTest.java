@@ -17,12 +17,30 @@
 
 package org.apache.ignite.internal.tx.readonly;
 
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.TransactionOptions;
@@ -44,7 +62,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     @BeforeEach
     void prepareCluster() {
         // Setting idleSafeTimePropagationDuration to 1 second so that an RO tx has a potential to look before a table was created.
-        cluster.startAndInit(1, builder -> builder.clusterConfiguration("replication.idleSafeTimePropagationDuration: 1000"));
+        cluster.startAndInit(1, builder -> builder.clusterConfiguration("ignite.replication.idleSafeTimePropagationDurationMillis: 1000"));
 
         cluster.doInSession(0, session -> {
             executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
@@ -56,8 +74,21 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
      * table did not yet exist) even when the 'look in the past' optimization is enabled.
      */
     @Test
-    void explicitReadOnlyTxDoesNotLookBeforeTableCreation() {
-        IgniteImpl node = cluster.node(0);
+    void explicitReadOnlyTxDoesNotLookBeforeTableCreation() throws Exception {
+        Ignite node = cluster.node(0);
+
+        if (colocationEnabled()) {
+            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+            setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
+        }
+
+        // In case of empty assignments SQL engine will throw "Mandatory nodes was excluded from mapping: []".
+        // In order to eliminate this assignments stabilization is needed, otherwise test may fail. Not related to collocation.
+        // awaitAssignmentsStabilization awaits that the default zone/table stable partition assignments size
+        // will be DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT. It's correct only for a single-node cluster that uses default zone,
+        // that's why given method isn't located in a utility class.
+        awaitAssignmentsStabilization(node);
 
         long count = node.transactions().runInTransaction(tx -> {
             return cluster.doInSession(0, session -> {
@@ -79,5 +110,40 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
         long count = cluster.query(0, "SELECT COUNT(*) FROM " + TABLE_NAME, rs -> rs.next().longValue(0));
 
         assertThat(count, is(0L));
+    }
+
+    private void setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate() {
+        IgniteImpl node = unwrapIgniteImpl(node(0));
+        CatalogManager catalogManager = node.catalogManager();
+        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
+
+        node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
+    }
+
+    private static void awaitAssignmentsStabilization(Ignite node) throws InterruptedException {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
+        TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
+        int tableOrZoneId = colocationEnabled() ? table.zoneId() : table.tableId();
+
+        HybridTimestamp timestamp = igniteImpl.clock().now();
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+            int totalPartitionSize = 0;
+
+            // Within given test default zone is used.
+            for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
+                CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
+                        colocationEnabled()
+                                ? new ZonePartitionId(tableOrZoneId, p)
+                                : new TablePartitionId(tableOrZoneId, p),
+                        timestamp);
+
+                assertThat(assignmentsFuture, willCompleteSuccessfully());
+
+                totalPartitionSize += assignmentsFuture.join().nodes().size();
+            }
+
+            return totalPartitionSize == DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT;
+        }, 10_000));
     }
 }

@@ -1,0 +1,173 @@
+# name: sql/identifiers/test_identifiers_trailing_underscore.test
+# description: SQL feature E031-01 (Identifiers. Delimited identifiers)
+# group: [identifiers]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE "Table_Test" ("col_Id" INTEGER, "col_Val" INTEGER, PRIMARY KEY ("col_Id"))
+
+statement ok
+CREATE TABLE "Table Test" ("col Id" INTEGER, "col Val" INTEGER, PRIMARY KEY ("col Id"))
+
+statement ok
+CREATE TABLE "Table""Test""" ("col""Id""" INTEGER, "col""Val""" INTEGER, PRIMARY KEY ("col""Id"""))
+
+
+
+statement error
+ALTER TABLE Table_Test ADD COLUMN (col1 INTEGER)
+
+statement error
+ALTER TABLE TableTest ADD COLUMN (col1 INTEGER)
+
+statement ok
+ALTER TABLE "Table_Test" ADD COLUMN ("Col_1" INTEGER)
+
+statement ok
+ALTER TABLE "Table Test" ADD COLUMN ("Col 1" INTEGER)
+
+statement ok
+ALTER TABLE "Table""Test""" ADD COLUMN ("Col""1""" INTEGER)
+
+
+
+statement ok
+INSERT INTO "Table_Test" VALUES (1, 1, 1)
+
+statement ok
+INSERT INTO "Table Test" VALUES (2, 2, 2)
+
+statement ok
+INSERT INTO "Table""Test""" VALUES (3, 3, 3)
+
+
+query II
+SELECT "col_Val", "Col_1" FROM "Table_Test"
+----
+1	1
+
+query II
+SELECT "col Val", "Col 1" FROM "Table Test"
+----
+2	2
+
+query II
+SELECT "col""Val""", "Col""1""" FROM "Table""Test"""
+----
+3	3
+
+statement error: Object 'TABLE_TEST' not found
+SELECT "col_Val" FROM Table_Test
+
+statement error: Object 'TableTest' not found
+SELECT "col""Val""" FROM "TableTest"
+
+statement error: Column 'COL_VAL' not found
+SELECT col_Val FROM "Table_Test"
+
+statement error: Column 'colVal' not found
+SELECT "colVal" FROM "Table""Test"""
+
+
+
+statement ok
+CREATE INDEX "Index_Test" on "Table_Test" ("Col_1")
+
+statement ok
+CREATE INDEX "Index Test" on "Table Test" ("Col 1")
+
+statement ok
+CREATE INDEX "Index""Test""" on "Table""Test""" ("Col""1""")
+
+
+statement error: Index with name 'PUBLIC.INDEX_TEST' not found
+DROP INDEX Index_Test
+
+statement error: Index with name 'PUBLIC.IndexTest' not found
+DROP INDEX "IndexTest"
+
+statement ok
+DROP INDEX "Index_Test"
+
+statement ok
+DROP INDEX "Index Test"
+
+statement ok
+DROP INDEX "Index""Test"""
+
+
+
+statement error: Table with name 'PUBLIC.TABLE_TEST' not found
+DROP TABLE Table_Test;
+
+statement error: Table with name 'PUBLIC.TableTest' not found
+DROP TABLE "TableTest";
+
+statement ok
+DROP TABLE "Table_Test";
+
+statement ok
+DROP TABLE "Table Test";
+
+statement ok
+DROP TABLE "Table""Test""";
+
+
+
+statement ok
+CREATE ZONE "zone_Test" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3
+
+statement ok
+ALTER ZONE "zone_Test" SET REPLICAS = 4
+
+statement ok
+ALTER ZONE "zone_Test" RENAME TO "zone Test"
+
+statement error: Distribution zone with name 'zone_Test' not found
+ALTER ZONE "zone_Test" SET REPLICAS = 3
+
+statement error: Distribution zone with name 'zone_Test' not found
+DROP ZONE "zone_Test"
+
+statement ok
+DROP ZONE "zone Test"
+
+
+statement ok
+CREATE ZONE "zone Test" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3
+
+statement ok
+ALTER ZONE "zone Test" SET REPLICAS = 4
+
+statement ok
+ALTER ZONE "zone Test" RENAME TO "zone""Test"""
+
+statement error: Distribution zone with name 'zone Test' not found
+ALTER ZONE "zone Test" SET REPLICAS = 3
+
+statement error: Distribution zone with name 'zone Test' not found
+DROP ZONE "zone Test"
+
+statement ok
+DROP ZONE "zone""Test"""
+
+
+statement ok
+CREATE ZONE "zone""Test""" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3
+
+statement ok
+ALTER ZONE "zone""Test""" SET REPLICAS = 4
+
+statement ok
+ALTER ZONE "zone""Test""" RENAME TO "zone_Test"
+
+statement error: Distribution zone with name 'zone"Test"' not found
+ALTER ZONE "zone""Test""" SET REPLICAS = 3
+
+statement error: Distribution zone with name 'zone"Test"' not found
+DROP ZONE "zone""Test"""
+
+statement ok
+DROP ZONE "zone_Test"

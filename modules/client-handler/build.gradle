@@ -27,6 +27,7 @@ dependencies {
 
     implementation project(':ignite-client-common')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-api')
     implementation project(':ignite-table')
     implementation project(':ignite-sql-engine')
@@ -54,12 +55,11 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-security')
     testImplementation project(':ignite-catalog')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-table')))
-    testImplementation(testFixtures(project(':ignite-low-watermark')))
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-table'))
+    testImplementation testFixtures(project(':ignite-low-watermark'))
+    testImplementation testFixtures(project(':ignite-schema'))
     testImplementation libs.awaitility
 
     integrationTestImplementation project(':ignite-core')
@@ -67,6 +67,7 @@ dependencies {
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-security')
@@ -76,21 +77,23 @@ dependencies {
     integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-eventlog')
-    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation(testFixtures(project(':ignite-table')))
-    integrationTestImplementation(testFixtures(project(':ignite-client-handler')))
-    integrationTestImplementation(testFixtures(project(':ignite-low-watermark')))
+    integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-table'))
+    integrationTestImplementation testFixtures(project(':ignite-client-handler'))
+    integrationTestImplementation testFixtures(project(':ignite-low-watermark'))
+    integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation libs.msgpack.core
     integrationTestImplementation libs.netty.handler
-    integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.bouncycastle.bcpkix.jdk18on;
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation project(':ignite-security-api')
-    testFixturesImplementation libs.mockito.junit
+    testFixturesImplementation project(':ignite-partition-distribution')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
 }
 
 description = 'ignite-client-handler'

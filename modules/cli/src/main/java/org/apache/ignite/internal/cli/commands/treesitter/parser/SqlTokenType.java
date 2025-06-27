@@ -35,7 +35,11 @@ public enum SqlTokenType {
     UNKNOWN;
 
     static SqlTokenType fromNode(TSNode node) {
-        switch (node.getType()) {
+        String type = node.getType();
+        if (type == null) {
+            return UNKNOWN;
+        }
+        switch (type) {
             case "keyword":
                 return KEYWORD;
             case "identifier":
@@ -54,7 +58,7 @@ public enum SqlTokenType {
             case ";":
                 return SEMICOLON;
             default:
-                if (node.getType().startsWith("keyword")) {
+                if (type.startsWith("keyword")) {
                     return KEYWORD;
                 }
                 return UNKNOWN;

@@ -107,9 +107,9 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                 + "SELECT * FROM table3 ";
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteUnionAll.class)
-                .and(input(0, projectFromTable("TABLE1", "CAST($0):DOUBLE", "$1"))
+                .and(input(0, tableWithProjection("TABLE1", "CAST($t0):DOUBLE", "$t1"))
                 .and(input(1, hasChildThat(isTableScan("TABLE2"))))
-                .and(input(2, projectFromTable("TABLE3", "CAST($0):DOUBLE", "$1"))))
+                .and(input(2, tableWithProjection("TABLE3", "CAST($t0):DOUBLE", "$t1"))))
         );
     }
 

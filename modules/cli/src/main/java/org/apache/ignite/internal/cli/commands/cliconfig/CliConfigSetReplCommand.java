@@ -40,13 +40,9 @@ public class CliConfigSetReplCommand extends BaseCommand implements Callable<Int
 
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(CliConfigSetCallInput.builder()
                         .parameters(parameters)::build)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 }

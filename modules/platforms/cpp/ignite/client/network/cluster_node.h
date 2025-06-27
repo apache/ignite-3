@@ -18,11 +18,9 @@
 #pragma once
 
 #include "ignite/common/end_point.h"
+#include "ignite/common/uuid.h"
 
-#include <cstdint>
 #include <type_traits>
-#include <variant>
-#include <vector>
 
 namespace ignite {
 
@@ -41,8 +39,8 @@ public:
      * @param name Name.
      * @param address Address.
      */
-    cluster_node(std::string id, std::string name, end_point address)
-        : m_id(std::move(id))
+    cluster_node(uuid id, std::string name, end_point address)
+        : m_id(id)
         , m_name(std::move(name))
         , m_address(std::move(address)) {}
 
@@ -51,7 +49,7 @@ public:
      *
      * @return Local node id.
      */
-    [[nodiscard]] const std::string &get_id() const { return m_id; }
+    [[nodiscard]] const uuid &get_id() const { return m_id; }
 
     /**
      * Gets the unique name of the cluster member. Does not change after node restart.
@@ -88,7 +86,7 @@ public:
 
 private:
     /** Local ID. */
-    std::string m_id{};
+    uuid m_id{};
 
     /** Name. */
     std::string m_name{};

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,16 +30,19 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessageGroup;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -48,7 +52,8 @@ import org.jetbrains.annotations.Nullable;
  * Local node RW transaction completion checker for indexes. Main task is to handle the
  * {@link IsNodeFinishedRwTransactionsStartedBeforeRequest}.
  */
-public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, IgniteComponent {
+public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter, ActiveLocalTxMinimumRequiredTimeProvider,
+        IgniteComponent {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
     private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
@@ -79,7 +84,7 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             messagingService.addMessageHandler(IndexMessageGroup.class, this::onReceiveIndexNetworkMessage);
 
@@ -88,7 +93,7 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -145,6 +150,33 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
         });
     }
 
+    @Override
+    public long minimumRequiredTime() {
+        int minRequiredVer;
+
+        readWriteLock.writeLock().lock();
+
+        try {
+            Entry<Integer, Long> entry = txCountByCatalogVersion.firstEntry();
+
+            if (entry == null) {
+                // Write lock guarantees that this timestamp will be less
+                // than the begin time of any concurrently started transaction.
+                return clock.now().longValue();
+            }
+
+            minRequiredVer = entry.getKey();
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
+
+        Catalog catalog = catalogService.catalog(minRequiredVer);
+
+        assert catalog != null : "minRequiredVer=" + minRequiredVer;
+
+        return catalog.time();
+    }
+
     /**
      * Handles {@link IsNodeFinishedRwTransactionsStartedBeforeRequest} of {@link IndexMessageGroup}.
      *
@@ -171,7 +203,7 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     /**
-     * Returns {@code true} iff the requested catalog version is active and all RW transactions started on versions strictly before that
+     * Returns {@code true} if the requested catalog version is active and all RW transactions started on versions strictly before that
      * version have finished on the node.
      *
      * @param catalogVersion Catalog version of interest.

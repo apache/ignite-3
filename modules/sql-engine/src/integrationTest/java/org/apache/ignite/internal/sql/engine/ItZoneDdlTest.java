@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -28,9 +30,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.DistributionZoneCantBeDroppedValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -55,7 +55,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToCreateZone(ZONE_NAME, true),
-                DistributionZoneExistsValidationException.class,
+                CatalogValidationException.class,
                 String.format("Distribution zone with name '%s' already exists", ZONE_NAME)
         );
 
@@ -70,7 +70,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToDropZone(ZONE_NAME, true),
-                DistributionZoneNotFoundValidationException.class,
+                CatalogValidationException.class,
                 String.format("Distribution zone with name '%s' not found", ZONE_NAME)
         );
 
@@ -86,7 +86,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToRenameZone("not_existing_" + ZONE_NAME, "another_" + ZONE_NAME, true),
-                DistributionZoneNotFoundValidationException.class,
+                CatalogValidationException.class,
                 String.format("Distribution zone with name '%s' not found", ("not_existing_" + ZONE_NAME).toUpperCase())
         );
 
@@ -100,13 +100,13 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToRenameZone(ZONE_NAME, ZONE_NAME + "_2", true),
-                DistributionZoneExistsValidationException.class,
+                CatalogValidationException.class,
                 String.format("Distribution zone with name '%s' already exists", ZONE_NAME + "_2")
         );
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToRenameZone(ZONE_NAME, ZONE_NAME + "_2", false),
-                DistributionZoneExistsValidationException.class,
+                CatalogValidationException.class,
                 String.format("Distribution zone with name '%s' already exists", ZONE_NAME + "_2")
         );
     }
@@ -130,13 +130,13 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToDropZone(newDefaultZoneName, false),
-                DistributionZoneCantBeDroppedValidationException.class,
+                CatalogValidationException.class,
                 "Default distribution zone can't be dropped"
         );
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToDropZone(initialDefaultZoneNameQuoted, true),
-                DistributionZoneNotFoundValidationException.class,
+                CatalogValidationException.class,
                 format("Distribution zone with name '{}' not found", initialDefaultZoneName)
         );
 
@@ -166,11 +166,44 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> tryToAlterZone("not_existing_" + ZONE_NAME, 200, true),
-                DistributionZoneNotFoundValidationException.class,
+                CatalogValidationException.class,
                 String.format("Distribution zone with name '%s' not found", ("not_existing_" + ZONE_NAME).toUpperCase())
         );
 
         tryToAlterZone("not_existing_" + ZONE_NAME, 200, false);
+    }
+
+    @Test
+    public void testAlterZoneWithPartition() {
+        sql(String.format("CREATE ZONE %s (PARTITIONS 11) STORAGE PROFILES ['%s']", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> sql(String.format("ALTER ZONE %s SET (PARTITIONS 111)", ZONE_NAME)),
+                CatalogValidationException.class,
+                "Partitions number cannot be altered"
+        );
+    }
+
+    @Test
+    public void testAlterZoneWithPartitionWhenPartitionIsNotSetWhenCreate() {
+        sql(String.format("CREATE ZONE %s STORAGE PROFILES ['%s']", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> sql(String.format("ALTER ZONE %s SET (PARTITIONS %s)", ZONE_NAME, DEFAULT_PARTITION_COUNT + 123)),
+                CatalogValidationException.class,
+                "Partitions number cannot be altered"
+        );
+    }
+
+    @Test
+    public void testAlterZoneWithTheSamePartition() {
+        sql(String.format("CREATE ZONE %s (PARTITIONS 11) STORAGE PROFILES ['%s']", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> sql(String.format("ALTER ZONE %s SET (PARTITIONS 11)", ZONE_NAME)),
+                CatalogValidationException.class,
+                "Partitions number cannot be altered"
+        );
     }
 
     @Test
@@ -183,7 +216,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         {
             IgniteTestUtils.assertThrowsWithCause(
                     () -> tryToSetDefaultZone(newDefaultZoneName, true),
-                    DistributionZoneNotFoundValidationException.class,
+                    CatalogValidationException.class,
                     format("Distribution zone with name '{}' not found", newDefaultZoneName.toUpperCase())
             );
 
@@ -206,7 +239,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
             IgniteTestUtils.assertThrowsWithCause(
                     () -> tryToDropZone(newDefaultZoneName, false),
-                    DistributionZoneCantBeDroppedValidationException.class,
+                    CatalogValidationException.class,
                     "Default distribution zone can't be dropped"
             );
         }
@@ -251,7 +284,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
     private static void tryToCreateZone(String zoneName, boolean failIfExists) {
         sql(String.format(
-                "CREATE ZONE %s WITH STORAGE_PROFILES='%s'", failIfExists ? zoneName : "IF NOT EXISTS " + zoneName, DEFAULT_STORAGE_PROFILE
+                "CREATE ZONE %s STORAGE PROFILES ['%s']", failIfExists ? zoneName : "IF NOT EXISTS " + zoneName, DEFAULT_STORAGE_PROFILE
         ));
     }
 
@@ -265,7 +298,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
     private static void tryToAlterZone(String zoneName, int dataNodesAutoAdjust, boolean failIfNotExists) {
         sql(String.format(
-                "ALTER ZONE %s SET DATA_NODES_AUTO_ADJUST=%s",
+                "ALTER ZONE %s SET (AUTO ADJUST %s)",
                 failIfNotExists ? zoneName : "IF EXISTS " + zoneName, dataNodesAutoAdjust
         ));
     }
@@ -279,7 +312,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
     @SuppressWarnings("resource")
     private static Catalog latestActiveCatalog() {
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()));
 

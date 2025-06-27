@@ -103,6 +103,16 @@ public class PublicApiThreadingKeyValueView<K, V> extends PublicApiThreadingView
     }
 
     @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<K> keys) {
+        return executeSyncOp(() -> view.containsAll(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<K> keys) {
+        return executeAsyncOp(() -> view.containsAllAsync(tx, keys));
+    }
+
+    @Override
     public void put(@Nullable Transaction tx, K key, @Nullable V val) {
         executeSyncOp(() -> view.put(tx, key, val));
     }
@@ -178,8 +188,18 @@ public class PublicApiThreadingKeyValueView<K, V> extends PublicApiThreadingView
     }
 
     @Override
+    public void removeAll(@Nullable Transaction tx) {
+        executeSyncOp(() -> view.removeAll(tx));
+    }
+
+    @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         return executeAsyncOp(() -> view.removeAllAsync(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return executeAsyncOp(() -> view.removeAllAsync(tx));
     }
 
     @Override

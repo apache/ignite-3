@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Example: SELECT * FROM products WHERE category = 'Photo' OR subcategory ='Camera Media';
  *
- * <p>A query above will be rewritten to next (or equivalient similar query)
+ * <p>A query above will be rewritten to next (or equivalent similar query)
  *
  * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
  * 'Photo');
@@ -85,12 +85,12 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 {22, null, 0, null, 40, null},
                 {23, null, 0, null, 41, null},
         });
+
+        gatherStatistics();
     }
 
     /**
      * Check 'OR -> UNION' rule is applied for equality conditions on indexed columns.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testEqualityOrToUnionAllRewrite() {
@@ -98,7 +98,8 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE category = 'Video' "
                 + "OR subcategory ='Camera Lens'")
-                .matches(containsUnion(true))
+                .disableRules("LogicalTableScanConverterRule")
+                .matches(containsUnion())
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
                 .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
@@ -111,8 +112,6 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
 
     /**
      * Check 'OR -> UNION' rule is applied for mixed conditions on indexed columns.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testMixedOrToUnionAllRewrite() {
@@ -120,7 +119,8 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE category = 'Photo' "
                 + "OR (subcat_id > 12 AND subcat_id < 22)")
-                .matches(containsUnion(true))
+                .disableRules("LogicalTableScanConverterRule")
+                .matches(containsUnion())
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_CATEGORY"))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCAT_ID"))
                 .returns(1, "Photo", 1, "Camera Media", 11, "Media 1")
@@ -142,9 +142,10 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE subcategory = 'Camera Lens' "
                 + "OR subcategory = 'Other'")
-                .matches(not(containsUnion(true)))
+                .disableRules("LogicalTableScanConverterRule")
+                .matches(not(containsUnion()))
                 .matches(containsIndexScan("PUBLIC", "PRODUCTS", "IDX_SUBCATEGORY"))
-                .matches(containsString("searchBounds=[[MultiBounds"))
+                .matches(containsString("searchBounds: [MultiBounds"))
                 .returns(3, "Photo", 1, "Camera Lens", 12, "Lens 1")
                 .returns(4, "Photo", 1, "Other", 12, "Charger 1")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
@@ -161,7 +162,7 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE cat_id > 1 "
                 + "OR subcat_id < 10")
-                .matches(not(containsUnion(true)))
+                .matches(not(containsUnion()))
                 .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(5, "Video", 2, "Camera Media", 21, "Media 3")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
@@ -176,7 +177,7 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
     @Test
     public void testUnionRuleNotApplicable() {
         assertQuery("SELECT * FROM products WHERE name = 'Canon' OR subcat_id = 22")
-                .matches(not(containsUnion(true)))
+                .matches(not(containsUnion()))
                 .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(7, "Video", 1, null, 0, "Canon")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
@@ -192,7 +193,7 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE name = 'Canon' "
                 + "OR category = 'Video'")
-                .matches(not(containsUnion(true)))
+                .matches(not(containsUnion()))
                 .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(5, "Video", 2, "Camera Media", 21, "Media 3")
                 .returns(6, "Video", 2, "Camera Lens", 22, "Lens 3")
@@ -202,8 +203,6 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
 
     /**
      * Check 'OR -> UNION' rule is not applied if all columns are not indexed.
-     *
-     * @throws Exception If failed.
      */
     @Test
     public void testAllNonIndexedOrToUnionAllRewrite() {
@@ -211,7 +210,7 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 + "FROM products "
                 + "WHERE name = 'Canon' "
                 + "OR name = 'Sony'")
-                .matches(not(containsUnion(true)))
+                .matches(not(containsUnion()))
                 .matches(containsTableScan("PUBLIC", "PRODUCTS"))
                 .returns(7, "Video", 1, null, 0, "Canon")
                 .check();

@@ -31,7 +31,7 @@ public class UnexpectedNullValueException extends IgniteException {
      * @param msg Message.
      */
     public UnexpectedNullValueException(String msg) {
-        super(Common.INTERNAL_ERR, msg);
+        super(Common.NULLABLE_VALUE_ERR, msg);
     }
 
     /**

@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
-import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
+import java.lang.reflect.Proxy;
+import java.time.Clock;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -39,9 +43,14 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -64,24 +73,35 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -89,10 +109,10 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -112,6 +132,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -119,21 +140,23 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.type.NumberNativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -141,6 +164,8 @@ import org.jetbrains.annotations.Nullable;
  * A collection of builders to create test objects.
  */
 public class TestBuilders {
+    private static final int ZONE_ID = 10000;
+
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
 
     private static final IgniteLogger LOG = Loggers.forClass(TestBuilders.class);
@@ -166,11 +191,11 @@ public class TestBuilders {
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with
-     * only implemented {@link ScannableTable#scan table scan}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#scan table scan}.
      */
     public static ScannableTable tableScan(DataProvider<Object[]> dataProvider) {
-        return new ScannableTable() {
+        return new AbstractScannableTable() {
             @Override
             public <RowT> Publisher<RowT> scan(
                     ExecutionContext<RowT> ctx,
@@ -189,31 +214,39 @@ public class TestBuilders {
                         rowFactory::create
                 );
             }
+        };
+    }
 
+    /**
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#scan table scan}.
+     */
+    public static ScannableTable tableScan(BiFunction<String, Integer, Iterable<Object[]>> generatorFunction) {
+        return new AbstractScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                    @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
-            }
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
 
-            @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
-                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
+                return new TransformingPublisher<>(
+                        SubscriptionUtils.fromIterable(
+                                () -> new TransformingIterator<>(
+                                        generatorFunction.apply(ctx.localNode().name(), partWithConsistencyToken.partId()).iterator(),
+                                        row -> project(row, requiredColumns)
+                                )
+                        ),
+                        rowFactory::create
+                );
             }
         };
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with
-     * only implemented {@link ScannableTable#indexRangeScan index range scan}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#indexRangeScan index range scan}.
      */
     public static ScannableTable indexRangeScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -249,16 +282,21 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
                     RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompletableFuture<Long> estimatedSize() {
                 throw new UnsupportedOperationException();
             }
         };
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with
-     * only implemented {@link ScannableTable#indexLookup index lookup}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#indexLookup index lookup}.
      */
     public static ScannableTable indexLookup(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -294,11 +332,46 @@ public class TestBuilders {
             }
 
             @Override
-            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
                     RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
                 throw new UnsupportedOperationException();
             }
+
+            @Override
+            public CompletableFuture<Long> estimatedSize() {
+                throw new UnsupportedOperationException();
+            }
         };
+    }
+
+    /**
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
+     *
+     * @param key Affinity key ordinal.
+     * @param tableId Table ID.
+     * @param zoneId Distribution zone ID.
+     * @return Affinity distribution.
+     */
+    public static IgniteDistribution affinity(int key, int tableId, int zoneId) {
+        return affinity(ImmutableIntList.of(key), tableId, zoneId);
+    }
+
+    /**
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
+     *
+     * @param keys Affinity keys ordinals. Should not be null or empty.
+     * @param tableId Table ID.
+     * @param zoneId  Distribution zone ID.
+     * @return Affinity distribution.
+     */
+    public static IgniteDistribution affinity(List<Integer> keys, int tableId, int zoneId) {
+        return IgniteDistributions.affinity(keys, tableId, zoneId, affinityDistributionLabel(tableId, zoneId));
+    }
+
+    private static String affinityDistributionLabel(int tableId, int zoneId) {
+        return format("affinity [tableId={}, zoneId={}]", tableId, zoneId);
     }
 
     /**
@@ -318,15 +391,31 @@ public class TestBuilders {
         ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
 
         /**
-         * Sets desired names for the cluster nodes.
+         * A decorator to wrap {@link CatalogManager} instance which will be used in the test cluster.
          *
-         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was
-         *         introduced to force user to provide at least one node name.
-         * @param useTablePartitions If {@code true} map table partitions to whole defined nodes.
-         * @param otherNodeNames An array of rest of the names to create cluster from.
+         * <p>May be used to slow down or ignore certain catalog commands.
+         *
+         * @param decorator A decorator function which accepts original manager and returns decorated one.
          * @return {@code this} for chaining.
          */
-        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames);
+        ClusterBuilder catalogManagerDecorator(Function<CatalogManager, CatalogManager> decorator);
+
+        /**
+         * Sets desired handlers for operation cancellation.
+         *
+         * <p>Cannot be used to cancel operation on test cluster, but may serve as mock.
+         *
+         * @param handlers The handlers to set.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder operationKillHandlers(OperationKillHandler... handlers);
+
+        /**
+         * Creates a new builder for defining and adding a zone to the cluster.
+         *
+         * @return An instance of the {@link ClusterZoneBuilder}, enabling the construction of a new zone.
+         */
+        ClusterZoneBuilder addZone();
 
         /**
          * Creates a table builder to add to the cluster.
@@ -339,8 +428,8 @@ public class TestBuilders {
          * Adds the given system view to the cluster.
          *
          * @param systemView System view.
-         * @return {@code this} for chaining.
          * @param <T> System view data type.
+         * @return {@code this} for chaining.
          */
         <T> ClusterBuilder addSystemView(SystemView<T> systemView);
 
@@ -352,14 +441,20 @@ public class TestBuilders {
         TestCluster build();
 
         /**
-         * Provides implementation of table with given name local per given node.
+         * Provides implementation of table with given name.
          *
-         * @param nodeName Name of the node given instance of table will be assigned to.
-         * @param tableName Name of the table given instance represents.
-         * @param table Actual table that will be used for read operations during execution.
+         * @param defaultDataProvider Name of the table given instance represents.
          * @return {@code this} for chaining.
          */
-        ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table);
+        ClusterBuilder defaultDataProvider(DefaultDataProvider defaultDataProvider);
+
+        /**
+         * Provides implementation of table with given name.
+         *
+         * @param defaultAssignmentsProvider Name of the table given instance represents.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder defaultAssignmentsProvider(DefaultAssignmentsProvider defaultAssignmentsProvider);
 
         /**
          * Registers a previously added system view (see {@link #addSystemView(SystemView)}) on the specified node.
@@ -369,6 +464,15 @@ public class TestBuilders {
          * @return {@code this} for chaining.
          */
         ClusterBuilder registerSystemView(String nodeName, String systemViewName);
+
+        /**
+         * Sets a timeout for query optimization phase.
+         *
+         * @param value A planning timeout value.
+         * @param timeUnit A time unit.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder planningTimeout(long value, TimeUnit timeUnit);
     }
 
     /**
@@ -407,6 +511,9 @@ public class TestBuilders {
      * @see TestIndex
      */
     public interface SortedIndexBuilder extends SortedIndexBuilderBase<SortedIndexBuilder>, NestedBuilder<TableBuilder> {
+
+        /** Specifies whether this index is a primary key index or not. */
+        SortedIndexBuilder primaryKey(boolean value);
     }
 
     /**
@@ -415,6 +522,9 @@ public class TestBuilders {
      * @see TestIndex
      */
     public interface HashIndexBuilder extends HashIndexBuilderBase<HashIndexBuilder>, NestedBuilder<TableBuilder> {
+
+        /** Specifies whether this index is a primary key index or not. */
+        HashIndexBuilder primaryKey(boolean value);
     }
 
     /**
@@ -481,6 +591,12 @@ public class TestBuilders {
         /** Sets the dynamic parameters this fragment will be executed with. */
         ExecutionContextBuilder dynamicParameters(Object... params);
 
+        /** Sets the client's timezone. */
+        ExecutionContextBuilder timeZone(ZoneId zoneId);
+
+        /** Sets the clock used to obtain the system time. */
+        ExecutionContextBuilder clock(Clock clock);
+
         /**
          * Builds the context object.
          *
@@ -496,6 +612,8 @@ public class TestBuilders {
         private QueryTaskExecutor executor = null;
         private ClusterNode node = null;
         private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
+        private ZoneId zoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
+        private Clock clock = Clock.systemUTC();
 
         /** {@inheritDoc} */
         @Override
@@ -529,9 +647,23 @@ public class TestBuilders {
             return this;
         }
 
+        /** {@inheritDoc} */
         @Override
         public ExecutionContextBuilder dynamicParameters(Object... params) {
             this.dynamicParams = params;
+            return this;
+        }
+
+        @Override
+        public ExecutionContextBuilder timeZone(ZoneId zoneId) {
+            this.zoneId = zoneId;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder clock(Clock clock) {
+            this.clock = clock;
             return this;
         }
 
@@ -539,26 +671,38 @@ public class TestBuilders {
         @Override
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
+                    new ExpressionFactoryImpl<>(
+                            Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
+                    ),
                     Objects.requireNonNull(executor, "executor"),
-                    queryId,
+                    new ExecutionId(queryId, 0),
                     Objects.requireNonNull(node, "node"),
                     node.name(),
+                    node.id(),
                     description,
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
-                    TxAttributes.fromTx(new NoOpTransaction(node.name())),
-                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
+                    TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
+                    zoneId,
+                    -1,
+                    clock
             );
         }
     }
 
-    private static class ClusterBuilderImpl implements ClusterBuilder {
+    static class ClusterBuilderImpl implements ClusterBuilder {
+        private final List<ClusterZoneBuilder> zoneBuilders = new ArrayList<>();
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
-        private boolean useTablePartitions;
-        private final Map<String, Map<String, ScannableTable>> nodeName2tableName2table = new HashMap<>();
         private final List<SystemView<?>> systemViews = new ArrayList<>();
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
+
+        private long planningTimeout = TimeUnit.SECONDS.toMillis(15);
+        private Function<CatalogManager, CatalogManager> catalogManagerDecorator = Function.identity();
+        private OperationKillHandler @Nullable [] killHandlers = null;
+
+        private @Nullable DefaultDataProvider defaultDataProvider = null;
+        private @Nullable DefaultAssignmentsProvider defaultAssignmentsProvider = null;
 
         /** {@inheritDoc} */
         @Override
@@ -573,14 +717,23 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames) {
-            this.nodeNames = new ArrayList<>();
-            this.useTablePartitions = useTablePartitions;
-
-            nodeNames.add(firstNodeName);
-            nodeNames.addAll(Arrays.asList(otherNodeNames));
+        public ClusterBuilder catalogManagerDecorator(Function<CatalogManager, CatalogManager> decorator) {
+            this.catalogManagerDecorator = Objects.requireNonNull(decorator);
 
             return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder operationKillHandlers(OperationKillHandler... handlers) {
+            this.killHandlers = handlers;
+
+            return this;
+        }
+
+        @Override
+        public ClusterZoneBuilder addZone() {
+            return new ClusterZoneBuilderImpl(this);
         }
 
         /** {@inheritDoc} */
@@ -596,15 +749,29 @@ public class TestBuilders {
         }
 
         @Override
-        public ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table) {
-            nodeName2tableName2table.computeIfAbsent(nodeName, key -> new HashMap<>()).put(tableName, table);
+        public ClusterBuilder registerSystemView(String nodeName, String systemViewName) {
+            nodeName2SystemView.computeIfAbsent(nodeName, key -> new HashSet<>()).add(systemViewName);
 
             return this;
         }
 
         @Override
-        public ClusterBuilder registerSystemView(String nodeName, String systemViewName) {
-            nodeName2SystemView.computeIfAbsent(nodeName, key -> new HashSet<>()).add(systemViewName);
+        public ClusterBuilder defaultDataProvider(DefaultDataProvider defaultDataProvider) {
+            this.defaultDataProvider = defaultDataProvider;
+
+            return this;
+        }
+
+        @Override
+        public ClusterBuilder defaultAssignmentsProvider(DefaultAssignmentsProvider defaultAssignmentsProvider) {
+            this.defaultAssignmentsProvider = defaultAssignmentsProvider;
+
+            return this;
+        }
+
+        @Override
+        public ClusterBuilder planningTimeout(long value, TimeUnit timeUnit) {
+            this.planningTimeout = timeUnit.toMillis(value);
 
             return this;
         }
@@ -612,26 +779,22 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public TestCluster build() {
-            validateConfiguredDataProviders();
-
             var clusterService = new ClusterServiceFactory(nodeNames);
 
             var clusterName = "test_cluster";
 
             HybridClock clock = new HybridClockImpl();
-            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
+            CatalogManager catalogManager = catalogManagerDecorator.apply(
+                    CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock)
+            );
 
             var parserService = new ParserServiceImpl();
-            var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
-                    mock(MetricManager.class));
 
-            Map<String, List<String>> owningNodesByTableName = new HashMap<>();
-            for (Entry<String, Map<String, ScannableTable>> entry : nodeName2tableName2table.entrySet()) {
-                for (String tableName : entry.getValue().keySet()) {
-                    owningNodesByTableName.computeIfAbsent(tableName, key -> new ArrayList<>()).add(entry.getKey());
-                }
-            }
+            ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
+            var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
+            var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
+                    new DdlSqlToCommandConverter(), planningTimeout, PLANNING_THREAD_COUNT,
+                    new NoOpMetricManager(), schemaManager);
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
 
@@ -642,21 +805,26 @@ public class TestBuilders {
                 }
             }
 
-            ClockWaiter clockWaiter = new ClockWaiter("test", clock);
-            var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
-            var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
+            ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
+                    NamedThreadFactory.create("test", "common-scheduled-executors", LOG)
+            );
+
+            var clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
+            var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter));
 
             Runnable initClosure = () -> {
-                assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
+                assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 initAction(catalogManager);
             };
+
+            RunnableX stopClosure = () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
             List<LogicalNode> logicalNodes = nodeNames.stream()
                     .map(name -> {
                         List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
                         NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
-                        LogicalNode logicalNode = new LogicalNode(name, name, addr);
+                        LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr);
 
                         if (systemViewForNode.isEmpty()) {
                             return logicalNode;
@@ -670,132 +838,156 @@ public class TestBuilders {
                     })
                     .collect(Collectors.toList());
 
+            ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
+            ConcurrentMap<String, UpdatableTable> updatableTablesByName = new ConcurrentHashMap<>();
+            ConcurrentMap<String, AssignmentsProvider> assignmentsProviderByTableName = new ConcurrentHashMap<>();
+
+            assignmentsProviderByTableName.put(
+                    Blackhole.TABLE_NAME,
+                    (partCount, ignored) -> IntStream.range(0, partCount)
+                            .mapToObj(partNo -> nodeNames)
+                            .collect(Collectors.toList())
+            );
+
+            DefaultDataProvider defaultDataProvider = this.defaultDataProvider;
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
-                        var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
-                        var targetProvider = new TestNodeExecutionTargetProvider(
+                        var systemViewManager = new SystemViewManagerImpl(name, catalogManager, mock(FailureProcessor.class));
+                        var executionProvider = new TestExecutionDistributionProvider(
                                 systemViewManager::owningNodes,
-                                owningNodesByTableName,
-                                useTablePartitions
+                                tableName -> resolveProvider(
+                                        tableName,
+                                        assignmentsProviderByTableName,
+                                        defaultAssignmentsProvider != null ? defaultAssignmentsProvider::get : null
+                                ),
+                                false
                         );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
                                 name,
-                                targetProvider,
+                                new TestClockService(clock, clockWaiter),
                                 EmptyCacheFactory.INSTANCE,
                                 0,
                                 partitionPruner,
-                                Runnable::run
+                                () -> 1L,
+                                executionProvider,
+                                new SystemPropertiesNodeProperties()
                         );
 
                         systemViewManager.register(() -> systemViews);
 
                         LogicalTopologySnapshot newTopology = new LogicalTopologySnapshot(1L, logicalNodes);
-                        mappingService.onTopologyLeap(newTopology);
                         systemViewManager.onTopologyLeap(newTopology);
 
                         return new TestNode(
                                 name,
+                                catalogManager,
                                 clusterService.forNode(name),
                                 parserService,
                                 prepareService,
                                 schemaManager,
                                 mappingService,
-                                new TestExecutableTableRegistry(nodeName2tableName2table.get(name), schemaManager),
+                                new TestExecutableTableRegistry(
+                                        name0 -> resolveProvider(
+                                                name0,
+                                                dataProvidersByTableName,
+                                                defaultDataProvider != null ? defaultDataProvider::get : null
+                                        ),
+                                        updatableTablesByName::get,
+                                        schemaManager
+                                ),
                                 ddlHandler,
-                                systemViewManager
+                                systemViewManager,
+                                killHandlers
                         );
                     })
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(
+                    tablesSize,
+                    dataProvidersByTableName,
+                    updatableTablesByName,
+                    assignmentsProviderByTableName,
                     nodes,
                     catalogManager,
                     prepareService,
                     clockWaiter,
-                    initClosure
+                    initClosure,
+                    stopClosure
             );
         }
 
-        private void validateConfiguredDataProviders() {
-            Set<String> dataProvidersOwners = new HashSet<>(nodeName2tableName2table.keySet());
-
-            dataProvidersOwners.removeAll(Set.copyOf(nodeNames));
-
-            if (!dataProvidersOwners.isEmpty()) {
-                Map<String, List<String>> problematicTables = new HashMap<>();
-
-                for (String outsiderNode : dataProvidersOwners) {
-                    for (String problematicTable : nodeName2tableName2table.get(outsiderNode).keySet()) {
-                        problematicTables.computeIfAbsent(problematicTable, k -> new ArrayList<>()).add(outsiderNode);
-                    }
-                }
-
-                String problematicTablesString = problematicTables.entrySet().stream()
-                        .map(e -> e.getKey() + ": " + e.getValue())
-                        .collect(Collectors.joining(", "));
-
-                throw new AssertionError(format("The table has a dataProvider that is outside the cluster "
-                        + "[{}]", problematicTablesString));
-            }
-        }
-
         private void initAction(CatalogManager catalogManager) {
+            List<CatalogCommand> initialZones = zoneBuilders.stream()
+                    .map(ClusterZoneBuilder::build)
+                    .collect(Collectors.toList());
+
             List<CatalogCommand> initialSchema = tableBuilders.stream()
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
-
-            CompletableFuture<Boolean> indicesReadyFut = new CompletableFuture<>();
-            CopyOnWriteArraySet<Integer> initialIndices = new CopyOnWriteArraySet<>();
-
-            // Make indices registered via builder API available on startup.
-            if (!tableBuilders.isEmpty()) {
-                Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
-                    initialIndices.remove(params.indexId());
-
-                    if (initialIndices.isEmpty()) {
-                        indicesReadyFut.complete(true);
-                    }
-                };
-
-                EventListener<MakeIndexAvailableEventParameters> listener = EventListener.fromConsumer(indexAvailableHandler);
-                catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, listener);
-
-                // Remove listener, when all indices become available.
-                indicesReadyFut.whenComplete((r, t) -> {
-                    catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, listener);
-                });
-            } else {
-                indicesReadyFut.complete(true);
-            }
 
             // Every time an index is created add `start building `and `make available` commands
             // to make that index accessible to the SQL engine.
             Consumer<CreateIndexEventParameters> createIndexHandler = (params) -> {
                 CatalogIndexDescriptor index = params.indexDescriptor();
+
+                if (index.status() == CatalogIndexStatus.AVAILABLE) {
+                    return;
+                }
+
                 int indexId = index.id();
 
                 CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(indexId).build();
                 CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(indexId).build();
 
-                // Collect initial indexes only if catalog init future has not completed.
-                if (!indicesReadyFut.isDone()) {
-                    initialIndices.add(indexId);
-                }
-
                 LOG.info("Index has been created. Sending commands to make index available. id: {}, name: {}, status: {}",
                         indexId, index.name(), index.status());
 
-                catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand));
+                catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand))
+                        .whenComplete((v, e) -> {
+                            if (e != null) {
+                                LOG.error("Catalog command execution error", e);
+                            }
+                        });
             };
             catalogManager.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(createIndexHandler));
 
+            // Init zones
+            await(catalogManager.execute(initialZones));
+
             // Init schema.
             await(catalogManager.execute(initialSchema));
-
-            // Wait until all indices become available.
-            await(indicesReadyFut);
         }
+
+        /**
+         * Retrieves a list of {@link ClusterZoneBuilder} instances already defined for the test cluster.
+         *
+         * @return A list of {@link ClusterZoneBuilder} instances representing the predefined zones for the test cluster.
+         */
+        List<ClusterZoneBuilder> zoneBuilders() {
+            return zoneBuilders;
+        }
+    }
+
+    private static SqlSchemaManagerImpl createSqlSchemaManager(CatalogManager catalogManager, ConcurrentMap<String, Long> tablesSize) {
+        SqlStatisticManager sqlStatisticManager = tableId -> {
+            CatalogTableDescriptor descriptor = catalogManager.activeCatalog(Long.MAX_VALUE).table(tableId);
+            long fallbackSize = 10_000;
+
+            if (descriptor == null) {
+                return fallbackSize;
+            }
+
+            return tablesSize.getOrDefault(descriptor.name(), 10_000L);
+        };
+
+        return new SqlSchemaManagerImpl(
+                catalogManager,
+                sqlStatisticManager,
+                new SystemPropertiesNodeProperties(),
+                CaffeineCacheFactory.INSTANCE,
+                0
+        );
     }
 
     private static class TableBuilderImpl implements TableBuilder {
@@ -813,6 +1005,11 @@ public class TestBuilders {
         public TableBuilder name(String name) {
             this.name = name;
 
+            return this;
+        }
+
+        @Override
+        public TableBuilder zoneName(String zoneName) {
             return this;
         }
 
@@ -840,7 +1037,7 @@ public class TestBuilders {
         @Override
         public TableBuilder addColumn(String name, NativeType type, boolean nullable) {
             columns.add(new ColumnDescriptorImpl(
-                    name, false, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, false, false, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return this;
@@ -859,7 +1056,7 @@ public class TestBuilders {
                 return addColumn(name, type);
             } else {
                 ColumnDescriptorImpl desc = new ColumnDescriptorImpl(
-                        name, false, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
+                        name, false, false, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
                 );
                 columns.add(desc);
             }
@@ -871,7 +1068,7 @@ public class TestBuilders {
         @Override
         public TableBuilder addKeyColumn(String name, NativeType type) {
             columns.add(new ColumnDescriptorImpl(
-                    name, true, false, false, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, true, false, false, false, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return this;
@@ -915,7 +1112,32 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Table must contain at least one column");
             }
 
-            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
+            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(CollectionUtils.concat(columns,
+                    List.of(new ColumnDescriptorImpl(
+                                    Commons.PART_COL_NAME,
+                                    false,
+                                    true,
+                                    true,
+                                    false,
+                                    columns.size(),
+                                    NativeTypes.INT32,
+                                    DefaultValueStrategy.DEFAULT_COMPUTED,
+                                    () -> {
+                                        throw new AssertionError("Partition virtual column is generated by a function");
+                                    }),
+                            new ColumnDescriptorImpl(
+                                    Commons.PART_COL_NAME_LEGACY,
+                                    false,
+                                    true,
+                                    true,
+                                    false,
+                                    columns.size() + 1,
+                                    NativeTypes.INT32,
+                                    DefaultValueStrategy.DEFAULT_COMPUTED,
+                                    () -> {
+                                        throw new AssertionError("Partition virtual column is generated by a function");
+                                    }
+                            ))), distribution);
 
             Map<String, IgniteIndex> indexes = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))
@@ -929,7 +1151,8 @@ public class TestBuilders {
                     findPrimaryKey(tableDescriptor, indexes.values()),
                     new TestStatistic(size),
                     indexes,
-                    partitions
+                    partitions,
+                    ZONE_ID
             );
         }
     }
@@ -962,9 +1185,11 @@ public class TestBuilders {
 
         private final ClusterBuilderImpl parent;
 
-        private final String schemaName = CatalogManager.DEFAULT_SCHEMA_NAME;
+        private final String schemaName = SqlCommon.DEFAULT_SCHEMA_NAME;
 
         private String name;
+
+        private String zoneName;
 
         private ClusterTableBuilderImpl(ClusterBuilderImpl parent) {
             this.parent = parent;
@@ -974,6 +1199,13 @@ public class TestBuilders {
         @Override
         public ClusterTableBuilder name(String name) {
             this.name = name;
+
+            return this;
+        }
+
+        @Override
+        public ClusterTableBuilder zoneName(String zoneName) {
+            this.zoneName = zoneName;
 
             return this;
         }
@@ -1039,6 +1271,7 @@ public class TestBuilders {
                     CreateTableCommand.builder()
                             .schemaName(schemaName)
                             .tableName(name)
+                            .zone(zoneName)
                             .columns(columns)
                             .primaryKey(primaryKey)
                             .build()
@@ -1055,6 +1288,8 @@ public class TestBuilders {
     private static class SortedIndexBuilderImpl extends AbstractTableIndexBuilderImpl<SortedIndexBuilder>
             implements SortedIndexBuilder {
         private final TableBuilderImpl parent;
+
+        private boolean primary;
 
         private SortedIndexBuilderImpl(TableBuilderImpl parent) {
             this.parent = parent;
@@ -1076,6 +1311,13 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public SortedIndexBuilder primaryKey(boolean value) {
+            this.primary = value;
+            return self();
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
@@ -1089,12 +1331,14 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
-            return TestIndex.createSorted(name, columns, collations, desc);
+            return TestIndex.createSorted(name, columns, collations, desc, primary);
         }
     }
 
     private static class HashIndexBuilderImpl extends AbstractTableIndexBuilderImpl<HashIndexBuilder> implements HashIndexBuilder {
         private final TableBuilderImpl parent;
+
+        private boolean primary;
 
         private HashIndexBuilderImpl(TableBuilderImpl parent) {
             this.parent = parent;
@@ -1116,6 +1360,13 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public HashIndexBuilder primaryKey(boolean value) {
+            this.primary = value;
+            return self();
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
@@ -1127,7 +1378,7 @@ public class TestBuilders {
 
             assert collations == null : "Collation is not supported.";
 
-            return TestIndex.createHash(name, columns, desc);
+            return TestIndex.createHash(name, columns, desc, primary);
         }
     }
 
@@ -1262,6 +1513,9 @@ public class TestBuilders {
         /** Sets the name of the table. */
         ChildT name(String name);
 
+        /** Sets the zone name of the table. */
+        ChildT zoneName(String zoneName);
+
         /** Adds a key column to the table. */
         ChildT addKeyColumn(String name, NativeType type);
 
@@ -1336,7 +1590,7 @@ public class TestBuilders {
      * </pre>
      */
     @FunctionalInterface
-    private interface NestedBuilder<ParentT> {
+    interface NestedBuilder<ParentT> {
         /**
          * Notifies the builder's chain of the nested builder that we need to return back to the previous layer.
          *
@@ -1346,24 +1600,30 @@ public class TestBuilders {
     }
 
     private static class TestExecutableTableRegistry implements ExecutableTableRegistry {
-        private final Map<String, ScannableTable> tablesByName;
+        private final Function<String, ScannableTable> scannableTablesByName;
+        private final Function<String, UpdatableTable> updatableTablesByName;
         private final SqlSchemaManager schemaManager;
 
-        TestExecutableTableRegistry(Map<String, ScannableTable> tablesByName, SqlSchemaManager schemaManager) {
-            this.tablesByName = tablesByName;
+        TestExecutableTableRegistry(
+                Function<String, ScannableTable> scannableTablesByName,
+                Function<String, UpdatableTable> updatableTablesByName,
+                SqlSchemaManager schemaManager
+        ) {
+            this.scannableTablesByName = scannableTablesByName;
+            this.updatableTablesByName = updatableTablesByName;
             this.schemaManager = schemaManager;
         }
 
         @Override
-        public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId) {
-            IgniteTable table = schemaManager.table(schemaVersion, tableId);
+        public ExecutableTable getTable(int catalogVersion, int tableId) {
+            IgniteTable table = schemaManager.table(catalogVersion, tableId);
 
             assert table != null;
 
-            return CompletableFuture.completedFuture(new ExecutableTable() {
+            return new ExecutableTable() {
                 @Override
                 public ScannableTable scannableTable() {
-                    ScannableTable scannableTable = tablesByName.get(table.name());
+                    ScannableTable scannableTable = scannableTablesByName.apply(table.name());
 
                     assert scannableTable != null;
 
@@ -1372,7 +1632,25 @@ public class TestBuilders {
 
                 @Override
                 public UpdatableTable updatableTable() {
-                    throw new UnsupportedOperationException();
+                    if (Blackhole.TABLE_NAME.equals(table.name())) {
+                        return Blackhole.INSTANCE;
+                    }
+
+                    UpdatableTable updatableTable = updatableTablesByName.apply(table.name());
+
+                    assert updatableTable != null;
+
+                    return (UpdatableTable) Proxy.newProxyInstance(
+                            getClass().getClassLoader(),
+                            new Class<?> [] {UpdatableTable.class},
+                            (proxy, method, args) -> {
+                                if ("descriptor".equals(method.getName())) {
+                                    return table.descriptor();
+                                }
+
+                                return method.invoke(updatableTable, args); 
+                            }
+                    );
                 }
 
                 @Override
@@ -1384,16 +1662,16 @@ public class TestBuilders {
                 public Supplier<PartitionCalculator> partitionCalculator() {
                     return table.partitionCalculator();
                 }
-            });
+            };
         }
     }
 
     private static ColumnParams columnParams(String name, NativeType type, boolean nullable, @Nullable Object defaultValue) {
-        NativeTypeSpec typeSpec = type.spec();
+        ColumnType typeSpec = type.spec();
 
         Builder builder = ColumnParams.builder()
                 .name(name)
-                .type(typeSpec.asColumnType())
+                .type(typeSpec)
                 .nullable(nullable)
                 .defaultValue(DefaultValue.constant(defaultValue));
 
@@ -1408,11 +1686,6 @@ public class TestBuilders {
             case UUID:
             case BOOLEAN:
                 break;
-            case NUMBER:
-                assert type instanceof NumberNativeType : type.getClass().getCanonicalName();
-
-                builder.precision(((NumberNativeType) type).precision());
-                break;
             case DECIMAL:
                 assert type instanceof DecimalNativeType : type.getClass().getCanonicalName();
 
@@ -1420,15 +1693,10 @@ public class TestBuilders {
                 builder.scale(((DecimalNativeType) type).scale());
                 break;
             case STRING:
-            case BYTES:
+            case BYTE_ARRAY:
                 assert type instanceof VarlenNativeType : type.getClass().getCanonicalName();
 
                 builder.length(((VarlenNativeType) type).length());
-                break;
-            case BITMASK:
-                assert type instanceof BitmaskNativeType : type.getClass().getCanonicalName();
-
-                builder.length(((BitmaskNativeType) type).bits());
                 break;
             case TIME:
             case DATETIME:
@@ -1459,117 +1727,299 @@ public class TestBuilders {
         return newRow;
     }
 
-    /** Returns a builder for {@link ExecutionTargetProvider}. */
-    public static ExecutionTargetProviderBuilder executionTargetProviderBuilder() {
-        return new ExecutionTargetProviderBuilder();
+
+    /** Returns a builder for {@link ExecutionDistributionProvider}. */
+    public static ExecutionDistributionProviderBuilder executionDistributionProviderBuilder() {
+        return new ExecutionDistributionProviderBuilder();
     }
 
-    /** A builder to create instances of {@link ExecutionTargetProvider}. */
-    public static final class ExecutionTargetProviderBuilder {
+    /** A builder to create instances of {@link ExecutionDistributionProvider}. */
+    public static final class ExecutionDistributionProviderBuilder {
 
-        private final Map<String, List<String>> owningNodesByTableName = new HashMap<>();
+        private final Map<String, List<List<String>>> owningNodesByTableName = new HashMap<>();
 
         private Function<String, List<String>> owningNodesBySystemViewName = (n) -> null;
 
         private boolean useTablePartitions;
 
-        private ExecutionTargetProviderBuilder() {
+        private ExecutionDistributionProviderBuilder() {
 
         }
 
         /** Adds tables to list of nodes mapping. */
-        public ExecutionTargetProviderBuilder addTables(Map<String, List<String>> tables) {
+        public ExecutionDistributionProviderBuilder addTables(Map<String, List<List<String>>> tables) {
             this.owningNodesByTableName.putAll(tables);
             return this;
         }
 
         /**
-         * Sets a function that returns system views. Function accepts a view name and returns a list of nodes
-         * a system view is available at.
+         * Sets a function that returns system views. Function accepts a view name and returns a list of nodes a system view is available
+         * at.
          */
-        public ExecutionTargetProviderBuilder setSystemViews(Function<String, List<String>> systemViews) {
+        public ExecutionDistributionProviderBuilder setSystemViews(Function<String, List<String>> systemViews) {
             this.owningNodesBySystemViewName = systemViews;
             return this;
         }
 
         /** Use table partitions to build mapping targets. Default is {@code false}. */
-        public ExecutionTargetProviderBuilder useTablePartitions(boolean value) {
+        public ExecutionDistributionProviderBuilder useTablePartitions(boolean value) {
             useTablePartitions = value;
             return this;
         }
 
-        /** Creates an instance of {@link ExecutionTargetProvider}. */
-        public ExecutionTargetProvider build() {
-            return new TestNodeExecutionTargetProvider(
+        /** Creates an instance of {@link ExecutionDistributionProvider}. */
+        public ExecutionDistributionProvider build() {
+            Map<String, List<List<String>>> owningNodesByTableName = Map.copyOf(this.owningNodesByTableName);
+
+            Function<String, AssignmentsProvider> sourceProviderFunction = tableName ->
+                    (AssignmentsProvider) (partitionsCount, includeBackups) -> {
+                        List<List<String>> assignments = owningNodesByTableName.get(tableName);
+
+                        if (nullOrEmpty(assignments)) {
+                            throw new AssertionError("Assignments are not configured for table " + tableName);
+                        }
+
+                        if (includeBackups) {
+                            return assignments;
+                        } else {
+                            List<List<String>> primaryAssignments = new ArrayList<>();
+
+                            for (List<String> assign : assignments) {
+                                primaryAssignments.add(List.of(assign.get(0)));
+                            }
+
+                            return primaryAssignments;
+                        }
+                    };
+
+            return new TestExecutionDistributionProvider(
                     owningNodesBySystemViewName,
-                    Map.copyOf(owningNodesByTableName),
+                    sourceProviderFunction,
                     useTablePartitions
             );
         }
     }
 
-    private static class TestNodeExecutionTargetProvider implements ExecutionTargetProvider {
-
+    private static class TestExecutionDistributionProvider implements ExecutionDistributionProvider {
         final Function<String, List<String>> owningNodesBySystemViewName;
 
-        final Map<String, List<String>> owningNodesByTableName;
+        final Function<String, AssignmentsProvider> owningNodesByTableName;
 
         final boolean useTablePartitions;
 
-        private TestNodeExecutionTargetProvider(
+        private TestExecutionDistributionProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
-                Map<String, List<String>> owningNodesByTableName,
+                Function<String, AssignmentsProvider> owningNodesByTableName,
                 boolean useTablePartitions
         ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
-            this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
+            this.owningNodesByTableName = owningNodesByTableName;
             this.useTablePartitions = useTablePartitions;
         }
 
-        @Override
-        public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
-            List<String> owningNodes = owningNodesByTableName.get(table.name());
+        private static TokenizedAssignments partitionNodesToAssignment(List<String> nodes, long token) {
+            return new TokenizedAssignmentsImpl(
+                    nodes.stream().map(Assignment::forPeer).collect(Collectors.toSet()),
+                    token
+            );
+        }
 
-            if (nullOrEmpty(owningNodes)) {
-                throw new AssertionError("DataProvider is not configured for table " + table.name());
+        @Override
+        public CompletableFuture<List<TokenizedAssignments>> forTable(
+                HybridTimestamp operationTime,
+                IgniteTable table,
+                boolean includeBackups
+        ) {
+            AssignmentsProvider provider = owningNodesByTableName.apply(table.name());
+
+            if (provider == null) {
+                return CompletableFuture.failedFuture(
+                        new AssertionError("AssignmentsProvider is not configured for table " + table.name())
+                );
+            }
+            List<List<String>> owningNodes = provider.get(table.partitions(), includeBackups);
+
+            if (nullOrEmpty(owningNodes) || owningNodes.size() != table.partitions()) {
+                throw new AssertionError("Configured AssignmentsProvider returns less assignment than expected "
+                        + "[table=" + table.name() + ", expectedNumberOfPartitions=" + table.partitions()
+                        + ", returnedAssignmentSize=" + (owningNodes == null ? "<null>" : owningNodes.size()) + "]");
             }
 
-            List<NodeWithConsistencyToken> nodes;
+            List<TokenizedAssignments> assignments;
 
             if (useTablePartitions) {
                 int p = table.partitions();
 
-                nodes = IntStream.range(0, p).mapToObj(n -> {
-                    String nodeName = owningNodes.get(n % owningNodes.size());
-                    return new NodeWithConsistencyToken(nodeName, p);
+                assignments = IntStream.range(0, p).mapToObj(n -> {
+                    List<String> nodes = owningNodes.get(n % owningNodes.size());
+                    return partitionNodesToAssignment(nodes, p);
                 }).collect(Collectors.toList());
             } else {
-                nodes = owningNodes.stream()
-                        .map(name -> new NodeWithConsistencyToken(name, 1))
+                assignments = owningNodes.stream()
+                        .map(nodes -> partitionNodesToAssignment(nodes, 1))
                         .collect(Collectors.toList());
             }
 
-            ExecutionTarget target = factory.partitioned(nodes);
-
-            return CompletableFuture.completedFuture(target);
+            return CompletableFuture.completedFuture(assignments);
         }
 
         @Override
-        public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
+        public List<String> forSystemView(IgniteSystemView view) {
             List<String> nodes = owningNodesBySystemViewName.apply(view.name());
 
             if (nullOrEmpty(nodes)) {
-                return CompletableFuture.failedFuture(
-                        new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                                + " any active nodes in the cluster", view.name()))
-                );
+                throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
+                        + " any active nodes in the cluster", view));
             }
 
-            return CompletableFuture.completedFuture(
-                    view.distribution() == IgniteDistributions.single()
-                            ? factory.oneOf(nodes)
-                            : factory.allOf(nodes)
-            );
+            return view.distribution() == IgniteDistributions.single() ? List.of(nodes.get(0)) : nodes;
+        }
+    }
+
+    private abstract static class AbstractScannableTable implements ScannableTable {
+        @Override
+        public <RowT> Publisher<RowT> scan(
+                ExecutionContext<RowT> ctx,
+                PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory,
+                @Nullable BitSet requiredColumns
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
+                @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
+                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<Long> estimatedSize() {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    /**
+     * Data provider that will be used in case no other provider was specified explicitly via
+     * {@link TestCluster#setDataProvider(String, ScannableTable)}.
+     */
+    @FunctionalInterface
+    public interface DefaultDataProvider {
+        ScannableTable get(String tableName);
+    }
+
+    /**
+     * Assignments provider that will be used in case no other provider was specified explicitly via
+     * {@link TestCluster#setAssignmentsProvider(String, AssignmentsProvider)}.
+     */
+    @FunctionalInterface
+    public interface DefaultAssignmentsProvider {
+        AssignmentsProvider get(String tableName);
+    }
+
+    /** Provider of assignments for a table. */
+    @FunctionalInterface
+    public interface AssignmentsProvider {
+        /**
+         * Returns the list of assignments.
+         *
+         * <p>Returned list must have the same number of elements as provided {@code partitionsCount}. If {@code includeBackups} is set to
+         * {@code true}, then every sublist is allowed to have more than one element.
+         *
+         * @param partitionsCount Number of partitions in a table.
+         * @param includeBackups Whether to include backup assignments or node.
+         * @return List of assignments.
+         */
+        List<List<String>> get(int partitionsCount, boolean includeBackups);
+    }
+
+    private static <T> @Nullable T resolveProvider(
+            String tableName,
+            Map<String, T> providersByTableName,
+            @Nullable Function<String, T> defaultProvider
+    ) {
+        T provider = providersByTableName.get(tableName);
+
+        if (provider == null && defaultProvider != null) {
+            return defaultProvider.apply(tableName);
+        }
+
+        return provider;
+    }
+
+    private static class Blackhole implements UpdatableTable {
+        static final String TABLE_NAME = "BLACKHOLE";
+
+        private static final TableDescriptor DESCRIPTOR = new TableDescriptorImpl(
+                List.of(new ColumnDescriptorImpl("X", true, false, false, false, 0,
+                        NativeTypes.INT32, DefaultValueStrategy.DEFAULT_NULL, null)), IgniteDistributions.single()
+        );
+
+        private static final UpdatableTable INSTANCE = new Blackhole();
+
+        @Override
+        public TableDescriptor descriptor() {
+            return DESCRIPTOR;
+        }
+
+        @Override
+        public <RowT> CompletableFuture<?> insertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<Void> insert(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT row) {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+            return nullCompletedFuture();
+        }
+    }
+
+    /**
+     * Creates a cluster and runs a simple query to facilitate loading of necessary classes to prepare and execute sql queries.
+     *
+     * @throws Exception An exception if something goes wrong.
+     */
+    public static void warmupTestCluster() throws Exception {
+        TestCluster cluster = cluster()
+                .nodes("N1")
+                .defaultDataProvider(tableName -> tableScan(DataProvider.fromCollection(List.of())))
+                .defaultAssignmentsProvider(tableName -> (partitionsCount, includeBackups) -> IntStream.range(0, partitionsCount)
+                        .mapToObj(i -> List.of("N1"))
+                        .collect(Collectors.toList()))
+                .build();
+
+        cluster.start();
+
+        try {
+            TestNode node = cluster.node("N1");
+
+            node.initSchema("CREATE TABLE t (id INT PRIMARY KEY, val INT)");
+
+            await(node.executeQuery("SELECT * FROM t").requestNextAsync(1));
+        } finally {
+            cluster.stop();
         }
     }
 }

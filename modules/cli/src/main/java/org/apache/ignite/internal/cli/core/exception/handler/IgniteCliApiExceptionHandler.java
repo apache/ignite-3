@@ -115,6 +115,7 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
         try {
             return objectMapper.readValue(responseBody, Problem.class);
         } catch (JsonProcessingException ex) {
+            LOG.error("Failed to extract problem from body {}", ex, responseBody);
             throw new RuntimeException(ex);
         }
     }

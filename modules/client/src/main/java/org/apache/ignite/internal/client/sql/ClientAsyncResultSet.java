@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -32,11 +33,9 @@ import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.lang.CursorClosedException;
-import org.apache.ignite.lang.ErrorGroups.Client;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -65,7 +64,9 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     private final long affectedRows;
 
     /** Metadata. */
-    private final ResultSetMetadata metadata;
+    private final @Nullable ResultSetMetadata metadata;
+
+    private final @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata;
 
     /** Marshaller. Not null when object mapping is used. */
     @Nullable
@@ -99,7 +100,13 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-        metadata = hasRowSet ? new ClientResultSetMetadata(in) : null;
+        metadata = ClientResultSetMetadata.read(in);
+
+        if (ch.protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS) && !in.tryUnpackNil()) {
+            partitionAwarenessMetadata = ClientPartitionAwarenessMetadata.read(in);
+        } else {
+            partitionAwarenessMetadata = null;
+        }
 
         this.mapper = mapper;
         marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class
@@ -195,6 +202,10 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null);
     }
 
+    @Nullable ClientPartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return partitionAwarenessMetadata;
+    }
+
     private void requireResultSet() {
         if (!hasRowSet()) {
             throw new NoRowSetExpectedException();
@@ -223,8 +234,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                 }
             } catch (MarshallerException e) {
                 assert mapper != null;
-                throw new IgniteException(
-                        Client.CONFIGURATION_ERR,
+                throw new MarshallerException(
                         "Failed to map SQL result set to type '" + mapper.targetType() + "': " + e.getMessage(),
                         e);
             }
@@ -278,9 +288,6 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             case UUID:
                 return in.uuidValue(idx);
 
-            case BITMASK:
-                return in.bitmaskValue(idx);
-
             case STRING:
                 return in.stringValue(idx);
 
@@ -292,9 +299,6 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
             case DURATION:
                 return in.durationValue(idx);
-
-            case NUMBER:
-                return in.numberValue(idx);
 
             default:
                 throw new UnsupportedOperationException("Unsupported column type: " + col.type());

@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.metrics.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
 /**
  * Metrics' configuration root.
  */
-@ConfigurationRoot(rootName = "metrics", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class MetricConfigurationSchema {
     /** Map of exporters' configurations. */
     @NamedConfigValue

@@ -19,4 +19,9 @@ namespace Apache.Ignite.Internal.Network;
 
 using Ignite.Network;
 
+/// <summary>
+/// Connection info.
+/// </summary>
+/// <param name="Node">Node.</param>
+/// <param name="SslInfo">SSL info.</param>
 internal sealed record ConnectionInfo(IClusterNode Node, ISslInfo? SslInfo) : IConnectionInfo;

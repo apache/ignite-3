@@ -18,13 +18,18 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
+import static org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule.createMapping;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.combinedRowType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiPredicate;
@@ -33,30 +38,47 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.mapping.IntPair;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinPredicate;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlScalar;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunction;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractSetOpNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.CorrelatedNestedLoopJoinNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.DataSourceScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.FilterNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.HashAggregateNode;
+import org.apache.ignite.internal.sql.engine.exec.rel.HashJoinNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.IndexScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.IndexSpoolNode;
@@ -81,6 +103,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
+import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
@@ -91,6 +114,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
@@ -112,7 +136,6 @@ import org.apache.ignite.internal.sql.engine.rel.set.IgniteIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapSetOp;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
-import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -124,12 +147,25 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.apache.ignite.internal.sql.engine.util.IgniteResource;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implements a query plan.
  */
 @SuppressWarnings("TypeMayBeWeakened")
 public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>> {
+    private static final EnumSet<JoinRelType> JOIN_NEEDS_PROJECTION = EnumSet.of(
+            JoinRelType.INNER, JoinRelType.LEFT, JoinRelType.FULL, JoinRelType.RIGHT
+    );
+
+    private static final Comparator<IntPair> CONDITION_PAIRS_COMPARATOR = Comparator.comparingInt(
+                    (IntPair l) -> Math.max(l.source, l.target)).thenComparingInt(l -> Math.min(l.source, l.target));
+
     public static final String CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG =
             "only INNER and LEFT join supported by IgniteCorrelatedNestedLoop";
 
@@ -145,6 +181,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     private final ResolvedDependencies resolvedDependencies;
 
+    private final TableFunctionRegistry tableFunctionRegistry;
+
+    private @Nullable List<RexNode> projectionToFuse;
+
     /**
      * Constructor.
      *
@@ -152,16 +192,20 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSvc Exchange service.
      * @param resolvedDependencies Dependencies required to execute this query.
+     * @param tableFunctionRegistry Table function registry.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSvc,
-            ResolvedDependencies resolvedDependencies) {
+            ResolvedDependencies resolvedDependencies,
+            TableFunctionRegistry tableFunctionRegistry
+    ) {
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSvc = exchangeSvc;
         this.ctx = ctx;
         this.resolvedDependencies = resolvedDependencies;
+        this.tableFunctionRegistry = tableFunctionRegistry;
 
         expressionFactory = ctx.expressionFactory();
         destinationFactory = new DestinationFactory<>(ctx.rowHandler(), resolvedDependencies);
@@ -193,7 +237,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteFilter rel) {
-        Predicate<RowT> pred = expressionFactory.predicate(rel.getCondition(), rel.getRowType());
+        SqlPredicate<RowT> sqlPredicate = expressionFactory.predicate(rel.getCondition(), rel.getRowType());
+        Predicate<RowT> pred = row -> sqlPredicate.test(ctx, row);
 
         FilterNode<RowT> node = new FilterNode<>(ctx, pred);
 
@@ -229,7 +274,14 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteProject rel) {
-        Function<RowT, RowT> prj = expressionFactory.project(rel.getProjects(), rel.getInput().getRowType());
+        if (projectionToFuse == null && canFuseProjectionInto(rel.getInput())) {
+            projectionToFuse = rel.getProjects();
+
+            return visit(rel.getInput());
+        }
+
+        SqlProjection<RowT> sqlProjection = expressionFactory.project(rel.getProjects(), rel.getInput().getRowType());
+        Function<RowT, RowT> prj = row -> sqlProjection.project(ctx, row);
 
         ProjectNode<RowT> node = new ProjectNode<>(ctx, prj);
 
@@ -248,10 +300,47 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rightType = rel.getRight().getRowType();
         JoinRelType joinType = rel.getJoinType();
 
-        RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
-        BiPredicate<RowT, RowT> cond = expressionFactory.biPredicate(rel.getCondition(), rowType);
+        SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, outType, leftType.getFieldCount());
 
-        Node<RowT> node = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, joinType, cond);
+        RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
+        SqlJoinPredicate<RowT> joinPredicate = expressionFactory.joinPredicate(rel.getCondition(), rowType, leftType.getFieldCount());
+        BiPredicate<RowT, RowT> cond = (left, right) -> joinPredicate.test(ctx, left, right);
+
+        Node<RowT> node = NestedLoopJoinNode.create(ctx, joinProjection, leftType, rightType, joinType, cond);
+
+        Node<RowT> leftInput = visit(rel.getLeft());
+        Node<RowT> rightInput = visit(rel.getRight());
+
+        node.register(asList(leftInput, rightInput));
+
+        return node;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Node<RowT> visit(IgniteHashJoin rel) {
+        RelDataType outType = rel.getRowType();
+        RelDataType leftType = rel.getLeft().getRowType();
+        RelDataType rightType = rel.getRight().getRowType();
+        JoinRelType joinType = rel.getJoinType();
+
+        SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, outType, leftType.getFieldCount());
+
+        RexNode nonEquiConditionExpression = RexUtil.composeConjunction(
+                Commons.rexBuilder(), rel.analyzeCondition().nonEquiConditions, true
+        );
+
+        BiPredicate<RowT, RowT> nonEquiCondition = null;
+        if (nonEquiConditionExpression != null) {
+            RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
+
+            SqlJoinPredicate<RowT> nonEquiPredicate = expressionFactory.joinPredicate(
+                    rel.getCondition(), rowType, leftType.getFieldCount()
+            );
+            nonEquiCondition = (left, right) -> nonEquiPredicate.test(ctx, left, right);
+        }
+
+        Node<RowT> node = HashJoinNode.create(ctx, joinProjection, leftType, rightType, joinType, rel.analyzeCondition(), nonEquiCondition);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());
@@ -264,20 +353,25 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteCorrelatedNestedLoopJoin rel) {
+        RelDataType outType = rel.getRowType();
         RelDataType leftType = rel.getLeft().getRowType();
         RelDataType rightType = rel.getRight().getRowType();
         RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightType));
 
-        RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
-        BiPredicate<RowT, RowT> cond = expressionFactory.biPredicate(rel.getCondition(), rowType);
-
         assert rel.getJoinType() == JoinRelType.INNER || rel.getJoinType() == JoinRelType.LEFT
                 : CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG;
+
+        SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, outType, leftType.getFieldCount());
+
+        assert joinProjection != null;
+
+        SqlJoinPredicate<RowT> joinPredicate = expressionFactory.joinPredicate(rel.getCondition(), outType, leftType.getFieldCount());
+        BiPredicate<RowT, RowT> cond = (left, right) -> joinPredicate.test(ctx, left, right);
 
         RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
         Node<RowT> node = new CorrelatedNestedLoopJoinNode<>(ctx, cond, rel.getVariablesSet(),
-                rel.getJoinType(), rightRowFactory);
+                rel.getJoinType(), rightRowFactory, joinProjection);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());
@@ -294,41 +388,45 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rightType = rel.getRight().getRowType();
         JoinRelType joinType = rel.getJoinType();
 
-        int pairsCnt = rel.analyzeCondition().pairs().size();
+        SqlJoinProjection<RowT> joinProjection = createJoinProjection(rel, rel.getRowType(), leftType.getFieldCount());
 
-        ImmutableBitSet leftKeys = rel.analyzeCondition().leftSet();
+        ImmutableBitSet nullCompAsEqual = nullComparisonStrategyVector(rel, rel.analyzeCondition().leftSet());
 
-        List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.getCondition());
+        ImmutableIntList leftKeys = rel.leftCollation().getKeys();
+        ImmutableIntList rightKeys = rel.rightCollation().getKeys();
 
-        ImmutableBitSet.Builder nullCompAsEqualBuilder = ImmutableBitSet.builder();
-
-        ImmutableBitSet nullCompAsEqual;
-        RexShuttle shuttle = new RexShuttle() {
-            @Override
-            public RexNode visitInputRef(RexInputRef ref) {
-                int idx = ref.getIndex();
-                if (leftKeys.get(idx)) {
-                    nullCompAsEqualBuilder.set(idx);
-                }
-                return ref;
-            }
-        };
-
-        for (RexNode expr : conjunctions) {
-            if (expr.getKind() == SqlKind.IS_NOT_DISTINCT_FROM) {
-                shuttle.apply(expr);
-            }
+        // Convert conditions to use collation indexes instead of field indexes.
+        List<IntPair> conditionPairs = rel.analyzeCondition().pairs();
+        List<IntPair> condIndexes = new ArrayList<>(conditionPairs.size());
+        for (IntPair pair : conditionPairs) {
+            condIndexes.add(IntPair.of(leftKeys.indexOf(pair.source), rightKeys.indexOf(pair.target)));
         }
 
-        nullCompAsEqual = nullCompAsEqualBuilder.build();
+        // Columns with larger indexes should go last.
+        condIndexes.sort(CONDITION_PAIRS_COMPARATOR);
 
-        Comparator<RowT> comp = expressionFactory.comparator(
-                rel.leftCollation().getFieldCollations().subList(0, pairsCnt),
-                rel.rightCollation().getFieldCollations().subList(0, pairsCnt),
+        int conditions = condIndexes.size();
+        List<RelFieldCollation> leftCollation = new ArrayList<>(conditions);
+        List<RelFieldCollation> rightCollation = new ArrayList<>(conditions);
+
+        for (IntPair pair : condIndexes) {
+            leftCollation.add(rel.leftCollation().getFieldCollations().get(pair.source));
+            rightCollation.add(rel.rightCollation().getFieldCollations().get(pair.target));
+        }
+
+        if (IgniteUtils.assertionsEnabled()) {
+            ensureComparatorCollationSatisfiesSourceCollation(leftCollation, leftKeys, "Left");
+            ensureComparatorCollationSatisfiesSourceCollation(rightCollation, rightKeys, "Right");
+        }
+
+        SqlComparator<RowT> sqlComparator = expressionFactory.comparator(
+                leftCollation,
+                rightCollation,
                 nullCompAsEqual
         );
+        Comparator<RowT> comp = (r1, r2) -> sqlComparator.compare(ctx, r1, r2);
 
-        Node<RowT> node = MergeJoinNode.create(ctx, leftType, rightType, joinType, comp);
+        Node<RowT> node = MergeJoinNode.create(ctx, leftType, rightType, joinType, comp, joinProjection);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());
@@ -354,36 +452,63 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RexNode condition = rel.condition();
         List<RexNode> projects = rel.projects();
 
-        Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
-        Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
+        Predicate<RowT> filters = null;
+        if (condition != null) {
+            SqlPredicate<RowT> sqlPredicate = expressionFactory.predicate(condition, rowType);
+            filters = row -> sqlPredicate.test(ctx, row);
+        }
+
+        Function<RowT, RowT> prj = null;
+        if (projects != null) {
+            SqlProjection<RowT> sqlProjection = expressionFactory.project(projects, rowType);
+            prj = row -> sqlProjection.project(ctx, row);
+        }
 
         RangeIterable<RowT> ranges = null;
 
         if (searchBounds != null) {
-            Comparator<RowT> searchRowComparator = null;
+            SqlComparator<RowT> searchRowComparator = idx.type() == Type.SORTED
+                    ? expressionFactory.comparator(IgniteIndex.createSearchRowCollation(idx.collation()))
+                    : null;
 
-            if (idx.type() == Type.SORTED) {
-                searchRowComparator = expressionFactory.comparator(IgniteIndex.createSearchRowCollation(idx.collation()));
-            }
-
-            ranges = expressionFactory.ranges(searchBounds, idx.rowType(typeFactory, tbl.descriptor()), searchRowComparator);
+            ranges = expressionFactory.ranges(searchBounds, idx.rowType(typeFactory, tbl.descriptor()), searchRowComparator).get(ctx);
         }
 
-        RelCollation outputCollation = rel.collation();
-
-        if (projects != null || requiredColumns != null) {
-            outputCollation = outputCollation.apply(LogicalScanConverterRule.createMapping(
-                    projects,
-                    requiredColumns,
-                    tbl.getRowType(typeFactory).getFieldCount()
-            ));
-        }
+        RelCollation collation = rel.collation();
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
         assert group != null;
 
-        Comparator<RowT> comp = idx.type() == Type.SORTED ? ctx.expressionFactory().comparator(outputCollation) : null;
+        Comparator<RowT> comp = null;
+        if (idx.type() == Type.SORTED && collation != null && !nullOrEmpty(collation.getFieldCollations())) {
+            // Collation returned by rel is mapped according to projection merged into the rel. But we need
+            // comparator to merge streams of different partition. These streams respect `requiredColumns`,
+            // but projection is happened on later stage of execution, therefor if projection exists, we need
+            // to rebuild collation prior to create comparator.
+            RelCollation partitionStreamCollation;
+
+            if (projects != null) {
+                partitionStreamCollation = idx.collation();
+
+                if (rel.requiredColumns() != null) {
+                    Mappings.TargetMapping mapping = createMapping(
+                            null,
+                            rel.requiredColumns(),
+                            tbl.getRowType(typeFactory).getFieldCount()
+                    );
+
+                    partitionStreamCollation = partitionStreamCollation.apply(mapping);
+                }
+            } else {
+                partitionStreamCollation = collation;
+            }
+
+            SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(partitionStreamCollation);
+
+            comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2);
+
+        }
 
         if (!group.nodeNames().contains(ctx.localNode().name())) {
             return new ScanNode<>(ctx, Collections.emptyList());
@@ -422,8 +547,17 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
 
-        Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
-        Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
+        Predicate<RowT> filters = null;
+        if (condition != null) {
+            SqlPredicate<RowT> sqlPredicate = expressionFactory.predicate(condition, rowType);
+            filters = row -> sqlPredicate.test(ctx, row);
+        }
+
+        Function<RowT, RowT> prj = null;
+        if (projects != null) {
+            SqlProjection<RowT> sqlProjection = expressionFactory.project(projects, rowType);
+            prj = row -> sqlProjection.project(ctx, row);
+        }
 
         long sourceId = rel.sourceId();
         ColocationGroup group = ctx.group(sourceId);
@@ -434,6 +568,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             return new ScanNode<>(ctx, Collections.emptyList());
         }
 
+        // TODO: IGNITE-22822 fix required columns.
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
@@ -466,8 +601,17 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RelDataType rowType = igniteDataSource.getRowType(typeFactory, requiredColumns);
 
-        Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
-        Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
+        Predicate<RowT> filters = null;
+        if (condition != null) {
+            SqlPredicate<RowT> sqlPredicate = expressionFactory.predicate(condition, rowType);
+            filters = row -> sqlPredicate.test(ctx, row);
+        }
+
+        Function<RowT, RowT> prj = null;
+        if (projects != null) {
+            SqlProjection<RowT> sqlProjection = expressionFactory.project(projects, rowType);
+            prj = row -> sqlProjection.project(ctx, row);
+        }
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
@@ -485,11 +629,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteValues rel) {
-        List<RexLiteral> vals = Commons.flat(Commons.cast(rel.getTuples()));
+        List<List<RexLiteral>> vals = Commons.cast(rel.getTuples());
 
         RelDataType rowType = rel.getRowType();
 
-        return new ScanNode<>(ctx, expressionFactory.values(vals, rowType));
+        return new ScanNode<>(ctx, expressionFactory.values(vals, rowType).get(ctx));
     }
 
     /** {@inheritDoc} */
@@ -507,8 +651,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteLimit rel) {
-        Supplier<Integer> offset = (rel.offset() == null) ? null : expressionFactory.execute(rel.offset());
-        Supplier<Integer> fetch = (rel.fetch() == null) ? null : expressionFactory.execute(rel.fetch());
+        long offset = rel.offset() == null ? 0 : validateAndGetFetchOffsetParams(rel.offset(), "offset");
+        long fetch = rel.fetch() == null ? -1 : validateAndGetFetchOffsetParams(rel.fetch(), "fetch");
 
         LimitNode<RowT> node = new LimitNode<>(ctx, offset, fetch);
 
@@ -524,11 +668,16 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSort rel) {
         RelCollation collation = rel.getCollation();
 
-        Supplier<Integer> offset = (rel.offset == null) ? null : expressionFactory.execute(rel.offset);
-        Supplier<Integer> fetch = (rel.fetch == null) ? null : expressionFactory.execute(rel.fetch);
+        long offset = rel.offset == null ? 0 : validateAndGetFetchOffsetParams(rel.offset, "offset");
+        long fetch = rel.fetch == null ? -1 : validateAndGetFetchOffsetParams(rel.fetch, "fetch");
 
-        SortNode<RowT> node = new SortNode<>(ctx, expressionFactory.comparator(collation), offset,
-                fetch);
+        SqlComparator<RowT> sqlComparator = expressionFactory.comparator(collation);
+        SortNode<RowT> node = new SortNode<>(
+                ctx,
+                (r1, r2) -> sqlComparator.compare(ctx, r1, r2),
+                offset,
+                fetch
+        );
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -556,15 +705,16 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         assert rel.searchBounds() != null : rel;
 
-        Predicate<RowT> filter = expressionFactory.predicate(rel.condition(), rel.getRowType());
-        Comparator<RowT> comparator = expressionFactory.comparator(collation);
-        RangeIterable<RowT> ranges = expressionFactory.ranges(rel.searchBounds(), rel.getRowType(), comparator);
+        SqlPredicate<RowT> sqlPredicate = expressionFactory.predicate(rel.condition(), rel.getRowType());
+        Predicate<RowT> filter = row -> sqlPredicate.test(ctx, row);
+        SqlComparator<RowT> comparator = expressionFactory.comparator(collation);
+        RangeIterable<RowT> ranges = expressionFactory.ranges(rel.searchBounds(), rel.getRowType(), comparator).get(ctx);
 
         IndexSpoolNode<RowT> node = IndexSpoolNode.createTreeSpool(
                 ctx,
                 rel.getRowType(),
                 collation,
-                comparator,
+                (r1, r2) -> comparator.compare(ctx, r1, r2),
                 filter,
                 ranges
         );
@@ -579,9 +729,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteHashIndexSpool rel) {
-        Supplier<RowT> searchRow = expressionFactory.rowSource(rel.searchRow());
+        SqlRowProvider<RowT> rowProvider = expressionFactory.rowSource(rel.searchRow());
+        Supplier<RowT> searchRow = () -> rowProvider.get(ctx);
 
-        Predicate<RowT> filter = expressionFactory.predicate(rel.condition(), rel.getRowType());
+        SqlPredicate<RowT> sqlPredicate = expressionFactory.predicate(rel.condition(), rel.getRowType());
+        Predicate<RowT> filter = row -> sqlPredicate.test(ctx, row);
 
         IndexSpoolNode<RowT> node = IndexSpoolNode.createHashSpool(
                 ctx,
@@ -647,14 +799,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteTableFunctionScan rel) {
-        Supplier<Iterable<Object[]>> dataSupplier = expressionFactory.execute(rel.getCall());
+        TableFunction<RowT> tableFunction = tableFunctionRegistry.getTableFunction(ctx, (RexCall) rel.getCall());
 
-        RelDataType rowType = rel.getRowType();
-
-        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
-
-        return new ScanNode<>(ctx, new TableFunctionScan<>(dataSupplier, rowFactory));
+        return new ScanNode<>(ctx, tableFunction);
     }
 
     /** {@inheritDoc} */
@@ -662,8 +809,13 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteTableModify rel) {
         IgniteTable table = rel.getTable().unwrapOrThrow(IgniteTable.class);
         UpdatableTable updatableTable = resolvedDependencies.updatableTable(table.id());
+        RelDataType rowType = rel.getInput().getRowType();
+        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
-        ModifyNode<RowT> node = new ModifyNode<>(ctx, updatableTable, rel.sourceId(), rel.getOperation(), rel.getUpdateColumnList());
+        ModifyNode<RowT> node = new ModifyNode<>(
+                ctx, updatableTable, rel.sourceId(), rel.getOperation(), rel.getUpdateColumnList(), rowFactory
+        );
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -681,8 +833,16 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
+        RelCollation collation = rel.collation();
+        Comparator<RowT> comp = null;
+        if (collation != null && !nullOrEmpty(collation.getFieldCollations())) {
+            SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(collation);
+
+            comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2);
+        }
+
         Inbox<RowT> inbox = new Inbox<>(ctx, exchangeSvc, mailboxRegistry,
-                ctx.remotes(rel.exchangeId()), expressionFactory.comparator(rel.collation()),
+                ctx.remotes(rel.exchangeId()), comp,
                 rowFactory, rel.exchangeId(), rel.sourceFragmentId());
 
         mailboxRegistry.register(inbox);
@@ -698,13 +858,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
-        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type, rel.getAggCallList(), inputType);
+        List<AccumulatorWrapper<RowT>> accumulators;
+        if (rel.getAggCallList().isEmpty()) {
+            accumulators = List.of();
+        } else {
+            accumulators = expressionFactory.accumulatorsFactory(
+                    type, rel.getAggCallList(), inputType
+            ).get(ctx);
+        }
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accumulators, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -721,13 +887,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
-        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type, rel.getAggCallList(), inputType);
+        List<AccumulatorWrapper<RowT>> accumulators;
+        if (rel.getAggCallList().isEmpty()) {
+            accumulators = List.of();
+        } else {
+            accumulators = expressionFactory.accumulatorsFactory(
+                    type, rel.getAggCallList(), inputType
+            ).get(ctx);
+        }
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accumulators, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -743,16 +915,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RelDataType rowType = rel.getRowType();
 
-        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type,
-                rel.getAggregateCalls(),
-                rel.getInput().getRowType()
-        );
+        List<AccumulatorWrapper<RowT>> accumulators;
+        if (rel.getAggregateCalls().isEmpty()) {
+            accumulators = List.of();
+        } else {
+            accumulators = expressionFactory.accumulatorsFactory(
+                    type, rel.getAggregateCalls(), rel.getInput().getRowType()
+            ).get(ctx);
+        }
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
-        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accFactory, rowFactory);
+        HashAggregateNode<RowT> node = new HashAggregateNode<>(ctx, type, rel.getGroupSets(), accumulators, rowFactory);
 
         Node<RowT> input = visit(rel.getInput());
 
@@ -769,16 +944,25 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
-        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type,
-                rel.getAggCallList(),
-                inputType
-        );
+        List<AccumulatorWrapper<RowT>> accumulators;
+        if (rel.getAggCallList().isEmpty()) {
+            accumulators = List.of();
+        } else {
+            accumulators = expressionFactory.accumulatorsFactory(
+                    type, rel.getAggCallList(), inputType
+            ).get(ctx);
+        }
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
-        Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
+        RelCollation collation = rel.collation();
+        Comparator<RowT> comp = null;
+        if (collation != null && !nullOrEmpty(collation.getFieldCollations())) {
+            SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(collation);
+
+            comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2);
+        }
 
         if (rel.getGroupSet().isEmpty() && comp == null) {
             comp = (k1, k2) -> 0;
@@ -788,7 +972,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 type,
                 rel.getGroupSet(),
-                accFactory,
+                accumulators,
                 rowFactory,
                 comp
         );
@@ -808,16 +992,25 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rowType = rel.getRowType();
         RelDataType inputType = rel.getInput().getRowType();
 
-        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type,
-                rel.getAggCallList(),
-                inputType
-        );
+        List<AccumulatorWrapper<RowT>> accumulators;
+        if (rel.getAggCallList().isEmpty()) {
+            accumulators = List.of();
+        } else {
+            accumulators = expressionFactory.accumulatorsFactory(
+                    type, rel.getAggCallList(), inputType
+            ).get(ctx);
+        }
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
-        Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
+        RelCollation collation = rel.collation();
+        Comparator<RowT> comp = null;
+        if (collation != null && !nullOrEmpty(collation.getFieldCollations())) {
+            SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(collation);
+
+            comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2);
+        }
 
         if (rel.getGroupSet().isEmpty() && comp == null) {
             comp = (k1, k2) -> 0;
@@ -827,7 +1020,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 type,
                 rel.getGroupSet(),
-                accFactory,
+                accumulators,
                 rowFactory,
                 comp
         );
@@ -846,16 +1039,25 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RelDataType rowType = rel.getRowType();
 
-        Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type,
-                rel.getAggregateCalls(),
-                rel.getInput().getRowType()
-        );
+        List<AccumulatorWrapper<RowT>> accumulators;
+        if (rel.getAggregateCalls().isEmpty()) {
+            accumulators = List.of();
+        } else {
+            accumulators = expressionFactory.accumulatorsFactory(
+                    type, rel.getAggregateCalls(), rel.getInput().getRowType()
+            ).get(ctx);
+        }
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
-        Comparator<RowT> comp = expressionFactory.comparator(rel.collation());
+        RelCollation collation = rel.collation();
+        Comparator<RowT> comp = null;
+        if (collation != null && !nullOrEmpty(collation.getFieldCollations())) {
+            SqlComparator<RowT> searchRowComparator = expressionFactory.comparator(collation);
+
+            comp = (r1, r2) -> searchRowComparator.compare(ctx, r1, r2);
+        }
 
         if (rel.getGroupSet().isEmpty() && comp == null) {
             comp = (k1, k2) -> 0;
@@ -865,7 +1067,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ctx,
                 type,
                 rel.getGroupSet(),
-                accFactory,
+                accumulators,
                 rowFactory,
                 comp
         );
@@ -901,11 +1103,15 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         throw new AssertionError(rel.getClass());
     }
 
+    @Override
+    public Node<RowT> visit(IgniteSelectCount rel) {
+        throw new AssertionError(rel.getClass());
+    }
+
     private Node<RowT> visit(RelNode rel) {
         return visit((IgniteRel) rel);
     }
 
-    @SuppressWarnings("unchecked")
     public <T extends Node<RowT>> T go(IgniteRel rel) {
         return (T) visit(rel);
     }
@@ -919,5 +1125,92 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         }
 
         return BinaryTupleSchema.create(elements);
+    }
+
+    private static boolean canFuseProjectionInto(RelNode rel) {
+        if (rel instanceof Join) {
+            Join join = (Join) rel;
+
+            return JOIN_NEEDS_PROJECTION.contains(join.getJoinType());
+        }
+
+        return false;
+    }
+
+    private @Nullable SqlJoinProjection<RowT> createJoinProjection(Join rel, RelDataType outType, int leftRowSize) {
+        SqlJoinProjection<RowT> joinProjection = null;
+        if (projectionToFuse != null) {
+            assert JOIN_NEEDS_PROJECTION.contains(rel.getJoinType());
+
+            joinProjection = expressionFactory.joinProject(projectionToFuse, outType, leftRowSize);
+
+            projectionToFuse = null;
+        } else if (JOIN_NEEDS_PROJECTION.contains(rel.getJoinType())) {
+            List<RexNode> identityProjection = rel.getCluster().getRexBuilder().identityProjects(outType);
+
+            joinProjection = expressionFactory.joinProject(identityProjection, outType, leftRowSize);
+        }
+
+        return joinProjection;
+    }
+
+    private long validateAndGetFetchOffsetParams(RexNode node, String op) {
+        SqlScalar<RowT, Number> sqlScalar = expressionFactory.scalar(node);
+        Number param = sqlScalar.get(ctx);
+
+        long paramAsLong;
+
+        try {
+            paramAsLong = IgniteMath.convertToLongExact(param);
+        } catch (RuntimeException ex) {
+            throw new SqlException(Sql.STMT_VALIDATION_ERR, IgniteResource.INSTANCE.illegalFetchLimit(op).str(), ex);
+        }
+
+        if (paramAsLong < 0) {
+            throw new SqlException(Sql.STMT_VALIDATION_ERR, IgniteResource.INSTANCE.illegalFetchLimit(op).str());
+        }
+
+        return paramAsLong;
+    }
+
+    /**
+     * Evaluate a null comparison strategy as a bitset for the case of NOT DISTINCT FROM syntax.
+     */
+    private static ImmutableBitSet nullComparisonStrategyVector(IgniteMergeJoin rel, ImmutableBitSet leftKeys) {
+        ImmutableBitSet.Builder nullCompAsEqualBuilder = ImmutableBitSet.builder();
+
+        RexShuttle shuttle = new RexShuttle() {
+            @Override
+            public RexNode visitInputRef(RexInputRef ref) {
+                int idx = ref.getIndex();
+                if (leftKeys.get(idx)) {
+                    nullCompAsEqualBuilder.set(idx);
+                }
+                return ref;
+            }
+        };
+
+        List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.getCondition());
+        for (RexNode expr : conjunctions) {
+            if (expr.getKind() == SqlKind.IS_NOT_DISTINCT_FROM) {
+                shuttle.apply(expr);
+            }
+        }
+
+        return nullCompAsEqualBuilder.build();
+    }
+
+    private static void ensureComparatorCollationSatisfiesSourceCollation(
+            List<RelFieldCollation> compCollation,
+            ImmutableIntList collationKeys,
+            String name
+    ) {
+        int[] effectiveCollation = compCollation.stream().mapToInt(RelFieldCollation::getFieldIndex).distinct().toArray();
+
+        assert effectiveCollation.length <= collationKeys.size() : name + " effective collation size mismatch";
+
+        int[] keysPrefix = collationKeys.stream().mapToInt(Integer::intValue).limit(effectiveCollation.length).toArray();
+
+        assert Arrays.equals(effectiveCollation, keysPrefix) : name + " collation mismatch the source collation";
     }
 }

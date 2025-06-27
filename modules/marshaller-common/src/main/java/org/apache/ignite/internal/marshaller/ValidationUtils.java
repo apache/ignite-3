@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.marshaller;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Marshaller utility class for validation methods.
@@ -76,10 +78,6 @@ public class ValidationUtils {
                 return cls == UUID.class;
             case BYTE_ARR:
                 return cls == byte[].class;
-            case BITSET:
-                return cls == BitSet.class;
-            case NUMBER:
-                return cls == BigInteger.class;
             case DECIMAL:
                 return cls == BigDecimal.class;
             case DATE:
@@ -92,6 +90,36 @@ public class ValidationUtils {
                 return cls == Instant.class;
             default:
                 return false;
+        }
+    }
+
+    /**
+     * Checks whether {@code null} is allowed for the given value type in a {@code KeyValueView} operation.
+     * If the value type is not natively supported, throws an exception.
+     *
+     * @param val Value to check.
+     * @param valueType Value type.
+     * @throws NullPointerException If value is null and valueType is not natively supported.
+     */
+    public static void validateNullableValue(@Nullable Object val, Class<?> valueType) {
+        if (val == null && !Mapper.nativelySupported(valueType)) {
+            String message = "null value cannot be used when a value is not mapped to a simple type";
+
+            throw new NullPointerException(message);
+        }
+    }
+
+    /**
+     * Checks whether {@code getNullable*} operation on a {@code KeyValueView} is allowed for the given value type.
+     * If the value type is not natively supported, throws an exception.
+     *
+     * @param valueType Value type.
+     */
+    public static void validateNullableOperation(Class<?> valueType, String methodName) {
+        if (!Mapper.nativelySupported(valueType)) {
+            String message = format("{} cannot be used when a value is not mapped to a simple type", methodName);
+
+            throw new UnsupportedOperationException(message);
         }
     }
 

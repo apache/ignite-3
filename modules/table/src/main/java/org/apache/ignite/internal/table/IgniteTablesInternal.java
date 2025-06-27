@@ -20,7 +20,8 @@ package org.apache.ignite.internal.table;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +60,7 @@ public interface IgniteTablesInternal extends IgniteTables {
      *                             <li>the node is stopping.</li>
      *                         </ul>
      */
-    TableViewInternal tableView(String name);
+    TableViewInternal tableView(QualifiedName name);
 
     /**
      * Gets a table by name, if it was created before.
@@ -73,7 +74,7 @@ public interface IgniteTablesInternal extends IgniteTables {
      *                             <li>the node is stopping.</li>
      *                         </ul>
      */
-    CompletableFuture<TableViewInternal> tableViewAsync(String name);
+    CompletableFuture<TableViewInternal> tableViewAsync(QualifiedName name);
 
     /**
      * Returns a cached table instance if it exists, {@code null} otherwise. Can return a table that is being stopped.
@@ -81,4 +82,6 @@ public interface IgniteTablesInternal extends IgniteTables {
      * @param tableId Table id.
      */
     @Nullable TableViewInternal cachedTable(int tableId);
+
+    void setStreamerReceiverRunner(StreamerReceiverRunner runner);
 }

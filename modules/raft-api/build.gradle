@@ -25,11 +25,13 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
+    implementation project(':ignite-partition-distribution')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 
+    testImplementation testFixtures(project(':ignite-core'))
+
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor libs.auto.service
-
-    testImplementation libs.hamcrest.core
 }

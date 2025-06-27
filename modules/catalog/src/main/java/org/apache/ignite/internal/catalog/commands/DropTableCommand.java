@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,6 +26,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
@@ -41,15 +42,22 @@ public class DropTableCommand extends AbstractTableCommand {
         return new Builder();
     }
 
-    private DropTableCommand(String schemaName, String tableName) throws CatalogValidationException {
-        super(schemaName, tableName);
+    private DropTableCommand(String schemaName, String tableName, boolean ifExists) throws CatalogValidationException {
+        super(schemaName, tableName, ifExists, true);
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifTableExists);
+        if (schema == null) {
+            return List.of();
+        }
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        CatalogTableDescriptor table = table(schema, tableName, !ifTableExists);
+        if (table == null) {
+            return List.of();
+        }
 
         List<UpdateEntry> updateEntries = new ArrayList<>();
 
@@ -62,7 +70,7 @@ public class DropTableCommand extends AbstractTableCommand {
                     updateEntries.add(new RemoveIndexEntry(index.id()));
                 });
 
-        updateEntries.add(new DropTableEntry(table.id(), schemaName));
+        updateEntries.add(new DropTableEntry(table.id()));
 
         return updateEntries;
     }
@@ -74,6 +82,8 @@ public class DropTableCommand extends AbstractTableCommand {
         private String schemaName;
 
         private String tableName;
+
+        private boolean ifExists;
 
         @Override
         public DropTableCommandBuilder schemaName(String schemaName) {
@@ -90,10 +100,18 @@ public class DropTableCommand extends AbstractTableCommand {
         }
 
         @Override
+        public DropTableCommandBuilder ifTableExists(boolean ifTableExists) {
+            this.ifExists = ifTableExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new DropTableCommand(
                     schemaName,
-                    tableName
+                    tableName,
+                    ifExists
             );
         }
     }

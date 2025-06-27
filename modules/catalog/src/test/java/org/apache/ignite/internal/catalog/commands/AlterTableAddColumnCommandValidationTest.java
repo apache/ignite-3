@@ -19,11 +19,13 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.STRING;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -115,27 +117,31 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
     void exceptionIsThrownIfSchemaNotExists() {
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand alterCommand = builder.ifTableExists(true).build();
+
+        alterCommand.get(new UpdateContext(catalog)); // No exception
     }
 
     @Test
     void exceptionIsThrownIfTableNotExists() {
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' not found"
         );
@@ -159,9 +165,35 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 .columns(List.of(columnParams));
 
         assertThrowsWithCause(
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Column with name 'TEST' already exists"
+        );
+    }
+
+    @Test
+    void cannotAddColumnWithFunctionalDefault() {
+        String tableName = "TEST";
+        String columnName = "TEST";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(ColumnParams.builder().name("ID").type(INT32).build()))
+                .primaryKey(primaryKey("ID"))
+        );
+
+        ColumnParams columnParams = ColumnParams.builder().name(columnName).type(STRING).length(10)
+                .defaultValue(DefaultValue.functionCall("rand_uuid")).build();
+
+        AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columnParams));
+
+        assertThrowsWithCause(
+                () -> builder.build().get(new UpdateContext(catalog)),
+                CatalogValidationException.class,
+                "Functional defaults are not supported for non-primary key columns"
         );
     }
 
@@ -176,7 +208,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "Operations with reserved schemas are not allowed"
+                "Operations with system schemas are not allowed"
         );
     }
 }

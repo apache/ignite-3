@@ -15,10 +15,18 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Sql
-{
-    using Ignite.Sql;
+namespace Apache.Ignite.Internal.Sql;
 
-    internal sealed record ColumnMetadata(string Name, ColumnType Type, int Precision, int Scale, bool Nullable, IColumnOrigin? Origin)
-        : IColumnMetadata;
-}
+using Ignite.Sql;
+
+/// <summary>
+/// Column metadata.
+/// </summary>
+/// <param name="Name">Name.</param>
+/// <param name="Type">Type.</param>
+/// <param name="Precision">Precision, or -1 when not applicable to the current column type.</param>
+/// <param name="Scale">Scale.</param>
+/// <param name="Nullable">Whether column is nullable.</param>
+/// <param name="Origin">Origin.</param>
+internal sealed record ColumnMetadata(string Name, ColumnType Type, int Precision, int Scale, bool Nullable, IColumnOrigin? Origin)
+    : IColumnMetadata;

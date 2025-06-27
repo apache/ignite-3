@@ -57,8 +57,6 @@ public class Repl {
 
     private final Runnable onStart;
 
-    private final EventListeningActivationPoint eventListeningActivationPoint;
-
     private final Parser parser;
 
     private Highlighter higilighter;
@@ -76,7 +74,6 @@ public class Repl {
      * @param historyFileName file name for storing commands history.
      * @param tailTipWidgetsEnabled whether tailtip widgets are enabled.
      * @param onStart callback that will run when REPL is started.
-     * @param eventListeningActivationPoint event listening activation point
      * @param highlighter syntax highilighter.
      */
     public Repl(PromptProvider promptProvider,
@@ -90,7 +87,6 @@ public class Repl {
             boolean tailTipWidgetsEnabled,
             boolean autosuggestionsWidgetsEnabled,
             Runnable onStart,
-            EventListeningActivationPoint eventListeningActivationPoint,
             Highlighter highlighter,
             Parser parser) {
         this.promptProvider = promptProvider;
@@ -104,7 +100,6 @@ public class Repl {
         this.tailTipWidgetsEnabled = tailTipWidgetsEnabled;
         this.autosuggestionsWidgetsEnabled = autosuggestionsWidgetsEnabled;
         this.onStart = onStart;
-        this.eventListeningActivationPoint = eventListeningActivationPoint;
         this.higilighter = highlighter;
         this.parser = parser;
     }
@@ -182,10 +177,6 @@ public class Repl {
 
     public void onStart() {
         onStart.run();
-    }
-
-    public EventListeningActivationPoint getEventListeningActivationPoint() {
-        return eventListeningActivationPoint;
     }
 
     public Parser getParser() {

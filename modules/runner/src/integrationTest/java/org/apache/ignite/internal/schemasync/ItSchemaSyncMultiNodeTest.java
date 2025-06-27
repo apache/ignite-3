@@ -20,8 +20,8 @@ package org.apache.ignite.internal.schemasync;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
+import static org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor.metastorageEventsInhibitor;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,17 +32,15 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests about basic Schema Synchronization properties that should be tested using a few Ignite node.
  */
-@SuppressWarnings("resource")
 class ItSchemaSyncMultiNodeTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 2;
 
@@ -81,7 +79,6 @@ class ItSchemaSyncMultiNodeTest extends ClusterPerTestIntegrationTest {
      * <p>This particular scenario uses metastorage inhibiting to make sure that schema sync is not missed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21512")
     void sqlDmlAfterDdlOnAnotherNodeSeesDdlResultsWithInhibitor() {
         WatchListenerInhibitor inhibitorOnNode1 = metastorageEventsInhibitor(node(NODE_1_INDEX));
         inhibitorOnNode1.startInhibit();
@@ -185,11 +182,11 @@ class ItSchemaSyncMultiNodeTest extends ClusterPerTestIntegrationTest {
 
         try {
             cluster.doInSession(NODE_0_INDEX, session -> {
-                executeUpdate("CREATE ZONE test_zone WITH STORAGE_PROFILES='default'", session);
+                executeUpdate("CREATE ZONE test_zone STORAGE PROFILES ['default']", session);
             });
 
             CompletableFuture<Void> tableCreationFuture = runAsync(() -> cluster.doInSession(NODE_1_INDEX, session -> {
-                executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar) WITH primary_zone='TEST_ZONE'", session);
+                executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar) ZONE TEST_ZONE", session);
             }));
 
             assertThat(tableCreationFuture, willTimeoutIn(1, SECONDS));

@@ -87,16 +87,16 @@ public class SqlIndexScanBenchmark extends AbstractMultiNodeBenchmark {
     @Setup
     public void setUp() throws Exception {
         try {
-            sql = clusterNode.sql();
+            sql = publicIgnite.sql();
 
             if (!Files.exists(workDir().resolve(DATASET_READY_MARK_FILE_NAME))) {
                 sql.executeScript(
-                        "CREATE ZONE single_partition_zone WITH replicas = 1, partitions = 1;"
-                                + "CREATE TABLE test (id INT PRIMARY KEY, val DATE) WITH primary_zone = single_partition_zone;"
+                        "CREATE ZONE single_partition_zone (replicas 1, partitions 1) STORAGE PROFILES ['default'];"
+                                + "CREATE TABLE test (id INT PRIMARY KEY, val DATE) ZONE single_partition_zone;"
                                 + "CREATE INDEX test_val_idx ON test(val);"
                 );
 
-                CompletableFuture<?> result = clusterNode.tables().table("test")
+                CompletableFuture<?> result = publicIgnite.tables().table("test")
                         .recordView()
                         .streamData(SubscriptionUtils.fromIterable(() -> IntStream.range(0, TABLE_SIZE)
                                 .mapToObj(i -> DataStreamerItem.of(Tuple.create()

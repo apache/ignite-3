@@ -39,7 +39,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.tx.TransactionException;
 
 /**
@@ -74,14 +74,14 @@ public class PlacementDriverHelper {
      * @return Future that completes with node id that is a primary for the provided partition, or completes with exception if no primary
      *         appeared during the await timeout.
      */
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(TablePartitionId partitionId) {
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(ReplicationGroupId partitionId) {
         HybridTimestamp timestamp = clockService.now();
 
         return awaitPrimaryReplicaWithExceptionHandling(partitionId, timestamp);
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(
-            TablePartitionId partitionId,
+            ReplicationGroupId partitionId,
             HybridTimestamp timestamp
     ) {
         return placementDriver.awaitPrimaryReplica(partitionId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
@@ -105,7 +105,7 @@ public class PlacementDriverHelper {
      * @return A future that completes with a map of node to the partitions the node is primary for and a collection of partitions that we
      *         failed to find the primary for.
      */
-    public CompletableFuture<PartitionData> findPrimaryReplicas(Collection<TablePartitionId> partitions) {
+    public CompletableFuture<PartitionData> findPrimaryReplicas(Collection<ReplicationGroupId> partitions) {
         // Please note that we are using `get primary replica` instead of `await primary replica`.
         // This method is faster, yet we still have the correctness:
         // If the primary replica has not changed, get will return a valid value and we'll send an unlock request to this node.
@@ -120,7 +120,7 @@ public class PlacementDriverHelper {
      * @param partitions A collection of partitions.
      * @return A future that completes with a map of node to the partitions the node is primary for.
      */
-    public CompletableFuture<Map<String, Set<TablePartitionId>>> awaitPrimaryReplicas(Collection<TablePartitionId> partitions) {
+    public CompletableFuture<Map<String, Set<ReplicationGroupId>>> awaitPrimaryReplicas(Collection<ReplicationGroupId> partitions) {
         return computePrimaryReplicas(partitions, this::awaitPrimaryReplicaWithExceptionHandling)
                 .thenApply(partitionData -> partitionData.partitionsByNode);
     }
@@ -133,8 +133,8 @@ public class PlacementDriverHelper {
      *         failed to find the primary for.
      */
     private CompletableFuture<PartitionData> computePrimaryReplicas(
-            Collection<TablePartitionId> partitions,
-            BiFunction<TablePartitionId, HybridTimestamp, CompletableFuture<ReplicaMeta>> placementFunction
+            Collection<ReplicationGroupId> partitions,
+            BiFunction<ReplicationGroupId, HybridTimestamp, CompletableFuture<ReplicaMeta>> placementFunction
     ) {
         if (partitions == null || partitions.isEmpty()) {
             return completedFuture(new PartitionData(emptyMap(), emptySet()));
@@ -142,23 +142,23 @@ public class PlacementDriverHelper {
 
         HybridTimestamp timestamp = clockService.now();
 
-        Map<TablePartitionId, CompletableFuture<ReplicaMeta>> primaryReplicaFutures = new HashMap<>();
+        Map<ReplicationGroupId, CompletableFuture<ReplicaMeta>> primaryReplicaFutures = new HashMap<>();
 
-        for (TablePartitionId partitionId : partitions) {
+        for (ReplicationGroupId partitionId : partitions) {
             primaryReplicaFutures.put(partitionId, placementFunction.apply(partitionId, timestamp));
         }
 
         return allOf(primaryReplicaFutures.values().toArray(new CompletableFuture<?>[0]))
                 .thenApply(v -> {
-                    Map<String, Set<TablePartitionId>> partitionsByNode = new HashMap<>();
+                    Map<String, Set<ReplicationGroupId>> partitionsByNode = new HashMap<>();
 
-                    Set<TablePartitionId> partitionsWithoutPrimary = new HashSet<>();
+                    Set<ReplicationGroupId> partitionsWithoutPrimary = new HashSet<>();
 
-                    for (Entry<TablePartitionId, CompletableFuture<ReplicaMeta>> entry : primaryReplicaFutures.entrySet()) {
+                    for (Entry<ReplicationGroupId, CompletableFuture<ReplicaMeta>> entry : primaryReplicaFutures.entrySet()) {
                         // Safe to call join, the future has already finished.
                         ReplicaMeta meta = entry.getValue().join();
 
-                        TablePartitionId partition = entry.getKey();
+                        ReplicationGroupId partition = entry.getKey();
 
                         if (meta != null && meta.getLeaseholder() != null) {
                             partitionsByNode.computeIfAbsent(meta.getLeaseholder(), s -> new HashSet<>())
@@ -175,11 +175,11 @@ public class PlacementDriverHelper {
      * The result of retrieving primary replicas for a collection of partitions.
      */
     public static class PartitionData {
-        final Map<String, Set<TablePartitionId>> partitionsByNode;
+        final Map<String, Set<ReplicationGroupId>> partitionsByNode;
 
-        final Set<TablePartitionId> partitionsWithoutPrimary;
+        final Set<ReplicationGroupId> partitionsWithoutPrimary;
 
-        PartitionData(Map<String, Set<TablePartitionId>> partitionsByNode, Set<TablePartitionId> partitionsWithoutPrimary) {
+        PartitionData(Map<String, Set<ReplicationGroupId>> partitionsByNode, Set<ReplicationGroupId> partitionsWithoutPrimary) {
             this.partitionsByNode = partitionsByNode;
             this.partitionsWithoutPrimary = partitionsWithoutPrimary;
         }

@@ -18,10 +18,10 @@
 namespace Apache.Ignite.Benchmarks;
 
 using BenchmarkDotNet.Running;
-using Table;
+using Compute;
 
 internal static class Program
 {
     // IMPORTANT: Disable Netty leak detector when using a real Ignite server for benchmarks.
-    private static void Main() => BenchmarkRunner.Run<TupleGetBenchmarks>();
+    private static void Main() => BenchmarkRunner.Run<PlatformJobBenchmarks>();
 }

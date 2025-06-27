@@ -27,7 +27,8 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
-import org.apache.ignite.internal.Cluster;
+import java.util.Set;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
@@ -43,7 +44,9 @@ import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
+import org.apache.ignite.rest.client.model.MetricSource;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import picocli.CommandLine;
 
@@ -52,10 +55,28 @@ import picocli.CommandLine;
  */
 @MicronautTest(rebuildContext = true)
 public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest {
-    /** Correct ignite jdbc url. */
-    protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:" + Cluster.BASE_CLIENT_PORT;
 
-    protected static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
+    public static final MetricSource[] ALL_METRIC_SOURCES = {
+            new MetricSource().name("jvm").enabled(true),
+            new MetricSource().name("os").enabled(true),
+            new MetricSource().name("raft").enabled(true),
+            new MetricSource().name("metastorage").enabled(true),
+            new MetricSource().name("client.handler").enabled(true),
+            new MetricSource().name("sql.client").enabled(true),
+            new MetricSource().name("sql.plan.cache").enabled(true),
+            new MetricSource().name("storage.aipersist.default").enabled(true),
+            new MetricSource().name("storage.aipersist.default_aipersist").enabled(true),
+            new MetricSource().name("topology.cluster").enabled(true),
+            new MetricSource().name("topology.local").enabled(true),
+            new MetricSource().name("thread.pools.partitions-executor").enabled(true),
+            new MetricSource().name("thread.pools.sql-executor").enabled(true),
+            new MetricSource().name("thread.pools.sql-planning-executor").enabled(true)
+    };
+
+    /** Correct ignite jdbc url. */
+    protected static final String JDBC_URL = "jdbc:ignite:thin://127.0.0.1:" + ClusterConfiguration.DEFAULT_BASE_CLIENT_PORT;
+
+    protected static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     @Inject
     private ConfigDefaultValueProvider configDefaultValueProvider;
@@ -89,12 +110,19 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     @Inject
     private EventListeningActivationPoint eventListeningActivationPoint;
 
+    @BeforeAll
+    static void setDumbTerminal() {
+        System.setProperty("org.jline.terminal.dumb", "true");
+    }
+
     @BeforeEach
     void setUp() {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
-        eventListeningActivationPoint.subscribe();
+        if (needToSubscribe()) {
+            eventListeningActivationPoint.subscribe();
+        }
         resetOutput();
         CommandLineContextProvider.setCmd(cmd);
     }
@@ -104,18 +132,33 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         eventPublisher.publish(Events.disconnect());
     }
 
-    protected void resetOutput() {
+    private void resetOutput() {
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
         cmd.setErr(new PrintWriter(serr));
     }
 
+    public String getOutput() {
+        return sout.toString();
+    }
+
     protected Class<?> getCommandClass() {
         return TopLevelCliCommand.class;
     }
 
+    /**
+     * If {@code true}, the test subscribes to CLI event. Return {@code false} to more closely emulate real CLI app, where we subscribe
+     * explicitly before the REPL mode start.
+     *
+     * @return Whether to subscribe to CLI events or not.
+     */
+    protected boolean needToSubscribe() {
+        return true;
+    }
+
     protected void execute(String... args) {
+        resetOutput();
         exitCode = cmd.execute(args);
     }
 
@@ -133,6 +176,15 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         assertExitCodeIs(0);
     }
 
+    protected void assertExitCodeIsError() {
+        assertExitCodeIs(errorExitCode());
+    }
+
+    // REPL mode has no exit code for error, override this method in tests for repl commands.
+    protected int errorExitCode() {
+        return 1;
+    }
+
     protected void assertOutputIsNotEmpty() {
         assertThat(sout.toString())
                 .as("Expected command output not to be empty")
@@ -145,16 +197,68 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .isEqualTo(expectedOutput);
     }
 
+    protected void assertOutputStartsWith(String expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to start with: " + expectedOutput + " but was " + sout.toString())
+                .startsWith(expectedOutput);
+    }
+
     protected void assertOutputContains(String expectedOutput) {
         assertThat(sout.toString())
                 .as("Expected command output to contain: " + expectedOutput + " but was " + sout.toString())
                 .contains(expectedOutput);
     }
 
+    protected void assertOutputHasLineCount(int expectedLineCount) {
+        assertThat(sout.toString())
+                .as("Expected command output to has " + expectedLineCount + " lines but was " + sout.toString())
+                .hasLineCount(expectedLineCount);
+    }
+
+    protected void assertOutputContainsAnyIgnoringCase(Set<String> expectedOutput) {
+        CharSequence[] expectedUpperCase = expectedOutput.stream().map(String::toUpperCase).toArray(CharSequence[]::new);
+
+        assertThat(sout.toString().toUpperCase())
+                .as("Expected command output to contain any of, ignoring case: " + expectedOutput + " but was " + sout.toString())
+                .containsAnyOf(expectedUpperCase);
+    }
+
+    protected void assertOutputContainsAny(Set<String> expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to contain any of: " + expectedOutput + " but was " + sout.toString())
+                .containsAnyOf(expectedOutput.toArray(CharSequence[]::new));
+    }
+
+    protected void assertOutputContainsAllIgnoringCase(Set<String> expectedOutput) {
+        CharSequence[] expectedUpperCase = expectedOutput.stream().map(String::toUpperCase).toArray(CharSequence[]::new);
+
+        assertThat(sout.toString().toUpperCase())
+                .as("Expected command output to contain all of, ignoring case: " + expectedOutput + " but was " + sout.toString())
+                .contains(expectedUpperCase);
+    }
+
+    protected void assertOutputContainsAll(Set<String> expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to contain all of: " + expectedOutput + " but was " + sout.toString())
+                .contains(expectedOutput.toArray(CharSequence[]::new));
+    }
+
     protected void assertOutputDoesNotContain(String expectedOutput) {
         assertThat(sout.toString())
                 .as("Expected command output to not contain: " + expectedOutput + " but was " + sout.toString())
                 .doesNotContain(expectedOutput);
+    }
+
+    protected void assertOutputDoesNotContain(Set<String> expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to not contain: " + expectedOutput + " but was " + sout.toString())
+                .doesNotContain(expectedOutput.toArray(CharSequence[]::new));
+    }
+
+    protected void assertOutputDoesNotContainIgnoreCase(Set<String> expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to not contain: " + expectedOutput + " but was " + sout.toString())
+                .doesNotContainIgnoringCase(expectedOutput.toArray(CharSequence[]::new));
     }
 
     protected void assertOutputMatches(String regex) {
@@ -191,6 +295,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         assertThat(serr.toString())
                 .as("Expected command error output to contain: " + expectedErrOutput)
                 .contains(expectedErrOutput);
+    }
+
+    protected void assertErrOutputDoesNotContain(String expectedOutput) {
+        assertThat(serr.toString())
+                .as("Expected command error output to not contain: " + expectedOutput + " but was " + serr.toString())
+                .doesNotContain(expectedOutput);
     }
 
     protected void setConfigProperty(CliConfigKeys key, String value) {

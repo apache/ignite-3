@@ -29,17 +29,15 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -158,8 +156,8 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             parameters = new Parameters(statementsCount, n -> createInsertStatement("T" + n));
             queryRunner = new QueryRunner(
-                    clusterNode.queryEngine(),
-                    clusterNode.transactions(),
+                    igniteImpl.queryEngine(),
+                    igniteImpl.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -218,8 +216,8 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             parameters = new Parameters(statementsCount, n -> format("select count(*) from T{}", n));
             queryRunner = new QueryRunner(
-                    clusterNode.queryEngine(),
-                    clusterNode.transactions(),
+                    igniteImpl.queryEngine(),
+                    igniteImpl.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -260,8 +258,8 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             parameters = new Parameters(statementsCount, n -> format("select * from T{} where ycsb_key=?", n));
             queryRunner = new QueryRunner(
-                    clusterNode.queryEngine(),
-                    clusterNode.transactions(),
+                    igniteImpl.queryEngine(),
+                    igniteImpl.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -310,8 +308,8 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
             parameters = new Parameters(statementsCount, ignore -> "select * from T0 where ycsb_key=?");
             queryRunner = new QueryRunner(
-                    clusterNode.queryEngine(),
-                    clusterNode.transactions(),
+                    igniteImpl.queryEngine(),
+                    igniteImpl.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -360,34 +358,32 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
     /** Executes SQL query/script using internal API. */
     private static class QueryRunner {
-        private final SqlProperties props = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                .build();
+        private final SqlProperties props = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
 
-        private final SqlProperties scriptProps = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-                .build();
+        private final SqlProperties scriptProps = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.ALL);
 
         private final QueryProcessor queryProcessor;
-        private final IgniteTransactions transactions;
+        private final HybridTimestampTracker observableTimeTracker;
         private final int pageSize;
 
-        QueryRunner(QueryProcessor queryProcessor, IgniteTransactions transactions, int pageSize) {
+        QueryRunner(QueryProcessor queryProcessor, HybridTimestampTracker observableTimeTracker, int pageSize) {
             this.queryProcessor = queryProcessor;
-            this.transactions = transactions;
+            this.observableTimeTracker = observableTimeTracker;
             this.pageSize = pageSize;
         }
 
         Iterator<InternalSqlRow> execQuery(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.queryAsync(props, transactions, null, sql, args).join();
+                    queryProcessor.queryAsync(props, observableTimeTracker, null, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }
 
         Iterator<InternalSqlRow> execScript(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.queryAsync(scriptProps, transactions, null, sql, args).join();
+                    queryProcessor.queryAsync(scriptProps, observableTimeTracker, null, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }
@@ -456,7 +452,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         for (int i = 0; i < tablesCount; i++) {
-            clusterNode.tables().table("T" + i).keyValueView().putAll(null, data);
+            publicIgnite.tables().table("T" + i).keyValueView().putAll(null, data);
         }
     }
 

@@ -44,7 +44,7 @@ public class NodeConfig {
      * @return Config pattern.
      */
     public static String restSslBootstrapConfig(@Nullable String ciphers) {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
@@ -67,7 +67,8 @@ public class NodeConfig {
                 + "      },\n"
                 + (nullOrBlank(ciphers) ? "" : "      ciphers: \"" + ciphers + "\"")
                 + "    }\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 
@@ -81,7 +82,7 @@ public class NodeConfig {
      * @return Config pattern.
      */
     public static String clientConnectorSslBootstrapConfig(@Nullable String ciphers) {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder: {\n"
@@ -108,7 +109,8 @@ public class NodeConfig {
                 + "  rest: {\n"
                 + "    port: {},\n"
                 + "    ssl.port: {}\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 }

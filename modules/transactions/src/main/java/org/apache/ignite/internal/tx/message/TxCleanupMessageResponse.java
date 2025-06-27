@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.jetbrains.annotations.Nullable;
@@ -27,8 +26,6 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(TxMessageGroup.TX_CLEANUP_MSG_RESPONSE)
 public interface TxCleanupMessageResponse extends TimestampAware {
-
-    @Nullable
-    @Marshallable
-    CleanupReplicatedInfo result();
+    /** Result of a replicated cleanup request. */
+    @Nullable CleanupReplicatedInfoMessage result();
 }

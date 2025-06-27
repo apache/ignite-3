@@ -17,36 +17,48 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.round;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validatePartition;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A command that changes the particular zone.
  */
 public class AlterZoneCommand extends AbstractZoneCommand {
+    private static final IgniteLogger LOG = Loggers.forClass(AlterZoneCommand.class);
+
     public static AlterZoneCommandBuilder builder() {
         return new Builder();
     }
 
+    private final boolean ifExists;
+
     private final @Nullable Integer partitions;
 
     private final @Nullable Integer replicas;
+
+    private final @Nullable Integer quorumSize;
 
     private final @Nullable Integer dataNodesAutoAdjust;
 
@@ -62,8 +74,10 @@ public class AlterZoneCommand extends AbstractZoneCommand {
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param partitions Number of partitions.
      * @param replicas Number of replicas.
+     * @param quorumSize Quorum size.
      * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
@@ -73,8 +87,10 @@ public class AlterZoneCommand extends AbstractZoneCommand {
      */
     private AlterZoneCommand(
             String zoneName,
+            boolean ifExists,
             @Nullable Integer partitions,
             @Nullable Integer replicas,
+            @Nullable Integer quorumSize,
             @Nullable Integer dataNodesAutoAdjust,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
@@ -83,8 +99,10 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     ) throws CatalogValidationException {
         super(zoneName);
 
+        this.ifExists = ifExists;
         this.partitions = partitions;
         this.replicas = replicas;
+        this.quorumSize = quorumSize;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
@@ -94,9 +112,18 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         validate();
     }
 
+    public boolean ifExists() {
+        return ifExists;
+    }
+
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
+
+        CatalogZoneDescriptor zone = zone(catalog, zoneName, !ifExists);
+        if (zone == null) {
+            return List.of();
+        }
 
         CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(zone);
 
@@ -121,22 +148,63 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         CatalogStorageProfilesDescriptor storageProfiles = storageProfileParams != null
                 ? fromParams(storageProfileParams) : previous.storageProfiles();
 
+        int replicas = requireNonNullElse(this.replicas, previous.replicas());
+        int quorumSize = adjustQuorumSize(replicas, previous.quorumSize());
+
         return new CatalogZoneDescriptor(
                 previous.id(),
                 previous.name(),
-                Objects.requireNonNullElse(partitions, previous.partitions()),
-                Objects.requireNonNullElse(replicas, previous.replicas()),
-                Objects.requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
-                Objects.requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
-                Objects.requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
-                Objects.requireNonNullElse(filter, previous.filter()),
-                storageProfiles
+                requireNonNullElse(partitions, previous.partitions()),
+                replicas,
+                quorumSize,
+                requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
+                requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
+                requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
+                requireNonNullElse(filter, previous.filter()),
+                storageProfiles,
+                previous.consistencyMode()
         );
     }
 
+    /**
+     * Adjusts quorum size so it is always consistent with the replicas count.
+     *
+     * @param replicas Desired replicas count.
+     * @param previousQuorumSize Previous quorum size.
+     * @return Adjusted quorum size.
+     */
+    private int adjustQuorumSize(int replicas, int previousQuorumSize) {
+        int quorumSize = requireNonNullElse(this.quorumSize, previousQuorumSize);
+
+        int minQuorum = min(replicas, 2);
+        int maxQuorum = max(minQuorum, (int) (round(replicas / 2.0)));
+
+        if (quorumSize > maxQuorum) {
+            if (this.quorumSize != null) {
+                throw new CatalogValidationException(
+                        "Quorum size exceeds the maximum quorum value: [quorum size={}, min={}, max={}, replicas count={}].",
+                        quorumSize, minQuorum, maxQuorum, replicas
+                );
+            }
+            LOG.info("Quorum size adjusted from {} to {} because is exceeds the maximum quorum value.", quorumSize, maxQuorum);
+            return maxQuorum;
+        } else if (quorumSize < minQuorum) {
+            if (this.quorumSize != null) {
+                throw new CatalogValidationException(
+                        "Quorum size is less than the minimum quorum value: [quorum size={}, min={}, max={}, replicas count={}].",
+                        quorumSize, minQuorum, maxQuorum, replicas
+                );
+            }
+            LOG.info("Quorum size adjusted from {} to {} because it is less than the minimum quorum value.", quorumSize, minQuorum);
+            return minQuorum;
+        }
+        return quorumSize;
+    }
+
     private void validate() {
-        validateField(partitions, 1, MAX_PARTITION_COUNT, "Invalid number of partitions");
+        validatePartition(partitions);
         validateField(replicas, 1, null, "Invalid number of replicas");
+        validateField(quorumSize, 1, null, "Invalid quorum size");
         validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
         validateField(dataNodesAutoAdjustScaleDown, 0, null, "Invalid data nodes auto adjust scale down");
@@ -156,9 +224,13 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     private static class Builder implements AlterZoneCommandBuilder {
         private String zoneName;
 
+        private boolean ifExists;
+
         private @Nullable Integer partitions;
 
         private @Nullable Integer replicas;
+
+        private @Nullable Integer quorumSize;
 
         private @Nullable Integer dataNodesAutoAdjust;
 
@@ -178,6 +250,13 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
+        public AlterZoneCommandBuilder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
+
+            return this;
+        }
+
+        @Override
         public AlterZoneCommandBuilder partitions(Integer partitions) {
             this.partitions = partitions;
 
@@ -187,6 +266,13 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         @Override
         public AlterZoneCommandBuilder replicas(Integer replicas) {
             this.replicas = replicas;
+
+            return this;
+        }
+
+        @Override
+        public AlterZoneCommandBuilder quorumSize(Integer quorumSize) {
+            this.quorumSize = quorumSize;
 
             return this;
         }
@@ -230,8 +316,10 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         public CatalogCommand build() {
             return new AlterZoneCommand(
                     zoneName,
+                    ifExists,
                     partitions,
                     replicas,
+                    quorumSize,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,

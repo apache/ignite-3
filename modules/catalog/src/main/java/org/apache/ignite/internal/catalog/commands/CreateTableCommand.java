@@ -22,9 +22,8 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.en
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -35,7 +34,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
@@ -76,23 +74,27 @@ public class CreateTableCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to create. Should not be null or blank.
      * @param schemaName Name of the schema to create table in. Should not be null or blank.
+     * @param ifNotExists Flag indicating whether the {@code IF NOT EXISTS} was specified.
      * @param primaryKey Primary key.
      * @param colocationColumns Name of the columns participating in distribution calculation.
      *      Should be subset of the primary key columns.
      * @param columns List of the columns containing by the table. There should be at least one column.
      * @param zoneName Name of the zone to create table in or {@code null} to use the default distribution zone.
+     * @param validateSystemSchemas Flag indicating whether system schemas should be validated.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private CreateTableCommand(
             String tableName,
             String schemaName,
+            boolean ifNotExists,
             TablePrimaryKey primaryKey,
             List<String> colocationColumns,
             List<ColumnParams> columns,
             @Nullable String zoneName,
-            String storageProfile
+            String storageProfile,
+            boolean validateSystemSchemas
     ) throws CatalogValidationException {
-        super(schemaName, tableName);
+        super(schemaName, tableName, ifNotExists, validateSystemSchemas);
 
         this.primaryKey = primaryKey;
         this.colocationColumns = copyOrNull(colocationColumns);
@@ -104,14 +106,26 @@ public class CreateTableCommand extends AbstractTableCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+
+        if (ifTableExists && schema.table(tableName) != null) {
+            return List.of();
+        }
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
-        CatalogZoneDescriptor zone = zoneName == null
-                ? catalog.defaultZone()
-                : zoneOrThrow(catalog, zoneName);
+        CatalogZoneDescriptor zone;
+        if (zoneName == null) {
+            if (catalog.defaultZone() == null) {
+                throw new CatalogValidationException("The zone is not specified. Please specify zone explicitly or set default one.");
+            }
+
+            zone = catalog.defaultZone();
+        } else {
+            zone = zone(catalog, zoneName, true);
+        }
 
         if (storageProfile == null) {
             storageProfile = zone.storageProfiles().defaultProfile().storageProfile();
@@ -138,14 +152,12 @@ public class CreateTableCommand extends AbstractTableCommand {
         String indexName = pkIndexName(tableName);
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
-        int txWaitCatalogVersion = catalog.version() + 1;
 
-        CatalogIndexDescriptor pkIndex = createIndexDescriptor(txWaitCatalogVersion, indexName, pkIndexId, tableId);
+        CatalogIndexDescriptor pkIndex = createPkIndexDescriptor(indexName, pkIndexId, tableId);
 
         return List.of(
-                new NewTableEntry(table, schemaName),
-                new NewIndexEntry(pkIndex, schemaName),
-                new MakeIndexAvailableEntry(pkIndexId),
+                new NewTableEntry(table),
+                new NewIndexEntry(pkIndex),
                 new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
         );
     }
@@ -158,7 +170,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         Set<String> columnNames = new HashSet<>();
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", column.name()));
+                throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
         }
 
@@ -170,9 +182,12 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         for (ColumnParams column : columns) {
             boolean partOfPk = primaryKey.columns().contains(column.name());
-            if (!partOfPk && column.defaultValueDefinition().type == Type.FUNCTION_CALL) {
-                throw new CatalogValidationException(
-                        format("Functional defaults are not supported for non-primary key columns [col={}].", column.name()));
+
+            CatalogUtils.ensureTypeCanBeStored(column.name(), column.type());
+            if (partOfPk) {
+                CatalogUtils.ensureSupportedDefault(column.name(), column.type(), column.defaultValueDefinition());
+            } else {
+                CatalogUtils.ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
             }
         }
 
@@ -184,16 +199,16 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         for (String name : colocationColumns) {
             if (!primaryKey.columns().contains(name)) {
-                throw new CatalogValidationException(format("Colocation column '{}' is not part of PK.", name));
+                throw new CatalogValidationException("Colocation column '{}' is not part of PK.", name);
             }
 
             if (!colocationColumnsSet.add(name)) {
-                throw new CatalogValidationException(format("Colocation column '{}' specified more that once", name));
+                throw new CatalogValidationException("Colocation column '{}' specified more that once", name);
             }
         }
     }
 
-    private CatalogIndexDescriptor createIndexDescriptor(int txWaitCatalogVersion, String indexName, int pkIndexId, int tableId) {
+    private CatalogIndexDescriptor createPkIndexDescriptor(String indexName, int pkIndexId, int tableId) {
         CatalogIndexDescriptor pkIndex;
 
         if (primaryKey instanceof TableSortedPrimaryKey) {
@@ -213,8 +228,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    txWaitCatalogVersion,
-                    indexColumns
+                    indexColumns,
+                    true
             );
         } else if (primaryKey instanceof TableHashPrimaryKey) {
             TableHashPrimaryKey hashPrimaryKey = (TableHashPrimaryKey) primaryKey;
@@ -224,8 +239,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    txWaitCatalogVersion,
-                    hashPrimaryKey.columns()
+                    hashPrimaryKey.columns(),
+                    true
             );
         } else {
             throw new IllegalArgumentException("Unexpected primary key type: " + primaryKey);
@@ -244,6 +259,8 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         private String tableName;
 
+        private boolean ifNotExists;
+
         private TablePrimaryKey primaryKey;
 
         private List<String> colocationColumns;
@@ -251,6 +268,8 @@ public class CreateTableCommand extends AbstractTableCommand {
         private String zoneName;
 
         private String storageProfile;
+
+        private boolean validateSystemSchemas = true;
 
         @Override
         public CreateTableCommandBuilder schemaName(String schemaName) {
@@ -262,6 +281,13 @@ public class CreateTableCommand extends AbstractTableCommand {
         @Override
         public CreateTableCommandBuilder tableName(String tableName) {
             this.tableName = tableName;
+
+            return this;
+        }
+
+        @Override
+        public CreateTableCommandBuilder ifTableExists(boolean ifNotExists) {
+            this.ifNotExists = ifNotExists;
 
             return this;
         }
@@ -302,6 +328,13 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
 
         @Override
+        public CreateTableCommandBuilder validateSystemSchemas(boolean validateSystemSchemas) {
+            this.validateSystemSchemas = validateSystemSchemas;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             List<String> colocationColumns;
 
@@ -318,11 +351,13 @@ public class CreateTableCommand extends AbstractTableCommand {
             return new CreateTableCommand(
                     tableName,
                     schemaName,
+                    ifNotExists,
                     primaryKey,
                     colocationColumns,
                     columns,
                     zoneName,
-                    storageProfile
+                    storageProfile,
+                    validateSystemSchemas
             );
         }
     }

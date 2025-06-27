@@ -24,25 +24,27 @@ import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.NUMERIC_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.REAL;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -51,9 +53,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -61,16 +61,31 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlDdl;
+import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
+import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
+import org.apache.ignite.internal.catalog.storage.NewTableEntry;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand.PrimaryKeyIndexType;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.Type;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
@@ -82,93 +97,102 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /**
  * For {@link DdlSqlToCommandConverter} testing.
  */
 public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
+    private static final Integer TEST_ZONE_ID = 100;
+
     @Test
     void testCheckDuplicates() {
-        IllegalStateException exception = assertThrows(
+        assertThrows(
                 IllegalStateException.class,
                 () -> checkDuplicates(
-                        Set.of("replicas", "affinity"),
+                        Set.of("replicas", "partitionDistribution"),
                         Set.of("partitions", "replicas")
-                )
+                ),
+                "Duplicate id: replicas"
         );
 
-        assertThat(exception.getMessage(), startsWith("Duplicate id: replicas"));
-
         assertDoesNotThrow(() -> checkDuplicates(
-                        Set.of("replicas", "affinity"),
-                        Set.of("replicas0", "affinity0")
+                        Set.of("replicas", "partitionDistribution"),
+                        Set.of("replicas0", "partitionDistribution0")
                 )
         );
     }
 
     @Test
     public void tableWithoutPkShouldThrowErrorWhenSysPropDefault() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
+        SqlNode node = parse("CREATE TABLE t (val int) STORAGE PROFILE '" + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var ex = assertThrows(
-                IgniteException.class,
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Table without PRIMARY KEY is not supported",
                 () -> converter.convert((SqlDdl) node, createContext())
         );
-
-        assertThat(ex.getMessage(), containsString("Table without PRIMARY KEY is not supported"));
     }
 
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "false")
     public void tableWithoutPkShouldThrowErrorWhenSysPropDisabled() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
+        SqlNode node = parse("CREATE TABLE t (val int) STORAGE PROFILE '" + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var ex = assertThrows(
-                IgniteException.class,
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Table without PRIMARY KEY is not supported",
                 () -> converter.convert((SqlDdl) node, createContext())
         );
-
-        assertThat(ex.getMessage(), containsString("Table without PRIMARY KEY is not supported"));
     }
 
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void tableWithoutPkShouldInjectImplicitPkWhenSysPropEnabled() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
+        SqlNode node = parse("CREATE TABLE t (val int) STORAGE PROFILE '" + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
-        var createTable = (CreateTableCommand) cmd;
+        mockCatalogSchemaAndZone("TEST_ZONE");
+
+        List<UpdateEntry> entries = cmd.get(new UpdateContext(catalog));
+
+        assertThat(entries.size(), greaterThan(1));
+
+        CatalogTableDescriptor tblDesc = ((NewTableEntry) entries.get(0)).descriptor();
+
+        NewIndexEntry idxEntry = (NewIndexEntry) entries.get(1);
 
         assertThat(
-                createTable.columns(),
+                tblDesc.columns(),
                 allOf(
                         hasItem(columnThat("column with name \"VAL\"", cd -> "VAL".equals(cd.name()))),
                         hasItem(columnThat("implicit PK col", cd -> Commons.IMPLICIT_PK_COL_NAME.equals(cd.name())
-                                && !cd.nullable() && SqlTypeName.VARCHAR.equals(cd.type().getSqlTypeName())))
+                                && !cd.nullable() && ColumnType.UUID == cd.type()))
                 )
         );
 
         assertThat(
-                createTable.primaryKeyColumns(),
+                tblDesc.primaryKeyColumns(),
                 hasSize(1)
         );
 
         assertThat(
-                createTable.primaryKeyColumns(),
+                tblDesc.primaryKeyColumns(),
                 hasItem(Commons.IMPLICIT_PK_COL_NAME)
         );
 
-        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.HASH);
+        assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.HASH));
     }
 
     @ParameterizedTest
@@ -176,21 +200,28 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             "ASC, ASC_NULLS_LAST",
             "DESC, DESC_NULLS_FIRST"
     })
-    public void tableWithSortedPk(String sqlCol, Collation collation) throws SqlParseException {
+    public void tableWithSortedPk(String sqlCol, CatalogColumnCollation collation) throws SqlParseException {
         String query = format("CREATE TABLE t (id int, val int, PRIMARY KEY USING SORTED (id {}))", sqlCol);
-        var node = parse(query);
+        SqlNode node = parse(query);
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
-        var createTable = (CreateTableCommand) cmd;
+        mockCatalogSchemaAndZone("TEST_ZONE");
 
-        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.SORTED);
-        assertEquals(createTable.primaryKeyColumns(), List.of("ID"));
-        assertEquals(createTable.primaryKeyCollations(), List.of(collation));
+        List<UpdateEntry> entries = cmd.get(new UpdateContext(catalog));
+
+        assertThat(entries.size(), greaterThan(1));
+
+        NewTableEntry tblEntry = (NewTableEntry) entries.get(0);
+        NewIndexEntry idxEntry = (NewIndexEntry) entries.get(1);
+
+        assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.SORTED));
+        assertThat(tblEntry.descriptor().primaryKeyColumns(), equalTo(List.of("ID")));
+        assertThat(((CatalogSortedIndexDescriptor) idxEntry.descriptor()).columns().get(0).collation(), is(collation));
     }
 
     @ParameterizedTest
@@ -200,7 +231,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             "CREATE TABLE t (c1 int, c2 int, c3 int, PRIMARY KEY (c1), PRIMARY KEY (c2) )",
     })
     public void tablePkAppearsOnlyOnce(String stmt) throws SqlParseException {
-        var node = parse(stmt);
+        SqlNode node = parse(stmt);
         assertThat(node, instanceOf(SqlDdl.class));
 
         assertThrowsSqlException(STMT_VALIDATION_ERR,
@@ -211,55 +242,122 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     public void tableWithHashPk() throws SqlParseException {
-        var node = parse("CREATE TABLE t (id int, val int, PRIMARY KEY USING HASH (id))");
+        SqlNode node = parse("CREATE TABLE t (id int, val int, PRIMARY KEY USING HASH (id))");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
-        var createTable = (CreateTableCommand) cmd;
+        mockCatalogSchemaAndZone("TEST_ZONE");
 
-        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.HASH);
-        assertEquals(createTable.primaryKeyColumns(), List.of("ID"));
-        assertEquals(createTable.primaryKeyCollations(), Collections.emptyList());
+        List<UpdateEntry> entries = cmd.get(new UpdateContext(catalog));
+
+        assertThat(entries.size(), greaterThan(1));
+
+        NewTableEntry tblEntry = (NewTableEntry) entries.get(0);
+        NewIndexEntry idxEntry = (NewIndexEntry) entries.get(1);
+
+        assertThat(idxEntry.descriptor().indexType(), is(CatalogIndexDescriptorType.HASH));
+        assertThat(idxEntry.descriptor(), Matchers.instanceOf(CatalogHashIndexDescriptor.class));
+        assertThat(tblEntry.descriptor().primaryKeyColumns(), equalTo(List.of("ID")));
     }
 
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void tableWithIdentifierZone() throws SqlParseException {
-        var node = parse("CREATE TABLE t (id int) WITH PRIMARY_ZONE=test_zone");
+        SqlNode node = parse("CREATE TABLE t (id int) ZONE test_zone");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
-        var createTable = (CreateTableCommand) cmd;
+        mockCatalogSchemaAndZone("TEST_ZONE");
 
-        assertEquals("TEST_ZONE", createTable.zone());
+        NewTableEntry tblEntry = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
+
+        assertThat(tblEntry.descriptor().zoneId(), is(TEST_ZONE_ID));
     }
 
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void tableWithLiteralZone() throws SqlParseException {
-        var node = parse("CREATE TABLE t (id int) WITH PRIMARY_ZONE='test_zone'");
+        SqlNode node = parse("CREATE TABLE t (id int) ZONE \"test_zone\"");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
-        var createTable = (CreateTableCommand) cmd;
+        mockCatalogSchemaAndZone("test_zone");
 
-        assertEquals("test_zone", createTable.zone());
+        NewTableEntry tblEntry = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
+
+        assertThat(tblEntry.descriptor().zoneId(), is(TEST_ZONE_ID));
     }
 
-    @SuppressWarnings({"ThrowableNotThrown"})
+    @ParameterizedTest
+    @CsvSource(value = {
+            // Negative values are rejected by the parser
+            // Char
+            "VARCHAR(0); VARCHAR length 0 must be between 1 and 2147483647",
+            // Binary
+            "VARBINARY(0); VARBINARY length 0 must be between 1 and 2147483647",
+            // Decimal
+            "DECIMAL(0); DECIMAL precision 0 must be between 1 and 32767",
+            "DECIMAL(100000000); DECIMAL precision 100000000 must be between 1 and 32767",
+            "DECIMAL(100, 100000000); DECIMAL scale 100000000 must be between 0 and 32767",
+            // Timestamp
+            "TIME(100000000); TIME precision 100000000 must be between 0 and 9",
+            "TIMESTAMP(100000000); TIMESTAMP precision 100000000 must be between 0 and 9",
+    }, delimiter = ';')
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void tableWithIncorrectType(String type, String error) throws SqlParseException {
+        SqlNode node = parse("CREATE TABLE t (val " + type + ")");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                error + ". [column=VAL]",
+                () -> converter.convert((SqlDdl) node, createContext())
+        );
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            // Negative values are rejected by the parser
+            // Char
+            "VARCHAR(0); VARCHAR length 0 must be between 1 and 2147483647",
+            // Binary
+            "VARBINARY(0); VARBINARY length 0 must be between 1 and 2147483647",
+            // Decimal
+            "DECIMAL(0); DECIMAL precision 0 must be between 1 and 32767",
+            "DECIMAL(100000000); DECIMAL precision 100000000 must be between 1 and 32767",
+            "DECIMAL(100, 100000000); DECIMAL scale 100000000 must be between 0 and 32767",
+            // Timestamp
+            "TIME(100000000); TIME precision 100000000 must be between 0 and 9",
+            "TIMESTAMP(100000000); TIMESTAMP precision 100000000 must be between 0 and 9",
+    }, delimiter = ';')
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void tableAddColumnWithIncorrectType(String type, String error) throws SqlParseException {
+        SqlNode node = parse("ALTER TABLE t ADD COLUMN val " + type);
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                error + ". [column=VAL]",
+                () -> converter.convert((SqlDdl) node, createContext())
+        );
+    }
+
     @TestFactory
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17373")
     public Stream<DynamicTest> numericDefaultWithIntervalTypes() {
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
@@ -267,8 +365,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         for (SqlTypeName numType : NUMERIC_TYPES) {
             for (SqlTypeName intervalType : INTERVAL_TYPES) {
                 RelDataType initialNumType = Commons.typeFactory().createSqlType(numType);
-                ColumnType colType = columnType(initialNumType);
-                Object value = generateValueByType(1000, Objects.requireNonNull(colType));
+                Object value = SqlTestUtils.generateValueByType(initialNumType);
                 String intervalTypeStr = makeUsableIntervalType(intervalType.getName());
 
                 fillTestCase(intervalTypeStr, "" + value, testItems, false, ctx);
@@ -296,6 +393,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     }
 
     @TestFactory
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17373")
     public Stream<DynamicTest> nonIntervalDefaultsWithIntervalTypes() {
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
@@ -311,6 +409,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         return testItems.stream();
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17373")
     @TestFactory
     public Stream<DynamicTest> intervalDefaultsWithIntervalTypes() {
         List<DynamicTest> testItems = new ArrayList<>();
@@ -343,7 +442,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         return testItems.stream();
     }
 
-    @SuppressWarnings({"ThrowableNotThrown"})
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     public void testUuidWithDefaults() throws SqlParseException {
         PlanningContext ctx = createContext();
@@ -351,15 +450,23 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         String sql = format(template, "NULL");
         CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
-        ColumnDefinition def = cmd.columns().get(1);
-        DefaultValueDefinition.ConstantValue defVal = def.defaultValueDefinition();
+
+        mockCatalogSchemaAndZone("TEST_ZONE");
+        CatalogTableDescriptor tblDesc = invokeAndGetFirstEntry(cmd, NewTableEntry.class).descriptor();
+
+        CatalogTableColumnDescriptor colDesc = tblDesc.columns().get(1);
+        ConstantValue defVal = (ConstantValue) colDesc.defaultValue();
+        assertNotNull(defVal);
         assertNull(defVal.value());
 
         UUID uuid = UUID.randomUUID();
         sql = format(template, "'" + uuid + "'");
         cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
-        def = cmd.columns().get(1);
-        defVal = def.defaultValueDefinition();
+
+        tblDesc = invokeAndGetFirstEntry(cmd, NewTableEntry.class).descriptor();
+        colDesc = tblDesc.columns().get(1);
+        defVal = (ConstantValue) colDesc.defaultValue();
+        assertNotNull(defVal);
         assertEquals(uuid, defVal.value());
 
         String[] values = {"'01:01:02'", "'2020-01-02 01:01:01'", "'2020-01-02'", "true", "'true'", "x'01'", "INTERVAL '1' DAY"};
@@ -447,10 +554,6 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        fillTestCase("CHAR", "1", testItems, true, ctx, "1");
-        fillTestCase("CHAR", "'1'", testItems, true, ctx, "1");
-        fillTestCase("CHAR(2)", "12", testItems, true, ctx, "12");
-        fillTestCase("CHAR", "12", testItems, false, ctx);
         fillTestCase("VARCHAR", "12", testItems, true, ctx, "12");
         fillTestCase("VARCHAR", "'12'", testItems, true, ctx, "12");
         fillTestCase("VARCHAR(2)", "123", testItems, false, ctx);
@@ -515,12 +618,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        fillTestCase("BINARY", "x'01'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1}, byte[].class));
-        fillTestCase("BINARY", "'01'", testItems, false, ctx);
-        fillTestCase("BINARY", "1", testItems, false, ctx);
-        fillTestCase("BINARY", "x'0102'", testItems, false, ctx);
-        fillTestCase("BINARY(2)", "x'0102'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1, (byte) 2}, byte[].class));
-        fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1, (byte) 2}, byte[].class));
+        fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, new byte[]{(byte) 1, (byte) 2});
         fillTestCase("VARBINARY", "'0102'", testItems, false, ctx);
         fillTestCase("VARBINARY", "1", testItems, false, ctx);
 
@@ -564,29 +662,32 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         return testItems.stream();
     }
 
-    @Test
-    public void tableWithAutogenPkColumn() throws SqlParseException {
-        var node = parse("CREATE TABLE t (id varchar default gen_random_uuid primary key, val int) WITH STORAGE_PROFILE='"
+    @ParameterizedTest
+    @ValueSource(strings = {"rand_uuid", "rand_uuid()"})
+    public void tableWithAutogenPkColumn(String func) throws SqlParseException {
+        SqlNode node = parse("CREATE TABLE t (id uuid default " + func  + " primary key, val int) STORAGE PROFILE '"
                 + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var cmd = converter.convert((SqlDdl) node, createContext());
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
         assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
 
-        var createTable = (CreateTableCommand) cmd;
+        mockCatalogSchemaAndZone("TEST_ZONE");
+
+        NewTableEntry tblEntry = invokeAndGetFirstEntry(cmd, NewTableEntry.class);
 
         assertThat(
-                createTable.columns(),
+                tblEntry.descriptor().columns(),
                 allOf(
                         hasItem(columnThat("column with name \"VAL\"", cd -> "VAL".equals(cd.name()))),
                         hasItem(columnThat("PK with functional default",
-                                cd -> "ID".equals(cd.name())
-                                        && !cd.nullable()
-                                        && SqlTypeName.VARCHAR.equals(cd.type().getSqlTypeName())
-                                        && cd.defaultValueDefinition().type() == Type.FUNCTION_CALL
-                                        && "GEN_RANDOM_UUID".equals(((FunctionCall) cd.defaultValueDefinition()).functionName())
+                                        col -> "ID".equals(col.name())
+                                                && !col.nullable()
+                                                && ColumnType.UUID == col.type()
+                                                && col.defaultValue().type() == DefaultValue.Type.FUNCTION_CALL
+                                                && "RAND_UUID".equals(((DefaultValue.FunctionCall) col.defaultValue()).functionName())
                                 )
                         )
                 )
@@ -594,35 +695,185 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     }
 
     @Test
-    public void tableWithoutStorageProfileShouldThrowError() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int) with storage_profile=''");
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void tableWithEmptyStorageProfileShouldThrowError() throws SqlParseException {
+        SqlNode node = parse("CREATE TABLE t (val int) storage profile ''");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        var ex = assertThrows(
-                IgniteException.class,
+        assertThrowsSqlException(STMT_VALIDATION_ERR,
+                "String cannot be empty",
                 () -> converter.convert((SqlDdl) node, createContext())
         );
 
-        assertThat(ex.getMessage(), containsString("String cannot be empty"));
-
-        var newNode = parse("CREATE TABLE t (val int) WITH PRIMARY_ZONE='ZONE', storage_profile=''");
+        SqlNode newNode = parse("CREATE TABLE t (val int) ZONE ZONE storage profile ''");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        ex = assertThrows(
-                IgniteException.class,
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "String cannot be empty",
                 () -> converter.convert((SqlDdl) newNode, createContext())
         );
-
-        assertThat(ex.getMessage(), containsString("String cannot be empty"));
     }
 
-    private static Matcher<ColumnDefinition> columnThat(String description, Function<ColumnDefinition, Boolean> checker) {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
+    //  Remove this after interval type support is added.
+    @ParameterizedTest
+    @MethodSource("intervalTypeNames")
+    public void testCreateTableDoNotAllowIntervalTypes(SqlTypeName sqlTypeName) throws SqlParseException {
+        String typeName = intervalSqlName(sqlTypeName);
+        String error = format("Type {} cannot be used in a column definition [column=P].", sqlTypeName.getSpaceName());
+
+        {
+            SqlNode node = parse(format("CREATE TABLE t (id INTEGER PRIMARY KEY, p INTERVAL {})", typeName));
+            assertThat(node, instanceOf(SqlDdl.class));
+
+            assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                    () -> converter.convert((SqlDdl) node, createContext()));
+        }
+
+        {
+            SqlNode node = parse(format("CREATE TABLE t (id INTEGER PRIMARY KEY, p INTERVAL {} NOT NULL)", typeName));
+            assertThat(node, instanceOf(SqlDdl.class));
+
+            assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                    () -> converter.convert((SqlDdl) node, createContext()));
+        }
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
+    //  Remove this after interval type support is added.
+    @ParameterizedTest
+    @MethodSource("intervalTypeNames")
+    public void testAlterTableNotAllowIntervalTypes(SqlTypeName sqlTypeName) throws SqlParseException {
+        String typeName = intervalSqlName(sqlTypeName);
+        String error = format("Type {} cannot be used in a column definition [column=P].", sqlTypeName.getSpaceName());
+
+        {
+            SqlNode node = parse(format("ALTER TABLE t ADD COLUMN p INTERVAL {}", typeName));
+            assertThat(node, instanceOf(SqlDdl.class));
+
+            assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                    () -> converter.convert((SqlDdl) node, createContext()));
+        }
+
+        {
+            SqlNode node = parse(format("ALTER TABLE t ADD COLUMN p INTERVAL {} NOT NULL", typeName));
+            assertThat(node, instanceOf(SqlDdl.class));
+
+            assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                    () -> converter.convert((SqlDdl) node, createContext()));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"rand_uuid", "random_uuid()"})
+    public void testAlterTableAddColumnFunctionDefaultIsRejected(String func) throws SqlParseException {
+        SqlNode node = parse("ALTER TABLE t ADD COLUMN a UUID DEFAULT " + func);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrows(CatalogValidationException.class,
+                () -> converter.convert((SqlDdl) node, createContext()),
+                "Functional defaults are not supported for non-primary key columns [col=A]"
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"rand_uuid", "random_uuid()"})
+    public void testAlterSetFunctionDefault(String func) throws SqlParseException {
+        SqlNode node = parse("ALTER TABLE t ALTER COLUMN a SET DEFAULT " + func);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        CatalogCommand command = converter.convert((SqlDdl) node, createContext());
+        assertInstanceOf(AlterTableAlterColumnCommand.class, command);
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testCreateTableRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("create table t(id int default {}, val varchar, primary key (id))", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testAddColumnRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("alter table t add column val int default {}", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testAlterColumnSetDataTypeRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("alter table t alter column val set data type int default {}", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testAlterColumnSetDefaultRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("alter table t alter column val set default {}", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    private static Set<SqlTypeName> intervalTypeNames() {
+        return INTERVAL_TYPES;
+    }
+
+    private static String intervalSqlName(SqlTypeName intervalType) {
+        String typeName;
+        if (intervalType.getStartUnit() != intervalType.getEndUnit()) {
+            typeName = intervalType.getStartUnit().name() + " TO " + intervalType.getEndUnit().name();
+        } else {
+            typeName = intervalType.getStartUnit().name();
+        }
+        return typeName;
+    }
+
+    private static Matcher<CatalogTableColumnDescriptor> columnThat(String description,
+            Function<CatalogTableColumnDescriptor, Boolean> checker) {
         return new CustomMatcher<>(description) {
             @Override
             public boolean matches(Object actual) {
-                return actual instanceof ColumnDefinition && checker.apply((ColumnDefinition) actual) == Boolean.TRUE;
+                return actual instanceof CatalogTableColumnDescriptor
+                        && checker.apply((CatalogTableColumnDescriptor) actual) == Boolean.TRUE;
             }
         };
     }
@@ -645,7 +896,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         fillTestCase(type, val, testItems, acceptable, ctx, null);
     }
 
-    @SuppressWarnings({"ThrowableNotThrown"})
+    @SuppressWarnings("ThrowableNotThrown")
     private void fillTestCase(String type, String val, List<DynamicTest> testItems, boolean acceptable, PlanningContext ctx,
             @Nullable Object compare) {
         String template = "CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT {})";
@@ -654,8 +905,12 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         if (acceptable) {
             testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sql), () -> {
                 CreateTableCommand cmd = (CreateTableCommand) converter.convert((SqlDdl) parse(sql), ctx);
-                ColumnDefinition def = cmd.columns().get(1);
-                DefaultValueDefinition.ConstantValue defVal = def.defaultValueDefinition();
+
+                mockCatalogSchemaAndZone("TEST_ZONE");
+                CatalogTableDescriptor tblDesc = invokeAndGetFirstEntry(cmd, NewTableEntry.class).descriptor();
+                CatalogTableColumnDescriptor columnDescriptor = tblDesc.columns().get(1);
+
+                ConstantValue defVal = (ConstantValue) columnDescriptor.defaultValue();
                 Object defaultValue = defVal.value();
                 if (compare != null) {
                     if (compare instanceof byte[]) {
@@ -669,6 +924,25 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             testItems.add(DynamicTest.dynamicTest(String.format("NOT ALLOW: %s", sql), () ->
                     assertThrowsSqlException(STMT_VALIDATION_ERR, "Invalid default value for column", () ->
                             converter.convert((SqlDdl) parse(sql), ctx))));
+        }
+    }
+
+    private void mockCatalogSchemaAndZone(String zoneName) {
+        CatalogSchemaDescriptor schemaMock = Mockito.mock(CatalogSchemaDescriptor.class);
+        CatalogZoneDescriptor zoneMock = Mockito.mock(CatalogZoneDescriptor.class);
+        Mockito.when(zoneMock.storageProfiles()).thenReturn(fromParams(parseStorageProfiles("default")));
+        Mockito.when(zoneMock.id()).thenReturn(TEST_ZONE_ID);
+        Mockito.when(catalog.schema("PUBLIC")).thenReturn(schemaMock);
+        Mockito.when(catalog.defaultZone()).thenReturn(zoneMock);
+        Mockito.when(catalog.zone(zoneName)).thenReturn(zoneMock);
+    }
+
+    /** Checks that there are no ID duplicates. */
+    private static void checkDuplicates(Set<String> set0, Set<String> set1) {
+        for (String id : set1) {
+            if (set0.contains(id)) {
+                throw new IllegalStateException("Duplicate id: " + id);
+            }
         }
     }
 }

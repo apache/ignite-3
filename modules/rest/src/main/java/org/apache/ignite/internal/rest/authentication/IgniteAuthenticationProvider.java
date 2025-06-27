@@ -22,8 +22,8 @@ import io.micronaut.security.authentication.AuthenticationProvider;
 import io.micronaut.security.authentication.AuthenticationRequest;
 import io.micronaut.security.authentication.AuthenticationResponse;
 import io.micronaut.security.authentication.UsernamePasswordCredentials;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
-import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.reactivestreams.Publisher;
@@ -33,8 +33,8 @@ import reactor.core.publisher.FluxSink;
 /**
  * Implementation of {@link AuthenticationProvider}. Delegates authentication to {@link AuthenticationManager}.
  */
-public class IgniteAuthenticationProvider implements AuthenticationProvider {
-    private final AuthenticationManager authenticationManager;
+public class IgniteAuthenticationProvider implements AuthenticationProvider, ResourceHolder {
+    private AuthenticationManager authenticationManager;
 
     IgniteAuthenticationProvider(AuthenticationManager authenticationManager) {
         this.authenticationManager = authenticationManager;
@@ -48,9 +48,17 @@ public class IgniteAuthenticationProvider implements AuthenticationProvider {
     public Publisher<AuthenticationResponse> authenticate(HttpRequest<?> httpRequest, AuthenticationRequest<?, ?> authenticationRequest) {
         return Flux.create(emitter -> {
             try {
-                UserDetails userDetails = authenticationManager.authenticate(toIgniteAuthenticationRequest(authenticationRequest));
-                emitter.next(AuthenticationResponse.success(userDetails.username()));
-                emitter.complete();
+                authenticationManager.authenticateAsync(toIgniteAuthenticationRequest(authenticationRequest))
+                        .handle((userDetails, throwable) -> {
+                            if (throwable != null) {
+                                emitter.error(AuthenticationResponse.exception(throwable.getMessage()));
+                            } else {
+                                emitter.next(AuthenticationResponse.success(userDetails.username()));
+                                emitter.complete();
+                            }
+
+                            return null;
+                        });
             } catch (InvalidCredentialsException ex) {
                 emitter.error(AuthenticationResponse.exception(ex.getMessage()));
             }
@@ -68,5 +76,10 @@ public class IgniteAuthenticationProvider implements AuthenticationProvider {
         } else {
             throw new IllegalArgumentException("Unsupported authentication request type: " + authenticationRequest.getClass());
         }
+    }
+
+    @Override
+    public void cleanResources() {
+        authenticationManager = null;
     }
 }

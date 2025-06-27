@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -58,12 +59,10 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
-            context().execute(this::doFilter, this::onError);
+            this.execute(this::filter);
         }
     }
 
@@ -72,8 +71,6 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -90,9 +87,7 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         filter();
     }
@@ -115,20 +110,20 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         inBuf.clear();
     }
 
-    private void doFilter() throws Exception {
-        checkState();
-
-        filter();
-    }
-
     private void filter() throws Exception {
         inLoop = true;
         try {
+            int processed = 0;
             while (requested > 0 && !inBuf.isEmpty()) {
-                checkState();
-
                 requested--;
                 downstream().push(inBuf.remove());
+
+                if (processed++ >= inBufSize) {
+                    // Allow others to do their job.
+                    execute(this::filter);
+
+                    break;
+                }
             }
         } finally {
             inLoop = false;
@@ -138,11 +133,18 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             source().request(waiting = inBufSize);
         }
 
-        if (waiting == -1 && requested > 0) {
+        if (waiting == NOT_WAITING && requested > 0) {
             assert inBuf.isEmpty();
 
             requested = 0;
             downstream().end();
         }
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
     }
 }

@@ -116,10 +116,6 @@ class ClientSqlCommon {
                 out.appendUuid(row.uuidValue(idx));
                 break;
 
-            case BITMASK:
-                out.appendBitmask(row.bitmaskValue(idx));
-                break;
-
             case STRING:
                 out.appendString(row.stringValue(idx));
                 break;
@@ -135,11 +131,6 @@ class ClientSqlCommon {
             case DURATION:
                 out.appendDuration(row.value(idx));
                 break;
-
-            case NUMBER:
-                out.appendNumber(row.value(idx));
-                break;
-
             default:
                 throw new UnsupportedOperationException("Unsupported column type: " + col.type());
         }

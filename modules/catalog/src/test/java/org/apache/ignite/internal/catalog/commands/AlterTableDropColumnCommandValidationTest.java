@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.junit.jupiter.api.Assertions;
@@ -120,28 +121,33 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
     void exceptionIsThrownIfSchemaNotExists() {
         AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        UpdateContext updateContext = new UpdateContext(catalogWithDefaultZone());
 
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(updateContext),
                 "Schema with name 'PUBLIC_UNK' not found"
         );
+
+        CatalogCommand alterCommand = builder.ifTableExists(true)
+                .build();
+
+        alterCommand.get(updateContext); // No exception
     }
 
     @Test
     void exceptionIsThrownIfTableNotExists() {
         AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Table with name 'PUBLIC.TEST' not found"
         );
     }
@@ -164,7 +170,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Column with name 'TEST_UNK' not found in table 'PUBLIC.TEST'"
         );
     }
@@ -191,7 +197,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Deleting column `C2` belonging to primary key is not allowed"
         );
     }
@@ -207,7 +213,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Deleting column 'VAL' used by index(es) [TEST_IDX], it is not allowed"
         );
     }
@@ -235,7 +241,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Deleting column 'VAL' used by index(es) [TEST_IDX], it is not allowed"
         );
     }
@@ -251,7 +257,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "Operations with reserved schemas are not allowed"
+                "Operations with system schemas are not allowed"
         );
     }
 
@@ -259,7 +265,8 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
     void noExceptionIsThrownIfColumnBelongsToStoppingIndex() {
         String indexName = "TEST_IDX";
 
-        Catalog catalog = catalogWithIndex(indexName);
+        Catalog catalog = applyCommandsToCatalog(catalogWithDefaultZone(), createTableCommand(TABLE_NAME));
+        Catalog finalCatalog = applyCommandsToCatalog(catalog, createIndexCommand(TABLE_NAME, indexName));
 
         CatalogCommand dropColumnCommand = AlterTableDropColumnCommand.builder()
                 .schemaName(SCHEMA_NAME)
@@ -267,9 +274,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 .columns(Set.of("VAL"))
                 .build();
 
-        Assertions.assertThrows(CatalogValidationException.class, () -> applyCommandsToCatalog(catalog, dropColumnCommand));
+        Assertions.assertThrows(CatalogValidationException.class, () -> applyCommandsToCatalog(finalCatalog, dropColumnCommand));
 
-        Catalog newCatalog = transitionIndexToStoppingState(catalog, indexName);
+        Catalog newCatalog = transitionIndexToStoppingState(finalCatalog, indexName);
 
         assertDoesNotThrow(() -> applyCommandsToCatalog(newCatalog, dropColumnCommand));
     }

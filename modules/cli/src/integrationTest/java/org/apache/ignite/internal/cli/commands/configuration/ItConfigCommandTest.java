@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.cli.commands.configuration;
 
 
-import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +32,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should read config when valid cluster-endpoint-url is given")
     void readDefaultConfig() {
         // When read cluster config with valid url
-        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "config", "show", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -48,7 +46,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "{metaStorage: {idleSyncTimeInterval: 1000}}");
+        execute("cluster", "config", "update", "--url", NODE_URL, "{ignite{system: {idleSafeTimeSyncIntervalMillis: 1000}}}");
 
         // Then
         assertAll(
@@ -58,13 +56,112 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         // When read the updated cluster configuration
-        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "config", "show", "--url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"idleSyncTimeInterval\" : 1000")
+                () -> assertOutputContains("idleSafeTimeSyncIntervalMillis=1000")
+        );
+    }
+
+    @Test
+    void addConfigFromFile() {
+        execute("cluster", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("dataAvailabilityTimeMillis=600000"),
+                () -> assertOutputContains("batchSize=5")
+        );
+
+        execute("cluster", "config", "update", "--url", NODE_URL, "--file", getClass().getResource("/ignite-cluster.conf").getPath());
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                this::assertOutputIsNotEmpty
+        );
+
+        execute("cluster", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("dataAvailabilityTimeMillis=600001"),
+                () -> assertOutputContains("batchSize=1")
+        );
+
+        // Set to default value
+        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.gc.lowWatermark.dataAvailabilityTimeMillis=600000");
+        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.gc.batchSize=5");
+
+        execute("cluster", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("dataAvailabilityTimeMillis=600000"),
+                () -> assertOutputContains("batchSize=5")
+        );
+    }
+
+    @Test
+    void addConfigFromFileAndMergeFromArgs() {
+        execute("cluster", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("dataAvailabilityTimeMillis=600000"),
+                () -> assertOutputContains("batchSize=5")
+        );
+
+        execute("cluster", "config", "update", "--url", NODE_URL,
+                "--file",
+                getClass().getResource("/ignite-cluster.conf").getPath(),
+                "ignite.gc.lowWatermark.dataAvailabilityTimeMillis=600002"
+        );
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                this::assertOutputIsNotEmpty
+        );
+
+        execute("cluster", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("dataAvailabilityTimeMillis=600002"),
+                () -> assertOutputContains("batchSize=1")
+        );
+
+        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.gc.lowWatermark.dataAvailabilityTimeMillis=600000");
+        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.gc.batchSize=5");
+
+        execute("cluster", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("dataAvailabilityTimeMillis=600000"),
+                () -> assertOutputContains("batchSize=5")
+        );
+    }
+
+    @Test
+    void addConfigFromNonExistingFile() {
+        execute("cluster", "config", "update", "--url", NODE_URL, "--file", "wrongPath");
+
+        assertAll(
+                this::assertExitCodeIsError,
+                () -> assertErrOutputContains("File ["),
+                () -> assertErrOutputContains("] not found"),
+                this::assertOutputIsEmpty
         );
     }
 
@@ -72,25 +169,123 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addNodeConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("node", "config", "update", "--node-url", NODE_URL,
-                "network.nodeFinder.netClusterNodes : [ \"localhost:3344\", \"localhost:3345\" ]");
+        execute("node", "config", "update", "--url", NODE_URL,
+                "ignite.network.nodeFinder.netClusterNodes : [ \"localhost:3344\", \"localhost:3345\" ]");
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Node configuration updated. "
-                        + fg(Color.YELLOW).mark("Restart the node to apply changes."))
+                () -> assertOutputContains("Node configuration updated. Restart the node to apply changes.")
         );
 
         // When read the updated cluster configuration
-        execute("node", "config", "show", "--node-url", NODE_URL);
+        execute("node", "config", "show", "--url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"netClusterNodes\" : [ \"localhost:3344\", \"localhost:3345\" ]")
+                () -> assertOutputContains("netClusterNodes=[\n"),
+                () -> assertOutputContains("\"localhost:3344\",\n"),
+                () -> assertOutputContains("\"localhost:3345\"\n")
+        );
+    }
+
+    @Test
+    void addNodeConfigFromFile() {
+        execute("node", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("queueMaxSize=2147483647"),
+                () -> assertOutputContains("statesLifetimeMillis=60000")
+        );
+
+        execute("node", "config", "update", "--url", NODE_URL, "--file", getClass().getResource("/ignite-node.conf").getPath());
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Node configuration updated. Restart the node to apply changes.")
+        );
+
+        execute("node", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("queueMaxSize=1000"),
+                () -> assertOutputContains("statesLifetimeMillis=1001")
+        );
+
+        // Set default values
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.compute.queueMaxSize=2147483647");
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.compute.statesLifetimeMillis=60000");
+
+        execute("node", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("queueMaxSize=2147483647"),
+                () -> assertOutputContains("statesLifetimeMillis=60000")
+        );
+    }
+
+    @Test
+    void addNodeConfigFromFileAndMergeFromFiles() {
+        execute("node", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("queueMaxSize=2147483647"),
+                () -> assertOutputContains("statesLifetimeMillis=60000")
+        );
+
+        execute("node", "config", "update", "--url", NODE_URL,
+                "--file", getClass().getResource("/ignite-node.conf").getPath(), "ignite.compute.statesLifetimeMillis=1337");
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Node configuration updated. Restart the node to apply changes.")
+        );
+
+        execute("node", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("queueMaxSize=1000"),
+                () -> assertOutputContains("statesLifetimeMillis=1337")
+        );
+
+        // Set default values
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.compute.queueMaxSize=2147483647");
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.compute.statesLifetimeMillis=60000");
+
+        execute("node", "config", "show", "--url", NODE_URL);
+
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("queueMaxSize=2147483647"),
+                () -> assertOutputContains("statesLifetimeMillis=60000")
+        );
+    }
+
+    @Test
+    void addNodeConfigFromNonExistingFile() {
+        execute("node", "config", "update", "--url", NODE_URL, "--file", "wrongPath");
+
+        assertAll(
+                this::assertExitCodeIsError,
+                () -> assertErrOutputContains("File ["),
+                () -> assertErrOutputContains("] not found"),
+                this::assertOutputIsEmpty
         );
     }
 
@@ -98,7 +293,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "metaStorage.idleSyncTimeInterval=2000");
+        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.system.idleSafeTimeSyncIntervalMillis=2000");
 
         // Then
         assertAll(
@@ -108,21 +303,21 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         // When read the updated cluster configuration
-        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "config", "show", "--url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"idleSyncTimeInterval\" : 2000")
+                () -> assertOutputContains("idleSafeTimeSyncIntervalMillis=2000")
         );
     }
 
     @Test
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateClusterConfigWithoutQuoting() {
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.default={type=basic,users=[{username=asd,password=pass1}]}");
+        execute("cluster", "config", "update", "--url", NODE_URL,
+                "ignite.security.authentication.providers.default={type=basic,users=[{username=asd,password=pass1}]}");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -132,8 +327,9 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
 
         // Emulate config with spaces
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.default", "=", "{", "type=basic,", "users=[{", "username=asd,", "password=pass2}]}");
+        execute("cluster", "config", "update", "--url", NODE_URL,
+                "ignite.security.authentication.providers.default", "=",
+                "{", "type=basic,", "users=[{", "username=asd,", "password=pass2}]}");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -146,8 +342,8 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Test different types of quoted parameters")
     void updateClusterWithQuotedArgs() {
         // Emulate quoting config
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "\"security.authentication.providers.default={type=basic,users=[{username=asd,password=pass3}]}\"");
+        execute("cluster", "config", "update", "--url", NODE_URL,
+                "\"ignite.security.authentication.providers.default={type=basic,users=[{username=asd,password=pass3}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -156,8 +352,8 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         // Emulate quoting config
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "\"security.authentication.providers.default\"", "\"={type=basic,users=[{username=asd,password=pass4}]}\"");
+        execute("cluster", "config", "update", "--url", NODE_URL,
+                "\"ignite.security.authentication.providers.default\"", "\"={type=basic,users=[{username=asd,password=pass4}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -166,8 +362,8 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         // Emulate quoting config
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.default", "\"={type=basic,users=[{username=asd,password=pass5}]}\"");
+        execute("cluster", "config", "update", "--url", NODE_URL,
+                "ignite.security.authentication.providers.default", "\"={type=basic,users=[{username=asd,password=pass5}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -179,8 +375,8 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @Test
     @DisplayName("Test using arguments in parameters")
     void useOptionsInArguments() {
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "security.authentication.providers.default={type=basic,users=[{username:", "--verbose,", "password=--verbose}]}");
+        execute("cluster", "config", "update", "--url", NODE_URL,
+                "ignite.security.authentication.providers.default={type=basic,users=[{username:", "--verbose,", "password=--verbose}]}");
 
         assertAll(
                 () -> assertExitCodeIs(2),
@@ -188,10 +384,8 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertOutputIsEmpty
         );
 
-        resetOutput();
-
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
-                "\"security.authentication.providers.default={type=basic,users=[{username: --verbose, password=--verbose}]}\"");
+        execute("cluster", "config", "update", "--url", NODE_URL,
+                "\"ignite.security.authentication.providers.default={type=basic,users=[{username: --verbose, password=--verbose}]}\"");
 
         assertAll(
                 this::assertExitCodeIsZero,
@@ -202,33 +396,55 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
     @Test
     void updateWithWrongData() {
-        execute("node", "config", "update", "--node-url", NODE_URL, "network.foo=\"bar\"");
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.network.foo=\"bar\"");
 
         assertAll(
-                () -> assertExitCodeIs(1),
-                () -> assertErrOutputContains("'network' configuration doesn't have the 'foo' sub-configuration"),
+                this::assertExitCodeIsError,
+                () -> assertErrOutputContains("'ignite.network' configuration doesn't have the 'foo' sub-configuration"),
                 this::assertOutputIsEmpty
         );
 
-        resetOutput();
-
-        execute("node", "config", "update", "--node-url", NODE_URL, "network.shutdownQuietPeriod=asd");
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.network.shutdownQuietPeriodMillis=asd");
 
         assertAll(
-                () -> assertExitCodeIs(1),
-                () -> assertErrOutputContains("'long' is expected as a type for the 'network.shutdownQuietPeriod' configuration value"),
+                this::assertExitCodeIsError,
+                () -> assertErrOutputContains("'long' is expected as a type for the "
+                        + "'ignite.network.shutdownQuietPeriodMillis' configuration value"),
                 this::assertOutputIsEmpty
         );
     }
 
     @Test
     public void partialGet() {
-        execute("node", "config", "show", "--node-url", NODE_URL, "network");
+        execute("node", "config", "show", "--url", NODE_URL);
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"inbound\""),
-                () -> assertOutputDoesNotContain("\"node\"")
+                () -> assertOutputContains("inbound {"),
+                () -> assertOutputContains("clientConnector {")
+        );
+
+        execute("node", "config", "show", "--url", NODE_URL, "ignite.network");
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("inbound {"),
+                () -> assertOutputDoesNotContain("clientConnector {")
+        );
+    }
+
+    @Test
+    public void getList() {
+        execute("node", "config", "show", "--url", NODE_URL, "ignite.network.nodeFinder.netClusterNodes");
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("[\n"
+                        + "    \"localhost:3344\",\n"
+                        + "    \"localhost:3345\",\n"
+                        + "    \"localhost:3346\"\n"
+                        + "]" + System.lineSeparator()
+                )
         );
     }
 }

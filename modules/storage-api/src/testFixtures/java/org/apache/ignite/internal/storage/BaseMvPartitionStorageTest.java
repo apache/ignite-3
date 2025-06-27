@@ -30,12 +30,11 @@ import org.junit.jupiter.api.AfterEach;
 /**
  * Base test for MV partition storages.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
 public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 1;
 
     protected static final int COMMIT_TABLE_ID = 999;
-
-    protected static final UUID TX_ID = newTransactionId();
 
     protected static final RowId ROW_ID = new RowId(PARTITION_ID);
 
@@ -46,13 +45,6 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final BinaryRow TABLE_ROW2 = binaryRow(KEY, new TestValue(30, "bar"));
 
     protected MvPartitionStorage storage;
-
-    /**
-     * Creates a new transaction id.
-     */
-    protected static UUID newTransactionId() {
-        return UUID.randomUUID();
-    }
 
     @AfterEach
     protected void tearDown() throws Exception {
@@ -106,7 +98,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Adds/updates a write-intent inside of consistency closure.
      */
-    protected BinaryRow addWrite(RowId rowId, @Nullable BinaryRow binaryRow, UUID txId) {
+    protected AddWriteResult addWrite(RowId rowId, @Nullable BinaryRow binaryRow, UUID txId) {
         return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
@@ -117,35 +109,31 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Commits write-intent inside of consistency closure.
      */
-    protected void commitWrite(RowId rowId, HybridTimestamp tsExact) {
-        storage.runConsistently(locker -> {
+    protected CommitResult commitWrite(RowId rowId, HybridTimestamp tsExact, UUID txId) {
+        return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.commitWrite(rowId, tsExact);
-
-            return null;
+            return storage.commitWrite(rowId, tsExact, txId);
         });
     }
 
     /**
-     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}
-     * and immediately committed with {@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
+     * Creates a committed version inside of consistency closure.
      */
-    protected void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
-        storage.runConsistently(locker -> {
+    protected AddWriteCommittedResult addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
+        return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.addWriteCommitted(rowId, row, commitTimestamp);
-
-            return null;
+            return storage.addWriteCommitted(rowId, row, commitTimestamp);
         });
     }
 
     protected HybridTimestamp addAndCommit(@Nullable BinaryRow binaryRow) {
         HybridTimestamp commitTs = clock.now();
+        UUID txId = newTransactionId();
 
-        addWrite(ROW_ID, binaryRow, TX_ID);
-        commitWrite(ROW_ID, commitTs);
+        addWrite(ROW_ID, binaryRow, txId);
+        commitWrite(ROW_ID, commitTs, txId);
 
         return commitTs;
     }
@@ -153,11 +141,11 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Aborts write-intent inside of consistency closure.
      */
-    protected BinaryRow abortWrite(RowId rowId) {
+    AbortResult abortWrite(RowId rowId, UUID txId) {
         return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            return storage.abortWrite(rowId);
+            return storage.abortWrite(rowId, txId);
         });
     }
 

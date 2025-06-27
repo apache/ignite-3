@@ -17,30 +17,49 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.io.Reader;
 import java.util.List;
+import java.util.Map;
 import org.apache.calcite.config.Lex;
+import org.apache.calcite.runtime.CalciteException;
+import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlJdbcFunctionCall;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlUpdate;
+import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.parser.SqlParserImplFactory;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.util.SourceStringReader;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImplConstants;
 import org.apache.ignite.internal.generated.query.calcite.sql.ParseException;
 import org.apache.ignite.internal.generated.query.calcite.sql.Token;
 import org.apache.ignite.internal.generated.query.calcite.sql.TokenMgrError;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.StringUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.SqlException;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Provides method for parsing SQL statements in SQL dialect of Apache Ignite 3.
@@ -48,13 +67,17 @@ import org.apache.ignite.sql.SqlException;
  * <p>One should use parsing methods defined in this class,
  * instead of creating {@link SqlParser} that use {@link IgniteSqlParserImpl} directly.
  */
-public final class IgniteSqlParser  {
+public final class IgniteSqlParser {
     /**
      * Parser configuration.
      */
     public static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
             .withParserFactory(InternalIgniteSqlParser.FACTORY)
             .withLex(Lex.ORACLE)
+            // Do not validate the length of SQL identifiers by the parser because a validation error is throw after creating a token,
+            // which is rather confusing. E.g. A string 12...(129 chars) is going to produce "identifier is too long" error,
+            // instead of reporting that expected a query but got something else.
+            .withIdentifierMaxLength(Integer.MAX_VALUE)
             .withConformance(IgniteSqlConformance.INSTANCE);
 
     private IgniteSqlParser() {
@@ -62,13 +85,11 @@ public final class IgniteSqlParser  {
     }
 
     /**
-     * Parses the given SQL string in the specified {@link ParseMode mode},
-     * which determines the result of the parse operation.
+     * Parses the given SQL string in the specified {@link ParseMode mode}, which determines the result of the parse operation.
      *
-     * @param sql  An SQL string.
-     * @param mode  A parse mode.
-     * @return  A parse result.
-     *
+     * @param sql An SQL string.
+     * @param mode A parse mode.
+     * @return A parse result.
      * @see StatementParseResult#MODE
      * @see ScriptParseResult#MODE
      */
@@ -79,18 +100,17 @@ public final class IgniteSqlParser  {
     }
 
     /**
-     * Parses an SQL string from the given reader in the specified {@link ParseMode mode},
-     * which determines the result of the parse operation.
+     * Parses an SQL string from the given reader in the specified {@link ParseMode mode}, which determines the result of the parse
+     * operation.
      *
-     * @param reader  A read that contains an SQL string.
-     * @param mode  A parse mode.
-     * @return  A parse result.
-     *
+     * @param reader A read that contains an SQL string.
+     * @param mode A parse mode.
+     * @return A parse result.
      * @see StatementParseResult#MODE
      * @see ScriptParseResult#MODE
      */
     public static <T extends ParseResult> T parse(Reader reader, ParseMode<T> mode) {
-        try  {
+        try {
             InternalIgniteSqlParser.dynamicParamCount.set(null);
 
             SqlParser parser = SqlParser.create(reader, PARSER_CONFIG);
@@ -100,11 +120,16 @@ public final class IgniteSqlParser  {
             assert dynamicParamsCount != null : "dynamicParamCount has not been updated";
 
             List<SqlNode> list = nodeList.getList();
+            PrepareSqlNodes visitor = new PrepareSqlNodes();
 
             for (int i = 0; i < list.size(); i++) {
                 SqlNode original = list.get(i);
                 SqlNode node = fixNodesIfNecessary(original);
-                list.set(i, node);
+
+                validateTopLevelNode(node);
+                SqlNode newNode = node.accept(visitor);
+
+                list.set(i, newNode);
             }
 
             return mode.createResult(list, dynamicParamsCount);
@@ -115,14 +140,38 @@ public final class IgniteSqlParser  {
         }
     }
 
+    private static void validateTopLevelNode(SqlNode node) throws SqlParseException {
+        boolean knownType = Commons.getQueryType(node) != null;
+
+        if (!knownType) {
+            String sqlString = node.toString();
+            // Extract first two tokens of a statement for an error message:
+            // DESCRIBE TABLE t -> DESCRIBE TABLE
+            // UPSERT INTO t (a, b) -> UPSERT INTO
+            int index1 = sqlString.indexOf(' ');
+            int index2 = index1 > 0 ? sqlString.indexOf(' ', index1 + 1) : index1;
+            String sql = sqlString.substring(0, index2);
+
+            CalciteException cause = IgniteResource.INSTANCE.unexpectedStatement(sql).ex();
+
+            //noinspection DataFlowIssue
+            throw new SqlParseException(
+                    cause.getMessage(), 
+                    node.getParserPosition(),
+                    null,
+                    null,
+                    cause
+            );
+        }
+    }
+
     /**
      * Converts the given exception to the {@link SqlException}.
      *
      * <p>Besides converting, cut out part of the message from original exception with
-     * suggested options. The reason to do that is currently grammar of the parser is not aligned
-     * with Ignite's capabilities. As a result, the message may contain misleading options. Another
-     * problem is that message sometimes may contain almost every keyword, bloating the message up
-     * to hundreds of lines (given that every keyword is on a new line).
+     * suggested options. The reason to do that is currently grammar of the parser is not aligned with Ignite's capabilities. As a result,
+     * the message may contain misleading options. Another problem is that message sometimes may contain almost every keyword, bloating the
+     * message up to hundreds of lines (given that every keyword is on a new line).
      *
      * @param ex An exception to convert.
      * @return An instance of SqlException.
@@ -200,7 +249,7 @@ public final class IgniteSqlParser  {
             );
         }
 
-        return new SqlException(STMT_PARSE_ERR, "Failed to parse query: " + message);
+        return new SqlException(STMT_PARSE_ERR, "Failed to parse query: " + message, ex);
     }
 
     private static final class InternalIgniteSqlParser extends IgniteSqlParserImpl {
@@ -271,6 +320,86 @@ public final class IgniteSqlParser  {
             return new IgniteSqlMerge((SqlMerge) node);
         } else {
             return node;
+        }
+    }
+
+    private static class PrepareSqlNodes extends SqlShuttle {
+
+        private static final Map<String, SqlOperator> JDBC_FUNCTIONS = Map.of(
+                // Builtin CURRENT_TIMESTAMP returns TIMESTAMP, so we need to change it.
+                "{fn NOW}", IgniteSqlOperatorTable.CURRENT_TIMESTAMP
+        );
+
+        @Override
+        public @Nullable SqlNode visit(SqlIdentifier id) {
+            for (int i = 0; i < id.names.size(); i++) {
+                String segment = id.names.get(i);
+
+                if (segment.isEmpty() && id.getComponent(i).isStar()) {
+                    continue;
+                }
+                validateIdentifier(id.getComponentParserPosition(i), segment);
+            }
+
+            return super.visit(id);
+        }
+
+        @Override
+        public @Nullable SqlNode visit(SqlCall call) {
+            SqlOperator operator = call.getOperator();
+
+            // If something when wrong during the parsing, fail at the validation stage
+            if (operator != null) {
+                validateCall(call.getParserPosition(), operator.getName());
+
+                if (operator instanceof SqlJdbcFunctionCall) {
+                    SqlOperator replacement = JDBC_FUNCTIONS.get(operator.getName());
+
+                    if (replacement != null) {
+                        // Make this call expanded otherwise validation is going to fail.
+                        // See SqlValidatorImpl validateCall.
+                        return new SqlBasicCall(replacement, call.getOperandList(), call.getParserPosition()).withExpanded(true);
+                    }
+                }
+            }
+
+            return super.visit(call);
+        }
+
+        @Override
+        public @Nullable SqlNode visit(SqlDataTypeSpec type) {
+            this.visit(type.getTypeName());
+
+            // getComponentTypeSpec throws AssertionError if typeNameSpec is not an instance of CollectionTypeNameSpec.
+            if (type.getTypeNameSpec() instanceof SqlCollectionTypeNameSpec) {
+                SqlDataTypeSpec componentTypeSpec = type.getComponentTypeSpec();
+                if (componentTypeSpec != null) {
+                    this.visit(componentTypeSpec);
+                }
+            }
+
+            return super.visit(type);
+        }
+
+        private static void validateCall(SqlParserPos pos, String segment) {
+            int maxLength = SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH;
+
+            if (segment.length() > maxLength) {
+                throw SqlUtil.newContextException(pos, RESOURCE.identifierTooLong(segment, maxLength));
+            }
+        }
+
+        private static void validateIdentifier(SqlParserPos pos, String segment) {
+            int maxLength = SqlParser.DEFAULT_IDENTIFIER_MAX_LENGTH;
+
+            if (segment.length() > maxLength) {
+                throw SqlUtil.newContextException(pos, RESOURCE.identifierTooLong(segment, maxLength));
+            }
+
+            if (!pos.isQuoted() && !IgniteNameUtils.isValidNormalizedIdentifier(segment)) {
+                throw new SqlException(STMT_VALIDATION_ERR,
+                        format("Malformed identifier at line {}, column {}: {}", pos.getLineNum(), pos.getColumnNum(), segment));
+            }
         }
     }
 }

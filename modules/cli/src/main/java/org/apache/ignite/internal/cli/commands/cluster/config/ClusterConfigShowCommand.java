@@ -22,12 +22,10 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.FormatMixin;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
-import org.apache.ignite.internal.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -47,30 +45,20 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
     @Parameters(arity = "0..1", description = "Configuration path selector")
     private String selector;
 
-    @Inject
-    private ClusterConfigShowCall call;
+    @Mixin
+    private FormatMixin format;
 
     @Inject
-    private ConfigManagerProvider configManagerProvider;
+    private ClusterConfigShowCall call;
 
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new JsonDecorator(isHighlightEnabled()))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler(
-                        "Cannot show cluster config", "ignite cluster init"
-                ))
-                .verbose(verbose)
-                .build()
-                .runPipeline();
-    }
-
-    private boolean isHighlightEnabled() {
-        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
+                .decorator(format.decorator())
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot show cluster config"))
+        );
     }
 
     private ClusterConfigShowCallInput buildCallInput() {

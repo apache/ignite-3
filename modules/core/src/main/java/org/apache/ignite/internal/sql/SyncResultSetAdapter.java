@@ -19,10 +19,9 @@ package org.apache.ignite.internal.sql;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -78,11 +77,11 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        try {
-            ars.closeAsync().toCompletableFuture().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
-        }
+        sync(ars.closeAsync().toCompletableFuture());
+    }
+
+    private static <T> T sync(CompletableFuture<T> future) {
+        return IgniteUtils.getInterruptibly(future);
     }
 
     /** {@inheritDoc} */
@@ -123,11 +122,7 @@ public class SyncResultSetAdapter<T> implements ResultSet<T> {
             if (curPage.hasNext()) {
                 return true;
             } else if (nextPageStage != null) {
-                try {
-                    curRes = nextPageStage.toCompletableFuture().join();
-                } catch (CompletionException ex) {
-                    throw (IgniteException) ExceptionUtils.unwrapCause(ex);
-                }
+                curRes = sync(nextPageStage.toCompletableFuture());
 
                 advance();
 

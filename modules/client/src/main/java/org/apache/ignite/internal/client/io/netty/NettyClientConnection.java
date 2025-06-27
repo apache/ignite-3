@@ -35,6 +35,9 @@ public class NettyClientConnection implements ClientConnection {
     /** Connection attribute. */
     static final AttributeKey<NettyClientConnection> ATTR_CONN = AttributeKey.newInstance("CONN");
 
+    /** Target address. */
+    private final InetSocketAddress addr;
+
     /** Channel. */
     private final Channel channel;
 
@@ -50,16 +53,19 @@ public class NettyClientConnection implements ClientConnection {
     /**
      * Constructor.
      *
+     * @param addr Target address.
      * @param channel Channel.
      * @param msgHnd Message handler.
      * @param stateHnd State handler.
      * @param metrics Metrics.
      */
     NettyClientConnection(
+            InetSocketAddress addr,
             Channel channel,
             ClientMessageHandler msgHnd,
             ClientConnectionStateHandler stateHnd,
             ClientMetricSource metrics) {
+        this.addr = addr;
         this.channel = channel;
         this.msgHnd = msgHnd;
         this.stateHnd = stateHnd;
@@ -91,7 +97,7 @@ public class NettyClientConnection implements ClientConnection {
     /** {@inheritDoc} */
     @Override
     public InetSocketAddress remoteAddress() {
-        return (InetSocketAddress) channel.remoteAddress();
+        return addr;
     }
 
     /** {@inheritDoc} */

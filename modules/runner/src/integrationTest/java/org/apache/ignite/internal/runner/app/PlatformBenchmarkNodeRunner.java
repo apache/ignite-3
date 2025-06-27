@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import io.netty.util.ResourceLeakDetector;
+import io.netty.util.ResourceLeakDetector.Level;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
@@ -33,8 +36,8 @@ public class PlatformBenchmarkNodeRunner {
 
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
-            NODE_NAME, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10420,\"portRange\":1,\"idleTimeout\":999000},"
+            NODE_NAME, "ignite {\n"
+                    + "  \"clientConnector\":{\"port\": 10420,\"idleTimeoutMillis\":999000},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
@@ -55,9 +58,12 @@ public class PlatformBenchmarkNodeRunner {
     public static void main(String[] args) throws Exception {
         System.out.println("Starting benchmark node runner...");
 
-        List<Ignite> startedNodes = PlatformTestNodeRunner.startNodes(BASE_PATH, nodesBootstrapCfg);
+        ResourceLeakDetector.setLevel(Level.DISABLED);
 
-        Object clientHandlerModule = IgniteTestUtils.getFieldValue(startedNodes.get(0), "clientHandlerModule");
+        List<IgniteServer> startedNodes = PlatformTestNodeRunner.startNodes(BASE_PATH, nodesBootstrapCfg);
+
+        Ignite ignite = startedNodes.get(0).api();
+        Object clientHandlerModule = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
         ClientHandlerMetricSource metrics = IgniteTestUtils.getFieldValue(clientHandlerModule, "metrics");
         metrics.enable();
 

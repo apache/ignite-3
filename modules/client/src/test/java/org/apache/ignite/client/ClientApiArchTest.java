@@ -60,8 +60,9 @@ public class ClientApiArchTest {
                         f,
                         "internal.client.IgniteClientConfigurationImpl;",
                         "internal.client.TcpIgniteClient;",
-                        "internal.client.ClientUtils.sync;",
-                        "internal.client.SslConfigurationBuilder;");
+                        "internal.client.SslConfigurationImpl;",
+                        "internal.util.ViewUtils.sync;"
+                );
             });
         }
 

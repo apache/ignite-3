@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -33,11 +34,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.network.configuration.SslView;
+import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
-import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,9 +63,6 @@ public class NettyClient {
     /** Handshake manager. */
     private final HandshakeManager handshakeManager;
 
-    /** SSL configuration. */
-    private final SslView sslConfiguration;
-
     /** Future that resolves when the client finished the handshake. */
     @Nullable
     private volatile OrderingFuture<NettySender> senderFuture = null;
@@ -75,29 +72,32 @@ public class NettyClient {
     private volatile Channel channel = null;
 
     /** Flag indicating if {@link #stop()} has been called. */
-    private boolean stopped = false;
+    private volatile boolean stopped = false;
+
+    /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
+    private final @Nullable SslContext sslContext;
 
     /**
      * Constructor with SSL configuration.
      *
-     * @param address               Destination address.
-     * @param serializationService  Serialization service.
-     * @param manager               Client handshake manager.
-     * @param messageListener       Message listener.
-     * @param sslConfiguration         SSL configuration.
+     * @param address Destination address.
+     * @param serializationService Serialization service.
+     * @param manager Client handshake manager.
+     * @param messageListener Message listener.
+     * @param sslContext Client SSL context, {@code null} if SSL is not {@link SslConfigurationSchema#enabled}.
      */
     public NettyClient(
             InetSocketAddress address,
             SerializationService serializationService,
             HandshakeManager manager,
             Consumer<InNetworkObject> messageListener,
-            SslView sslConfiguration
+            @Nullable SslContext sslContext
     ) {
         this.address = address;
         this.serializationService = serializationService;
         this.handshakeManager = manager;
         this.messageListener = messageListener;
-        this.sslConfiguration = sslConfiguration;
+        this.sslContext = sslContext;
     }
 
     /**
@@ -109,23 +109,21 @@ public class NettyClient {
     public OrderingFuture<NettySender> start(Bootstrap bootstrapTemplate) {
         synchronized (startStopLock) {
             if (stopped) {
-                throw new IgniteInternalException("Attempted to start an already stopped NettyClient");
+                throw new IgniteInternalException(INTERNAL_ERR, "Attempted to start an already stopped NettyClient");
             }
 
             if (senderFuture != null) {
-                throw new IgniteInternalException("Attempted to start an already started NettyClient");
+                throw new IgniteInternalException(INTERNAL_ERR, "Attempted to start an already started NettyClient");
             }
 
             Bootstrap bootstrap = bootstrapTemplate.clone();
 
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
-                /** {@inheritDoc} */
                 @Override
                 public void initChannel(SocketChannel ch) {
                     var sessionSerializationService = new PerSessionSerializationService(serializationService);
 
-                    if (sslConfiguration.enabled()) {
-                        SslContext sslContext = SslContextProvider.createClientSslContext(sslConfiguration);
+                    if (sslContext != null) {
                         PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener, sslContext);
                     } else {
                         PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener);
@@ -145,7 +143,7 @@ public class NettyClient {
                             }
 
                             if (stopped) {
-                                return CompletableFuture.<NettySender>failedFuture(new CancellationException("Client was stopped"));
+                                return CompletableFuture.<NettySender>failedFuture(new CancellationException("NettyClient was stopped"));
                             } else if (throwable != null) {
                                 return CompletableFuture.<NettySender>failedFuture(throwable);
                             } else {
@@ -161,9 +159,9 @@ public class NettyClient {
     }
 
     /**
-     * Returns client start future.
+     * Returns sender start future.
      *
-     * @return Client start future.
+     * @return Sender start future.
      */
     public OrderingFuture<NettySender> sender() {
         Objects.requireNonNull(senderFuture, "NettyClient is not connected yet");
@@ -207,11 +205,7 @@ public class NettyClient {
         return currentFuture != null && currentFuture.isCompletedExceptionally();
     }
 
-    /**
-     * Returns {@code true} if the client has lost the connection or has been stopped, {@code false} otherwise.
-     *
-     * @return {@code true} if the client has lost the connection or has been stopped, {@code false} otherwise.
-     */
+    /** Returns {@code true} if the client has lost the connection or has been stopped, {@code false} otherwise. */
     public boolean isDisconnected() {
         Channel currentChannel = channel;
 

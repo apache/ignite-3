@@ -18,8 +18,9 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple
 {
     using System;
+    using System.Buffers;
     using System.Buffers.Binary;
-    using System.Collections;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Numerics;
     using System.Runtime.InteropServices;
@@ -60,17 +61,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="numElements">Capacity.</param>
         /// <param name="totalValueSize">Total value size, -1 when unknown.</param>
         /// <param name="hashedColumnsPredicate">A predicate that returns true for colocation column indexes.
-        /// Pass null when colocation hash is not needed.</param>
+        /// Pass null when a colocation hash is not needed.</param>
+        /// <param name="prefixSize">Buffer prefix size. Reserves space for additional data in the resulting buffer.</param>
         public BinaryTupleBuilder(
             int numElements,
             int totalValueSize = -1,
-            IHashedColumnIndexProvider? hashedColumnsPredicate = null)
+            IHashedColumnIndexProvider? hashedColumnsPredicate = null,
+            int prefixSize = 0)
         {
             Debug.Assert(numElements >= 0, "numElements >= 0");
 
             _numElements = numElements;
             _hashedColumnsPredicate = hashedColumnsPredicate;
-            _buffer = new();
+            _buffer = new(prefixSize: prefixSize);
             _elementIndex = 0;
 
             // Reserve buffer for individual hash codes.
@@ -84,7 +87,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             _valueBase = _entryBase + _entrySize * numElements;
 
-            _buffer.GetSpan(size: _valueBase)[.._valueBase].Clear();
+            _buffer.GetSpan(sizeHint: _valueBase)[.._valueBase].Clear();
             _buffer.Advance(_valueBase);
         }
 
@@ -92,6 +95,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Gets the current element index.
         /// </summary>
         public int ElementIndex => _elementIndex;
+
+        /// <summary>
+        /// Gets the number of elements.
+        /// </summary>
+        public int NumElements => _numElements;
 
         /// <summary>
         /// Gets the hash from column values according to specified <see cref="IHashedColumnIndexProvider"/>.
@@ -424,7 +432,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Appends bytes.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendBytes(Span<byte> value)
+        public void AppendBytes(ReadOnlySpan<byte> value)
         {
             if (GetHashOrder() is { } hashOrder)
             {
@@ -432,6 +440,55 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
 
             PutBytes(value);
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends bytes using <see cref="IBufferWriter{T}"/> directly to the underlying buffer, avoiding extra copying.
+        /// </summary>
+        /// <param name="action">Appender action.</param>
+        /// <param name="arg">Argument.</param>
+        /// <typeparam name="TArg">Argument type.</typeparam>
+        public void AppendBytes<TArg>(Action<IBufferWriter<byte>, TArg> action, TArg arg)
+        {
+            var oldPos = _buffer.Position;
+
+            action(_buffer, arg);
+
+            var length = _buffer.Position - oldPos;
+
+            if (length == 0)
+            {
+                GetSpan(1)[0] = BinaryTupleCommon.VarlenEmptyByte;
+                OnWrite();
+                return;
+            }
+
+            var writtenSpan = _buffer.GetWrittenMemory().Span.Slice(oldPos, length);
+
+            if (length > 0 && writtenSpan[0] == BinaryTupleCommon.VarlenEmptyByte)
+            {
+                // Actual data starts with VarlenEmptyByte - insert another VarlenEmptyByte in the beginning.
+                var temp = ByteArrayPool.Rent(length);
+
+                try
+                {
+                    // 1. Copy written memory to a separate buffer.
+                    writtenSpan.CopyTo(temp);
+
+                    // 2. Extend the buffer.
+                    _buffer.GetSpanAndAdvance(1);
+
+                    // 3. Copy back, skipping existing VarlenEmptyByte at the beginning.
+                    var newWrittenSpan = _buffer.GetWrittenMemory().Span.Slice(oldPos + 1, length);
+                    temp.AsSpan(0, length).CopyTo(newWrittenSpan);
+                }
+                finally
+                {
+                    ByteArrayPool.Return(temp);
+                }
+            }
+
             OnWrite();
         }
 
@@ -495,46 +552,31 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
-        /// Appends a bitmask.
+        /// Appends a big decimal.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendBitmask(BitArray value)
+        /// <param name="scale">Decimal scale from schema.</param>
+        public void AppendBigDecimal(BigDecimal value, int scale)
         {
-            var size = (value.Length + 7) / 8; // Ceiling division.
-            var arr = ByteArrayPool.Rent(size);
+            var valueScale = value.Scale;
+            var unscaledValue = value.UnscaledValue;
 
-            try
+            if (valueScale > scale)
             {
-                value.CopyTo(arr, 0);
-
-                // Trim zero bytes.
-                while (size > 0 && arr[size - 1] == 0)
-                {
-                    size--;
-                }
-
-                var resBytes = arr.AsSpan()[..size];
-
-                if (GetHashOrder() is { } hashOrder)
-                {
-                    PutHash(hashOrder, HashUtils.Hash32(resBytes));
-                }
-
-                PutBytes(resBytes);
-
-                OnWrite();
+                unscaledValue /= BigInteger.Pow(10, valueScale - scale);
+                valueScale = (short)scale;
             }
-            finally
-            {
-                ByteArrayPool.Return(arr);
-            }
+
+            PutShort(valueScale);
+            PutNumber(unscaledValue);
         }
 
         /// <summary>
-        /// Appends a bitmask.
+        /// Appends a nullable big decimal.
         /// </summary>
         /// <param name="value">Value.</param>
-        public void AppendBitmaskNullable(BitArray? value)
+        /// <param name="scale">Decimal scale from schema.</param>
+        public void AppendBigDecimalNullable(BigDecimal? value, int scale)
         {
             if (value == null)
             {
@@ -542,7 +584,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
             else
             {
-                AppendBitmask(value);
+                AppendBigDecimal(value.Value, scale);
             }
         }
 
@@ -551,67 +593,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="scale">Decimal scale from schema.</param>
-        public void AppendDecimal(decimal value, int scale)
-        {
-            var (unscaled, actualScale) = BinaryTupleCommon.DecimalToUnscaledBigInteger(value, scale);
-
-            PutShort(actualScale);
-            AppendNumber(unscaled);
-        }
+        public void AppendDecimal(decimal value, int scale) =>
+            AppendBigDecimal(new BigDecimal(value), scale);
 
         /// <summary>
-        /// Appends a decimal.
+        /// Appends a nullable decimal.
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="scale">Decimal scale from schema.</param>
-        public void AppendDecimalNullable(decimal? value, int scale)
-        {
-            if (value == null)
-            {
-                AppendNull();
-            }
-            else
-            {
-                AppendDecimal(value.Value, scale);
-            }
-        }
-
-        /// <summary>
-        /// Appends a number.
-        /// </summary>
-        /// <param name="value">Value.</param>
-        public void AppendNumber(BigInteger value)
-        {
-            var size = value.GetByteCount();
-            var destination = GetSpan(size);
-            var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
-
-            if (GetHashOrder() is { } hashOrder)
-            {
-                PutHash(hashOrder, HashUtils.Hash32(destination[..written]));
-            }
-
-            Debug.Assert(success, "success");
-            Debug.Assert(written == size, "written == size");
-
-            OnWrite();
-        }
-
-        /// <summary>
-        /// Appends a number.
-        /// </summary>
-        /// <param name="value">Value.</param>
-        public void AppendNumberNullable(BigInteger? value)
-        {
-            if (value == null)
-            {
-                AppendNull();
-            }
-            else
-            {
-                AppendNumber(value.Value);
-            }
-        }
+        public void AppendDecimalNullable(decimal? value, int scale) =>
+            AppendBigDecimalNullable(value == null ? null : new BigDecimal(value.Value), scale);
 
         /// <summary>
         /// Appends a date.
@@ -863,16 +854,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendBytes((byte[])value);
                     break;
 
-                case ColumnType.Bitmask:
-                    AppendBitmask((BitArray)value);
-                    break;
-
                 case ColumnType.Decimal:
-                    AppendDecimal((decimal)value, scale);
-                    break;
+                    if (value is decimal dec)
+                    {
+                        AppendDecimal(dec, scale);
+                    }
+                    else
+                    {
+                        AppendBigDecimal((BigDecimal)value, scale);
+                    }
 
-                case ColumnType.Number:
-                    AppendNumber((BigInteger)value);
                     break;
 
                 case ColumnType.Date:
@@ -917,6 +908,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendNull(); // Type.
                     AppendNull(); // Scale.
                     AppendNull(); // Value.
+                    break;
+
+                case bool b:
+                    AppendTypeAndScale(ColumnType.Boolean);
+                    AppendBool(b);
                     break;
 
                 case int i32:
@@ -964,15 +960,20 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendBytes(bytes);
                     break;
 
-                case decimal dec:
-                    var scale = GetDecimalScale(dec);
-                    AppendTypeAndScale(ColumnType.Decimal, scale);
-                    AppendDecimal(dec, scale);
+                case Memory<byte> memBytes:
+                    AppendTypeAndScale(ColumnType.ByteArray);
+                    AppendBytes(memBytes.Span);
                     break;
 
-                case BigInteger bigInt:
-                    AppendTypeAndScale(ColumnType.Number);
-                    AppendNumber(bigInt);
+                case decimal dec:
+                    var bigDec0 = new BigDecimal(dec);
+                    AppendTypeAndScale(ColumnType.Decimal, bigDec0.Scale);
+                    AppendBigDecimal(bigDec0, bigDec0.Scale);
+                    break;
+
+                case BigDecimal bigDec:
+                    AppendTypeAndScale(ColumnType.Decimal, bigDec.Scale);
+                    AppendBigDecimal(bigDec, bigDec.Scale);
                     break;
 
                 case LocalDate localDate:
@@ -995,13 +996,289 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendTimestamp(instant, timestampPrecision);
                     break;
 
-                case BitArray bitArray:
-                    AppendTypeAndScale(ColumnType.Bitmask);
-                    AppendBitmask(bitArray);
+                case Period period:
+                    AppendTypeAndScale(ColumnType.Period);
+                    AppendPeriod(period);
+                    break;
+
+                case Duration duration:
+                    AppendTypeAndScale(ColumnType.Duration);
+                    AppendDuration(duration);
                     break;
 
                 default:
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
+            }
+        }
+
+        /// <summary>
+        /// Appends an object without type code and returns type.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <returns>Resulting column type.</returns>
+        public ColumnType AppendObjectAndGetType(
+            object? value)
+        {
+            switch (value)
+            {
+                case null:
+                    AppendNull(); // Value.
+                    return ColumnType.Null;
+
+                case bool b:
+                    AppendBool(b);
+                    return ColumnType.Boolean;
+
+                case int i32:
+                    AppendInt(i32);
+                    return ColumnType.Int32;
+
+                case long i64:
+                    AppendLong(i64);
+                    return ColumnType.Int64;
+
+                case string str:
+                    AppendString(str);
+                    return ColumnType.String;
+
+                case Guid uuid:
+                    AppendGuid(uuid);
+                    return ColumnType.Uuid;
+
+                case sbyte i8:
+                    AppendByte(i8);
+                    return ColumnType.Int8;
+
+                case short i16:
+                    AppendShort(i16);
+                    return ColumnType.Int16;
+
+                case float f32:
+                    AppendFloat(f32);
+                    return ColumnType.Float;
+
+                case double f64:
+                    AppendDouble(f64);
+                    return ColumnType.Double;
+
+                case byte[] bytes:
+                    AppendBytes(bytes);
+                    return ColumnType.ByteArray;
+
+                case decimal dec:
+                    var bigDec0 = new BigDecimal(dec);
+                    AppendBigDecimal(bigDec0, bigDec0.Scale);
+                    return ColumnType.Decimal;
+
+                case BigDecimal bigDec:
+                    AppendBigDecimal(bigDec, bigDec.Scale);
+                    return ColumnType.Decimal;
+
+                case LocalDate localDate:
+                    AppendDate(localDate);
+                    return ColumnType.Date;
+
+                case LocalTime localTime:
+                    AppendTime(localTime, TemporalTypes.MaxTimePrecision);
+                    return ColumnType.Time;
+
+                case LocalDateTime localDateTime:
+                    AppendDateTime(localDateTime, TemporalTypes.MaxTimePrecision);
+                    return ColumnType.Datetime;
+
+                case Instant instant:
+                    AppendTimestamp(instant, TemporalTypes.MaxTimePrecision);
+                    return ColumnType.Timestamp;
+
+                case Period period:
+                    AppendPeriod(period);
+                    return ColumnType.Period;
+
+                case Duration duration:
+                    AppendDuration(duration);
+                    return ColumnType.Duration;
+
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
+            }
+        }
+
+        /// <summary>
+        /// Appends an object.
+        /// </summary>
+        /// <param name="collection">Value.</param>
+        /// <typeparam name="T">Element type.</typeparam>
+        public void AppendObjectCollectionWithType<T>(IList<T> collection)
+        {
+            var firstValue = collection[0];
+            var count = collection.Count;
+
+            switch (firstValue)
+            {
+                case bool:
+                    AppendTypeAndSize(ColumnType.Boolean, count);
+                    foreach (var item in collection)
+                    {
+                        AppendBool((bool)(object)item!);
+                    }
+
+                    break;
+
+                case int:
+                    AppendTypeAndSize(ColumnType.Int32, count);
+                    foreach (var item in collection)
+                    {
+                        AppendInt((int)(object)item!);
+                    }
+
+                    break;
+
+                case long:
+                    AppendTypeAndSize(ColumnType.Int64, count);
+                    foreach (var item in collection)
+                    {
+                        AppendLong((long)(object)item!);
+                    }
+
+                    break;
+
+                case string:
+                    AppendTypeAndSize(ColumnType.String, count);
+                    foreach (var item in collection)
+                    {
+                        AppendString((string)(object)item!);
+                    }
+
+                    break;
+
+                case Guid:
+                    AppendTypeAndSize(ColumnType.Uuid, count);
+                    foreach (var item in collection)
+                    {
+                        AppendGuid((Guid)(object)item!);
+                    }
+
+                    break;
+
+                case sbyte:
+                    AppendTypeAndSize(ColumnType.Int8, count);
+                    foreach (var item in collection)
+                    {
+                        AppendByte((sbyte)(object)item!);
+                    }
+
+                    break;
+
+                case short:
+                    AppendTypeAndSize(ColumnType.Int16, count);
+                    foreach (var item in collection)
+                    {
+                        AppendShort((short)(object)item!);
+                    }
+
+                    break;
+
+                case float:
+                    AppendTypeAndSize(ColumnType.Float, count);
+                    foreach (var item in collection)
+                    {
+                        AppendFloat((float)(object)item!);
+                    }
+
+                    break;
+
+                case double:
+                    AppendTypeAndSize(ColumnType.Double, count);
+                    foreach (var item in collection)
+                    {
+                        AppendDouble((double)(object)item!);
+                    }
+
+                    break;
+
+                case (byte[]):
+                    AppendTypeAndSize(ColumnType.ByteArray, count);
+                    foreach (var item in collection)
+                    {
+                        AppendBytes((byte[])(object)item!);
+                    }
+
+                    break;
+
+                case decimal:
+                    AppendTypeAndSize(ColumnType.Decimal, count);
+                    foreach (var item in collection)
+                    {
+                        AppendDecimal((decimal)(object)item!, int.MaxValue);
+                    }
+
+                    break;
+
+                case BigDecimal:
+                    AppendTypeAndSize(ColumnType.Decimal, count);
+                    foreach (var item in collection)
+                    {
+                        AppendBigDecimal((BigDecimal)(object)item!, int.MaxValue);
+                    }
+
+                    break;
+
+                case LocalDate:
+                    AppendTypeAndSize(ColumnType.Date, count);
+                    foreach (var item in collection)
+                    {
+                        AppendDate((LocalDate)(object)item!);
+                    }
+
+                    break;
+
+                case LocalTime:
+                    AppendTypeAndSize(ColumnType.Time, count);
+                    foreach (var item in collection)
+                    {
+                        AppendTime((LocalTime)(object)item!, TemporalTypes.MaxTimePrecision);
+                    }
+
+                    break;
+
+                case LocalDateTime:
+                    AppendTypeAndSize(ColumnType.Datetime, count);
+                    foreach (var item in collection)
+                    {
+                        AppendDateTime((LocalDateTime)(object)item!, TemporalTypes.MaxTimePrecision);
+                    }
+
+                    break;
+
+                case Instant:
+                    AppendTypeAndSize(ColumnType.Timestamp, count);
+                    foreach (var item in collection)
+                    {
+                        AppendTimestamp((Instant)(object)item!, TemporalTypes.MaxTimePrecision);
+                    }
+
+                    break;
+
+                case Period:
+                    AppendTypeAndSize(ColumnType.Period, count);
+                    foreach (var item in collection)
+                    {
+                        AppendPeriod((Period)(object)item!);
+                    }
+
+                    break;
+
+                case Duration:
+                    AppendTypeAndSize(ColumnType.Duration, count);
+                    foreach (var item in collection)
+                    {
+                        AppendDuration((Duration)(object)item!);
+                    }
+
+                    break;
+
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + firstValue?.GetType());
             }
         }
 
@@ -1068,14 +1345,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _buffer.Dispose();
         }
 
-        private static int GetDecimalScale(decimal value)
-        {
-            Span<int> bits = stackalloc int[4];
-            decimal.GetBits(value, bits);
-
-            return (bits[3] & 0x00FF0000) >> 16;
-        }
-
         private void PutByte(sbyte value) => _buffer.WriteByte(unchecked((byte)value));
 
         private void PutShort(short value) => _buffer.WriteShort(value);
@@ -1088,7 +1357,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private void PutDouble(double value) => PutLong(BitConverter.DoubleToInt64Bits(value));
 
-        private void PutBytes(Span<byte> bytes)
+        private void PutBytes(ReadOnlySpan<byte> bytes)
         {
             if (bytes.Length == 0)
             {
@@ -1262,6 +1531,29 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             AppendInt(scale);
         }
 
+        private void AppendTypeAndSize(ColumnType type, int size)
+        {
+            AppendInt((int)type);
+            AppendInt(size);
+        }
+
+        private void PutNumber(BigInteger value)
+        {
+            var size = value.GetByteCount();
+            var destination = GetSpan(size);
+            var success = value.TryWriteBytes(destination, out int written, isBigEndian: true);
+
+            if (GetHashOrder() is { } hashOrder)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(destination[..written]));
+            }
+
+            Debug.Assert(success, "success");
+            Debug.Assert(written == size, "written == size");
+
+            OnWrite();
+        }
+
         private void OnWrite()
         {
             Debug.Assert(_elementIndex < _numElements, "_elementIndex < _numElements");
@@ -1291,7 +1583,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
         private Span<byte> GetSpan(int size)
         {
-            var span = _buffer.GetSpan(size);
+            var span = _buffer.GetSpan(size)[..size];
 
             _buffer.Advance(size);
 

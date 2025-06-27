@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
@@ -46,7 +48,6 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -66,14 +67,17 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                 }
         ).when(msManager).registerExactWatch(any(), any());
 
-        Entry emptyEntry = EntryImpl.empty(PLACEMENTDRIVER_LEASES_KEY.bytes());
+        byte[] leasesKeyBytes = PLACEMENTDRIVER_LEASES_KEY.bytes();
+        Entry emptyEntry = EntryImpl.empty(leasesKeyBytes);
 
         when(msManager.getLocally(any(), anyLong())).thenAnswer(invocation -> emptyEntry);
+
+        HybridClockImpl clock = new HybridClockImpl();
 
         LeaseTracker leaseTracker = new LeaseTracker(
                 msManager,
                 mock(ClusterNodeResolver.class),
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(clock)
         );
         leaseTracker.startTrack(0L);
 
@@ -92,13 +96,13 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         String leaseholder0 = "notAccepted";
         String leaseholder1 = "accepted";
 
-        Lease lease0 = new Lease(leaseholder0, leaseholder0 + "_id", startTime, expirationTime, partId0);
-        Lease lease1 = new Lease(leaseholder1, leaseholder1 + "_id", startTime, expirationTime, partId1)
+        Lease lease0 = new Lease(leaseholder0, randomUUID(), startTime, expirationTime, partId0);
+        Lease lease1 = new Lease(leaseholder1, randomUUID(), startTime, expirationTime, partId1)
                 .acceptLease(new HybridTimestamp(2000, 0));
 
         // In entry0, there are leases for partition ids partId0 and partId1. In entry1, there is only partId0, so partId1 is expired.
-        Entry entry0 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0, lease1)).bytes(), 0, 0);
-        Entry entry1 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0)).bytes(), 0, 1);
+        Entry entry0 = new EntryImpl(leasesKeyBytes, new LeaseBatch(List.of(lease0, lease1)).bytes(), 0, clock.now());
+        Entry entry1 = new EntryImpl(leasesKeyBytes, new LeaseBatch(List.of(lease0)).bytes(), 0, clock.now());
         listenerRef.get().onUpdate(new WatchEvent(new EntryEvent(emptyEntry, entry0)));
 
         assertNull(parametersRef.get());

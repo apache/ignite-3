@@ -21,7 +21,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.BitSet;
-import org.apache.ignite.internal.util.io.VarInts;
+import org.apache.ignite.internal.util.VarIntUtils;
 
 /**
  * Protocol-wide elements marshalling.
@@ -31,28 +31,46 @@ class ProtocolMarshalling {
     static final int MAX_LENGTH_BYTE_COUNT = 4;
 
     static void writeDescriptorOrCommandId(int id, DataOutput output) throws IOException {
-        VarInts.writeUnsignedInt(id, output);
+        writeUnsignedVarInt(id, output);
+    }
+
+    private static void writeUnsignedVarInt(int val, DataOutput output) throws IOException {
+        assert val >= 0 : val;
+
+        // We subtract 1 because VarIntUtils#writeVarInt() adds 1. It does so to effectively pass a frequenly used -1, but we don't need
+        // it here as the values are always unsigned.
+        VarIntUtils.writeVarInt(val - 1, output);
     }
 
     static int readDescriptorOrCommandId(DataInput input) throws IOException {
-        return VarInts.readUnsignedInt(input);
+        return readUnsignedVarInt(input);
+    }
+
+    private static int readUnsignedVarInt(DataInput input) throws IOException {
+        long value = VarIntUtils.readVarInt(input);
+
+        //noinspection NumericCastThatLosesPrecision
+        assert value >= -1 && (int) value == value : value;
+
+        // We add 1 because #readUnsignedVarInt() subtracts 1.
+        return (int) value + 1;
     }
 
     static void writeObjectId(int id, DataOutput output) throws IOException {
-        VarInts.writeUnsignedInt(id, output);
+        writeUnsignedVarInt(id, output);
     }
 
     static int readObjectId(DataInput input) throws IOException {
-        return VarInts.readUnsignedInt(input);
+        return readUnsignedVarInt(input);
     }
 
 
     static void writeLength(int length, DataOutput output) throws IOException {
-        VarInts.writeUnsignedInt(length, output);
+        writeUnsignedVarInt(length, output);
     }
 
     static int readLength(DataInput input) throws IOException {
-        return VarInts.readUnsignedInt(input);
+        return readUnsignedVarInt(input);
     }
 
     static void writeFixedLengthBitSet(BitSet bitset, int bitSetLength, DataOutput output) throws IOException {

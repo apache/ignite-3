@@ -49,17 +49,17 @@ public class IgniteSqlCreateTable extends SqlCreate {
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
                 @Nullable SqlNode... operands) {
             return new IgniteSqlCreateTable(pos, existFlag(), (SqlIdentifier) operands[0], (SqlNodeList) operands[1],
-                    (SqlNodeList) operands[2], (SqlNodeList) operands[3]);
+                    (SqlNodeList) operands[2], (SqlIdentifier) operands[3], operands[4]);
         }
     }
 
     private final SqlIdentifier name;
+    private final @Nullable SqlIdentifier zone;
+    private final @Nullable SqlNode storageProfile;
 
     private final @Nullable SqlNodeList columnList;
 
     private final @Nullable SqlNodeList colocationColumns;
-
-    private final @Nullable SqlNodeList createOptionList;
 
     /** Creates a SqlCreateTable. */
     public IgniteSqlCreateTable(
@@ -68,14 +68,16 @@ public class IgniteSqlCreateTable extends SqlCreate {
             SqlIdentifier name,
             @Nullable SqlNodeList columnList,
             @Nullable SqlNodeList colocationColumns,
-            @Nullable SqlNodeList createOptionList
+            @Nullable SqlIdentifier zone,
+            @Nullable SqlNode storageProfile
     ) {
         super(new Operator(ifNotExists), pos, false, ifNotExists);
 
         this.name = Objects.requireNonNull(name, "name");
         this.columnList = columnList;
         this.colocationColumns = colocationColumns;
-        this.createOptionList = createOptionList;
+        this.zone = zone;
+        this.storageProfile = storageProfile;
     }
 
     /** {@inheritDoc} */
@@ -88,7 +90,7 @@ public class IgniteSqlCreateTable extends SqlCreate {
     @SuppressWarnings("nullness")
     @Override
     public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, columnList, colocationColumns, createOptionList);
+        return ImmutableNullableList.of(name, columnList, colocationColumns, zone, storageProfile);
     }
 
     /** {@inheritDoc} */
@@ -118,10 +120,14 @@ public class IgniteSqlCreateTable extends SqlCreate {
             writer.endList(frame);
         }
 
-        if (createOptionList != null) {
-            writer.keyword("WITH");
+        if (zone != null) {
+            writer.keyword("ZONE");
+            zone.unparse(writer, leftPrec, rightPrec);
+        }
 
-            createOptionList.unparse(writer, 0, 0);
+        if (storageProfile != null) {
+            writer.keyword("STORAGE PROFILE");
+            storageProfile.unparse(writer, leftPrec, rightPrec);
         }
     }
 
@@ -147,10 +153,17 @@ public class IgniteSqlCreateTable extends SqlCreate {
     }
 
     /**
-     * Get list of the specified options to create table with.
+     * Get zone identifier to create the table.
      */
-    public SqlNodeList createOptionList() {
-        return createOptionList;
+    public @Nullable SqlIdentifier zone() {
+        return zone;
+    }
+
+    /**
+     * Get storage profile identifier to create teh table.
+     */
+    public @Nullable SqlNode storageProfile() {
+        return storageProfile;
     }
 
     /**

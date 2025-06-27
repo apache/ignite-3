@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>If a leader has been changed while the operation in progress, the operation will be transparently retried until timeout is reached.
  * The current leader will be refreshed automatically (maybe several times) in the process.
  *
- * <p>Each asynchronous method (returning a future) uses a default timeout to finish, see {@link RaftConfiguration#retryTimeout()}.
+ * <p>Each asynchronous method (returning a future) uses a default timeout to finish, see {@link RaftConfiguration#retryTimeoutMillis()}.
  * If a result is not available within the timeout, the future will be completed with a {@link TimeoutException}
  *
  * <p>If an error is occurred during operation execution, the future will be completed with the corresponding IgniteException having an
@@ -128,17 +128,19 @@ public interface RaftGroupService extends RaftCommandRunner {
     CompletableFuture<Void> removePeer(Peer peer);
 
     /**
-     * Changes peers of a replication group.
+     * Changes peers and learners of a replication group.
      *
      * <p>After the future completion methods like {@link #peers()} and {@link #learners()} can be used to retrieve current members of a
      * group.
      *
      * <p>This operation is executed on a group leader.
      *
-     * @param peers Peers.
+     * @param peersAndLearners New peers and Learners of the Raft group.
+     * @param term Current known leader term.
+     *             If real raft group term will be different - configuration update will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeers(Collection<Peer> peers);
+    CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term);
 
     /**
      * Changes peers and learners of a replication group.
@@ -153,10 +155,10 @@ public interface RaftGroupService extends RaftCommandRunner {
      *
      * @param peersAndLearners New peers and Learners of the Raft group.
      * @param term Current known leader term.
-     *             If real raft group term will be different - changePeers will be skipped.
+     *             If real raft group term will be different - configuration update will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAsync(PeersAndLearners peersAndLearners, long term);
+    CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term);
 
     /**
      * Adds learners (non-voting members).
@@ -201,9 +203,10 @@ public interface RaftGroupService extends RaftCommandRunner {
      * Takes a state machine snapshot on a given group peer.
      *
      * @param peer Peer.
+     * @param forced {@code True} to force snapshot and log truncation.
      * @return A future.
      */
-    CompletableFuture<Void> snapshot(Peer peer);
+    CompletableFuture<Void> snapshot(Peer peer, boolean forced);
 
     /**
      * Transfers leadership to other peer.

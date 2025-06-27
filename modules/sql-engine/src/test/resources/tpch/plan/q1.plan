@@ -1,7 +1,34 @@
-Sort(sort0=[$0], sort1=[$1], dir0=[ASC], dir1=[ASC])
-  Project(inputs=[0..5], exprs=[[DECIMAL_DIVIDE($6, $7, 15, 2), DECIMAL_DIVIDE($8, $9, 15, 2), DECIMAL_DIVIDE($10, $11, 15, 2), CAST($12):BIGINT NOT NULL]])
-    ReduceHashAggregate(group=[{0, 1}], SUM_QTY=[SUM($2)], SUM_BASE_PRICE=[SUM($3)], SUM_DISC_PRICE=[SUM($4)], SUM_CHARGE=[SUM($5)], AVG_SUM6=[SUM($6)], AVG_SUM06=[$SUM0($7)], AVG_SUM8=[SUM($8)], AVG_SUM08=[$SUM0($9)], AVG_SUM10=[SUM($10)], AVG_SUM010=[$SUM0($11)], COUNT_12_MAP_SUM=[$SUM0($12)])
-      Exchange(distribution=[single])
-        Project(inputs=[0..6], exprs=[[CAST($7):DECIMAL(32767, 0) NOT NULL, $8, CAST($9):DECIMAL(32767, 0) NOT NULL, $10, CAST($11):DECIMAL(32767, 0) NOT NULL, $12, $13]])
-          MapHashAggregate(group=[{0, 1}], SUM_QTY=[SUM($2)], SUM_BASE_PRICE=[SUM($3)], SUM_DISC_PRICE=[SUM($4)], SUM_CHARGE=[SUM($5)], AVG_SUM6=[SUM($2)], AVG_COUNT6=[COUNT($2)], AVG_SUM8=[SUM($3)], AVG_COUNT8=[COUNT($3)], AVG_SUM10=[SUM($6)], AVG_COUNT10=[COUNT($6)], COUNT_ORDER=[COUNT()])
-            IndexScan(table=[[PUBLIC, LINEITEM]], index=[L_SD], type=[SORTED], searchBounds=[[RangeBounds [lowerBound=null, upperBound=-(1998-12-01, 7776000000:INTERVAL DAY), lowerInclude=true, upperInclude=true]]], filters=[<=($t6, -(1998-12-01, 7776000000:INTERVAL DAY))], projects=[[$t4, $t5, $t0, $t1, *($t1, -(1, $t2)), *(*($t1, -(1, $t2)), +(1, $t3)), $t2]], requiredColumns=[{4, 5, 6, 7, 8, 9, 10}], collation=[[10]])
+Sort
+    collation: [L_RETURNFLAG ASC, L_LINESTATUS ASC]
+    est: (rows=1080219)
+  Project
+      fieldNames: [L_RETURNFLAG, L_LINESTATUS, SUM_QTY, SUM_BASE_PRICE, SUM_DISC_PRICE, SUM_CHARGE, AVG_QTY, AVG_PRICE, AVG_DISC, COUNT_ORDER]
+      projection: [f0, f1, f0_2, f0_3, f0_4, f0_5, DECIMAL_DIVIDE(f0_6, f1_7, 29, 16), DECIMAL_DIVIDE(f0_8, f1_9, 29, 16), DECIMAL_DIVIDE(f0_10, f1_11, 29, 16), CAST(f0_12):BIGINT NOT NULL]
+      est: (rows=1080219)
+    ReduceHashAggregate
+        fieldNames: [f0, f1, f0_2, f0_3, f0_4, f0_5, f0_6, f1_7, f0_8, f1_9, f0_10, f1_11, f0_12]
+        group: [0, 1]
+        aggregation: [SUM(2), SUM(3), SUM(4), SUM(5), SUM(6), $SUM0(7), SUM(8), $SUM0(9), SUM(10), $SUM0(11), $SUM0(12)]
+        est: (rows=1080219)
+      Exchange
+          distribution: single
+          est: (rows=1080219)
+        Project
+            fieldNames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+            projection: [L_RETURNFLAG, L_LINESTATUS, _ACC0, _ACC1, _ACC2, _ACC3, _ACC4, CAST(_ACC5):DECIMAL(32767, 0) NOT NULL, _ACC6, CAST(_ACC7):DECIMAL(32767, 0) NOT NULL, _ACC8, CAST(_ACC9):DECIMAL(32767, 0) NOT NULL, _ACC10, _GROUP_ID]
+            est: (rows=1080219)
+          MapHashAggregate
+              fieldNames: [L_RETURNFLAG, L_LINESTATUS, _ACC0, _ACC1, _ACC2, _ACC3, _ACC4, _ACC5, _ACC6, _ACC7, _ACC8, _ACC9, _ACC10, _GROUP_ID]
+              group: [L_RETURNFLAG, L_LINESTATUS]
+              aggregation: [SUM(L_QUANTITY), SUM(L_EXTENDEDPRICE), SUM($f4), SUM($f5), SUM(L_QUANTITY), COUNT(L_QUANTITY), SUM(L_EXTENDEDPRICE), COUNT(L_EXTENDEDPRICE), SUM(L_DISCOUNT), COUNT(L_DISCOUNT), COUNT()]
+              est: (rows=1080219)
+            IndexScan
+                table: PUBLIC.LINEITEM
+                index: L_SD
+                type: SORTED
+                predicate: <=(L_SHIPDATE, -(1998-12-01, 7776000000:INTERVAL DAY))
+                searchBounds: [RangeBounds [lowerBound=null, upperBound=-(1998-12-01, 7776000000:INTERVAL DAY), lowerInclude=true, upperInclude=true]]
+                fieldNames: [L_RETURNFLAG, L_LINESTATUS, L_QUANTITY, L_EXTENDEDPRICE, $f4, $f5, L_DISCOUNT]
+                projection: [L_RETURNFLAG, L_LINESTATUS, L_QUANTITY, L_EXTENDEDPRICE, *(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), *(*(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), +(1, L_TAX)), L_DISCOUNT]
+                collation: []
+                est: (rows=3000608)

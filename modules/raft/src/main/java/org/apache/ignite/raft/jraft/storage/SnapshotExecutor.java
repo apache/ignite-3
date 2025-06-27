@@ -43,6 +43,20 @@ public interface SnapshotExecutor extends Lifecycle<SnapshotExecutorOptions>, De
     void doSnapshot(final Closure done);
 
     /**
+     * Start to snapshot StateMachine, and |done| is called after the execution finishes or fails.
+     *
+     * @param done snapshot callback
+     * @param forced {@code True} to force snapshot and log truncation.
+     */
+    void doSnapshot(final Closure done, boolean forced);
+
+    /**
+     * Returns the last snapshot index.
+     * @return
+     */
+    long getLastSnapshotIndex();
+
+    /**
      * Install snapshot according to the very RPC from leader After the installing succeeds (StateMachine is reset with
      * the snapshot) or fails, done will be called to respond Errors: - Term mismatches: which happens
      * interrupt_downloading_snapshot was called before install_snapshot, indicating that this RPC was issued by the old

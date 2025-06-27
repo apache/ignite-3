@@ -40,7 +40,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Base implementation of {@link IgniteDataSource}.
  */
-public abstract class AbstractIgniteDataSource extends AbstractTable implements IgniteDataSource {
+public abstract class AbstractIgniteDataSource extends AbstractTable
+        implements IgniteDataSource {
 
     private final String name;
 

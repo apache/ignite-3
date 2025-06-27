@@ -31,11 +31,10 @@ import org.junit.jupiter.api.Test;
 class ItConnectToClusterTest extends ItConnectToClusterTestBase {
 
     @Test
-    @DisplayName("Should connect to last connected cluster url")
+    @DisplayName("Should connect to last connected cluster url on start")
     void connectOnStart() throws IOException {
         // Given prompt before connect
-        String promptBefore = getPrompt();
-        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And last connected URL is equal to the default URL
         stateConfigProvider.config = TestStateConfigHelper.createLastConnectedDefault();
@@ -49,19 +48,40 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputContains("Connected to http://localhost:10300"),
+                () -> assertTerminalOutputIs(RECONNECT_QUESTION),
+                () -> assertPromptIs("[" + nodeName() + "]> ")
         );
-        // And prompt is changed to connect
-        String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
+    }
+
+    @Test
+    @DisplayName("Should ask to connect to the default cluster url")
+    void connectToDefaultUrl() throws IOException {
+        // Given prompt before connect
+        assertPromptIs("[disconnected]> ");
+
+        // And answer to the first question is "y"
+        bindAnswers("y");
+
+        // When asked the question
+        execute("cluster", "status");
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300"),
+                () -> assertTerminalOutputIs("You are not connected to node. "
+                        + "Do you want to connect to the default node http://localhost:10300? [Y/n] "),
+                () -> assertPromptIs("[" + nodeName() + "]> ")
+        );
     }
 
     @Test
     @DisplayName("Should connect to last connected cluster url and ask for save")
     void connectOnStartAndSave() throws IOException {
         // Given prompt before connect
-        String promptBefore = getPrompt();
-        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And last connected URL is not equal to the default URL
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlNonDefaultConfig());
@@ -77,20 +97,19 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         assertAll(
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Connected to http://localhost:10300"),
-                () -> assertOutputContains("Config saved")
+                () -> assertOutputContains("Config saved"),
+                () -> assertTerminalOutputIs(RECONNECT_QUESTION
+                        + "Would you like to use http://localhost:10300 as the default URL? [Y/n] "),
+                () -> assertPromptIs("[" + nodeName() + "]> "),
+                () -> assertThat(getConfigProperty(CliConfigKeys.CLUSTER_URL)).isEqualTo("http://localhost:10300")
         );
-        // And prompt is changed to connect
-        String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
-        assertThat(getConfigProperty(CliConfigKeys.CLUSTER_URL)).isEqualTo("http://localhost:10300");
     }
 
     @Test
-    @DisplayName("Should ask to connect to different URL")
-    void connectToAnotherUrl() throws IOException {
+    @DisplayName("Should not ask to connect to different URL when disconnected")
+    void connectToAnotherUrl() {
         // Given prompt before connect
-        String promptBefore = getPrompt();
-        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And connected
         execute("connect");
@@ -98,28 +117,56 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         // And output is
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator())
+                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator()),
+                this::assertTerminalOutputIsEmpty
         );
 
-        // And answer is "y"
-        bindAnswers("y");
-
         // And disconnect
-        resetOutput();
         execute("disconnect");
 
         // When connect to different URL
-        resetOutput();
         execute("connect", "http://localhost:10301");
 
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Connected to http://localhost:10301" + System.lineSeparator())
+                () -> assertOutputIs("Connected to http://localhost:10301" + System.lineSeparator()),
+                this::assertTerminalOutputIsEmpty,
+                () -> assertPromptIs("[" + CLUSTER.node(1).name() + "]> ")
         );
-        // And prompt is changed to another node
-        String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[" + CLUSTER.node(1).name() + "]> ");
     }
 
+    @Test
+    @DisplayName("Should ask to connect to different URL when connected")
+    void connectToAnotherUrlWhenConnected() throws IOException {
+        // Given prompt before connect
+        assertPromptIs("[disconnected]> ");
+
+        // And connected
+        execute("connect");
+
+        // And output is
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator()),
+                this::assertTerminalOutputIsEmpty
+        );
+
+        resetTerminalOutput();
+
+        // And answer is "y"
+        bindAnswers("y");
+
+        // When connect to different URL
+        execute("connect", "http://localhost:10301");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs("Connected to http://localhost:10301" + System.lineSeparator()),
+                () -> assertTerminalOutputIs("You are already connected to the http://localhost:10300,"
+                        + " do you want to connect to the http://localhost:10301? [Y/n] "),
+                () -> assertPromptIs("[" + CLUSTER.node(1).name() + "]> ")
+        );
+    }
 }

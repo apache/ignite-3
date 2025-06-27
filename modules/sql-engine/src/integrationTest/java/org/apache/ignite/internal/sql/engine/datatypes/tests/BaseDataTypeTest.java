@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -113,9 +114,11 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends BaseSqlI
     protected final QueryChecker checkQuery(String query) {
         QueryTemplate queryTemplate = createQueryTemplate(query);
 
-        IgniteImpl node = CLUSTER.aliveNode();
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        return queryCheckerFactory.create(node.name(), node.queryEngine(), node.transactions(), this::validateMetadata, queryTemplate);
+        return queryCheckerFactory.create(
+                node.name(), node.queryEngine(), node.observableTimeTracker(), this::validateMetadata, queryTemplate
+        );
     }
 
     private void validateMetadata(ResultSetMetadata metadata) {

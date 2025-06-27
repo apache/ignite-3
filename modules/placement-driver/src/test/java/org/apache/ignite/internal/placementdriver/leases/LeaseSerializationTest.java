@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver.leases;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
@@ -31,30 +32,8 @@ import org.junit.jupiter.api.Test;
 /** Tests for lease encoding and decoding from byte arrays. */
 public class LeaseSerializationTest {
     @Test
-    public void testLeaseSerialization() {
-        long now = System.currentTimeMillis();
-        ReplicationGroupId groupId = new TablePartitionId(1, 1);
-
-        checksSerialization(Lease.emptyLease(groupId));
-
-        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, true, null, groupId));
-
-        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), false, false, "node2", groupId));
-
-        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), false, true, "node2", groupId));
-
-        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, false, null, groupId));
-
-        checksSerialization(newLease(null, timestamp(1, 1), timestamp(2 + 1_000_000, 100), true, true, null, groupId));
-
-        checksSerialization(newLease("node" + new String(new byte[1000]), timestamp(1, 1), timestamp(2, 100), false, false, null, groupId));
-    }
-
-    @Test
     public void testLeaseBatchSerialization() {
         var leases = new ArrayList<Lease>();
-
-        ReplicationGroupId groupId = new TablePartitionId(1, 1);
 
         for (int i = 0; i < 25; i++) {
             leases.add(newLease(
@@ -64,7 +43,7 @@ public class LeaseSerializationTest {
                     i % 2 == 0,
                     i % 2 == 1,
                     i % 2 == 0 ? null : "node" + i,
-                    groupId
+                    new TablePartitionId(1, i)
             ));
         }
 
@@ -73,12 +52,8 @@ public class LeaseSerializationTest {
         assertEquals(leases, LeaseBatch.fromBytes(wrap(leaseBatchBytes)).leases());
     }
 
-    private static void checksSerialization(Lease lease) {
-        assertEquals(lease, Lease.fromBytes(wrap(lease.bytes())));
-    }
-
     private static Lease newLease(
-            @Nullable String leaseholder,
+            String leaseholder,
             HybridTimestamp startTime,
             HybridTimestamp expirationTime,
             boolean prolong,
@@ -88,7 +63,7 @@ public class LeaseSerializationTest {
     ) {
         return new Lease(
                 leaseholder,
-                leaseholder == null ? null : leaseholder + "_id",
+                randomUUID(),
                 startTime,
                 expirationTime,
                 prolong,

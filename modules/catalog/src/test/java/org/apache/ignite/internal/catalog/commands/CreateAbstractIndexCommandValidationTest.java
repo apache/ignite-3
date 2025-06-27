@@ -27,6 +27,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -36,8 +37,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings({"ThrowableNotThrown", "rawtypes", "unchecked"})
 public abstract class CreateAbstractIndexCommandValidationTest extends AbstractCommandValidationTest {
-    protected static final String INDEX_NAME = "IDX";
-
     protected abstract <T extends AbstractCreateIndexCommandBuilder<T>> T prefilledBuilder();
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
@@ -128,12 +127,12 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
 
     @Test
     void exceptionIsThrownIfSchemaNotExists() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = prefilledBuilder().schemaName(SCHEMA_NAME + "_UNK").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
@@ -141,12 +140,12 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
 
     @Test
     void exceptionIsThrownIfTableNotExists() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = prefilledBuilder().build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' not found"
         );
@@ -162,7 +161,7 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' already exists"
         );
@@ -175,7 +174,7 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
         CatalogCommand command = prefilledBuilder().indexName("IDX").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.IDX' already exists"
         );
@@ -190,7 +189,7 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
         CatalogCommand command = prefilledBuilder().columns(List.of("UNK")).build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Column with name 'UNK' not found in table 'PUBLIC.TEST'"
         );
@@ -216,7 +215,7 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Unique index must include all colocation columns"
         );
@@ -226,7 +225,8 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
     void noExceptionIsThrownIfStoppingIndexWithGivenNameAlreadyExists() {
         String indexName = "IDX";
 
-        Catalog catalog = catalogWithIndex(indexName);
+        Catalog initialCatalog = applyCommandsToCatalog(catalogWithDefaultZone(), createTableCommand(TABLE_NAME));
+        Catalog catalog = applyCommandsToCatalog(initialCatalog, createIndexCommand(TABLE_NAME, indexName));
 
         CatalogCommand createIndexCommand = prefilledBuilder().indexName(indexName).build();
 

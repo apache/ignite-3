@@ -28,21 +28,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
+import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -76,9 +71,6 @@ import org.apache.ignite.internal.util.StringUtils;
 public class VolatilePageMemory implements PageMemory {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemory.class);
-
-    /** Ignite page memory concurrency level. */
-    private static final String IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL = "IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL";
 
     /** Marker bytes that signify beginning of used page in memory. */
     public static final long PAGE_MARKER = 0xBEEAAFDEADBEEF01L;
@@ -131,8 +123,8 @@ public class VolatilePageMemory implements PageMemory {
     /** Direct memory allocator. */
     private final DirectMemoryProvider directMemoryProvider;
 
-    /** Data region configuration view. */
-    private final VolatilePageMemoryProfileView storageProfileView;
+    /** Data region configuration. */
+    private final VolatileDataRegionConfiguration dataRegionConfiguration;
 
     /** Head of the singly linked list of free pages. */
     private final AtomicLong freePageListHead = new AtomicLong(INVALID_REL_PTR);
@@ -148,12 +140,6 @@ public class VolatilePageMemory implements PageMemory {
 
     /** Offheap read write lock instance. */
     private final OffheapReadWriteLock rwLock;
-
-    /** Concurrency level. */
-    private final int lockConcLvl = IgniteSystemProperties.getInteger(
-            IGNITE_OFFHEAP_LOCK_CONCURRENCY_LEVEL,
-            Integer.highestOneBit(Runtime.getRuntime().availableProcessors() * 4)
-    );
 
     /** Total number of pages may be allocated for this instance. */
     private final int totalPages;
@@ -172,33 +158,28 @@ public class VolatilePageMemory implements PageMemory {
     /**
      * Constructor.
      *
-     * @param storageProfileConfiguration Storage profile configuration.
+     * @param dataRegionConfiguration Data region configuration.
      * @param ioRegistry IO registry.
-     * @param pageSize Page size in bytes.
+     * @param rwLock Read-write lock for pages.
      */
     public VolatilePageMemory(
-            VolatilePageMemoryProfileConfiguration storageProfileConfiguration,
+            VolatileDataRegionConfiguration dataRegionConfiguration,
             PageIoRegistry ioRegistry,
-            // TODO: IGNITE-17017 Move to common config
-            int pageSize
+            OffheapReadWriteLock rwLock
     ) {
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
-        this.storageProfileView = (VolatilePageMemoryProfileView) storageProfileConfiguration.value();
-
-        if (!(storageProfileView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
-            throw new IgniteInternalException("Unexpected memory allocator: " + storageProfileView.memoryAllocator());
-        }
+        this.dataRegionConfiguration = dataRegionConfiguration;
 
         directMemoryProvider = new UnsafeMemoryProvider(null);
 
-        sysPageSize = pageSize + PAGE_OVERHEAD;
+        sysPageSize = dataRegionConfiguration.pageSize() + PAGE_OVERHEAD;
 
         assert sysPageSize % 8 == 0 : sysPageSize;
 
-        totalPages = (int) (this.storageProfileView.maxSize() / sysPageSize);
+        totalPages = (int) (this.dataRegionConfiguration.maxSizeBytes() / sysPageSize);
 
-        rwLock = new OffheapReadWriteLock(lockConcLvl);
+        this.rwLock = rwLock;
     }
 
     @Override
@@ -210,8 +191,8 @@ public class VolatilePageMemory implements PageMemory {
 
             started = true;
 
-            long startSize = storageProfileView.initSize();
-            long maxSize = storageProfileView.maxSize();
+            long startSize = dataRegionConfiguration.initSizeBytes();
+            long maxSize = dataRegionConfiguration.maxSizeBytes();
 
             long[] chunks = new long[SEG_CNT];
 
@@ -268,13 +249,11 @@ public class VolatilePageMemory implements PageMemory {
         }
     }
 
-    /** {@inheritDoc} */
     @Override public ByteBuffer pageBuffer(long pageAddr) {
         return wrapPointer(pageAddr, pageSize());
     }
 
-    /** {@inheritDoc} */
-    @Override public long allocatePage(int grpId, int partId, byte flags) {
+    @Override public long allocatePageNoReuse(int grpId, int partId, byte flags) {
         assert started;
 
         long relPtr = borrowFreePage();
@@ -308,11 +287,11 @@ public class VolatilePageMemory implements PageMemory {
 
         if (relPtr == INVALID_REL_PTR) {
             IgniteOutOfMemoryException oom = new IgniteOutOfMemoryException("Out of memory in data region ["
-                    + "name=" + storageProfileView.name()
-                    + ", initSize=" + IgniteUtils.readableSize(storageProfileView.initSize(), false)
-                    + ", maxSize=" + IgniteUtils.readableSize(storageProfileView.maxSize(), false)
+                    + "name=" + dataRegionConfiguration.name()
+                    + ", initSize=" + IgniteUtils.readableSize(dataRegionConfiguration.initSizeBytes(), false)
+                    + ", maxSize=" + IgniteUtils.readableSize(dataRegionConfiguration.maxSizeBytes(), false)
                     + ", persistence=false] Try the following:" + lineSeparator()
-                    + "  ^-- Increase maximum off-heap memory size (VolatilePageMemoryProfileConfigurationSchema.maxSize)"
+                    + "  ^-- Increase maximum off-heap memory size"
                     + lineSeparator()
                     + "  ^-- Use persistence" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
@@ -335,7 +314,6 @@ public class VolatilePageMemory implements PageMemory {
         return pageId;
     }
 
-    /** {@inheritDoc} */
     @Override public boolean freePage(int grpId, long pageId) {
         assert started;
 
@@ -344,22 +322,18 @@ public class VolatilePageMemory implements PageMemory {
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override public int pageSize() {
         return sysPageSize - PAGE_OVERHEAD;
     }
 
-    /** {@inheritDoc} */
     @Override public int systemPageSize() {
         return sysPageSize;
     }
 
-    /** {@inheritDoc} */
     @Override public int realPageSize(int grpId) {
         return pageSize();
     }
 
-    /** {@inheritDoc} */
     @Override public long loadedPages() {
         return allocatedPages.get();
     }
@@ -444,27 +418,16 @@ public class VolatilePageMemory implements PageMemory {
 
     // *** PageSupport methods ***
 
-    /** {@inheritDoc} */
     @Override public long acquirePage(int cacheId, long pageId) {
-        return acquirePage(cacheId, pageId, IoStatisticsHolderNoOp.INSTANCE);
-    }
-
-    /** {@inheritDoc} */
-    @Override public long acquirePage(int cacheId, long pageId, IoStatisticsHolder statHolder) {
         assert started;
 
         int pageIdx = PageIdUtils.pageIndex(pageId);
 
         Segment seg = segment(pageIdx);
 
-        long absPtr = seg.acquirePage(pageIdx);
-
-        statHolder.trackLogicalRead(absPtr + PAGE_OVERHEAD);
-
-        return absPtr;
+        return seg.acquirePage(pageIdx);
     }
 
-    /** {@inheritDoc} */
     @Override public void releasePage(int cacheId, long pageId, long page) {
         assert started;
 
@@ -475,7 +438,6 @@ public class VolatilePageMemory implements PageMemory {
         }
     }
 
-    /** {@inheritDoc} */
     @Override public long readLock(int cacheId, long pageId, long page) {
         assert started;
 
@@ -486,7 +448,6 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    /** {@inheritDoc} */
     @Override public long readLockForce(int cacheId, long pageId, long page) {
         assert started;
 
@@ -497,14 +458,12 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    /** {@inheritDoc} */
     @Override public void readUnlock(int cacheId, long pageId, long page) {
         assert started;
 
         rwLock.readUnlock(page + LOCK_OFFSET);
     }
 
-    /** {@inheritDoc} */
     @Override public long writeLock(int cacheId, long pageId, long page) {
         assert started;
 
@@ -515,7 +474,6 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    /** {@inheritDoc} */
     @Override public long tryWriteLock(int cacheId, long pageId, long page) {
         assert started;
 
@@ -526,7 +484,6 @@ public class VolatilePageMemory implements PageMemory {
         return 0L;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void writeUnlock(
             int cacheId,
@@ -541,13 +498,11 @@ public class VolatilePageMemory implements PageMemory {
         rwLock.writeUnlock(page + LOCK_OFFSET, PageIdUtils.tag(actualId));
     }
 
-    /** {@inheritDoc} */
     @Override public boolean isDirty(int cacheId, long pageId, long page) {
         // always false for page no store.
         return false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public PageIoRegistry ioRegistry() {
         return ioRegistry;
@@ -683,7 +638,7 @@ public class VolatilePageMemory implements PageMemory {
             if (oldRef != null) {
                 if (LOG.isInfoEnabled()) {
                     LOG.info("Allocated next memory segment for region [name={}, size={}]",
-                            storageProfileView.name(), IgniteUtils.readableSize(region.size(), true));
+                            dataRegionConfiguration.name(), IgniteUtils.readableSize(region.size(), true));
                 }
             }
 

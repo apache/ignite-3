@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.utils;
 
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -36,16 +38,17 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * Util class for methods needed for the rebalance process. "Ex" stands for "Excommunicado". This class should be removed in the future.
@@ -64,7 +67,8 @@ public class RebalanceUtilEx {
     public static CompletableFuture<Void> startPeerRemoval(
             TablePartitionId partId,
             Assignment peerAssignment,
-            MetaStorageManager metaStorageMgr
+            MetaStorageManager metaStorageMgr,
+            long assignmentsTimestamp
     ) {
         ByteArray key = switchReduceKey(partId);
 
@@ -73,29 +77,29 @@ public class RebalanceUtilEx {
                     byte[] prevValue = retrievedAssignmentsSwitchReduce.value();
 
                     if (prevValue != null) {
-                        Set<Assignment> prev = ByteUtils.fromBytes(prevValue);
+                        Assignments prev = Assignments.fromBytes(prevValue);
 
                         prev.add(peerAssignment);
 
                         return metaStorageMgr.invoke(
                                 revision(key).eq(retrievedAssignmentsSwitchReduce.revision()),
-                                put(key, ByteUtils.toBytes(prev)),
+                                put(key, prev.toBytes()),
                                 Operations.noop()
                         );
                     } else {
-                        var newValue = new HashSet<>();
+                        var newValue = Assignments.of(new HashSet<>(), assignmentsTimestamp);
 
                         newValue.add(peerAssignment);
 
                         return metaStorageMgr.invoke(
                                 notExists(key),
-                                put(key, ByteUtils.toBytes(newValue)),
+                                put(key, newValue.toBytes()),
                                 Operations.noop()
                         );
                     }
                 }).thenCompose(res -> {
                     if (!res) {
-                        return startPeerRemoval(partId, peerAssignment, metaStorageMgr);
+                        return startPeerRemoval(partId, peerAssignment, metaStorageMgr, assignmentsTimestamp);
                     }
 
                     return nullCompletedFuture();
@@ -108,62 +112,82 @@ public class RebalanceUtilEx {
      *
      * @param metaStorageMgr MetaStorage manager.
      * @param dataNodes Data nodes.
+     * @param partitions Number of partitions.
      * @param replicas Replicas count.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
      */
-    public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
-            int replicas, TablePartitionId partId, WatchEvent event) {
+    public static CompletableFuture<Void> handleReduceChanged(
+            MetaStorageManager metaStorageMgr,
+            Collection<String> dataNodes,
+            int partitions,
+            int replicas,
+            int consensusGroupSize,
+            TablePartitionId partId,
+            WatchEvent event,
+            long assignmentsTimestamp
+    ) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 
-        Set<Assignment> switchReduce = ByteUtils.fromBytes(eventData);
+        assert eventData != null : "Null event data for " + partId;
+
+        Assignments switchReduce = Assignments.fromBytes(eventData);
 
         if (switchReduce.isEmpty()) {
             return nullCompletedFuture();
         }
 
-        Set<Assignment> assignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
+        Set<Assignment> assignments = calculateAssignmentForPartition(
+                dataNodes,
+                partId.partitionId(),
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
-        ByteArray pendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray pendingKey = pendingPartAssignmentsQueueKey(partId);
 
-        Set<Assignment> pendingAssignments = difference(assignments, switchReduce);
+        Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = ByteUtils.toBytes(pendingAssignments);
-        byte[] assignmentsByteArray = ByteUtils.toBytes(assignments);
+        byte[] pendingByteArray = AssignmentsQueue.toBytes(Assignments.of(pendingAssignments, assignmentsTimestamp));
+        byte[] assignmentsByteArray = Assignments.toBytes(assignments, assignmentsTimestamp);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
-        byte[] rev = ByteUtils.longToBytes(entry.revision());
+        byte[] timestamp = longToBytesKeepingOrder(entry.timestamp().longValue());
 
         // Here is what happens in the MetaStorage:
-        // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {
+        // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < timestamp) && (notExists(pendingKey) && notExists(stableKey)) {
         //     put(pendingKey, pending)
         //     put(stableKey, assignments)
-        //     put(changeTriggerKey, revision)
-        // } else if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey))) {
+        //     put(changeTriggerKey, timestamp)
+        // } else if ((notExists(changeTriggerKey) || value(changeTriggerKey) < timestamp) && (notExists(pendingKey))) {
         //     put(pendingKey, pending)
-        //     put(changeTriggerKey, revision)
+        //     put(changeTriggerKey, timestamp)
         // }
+
+        Condition revisionAndTimestampDontExistOrLessThan = or(notExists(changeTriggerKey), value(changeTriggerKey).lt(timestamp));
 
         Iif resultingOperation = iif(
                 and(
-                        or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                        revisionAndTimestampDontExistOrLessThan,
                         and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))
                 ),
                 ops(
                         put(pendingKey, pendingByteArray),
                         put(stablePartAssignmentsKey(partId), assignmentsByteArray),
-                        put(changeTriggerKey, rev)
+                        put(changeTriggerKey, timestamp)
                 ).yield(),
                 iif(
                         and(
-                                or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                                revisionAndTimestampDontExistOrLessThan,
                                 notExists(pendingKey)
                         ),
                         ops(
                                 put(pendingKey, pendingByteArray),
-                                put(changeTriggerKey, rev)
+                                put(changeTriggerKey, timestamp)
                         ).yield(),
                         ops().yield()
                 )

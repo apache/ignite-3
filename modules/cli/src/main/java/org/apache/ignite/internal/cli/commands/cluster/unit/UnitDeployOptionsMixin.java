@@ -21,17 +21,13 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_NOD
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_NODES_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_PATH_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallInput;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -45,7 +41,7 @@ class UnitDeployOptionsMixin {
     private String id;
 
     /** Unit version. */
-    @Option(names = {VERSION_OPTION, UNIT_VERSION_OPTION_SHORT}, description = UNIT_VERSION_OPTION_DESC, required = true)
+    @Option(names = VERSION_OPTION, description = UNIT_VERSION_OPTION_DESC, required = true)
     private String version;
 
     @Spec
@@ -54,7 +50,7 @@ class UnitDeployOptionsMixin {
     /** Unit path. */
     private Path path;
 
-    @Option(names = {UNIT_PATH_OPTION, UNIT_PATH_OPTION_SHORT}, description = UNIT_PATH_OPTION_DESC, required = true)
+    @Option(names = UNIT_PATH_OPTION, description = UNIT_PATH_OPTION_DESC, required = true)
     private void setPath(Path value) {
         if (Files.notExists(value)) {
             throw new ParameterException(spec.commandLine(), "No such file or directory: " + value);
@@ -94,12 +90,6 @@ class UnitDeployOptionsMixin {
             }
         }
         nodes = values;
-    }
-
-    static class UnitNodesCompletionCandidates extends ArrayList<String> {
-        UnitNodesCompletionCandidates() {
-            super(Arrays.stream(NodesAlias.values()).map(NodesAlias::name).collect(Collectors.toList()));
-        }
     }
 
     DeployUnitCallInput toDeployUnitCallInput(String url) {

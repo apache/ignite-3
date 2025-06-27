@@ -17,12 +17,25 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
- * AccumulatorWrapper interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Adapter that provides means to convert accumulator arguments and return types.
  */
 public interface AccumulatorWrapper<RowT> {
-    void add(RowT row);
 
-    Object end();
+    /** Returns {@code true} if the accumulator function should be applied to distinct elements. */
+    boolean isDistinct();
+
+    /** Returns the accumulator function. */
+    Accumulator accumulator();
+
+    /**
+     * Creates accumulator arguments from the given row. If this method returns {@code null},
+     * then the accumulator function should not be applied to the given row.
+     */
+    Object @Nullable [] getArguments(RowT row);
+
+    /** Converts accumulator result. */
+    Object convertResult(@Nullable Object result);
 }

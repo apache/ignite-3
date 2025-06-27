@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.vault.persistence;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -73,6 +75,7 @@ public class PersistentVaultService implements VaultService {
                 .setLevelCompactionDynamicLevelBytes(true)
                 .setBytesPerSync(1024 * 1024)
                 .setCompactionPriority(CompactionPriority.MinOverlappingRatio)
+                .setUseFsync(true)
                 .setTableFormatConfig(
                         new BlockBasedTableConfig()
                                 .setBlockSize(16 * 1024)
@@ -87,8 +90,10 @@ public class PersistentVaultService implements VaultService {
     @Override
     public void start() {
         try {
+            Files.createDirectories(path);
+
             db = RocksDB.open(options, path.toString());
-        } catch (RocksDBException e) {
+        } catch (IOException | RocksDBException e) {
             throw new IgniteInternalException(e);
         }
     }
@@ -162,7 +167,7 @@ public class PersistentVaultService implements VaultService {
     public void putAll(Map<ByteArray, byte[]> vals) {
         try (
                 var writeBatch = new WriteBatch();
-                var writeOpts = new WriteOptions()
+                var writeOpts = new WriteOptions().setSync(true)
         ) {
             for (var entry : vals.entrySet()) {
                 if (entry.getValue() == null) {

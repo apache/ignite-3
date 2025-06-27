@@ -21,10 +21,11 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STALE_OPERATION_ERR;
 
 import java.util.UUID;
-import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.internal.tx.TransactionInternalException;
 
 /** Error that occurs when a stale operation of a completed transaction is detected. */
-public class StaleTransactionOperationException extends TransactionException {
+// TODO: IGNITE-22748 - make this exception public?
+public class StaleTransactionOperationException extends TransactionInternalException {
     /**
      * Constructor.
      *

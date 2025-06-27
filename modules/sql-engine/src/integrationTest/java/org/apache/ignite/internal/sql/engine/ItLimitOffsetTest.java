@@ -17,14 +17,31 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,17 +63,46 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
 
     /** Tests correctness of fetch / offset params. */
     @Test
-    public void testInvalidLimitOffset() {
-        String bigInt = BigDecimal.valueOf(10000000000L).toString();
+    public void testInvalidLimitOffset() throws InterruptedException {
+        BigDecimal moreThanUpperLong = new BigDecimal(Long.MAX_VALUE).add(new BigDecimal(1));
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25283 Remove
+        // In case of empty assignments SQL engine will throw "Mandatory nodes was excluded from mapping: []".
+        // In order to eliminate this assignments stabilization is needed, otherwise test may fail. Not related to collocation.
+        // awaitAssignmentsStabilization awaits that the default zone/table stable partition assignments size
+        // will be DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT. It's correct only for a single-node cluster that uses default zone,
+        // that's why given method isn't located in a utility class.
+        awaitAssignmentsStabilization(CLUSTER.aliveNode());
+
+        // cache the plan with concrete type param
+        igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", new BigDecimal(Long.MAX_VALUE));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET " + bigInt + " ROWS"));
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", new BigDecimal(-1)));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (Object) null));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", moreThanUpperLong));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (double) Long.MAX_VALUE + 1));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (float) Long.MAX_VALUE + 1));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET " + moreThanUpperLong + " ROWS"));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST " + bigInt + " ROWS ONLY"));
+                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST " + moreThanUpperLong + " ROWS ONLY"));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test LIMIT " + bigInt));
+                () -> igniteSql().execute(null, "SELECT * FROM test LIMIT " + moreThanUpperLong));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"-\"",
@@ -66,19 +112,12 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
                 "Failed to parse query: Encountered \"-\"",
                 () -> igniteSql().execute(null, "SELECT * FROM test OFFSET -1 ROWS"));
 
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Failed to parse query: Encountered \"-\"",
+                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST -1 ROWS ONLY"));
+
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"+\"",
                 () -> igniteSql().execute(null, "SELECT * FROM test OFFSET 2+1 ROWS"));
-
-        // Check with parameters
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS FETCH FIRST ? ROWS ONLY", -1, -1));
-
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
-
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST ? ROWS ONLY", -1));
     }
 
     /**
@@ -201,5 +240,32 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
         }
 
         return sb.toString();
+    }
+
+    private static void awaitAssignmentsStabilization(Ignite node) throws InterruptedException {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
+        TableImpl table = unwrapTableImpl(node.tables().table("test"));
+        int tableOrZoneId = colocationEnabled() ? table.zoneId() : table.tableId();
+
+        HybridTimestamp timestamp = igniteImpl.clock().now();
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+            int totalPartitionSize = 0;
+
+            // Within given test default zone is used.
+            for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
+                CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
+                        colocationEnabled()
+                                ? new ZonePartitionId(tableOrZoneId, p)
+                                : new TablePartitionId(tableOrZoneId, p),
+                        timestamp);
+
+                assertThat(assignmentsFuture, willCompleteSuccessfully());
+
+                totalPartitionSize += assignmentsFuture.join().nodes().size();
+            }
+
+            return totalPartitionSize == DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT;
+        }, 10_000));
     }
 }

@@ -17,21 +17,19 @@
 
 package org.apache.ignite.internal.marshaller.testobjects;
 
-import static org.apache.ignite.internal.util.TemporalTypeUtils.normalizeNanos;
+import static org.apache.ignite.internal.schema.SchemaTestUtils.generateRandomValue;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 
 /**
  * Test object.
@@ -42,37 +40,34 @@ public class TestObjectWithAllTypes {
      * Creates an object with random data.
      */
     public static TestObjectWithAllTypes randomObject(Random rnd) {
-        final TestObjectWithAllTypes obj = new TestObjectWithAllTypes();
+        TestObjectWithAllTypes obj = new TestObjectWithAllTypes();
 
-        obj.primitiveBooleanCol = rnd.nextBoolean();
-        obj.primitiveByteCol = (byte) rnd.nextInt(255);
-        obj.primitiveShortCol = (short) rnd.nextInt(65535);
-        obj.primitiveIntCol = rnd.nextInt();
-        obj.primitiveLongCol = rnd.nextLong();
-        obj.primitiveFloatCol = rnd.nextFloat();
-        obj.primitiveDoubleCol = rnd.nextDouble();
+        obj.primitiveBooleanCol = (boolean) generateRandomValue(rnd, NativeTypes.BOOLEAN);
+        obj.primitiveByteCol = (byte) generateRandomValue(rnd, NativeTypes.INT8);
+        obj.primitiveShortCol = (short) generateRandomValue(rnd, NativeTypes.INT16);
+        obj.primitiveIntCol = (int) generateRandomValue(rnd, NativeTypes.INT32);
+        obj.primitiveLongCol = (long) generateRandomValue(rnd, NativeTypes.INT64);
+        obj.primitiveFloatCol = (float) generateRandomValue(rnd, NativeTypes.FLOAT);
+        obj.primitiveDoubleCol = (double) generateRandomValue(rnd, NativeTypes.DOUBLE);
 
-        obj.booleanCol = rnd.nextBoolean();
-        obj.byteCol = (byte) rnd.nextInt(255);
-        obj.shortCol = (short) rnd.nextInt(65535);
-        obj.intCol = rnd.nextInt();
-        obj.longCol = rnd.nextLong();
-        obj.floatCol = rnd.nextFloat();
-        obj.doubleCol = rnd.nextDouble();
+        obj.booleanCol = (boolean) generateRandomValue(rnd, NativeTypes.BOOLEAN);
+        obj.byteCol = (byte) generateRandomValue(rnd, NativeTypes.INT8);
+        obj.shortCol = (short) generateRandomValue(rnd, NativeTypes.INT16);
+        obj.intCol = (int) generateRandomValue(rnd, NativeTypes.INT32);
+        obj.longCol = (long) generateRandomValue(rnd, NativeTypes.INT64);
+        obj.floatCol = (float) generateRandomValue(rnd, NativeTypes.FLOAT);
+        obj.doubleCol = (double) generateRandomValue(rnd, NativeTypes.DOUBLE);
 
-        obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
-        obj.bitmaskCol = IgniteTestUtils.randomBitSet(rnd, 42);
+        obj.uuidCol = (UUID) generateRandomValue(rnd, NativeTypes.UUID);
 
-        obj.dateCol = LocalDate.ofYearDay(1990 + rnd.nextInt(50), 1 + rnd.nextInt(360));
-        obj.timeCol = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60));
-        obj.dateTimeCol = LocalDateTime.of(obj.dateCol, obj.timeCol);
-        obj.timestampCol = Instant.ofEpochMilli(rnd.nextLong()).truncatedTo(ChronoUnit.SECONDS)
-                .plusNanos(normalizeNanos(rnd.nextInt(1_000_000_000), 6));
+        obj.dateCol = (LocalDate) generateRandomValue(rnd, NativeTypes.DATE);
+        obj.timeCol = (LocalTime) generateRandomValue(rnd, NativeTypes.time(0));
+        obj.dateTimeCol = (LocalDateTime) generateRandomValue(rnd, NativeTypes.datetime(0));
+        obj.timestampCol = (Instant) generateRandomValue(rnd, NativeTypes.timestamp(6));
 
-        obj.stringCol = IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
-        obj.bytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
-        obj.numberCol = BigInteger.probablePrime(12, rnd);
-        obj.decimalCol = BigDecimal.valueOf(rnd.nextLong(), 3);
+        obj.stringCol = (String) generateRandomValue(rnd, NativeTypes.stringOf(rnd.nextInt(255)));
+        obj.bytesCol = (byte[]) generateRandomValue(rnd, NativeTypes.blobOf(255));
+        obj.decimalCol = (BigDecimal) generateRandomValue(rnd, NativeTypes.decimalOf(10, 3));
 
         obj.nullLongCol = null;
         obj.nullBytesCol = null;
@@ -134,15 +129,11 @@ public class TestObjectWithAllTypes {
 
     private Instant timestampCol;
 
-    private BitSet bitmaskCol;
-
     private String stringCol;
 
     private byte[] bytesCol;
 
     private byte[] nullBytesCol;
-
-    private BigInteger numberCol;
 
     private BigDecimal decimalCol;
 
@@ -183,10 +174,8 @@ public class TestObjectWithAllTypes {
                 && Objects.equals(timestampCol, object.timestampCol)
                 && Objects.equals(dateTimeCol, object.dateTimeCol)
                 && Objects.equals(uuidCol, object.uuidCol)
-                && Objects.equals(bitmaskCol, object.bitmaskCol)
                 && Objects.equals(stringCol, object.stringCol)
                 && Arrays.equals(bytesCol, object.bytesCol)
-                && Objects.equals(numberCol, object.numberCol)
                 && Objects.equals(decimalCol, object.decimalCol);
     }
 
@@ -356,14 +345,6 @@ public class TestObjectWithAllTypes {
         this.timestampCol = timestampCol;
     }
 
-    public BitSet getBitmaskCol() {
-        return bitmaskCol;
-    }
-
-    public void setBitmaskCol(BitSet bitmaskCol) {
-        this.bitmaskCol = bitmaskCol;
-    }
-
     public String getStringCol() {
         return stringCol;
     }
@@ -386,14 +367,6 @@ public class TestObjectWithAllTypes {
 
     public void setNullBytesCol(byte[] nullBytesCol) {
         this.nullBytesCol = nullBytesCol;
-    }
-
-    public BigInteger getNumberCol() {
-        return numberCol;
-    }
-
-    public void setNumberCol(BigInteger numberCol) {
-        this.numberCol = numberCol;
     }
 
     public BigDecimal getDecimalCol() {

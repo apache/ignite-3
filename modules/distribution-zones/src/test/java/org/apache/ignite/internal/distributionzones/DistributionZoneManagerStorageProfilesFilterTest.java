@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 
@@ -33,28 +34,28 @@ import org.junit.jupiter.api.Test;
  */
 public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistributionZoneManagerTest {
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of("clock_rocks", "segmented_aipersist")
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of("lru_rocks", "clock_rocks", "segmented_aipersist")
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of("lru_rocks")
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123)),
             Map.of(),
             Map.of(),
             List.of("clock_rocks", "segmented_aipersist")
@@ -87,7 +88,7 @@ public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistri
         topology.removeNodes(Set.of(C));
 
         LogicalNode newC = new LogicalNode(
-                new ClusterNodeImpl("3", "newC", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl(randomUUID(), "newC", new NetworkAddress("localhost", 123)),
                 Map.of(),
                 Map.of(),
                 List.of("clock_rocks", "segmented_aipersist")
@@ -112,7 +113,7 @@ public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistri
         topology.putNode(B);
         topology.putNode(C);
 
-        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, "clock_rocks,segmented_aipersist");
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, null, "clock_rocks,segmented_aipersist");
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 getZoneId(ZONE_NAME), Set.of(A, B), ZONE_MODIFICATION_AWAIT_TIMEOUT);

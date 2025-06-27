@@ -16,7 +16,6 @@
  */
 
 apply plugin: 'java'
-apply plugin: 'jacoco'
 apply plugin: 'checkstyle'
 apply plugin: 'pmd'
 apply plugin: 'java-library'
@@ -26,10 +25,7 @@ java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
     withSourcesJar()
-}
-
-test {
-    finalizedBy(jacocoTestReport)
+    withJavadocJar()
 }
 
 pmd {
@@ -45,6 +41,7 @@ processResources {
     filesMatching('**/*.properties') {
         filter { String line ->
             line.replace("\${project.version}", project.version)
+                    .replace("\${project.product}", project.product)
         }
     }
 }
@@ -69,7 +66,7 @@ checkstyle {
     ]
 }
 
-tasks.withType(Checkstyle) {
+tasks.withType(Checkstyle).configureEach {
     excludes = ["**/generated-source/**",
                 "**/generated/**",
                 "com/facebook/presto/bytecode/**/*",
@@ -80,7 +77,6 @@ tasks.withType(Checkstyle) {
             required = true
             outputLocation = file("$rootDir/build/reports/checkstyle/${project.name}.html")
         }
-
     }
 }
 
@@ -102,28 +98,6 @@ javadoc {
 }
 
 javadoc.dependsOn compileJava
-
-
-jacoco {
-    toolVersion = libs.versions.jacocoTool.get()
-}
-
-
-jacocoTestReport {
-    dependsOn test
-
-    reports {
-        xml.required = false
-        html.required = true
-    }
-    afterEvaluate {
-        classDirectories.setFrom(files(classDirectories.files.collect {
-            fileTree(dir: it,
-                    exclude: ['org/apache/calcite/**/*'])
-        }))
-    }
-}
-
 
 spotbugs {
     ignoreFailures = false

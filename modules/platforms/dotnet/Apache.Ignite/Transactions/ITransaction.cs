@@ -25,7 +25,7 @@ namespace Apache.Ignite.Transactions
     /// <para />
     /// Use <see cref="ITransactions.BeginAsync()"/> to start a new transaction.
     /// </summary>
-    public interface ITransaction : IAsyncDisposable
+    public interface ITransaction : IAsyncDisposable, IDisposable
     {
         /// <summary>
         /// Gets a value indicating whether this transaction is read-only.

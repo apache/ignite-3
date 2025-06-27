@@ -17,6 +17,7 @@
 
 package org.apache.ignite.configuration.validation;
 
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
@@ -64,5 +65,25 @@ public class ValidationIssue {
     @Override
     public String toString() {
         return S.toString(ValidationIssue.class, this);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        ValidationIssue that = (ValidationIssue) obj;
+
+        return key.equals(that.key) && message.equals(that.message);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(key, message);
     }
 }

@@ -17,10 +17,17 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -198,19 +205,44 @@ public class Column {
      * @param val Object to validate.
      */
     public void validate(@Nullable Object val) {
-        if (val == null && !nullable) {
-            throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): "
-                    + "[col=" + this + ']');
+        if (val == null) {
+            if (nullable) {
+                return;
+            } else {
+                throw new SchemaMismatchException(nullConstraintViolationMessage(name));
+            }
         }
 
         NativeType objType = NativeTypes.fromObject(val);
 
         if (objType != null && type.mismatch(objType)) {
-            throw new InvalidTypeException("Column's type mismatch ["
-                    + "column=" + this
-                    + ", expectedType=" + type
-                    + ", actualType=" + objType
-                    + ", val=" + val + ']');
+            boolean specMatches = objType.spec() == type.spec();
+
+            if (specMatches && type instanceof VarlenNativeType) {
+                String error = format("Value too long [column='{}', type={}]", name, type.displayName());
+                throw new InvalidTypeException(error);
+            } else {
+                String error = format(
+                        "Value type does not match [column='{}', expected={}, actual={}]",
+                        name, type.displayName(), objType.displayName()
+                );
+                throw new InvalidTypeException(error);
+            }
+        }
+
+        if (type.spec() == ColumnType.DATE) {
+            checkBounds((LocalDate) val, SchemaUtils.DATE_MIN, SchemaUtils.DATE_MAX);
+        } else if (type.spec() == ColumnType.DATETIME) {
+            checkBounds((LocalDateTime) val, SchemaUtils.DATETIME_MIN, SchemaUtils.DATETIME_MAX);
+        } else if (type.spec() == ColumnType.TIMESTAMP) {
+            checkBounds((Instant) val, SchemaUtils.TIMESTAMP_MIN, SchemaUtils.TIMESTAMP_MAX);
+        }
+    }
+
+    private <T extends Comparable<T>> void checkBounds(T value, T min, T max) {
+        if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
+            throw new ValueOutOfBoundsException(format("Value is out of allowed range"
+                    + " (column='{}', value='{}', min='{}', max='{}').", name, value, min, max));
         }
     }
 
@@ -238,5 +270,25 @@ public class Column {
     @Override
     public String toString() {
         return S.toString(Column.class, this);
+    }
+
+    /**
+     * Returns an error message for NOT NULL constraint violation.
+     *
+     * @param columnName Column name.
+     * @return Error message.
+     */
+    public static String nullConstraintViolationMessage(String columnName) {
+        return format("Column '{}' does not allow NULLs", columnName);
+    }
+
+    /**
+     * Returns an error message for numeric field overflow error.
+     *
+     * @param columnName Column name.
+     * @return Error message.
+     */
+    public static String numericFieldOverflow(String columnName) {
+        return format("Numeric field overflow in column '{}'", columnName);
     }
 }

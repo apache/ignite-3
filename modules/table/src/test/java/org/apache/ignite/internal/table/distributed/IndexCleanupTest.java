@@ -20,11 +20,11 @@ package org.apache.ignite.internal.table.distributed;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -42,14 +42,12 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         writer.addWrite(storageUpdateHandler, rowUuid, row);
 
-        assertEquals(1, storage.rowsCount());
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
 
         storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
-        assertEquals(0, storage.rowsCount());
         assertTrue(pkInnerStorage.allRowsIds().isEmpty());
         assertTrue(sortedInnerStorage.allRowsIds().isEmpty());
         assertTrue(hashInnerStorage.allRowsIds().isEmpty());
@@ -66,7 +64,7 @@ public class IndexCleanupTest extends IndexBaseTest {
         writer.addWrite(storageUpdateHandler, rowUuid, row);
 
         // Write intent is in the storage.
-        assertEquals(1, storage.rowsCount());
+        assertTrue(storage.read(rowId, HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         // Indexes are already in the storage.
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
@@ -76,7 +74,7 @@ public class IndexCleanupTest extends IndexBaseTest {
         writer.addWrite(storageUpdateHandler, rowUuid, null);
 
         // Write intent is in the storage.
-        assertEquals(1, storage.rowsCount());
+        assertTrue(storage.read(rowId, HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         // But indexes are removed.
         assertTrue(pkInnerStorage.allRowsIds().isEmpty());
@@ -96,7 +94,6 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
-        assertEquals(0, storage.rowsCount());
         assertTrue(pkInnerStorage.allRowsIds().isEmpty());
         assertTrue(sortedInnerStorage.allRowsIds().isEmpty());
         assertTrue(hashInnerStorage.allRowsIds().isEmpty());
@@ -120,8 +117,6 @@ public class IndexCleanupTest extends IndexBaseTest {
         writer.addWrite(storageUpdateHandler, rowUuid2, binaryRow(key2, value));
 
         storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
-
-        assertEquals(1, storage.rowsCount());
 
         Set<RowId> pkRows = pkInnerStorage.allRowsIds();
         Set<RowId> sortedRows = sortedInnerStorage.allRowsIds();
@@ -154,8 +149,6 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
-        assertEquals(1, storage.rowsCount());
-
         assertTrue(inAllIndexes(row1));
         assertTrue(inIndexes(row2, true, false));
     }
@@ -175,7 +168,6 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
-        assertEquals(1, storage.rowsCount());
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
@@ -196,7 +188,6 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
-        assertEquals(1, storage.rowsCount());
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
@@ -216,7 +207,6 @@ public class IndexCleanupTest extends IndexBaseTest {
         writer.addWrite(storageUpdateHandler, rowUuid, row);
         writer.addWrite(storageUpdateHandler, rowUuid, null);
 
-        assertEquals(1, storage.rowsCount());
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
@@ -239,7 +229,6 @@ public class IndexCleanupTest extends IndexBaseTest {
         writer.addWrite(storageUpdateHandler, rowUuid, row);
         writer.addWrite(storageUpdateHandler, rowUuid, null);
 
-        assertEquals(1, storage.rowsCount());
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));

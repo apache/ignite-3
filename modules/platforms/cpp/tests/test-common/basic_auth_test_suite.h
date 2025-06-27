@@ -86,22 +86,27 @@ public:
      * @param enable Authentication enabled.
      */
     static void set_authentication_enabled(bool enable) {
+        using namespace ignite;
+
         if (m_auth_enabled == enable)
             return;
 
-        ignite::ignite_client_configuration cfg = m_auth_enabled ? get_configuration_correct() : get_configuration();
-
         try {
-            auto client = ignite::ignite_client::start(cfg, std::chrono::seconds(30));
+            ignite_client_configuration cfg = m_auth_enabled ? get_configuration_correct() : get_configuration();
+
+            auto client = ignite_client::start(cfg, std::chrono::seconds(30));
+
             auto nodes = client.get_cluster_nodes();
-            client.get_compute().submit(nodes, {}, ENABLE_AUTHN_JOB, {enable ? 1 : 0}, {}).get_result();
-        } catch (const ignite::ignite_error &) {
+            auto descriptor = job_descriptor::builder(ENABLE_AUTHN_JOB).build();
+
+            client.get_compute().submit(job_target::any_node(nodes), descriptor, {enable ? 1 : 0}).get_result();
+        } catch (const ignite_error &) {
             // Ignore.
             // As a result of this call, the client may be disconnected from the server due to authn config change.
         }
 
         // Wait for the server to apply the configuration change and drop the client connection.
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(std::chrono::seconds(10));
 
         m_auth_enabled = enable;
     }

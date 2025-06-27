@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -26,20 +27,18 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -93,9 +92,9 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE simple_val_key (boolCol BOOLEAN, intCol INT, dateCol DATE, strCol VARCHAR, PRIMARY KEY (strCol))");
 
         // SERVER
-        IgniteImpl igniteImpl = CLUSTER.aliveNode();
+        Ignite ignite = CLUSTER.aliveNode();
 
-        IgniteTables serverTables = igniteImpl.tables();
+        IgniteTables serverTables = ignite.tables();
         serverKeyVal = serverTables.table("key_val").keyValueView(IntString.class, BoolInt.class);
         serverKeyValFlipped = serverTables.table("key_val_flip").keyValueView(IntString.class, BoolInt.class);
         serverValKey = serverTables.table("val_key").keyValueView(IntString.class, BoolInt.class);
@@ -105,7 +104,7 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
         serverSimpleValKey = serverTables.table("simple_val_key").keyValueView(Mapper.of(String.class), Mapper.of(IntBoolDate.class));
 
         // CLIENT
-        String addressString = "127.0.0.1:" + igniteImpl.clientAddress().port();
+        String addressString = "127.0.0.1:" + unwrapIgniteImpl(ignite).clientAddress().port();
 
         client = IgniteClient.builder().addresses(addressString).build();
 
@@ -125,7 +124,7 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     }
 
     @AfterAll
-    public void closeClient() throws Exception {
+    public void closeClient() {
         client.close();
     }
 
@@ -178,35 +177,6 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
             BoolInt retrieved = kvView.get(null, key);
             assertEquals(val, retrieved);
         }
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21836")
-    @ParameterizedTest
-    @MethodSource("nullableKvsSimple")
-    public void testNotNullableGetSimple(KeyValueView<String, IntBoolDate> kvView) {
-        String key = String.valueOf(ID_NUM.incrementAndGet());
-        kvView.put(null, key, null);
-
-        NullableValue<IntBoolDate> nullable = kvView.getNullable(null, key);
-        assertNull(nullable.get());
-    }
-
-    private List<Arguments> nullableKvsSimple() {
-        return List.of(
-                Arguments.of(Named.named("server", serverSimpleValKey)),
-                Arguments.of(Named.named("client", clientSimpleKeyVal))
-        );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21836")
-    @ParameterizedTest
-    @MethodSource("complexKeyKvs")
-    public void testNotNullableGetComplex(KeyValueView<IntString, BoolInt> kvView) {
-        IntString key = newKey();
-        kvView.put(null, key, null);
-
-        NullableValue<BoolInt> nullable = kvView.getNullable(null, key);
-        assertNull(nullable.get());
     }
 
     @ParameterizedTest

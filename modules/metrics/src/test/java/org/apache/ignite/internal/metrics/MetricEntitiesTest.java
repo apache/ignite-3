@@ -39,7 +39,7 @@ public class MetricEntitiesTest {
     private static final String SOURCE_NAME = "testSource";
     private static final String SCALAR_METRIC_NAME = "TestScalarMetric";
     private static final String COMPOSITE_METRIC_NAME = "TestCompositeMetric";
-    private static final long[] DISTRIBUTION_BOUNDS = new long[] { 10, 100, 1000 };
+    private static final long[] DISTRIBUTION_BOUNDS = { 10, 100, 1000 };
 
     @Test
     public void testMetricLifecycle() {
@@ -153,27 +153,27 @@ public class MetricEntitiesTest {
     }
 
     private static class TestMetricSource extends AbstractMetricSource<TestMetricSource.Holder> {
-        protected TestMetricSource() {
+        TestMetricSource() {
             super(SOURCE_NAME);
         }
 
-
-        protected TestMetricSource(String name) {
+        TestMetricSource(String name) {
             super(name);
         }
 
-        @Override protected Holder createHolder() {
+        @Override
+        protected Holder createHolder() {
             return new Holder();
-        }
-
-        @Override protected void init(MetricSetBuilder bldr, Holder holder) {
-            bldr.register(holder.atomicIntMetric);
-            bldr.register(holder.distributionMetric);
         }
 
         private static class Holder implements AbstractMetricSource.Holder<Holder> {
             final AtomicIntMetric atomicIntMetric = new AtomicIntMetric(SCALAR_METRIC_NAME, null);
             final DistributionMetric distributionMetric = new DistributionMetric(COMPOSITE_METRIC_NAME, null, DISTRIBUTION_BOUNDS);
+
+            @Override
+            public Iterable<Metric> metrics() {
+                return List.of(atomicIntMetric, distributionMetric);
+            }
         }
     }
 }

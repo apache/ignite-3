@@ -27,6 +27,7 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.MetricSetListDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
@@ -48,13 +49,10 @@ public class NodeMetricSetListCommand extends BaseCommand implements Callable<In
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
                 .decorator(new MetricSetListDecorator(plain))
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list metrics"))
+        );
     }
 }

@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -41,13 +41,27 @@ public class MultiStepPlan implements ExplainablePlan {
 
     private final ParameterMetadata parameterMetadata;
 
+    private final int catalogVersion;
+
+    private final @Nullable QueryPlan fastPlan;
+
     /** Constructor. */
-    public MultiStepPlan(PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta, ParameterMetadata parameterMetadata) {
+    public MultiStepPlan(
+            PlanId id,
+            SqlQueryType type,
+            IgniteRel root,
+            ResultSetMetadata meta,
+            ParameterMetadata parameterMetadata,
+            int catalogVersion,
+            @Nullable QueryPlan fastPlan
+    ) {
         this.id = id;
         this.type = type;
         this.root = root;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
+        this.catalogVersion = catalogVersion;
+        this.fastPlan = fastPlan;
     }
 
     /** {@inheritDoc} */
@@ -70,7 +84,12 @@ public class MultiStepPlan implements ExplainablePlan {
 
     /** {@inheritDoc} */
     @Override
-    @Nullable
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public SqlQueryType type() {
         return type;
     }
@@ -79,11 +98,21 @@ public class MultiStepPlan implements ExplainablePlan {
     public String explain() {
         IgniteRel clonedRoot = Cloner.clone(root, Commons.cluster());
 
-        return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+        return ExplainUtils.toString(clonedRoot);
+    }
+
+    public int catalogVersion() {
+        return catalogVersion;
     }
 
     /** Returns root of the query tree. */
-    public IgniteRel root() {
+    @Override
+    public IgniteRel getRel() {
         return root;
+    }
+
+    /** Alternative fast plan. */
+    public @Nullable QueryPlan fastPlan() {
+        return fastPlan;
     }
 }

@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.index;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -50,30 +51,47 @@ public class DropIndexCommand extends AbstractIndexCommand {
         return new Builder();
     }
 
+    private final boolean ifExists;
+
     /**
      * Constructor.
      *
      * @param schemaName Name of the schema to look up index in. Should not be null or blank.
      * @param indexName Name of the index to drop. Should not be null or blank.
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private DropIndexCommand(String schemaName, String indexName) throws CatalogValidationException {
+    private DropIndexCommand(String schemaName, String indexName, boolean ifExists) throws CatalogValidationException {
         super(schemaName, indexName);
+
+        this.ifExists = ifExists;
+    }
+
+    public boolean ifExists() {
+        return ifExists;
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
 
-        CatalogIndexDescriptor index = indexOrThrow(schema, indexName);
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifExists);
+        if (schema == null) {
+            return List.of();
+        }
+
+        CatalogIndexDescriptor index = index(schema, indexName, !ifExists);
+        if (index == null) {
+            return List.of();
+        }
 
         CatalogTableDescriptor table = catalog.table(index.tableId());
 
-        assert table != null : format("Index refers to non existing table [catalogVersion={}, indexId={}, tableId={}]",
+        assert table != null : format("Index refers to non existing table [catalogVersion={}, indexId={}, tableId={}].",
                 catalog.version(), index.id(), index.tableId());
 
         if (table.primaryKeyIndexId() == index.id()) {
-            throw new CatalogValidationException("Dropping primary key index is not allowed");
+            throw new CatalogValidationException("Dropping primary key index is not allowed.");
         }
 
         switch (index.status()) {
@@ -81,7 +99,7 @@ public class DropIndexCommand extends AbstractIndexCommand {
             case BUILDING:
                 return List.of(new RemoveIndexEntry(index.id()));
             case AVAILABLE:
-                return List.of(new DropIndexEntry(index.id(), index.tableId()));
+                return List.of(new DropIndexEntry(index.id()));
             default:
                 throw new IllegalStateException("Unknown index status: " + index.status());
         }
@@ -91,6 +109,8 @@ public class DropIndexCommand extends AbstractIndexCommand {
         private String schemaName;
 
         private String indexName;
+
+        private boolean ifExists;
 
         @Override
         public Builder schemaName(String schemaName) {
@@ -107,10 +127,18 @@ public class DropIndexCommand extends AbstractIndexCommand {
         }
 
         @Override
+        public DropIndexCommandBuilder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new DropIndexCommand(
                     schemaName,
-                    indexName
+                    indexName,
+                    ifExists
             );
         }
     }

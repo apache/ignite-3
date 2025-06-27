@@ -23,9 +23,13 @@ import com.google.auto.service.AutoService;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Supplier;
+import javax.management.InstanceAlreadyExistsException;
 import javax.management.JMException;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricProvider;
@@ -41,24 +45,16 @@ import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterVie
  */
 @AutoService(MetricExporter.class)
 public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
-    /**
-     * Exporter name. Must be the same for configuration and exporter itself.
-     */
+    /** Exporter name. Must be the same for configuration and exporter itself. */
     public static final String JMX_EXPORTER_NAME = "jmx";
 
-    /**
-     * Group attribute of {@link ObjectName} shared for all metric MBeans.
-     */
-    private static final String JMX_METRIC_GROUP = "metrics";
+    /** Group attribute of {@link ObjectName} shared for all metric MBeans. */
+    public static final String JMX_METRIC_GROUP = "metrics";
 
-    /**
-     * Logger.
-     */
+    /** Logger. */
     private final IgniteLogger log;
 
-    /**
-     * Current registered MBeans.
-     */
+    /** Current registered MBeans. */
     private final List<ObjectName> mbeans = new ArrayList<>();
 
     public JmxExporter() {
@@ -69,21 +65,20 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
         this.log = log;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public synchronized void start(MetricProvider metricsProvider, JmxExporterView configuration) {
-        super.start(metricsProvider, configuration);
+    public synchronized void start(
+            MetricProvider metricsProvider,
+            JmxExporterView configuration,
+            Supplier<UUID> clusterIdSupplier,
+            String nodeName
+    ) {
+        super.start(metricsProvider, configuration, clusterIdSupplier, nodeName);
 
         for (MetricSet metricSet : metricsProvider.metrics().get1().values()) {
             register(metricSet);
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public synchronized void stop() {
         mbeans.forEach(this::unregBean);
@@ -91,9 +86,6 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
         mbeans.clear();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String name() {
         return JMX_EXPORTER_NAME;
@@ -136,8 +128,15 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
             mbeans.add(mbean);
         } catch (JMException e) {
-            log.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-25526 - remove this if.
+            if (!(e instanceof InstanceAlreadyExistsException) || !ignoreDuplicateJmsMbeansError()) {
+                log.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
+            }
         }
+    }
+
+    private static boolean ignoreDuplicateJmsMbeansError() {
+        return IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNORE_DUPLICATE_JMX_MBEANS_ERROR, false);
     }
 
     /**

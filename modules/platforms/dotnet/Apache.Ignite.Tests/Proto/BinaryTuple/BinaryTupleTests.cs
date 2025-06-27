@@ -18,9 +18,7 @@
 namespace Apache.Ignite.Tests.Proto.BinaryTuple
 {
     using System;
-    using System.Collections;
     using System.Linq;
-    using System.Numerics;
     using Ignite.Sql;
     using Internal.Proto.BinaryTuple;
     using Internal.Table;
@@ -383,10 +381,28 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
-        public void TestVarlenEmptyByte()
+        public void TestVarlenEmptyByte([Values(1, 2, 123)] int count)
         {
-            var bytes = new[] { BinaryTupleCommon.VarlenEmptyByte };
+            var bytes = Enumerable.Repeat(BinaryTupleCommon.VarlenEmptyByte, count).ToArray();
             var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(bytes));
+            var res = reader.GetBytes(0);
+
+            CollectionAssert.AreEqual(bytes, res);
+        }
+
+        [Test]
+        public void TestVarlenEmptyByteBufferWriter([Values(1, 2, 123)] int count)
+        {
+            var bytes = Enumerable.Repeat(BinaryTupleCommon.VarlenEmptyByte, count).ToArray();
+
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(
+                (writer, arg) =>
+                {
+                    arg.CopyTo(writer.GetSpan(arg.Length));
+                    writer.Advance(arg.Length);
+                },
+                bytes));
+
             var res = reader.GetBytes(0);
 
             CollectionAssert.AreEqual(bytes, res);
@@ -403,35 +419,21 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
-        public void TestBitMask([Values(0, 1, 123)] int count)
+        public void TestBytesBufferWriter([Values(0, 1, 123, 65537)] int count)
         {
-            var bitMask = new BitArray(count);
+            var bytes = Enumerable.Range(1, count).Select(x => (byte)x).ToArray();
 
-            for (var i = 0; i < count; i++)
-            {
-                bitMask.Set(i, i % 2 == 0);
-            }
+            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(
+                (writer, arg) =>
+                {
+                    arg.CopyTo(writer.GetSpan(arg.Length));
+                    writer.Advance(arg.Length);
+                },
+                bytes));
 
-            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBitmask(bitMask));
-            var res = reader.GetBitmask(0);
+            var res = reader.GetBytesSpan(0).ToArray();
 
-            Assert.GreaterOrEqual(res.Length, bitMask.Length); // Resulting bitmask may be padded with false bits to the byte boundary.
-
-            for (var i = 0; i < count; i++)
-            {
-                Assert.AreEqual(i % 2 == 0, res.Get(i));
-            }
-        }
-
-        [Test]
-        public void TestBigInteger([Values(0, 15, 123)] long val, [Values(1, 33, 456, 9876)] int exp)
-        {
-            var bigInt = BigInteger.Pow(val, exp);
-
-            var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendNumber(bigInt));
-            var res = reader.GetNumber(0);
-
-            Assert.AreEqual(bigInt, res);
+            CollectionAssert.AreEqual(bytes, res);
         }
 
         [Test]
@@ -460,7 +462,39 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             static void Test(decimal val, int scale, decimal? expected = null)
             {
                 var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(val, scale));
-                var res = reader.GetDecimal(0, scale);
+                var res = reader.GetBigDecimal(0, scale).ToDecimal();
+
+                Assert.AreEqual(expected ?? val, res);
+            }
+        }
+
+        [Test]
+        public void TestBigDecimal()
+        {
+            Test(0, 3);
+            Test(0, 0);
+
+            Test(decimal.MaxValue, 0);
+            Test(decimal.MinValue, 0);
+
+            Test(12345.6789m, 4);
+            Test(12345.678m, 4);
+            Test(12345.67m, 4);
+
+            Test(-12345.6789m, 4);
+            Test(-12345.678m, 4);
+            Test(-12345.67m, 4);
+
+            Test(12345.6789m, 2, 12345.67m);
+            Test(12345.6789m, 0, 12345m);
+
+            Test(-12345.6789m, 2, -12345.67m);
+            Test(-12345.6789m, 0, -12345m);
+
+            static void Test(decimal val, int scale, decimal? expected = null)
+            {
+                var reader = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBigDecimal(new BigDecimal(val), scale));
+                var res = reader.GetBigDecimal(0, scale).ToDecimal();
 
                 Assert.AreEqual(expected ?? val, res);
             }
@@ -471,9 +505,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             const int scale = 100;
 
-            var ex = Assert.Throws<OverflowException>(
-                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[] { 64, 64, 64 })).GetDecimal(0, scale));
+            var res = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[] { 64, 64, 64 })).GetBigDecimal(0, scale);
 
+            var ex = Assert.Throws<OverflowException>(() => res.ToDecimal());
             Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
 
@@ -482,9 +516,9 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         {
             var magnitude = Enumerable.Range(1, 100).Select(_ => (byte)250).ToArray();
 
-            var ex = Assert.Throws<OverflowException>(
-                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(magnitude)).GetDecimal(0, 0));
+            var res = BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(magnitude)).GetBigDecimal(0, 0);
 
+            var ex = Assert.Throws<OverflowException>(() => res.ToDecimal());
             Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
 
@@ -653,10 +687,8 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.IsNull(reader.GetLongNullable(0));
             Assert.IsNull(reader.GetDoubleNullable(0));
             Assert.IsNull(reader.GetFloatNullable(0));
-            Assert.IsNull(reader.GetDecimalNullable(0, 123));
-            Assert.IsNull(reader.GetNumberNullable(0));
+            Assert.IsNull(reader.GetBigDecimalNullable(0, 123));
             Assert.IsNull(reader.GetStringNullable(0));
-            Assert.IsNull(reader.GetBitmaskNullable(0));
             Assert.IsNull(reader.GetGuidNullable(0));
             Assert.IsNull(reader.GetBytesNullable(0));
             Assert.IsNull(reader.GetDurationNullable(0));
@@ -674,7 +706,6 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             var utcNow = DateTime.UtcNow;
             var date = LocalDate.FromDateTime(utcNow);
             var dateTime = LocalDateTime.FromDateTime(utcNow);
-            var bitArray = new BitArray(new[] { byte.MaxValue });
             var bytes = new byte[] { 1, 2 };
 
             var reader = BuildAndRead(
@@ -698,12 +729,10 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendBytesNullable(null);
                     b.AppendGuidNullable(guid);
                     b.AppendGuidNullable(null);
-                    b.AppendBitmaskNullable(bitArray);
-                    b.AppendBitmaskNullable(null);
                     b.AppendDecimalNullable(1, 3);
                     b.AppendDecimalNullable(null, 3);
-                    b.AppendNumberNullable(1);
-                    b.AppendNumberNullable(null);
+                    b.AppendBigDecimalNullable(new BigDecimal(1), 3);
+                    b.AppendBigDecimalNullable(null, 3);
                     b.AppendDateNullable(date);
                     b.AppendDateNullable(null);
                     b.AppendTimeNullable(dateTime.TimeOfDay, TemporalTypes.MaxTimePrecision);
@@ -737,24 +766,22 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.IsNull(reader.GetBytesNullable(15));
             Assert.AreEqual(guid, reader.GetGuidNullable(16));
             Assert.IsNull(reader.GetGuidNullable(17));
-            Assert.AreEqual(bitArray, reader.GetBitmaskNullable(18));
-            Assert.IsNull(reader.GetBitmaskNullable(19));
-            Assert.AreEqual(1, reader.GetDecimalNullable(20, 3));
-            Assert.IsNull(reader.GetDecimalNullable(21, 3));
-            Assert.AreEqual((BigInteger)1, reader.GetNumberNullable(22));
-            Assert.IsNull(reader.GetNumberNullable(23));
-            Assert.AreEqual(date, reader.GetDateNullable(24));
-            Assert.IsNull(reader.GetDateNullable(25));
-            Assert.AreEqual(dateTime.TimeOfDay, reader.GetTimeNullable(26));
-            Assert.IsNull(reader.GetTimeNullable(27));
-            Assert.AreEqual(dateTime, reader.GetDateTimeNullable(28));
-            Assert.IsNull(reader.GetDateTimeNullable(29));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetTimestampNullable(30));
-            Assert.IsNull(reader.GetTimestampNullable(31));
-            Assert.AreEqual(Duration.FromMinutes(1), reader.GetDurationNullable(32));
-            Assert.IsNull(reader.GetDurationNullable(33));
-            Assert.AreEqual(Period.FromDays(1), reader.GetPeriodNullable(34));
-            Assert.IsNull(reader.GetPeriodNullable(35));
+            Assert.AreEqual(1, reader.GetBigDecimalNullable(18, 3)!.Value.ToDecimal());
+            Assert.IsNull(reader.GetBigDecimalNullable(19, 3));
+            Assert.AreEqual(1, reader.GetBigDecimalNullable(20, 3)!.Value.ToDecimal());
+            Assert.IsNull(reader.GetBigDecimalNullable(21, 3));
+            Assert.AreEqual(date, reader.GetDateNullable(22));
+            Assert.IsNull(reader.GetDateNullable(23));
+            Assert.AreEqual(dateTime.TimeOfDay, reader.GetTimeNullable(24));
+            Assert.IsNull(reader.GetTimeNullable(25));
+            Assert.AreEqual(dateTime, reader.GetDateTimeNullable(26));
+            Assert.IsNull(reader.GetDateTimeNullable(27));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetTimestampNullable(28));
+            Assert.IsNull(reader.GetTimestampNullable(29));
+            Assert.AreEqual(Duration.FromMinutes(1), reader.GetDurationNullable(30));
+            Assert.IsNull(reader.GetDurationNullable(31));
+            Assert.AreEqual(Period.FromDays(1), reader.GetPeriodNullable(32));
+            Assert.IsNull(reader.GetPeriodNullable(33));
         }
 
         [Test]
@@ -764,7 +791,6 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             var utcNow = DateTime.UtcNow;
             var date = LocalDate.FromDateTime(utcNow);
             var dateTime = LocalDateTime.FromDateTime(utcNow);
-            var bitArray = new BitArray(new[] { byte.MaxValue });
             var bytes = new byte[] { 1, 2 };
 
             var reader = BuildAndRead(
@@ -778,9 +804,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendObject(float.MaxValue, ColumnType.Float);
                     b.AppendObject(double.MaxValue, ColumnType.Double);
                     b.AppendObject(decimal.One, ColumnType.Decimal);
-                    b.AppendObject(BigInteger.One, ColumnType.Number);
                     b.AppendObject("foo", ColumnType.String);
-                    b.AppendObject(bitArray, ColumnType.Bitmask);
                     b.AppendObject(guid, ColumnType.Uuid);
                     b.AppendObject(bytes, ColumnType.ByteArray);
                     b.AppendObject(LocalTime.FromMinutesSinceMidnight(123), ColumnType.Time, precision: TemporalTypes.MaxTimePrecision);
@@ -788,7 +812,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendObject(dateTime, ColumnType.Datetime, precision: TemporalTypes.MaxTimePrecision);
                     b.AppendObject(Instant.FromDateTimeUtc(utcNow), ColumnType.Timestamp, precision: TemporalTypes.MaxTimePrecision);
                 },
-                17);
+                15);
 
             Assert.IsNull(reader.GetObject(0, ColumnType.String));
             Assert.AreEqual(sbyte.MaxValue, reader.GetObject(1, ColumnType.Int8));
@@ -797,16 +821,14 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(long.MaxValue, reader.GetObject(4, ColumnType.Int64));
             Assert.AreEqual(float.MaxValue, reader.GetObject(5, ColumnType.Float));
             Assert.AreEqual(double.MaxValue, reader.GetObject(6, ColumnType.Double));
-            Assert.AreEqual(decimal.One, reader.GetObject(7, ColumnType.Decimal));
-            Assert.AreEqual(BigInteger.One, reader.GetObject(8, ColumnType.Number));
-            Assert.AreEqual("foo", reader.GetObject(9, ColumnType.String));
-            Assert.AreEqual(bitArray, reader.GetObject(10, ColumnType.Bitmask));
-            Assert.AreEqual(guid, reader.GetObject(11, ColumnType.Uuid));
-            Assert.AreEqual(bytes, reader.GetObject(12, ColumnType.ByteArray));
-            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(13, ColumnType.Time));
-            Assert.AreEqual(date, reader.GetObject(14, ColumnType.Date));
-            Assert.AreEqual(dateTime, reader.GetObject(15, ColumnType.Datetime));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(16, ColumnType.Timestamp));
+            Assert.AreEqual(new BigDecimal(1), reader.GetObject(7, ColumnType.Decimal));
+            Assert.AreEqual("foo", reader.GetObject(8, ColumnType.String));
+            Assert.AreEqual(guid, reader.GetObject(9, ColumnType.Uuid));
+            Assert.AreEqual(bytes, reader.GetObject(10, ColumnType.ByteArray));
+            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(11, ColumnType.Time));
+            Assert.AreEqual(date, reader.GetObject(12, ColumnType.Date));
+            Assert.AreEqual(dateTime, reader.GetObject(13, ColumnType.Datetime));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(14, ColumnType.Timestamp));
         }
 
         [Test]
@@ -816,7 +838,6 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             var utcNow = DateTime.UtcNow;
             var date = LocalDate.FromDateTime(utcNow);
             var dateTime = LocalDateTime.FromDateTime(utcNow);
-            var bitArray = new BitArray(new[] { byte.MaxValue });
             var bytes = new byte[] { 1, 2 };
 
             var reader = BuildAndRead(
@@ -830,17 +851,18 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
                     b.AppendObjectWithType(float.MaxValue);
                     b.AppendObjectWithType(double.MaxValue);
                     b.AppendObjectWithType(decimal.One);
-                    b.AppendObjectWithType(BigInteger.One);
                     b.AppendObjectWithType("foo");
-                    b.AppendObjectWithType(bitArray);
                     b.AppendObjectWithType(guid);
                     b.AppendObjectWithType(bytes);
                     b.AppendObjectWithType(LocalTime.FromMinutesSinceMidnight(123));
                     b.AppendObjectWithType(date);
                     b.AppendObjectWithType(dateTime);
                     b.AppendObjectWithType(Instant.FromDateTimeUtc(utcNow));
+                    b.AppendObjectWithType(true);
+                    b.AppendObjectWithType(Period.FromDays(2));
+                    b.AppendObjectWithType(Duration.FromDays(3));
                 },
-                17 * 3);
+                18 * 3);
 
             Assert.IsNull(reader.GetObject(0));
             Assert.AreEqual(sbyte.MaxValue, reader.GetObject(3));
@@ -849,16 +871,17 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.AreEqual(long.MaxValue, reader.GetObject(12));
             Assert.AreEqual(float.MaxValue, reader.GetObject(15));
             Assert.AreEqual(double.MaxValue, reader.GetObject(18));
-            Assert.AreEqual(decimal.One, reader.GetObject(21));
-            Assert.AreEqual(BigInteger.One, reader.GetObject(24));
-            Assert.AreEqual("foo", reader.GetObject(27));
-            Assert.AreEqual(bitArray, reader.GetObject(30));
-            Assert.AreEqual(guid, reader.GetObject(33));
-            Assert.AreEqual(bytes, reader.GetObject(36));
-            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(39));
-            Assert.AreEqual(date, reader.GetObject(42));
-            Assert.AreEqual(dateTime, reader.GetObject(45));
-            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(48));
+            Assert.AreEqual(new BigDecimal(1), reader.GetObject(21));
+            Assert.AreEqual("foo", reader.GetObject(24));
+            Assert.AreEqual(guid, reader.GetObject(27));
+            Assert.AreEqual(bytes, reader.GetObject(30));
+            Assert.AreEqual(LocalTime.FromMinutesSinceMidnight(123), reader.GetObject(33));
+            Assert.AreEqual(date, reader.GetObject(36));
+            Assert.AreEqual(dateTime, reader.GetObject(39));
+            Assert.AreEqual(Instant.FromDateTimeUtc(utcNow), reader.GetObject(42));
+            Assert.IsTrue((bool)reader.GetObject(45)!);
+            Assert.AreEqual(Period.FromDays(2), reader.GetObject(48));
+            Assert.AreEqual(Duration.FromDays(3), reader.GetObject(51));
         }
 
         [Test]

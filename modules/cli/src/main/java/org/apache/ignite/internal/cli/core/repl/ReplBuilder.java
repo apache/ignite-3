@@ -55,8 +55,6 @@ public class ReplBuilder {
 
     private Runnable onStart = () -> {};
 
-    private EventListeningActivationPoint eventListeningActivationPoint;
-
     private Highlighter highlighter;
 
     private Parser parser;
@@ -79,7 +77,6 @@ public class ReplBuilder {
                 tailTipWidgetsEnabled,
                 autosuggestionsWidgetsEnabled,
                 onStart,
-                eventListeningActivationPoint,
                 highlighter,
                 parser
         );
@@ -161,17 +158,6 @@ public class ReplBuilder {
 
     public ReplBuilder withAutosuggestionsWidgets() {
         this.autosuggestionsWidgetsEnabled = true;
-        return this;
-    }
-
-    /**
-     * Builder setter of {@code eventListeningActivationPoint} field.
-     *
-     * @param eventListeningActivationPoint event listening activation point.
-     * @return invoked builder instance {@link ReplBuilder}.
-     */
-    public ReplBuilder withEventSubscriber(EventListeningActivationPoint eventListeningActivationPoint) {
-        this.eventListeningActivationPoint = eventListeningActivationPoint;
         return this;
     }
 

@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.ensureNonFunctionalDefault;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.ensureTypeCanBeStored;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -31,6 +32,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -53,15 +55,17 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to add new columns to. Should not be null or blank.
      * @param schemaName Name of the schema the table of interest belongs to. Should not be null or blank.
+     * @param ifTableExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param columns List of the columns to add to the table. There should be at least one column.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private AlterTableAddColumnCommand(
             String tableName,
             String schemaName,
+            boolean ifTableExists,
             List<ColumnParams> columns
     ) throws CatalogValidationException {
-        super(schemaName, tableName);
+        super(schemaName, tableName, ifTableExists, true);
 
         this.columns = copyOrNull(columns);
 
@@ -69,39 +73,47 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifTableExists);
+        if (schema == null) {
+            return List.of();
+        }
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        CatalogTableDescriptor table = table(schema, tableName, !ifTableExists);
+        if (table == null) {
+            return List.of();
+        }
 
         List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>();
 
         for (ColumnParams column : columns) {
             if (table.column(column.name()) != null) {
-                throw new CatalogValidationException(
-                        format("Column with name '{}' already exists", column.name())
-                );
+                throw new CatalogValidationException("Column with name '{}' already exists.", column.name());
             }
 
             columnDescriptors.add(fromParams(column));
         }
 
         return List.of(
-                new NewColumnsEntry(table.id(), columnDescriptors, schemaName)
+                new NewColumnsEntry(table.id(), columnDescriptors)
         );
     }
 
     private void validate() {
         if (nullOrEmpty(columns)) {
-            throw new CatalogValidationException("Columns not specified");
+            throw new CatalogValidationException("Columns not specified.");
         }
 
         Set<String> columnNames = new HashSet<>();
 
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
+                throw new CatalogValidationException("Column with name '{}' specified more than once.", column.name());
             }
+
+            ensureTypeCanBeStored(column.name(), column.type());
+            ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
         }
     }
 
@@ -114,6 +126,8 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         private String schemaName;
 
         private String tableName;
+
+        private boolean ifTableExists;
 
         @Override
         public AlterTableAddColumnCommandBuilder schemaName(String schemaName) {
@@ -130,6 +144,13 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         }
 
         @Override
+        public AlterTableAddColumnCommandBuilder ifTableExists(boolean ifTableExists) {
+            this.ifTableExists = ifTableExists;
+
+            return this;
+        }
+
+        @Override
         public AlterTableAddColumnCommandBuilder columns(List<ColumnParams> columns) {
             this.columns = columns;
 
@@ -141,6 +162,7 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
             return new AlterTableAddColumnCommand(
                     tableName,
                     schemaName,
+                    ifTableExists,
                     columns
             );
         }

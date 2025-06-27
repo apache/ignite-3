@@ -17,91 +17,38 @@
 
 package org.apache.ignite.internal.cli.core.call;
 
-import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.nio.charset.Charset;
-import java.util.function.Supplier;
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
-import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
-import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
-import org.apache.ignite.internal.cli.decorators.DefaultDecorator;
 
 /** Builder for {@link CallExecutionPipeline}. */
-public class CallExecutionPipelineBuilder<I extends CallInput, T> {
+public interface CallExecutionPipelineBuilder<I extends CallInput, T> {
+    /**
+     * Sets output {@link PrintWriter}.
+     *
+     * @param output Output print writer.
+     * @return Instance of the builder.
+     */
+    CallExecutionPipelineBuilder<I, T> output(PrintWriter output);
 
-    private final Call<I, T> call;
+    /**
+     * Sets error output {@link PrintWriter}.
+     *
+     * @param errOutput Error output print writer.
+     * @return Instance of the builder.
+     */
+    CallExecutionPipelineBuilder<I, T> errOutput(PrintWriter errOutput);
 
-    private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
+    /**
+     * Sets verbosity status.
+     *
+     * @param verbose Verbosity status.
+     * @return Instance of the builder.
+     */
+    CallExecutionPipelineBuilder<I, T> verbose(boolean[] verbose);
 
-    private Supplier<I> inputProvider;
-
-    private PrintWriter output = wrapOutputStream(System.out);
-
-    private PrintWriter errOutput = wrapOutputStream(System.err);
-
-    private Decorator<T, TerminalOutput> decorator = new DefaultDecorator<>();
-
-    private boolean verbose;
-
-    CallExecutionPipelineBuilder(Call<I, T> call) {
-        this.call = call;
-    }
-
-    private static PrintWriter wrapOutputStream(OutputStream output) {
-        return new PrintWriter(output, true, getStdoutEncoding());
-    }
-
-    private static Charset getStdoutEncoding() {
-        String encoding = System.getProperty("sun.stdout.encoding");
-        return encoding != null ? Charset.forName(encoding) : Charset.defaultCharset();
-    }
-
-    public CallExecutionPipelineBuilder<I, T> inputProvider(Supplier<I> inputProvider) {
-        this.inputProvider = inputProvider;
-        return this;
-    }
-
-    public CallExecutionPipelineBuilder<I, T> output(PrintWriter output) {
-        this.output = output;
-        return this;
-    }
-
-    public CallExecutionPipelineBuilder<I, T> output(OutputStream output) {
-        return output(wrapOutputStream(output));
-    }
-
-    public CallExecutionPipelineBuilder<I, T> errOutput(PrintWriter errOutput) {
-        this.errOutput = errOutput;
-        return this;
-    }
-
-    public CallExecutionPipelineBuilder<I, T> errOutput(OutputStream output) {
-        return errOutput(wrapOutputStream(output));
-    }
-
-    public CallExecutionPipelineBuilder<I, T> exceptionHandler(ExceptionHandler<?> exceptionHandler) {
-        exceptionHandlers.addExceptionHandler(exceptionHandler);
-        return this;
-    }
-
-    public CallExecutionPipelineBuilder<I, T> exceptionHandlers(ExceptionHandlers exceptionHandlers) {
-        this.exceptionHandlers.addExceptionHandlers(exceptionHandlers);
-        return this;
-    }
-
-    public CallExecutionPipelineBuilder<I, T> decorator(Decorator<T, TerminalOutput> decorator) {
-        this.decorator = decorator;
-        return this;
-    }
-
-    public CallExecutionPipelineBuilder<I, T> verbose(boolean verbose) {
-        this.verbose = verbose;
-        return this;
-    }
-
-    public CallExecutionPipeline<I, T> build() {
-        return new SingleCallExecutionPipeline<>(call, output, errOutput, exceptionHandlers, decorator, inputProvider, verbose);
-    }
+    /**
+     * Builds the pipeline.
+     *
+     * @return Constructed pipeline.
+     */
+    CallExecutionPipeline<I, T> build();
 }

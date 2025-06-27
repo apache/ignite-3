@@ -30,22 +30,23 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Configuration registry.
@@ -60,27 +61,45 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
-    /**
-     * Constructor.
-     *
-     * @param rootKeys                    Configuration root keys.
-     * @param storage                     Configuration storage.
-     * @param generator                   Configuration tree generator.
-     * @param configurationValidator      Configuration validator.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
-     *                                  extensions are not valid.
-     */
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
+
+    /** Constructor. */
+    @TestOnly
     public ConfigurationRegistry(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
     ) {
+        this(rootKeys, storage, generator, configurationValidator, c -> {}, s -> false);
+    }
+
+    /**
+     * Constructor.
+     */
+    public ConfigurationRegistry(
+            Collection<RootKey<?, ?, ?>> rootKeys,
+            ConfigurationStorage storage,
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator,
+            ConfigurationMigrator migrator,
+            KeyIgnorer keyIgnorer
+    ) {
         checkConfigurationType(rootKeys, storage);
 
-        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator) {
+        this.keyIgnorer = keyIgnorer;
+
+        changer = new ConfigurationChanger(
+                notificationUpdateListener(),
+                rootKeys,
+                storage,
+                configurationValidator,
+                migrator,
+                keyIgnorer
+        ) {
             @Override
-            public InnerNode createRootNode(RootKey<?, ?> rootKey) {
+            public InnerNode createRootNode(RootKey<?, ?, ?> rootKey) {
                 return generator.instantiateNode(rootKey.schemaClass());
             }
         };
@@ -92,17 +111,18 @@ public class ConfigurationRegistry implements IgniteComponent {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         changer.start();
+
+        // Initialize configuration so that it can be read and modified during other components' start.
+        configs.values().forEach(ConfigurationUtil::touch);
 
         return nullCompletedFuture();
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         changer.stop();
 
         return nullCompletedFuture();
@@ -118,7 +138,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Initializes the configuration with the given source. This method should be used only for the initial setup of the configuration. The
      * configuration is initialized with the provided source only if the storage is empty, and it is saved along with the defaults. This
-     * method must be called before {@link #startAsync()}.
+     * method must be called before {@link #startAsync}.
      *
      * @param configurationSource the configuration source to initialize with.
      */
@@ -135,7 +155,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param <T> Configuration tree type.
      * @return Public configuration tree.
      */
-    public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
+    public <V, C extends V, T extends ConfigurationTree<? super V, ? super C>> T getConfiguration(RootKey<T, V, C> rootKey) {
         return (T) configs.get(rootKey.key());
     }
 
@@ -230,16 +250,9 @@ public class ConfigurationRegistry implements IgniteComponent {
         };
     }
 
-    /**
-     * Notifies all listeners of the current configuration.
-     *
-     * <p>{@link ConfigurationListener#onUpdate} and {@link ConfigurationNamedListListener#onCreate} will be called and the value will
-     * only be in {@link ConfigurationNotificationEvent#newValue}.
-     *
-     * @return Future that must signify when processing is completed.
-     */
-    public CompletableFuture<Void> notifyCurrentConfigurationListeners() {
-        return changer.notifyCurrentConfigurationListeners();
+    /** Determines if key should be ignored. */
+    public KeyIgnorer keyIgnorer() {
+        return keyIgnorer;
     }
 
     /**

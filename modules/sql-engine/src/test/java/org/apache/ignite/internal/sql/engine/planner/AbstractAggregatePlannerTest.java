@@ -31,6 +31,8 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.sql.fun.SqlSingleValueAggFunction;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
@@ -647,23 +649,23 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_16B("SELECT ID FROM test WHERE VAL0 IN (SELECT VAL0 FROM test)", schema(identity(), indexByVal0Desc())),
         /**
-         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test.
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test.
          *
          * <p>Distribution single
          */
-        CASE_17("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(single())),
+        CASE_17("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test", schema(single())),
         /**
-         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test.
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test.
          *
          * <p>Distribution hash(0)
          */
-        CASE_17A("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(hash())),
+        CASE_17A("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test", schema(hash())),
         /**
-         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test.
+         * Query: SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test.
          *
          * <p>Distribution identity(0)
          */
-        CASE_17B("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 1) FROM test", schema(identity())),
+        CASE_17B("SELECT (SELECT test.val0 FROM test t ORDER BY 1 LIMIT 2) FROM test", schema(identity())),
         /**
          * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val0, val1.
          *
@@ -917,6 +919,36 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          */
         CASE_26A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1 DESC",
                 schema(hash(0))),
+
+        /**
+         * Query: SELECT val0 FROM test WHERE val0 = (SELECT val1 FROM test).
+         *
+         * <p>Distribution single()
+         */
+        CASE_27("SELECT val0 FROM test WHERE val0 = (SELECT val1 FROM test)", schema(single())),
+
+        /**
+         * Query: INSERT INTO test (id, val0) VALUES (1, (SELECT val1 FROM test)).
+         *
+         * <p>Distribution single()
+         */
+        CASE_27A("INSERT INTO test (id, val0) VALUES (1, (SELECT val1 FROM test))", schema(single())),
+
+        /**
+         * Query: UPDATE test set val0 = (SELECT val1 FROM test).
+         *
+         * <p>Distribution single()
+         */
+        CASE_27B("UPDATE test set val0 = (SELECT val1 FROM test)", schema(single())),
+
+        /**
+         * Query: MERGE INTO test as t0 USING test as t1 ON t0.id = t1.id
+         *        WHEN MATCHED THEN UPDATE SET val1 = (SELECT val0 FROM test)
+         *
+         * <p>Distribution single()
+         */
+        CASE_27C("MERGE INTO test as t0 USING test as t1 ON t0.id = t1.id "
+                + "WHEN MATCHED THEN UPDATE SET val1 = (SELECT val0 FROM test)", schema(single())),
         ;
 
         final String query;
@@ -998,11 +1030,11 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     private static IgniteDistribution hash() {
-        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
+        return TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
     }
 
     private static IgniteDistribution hash(int... keys) {
-        return IgniteDistributions.affinity(IntList.of(keys), nextTableId(), DEFAULT_ZONE_ID);
+        return TestBuilders.affinity(IntList.of(keys), nextTableId(), DEFAULT_ZONE_ID);
     }
 
     private static IgniteDistribution identity() {
@@ -1028,6 +1060,12 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
                 .and(n -> n.getAggregateCalls().stream().anyMatch(NON_NULL_PREDICATE));
 
         return mapNode.or(reduceNode);
+    }
+
+    <T extends RelNode> Predicate<T> hasSingleValueAggregate() {
+        return (Predicate<T>) isInstanceOf(IgniteAggregate.class)
+                .and(n -> n.getAggCallList().stream()
+                        .anyMatch(agg -> agg.getAggregation() instanceof SqlSingleValueAggFunction));
     }
 
     <T extends RelNode> Predicate<T> hasDistinctAggregate() {

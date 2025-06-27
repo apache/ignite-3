@@ -523,9 +523,21 @@ void sql_statement::execute_sql_query(const std::string &query) {
 
 sql_result sql_statement::internal_execute_sql_query(const std::string &query) {
     sql_result result = internal_prepare_sql_query(query);
-
     if (result != sql_result::AI_SUCCESS)
         return result;
+
+    return internal_execute_sql_query();
+}
+
+void sql_statement::execute_sql_query(const std::string &query, parameter_set &params) {
+    IGNITE_ODBC_API_CALL(internal_execute_sql_query(query, params));
+}
+
+sql_result sql_statement::internal_execute_sql_query(const std::string &query, parameter_set &params) {
+    if (m_current_query)
+        m_current_query->close();
+
+    m_current_query = std::make_unique<data_query>(*this, m_connection, query, params, m_timeout);
 
     return internal_execute_sql_query();
 }
@@ -883,10 +895,10 @@ SQLUSMALLINT *sql_statement::get_row_statuses_ptr() {
 }
 
 void sql_statement::select_param(void **param_ptr) {
-    IGNITE_ODBC_API_CALL(internal_select_aram(param_ptr));
+    IGNITE_ODBC_API_CALL(internal_select_param(param_ptr));
 }
 
-sql_result sql_statement::internal_select_aram(void **param_ptr) {
+sql_result sql_statement::internal_select_param(void **param_ptr) {
     if (!param_ptr) {
         add_status_record(sql_state::SHY000_GENERAL_ERROR, "Invalid parameter: ValuePtrPtr is null.");
 

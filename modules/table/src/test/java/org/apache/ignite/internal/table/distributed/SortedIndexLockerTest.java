@@ -26,6 +26,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -36,14 +39,21 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.Sto
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(ConfigurationExtension.class)
 class SortedIndexLockerTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 0;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -55,17 +65,23 @@ class SortedIndexLockerTest extends BaseIgniteAbstractTest {
                 PARTITION_ID,
                 new StorageSortedIndexDescriptor(
                         1,
-                        List.of(new StorageSortedIndexColumnDescriptor("c1", NativeTypes.INT32, false, true)),
+                        List.of(new StorageSortedIndexColumnDescriptor("c1", NativeTypes.INT32, false, true, false)),
                         false
                 )
         );
         indexStorage.destroy();
 
-        SortedIndexLocker locker = new SortedIndexLocker(1, PARTITION_ID, new HeapLockManager(), indexStorage, row -> binaryTuple);
+        SortedIndexLocker locker = new SortedIndexLocker(1, PARTITION_ID, lockManager(), indexStorage, row -> binaryTuple, false);
 
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(clock.now());
         CompletableFuture<@Nullable Lock> lockFuture = locker.locksForInsert(txId, mock(BinaryRow.class), new RowId(PARTITION_ID));
 
         assertThat(lockFuture, willBe(nullValue()));
+    }
+
+    private LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 }

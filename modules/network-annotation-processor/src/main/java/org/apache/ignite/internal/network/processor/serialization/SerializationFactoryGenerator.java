@@ -96,7 +96,7 @@ public class SerializationFactoryGenerator {
                                 .addAnnotation(Override.class)
                                 .addModifiers(Modifier.PUBLIC)
                                 .returns(ParameterizedTypeName.get(ClassName.get(MessageSerializer.class), message.className()))
-                                .addStatement("return new $N()", serializer)
+                                .addStatement("return $N.INSTANCE", serializer)
                                 .build()
                 )
                 .addOriginatingElement(message.element())

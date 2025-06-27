@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.raft;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 
 /**
  * Decorates a {@link RaftCommandRunner} to make sure that completion stages depending on the returned futures are always completed
@@ -39,11 +41,34 @@ public class ExecutorInclinedRaftCommandRunner implements RaftCommandRunner {
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd) {
-        CompletableFuture<R> future = commandRunner.run(cmd);
-        if (future.isDone()) {
-            return future;
+        return decorateFuture(commandRunner.run(cmd));
+    }
+
+    @Override
+    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
+        return decorateFuture(commandRunner.run(cmd, timeoutMillis));
+    }
+
+    private  <T> CompletableFuture<T> decorateFuture(CompletableFuture<T> originalFuture) {
+        if (originalFuture.isDone()) {
+            return originalFuture;
         }
 
-        return future.thenApplyAsync(identity(), completionExecutor);
+        // We can wait for replication completion right here, because client thread waits the entire operation in synchronous API in any
+        // case. Moreover, this code guarantees that the rest of the operation will execute outside a replication thread.
+        if (PublicApiThreading.executingSyncPublicApi()) {
+            try {
+                return completedFuture(originalFuture.get());
+            } catch (Exception e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+
+        return originalFuture.thenApplyAsync(identity(), completionExecutor);
+    }
+
+    /** Returns decorated Raft-client. */
+    public RaftCommandRunner decoratedCommandRunner() {
+        return commandRunner;
     }
 }

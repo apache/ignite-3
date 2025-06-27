@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.threading;
 
+import static java.lang.Thread.currentThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -29,12 +32,11 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.PublicApiThreadingTests;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-@SuppressWarnings("resource")
 class ItTablesApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
@@ -53,7 +55,7 @@ class ItTablesApiThreadingTest extends ClusterPerClassIntegrationTest {
     void futuresCompleteInContinuationsPool(TablesAsyncOperation operation) {
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> operation.executeOn(CLUSTER.aliveNode().tables())
-                        .thenApply(unused -> Thread.currentThread())
+                        .thenApply(unused -> currentThread())
         );
 
         assertThat(completerFuture, willBe(asyncContinuationPool()));
@@ -64,10 +66,10 @@ class ItTablesApiThreadingTest extends ClusterPerClassIntegrationTest {
     void futuresFromInternalCallsAreNotResubmittedToContinuationsPool(TablesAsyncOperation operation) {
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> operation.executeOn(igniteTablesForInternalUse())
-                        .thenApply(unused -> Thread.currentThread())
+                        .thenApply(unused -> currentThread())
         );
 
-        assertThat(completerFuture, willBe(anIgniteThread()));
+        assertThat(completerFuture, willBe(either(anIgniteThread()).or(is(currentThread()))));
     }
 
     private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {

@@ -28,6 +28,9 @@ public final class ConverterToMapVisitorBuilder {
     /** Include internal configuration nodes (private configuration extensions). */
     private boolean includeInternal = true;
 
+    /** Include deprecated configuration nodes. */
+    private boolean includeDeprecated = true;
+
     /** Skip nulls, empty Maps and empty lists. */
     private boolean skipEmptyValues = false;
 
@@ -42,6 +45,11 @@ public final class ConverterToMapVisitorBuilder {
         return this;
     }
 
+    public ConverterToMapVisitorBuilder includeDeprecated(boolean includeDeprecated) {
+        this.includeDeprecated = includeDeprecated;
+        return this;
+    }
+
     public ConverterToMapVisitorBuilder skipEmptyValues(boolean skipEmptyValues) {
         this.skipEmptyValues = skipEmptyValues;
         return this;
@@ -53,6 +61,6 @@ public final class ConverterToMapVisitorBuilder {
     }
 
     public ConverterToMapVisitor build() {
-        return new ConverterToMapVisitor(includeInternal, skipEmptyValues, maskSecretValues);
+        return new ConverterToMapVisitor(includeInternal, includeDeprecated, skipEmptyValues, maskSecretValues);
     }
 }

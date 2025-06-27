@@ -33,11 +33,6 @@ class AllOfTarget extends AbstractTarget {
     }
 
     @Override
-    boolean finalised() {
-        return true;
-    }
-
-    @Override
     public ExecutionTarget finalise() {
         return this;
     }
@@ -47,6 +42,11 @@ class AllOfTarget extends AbstractTarget {
         assert other instanceof AbstractTarget : other == null ? "<null>" : other.getClass().getCanonicalName();
 
         return ((AbstractTarget) other).colocate(this);
+    }
+
+    @Override
+    public ExecutionTarget trimTo(ExecutionTarget other) {
+        return this;
     }
 
     @Override

@@ -42,6 +42,9 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-network')
     implementation project(':ignite-rocksdb-common')
+    implementation project(':ignite-metrics')
+    implementation project(':ignite-failure-handler')
+    implementation project(':ignite-vault')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.disruptor
@@ -51,45 +54,59 @@ dependencies {
     implementation libs.auto.service.annotations
     implementation libs.jna
 
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.auto.service
 
-    testAnnotationProcessor project(":ignite-network-annotation-processor")
+    testAnnotationProcessor project(':ignite-network-annotation-processor')
     testAnnotationProcessor libs.jmh.annotation.processor
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-network')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-network'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-metrics:'))
+    testImplementation testFixtures(project(':ignite-raft'))
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-network')
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
     testImplementation libs.netty.common
-    testImplementation libs.hamcrest.core
     testImplementation libs.jmh.core
 
-    testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
+    testFixturesAnnotationProcessor project(':ignite-network-annotation-processor')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-network')
     testFixturesImplementation project(':ignite-raft-api')
-    testFixturesImplementation(testFixtures(project(':ignite-configuration')))
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation(testFixtures(project(':ignite-network')))
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.params
-    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation testFixtures(project(':ignite-configuration'))
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-metrics'))
+    testFixturesImplementation testFixtures(project(':ignite-network'))
+    testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
 
-    integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
-    integrationTestAnnotationProcessor project(":ignite-configuration-annotation-processor")
-    integrationTestImplementation(testFixtures(project))
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
-    integrationTestImplementation(testFixtures(project(':ignite-network')))
+    integrationTestAnnotationProcessor project(':ignite-network-annotation-processor')
+    integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    integrationTestImplementation testFixtures(project)
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-network'))
     integrationTestImplementation testFixtures(project(':ignite-workers'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-raft'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
+    integrationTestImplementation project(':ignite-vault')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-failure-handler')
-    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-configuration-system')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
+    integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-partition-replicator')
+    integrationTestImplementation project(':ignite-replicator')
+    integrationTestImplementation project(':ignite-sql-engine')
     integrationTestImplementation libs.dropwizard.metrics
+    integrationTestImplementation libs.disruptor
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -54,13 +55,11 @@ public class GroupPartitionId implements Comparable<GroupPartitionId> {
         return partId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(GroupPartitionId.class, this);
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -73,14 +72,10 @@ public class GroupPartitionId implements Comparable<GroupPartitionId> {
 
         GroupPartitionId key = (GroupPartitionId) o;
 
-        if (grpId != key.grpId) {
-            return false;
-        }
+        return grpId == key.grpId && partId == key.partId;
 
-        return partId == key.partId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         int result = grpId;
@@ -90,25 +85,19 @@ public class GroupPartitionId implements Comparable<GroupPartitionId> {
         return result;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int compareTo(GroupPartitionId o) {
-        if (getGroupId() < o.getGroupId()) {
-            return -1;
+        int cmp = Integer.compare(getGroupId(), o.getGroupId());
+
+        if (cmp != 0) {
+            return cmp;
         }
 
-        if (getGroupId() > o.getGroupId()) {
-            return 1;
-        }
+        return Integer.compare(getPartitionId(), o.getPartitionId());
+    }
 
-        if (getPartitionId() < o.getPartitionId()) {
-            return -1;
-        }
-
-        if (getPartitionId() > o.getPartitionId()) {
-            return 1;
-        }
-
-        return 0;
+    /** Converts given full page ID to a {@link GroupPartitionId}. */
+    public static GroupPartitionId convert(FullPageId fullPageId) {
+        return new GroupPartitionId(fullPageId.groupId(), fullPageId.partitionId());
     }
 }

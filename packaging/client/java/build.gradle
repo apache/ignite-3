@@ -41,10 +41,8 @@ dependencies {
     javaClient(igniteJavaClient)
 }
 
-tasks.register('createChecksums', Checksum) {
-    dependsOn distZip
-
-    inputFiles.from distZip.outputs.files
+def createChecksums = tasks.register('createChecksums', Checksum) {
+    inputFiles.from distZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 

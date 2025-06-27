@@ -17,25 +17,59 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY;
+import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_MAX_DIRTY_PAGES_SYSTEM_PROPERTY;
+import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_MIN_DIRTY_PAGES_SYSTEM_PROPERTY;
+import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.THROTTLING_TYPE_SYSTEM_PROPERTY;
 import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemPropertyView;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.LongGauge;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
+import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemoryMetricSource;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle;
+import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
+import org.apache.ignite.internal.pagememory.persistence.throttling.TargetRatioPagesWriteThrottle;
+import org.apache.ignite.internal.pagememory.persistence.throttling.ThrottlingType;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
+import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link DataRegion} for persistent case.
  */
-class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
+public class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory> {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryDataRegion.class);
+
     /**
      * Threshold to calculate limit for pages list on-heap caches.
      *
@@ -51,7 +85,12 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      */
     private static final double PAGE_LIST_CACHE_LIMIT_THRESHOLD = 0.1;
 
+    private final MetricManager metricManager;
+
     private final PersistentPageMemoryProfileConfiguration cfg;
+
+    /** Can only be null in tests. Saves us from a bunch of mocking. */
+    private final @Nullable SystemLocalConfiguration systemLocalConfig;
 
     private final PageIoRegistry ioRegistry;
 
@@ -67,56 +106,201 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
     private volatile AtomicLong pageListCacheLimit;
 
+    private final PersistentPageMemoryMetricSource metricSource;
+
+    private final Collection<PersistentPageMemoryTableStorage> tableStorages = ConcurrentHashMap.newKeySet();
+
     /**
      * Constructor.
      *
+     * @param metricManager Metric manager.
      * @param cfg Data region configuration.
+     * @param systemLocalConfig Local system configuration.
      * @param ioRegistry IO registry.
      * @param filePageStoreManager File page store manager.
      * @param partitionMetaManager Partition meta information manager.
      * @param checkpointManager Checkpoint manager.
      * @param pageSize Page size in bytes.
      */
-    public PersistentPageMemoryDataRegion(
+    PersistentPageMemoryDataRegion(
+            MetricManager metricManager,
             PersistentPageMemoryProfileConfiguration cfg,
+            @Nullable SystemLocalConfiguration systemLocalConfig,
             PageIoRegistry ioRegistry,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
             CheckpointManager checkpointManager,
             int pageSize
     ) {
+        this.metricManager = metricManager;
         this.cfg = cfg;
+        this.systemLocalConfig = systemLocalConfig;
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
 
         this.filePageStoreManager = filePageStoreManager;
         this.partitionMetaManager = partitionMetaManager;
         this.checkpointManager = checkpointManager;
+
+        metricSource = new PersistentPageMemoryMetricSource("storage." + ENGINE_NAME + "." + cfg.value().name());
     }
 
     /**
      * Starts a persistent data region.
      */
     public void start() {
-        PersistentPageMemoryProfileView dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
+        var dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
 
         PersistentPageMemory pageMemory = new PersistentPageMemory(
-                cfg,
+                regionConfiguration(dataRegionConfigView, pageSize),
+                metricSource,
                 ioRegistry,
-                calculateSegmentSizes(dataRegionConfigView.size(), Runtime.getRuntime().availableProcessors()),
-                calculateCheckpointBufferSize(dataRegionConfigView.size()),
+                calculateSegmentSizes(dataRegionConfigView.sizeBytes(), Runtime.getRuntime().availableProcessors()),
+                calculateCheckpointBufferSize(dataRegionConfigView.sizeBytes()),
                 filePageStoreManager,
-                null,
-                (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
+                this::flushDirtyPageOnReplacement,
                 checkpointManager.checkpointTimeoutLock(),
-                pageSize
+                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 
+        initThrottling(pageMemory);
+
         pageMemory.start();
+
+        initMetrics();
+
+        metricManager.registerSource(metricSource);
+        metricManager.enable(metricSource);
 
         pageListCacheLimit = new AtomicLong((long) (pageMemory.totalPages() * PAGE_LIST_CACHE_LIMIT_THRESHOLD));
 
         this.pageMemory = pageMemory;
+    }
+
+    private static PersistentDataRegionConfiguration regionConfiguration(PersistentPageMemoryProfileView cfg, int pageSize) {
+        return PersistentDataRegionConfiguration.builder()
+                .name(cfg.name())
+                .pageSize(pageSize)
+                .size(cfg.sizeBytes())
+                .replacementMode(ReplacementMode.valueOf(cfg.replacementMode()))
+                .build();
+    }
+
+    // TODO IGNITE-24933 refactor.
+    private void initThrottling(PersistentPageMemory pageMemory) {
+        ThrottlingType throttlingType = getThrottlingType();
+
+        switch (throttlingType) {
+            case DISABLED:
+                break;
+
+            case TARGET_RATIO:
+                pageMemory.initThrottling(new TargetRatioPagesWriteThrottle(
+                        getLoggingThreshold(),
+                        pageMemory,
+                        checkpointManager::currentCheckpointProgressForThrottling,
+                        checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
+                        metricSource
+                ));
+                break;
+
+            case SPEED_BASED:
+                pageMemory.initThrottling(new PagesWriteSpeedBasedThrottle(
+                        getLoggingThreshold(),
+                        getMinDirtyPages(),
+                        getMaxDirtyPages(),
+                        pageMemory,
+                        checkpointManager::currentCheckpointProgressForThrottling,
+                        checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
+                        metricSource
+                ));
+                break;
+
+            default:
+                assert false : "Impossible throttling type: " + throttlingType;
+        }
+    }
+
+    private ThrottlingType getThrottlingType() {
+        return getSystemConfig(THROTTLING_TYPE_SYSTEM_PROPERTY,
+                ThrottlingType.SPEED_BASED,
+                value -> ThrottlingType.valueOf(value.toUpperCase()),
+                "Valid values are (case-insensitive): " + Arrays.toString(ThrottlingType.values()) + "."
+        );
+    }
+
+    private long getLoggingThreshold() {
+        return TimeUnit.MILLISECONDS.toNanos(getSystemConfig(
+                THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY,
+                TimeUnit.NANOSECONDS.toMillis(PagesWriteThrottlePolicy.DEFAULT_LOGGING_THRESHOLD),
+                value -> {
+                    long logThresholdMillis = Long.parseLong(value);
+
+                    if (logThresholdMillis <= 0) {
+                        throw new IllegalArgumentException();
+                    }
+
+                    return logThresholdMillis;
+                },
+                "Positive integer is expected."
+        ));
+    }
+
+    private double getMinDirtyPages() {
+        return getSystemConfig(
+                THROTTLING_MIN_DIRTY_PAGES_SYSTEM_PROPERTY,
+                PagesWriteSpeedBasedThrottle.DEFAULT_MIN_RATIO_NO_THROTTLE,
+                value -> {
+                    double maxDirtyPages = Double.parseDouble(value);
+
+                    if (maxDirtyPages <= 0.01 || maxDirtyPages > 0.75) {
+                        throw new IllegalArgumentException();
+                    }
+
+                    return maxDirtyPages;
+                },
+                "Floating point value in a range (0.01, 0.75] is expected."
+        );
+    }
+
+    private double getMaxDirtyPages() {
+        return getSystemConfig(
+                THROTTLING_MAX_DIRTY_PAGES_SYSTEM_PROPERTY,
+                PagesWriteSpeedBasedThrottle.DEFAULT_MAX_DIRTY_PAGES,
+                value -> {
+                    double maxDirtyPages = Double.parseDouble(value);
+
+                    if (maxDirtyPages <= 0.5 || maxDirtyPages > 0.99999) {
+                        throw new IllegalArgumentException();
+                    }
+
+                    return maxDirtyPages;
+                },
+                "Floating point value in a range (0.5, 0.99999] is expected."
+        );
+    }
+
+    private <T> T getSystemConfig(String name, T defaultValue, Function<String, T> parseFunction, String extraErrorMessage) {
+        SystemPropertyView property = systemLocalConfig == null
+                ? null
+                : systemLocalConfig.value().properties().get(name);
+
+        T value = defaultValue;
+
+        try {
+            if (property != null) {
+                value = parseFunction.apply(property.propertyValue());
+            }
+        } catch (Exception e) {
+            LOG.warn(
+                    "Invalid throttling configuration {}={}, using default value {}. " + extraErrorMessage,
+                    name,
+                    property.propertyValue(),
+                    defaultValue
+            );
+        }
+
+        return value;
     }
 
     /**
@@ -125,6 +309,20 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     public void stop() throws Exception {
         if (pageMemory != null) {
             pageMemory.stop(true);
+
+            metricManager.unregisterSource(metricSource);
+        }
+    }
+
+    private void flushDirtyPageOnReplacement(
+            PersistentPageMemory pageMemory, FullPageId fullPageId, ByteBuffer byteBuffer
+    ) throws IgniteInternalCheckedException {
+        checkpointManager.writePageToDeltaFilePageStore(pageMemory, fullPageId, byteBuffer);
+
+        CheckpointProgress checkpointProgress = checkpointManager.currentCheckpointProgress();
+
+        if (checkpointProgress != null) {
+            checkpointProgress.evictedPagesCounter().incrementAndGet();
         }
     }
 
@@ -216,5 +414,60 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         if (pageMemory == null) {
             throw new StorageException("Data region not started");
         }
+    }
+
+    void addTableStorage(PersistentPageMemoryTableStorage tableStorage) {
+        boolean add = tableStorages.add(tableStorage);
+
+        assert add : tableStorage.getTableId();
+    }
+
+    void removeTableStorage(PersistentPageMemoryTableStorage tableStorage) {
+        tableStorages.remove(tableStorage);
+    }
+
+    private void initMetrics() {
+        metricSource.addMetric(new LongGauge(
+                "TotalAllocatedSize",
+                "Total size of allocated pages on disk in bytes.",
+                this::totalAllocatedPagesSizeOnDiskInBytes
+        ));
+        metricSource.addMetric(new LongGauge(
+                "TotalUsedSize",
+                "Total size of non-empty allocated pages on disk in bytes.",
+                this::totalNonEmptyAllocatedPagesSizeOnDiskInBytes
+        ));
+    }
+
+    private long totalAllocatedPagesSizeOnDiskInBytes() {
+        long pageCount = 0;
+
+        for (PersistentPageMemoryTableStorage tableStorage : tableStorages) {
+            for (PersistentPageMemoryMvPartitionStorage partitionStorage : tableStorage.mvPartitionStorages.getAll()) {
+                pageCount += allocatedPageCountOnDisk(tableStorage.getTableId(), partitionStorage.partitionId());
+            }
+        }
+
+        return pageCount * pageSize;
+    }
+
+    private long totalNonEmptyAllocatedPagesSizeOnDiskInBytes() {
+        long pageCount = 0;
+
+        for (PersistentPageMemoryTableStorage tableStorage : tableStorages) {
+            for (PersistentPageMemoryMvPartitionStorage partitionStorage : tableStorage.mvPartitionStorages.getAll()) {
+                pageCount += allocatedPageCountOnDisk(tableStorage.getTableId(), partitionStorage.partitionId());
+
+                pageCount -= partitionStorage.emptyDataPageCountInFreeList();
+            }
+        }
+
+        return pageCount * pageSize;
+    }
+
+    private long allocatedPageCountOnDisk(int tableId, int partitionId) {
+        FilePageStore store = filePageStoreManager.getStore(new GroupPartitionId(tableId, partitionId));
+
+        return store == null ? 0 : store.pages();
     }
 }

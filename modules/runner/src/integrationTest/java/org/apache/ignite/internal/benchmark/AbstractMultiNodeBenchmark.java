@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.benchmark;
 
-import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -28,20 +26,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
+import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
@@ -62,41 +61,59 @@ public class AbstractMultiNodeBenchmark {
 
     protected static final String FIELD_VAL = "a".repeat(100);
 
+    protected static final String FIELD_VAL_WITH_SPACES = FIELD_VAL + "   ";
+
     protected static final String TABLE_NAME = "USERTABLE";
 
     protected static final String ZONE_NAME = TABLE_NAME + "_ZONE";
 
-    protected static IgniteImpl clusterNode;
+    private final List<IgniteServer> igniteServers = new ArrayList<>();
 
-    @Param({"false", "true"})
+    protected static Ignite publicIgnite;
+    protected static IgniteImpl igniteImpl;
+
+    @Param({"false"})
     private boolean fsync;
+
+    @Nullable
+    protected String clusterConfiguration() {
+        return "ignite {}";
+    }
 
     /**
      * Starts ignite node and creates table {@link #TABLE_NAME}.
      */
     @Setup
-    public final void nodeSetUp() throws Exception {
+    public void nodeSetUp() throws Exception {
         System.setProperty("jraft.available_processors", "2");
-        startCluster();
+        if (!remote()) {
+            startCluster();
+        }
 
         try {
-            var queryEngine = clusterNode.queryEngine();
+            // Create a new zone on the cluster's start-up.
+            createDistributionZoneOnStartup();
 
-            var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
-                    + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
-
-            getAllFromCursor(
-                    await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createZoneStatement
-                    ))
-            );
-
-            createTable(TABLE_NAME);
+            // Create tables on the cluster's start-up.
+            createTablesOnStartup();
         } catch (Throwable th) {
             nodeTearDown();
 
             throw th;
         }
+    }
+
+    protected void createDistributionZoneOnStartup() {
+        var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " (partitions " + partitionCount()
+                + ", replicas " + replicaCount() + ") storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
+
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createZoneStatement)) {
+            // No-op.
+        }
+    }
+
+    protected void createTablesOnStartup() {
+        createTable(TABLE_NAME);
     }
 
     protected void createTable(String tableName) {
@@ -120,7 +137,7 @@ public class AbstractMultiNodeBenchmark {
     }
 
     protected static void createTable(String tableName, List<String> columns, List<String> primaryKeys, List<String> colocationKeys) {
-        var createTableStatement = "CREATE TABLE " + tableName + "(\n";
+        var createTableStatement = "CREATE TABLE IF NOT EXISTS " + tableName + "(\n";
 
         createTableStatement += String.join(",\n", columns);
         createTableStatement += "\n, PRIMARY KEY (" + String.join(", ", primaryKeys) + ")\n)";
@@ -129,17 +146,15 @@ public class AbstractMultiNodeBenchmark {
             createTableStatement += "\nCOLOCATE BY (" + String.join(", ", colocationKeys) + ")";
         }
 
-        createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
+        createTableStatement += "\nZONE " + ZONE_NAME;
 
-        getAllFromCursor(
-                await(clusterNode.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
-                ))
-        );
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createTableStatement)) {
+            // No-op.
+        }
     }
 
     static void populateTable(String tableName, int size, int batchSize) {
-        RecordView<Tuple> view = clusterNode.tables().table(tableName).recordView();
+        RecordView<Tuple> view = publicIgnite.tables().table(tableName).recordView();
 
         Tuple payload = Tuple.create();
         for (int j = 1; j <= 10; j++) {
@@ -149,7 +164,7 @@ public class AbstractMultiNodeBenchmark {
         batchSize = Math.min(size, batchSize);
         List<Tuple> batch = new ArrayList<>(batchSize);
         for (int i = 0; i < size; i++) {
-            batch.add(Tuple.create(payload).set("ycsb_key", i));
+            batch.add(Tuple.copy(payload).set("ycsb_key", i));
 
             if (batch.size() == batchSize) {
                 view.insertAll(null, batch);
@@ -171,33 +186,41 @@ public class AbstractMultiNodeBenchmark {
      * @throws Exception In case of any error.
      */
     @TearDown
-    public final void nodeTearDown() throws Exception {
-        List<AutoCloseable> closeables = IntStream.range(0, nodes())
-                .mapToObj(i -> nodeName(BASE_PORT + i))
-                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
+    public void nodeTearDown() throws Exception {
+        IgniteUtils.closeAll(igniteServers.stream().map(node -> node::shutdown));
     }
 
     private void startCluster() throws Exception {
+        if (remote()) {
+            throw new AssertionError("Can't start the cluster in remote mode");
+        }
+
         Path workDir = workDir();
 
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
-        List<CompletableFuture<Ignite>> futures = new ArrayList<>();
-
         @Language("HOCON")
-        String configTemplate = "{\n"
+        String configTemplate = "ignite {\n"
                 + "  \"network\": {\n"
                 + "    \"port\":{},\n"
                 + "    \"nodeFinder\":{\n"
                 + "      \"netClusterNodes\": [ {} ]\n"
                 + "    }\n"
                 + "  },\n"
+                + "  storage.profiles: {"
+                + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
+                + "        " + DEFAULT_STORAGE_PROFILE + ".sizeBytes: 2073741824 " // Avoid page replacement.
+                + "  },\n"
                 + "  clientConnector: { port:{} },\n"
+                + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                 + "  rest.port: {},\n"
-                + "  raft.fsync = " + fsync
+                + "  raft.fsync = " + fsync() + ",\n"
+                + "  system.partitionsLogPath = \"" + logPath() + "\",\n"
+                + "  failureHandler.handler: {\n"
+                + "      type: \"" + StopNodeOrHaltFailureHandlerConfigurationSchema.TYPE + "\",\n"
+                + "      tryStop: true,\n"
+                + "      timeoutMillis: 60000,\n" // 1 minute for graceful shutdown
+                + "  },\n"
                 + "}";
 
         for (int i = 0; i < nodes(); i++) {
@@ -207,26 +230,25 @@ public class AbstractMultiNodeBenchmark {
             String config = IgniteStringFormatter.format(configTemplate, port, connectNodeAddr,
                     BASE_CLIENT_PORT + i, BASE_REST_PORT + i);
 
-            futures.add(TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
+            igniteServers.add(TestIgnitionManager.startWithProductionDefaults(nodeName, config, workDir.resolve(nodeName)));
         }
 
         String metaStorageNodeName = nodeName(BASE_PORT);
 
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .metaStorageNodeNames(metaStorageNodeName)
                 .clusterName("cluster")
+                .clusterConfiguration(clusterConfiguration())
                 .build();
 
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(igniteServers.get(0), initParameters);
 
-        for (CompletableFuture<Ignite> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
+        for (IgniteServer node : igniteServers) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-            if (clusterNode == null) {
-                clusterNode = (IgniteImpl) await(future);
-            } else {
-                await(future);
+            if (publicIgnite == null) {
+                publicIgnite = node.api();
+                igniteImpl = unwrapIgniteImpl(publicIgnite);
             }
         }
     }
@@ -239,11 +261,27 @@ public class AbstractMultiNodeBenchmark {
         return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
     }
 
+    protected String logPath() {
+        return "";
+    }
+
+    protected boolean fsync() {
+        return fsync;
+    }
+
     protected int nodes() {
         return 3;
     }
 
     protected int partitionCount() {
         return CatalogUtils.DEFAULT_PARTITION_COUNT;
+    }
+
+    protected int replicaCount() {
+        return CatalogUtils.DEFAULT_REPLICA_COUNT;
+    }
+
+    protected boolean remote() {
+        return false;
     }
 }

@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -27,6 +28,7 @@ import static org.hamcrest.Matchers.equalToCompressingWhiteSpace;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.typesafe.config.ConfigFactory;
@@ -40,11 +42,14 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
@@ -90,13 +95,16 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeEach
     void before() {
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, null);
+        LocalFileConfigurationModule module = new LocalFileConfigurationModule();
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, module);
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
                 storage,
                 treeGenerator,
-                new ConfigurationValidatorImpl(treeGenerator, Set.of())
+                new ConfigurationValidatorImpl(treeGenerator, Set.of()),
+                change -> {},
+                KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes())
         );
     }
 
@@ -129,7 +137,6 @@ public class LocalFileConfigurationStorageTest {
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
 
         changer.start();
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         topConfiguration.namedList().change(b -> b.create("name1", x -> {
             x.changeStrVal("strVal1");
@@ -225,7 +232,6 @@ public class LocalFileConfigurationStorageTest {
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
 
         changer.start();
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         topConfiguration.shortVal().update((short) 3).get();
         // And
@@ -320,7 +326,6 @@ public class LocalFileConfigurationStorageTest {
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
 
         changer.start();
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         topConfiguration.namedList().change(b -> {
             b.create("name1", x -> {
@@ -469,7 +474,6 @@ public class LocalFileConfigurationStorageTest {
 
         // When update configuration
         changer.start();
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
 
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
         topConfiguration.namedList().change(b -> b.create("name1", x -> {
@@ -541,6 +545,64 @@ public class LocalFileConfigurationStorageTest {
         assertDoesNotThrow(storage::readDataOnRecovery);
     }
 
+    @Test
+    void testValidateDuplicates() throws IOException {
+        // Given config in JSON format
+        String fileContent
+                = "top {\n"
+                + "    inner {\n"
+                + "        boolVal=false,\n"
+                + "        boolVal=true\n"
+                + "        someConfigurationValue {\n"
+                + "            intVal=1\n"
+                + "            strVal=foo\n"
+                + "        }\n"
+                + "        strVal=foo\n"
+                + "    }\n"
+                + "    shortVal=3\n"
+                + "}\n";
+
+        Path configFile = getConfigFile();
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // And storage detects duplicates
+        assertThrows(
+                ConfigurationValidationException.class,
+                changer::start,
+                "Validation did not pass for keys: [top.inner.boolVal, Duplicated key]"
+        );
+    }
+
+    @Test
+    void testReadDataOnStartupWithDeletedProperty() throws IOException {
+        // Given config in JSON format
+        String fileContent = "top.deleted_property = 3";
+
+        Path configFile = getConfigFile();
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // Deleted properties are ignored and removed from the storage.
+        assertDoesNotThrow(changer::start);
+        assertThat(storage.readLatest("top.deleted_property"), willBe(nullValue()));
+    }
+
+    @Test
+    void testReadDataOnStartupWithRenamedProperty() throws IOException {
+        // Given config in JSON format
+        String fileContent = "top.oldShortValName = 3";
+
+        Path configFile = getConfigFile();
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // Storage handles renamed property.
+        assertDoesNotThrow(changer::start);
+
+        assertThat(storage.readLatest("top.shortVal"), willBe((short) 3));
+    }
+
     private String configFileContent() throws IOException {
         return Files.readString(getConfigFile());
     }
@@ -559,7 +621,12 @@ public class LocalFileConfigurationStorageTest {
         public InnerConfigurationSchema inner;
 
         @Value(hasDefault = true)
+        @PublicName(legacyNames = "oldShortValName")
         public short shortVal = 1;
+
+        @Deprecated
+        @Value(hasDefault = true)
+        public int deprecated = 0;
     }
 
 

@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import java.lang.reflect.Type;
-import java.math.BigDecimal;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.ExpressionType;
 import org.apache.calcite.linq4j.tree.Expressions;
+import org.apache.calcite.linq4j.tree.Primitive;
+import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.jetbrains.annotations.Nullable;
 
 /** Calcite liq4j expressions customized for Ignite. */
 public class IgniteExpressions {
@@ -40,6 +43,12 @@ public class IgniteExpressions {
             default:
                 return Expressions.makeBinary(binaryType, left, right);
         }
+    }
+
+    /** Make decimal division expression. */
+    public static Expression makeDecimalDivision(Expression left, Expression right, int precision, int scale) {
+        return Expressions.call(IgniteMath.class, "decimalDivide", left, right,
+                Expressions.constant(precision, int.class), Expressions.constant(scale, int.class));
     }
 
     /** Make unary expression with arithmetic operations override. */
@@ -97,49 +106,46 @@ public class IgniteExpressions {
         return Expressions.makeBinary(ExpressionType.Divide, left, right);
     }
 
-    /** Generate expression for method IgniteMath.convertToIntExact(). */
-    public static Expression convertToIntExact(Expression exp) {
-        Type type = exp.getType();
+    /** Generate expression to verify bounds of temporal types. */
+    public static Expression addBoundsCheckIfNeeded(SqlTypeName type, Expression expr) {
+        String methodName;
 
-        if (type == Long.TYPE || type == Long.class) {
-            return Expressions.call(IgniteMath.class, "convertToIntExact", exp);
+        switch (type) {
+            case DATE:
+                methodName = "toDateExact";
+                break;
+
+            case TIMESTAMP:
+                methodName = "toTimestampExact";
+                break;
+
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                methodName = "toTimestampLtzExact";
+                break;
+
+            default:
+                return expr;
         }
 
-        return exp;
+        return Expressions.call(IgniteSqlFunctions.class, methodName, expr);
     }
 
-    /** Generate expression for method IgniteMath.convertToIntExact(). */
-    public static Expression convertToLongExact(Expression exp) {
-        Type type = exp.getType();
-
-        if (type == BigDecimal.class || type == String.class) {
-            return Expressions.call(IgniteMath.class, "convertToLongExact", exp);
+    static Expression convertChecked(Expression exp, Primitive fromPrimitive, Primitive toPrimitive) {
+        if (fromPrimitive.ordinal() <= toPrimitive.ordinal() || !toPrimitive.isFixedNumeric()) {
+            return Expressions.convert_(exp, toPrimitive.primitiveClass);
         }
 
-        return exp;
+        return Expressions.call(IgniteMath.class, "convertTo"
+                + SqlFunctions.initcap(toPrimitive.primitiveName) + "Exact", exp);
     }
 
-    /** Generate expression for method IgniteMath.convertToShortExact(). */
-    public static Expression convertToShortExact(Expression exp) {
-        Type type = exp.getType();
-
-        if (type == Long.TYPE || type == Long.class || type == Integer.TYPE || type == Integer.class || type == BigDecimal.class) {
-            return Expressions.call(IgniteMath.class, "convertToShortExact", exp);
+    static Expression unboxChecked(Expression exp, @Nullable Primitive fromBox, Primitive toPrimitive) {
+        if ((fromBox != null && fromBox.ordinal() <= toPrimitive.ordinal()) || !toPrimitive.isFixedNumeric()) {
+            return Expressions.unbox(exp, toPrimitive);
         }
 
-        return exp;
-    }
-
-    /** Generate expression for method IgniteMath.convertToByteExact(). */
-    public static Expression convertToByteExact(Expression exp) {
-        Type type = exp.getType();
-
-        if (type == Long.TYPE || type == Long.class || type == Integer.TYPE || type == Integer.class
-                || type == Short.TYPE || type == Short.class || type == BigDecimal.class) {
-            return Expressions.call(IgniteMath.class, "convertToByteExact", exp);
-        }
-
-        return exp;
+        return Expressions.call(IgniteMath.class, "convertTo"
+                + SqlFunctions.initcap(toPrimitive.primitiveName) + "Exact", exp);
     }
 
     /** Generate expression for method IgniteMath.negateExact() for integer subtypes. */

@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "ignite/common/ignite_type.h"
 #include "ignite/odbc/app/parameter.h"
 #include "ignite/protocol/writer.h"
 
@@ -30,6 +29,62 @@ namespace ignite {
  * Parameter set.
  */
 class parameter_set {
+public:
+    /**
+     * Default constructor.
+     */
+    parameter_set() = default;
+
+    /**
+     * Destructor.
+     */
+    virtual ~parameter_set() = default;
+
+    /**
+     * Write only the first row of the param set using a provided writer.
+     *
+     * @param writer Writer.
+     */
+    virtual void write(protocol::writer &writer) const = 0;
+
+    /**
+     * Write rows of the param set in an interval [begin, end) using a provided writer.
+     *
+     * @param writer Writer.
+     * @param begin Beginning of the interval.
+     * @param end End of the interval.
+     * @param last Last page flag.
+     */
+    virtual void write(protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const = 0;
+
+    /**
+     * Get parameter set size.
+     *
+     * @return Number of rows in a set.
+     */
+    [[nodiscard]] virtual std::int32_t get_param_set_size() const = 0;
+
+    /**
+     * Set the number of parameters processed in batch.
+     *
+     * @param processed Processed.
+     */
+    virtual void set_params_processed(SQLULEN processed) = 0;
+
+    /**
+     * Get pointer to array in which to return the status of each
+     * set of parameters.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] virtual SQLUSMALLINT *get_params_status_ptr() const = 0;
+};
+
+
+/**
+ * Parameter set implementation.
+ */
+class parameter_set_impl : public parameter_set {
     /** Parameter binging map type alias. */
     typedef std::map<std::uint16_t, parameter> parameter_binding_map;
 
@@ -37,16 +92,16 @@ public:
     /**
      * Default constructor.
      */
-    parameter_set() = default;
+    parameter_set_impl() = default;
 
     // Deleted
-    parameter_set(parameter_set &&) = delete;
-    parameter_set(const parameter_set &) = delete;
-    parameter_set &operator=(parameter_set &&) = delete;
-    parameter_set &operator=(const parameter_set &) = delete;
+    parameter_set_impl(parameter_set_impl &&) = delete;
+    parameter_set_impl(const parameter_set_impl &) = delete;
+    parameter_set_impl &operator=(parameter_set_impl &&) = delete;
+    parameter_set_impl &operator=(const parameter_set_impl &) = delete;
 
     /**
-     * Set m_parameters set size.
+     * Set parameters set size.
      *
      * @param size Size of the parameter set.
      */
@@ -68,14 +123,14 @@ public:
     void unbind_parameter(std::uint16_t param_idx);
 
     /**
-     * Unbind all m_parameters.
+     * Unbind all parameters.
      */
     void unbind_all();
 
     /**
-     * Get number of bound m_parameters.
+     * Get number of bound parameters.
      *
-     * @return Number of bound m_parameters.
+     * @return Number of bound parameters.
      */
     [[nodiscard]] std::uint16_t get_parameters_number() const;
 
@@ -94,7 +149,7 @@ public:
     int *get_param_bind_offset_ptr();
 
     /**
-     * Prepare m_parameters set for statement execution.
+     * Prepare parameters set for statement execution.
      */
     void prepare();
 
@@ -126,7 +181,7 @@ public:
      * @param idx Index.
      * @return parameter or null, if parameter is not bound.
      */
-    const parameter *get_parameter(std::uint16_t idx) const;
+    [[nodiscard]] const parameter *get_parameter(std::uint16_t idx) const;
 
     /**
      * Get selected parameter.
@@ -143,19 +198,20 @@ public:
     parameter *select_next_parameter();
 
     /**
-     * Write only first row of the param set using provided writer.
+     * Write only the first row of the param set using a provided writer.
      * @param writer Writer.
      */
-    void write(protocol::writer &writer) const;
+    void write(protocol::writer &writer) const override;
 
     /**
-     * Write rows of the param set in interval [begin, end) using provided writer.
+     * Write rows of the param set in the interval [begin, end) using a provided writer.
+     *
      * @param writer Writer.
      * @param begin Beginning of the interval.
      * @param end End of the interval.
      * @param last Last page flag.
      */
-    void write(protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const;
+    void write(protocol::writer &writer, SQLULEN begin, SQLULEN end, bool last) const override;
 
     /**
      * Calculate row length.
@@ -167,44 +223,44 @@ public:
     /**
      * Get parameter set size.
      *
-     * @return Number of rows in set.
+     * @return Number of rows in a set.
      */
-    [[nodiscard]] std::int32_t get_param_set_size() const;
+    [[nodiscard]] std::int32_t get_param_set_size() const override;
 
     /**
-     * Set number of m_parameters processed in batch.
+     * Set the number of parameters processed in batch.
      *
      * @param processed Processed.
      */
-    void set_params_processed(SQLULEN processed) const;
+    void set_params_processed(SQLULEN processed) override;
 
     /**
-     * Number of processed params should be written using provided address.
+     * The number of processed params should be written using the provided address.
      *
      * @param ptr Pointer.
      */
     void set_params_processed_ptr(SQLULEN *ptr);
 
     /**
-     * Get pointer to write number of m_parameters processed in batch.
+     * Get a pointer to write number of parameters processed in batch.
      *
-     * @return Pointer to write number of m_parameters processed in batch.
+     * @return Pointer to write number of parameters processed in batch.
      */
     [[nodiscard]] SQLULEN *get_params_processed_ptr() const;
 
     /**
      * Set pointer to array in which to return the status of each
-     * set of m_parameters.
+     * set of parameters.
      * @param value Value.
      */
     void set_params_status_ptr(SQLUSMALLINT *value);
 
     /**
      * Get pointer to array in which to return the status of each
-     * set of m_parameters.
+     * set of parameters.
      * @return Value.
      */
-    [[nodiscard]] SQLUSMALLINT *get_params_status_ptr() const;
+    [[nodiscard]] SQLUSMALLINT *get_params_status_ptr() const override;
 
     /**
      * Set parameter status.
@@ -215,7 +271,7 @@ public:
 
 private:
     /**
-     * Write single row of the param set using provided writer.
+     * Write a single row of the param set using a provided writer.
      * @param writer Writer.
      * @param idx Row index.
      */
@@ -224,10 +280,10 @@ private:
     /** Parameters. */
     parameter_binding_map m_params{};
 
-    /** Offset added to pointers to change binding of m_parameters. */
+    /** Offset added to pointers to change binding of parameters. */
     int *m_param_bind_offset{nullptr};
 
-    /** Processed m_parameters. */
+    /** Processed parameters. */
     SQLULEN *m_processed_param_rows{nullptr};
 
     /** Parameters status. */
@@ -236,7 +292,7 @@ private:
     /** Parameter set size. */
     SQLULEN m_param_set_size{1};
 
-    /** Current position in parameter set. */
+    /** Current position in a parameter set. */
     SQLULEN m_param_set_pos{0};
 
     /** Index of the parameter, which is currently being set. */

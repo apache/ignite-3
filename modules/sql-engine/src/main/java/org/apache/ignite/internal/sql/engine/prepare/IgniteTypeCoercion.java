@@ -18,26 +18,30 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.linq4j.Nullness.castNonNull;
 import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
+import static org.apache.calcite.sql.validate.SqlNonNullableAccessors.getScope;
 import static org.apache.calcite.util.Static.RESOURCE;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.typeFamiliesAreCompatible;
 
 import java.nio.charset.Charset;
-import java.util.ArrayDeque;
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
+import java.util.Set;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.rel.type.DynamicRecordType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCollation;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDynamicParam;
-import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
@@ -47,9 +51,11 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.fun.SqlCase;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
+import org.apache.calcite.sql.type.SqlTypeMappingRule;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -59,16 +65,13 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Implicit type cast implementation. */
 public class IgniteTypeCoercion extends TypeCoercionImpl {
-
-    // We are using thread local here b/c TypeCoercion is expected to be stateless.
-    private static final ThreadLocal<ContextStack> contextStack = ThreadLocal.withInitial(ContextStack::new);
-
     private final IgniteTypeFactory typeFactory;
 
     public IgniteTypeCoercion(RelDataTypeFactory typeFactory, SqlValidator validator) {
@@ -79,223 +82,384 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     /** {@inheritDoc} **/
     @Override
     public boolean binaryComparisonCoercion(SqlCallBinding binding) {
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.UNSPECIFIED);
-        try {
-            return doBinaryComparisonCoercion(binding);
-        } finally {
-            ctxStack.pop(ctx);
-        }
-    }
-
-    private boolean doBinaryComparisonCoercion(SqlCallBinding binding) {
-        // Although it is not reflected in the docs, this method is also invoked for MAX, MIN (and other similar operators)
-        // by ComparableOperandTypeChecker. When that is the case, fallback to default rules.
         SqlCall call = binding.getCall();
         if (binding.getOperandCount() != 2 || !SqlKind.BINARY_COMPARISON.contains(call.getKind())) {
             return super.binaryComparisonCoercion(binding);
         }
 
-        SqlValidatorScope scope = binding.getScope();
         RelDataType leftType = binding.getOperandType(0);
         RelDataType rightType = binding.getOperandType(1);
 
-        //
-        // binaryComparisonCoercion that makes '1' > 1 work, may introduce some inconsistent results
-        // for dynamic parameters:
-        //
-        // SELECT * FROM t WHERE int_col > ?:str
-        // Rejected: int and str do not have compatible type families.
-        //
-        // SELECT * FROM t WHERE str_col > ?:int
-        // Accepted: as it adds implicit cast to 'str_col' and we end up with
-        //
-        // SELECT * FROM t WHERE int(str_col) = ?:int
-        //
-        // Which is a perfectly valid plan, but it is not what one might expect.
+        if (!typeFamiliesAreCompatible(typeFactory, leftType, rightType)) {
+            return false;
+        }
+
         validateBinaryComparisonCoercion(binding, leftType, rightType, (IgniteSqlValidator) validator);
 
+        // If types are equal, no need in coercion.
         if (leftType.equals(rightType)) {
-            // If types are the same fallback to default rules.
-            return super.binaryComparisonCoercion(binding);
-        } else {
-            // Otherwise find the least restrictive type among the operand types
-            // and coerce the operands to that type if such type exists.
-            //
-            // An example of a least restrictive type from the javadoc for RelDataTypeFactory::leastRestrictive:
-            // leastRestrictive(INT, NUMERIC(3, 2)) could be NUMERIC(12, 2)
-            //
-            // A least restrictive type between types of different type families does not exist -
-            // the method returns null (See SqlTypeFactoryImpl::leastRestrictive).
-            //
-            RelDataType targetType = factory.leastRestrictive(Arrays.asList(leftType, rightType));
-
-            if (targetType == null) {
-                // If least restrictive type does not exist fallback to default rules.
-                return super.binaryComparisonCoercion(binding);
-            } else {
-                boolean coerced = false;
-
-                if (!leftType.equals(targetType)) {
-                    coerced = coerceOperandType(scope, call, 0, targetType);
-                }
-
-                if (!rightType.equals(targetType)) {
-                    boolean rightCoerced = coerceOperandType(scope, call, 1, targetType);
-                    coerced = coerced || rightCoerced;
-                }
-
-                return coerced;
-            }
+            return false;
         }
+
+        // Otherwise find the least restrictive type among the operand types
+        // and coerce the operands to that type if such type exists.
+        //
+        // An example of a least restrictive type from the javadoc for RelDataTypeFactory::leastRestrictive:
+        // leastRestrictive(INT, NUMERIC(3, 2)) could be NUMERIC(12, 2)
+        //
+        // A least restrictive type between types of different type families does not exist -
+        // the method returns null (See SqlTypeFactoryImpl::leastRestrictive).
+        //
+        RelDataType targetType = factory.leastRestrictive(Arrays.asList(leftType, rightType));
+
+        if (targetType == null) {
+            return false;
+        }
+
+        boolean coerced = false;
+        SqlValidatorScope scope = binding.getScope();
+
+        if (!leftType.equals(targetType)) {
+            coerced = coerceOperandType(scope, call, 0, targetType);
+        }
+
+        if (!rightType.equals(targetType)) {
+            boolean rightCoerced = coerceOperandType(scope, call, 1, targetType);
+            coerced = coerced || rightCoerced;
+        }
+
+        return coerced;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean binaryArithmeticCoercion(SqlCallBinding binding) {
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.UNSPECIFIED);
-
-        try {
-            // Called from CompositeOperandTypeChecker that does not care whether this is a binary arithmetic or not.
-            if (binding.getOperandCount() == 2 && SqlKind.BINARY_ARITHMETIC.contains(binding.getCall().getKind())) {
-                RelDataType leftType = binding.getOperandType(0);
-                RelDataType rightType = binding.getOperandType(1);
-
-                validateBinaryOperation(binding, leftType, rightType);
-            }
-
-            return super.binaryArithmeticCoercion(binding);
-        } finally {
-            ctxStack.pop(ctx);
+        if (binding.getOperandCount() != 2) {
+            return super.binaryComparisonCoercion(binding);
         }
+
+        RelDataType leftType = binding.getOperandType(0);
+        RelDataType rightType = binding.getOperandType(1);
+
+        //noinspection SimplifiableIfStatement
+        if (!typeFamiliesAreCompatible(typeFactory, leftType, rightType)) {
+            return false;
+        }
+
+        return super.binaryArithmeticCoercion(binding);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean builtinFunctionCoercion(SqlCallBinding binding, List<RelDataType> operandTypes, List<SqlTypeFamily> expectedFamilies) {
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.UNSPECIFIED);
-        try {
-            validateFunctionOperands(binding, operandTypes, expectedFamilies);
+        // if there is any unspecified dynamic params, let's throw a refined exception
+        validateFunctionOperands(binding, operandTypes, expectedFamilies);
 
-            return super.builtinFunctionCoercion(binding, operandTypes, expectedFamilies);
-        } finally {
-            ctxStack.pop(ctx);
-        }
-    }
+        boolean typesAreCompatible = true;
+        if (binding.getOperandCount() == 2 && SqlKind.BINARY_ARITHMETIC.contains(binding.getCall().getKind())) {
+            RelDataType leftType = binding.getOperandType(0);
+            RelDataType rightType = binding.getOperandType(1);
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean userDefinedFunctionCoercion(SqlValidatorScope scope, SqlCall call, SqlFunction function) {
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.UNSPECIFIED);
-        try {
-            return super.userDefinedFunctionCoercion(scope, call, function);
-        } finally {
-            ctxStack.pop(ctx);
+            if (!typeFamiliesAreCompatible(typeFactory, leftType, rightType)) {
+                typesAreCompatible = false;
+            }
+        } else {
+            assert operandTypes.size() == expectedFamilies.size();
+
+            for (int i = 0; i < operandTypes.size(); i++) {
+                RelDataType typeFromExpectedFamily = expectedFamilies.get(i).getDefaultConcreteType(typeFactory);
+
+                if (typeFromExpectedFamily == null) {
+                    // function may accept literally ANY value
+                    continue;
+                }
+
+                if (!typeFamiliesAreCompatible(typeFactory, typeFromExpectedFamily, operandTypes.get(i))) {
+                    typesAreCompatible = false;
+
+                    break;
+                }
+            }
         }
+
+        //noinspection SimplifiableIfStatement
+        if (!typesAreCompatible) {
+            return false;
+        }
+
+        return super.builtinFunctionCoercion(binding, operandTypes, expectedFamilies);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean inOperationCoercion(SqlCallBinding binding) {
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.IN);
-        try {
-            return super.inOperationCoercion(binding);
-        } finally {
-            ctxStack.pop(ctx);
+        SqlOperator operator = binding.getOperator();
+        if (!operatorIsInOrQuantify(operator)) {
+            return false;
         }
+
+        assert binding.getOperandCount() == 2;
+
+        RelDataType type1 = binding.getOperandType(0);
+        RelDataType type2 = binding.getOperandType(1);
+
+        RelDataType leftRowType = SqlTypeUtil.promoteToRowType(
+                typeFactory, type1, null
+        );
+        RelDataType rightRowType = SqlTypeUtil.promoteToRowType(
+                typeFactory, type2, null
+        );
+
+        if (!typeFamiliesAreCompatible(typeFactory, leftRowType, rightRowType)) {
+            return false;
+        }
+
+        if (operatorIsQuantify(operator)) {
+            return quantifyOperationCoercion(binding);
+        }
+
+        return super.inOperationCoercion(binding);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean rowTypeCoercion(@Nullable SqlValidatorScope scope, SqlNode query,
-            int columnIndex, RelDataType targetType) {
+    private static boolean operatorIsIn(SqlOperator operator) {
+        return operator.getKind().belongsTo(Set.of(SqlKind.IN, SqlKind.NOT_IN));
+    }
 
-        ContextStack ctxStack = contextStack.get();
+    private static boolean operatorIsQuantify(SqlOperator operator) {
+        return operator.getKind().belongsTo(Set.of(SqlKind.SOME, SqlKind.ALL));
+    }
 
-        Context ctx;
-        if (ctxStack.currentContext() == ContextType.MODIFY) {
-            // If current context is MODIFY, this means that rowTypeCoercion is called
-            // for INSERT INTO of NOT MATCHED arm of MERGE statement.
-            ctx = ctxStack.push(ContextType.INSERT);
-        } else {
-            // Otherwise it is a set operation.
-            ctx = ctxStack.push(ContextType.SET_OP);
+    private static boolean operatorIsInOrQuantify(SqlOperator operator) {
+        return operatorIsIn(operator) || operatorIsQuantify(operator);
+    }
+
+    private boolean quantifyOperationCoercion(SqlCallBinding binding) {
+        // This method is a copy-paste of org.apache.calcite.sql.validate.implicit.TypeCoercionImpl.inOperationCoercion
+        // with stripped validation of operation kind.
+        assert operatorIsQuantify(binding.getOperator());
+        assert binding.getOperandCount() == 2;
+
+        RelDataType type1 = binding.getOperandType(0);
+        RelDataType type2 = binding.getOperandType(1);
+        SqlNode node1 = binding.operand(0);
+        SqlNode node2 = binding.operand(1);
+        SqlValidatorScope scope = binding.getScope();
+
+        if (type1.isStruct() && type2.isStruct() && type1.getFieldCount() != type2.getFieldCount()) {
+            return false;
         }
 
-        try {
-            return super.rowTypeCoercion(scope, query, columnIndex, targetType);
-        } finally {
-            ctxStack.pop(ctx);
+        int colCount = type1.isStruct() ? type1.getFieldCount() : 1;
+        RelDataType[] argTypes = new RelDataType[2];
+        argTypes[0] = type1;
+        argTypes[1] = type2;
+        boolean coerced = false;
+        List<RelDataType> widenTypes = new ArrayList<>();
+        for (int i = 0; i < colCount; i++) {
+            int i2 = i;
+            List<RelDataType> columnIthTypes = new AbstractList<>() {
+                @Override
+                public RelDataType get(int index) {
+                    return argTypes[index].isStruct() ? argTypes[index].getFieldList().get(i2).getType() : argTypes[index];
+                }
+
+                @Override
+                public int size() {
+                    return argTypes.length;
+                }
+            };
+
+            RelDataType widenType = commonTypeForBinaryComparison(columnIthTypes.get(0), columnIthTypes.get(1));
+            if (widenType == null) {
+                widenType = getTightestCommonType(columnIthTypes.get(0), columnIthTypes.get(1));
+            }
+            if (widenType == null) {
+                // Can not find any common type, just return early.
+                return false;
+            }
+            widenTypes.add(widenType);
         }
+        // Find all the common type for RSH and LSH columns.
+        assert widenTypes.size() == colCount;
+        for (int i = 0; i < widenTypes.size(); i++) {
+            RelDataType desired = widenTypes.get(i);
+            // LSH maybe a row values or single node.
+            if (node1.getKind() == SqlKind.ROW) {
+                assert node1 instanceof SqlCall;
+                if (coerceOperandType(scope, (SqlCall) node1, i, desired)) {
+                    updateInferredColumnType(requireNonNull(scope, "scope"), node1, i, widenTypes.get(i));
+                    coerced = true;
+                }
+            } else {
+                coerced = coerceOperandType(scope, binding.getCall(), 0, desired) || coerced;
+            }
+            // RHS may be a row values expression or sub-query.
+            if (node2 instanceof SqlNodeList) {
+                final SqlNodeList node3 = (SqlNodeList) node2;
+                boolean listCoerced = false;
+                if (type2.isStruct()) {
+                    for (SqlNode node : (SqlNodeList) node2) {
+                        assert node instanceof SqlCall;
+                        listCoerced = coerceOperandType(scope, (SqlCall) node, i, desired) || listCoerced;
+                    }
+                    if (listCoerced) {
+                        updateInferredColumnType(requireNonNull(scope, "scope"), node2, i, desired);
+                    }
+                } else {
+                    for (int j = 0; j < ((SqlNodeList) node2).size(); j++) {
+                        listCoerced = coerceColumnType(scope, node3, j, desired) || listCoerced;
+                    }
+                    if (listCoerced) {
+                        updateInferredType(node2, desired);
+                    }
+                }
+                coerced = coerced || listCoerced;
+            } else {
+                // Another sub-query.
+                SqlValidatorScope scope1 = node2 instanceof SqlSelect ? validator.getSelectScope((SqlSelect) node2) : scope;
+                coerced = rowTypeCoercion(scope1, node2, i, desired) || coerced;
+            }
+        }
+        return coerced;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean caseWhenCoercion(SqlCallBinding callBinding) {
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.CASE_EXPR);
-        try {
-            return super.caseWhenCoercion(callBinding);
-        } finally {
-            ctxStack.pop(ctx);
+        SqlValidatorScope scope = getScope(callBinding);
+        SqlCase caseCall = (SqlCase) callBinding.getCall();
+        SqlNodeList thenList = caseCall.getThenOperands();
+        List<RelDataType> types = new ArrayList<>();
+        for (SqlNode node : thenList) {
+            RelDataType type = validator.deriveType(scope, node);
+
+            types.add(type);
+        }
+
+        SqlNode elseOp = requireNonNull(
+                caseCall.getElseOperand(),
+                () -> "getElseOperand() is null for " + caseCall
+        );
+
+        RelDataType elseOpType = validator.deriveType(scope, elseOp);
+
+        types.add(elseOpType);
+
+        //noinspection SimplifiableIfStatement
+        if (!typeFamiliesAreCompatible(typeFactory, types)) {
+            return false;
+        }
+
+        return super.caseWhenCoercion(callBinding);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean querySourceCoercion(
+            @Nullable SqlValidatorScope scope,
+            RelDataType sourceRowType,
+            RelDataType targetRowType,
+            SqlNode query
+    ) {
+        if (sourceRowType.getFieldCount() != targetRowType.getFieldCount()) {
+            return false;
+        }
+
+        for (int i = 0; i < targetRowType.getFieldCount(); i++) {
+            RelDataType sourceField = sourceRowType.getFieldList().get(i).getType();
+            RelDataType targetField = targetRowType.getFieldList().get(i).getType();
+
+            if (!typeFamiliesAreCompatible(typeFactory, sourceField, targetField)) {
+                return false;
+            }
+        }
+
+        validateDynamicParametersInModify(scope, targetRowType, query);
+
+        List<RelDataTypeField> sourceFields = sourceRowType.getFieldList();
+        List<RelDataTypeField> targetFields = targetRowType.getFieldList();
+        int sourceCount = sourceFields.size();
+        SqlTypeMappingRule mappingRule = validator.getTypeMappingRule();
+        for (int i = 0; i < sourceCount; i++) {
+            RelDataType sourceType = sourceFields.get(i).getType();
+            RelDataType targetType = targetFields.get(i).getType();
+            if (!SqlTypeUtil.equalSansNullability(validator.getTypeFactory(), sourceType, targetType)
+                    && !SqlTypeUtil.canCastFrom(targetType, sourceType, mappingRule)) {
+                // Returns early if types not equals and can not do type coercion.
+                return false;
+            }
+        }
+        boolean coerced = false;
+        for (int i = 0; i < sourceFields.size(); i++) {
+            RelDataType targetType = targetFields.get(i).getType();
+            coerced = coerceSourceRowType(scope, query, i, targetType) || coerced;
+        }
+        return coerced;
+    }
+
+    @SuppressWarnings("MethodOverridesInaccessibleMethodOfSuper")
+    private boolean coerceSourceRowType(
+            @org.checkerframework.checker.nullness.qual.Nullable SqlValidatorScope sourceScope,
+            SqlNode query,
+            int columnIndex,
+            RelDataType targetType) {
+        switch (query.getKind()) {
+            case INSERT:
+                SqlInsert insert = (SqlInsert) query;
+                return coerceSourceRowType(sourceScope,
+                        insert.getSource(),
+                        columnIndex,
+                        targetType);
+            case UPDATE:
+                SqlUpdate update = (SqlUpdate) query;
+                SqlSelect select = castNonNull(update.getSourceSelect());
+                columnIndex += select.getSelectList().size() - update.getTargetColumnList().size();
+                return coerceSourceRowType(sourceScope,
+                        select,
+                        columnIndex,
+                        targetType);
+            default:
+                return rowTypeCoercion(sourceScope, query, columnIndex, targetType);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean querySourceCoercion(@Nullable SqlValidatorScope scope,
-            RelDataType sourceRowType, RelDataType targetRowType, SqlNode query) {
-
-        ContextStack ctxStack = contextStack.get();
-        Context ctx = ctxStack.push(ContextType.MODIFY);
-        try {
-            validateDynamicParametersInModify(scope, targetRowType, query);
-
-            return super.querySourceCoercion(scope, sourceRowType, targetRowType, query);
-        } finally {
-            ctxStack.pop(ctx);
+    public @Nullable RelDataType getWiderTypeFor(
+            List<RelDataType> typeList,
+            boolean stringPromotion
+    ) {
+        if (!typeFamiliesAreCompatible(typeFactory, typeList)) {
+            return null;
         }
-    }
 
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable RelDataType getWiderTypeFor(List<RelDataType> typeList, boolean stringPromotion) {
-        ContextStack ctxStack = contextStack.get();
-        ContextType ctxType = ctxStack.currentContext();
-        // Disable string promotion for case expression operands
-        // to comply with 9.5 clause of the SQL standard (Result of data type combinations).
-        if (ctxType == ContextType.CASE_EXPR) {
-            return super.getWiderTypeFor(typeList, false);
-        } else {
-            return super.getWiderTypeFor(typeList, stringPromotion);
-        }
+        return super.getWiderTypeFor(typeList, stringPromotion);
     }
 
     /** {@inheritDoc} */
     @Override
     protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
         RelDataType fromType = validator.deriveType(scope, node);
-        if (SqlTypeUtil.isInterval(toType)) {
+
+        // We should not insert additional implicit casts between char and varchar because casts between these types
+        // perform data silent truncation as defined by the SQL standard.
+        // Do not add implicit casts to prevent data truncation from sneaking in.
+        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
+            return false;
+        }
+
+        if (SqlTypeUtil.equalSansNullability(typeFactory, fromType, toType)) {
+            // Implicit type coercion does not handle nullability.
+            return false;
+        } else if (SqlTypeUtil.isBinary(toType) && SqlTypeUtil.isBinary(fromType)) {
+            // No need to cast between binary types.
+            return false;
+        } else if (SqlTypeUtil.isInterval(toType)) {
             if (SqlTypeUtil.isInterval(fromType)) {
                 // Two different families of intervals: INTERVAL_DAY_TIME and INTERVAL_YEAR_MONTH.
                 return fromType.getSqlTypeName().getFamily() != toType.getSqlTypeName().getFamily();
             }
         } else if (SqlTypeUtil.isIntType(toType)) {
-            if (fromType == null) {
-                return false;
-            }
-
-            // we need this check for further possibility to validate BIGINT overflow
-            // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
-            if (fromType.getSqlTypeName() == SqlTypeName.BIGINT && toType.getSqlTypeName() == SqlTypeName.BIGINT) {
-                if (node.getKind() == SqlKind.LITERAL) {
-                    return true;
-                }
-            }
             // The following checks ensure that there no ClassCastException when casting from one
             // integer type to another (e.g. int to smallint, int to bigint)
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
@@ -304,12 +468,14 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         } else if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
             // IgniteCustomType: whether we need implicit cast from one type to another.
             return TypeUtils.customDataTypeNeedCast(typeFactory, fromType, toType);
+        } else if (SqlTypeUtil.isNull(fromType)) {
+            // Need to cast NULL literal because type-checkers of built-in function cannot properly handle explicit NULL
+            // since it belongs to a particular type family.
+            return true;
         }
 
-        return super.needToCast(scope, node, toType);
+        return IgniteCustomAssignmentsRules.instance().canApplyFrom(toType.getSqlTypeName(), fromType.getSqlTypeName());
     }
-
-    // The method is fully copy from parent class with modified handling of dynamic parameters.
 
     /** {@inheritDoc} */
     @Override
@@ -318,6 +484,8 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             SqlCall call,
             int index,
             RelDataType targetType) {
+        // The method is fully copy from parent class with modified handling of dynamic parameters and [var]char types coercion.
+
         // Transform the JavaType to SQL type because the SqlDataTypeSpec
         // does not support deriving JavaType yet.
         if (RelDataTypeFactoryImpl.isJavaType(targetType)) {
@@ -326,10 +494,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
         SqlNode operand = call.getOperandList().get(index);
         if (operand instanceof SqlDynamicParam) {
-            SqlDynamicParam dynamicParam = (SqlDynamicParam) operand;
-            ContextType contextType = contextStack.get().currentContext();
-
-            validateCoerceOperand(call, dynamicParam, targetType, contextType, (IgniteSqlValidator) validator);
+            validateOperand((SqlDynamicParam) operand, targetType, call.getOperator(), (IgniteSqlValidator) validator);
         }
 
         // We should never coerce DEFAULT, since it is going to break
@@ -364,49 +529,8 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             SqlNodeList nodeList,
             int index,
             RelDataType targetType) {
+        // The method is fully copy from parent class with modified handling of dynamic parameters.
 
-        // see coerceColumnType implementation.
-        if (index >= nodeList.size()) {
-            return false;
-        }
-
-        // we can not call SqlValidatorImpl.getValidatedNodeType because index's node type may not be know.
-        RelDataType[] originalDataType = {null};
-        boolean coerced = doCoerceColumnType(scope, nodeList, index, targetType, originalDataType);
-
-        if (!coerced) {
-            return false;
-        }
-
-        // see coerceColumnType implementation.
-        SqlNode node = nodeList.get(index);
-        if (node instanceof SqlIdentifier) {
-            SqlIdentifier id = (SqlIdentifier) node;
-            if (id.isStar()) {
-                return true;
-            }
-        }
-
-        ContextStack ctxStack = contextStack.get();
-        ContextType ctxType = ctxStack.currentContext();
-
-        if (ctxType == ContextType.SET_OP && originalDataType[0] != null) {
-            // Make coercion to between type incompatible families illegal for set operations.
-            // Returns false so that SetopOperandTypeChecker is going to raise appropriate exception,
-            // when coercion fails.
-            return TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, originalDataType[0]);
-        } else {
-            return true;
-        }
-    }
-
-    // The method is fully copy from parent class with modified handling of dynamic parameters.
-
-    private boolean doCoerceColumnType(
-            @Nullable SqlValidatorScope scope,
-            SqlNodeList nodeList,
-            int index,
-            RelDataType targetType, RelDataType[] originalDataType) {
         // Transform the JavaType to SQL type because the SqlDataTypeSpec
         // does not support deriving JavaType yet.
         if (RelDataTypeFactoryImpl.isJavaType(targetType)) {
@@ -426,14 +550,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             return true;
         }
 
-        final SqlNode node = nodeList.get(index);
-        if (node instanceof SqlDynamicParam) {
-            SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
-            boolean coerce = validateCoerceColumn(dynamicParam, targetType, (IgniteSqlValidator) validator);
-            if (!coerce) {
-                return false;
-            }
-        }
+        SqlNode node = nodeList.get(index);
 
         if (node instanceof SqlIdentifier) {
             // Do not expand a star/dynamic table col.
@@ -451,29 +568,23 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             SqlCall node2 = (SqlCall) node;
             if (node2.getOperator().kind == SqlKind.AS) {
                 final SqlNode operand = node2.operand(0);
-                RelDataType operandType = validator.deriveType(scope, operand);
                 if (!needToCast(scope, operand, targetType)) {
                     return false;
                 }
-                RelDataType targetType2 = syncAttributes(operandType, targetType);
+                RelDataType targetType2 = syncAttributes(validator.deriveType(scope, operand), targetType);
                 final SqlNode casted = castTo(operand, targetType2);
                 node2.setOperand(0, casted);
                 updateInferredType(casted, targetType2);
-                // store original type, if coerced.
-                originalDataType[0] = operandType;
                 return true;
             }
         }
-        RelDataType operandType = validator.deriveType(scope, node);
         if (!needToCast(scope, node, targetType)) {
             return false;
         }
-        RelDataType targetType3 = syncAttributes(operandType, targetType);
+        RelDataType targetType3 = syncAttributes(validator.deriveType(scope, node), targetType);
         final SqlNode node3 = castTo(node, targetType3);
         nodeList.set(index, node3);
         updateInferredType(node3, targetType3);
-        // store original node type, if coerced.
-        originalDataType[0] = operandType;
         return true;
     }
 
@@ -520,7 +631,15 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             IgniteCustomType to = (IgniteCustomType) type2;
             return tryCustomTypeCoercionRules(type1, to);
         } else {
-            return super.commonTypeForBinaryComparison(type1, type2);
+            SqlTypeName t1 = type1.getSqlTypeName();
+            SqlTypeName t2 = type2.getSqlTypeName();
+
+            if (t1 == SqlTypeName.TIMESTAMP && t2 == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+                    || t1 == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE && t2 == SqlTypeName.TIMESTAMP) {
+                return typeFactory.leastRestrictive(List.of(type1, type2));
+            } else {
+                return super.commonTypeForBinaryComparison(type1, type2);
+            }
         }
     }
 
@@ -540,31 +659,15 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             var nameSpec = customType.createTypeNameSpec();
 
             targetDataType = new SqlDataTypeSpec(nameSpec, SqlParserPos.ZERO);
+        } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
+            targetDataType = new SqlDataTypeSpec(
+                    new SqlBasicTypeNameSpec(SqlTypeName.UUID, SqlParserPos.ZERO), null, type.isNullable(), SqlParserPos.ZERO
+            );
         } else {
             targetDataType = SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable());
         }
 
         return SqlStdOperatorTable.CAST.createCall(SqlParserPos.ZERO, node, targetDataType);
-    }
-
-    /**
-     * Validate dynamic parameters in binary operator.
-     */
-    private void validateBinaryOperation(SqlCallBinding binding, RelDataType type1, RelDataType type2) {
-        SqlValidator validator = binding.getValidator();
-        boolean lhsUnknown = validator.getUnknownType() == type1;
-        boolean rhsUnknown = validator.getUnknownType() == type2;
-
-        if (lhsUnknown && rhsUnknown) {
-            String signature = IgniteResource.makeSignature(binding, type1, type2);
-            throw binding.newValidationError(IgniteResource.INSTANCE.ambiguousOperator1(signature));
-        } else if (lhsUnknown) {
-            RelDataType nullableType = typeFactory.createTypeWithNullability(type2, true);
-            validator.setValidatedNodeType(binding.operand(0), nullableType);
-        } else if (rhsUnknown) {
-            RelDataType nullableType = typeFactory.createTypeWithNullability(type1, true);
-            validator.setValidatedNodeType(binding.operand(1), nullableType);
-        }
     }
 
     /**
@@ -595,7 +698,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
      * Validates parameters in INSERT/UPDATE.
      */
     private void validateDynamicParametersInModify(@Nullable SqlValidatorScope scope, RelDataType targetRowType, SqlNode query) {
-        ContextType contextType;
         List<List<SqlNode>> sourceLists;
 
         if (query instanceof SqlInsert) {
@@ -605,7 +707,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 // NOT MATCHED THEN arm of a MERGE statement.
                 SqlSelect select = (SqlSelect) insert.getSource();
                 sourceLists = List.of(select.getSelectList());
-            } else  {
+            } else {
                 // Basic INSERT INTO ... VALUES (...).
                 SqlCall values = (SqlCall) insert.getSource();
                 assert values.getKind() == SqlKind.VALUES : "Unexpected source node for INSERT " + values;
@@ -618,13 +720,9 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
                 sourceLists = rows;
             }
-
-            contextType = ContextType.INSERT;
         } else if (query instanceof SqlUpdate) {
             SqlUpdate update = (SqlUpdate) query;
             sourceLists = List.of(update.getSourceExpressionList());
-
-            contextType = ContextType.MODIFY;
         } else {
             throw new AssertionError("Encountered unexpected SQL node during dynamic parameter validation: " + query);
         }
@@ -634,11 +732,13 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 SqlNode node = sourceList.get(i);
 
                 if (node.getKind() == SqlKind.DYNAMIC_PARAM) {
+                    boolean insertOp = query instanceof SqlInsert;
+
                     SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
                     RelDataType targetType = targetRowType.getFieldList().get(i).getType();
                     IgniteSqlValidator validator1 = (IgniteSqlValidator) scope.getValidator();
 
-                    validateAssignment(dynamicParam, targetType, contextType, validator1);
+                    validateAssignment(dynamicParam, targetType, insertOp, validator1);
                 }
             }
         }
@@ -680,56 +780,17 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
     }
 
-    /**
-     * Validates dynamic parameter as a call operand or in assignment.
-     */
-    private void validateCoerceOperand(SqlCall call, SqlDynamicParam dynamicParam, RelDataType targetType,
-            ContextType ctxType, IgniteSqlValidator validator) {
-
-        if (ctxType == ContextType.INSERT || ctxType == ContextType.MODIFY) {
-            // Treat ROW operator as the same way as assignment.
-            validateAssignment(dynamicParam, targetType, ctxType, validator);
-        } else if (ctxType == ContextType.IN) {
-            // Use IN operation instead of ROW operator for errors.
-            validateOperand(dynamicParam, targetType, SqlStdOperatorTable.IN, validator);
-        } else {
-            validateOperand(dynamicParam, targetType, call.getOperator(), validator);
-        }
-    }
-
-    /**
-     * Validates dynamic parameter type in SET operation or in assignment (UPDATE/INSERT).
-     */
-    private boolean validateCoerceColumn(SqlDynamicParam dynamicParam, RelDataType targetType,
-            IgniteSqlValidator validator) {
-
-        ContextType ctxType = contextStack.get().currentContext();
-
-        // This method throws and error in case of INSERT/UPDATE, as
-        // We throw error here because SqlValidatorImpl::checkTypeAssignment ignores Dynamic Params when type coercion fails.
-        //
-        // For set operations we rely on the fact SetopOperandTypeChecker is going to raise appropriate exception,
-        // because CalciteResource::columnTypeMismatchInSetop requires a name of a set operation
-        // (and we have no such information here).
-
-        if (ctxType == ContextType.SET_OP) {
-            RelDataType paramType = validator.resolveDynamicParameterType(dynamicParam, targetType);
-            return TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
-        } else {
-            validateAssignment(dynamicParam, targetType, ctxType, validator);
-            return true;
-        }
-    }
-
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19721 - move this check to SqlValidator (if possible).
-    private void validateAssignment(SqlDynamicParam node, RelDataType targetType, ContextType ctxType, IgniteSqlValidator validator) {
+    private void validateAssignment(SqlDynamicParam node, RelDataType targetType, boolean insertOp, IgniteSqlValidator validator) {
         RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
-        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+
+        boolean compatible = typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+
         if (compatible) {
             return;
         }
 
-        if (ctxType == ContextType.INSERT) {
+        if (insertOp) {
             // Throw the same error if T1 and T2 are not compatible:
             //
             // 1) INSERT INTO (t1_col) VALUES (<T2>)
@@ -752,7 +813,9 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     private void validateOperand(SqlDynamicParam node, RelDataType targetType, SqlOperator operator, IgniteSqlValidator validator) {
 
         RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
-        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+
+        boolean compatible = typeFamiliesAreCompatible(typeFactory, targetType, paramType);
+
         if (compatible) {
             return;
         }
@@ -763,77 +826,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         } else {
             var ex = IgniteResource.INSTANCE.operationRequiresExplicitCast(operator.getName());
             throw SqlUtil.newContextException(node.getParserPosition(), ex);
-        }
-    }
-
-    /**
-     * A context in which type coercion operation is being called.
-     */
-    enum ContextType {
-        /**
-         * Corresponds to {@link IgniteTypeCoercion#caseWhenCoercion(SqlCallBinding)}.
-         */
-        CASE_EXPR,
-
-        /**
-         * Corresponds to {@link IgniteTypeCoercion#rowTypeCoercion(SqlValidatorScope, SqlNode, int, RelDataType)} called for
-         * INSERT INTO statement.
-         */
-        INSERT,
-
-        /**
-         * Corresponds to {@link IgniteTypeCoercion#rowTypeCoercion(SqlValidatorScope, SqlNode, int, RelDataType)} called for
-         * UPDATE both standalone and in MATCHED arm of MERGE statement.
-         */
-        MODIFY,
-
-        /**
-         * Corresponds to {@link IgniteTypeCoercion#rowTypeCoercion(SqlValidatorScope, SqlNode, int, RelDataType)} called for
-         * set operator (UNION, EXCEPT, etc).
-         */
-        SET_OP,
-
-        /**
-         * Corresponds to {@link IgniteTypeCoercion#inOperationCoercion(SqlCallBinding)}.
-         */
-        IN,
-
-        /**
-         * Unspecified context.
-         */
-        UNSPECIFIED
-    }
-
-    private static class Context {
-        final ContextType type;
-
-        private Context(ContextType type) {
-            this.type = requireNonNull(type, "type");
-        }
-    }
-
-    /**
-     * We need a stack of type coercion "contexts" to distinguish between possibly
-     * nested calls for {@link #getWiderTypeFor(List, boolean)} and other type coercion operations.
-     */
-    private static final class ContextStack {
-        private final ArrayDeque<Context> stack = new ArrayDeque<>();
-
-        Context push(ContextType contextType) {
-            Context scope = new Context(contextType);
-            stack.push(scope);
-            return scope;
-        }
-
-        void pop(Context current) {
-            if (Objects.equals(stack.peek(), current)) {
-                stack.pop();
-            }
-        }
-
-        ContextType currentContext() {
-            Context current = stack.peek();
-            return current != null ? current.type : ContextType.UNSPECIFIED;
         }
     }
 }

@@ -55,7 +55,7 @@ public:
      * @param params SQL params.
      * @param timeout Timeout.
      */
-    data_query(diagnosable_adapter &diag, sql_connection &connection, std::string sql, const parameter_set &params,
+    data_query(diagnosable_adapter &diag, sql_connection &connection, std::string sql, parameter_set &params,
         std::int32_t &timeout);
 
     /**
@@ -76,6 +76,20 @@ public:
      * @return Column metadata.
      */
     const column_meta_vector *get_meta() override;
+
+    /**
+     * Fetch next result row.
+     *
+     * @return Operation result.
+     */
+    sql_result fetch_next_row();
+
+    /**
+     * Get current row.
+     *
+     * @return  Row.
+     */
+    [[nodiscard]] const std::vector<primitive> &get_current_row() const { return m_cursor->get_row(); }
 
     /**
      * Fetch next result row to application buffers.
@@ -190,6 +204,13 @@ private:
     sql_result make_request_execute();
 
     /**
+     * Process affected keys array received from the server.
+     *
+     * @param affected_rows Affected keys.
+     */
+    void process_affected_rows(const std::vector<std::int64_t> &affected_rows);
+
+    /**
      * Make query close request.
      *
      * @return Result.
@@ -242,7 +263,7 @@ private:
     std::string m_query;
 
     /** Parameter bindings. */
-    const parameter_set &m_params;
+    parameter_set &m_params;
 
     /** Parameter types. */
     std::vector<sql_parameter> m_params_meta{};

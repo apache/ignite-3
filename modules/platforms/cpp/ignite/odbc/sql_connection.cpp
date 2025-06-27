@@ -24,7 +24,7 @@
 #include "ignite/odbc/ssl_mode.h"
 #include "ignite/odbc/utility.h"
 
-#include <ignite/common/bytes.h>
+#include "ignite/common/detail/bytes.h"
 #include <ignite/network/network.h>
 #include <ignite/protocol/client_operation.h>
 #include <ignite/protocol/messages.h>
@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <random>
 #include <sstream>
+#include <detail/utils.h>
 
 constexpr const std::size_t PROTOCOL_HEADER_SIZE = 4;
 
@@ -119,9 +120,44 @@ void sql_connection::establish(const configuration &cfg) {
     IGNITE_ODBC_API_CALL(internal_establish(cfg));
 }
 
-void sql_connection::init_socket() {
-    if (!m_socket)
+sql_result sql_connection::init_socket() {
+    if (m_socket)
+        return sql_result::AI_SUCCESS;
+
+    if (m_config.get_ssl_mode().get_value() == ssl_mode_t::DISABLE) {
         m_socket = network::make_tcp_socket_client();
+
+        return sql_result::AI_SUCCESS;
+    }
+
+    try
+    {
+        network::ensure_ssl_loaded();
+    }
+    catch (const ignite_error &err)
+    {
+        LOG_MSG("Can not load OpenSSL library: " << err.what());
+
+        auto openssl_home = detail::get_env("OPENSSL_HOME");
+        std::string openssl_home_str{"OPENSSL_HOME"};
+        if (openssl_home.has_value()) {
+            openssl_home_str += "='" + openssl_home.value() + '\'';
+        } else {
+            openssl_home_str += " is not set";
+        }
+        add_status_record("Can not load OpenSSL library. [" + openssl_home_str + "]");
+
+        return sql_result::AI_ERROR;
+    }
+
+    network::secure_configuration ssl_cfg;
+    ssl_cfg.cert_path = m_config.get_ssl_cert_file().get_value();
+    ssl_cfg.key_path = m_config.get_ssl_key_file().get_value();
+    ssl_cfg.ca_path = m_config.get_ssl_ca_file().get_value();
+
+    m_socket = std::move(network::make_secure_socket_client(ssl_cfg));
+
+    return sql_result::AI_SUCCESS;
 }
 
 sql_result sql_connection::internal_establish(const configuration &cfg) {
@@ -250,7 +286,7 @@ bool sql_connection::receive(std::vector<std::byte> &msg, std::int32_t timeout) 
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not receive message header");
 
     static_assert(sizeof(std::int32_t) == PROTOCOL_HEADER_SIZE);
-    std::int32_t len = bytes::load<endian::BIG, std::int32_t>(len_buffer);
+    std::int32_t len = detail::bytes::load<detail::endian::BIG, std::int32_t>(len_buffer);
     if (len < 0) {
         close();
         throw odbc_error(sql_state::SHY000_GENERAL_ERROR, "Protocol error: Message length is negative");
@@ -324,6 +360,15 @@ void sql_connection::send_message(bytes_view req, std::int32_t timeout) {
 }
 
 network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std::int32_t timeout) {
+    auto res = receive_message_nothrow(id, timeout);
+    if (res.second) {
+        throw std::move(*res.second);
+    }
+    return std::move(res.first);
+}
+
+std::pair<network::data_buffer_owning, std::optional<odbc_error>> sql_connection::receive_message_nothrow(
+    std::int64_t id, std::int32_t timeout) {
     ensure_connected();
     std::vector<std::byte> res;
 
@@ -349,12 +394,12 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         auto observable_timestamp = reader.read_int64();
         on_observable_timestamp(observable_timestamp);
 
+        std::optional<odbc_error> err;
         if (test_flag(flags, protocol::response_flag::ERROR_FLAG)) {
-            auto err = protocol::read_error(reader);
-            throw odbc_error(error_code_to_sql_state(err.get_status_code()), err.what_str());
+            err = odbc_error(protocol::read_error(reader));
         }
 
-        return network::data_buffer_owning{std::move(res), reader.position()};
+        return {network::data_buffer_owning{std::move(res), reader.position()}, err};
     }
 }
 
@@ -372,8 +417,7 @@ void sql_connection::transaction_commit() {
 
 sql_result sql_connection::internal_transaction_commit() {
     if (!m_transaction_id) {
-        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to commit");
-        return sql_result::AI_ERROR;
+        return sql_result::AI_SUCCESS;
     }
 
     LOG_MSG("Committing transaction: " << *m_transaction_id);
@@ -399,8 +443,7 @@ void sql_connection::transaction_rollback() {
 
 sql_result sql_connection::internal_transaction_rollback() {
     if (!m_transaction_id) {
-        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to rollback");
-        return sql_result::AI_ERROR;
+        return sql_result::AI_SUCCESS;
     }
 
     LOG_MSG("Rolling back transaction: " << *m_transaction_id);
@@ -426,6 +469,8 @@ void sql_connection::transaction_start() {
     network::data_buffer_owning response =
         sync_request(protocol::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
             writer.write_bool(false); // read_only.
+            writer.write(std::int64_t(0)); // timeoutMillis.
+            writer.write(get_observable_timestamp());
         });
 
     protocol::reader reader(response.get_bytes_view());
@@ -436,6 +481,7 @@ void sql_connection::transaction_start() {
 
 sql_result sql_connection::enable_autocommit() {
     assert(!m_auto_commit);
+    LOG_MSG("m_transaction_id: " << (m_transaction_id.has_value() ? *m_transaction_id : -1));
 
     if (m_transaction_id) {
         sql_result res;
@@ -576,11 +622,15 @@ sql_result sql_connection::internal_set_attribute(int attr, void *value, SQLINTE
             }
 
             auto autocommit_now = mode == SQL_AUTOCOMMIT_ON;
+            LOG_MSG("autocommit current: " << m_auto_commit << ", autocommit to set: " << autocommit_now);
 
-            if (autocommit_now && !m_auto_commit)
-                return enable_autocommit();
-            else
-                return disable_autocommit();
+            if (autocommit_now != m_auto_commit) {
+                if (autocommit_now)
+                    return enable_autocommit();
+                else
+                    return disable_autocommit();
+            }
+            return sql_result::AI_SUCCESS;
         }
 
         default: {
@@ -691,8 +741,11 @@ void sql_connection::ensure_connected() {
 bool sql_connection::try_restore_connection() {
     std::vector<end_point> addrs = collect_addresses(m_config);
 
-    if (!m_socket)
-        init_socket();
+    if (!m_socket) {
+        auto res = init_socket();
+        if (res != sql_result::AI_SUCCESS)
+            return false;
+    }
 
     bool connected = false;
     while (!addrs.empty()) {
@@ -718,6 +771,7 @@ bool sql_connection::try_restore_connection() {
 
 bool sql_connection::safe_connect(const end_point &addr) {
     try {
+        LOG_MSG("Connecting to " << addr.to_string());
         return m_socket->connect(addr.host.c_str(), addr.port, m_login_timeout);
     } catch (const ignite_error &err) {
         std::stringstream msgs;

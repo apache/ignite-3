@@ -21,18 +21,19 @@ import static org.apache.ignite.internal.storage.pagememory.VolatilePageMemorySt
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,33 +41,35 @@ import org.jetbrains.annotations.Nullable;
  */
 @AutoService(DataStorageModule.class)
 public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
+            MetricManager metricManager,
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor,
-            LogSyncer logSyncer
+            FailureManager failureManager,
+            LogSyncer logSyncer,
+            HybridClock clock,
+            ScheduledExecutorService commonScheduler
     ) throws StorageException {
-        VolatilePageMemoryStorageEngineConfiguration engineConfig =
-                ((VolatilePageMemoryStorageEngineExtensionConfiguration) configRegistry
-                        .getConfiguration(StorageConfiguration.KEY).engines()).aimem();
-
-        assert engineConfig != null;
+        StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig,
-                configRegistry.getConfiguration(StorageConfiguration.KEY), ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        return new VolatilePageMemoryStorageEngine(
+                igniteInstanceName,
+                storageConfig,
+                ioRegistry,
+                failureManager,
+                clock
+        );
     }
 }

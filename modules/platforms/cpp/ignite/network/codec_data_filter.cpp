@@ -19,7 +19,7 @@
 
 namespace ignite::network {
 
-codec_data_filter::codec_data_filter(std::shared_ptr<factory<codec>> factory)
+codec_data_filter::codec_data_filter(std::shared_ptr<detail::factory<codec>> factory)
     : m_codec_factory(std::move(factory))
     , m_codecs()
     , m_codecs_mutex() {

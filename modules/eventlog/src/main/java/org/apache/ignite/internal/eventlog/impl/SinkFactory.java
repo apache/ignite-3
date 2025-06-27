@@ -25,7 +25,7 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 /**
  * Factory for creating sink instances.
  */
-public interface SinkFactory {
+interface SinkFactory {
     /**
      * Creates a sink instance.
      *

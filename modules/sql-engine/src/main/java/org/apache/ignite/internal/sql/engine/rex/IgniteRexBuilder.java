@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.rex;
 
+import java.util.UUID;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.NlsString;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
@@ -53,8 +57,45 @@ public class IgniteRexBuilder extends RexBuilder {
             // IgniteCustomType: Not comparable types are not supported.
             assert value instanceof Comparable : "Not comparable IgniteCustomType:" + type + ". value: " + value;
             return makeLiteral((Comparable<?>) value, type, type.getSqlTypeName());
-        } else {
-            return super.makeLiteral(value, type, allowCast, trim);
         }
+
+        if (value != null) {
+            if (type.getSqlTypeName() == SqlTypeName.CHAR) {
+                if (type.isNullable()) {
+                    RelDataType typeNotNull =
+                            typeFactory.createTypeWithNullability(type, false);
+                    if (allowCast) {
+                        RexNode literalNotNull = makeLiteral(value, typeNotNull, allowCast);
+                        return makeAbstractCast(type, literalNotNull, false);
+                    }
+                }
+
+                NlsString string;
+                if (value instanceof NlsString) {
+                    string = (NlsString) value;
+                } else {
+                    assert type.getCharset() != null : type + ".getCharset() must not be null";
+                    string = new NlsString((String) value, type.getCharset().name(), type.getCollation());
+                }
+
+                return makeCharLiteral(string);
+            } else if (type.getSqlTypeName() == SqlTypeName.BINARY) {
+                return makeBinaryLiteral((ByteString) value);
+            } else if (value instanceof String) {
+                if (type.getSqlTypeName() == SqlTypeName.DOUBLE) {
+                    value = Double.parseDouble((String) value);
+                } else if (type.getSqlTypeName() == SqlTypeName.REAL || type.getSqlTypeName() == SqlTypeName.FLOAT) {
+                    value = Float.parseFloat((String) value);
+                }
+            }
+        }
+
+        if (value instanceof UUID && type.getSqlTypeName() == SqlTypeName.UUID) {
+            // Generic super.makeLiteral() lacks handling of UUID type, therefore we will
+            // WA this on our side.
+            return makeUuidLiteral((UUID) value);
+        }
+
+        return super.makeLiteral(value, type, allowCast, trim);
     }
 }

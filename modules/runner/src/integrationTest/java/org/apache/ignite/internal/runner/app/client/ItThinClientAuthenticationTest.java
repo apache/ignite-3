@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.configuration.hocon.HoconConverter.hoconSource;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +65,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
     @BeforeEach
     void setUp() {
-        securityConfiguration = clusterConfigurationRegistry().getConfiguration(SecurityConfiguration.KEY);
+        securityConfiguration = clusterConfigurationRegistry().getConfiguration(SecurityExtensionConfiguration.KEY).security();
 
         CompletableFuture<Void> enableAuthentication = securityConfiguration.change(change -> {
             change.changeEnabled(true);
@@ -88,7 +90,6 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
         clientWithAuth = IgniteClient.builder()
                 .authenticator(basicAuthenticator)
-                .reconnectThrottlingRetries(0)
                 .addresses(getClientAddresses().toArray(new String[0]))
                 .build();
 
@@ -155,7 +156,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
     @Test
     void renameBasicProviderAndThenChangeUserPassword() {
-        updateClusterConfiguration("{\n"
+        updateClusterConfiguration("ignite {\n"
                 + "security.authentication.providers.basic={\n"
                 + "type=basic,\n"
                 + "users=[{username=newuser,password=newpassword}]},"
@@ -164,7 +165,6 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
         try (IgniteClient client = IgniteClient.builder()
                 .authenticator(BasicAuthenticator.builder().username("newuser").password("newpassword").build())
-                .reconnectThrottlingRetries(0)
                 .addresses(getClientAddresses().toArray(new String[0]))
                 .build()) {
 
@@ -179,8 +179,6 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
                     }).join();
 
             await().until(() -> checkConnection(client), willThrowWithCauseOrSuppressed(InvalidCredentialsException.class));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -197,7 +195,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     }
 
     private ConfigurationRegistry clusterConfigurationRegistry() {
-        IgniteImpl server = (IgniteImpl) server();
+        IgniteImpl server = unwrapIgniteImpl(server());
         return server.clusterConfiguration();
     }
 }

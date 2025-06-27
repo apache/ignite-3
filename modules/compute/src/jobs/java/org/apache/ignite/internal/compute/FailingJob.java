@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job that always fails with the {@link JobException}. */
-public class FailingJob implements ComputeJob<String> {
+public class FailingJob implements ComputeJob<Void, String> {
     @Override
-    public String execute(JobExecutionContext context, Object... args) {
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
         throw new JobException("Oops", new Exception());
     }
 }

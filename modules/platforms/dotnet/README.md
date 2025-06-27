@@ -51,8 +51,13 @@ List<string> names  = view.AsQueryable(tx)
 
 // Execute a distributed computation.
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
-int wordCount = await client.Compute.ExecuteAsync<int>(
-    nodes, "org.foo.bar.WordCountTask", "Hello, world!");
+IJobTarget<IEnumerable<IClusterNode>> jobTarget = JobTarget.AnyNode(nodes);
+var jobDesc = new JobDescriptor<string, int>(
+    "org.foo.bar.WordCountJob");
+IJobExecution<int> jobExecution = await client.Compute.SubmitAsync(
+    jobTarget, jobDesc, "Hello, world!");
+
+int wordCount = await jobExecution.GetResultAsync();
 ```
 
 # API Walkthrough
@@ -126,7 +131,7 @@ Another way to work with query results is `System.Data.Common.DbDataReader`, whi
 For example, you can bind query results to a `DataGridView` control:
 
 ```cs
-await using var reader = await Client.Sql.ExecuteReaderAsync(
+await using var reader = await client.Sql.ExecuteReaderAsync(
     null, "select * from Person");
 
 var dt = new DataTable();
@@ -199,7 +204,7 @@ All operations on data in Ignite are transactional. If a transaction is not spec
 To start a transaction, use `ITransactions.BeginAsync` method. Then, pass the transaction object to all operations that should be part of the same transaction.
 
 ```cs
-ITransaction tx = await client.Transactions.BeginAsync();
+await using ITransaction tx = await client.Transactions.BeginAsync();
 
 await view.UpsertAsync(tx, new Person(1, "John"));
 
@@ -208,7 +213,8 @@ await client.Sql.ExecuteAsync(
 
 await view.AsQueryable(tx)
     .Where(p => p.Id > 0)
-    .ExecuteUpdateAsync(p => new Person(p.Id, p.Name + " Doe"));
+    .ExecuteUpdateAsync(updater => 
+        updater.SetProperty(person => person.Name, person => person.Name + " Doe"));
 
 await tx.CommitAsync();
 ```
@@ -216,13 +222,74 @@ await tx.CommitAsync();
 
 ## Compute
 
-Compute API is used to execute distributed computations on the cluster. Compute jobs should be implemented in Java, deployed to server nodes, and called by the full class name. 
+Compute API is used to execute distributed computations on the cluster. 
 
-```cs 
+Compute jobs can be implemented in Java or .NET. 
+Resulting binaries (jar or dll files) should be [deployed](https://ignite.apache.org/docs/ignite3/latest/developers-guide/code-deployment/code-deployment) to the server nodes and called by the full class name.
+
+### Call a Java Compute Job
+
+You can call [Java computing jobs](https://ignite.apache.org/docs/ignite3/latest/developers-guide/compute/compute) from your .NET code, for example:
+
+```csharp
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
-string result = await client.Compute.ExecuteAsync<string>(
-    nodes, "org.acme.tasks.MyTask", "Task argument 1", "Task argument 2");
+IJobTarget<IEnumerable<IClusterNode>> jobTarget = JobTarget.AnyNode(nodes);
+
+var jobDesc = new JobDescriptor<string, string>(
+    JobClassName: "org.foo.bar.MyJob",
+    DeploymentUnits: [new DeploymentUnit("Unit1")]);
+
+IJobExecution<string> jobExecution = await client.Compute.SubmitAsync(
+    jobTarget, jobDesc, "Job Arg");
+
+string jobResult = await jobExecution.GetResultAsync();
 ```
+
+### Implement a .NET Compute Job
+
+1. Prepare a "class library" project for the job implementation (`dotnet new classlib`). In most cases, it is better to use a separate project for compute jobs to reduce deployment size.
+2. Add a reference to `Apache.Ignite` package to the class library project (`dotnet add package Apache.Ignite`).
+3. Create a class that implements `IComputeJob<TArg, TRes>` interface, for example:
+    ```csharp
+    public class HelloJob : IComputeJob<string, string>
+    {
+        public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken) =>
+            ValueTask.FromResult("Hello " + arg);
+    }
+    ```
+4. Publish the project (`dotnet publish -c Release`).
+5. Copy the resulting dll file (and any extra dependencies, EXCLUDING Ignite dlls) to a separate directory.
+   * Note: The directory with the dll must not contain any subdirectories.
+6. Use [Ignite CLI](https://ignite.apache.org/docs/ignite3/latest/ignite-cli-tool#cluster-commands) `cluster unit deploy` command to deploy the directory to the cluster as a deployment unit.
+
+### Run a .NET Compute Job
+
+.NET compute jobs can be executed from any client (.NET, Java, C++, etc), 
+by specifying the assembly-qualified class name and using the `JobExecutorType.DotNetSidecar` option.
+
+```csharp
+var jobTarget = JobTarget.AnyNode(await client.GetClusterNodesAsync());
+var jobDesc = new JobDescriptor<string, string>(
+    JobClassName: typeof(HelloJob).AssemblyQualifiedName!,
+    DeploymentUnits: [new DeploymentUnit("unit1")],
+    Options: new JobExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar));
+
+IJobExecution<string> jobExec = await client.Compute.SubmitAsync(jobTarget, jobDesc, "world");
+```
+
+Alternatively, use the `JobDescriptor.Of` shortcut method to create a job descriptor from a job instance:
+
+```csharp
+JobDescriptor<string, string> jobDesc = JobDescriptor.Of(new HelloJob())
+    with { DeploymentUnits = [new DeploymentUnit("unit1")] };
+```
+
+#### Notes
+
+* .NET 8 (or later) runtime (not SDK) is required on the server nodes.
+* .NET compute jobs are executed in a separate process (sidecar) on the server node. 
+* The process is started on the first .NET job call and then reused for subsequent jobs.
+* Every deployment unit combination is loaded into a separate [AssemblyLoadContext](https://learn.microsoft.com/en-us/dotnet/core/dependency-loading/understanding-assemblyloadcontext).
 
 
 ## Failover, Retry, Reconnect, Load Balancing

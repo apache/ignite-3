@@ -24,8 +24,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -73,12 +74,12 @@ public class PublicApiThreadingIgniteTables implements IgniteTables, Wrapper {
     }
 
     @Override
-    public Table table(String name) {
+    public Table table(QualifiedName name) {
         return applyAntiHijackProtection(tables.table(name));
     }
 
     @Override
-    public CompletableFuture<Table> tableAsync(String name) {
+    public CompletableFuture<Table> tableAsync(QualifiedName name) {
         return preventThreadHijack(tables.tableAsync(name))
                 .thenApply(this::applyAntiHijackProtection);
     }

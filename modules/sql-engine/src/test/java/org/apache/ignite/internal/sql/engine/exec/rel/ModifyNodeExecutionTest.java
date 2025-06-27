@@ -24,6 +24,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -32,26 +35,43 @@ import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.LongList;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
+import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -75,15 +95,16 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
     @Mock
     private UpdatableTable updatableTable;
 
-    @Mock
-    private TableDescriptor descriptors;
-
     @BeforeEach
     void setUpMock() {
-        when(descriptors.columnsCount()).thenReturn(2);
-        when(updatableTable.descriptor()).thenReturn(descriptors);
-    }
+        RowSchema rowSchema = RowSchema.builder()
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.INT64)
+                .build();
 
+        TableDescriptor tableDescriptor = createTableDescriptor(rowSchema);
+        when(updatableTable.descriptor()).thenReturn(tableDescriptor);
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, MODIFY_BATCH_SIZE - 1, MODIFY_BATCH_SIZE, MODIFY_BATCH_SIZE + 1, 2 * MODIFY_BATCH_SIZE})
@@ -93,7 +114,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.INSERT, null
+                context, updatableTable, SOURCE_ID, Operation.INSERT, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -106,7 +127,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
                     .thenReturn(nullCompletedFuture());
         }
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         List<RowWrapper> result = await(downstream.result());
 
@@ -126,7 +147,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.UPDATE, null
+                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -139,7 +160,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
                     .thenReturn(nullCompletedFuture());
         }
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         List<RowWrapper> result = await(downstream.result());
 
@@ -147,7 +168,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).upsertAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(1)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -159,7 +180,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.DELETE, null
+                context, updatableTable, SOURCE_ID, Operation.DELETE, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -172,7 +193,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
                     .thenReturn(nullCompletedFuture());
         }
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         List<RowWrapper> result = await(downstream.result());
 
@@ -180,7 +201,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).deleteAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(1)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -192,7 +213,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.INSERT, null
+                context, updatableTable, SOURCE_ID, Operation.INSERT, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -204,7 +225,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         when(updatableTable.insertAll(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(expected));
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).insertAll(any(), any(), any());
@@ -220,7 +241,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.UPDATE, null
+                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -232,11 +253,11 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         when(updatableTable.upsertAll(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(expected));
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).upsertAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(1)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -248,7 +269,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.DELETE, null
+                context, updatableTable, SOURCE_ID, Operation.DELETE, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -260,12 +281,214 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         when(updatableTable.deleteAll(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(expected));
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).deleteAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(1)).descriptor();
         verifyNoMoreInteractions(updatableTable);
+    }
+
+    private static Stream<Arguments> mergeArgs() {
+        return Stream.of(
+                // Column count, update only, destination row data
+                Arguments.of(2, false, new Object[]{null, null}),
+                Arguments.of(2, true,  new Object[]{null, 1}),
+                Arguments.of(2, true,  new Object[]{2, 1}),
+
+                Arguments.of(3, false, new Object[]{null, null, null}),
+                Arguments.of(3, true, new Object[]{null, 1, null}),
+                Arguments.of(3, true, new Object[]{null, null, 1}),
+                Arguments.of(3, true, new Object[]{2, null, null}),
+
+                Arguments.of(4, false, new Object[]{null, null, null, null}),
+                Arguments.of(4, true, new Object[]{null, 1, null, null}),
+                Arguments.of(4, true, new Object[]{null, null, 1, null}),
+                Arguments.of(4, true, new Object[]{null, null, null, 1}),
+                Arguments.of(4, true, new Object[]{2, null, null, null}),
+
+                Arguments.of(5, false, new Object[]{null, null, null, null, null}),
+                Arguments.of(5, true, new Object[]{null, 1, null, null, null}),
+                Arguments.of(5, true, new Object[]{null, null, 1, null, null}),
+                Arguments.of(5, true, new Object[]{null, null, null, 1, null}),
+                Arguments.of(5, true, new Object[]{null, null, null, null, 1}),
+                Arguments.of(5, true, new Object[]{2, null, null, null, null})
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("mergeArgs")
+    void mergePassesCorrectRowsToInsert(int colCount, boolean updateOnly, Object[] dstRow2Data) {
+        // DestinationRow: dst_c1, dst_c2, dst_c3
+        // SourceRow: src_c1, src_c2
+        // MergeRow:  src_c1, src_c2, null, dst_c1, dst_c2, dst_c3, update_col1, ...,
+
+        ExecutionContext<RowWrapper> context = executionContext();
+        RowHandler<RowWrapper> rowHandler = context.rowHandler();
+
+        RowSchema.Builder dstRowSchemaBuilder = RowSchema.builder();
+
+        for (int i = 0; i < colCount; i++) {
+            dstRowSchemaBuilder.addField(NativeTypes.INT32, true);
+        }
+
+        RowSchema dstRowSchema = dstRowSchemaBuilder.build();
+
+        RowSchema.Builder srcRowSchemaBuilder = RowSchema.builder();
+
+        for (int i = 0; i < colCount; i++) {
+            srcRowSchemaBuilder.addField(NativeTypes.INT32, true);
+        }
+
+        RowSchema srcRowSchema = srcRowSchemaBuilder.build();
+
+        RowSchema updateSchema = RowSchema.builder()
+                .addField(NativeTypes.INT32, true)
+                .build();
+
+        RowSchema mergeRowSchema = RowSchema.concat(RowSchema.concat(srcRowSchema, dstRowSchema), updateSchema);
+
+        Mockito.reset(updatableTable);
+
+        TableDescriptor tableDescriptor = createTableDescriptor(dstRowSchema);
+
+        ArgumentCaptor<List<RowWrapper>> insertedRows = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<RowWrapper>> updatedRows = ArgumentCaptor.forClass(List.class);
+
+        when(updatableTable.descriptor()).thenReturn(tableDescriptor);
+
+        if (updateOnly) {
+            when(updatableTable.upsertAll(any(), updatedRows.capture(), any())).thenReturn(nullCompletedFuture());
+        } else {
+            when(updatableTable.insertAll(any(), insertedRows.capture(), any())).thenReturn(nullCompletedFuture());
+            when(updatableTable.upsertAll(any(), updatedRows.capture(), any())).thenReturn(nullCompletedFuture());
+        }
+
+        RowFactory<RowWrapper> dstFactory = rowHandler.factory(dstRowSchema);
+
+        Object[] dstRow1Data = new Object[colCount];
+        dstRow1Data[0] = 1;
+        RowWrapper dstRow1 = dstFactory.create(dstRow1Data);
+
+        RowWrapper dstRow2 = dstFactory.create(dstRow2Data);
+
+        RowFactory<RowWrapper> srcFactory = rowHandler.factory(srcRowSchema);
+
+        Object[] srcRow1Data = new Object[colCount];
+        srcRow1Data[0] = 2;
+        RowWrapper srcRow1 = srcFactory.create(srcRow1Data);
+
+        Object[] srcRow2Data = new Object[colCount];
+        srcRow2Data[0] = 1;
+        srcRow2Data[1] = 5;
+        RowWrapper srcRow2 = srcFactory.create(srcRow2Data);
+
+        RowFactory<RowWrapper> updateFactory = rowHandler.factory(updateSchema);
+
+        RowWrapper update = updateFactory.create(4);
+        RowWrapper noUpdate = updateFactory.create(new Object[]{null});
+
+        RowFactory<RowWrapper> mergeRowFactory = rowHandler.factory(mergeRowSchema);
+
+        RowWrapper mergeRow1 = concatRow(mergeRowFactory, srcRow1, dstRow1, noUpdate);
+        RowWrapper mergeRow2 = concatRow(mergeRowFactory, srcRow2, dstRow2, update);
+
+        Builder inputRowBuilder = RowSchema.builder();
+        srcFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
+        dstFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
+        inputRowBuilder.addField(NativeTypes.INT32, true); // updated field value
+
+        RowFactory<RowWrapper> inputRowFactory = rowHandler.factory(inputRowBuilder.build());
+
+        Node<RowWrapper> sourceNode = new ScanNode<>(
+                context, DataProvider.fromCollection(List.of(mergeRow1, mergeRow2))
+        );
+
+        TestDownstream<RowWrapper> downstream = new TestDownstream<>();
+
+        ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
+                context, updatableTable, SOURCE_ID, Operation.MERGE, List.of("C1"), inputRowFactory
+        );
+        modifyNode.register(List.of(sourceNode));
+        modifyNode.onRegister(downstream);
+
+        modifyNode.execute(() -> modifyNode.request(1));
+
+        await(downstream.result());
+
+        if (updateOnly) {
+            verify(updatableTable).upsertAll(any(), any(), any());
+
+            RowWrapper updated1 = updatedRows.getAllValues().get(0).get(0);
+            expectRow(updated1, rowHandler, colCount, Arrays.asList(1, null));
+
+            RowWrapper updated2 = updatedRows.getAllValues().get(0).get(1);
+
+            List<Object> updated2Expected = new ArrayList<>(Arrays.asList(dstRow2Data[0], 4));
+            updated2Expected.addAll(Arrays.asList(dstRow2Data).subList(2, colCount));
+
+            expectRow(updated2, rowHandler, colCount, updated2Expected);
+        } else {
+            verify(updatableTable).insertAll(any(), any(), any());
+            verify(updatableTable).upsertAll(any(), any(), any());
+
+            RowWrapper inserted = insertedRows.getAllValues().get(0).get(0);
+            expectRow(inserted, rowHandler, colCount, Arrays.asList(1, 5));
+
+            RowWrapper updated = updatedRows.getAllValues().get(0).get(0);
+            expectRow(updated, rowHandler, colCount, Arrays.asList(1, null));
+        }
+    }
+
+    private static RowWrapper concatRow(RowFactory<RowWrapper> rowFactory, RowWrapper...  rows) {
+        RowHandler<RowWrapper> handler = rowFactory.handler();
+        RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
+
+        for (RowWrapper row : rows) {
+            int cols = handler.columnCount(row);
+            for (int i = 0; i < cols; i++) {
+                builder.addField(handler.get(i, row));
+            }
+        }
+
+        return builder.build();
+    }
+
+    private static TableDescriptor createTableDescriptor(RowSchema rowSchema) {
+        List<ColumnDescriptor> columns = new ArrayList<>();
+
+        for (int i = 0; i < rowSchema.fields().size(); i++) {
+            BaseTypeSpec typeSpec = (BaseTypeSpec) rowSchema.fields().get(i);
+            ColumnDescriptorImpl col = new ColumnDescriptorImpl(
+                    "C" + i,
+                    false,
+                    false,
+                    false,
+                    typeSpec.isNullable(),
+                    i,
+                    typeSpec.nativeType(),
+                    DefaultValueStrategy.DEFAULT_NULL,
+                    null
+            );
+            columns.add(col);
+        }
+
+        return new TableDescriptorImpl(columns, IgniteDistributions.single());
+    }
+
+    private static void expectRow(RowWrapper row, RowHandler<RowWrapper> rowHandler, int expectedRowSize, List<Object> expectRowPrefix) {
+        int rowSize = rowHandler.columnCount(row);
+
+        assertEquals(expectedRowSize, rowSize);
+        assertTrue(expectRowPrefix.size() <= rowSize, "Incorrect number of expected vals");
+
+        for (int i = 0; i < rowSize; i++) {
+            if (i < expectRowPrefix.size()) {
+                assertEquals(expectRowPrefix.get(i), rowHandler.get(i, row), "col#" + i + " " + rowHandler.toString(row));
+            } else {
+                assertNull(rowHandler.get(i, row), "col#" + i + " " + rowHandler.toString(row));
+            }
+        }
     }
 
     private static int numberOfBatches(int rowCount) {
@@ -285,7 +508,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     @Override
     protected FragmentDescription getFragmentDescription() {
-        ColocationGroup colocationGroup = new ColocationGroup(List.of(), List.of(), Int2ObjectMaps.emptyMap());
+        ColocationGroup colocationGroup = new ColocationGroup(LongList.of(), List.of(), Int2ObjectMaps.emptyMap());
         return new FragmentDescription(0, true, Long2ObjectMaps.singleton(SOURCE_ID, colocationGroup), null, null, null);
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.unit;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -25,12 +26,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for deployment commands. */
 public class ItDeploymentUnitTest extends CliIntegrationTest {
+    private static final long BIG_IN_BYTES = 100 * 1024L * 1024L; // 100 MiB
 
     private String testFile;
 
@@ -132,7 +135,6 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", id);
 
             assertDeployed(id);
@@ -169,26 +171,22 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", id);
 
             // Unit is deployed on all requested nodes
             assertDeployed(id);
 
-            resetOutput();
-            execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10300", id);
+            execute("node", "unit", "list", "--plain", "--url", "http://localhost:10300", id);
 
             // Unit is deployed on the CMG node
             assertDeployed(id);
 
-            resetOutput();
-            execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10301", id);
+            execute("node", "unit", "list", "--plain", "--url", "http://localhost:10301", id);
 
             // Unit is deployed on the requested node
             assertDeployed(id);
 
-            resetOutput();
-            execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10302", id);
+            execute("node", "unit", "list", "--plain", "--url", "http://localhost:10302", id);
 
             // Unit is not deployed on the other node
             assertAll(
@@ -214,17 +212,14 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", id);
 
             // Unit is deployed on all requested nodes
             assertDeployed(id);
 
             CLUSTER.runningNodes().forEach(ignite -> {
-                resetOutput();
-
-                String nodeUrl = "http://" + ignite.restHttpAddress().toString();
-                execute("node", "unit", "list", "--plain", "--node-url", nodeUrl, id);
+                String nodeUrl = "http://" + unwrapIgniteImpl(ignite).restHttpAddress().toString();
+                execute("node", "unit", "list", "--plain", "--url", nodeUrl, id);
 
                 // Unit is deployed on the node
                 assertDeployed(id);
@@ -246,7 +241,6 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         // When deploy second unit with version
-        resetOutput();
         execute("cluster", "unit", "deploy", "test-unit2", "--version", "2.1", "--path", testFile2);
 
         // Then
@@ -257,13 +251,11 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", "test-unit");
 
             assertDeployed("test-unit");
         });
 
-        resetOutput();
         execute("node", "unit", "list", "--plain", "test-unit");
 
         assertDeployed("test-unit");
@@ -275,7 +267,6 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         execute("cluster", "unit", "deploy", "test-unit", "--version", "1.0.0", "--path", testFile);
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", "test-unit");
 
             assertDeployed("test-unit");
@@ -284,11 +275,29 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         execute("cluster", "unit", "deploy", "test-unit", "--version", "2.0.0", "--path", testFile);
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", "test-unit");
 
             assertDeployed(List.of(new UnitIdVersion("test-unit", "1.0.0"), new UnitIdVersion("test-unit", "*2.0.0")));
         });
+    }
+
+    @Test
+    @DisplayName("Should deploy a unit with version from big file")
+    void deployBig() throws IOException {
+        String id = "test.unit.id.9";
+
+        Path bigFile = WORK_DIR.resolve("bigFile.txt");
+        IgniteTestUtils.fillDummyFile(bigFile, BIG_IN_BYTES);
+
+        // When deploy with version
+        execute("cluster", "unit", "deploy", id, "--version", "1.0.0", "--path", bigFile.toString());
+
+        // Then
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Done")
+        );
     }
 
     private void assertDeployed(String id) {

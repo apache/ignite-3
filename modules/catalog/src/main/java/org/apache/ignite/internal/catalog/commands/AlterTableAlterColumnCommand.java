@@ -18,15 +18,16 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -45,7 +46,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
     }
 
     private static final TypeChangeValidationListener TYPE_CHANGE_VALIDATION_HANDLER = (pattern, originalType, newType) -> {
-        throw new CatalogValidationException(format(pattern, originalType, newType));
+        throw new CatalogValidationException(pattern, originalType, newType);
     };
 
     private final String columnName;
@@ -65,6 +66,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
     private AlterTableAlterColumnCommand(
             String tableName,
             String schemaName,
+            boolean ifTableExists,
             String columnName,
             @Nullable ColumnType type,
             @Nullable Integer precision,
@@ -73,7 +75,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
             @Nullable Boolean nullable,
             @Nullable DeferredDefaultValue deferredDefault
     ) {
-        super(schemaName, tableName);
+        super(schemaName, tableName, ifTableExists, true);
 
         this.columnName = columnName;
         this.type = type;
@@ -87,16 +89,22 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifTableExists);
+        if (schema == null) {
+            return List.of();
+        }
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        CatalogTableDescriptor table = table(schema, tableName, !ifTableExists);
+        if (table == null) {
+            return List.of();
+        }
 
         CatalogTableColumnDescriptor origin = table.column(columnName);
 
         if (origin == null) {
-            throw new CatalogValidationException(format(
-                    "Column with name '{}' not found in table '{}.{}'", columnName, schemaName, tableName));
+            throw new CatalogValidationException("Column with name '{}' not found in table '{}.{}'.", columnName, schemaName, tableName);
         }
 
         if (table.isPrimaryKeyColumn(origin.name())) {
@@ -113,7 +121,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         }
 
         return List.of(
-                new AlterColumnEntry(table.id(), target, schemaName)
+                new AlterColumnEntry(table.id(), target)
         );
     }
 
@@ -135,16 +143,16 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
 
     private void validatePkColumnChange(CatalogTableColumnDescriptor origin) {
         if (type != null && type != origin.type()) {
-            throw new CatalogValidationException("Changing the type of key column is not allowed");
+            throw new CatalogValidationException("Changing the type of key column is not allowed.");
         }
         if (precision != null && precision != origin.precision()) {
-            throw new CatalogValidationException("Changing the precision of key column is not allowed");
+            throw new CatalogValidationException("Changing the precision of key column is not allowed.");
         }
         if (scale != null && scale != origin.scale()) {
-            throw new CatalogValidationException("Changing the scale of key column is not allowed");
+            throw new CatalogValidationException("Changing the scale of key column is not allowed.");
         }
         if (nullable != null && nullable) {
-            throw new CatalogValidationException("Dropping NOT NULL constraint on key column is not allowed");
+            throw new CatalogValidationException("Dropping NOT NULL constraint on key column is not allowed.");
         }
     }
 
@@ -152,13 +160,22 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         CatalogUtils.validateColumnChange(origin, type, precision, scale, length, TYPE_CHANGE_VALIDATION_HANDLER);
 
         if (nullable != null && !nullable && origin.nullable()) {
-            throw new CatalogValidationException("Adding NOT NULL constraint is not allowed");
+            throw new CatalogValidationException("Adding NOT NULL constraint is not allowed.");
+        }
+
+        if (deferredDefault != null) {
+            DefaultValue defaultValue = deferredDefault.derive(origin.type());
+
+            if (defaultValue.type() != Type.CONSTANT) {
+                throw new CatalogValidationException("Non-constant default cannot be assigned after table creation.");
+            }
         }
     }
 
     private static class Builder implements AlterTableAlterColumnCommandBuilder {
         private String tableName;
         private String schemaName;
+        private boolean ifTableExists;
         private String columnName;
         private @Nullable ColumnType type;
         private @Nullable Integer precision;
@@ -177,6 +194,13 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         @Override
         public Builder schemaName(String schemaName) {
             this.schemaName = schemaName;
+
+            return this;
+        }
+
+        @Override
+        public AlterTableAlterColumnCommandBuilder ifTableExists(boolean ifTableExists) {
+            this.ifTableExists = ifTableExists;
 
             return this;
         }
@@ -234,6 +258,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
             return new AlterTableAlterColumnCommand(
                     tableName,
                     schemaName,
+                    ifTableExists,
                     columnName,
                     type,
                     precision,

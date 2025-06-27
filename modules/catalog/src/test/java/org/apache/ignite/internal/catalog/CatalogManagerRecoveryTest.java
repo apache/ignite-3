@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.dropInde
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.dropTableCommand;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleIndex;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleTable;
-import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.startBuildingIndexCommand;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -34,29 +34,35 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestUpdateHandlerInterceptor;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -66,11 +72,15 @@ import org.mockito.Mockito;
 
 /** For {@link CatalogManager} testing on recovery. */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test-node-name";
 
     @WorkDirectory
     private Path workDir;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -82,12 +92,18 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(catalogManager, metaStorageManager), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     @Test
-    void testRecoveryCatalogVersionTimestamps() {
+    void testRecoveryCatalogVersionTimestamps() throws InterruptedException {
         createAndStartComponents();
+        awaitDefaultZoneCreation();
+
+        // Check that a catalog product key exist, if it does not create it (1 - getLocally + 1 invoke).
+        // on the first start default zone must be created
+        verify(metaStorageManager).getLocally(any());
+        verify(metaStorageManager, times(2)).invoke(any());
 
         // Let's create a couple of versions of the catalog.
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
@@ -114,10 +130,12 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         HybridTimestamp newNow = clock.now();
         assertThat(newNow, greaterThan(updateNow));
 
+        reset(metaStorageManager);
+
         createAndStartComponents();
 
         // Check recovery events.
-        verify(interceptor, times(2)).handle(any(VersionedUpdate.class), any(), anyLong());
+        verify(interceptor, times(3)).handle(any(VersionedUpdate.class), any(), anyLong());
         verify(interceptor, Mockito.never()).handle(any(SnapshotEntry.class), any(), anyLong());
 
         // Let's check that the versions for the points in time at which they were created are in place.
@@ -126,8 +144,9 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testRecoveryCatalogAfterCompaction() {
+    void testRecoveryCatalogAfterCompaction() throws InterruptedException {
         createAndStartComponents();
+        awaitDefaultZoneCreation();
 
         // Let's create a couple of versions of the catalog.
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
@@ -140,7 +159,6 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         // Save version, which will be earliest version after snapshot.
         int earliestVersion = catalogManager.latestCatalogVersion();
         long earliestVersionActivationTime = catalogManager.catalog(earliestVersion).time();
-        long snapshotTime = clock.nowLong();
 
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME_3)), willCompleteSuccessfully());
 
@@ -151,7 +169,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         clearInvocations(interceptor);
         interceptor.dropSnapshotEvents();
 
-        assertThat(((CatalogManagerImpl) catalogManager).compactCatalog(snapshotTime), willBe(true));
+        assertThat(((CatalogManagerImpl) catalogManager).compactCatalog(earliestVersion), willBe(true));
 
         verify(interceptor, timeout(2_000)).handle(any(SnapshotEntry.class), any(), anyLong());
         assertThat(catalogManager.earliestCatalogVersion(), equalTo(0));
@@ -167,32 +185,10 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         // Let's check Catalog was recovered from a snapshot and history starts from the expected version.
         assertThat(catalogManager.earliestCatalogVersion(), equalTo(earliestVersion));
-        assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(0));
-        assertThrows(IllegalStateException.class, () -> catalogManager.activeCatalogVersion(earliestVersionActivationTime - 1));
+        assertThrows(CatalogNotFoundException.class, () -> catalogManager.activeCatalogVersion(0));
+        assertThrows(CatalogNotFoundException.class, () -> catalogManager.activeCatalogVersion(earliestVersionActivationTime - 1));
         assertThat(catalogManager.activeCatalogVersion(earliestVersionActivationTime), equalTo(earliestVersion));
-        assertThat(catalogManager.activeCatalogVersion(snapshotTime), equalTo(earliestVersion));
         assertThat(catalogManager.activeCatalogVersion(latestVersionActivationTime), equalTo(latestVersion));
-    }
-
-    @Test
-    void testRecoveryIndexCreationCatalogVersion() {
-        createAndStartComponents();
-
-        assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willCompleteSuccessfully());
-
-        int expCreationCatalogVersion = catalogManager.latestCatalogVersion();
-
-        int indexId = catalogManager.aliveIndex(INDEX_NAME, clock.nowLong()).id();
-
-        assertThat(catalogManager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
-        assertThat(catalogManager.execute(simpleTable(TABLE_NAME + 1)), willCompleteSuccessfully());
-
-        stopComponents();
-
-        createAndStartComponents();
-
-        assertEquals(expCreationCatalogVersion, catalogManager.aliveIndex(INDEX_NAME, clock.nowLong()).txWaitCatalogVersion());
     }
 
     private void createAndStartComponents() {
@@ -202,24 +198,41 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     private void createComponents() {
-        KeyValueStorage keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
+        var keyValueStorage = new RocksDbKeyValueStorage(
+                NODE_NAME,
+                workDir,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
+
+        metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker));
 
         interceptor = spy(new TestUpdateHandlerInterceptor());
 
         catalogManager = CatalogTestUtils.createTestCatalogManagerWithInterceptor(NODE_NAME, clock, metaStorageManager, interceptor);
     }
 
+    private void awaitDefaultZoneCreation() throws InterruptedException {
+        assertTrue(waitForCondition(() -> catalogManager.latestCatalogVersion() > 0, 5_000));
+    }
+
     private void startComponentsAndDeployWatches() {
+        ComponentContext context = new ComponentContext();
+
+        assertThat(startAsync(context, metaStorageManager), willCompleteSuccessfully());
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
         assertThat(
-                startAsync(metaStorageManager, catalogManager)
+                startAsync(context, catalogManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
     }
 
     private void stopComponents() {
-        assertThat(stopAsync(catalogManager, metaStorageManager), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 }

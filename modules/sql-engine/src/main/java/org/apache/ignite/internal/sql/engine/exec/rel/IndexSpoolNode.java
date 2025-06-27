@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeHashIndex;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeIndex;
@@ -99,43 +100,31 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
-        checkState();
-
         if (!indexReady()) {
             requested = rowsCnt;
 
-            requestSource();
+            source().request(waiting = inBufSize);
         } else {
             scan.request(rowsCnt);
         }
     }
 
-    private void requestSource() throws Exception {
-        waiting = inBufSize;
-
-        source().request(inBufSize);
-    }
-
     /** {@inheritDoc} */
     @Override
     public void push(RowT row) throws Exception {
-        checkState();
-
         idx.push(row);
 
         waiting--;
 
         if (waiting == 0) {
-            context().execute(this::requestSource, this::onError);
+            source().request(waiting = inBufSize);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void end() throws Exception {
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         scan.request(requested);
     }
@@ -158,8 +147,15 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         super.closeInternal();
     }
 
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
+    }
+
     private boolean indexReady() {
-        return waiting == -1;
+        return waiting == NOT_WAITING;
     }
 
     /**

@@ -17,10 +17,17 @@
 
 package org.apache.ignite.raft.jraft.storage.logit;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.entity.PeerId.emptyPeer;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -46,8 +53,8 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageFactory = new LogitLogStorageFactory("test", testStoreOptions(), () -> path);
-        logStorageFactory.start();
+        logStorageFactory = new LogitLogStorageFactory("test", testStoreOptions(), path);
+        assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.setup();
     }
@@ -65,14 +72,18 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
     @AfterEach
     @Override
     public void teardown() {
-        logStorageFactory.close();
+        assertThat(logStorageFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.teardown();
     }
 
     @Override
     protected LogStorage newLogStorage() {
-        return logStorageFactory.createLogStorage(this.path.toString(), new RaftOptions());
+        return logStorageFactory.createLogStorage(uri(), new RaftOptions());
+    }
+
+    private String uri() {
+        return this.path.toString();
     }
 
     /************************  Test consistency between dbs   ***********************************/
@@ -126,5 +137,18 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
             final LogEntry entry = this.logStorage.getEntry(i);
             assertEquals(i, entry.getId().getIndex());
         }
+    }
+
+    @Test
+    public void destroysData() {
+        logStorage.appendEntries(TestUtils.mockEntries(15));
+        logStorage.shutdown();
+
+        Path storagePath = logStorageFactory.resolveLogStoragePath(uri());
+        assertTrue(Files.isDirectory(storagePath));
+
+        logStorageFactory.destroyLogStorage(uri());
+
+        assertFalse(Files.exists(storagePath));
     }
 }

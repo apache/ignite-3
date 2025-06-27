@@ -20,9 +20,11 @@ package org.apache.ignite.internal.cli.core.call;
 import java.io.PrintWriter;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
+import org.apache.ignite.internal.cli.core.decorator.DecoratorRegistry;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.internal.cli.decorators.DefaultDecoratorRegistry;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 
 /**
@@ -40,14 +42,16 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
     /** Decorator that decorates call's output. */
     protected final Decorator<T, TerminalOutput> decorator;
 
+    private final DecoratorRegistry decoratorRegistry = new DefaultDecoratorRegistry();
+
     /** Handlers for any exceptions. */
     protected final ExceptionHandlers exceptionHandlers;
 
     /** Provider for call's input. */
     protected final Supplier<I> inputProvider;
 
-    /** If {@code true}, debug output will be printed to console. */
-    protected final boolean verbose;
+    /** If non-empty, debug output will be printed to console. */
+    protected final boolean[] verbose;
 
     AbstractCallExecutionPipeline(
             PrintWriter output,
@@ -55,7 +59,7 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
             ExceptionHandlers exceptionHandlers,
             Decorator<T, TerminalOutput> decorator,
             Supplier<I> inputProvider,
-            boolean verbose
+            boolean[] verbose
     ) {
         this.output = output;
         this.exceptionHandlers = exceptionHandlers;
@@ -73,12 +77,12 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
     @Override
     public int runPipeline() {
         try {
-            if (verbose) {
-                CliLoggers.startOutputRedirect(errOutput);
+            if (verbose.length > 0) {
+                CliLoggers.startOutputRedirect(errOutput, verbose);
             }
             return runPipelineInternal();
         } finally {
-            if (verbose) {
+            if (verbose.length > 0) {
                 CliLoggers.stopOutputRedirect();
             }
         }
@@ -90,11 +94,22 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
         }
 
         if (!callOutput.isEmpty()) {
-            TerminalOutput decoratedOutput = decorator.decorate(callOutput.body());
+            TerminalOutput decoratedOutput = decorate(callOutput.body());
             output.println(decoratedOutput.toTerminalString());
         }
 
         return 0;
+    }
+
+    private TerminalOutput decorate(T body) {
+        return selectDecorator(body).decorate(body);
+    }
+
+    private Decorator<T, TerminalOutput> selectDecorator(T body) {
+        if (decorator != null) {
+            return decorator;
+        }
+        return decoratorRegistry.getDecorator((Class<T>) body.getClass());
     }
 
     /**

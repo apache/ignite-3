@@ -17,11 +17,20 @@
 
 package org.apache.ignite.internal;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
+import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
+import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
+import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,17 +38,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
@@ -47,25 +55,31 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -75,45 +89,16 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Cluster of nodes used for testing.
  */
-@SuppressWarnings("resource")
 public class Cluster {
     private static final IgniteLogger LOG = Loggers.forClass(Cluster.class);
 
-    /** Base port number. */
-    private static final int BASE_PORT = 3344;
+    private final ClusterConfiguration clusterConfiguration;
 
-    public static final int BASE_CLIENT_PORT = 10800;
-
-    public static final int BASE_HTTP_PORT = 10300;
-
-    private static final int BASE_HTTPS_PORT = 10400;
-
-    /** Timeout for SQL queries (in milliseconds). */
-    private static final int QUERY_TIMEOUT_MS = 10_000;
-
-    /** Default nodes bootstrap configuration pattern. */
-    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }\n"
-            + "  rest: {\n"
-            + "    port: {},\n"
-            + "    ssl.port: {}\n"
-            + "  }\n"
-            + "}";
-
-    private final TestInfo testInfo;
-
-    private final Path workDir;
-
-    private final String defaultNodeBootstrapConfigTemplate;
+    /** Embedded nodes. */
+    private final List<IgniteServer> igniteServers = new CopyOnWriteArrayList<>();
 
     /** Cluster nodes. */
-    private final List<IgniteImpl> nodes = new CopyOnWriteArrayList<>();
+    private final List<Ignite> nodes = new CopyOnWriteArrayList<>();
 
     private volatile boolean started = false;
 
@@ -122,25 +107,24 @@ public class Cluster {
     /** Number of nodes in the cluster on first startAndInit() [if it was invoked]. */
     private volatile int initialClusterSize;
 
+    /** Number of seeds to use instead of initialClusterSize. */
+    private volatile int seedCountOverride = -1;
+
     /** Indices of nodes that have been knocked out. */
-    private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
+    private final Set<Integer> knockedOutNodesIndices = ConcurrentHashMap.newKeySet();
 
     /**
-     * Creates a new cluster with a default bootstrap config.
+     * Creates a new cluster.
      */
-    public Cluster(TestInfo testInfo, Path workDir) {
-        this(testInfo, workDir, DEFAULT_NODE_BOOTSTRAP_CFG);
+    public Cluster(ClusterConfiguration clusterConfiguration) {
+        this.clusterConfiguration = clusterConfiguration;
     }
 
     /**
-     * Creates a new cluster with the given bootstrap config.
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
      */
-    public Cluster(TestInfo testInfo, Path workDir, String defaultNodeBootstrapConfigTemplate) {
-        this.testInfo = testInfo;
-        this.workDir = workDir;
-        this.defaultNodeBootstrapConfigTemplate = defaultNodeBootstrapConfigTemplate;
-    }
-
     public void startAndInit(int nodeCount) {
         startAndInit(nodeCount, new int[] { 0 });
     }
@@ -152,7 +136,7 @@ public class Cluster {
      * @param cmgNodes Indices of CMG nodes.
      */
     public void startAndInit(int nodeCount, int[] cmgNodes) {
-        startAndInit(nodeCount, cmgNodes, builder -> {});
+        startAndInit(null, nodeCount, cmgNodes, builder -> {});
     }
 
     /**
@@ -162,18 +146,31 @@ public class Cluster {
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
     public void startAndInit(int nodeCount, Consumer<InitParametersBuilder> initParametersConfigurator) {
-        startAndInit(nodeCount, new int[]{0}, initParametersConfigurator);
+        startAndInit(null, nodeCount, new int[]{0}, initParametersConfigurator);
     }
 
     /**
      * Starts the cluster with the given number of nodes and initializes it.
      *
+     * @param testInfo Test info.
      * @param nodeCount Number of nodes in the cluster.
      * @param cmgNodes Indices of CMG nodes.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
      */
-    public void startAndInit(int nodeCount, int[] cmgNodes, Consumer<InitParametersBuilder> initParametersConfigurator) {
-        startAndInit(nodeCount, cmgNodes, defaultNodeBootstrapConfigTemplate, initParametersConfigurator);
+    public void startAndInit(
+            @Nullable TestInfo testInfo,
+            int nodeCount,
+            int[] cmgNodes,
+            Consumer<InitParametersBuilder> initParametersConfigurator
+    ) {
+        startAndInit(
+                testInfo,
+                nodeCount,
+                cmgNodes,
+                clusterConfiguration.defaultNodeBootstrapConfigTemplate(),
+                initParametersConfigurator,
+                NodeBootstrapConfigUpdater.noop()
+        );
     }
 
     /**
@@ -189,23 +186,34 @@ public class Cluster {
             String nodeBootstrapConfigTemplate,
             Consumer<InitParametersBuilder> initParametersConfigurator
     ) {
-        startAndInit(nodeCount, new int[] { 0 }, nodeBootstrapConfigTemplate, initParametersConfigurator);
+        startAndInit(
+                null,
+                nodeCount,
+                new int[] { 0 },
+                nodeBootstrapConfigTemplate,
+                initParametersConfigurator,
+                NodeBootstrapConfigUpdater.noop()
+        );
     }
 
     /**
      * Starts the cluster with the given number of nodes and initializes it.
      *
+     * @param testInfo Test info.
      * @param nodeCount Number of nodes in the cluster.
      * @param cmgNodes Indices of CMG nodes.
      * @param nodeBootstrapConfigTemplate Node bootstrap config template to be used for each node started
      *     with this call.
      * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     * @param nodeBootstrapConfigUpdater Boot configuration updater before starting the node.
      */
     private void startAndInit(
+            @Nullable TestInfo testInfo,
             int nodeCount,
             int[] cmgNodes,
             String nodeBootstrapConfigTemplate,
-            Consumer<InitParametersBuilder> initParametersConfigurator
+            Consumer<InitParametersBuilder> initParametersConfigurator,
+            NodeBootstrapConfigUpdater nodeBootstrapConfigUpdater
     ) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
@@ -213,103 +221,186 @@ public class Cluster {
 
         initialClusterSize = nodeCount;
 
-        List<CompletableFuture<IgniteImpl>> futures = IntStream.range(0, nodeCount)
-                .mapToObj(nodeIndex -> startNodeAsync(nodeIndex, nodeBootstrapConfigTemplate))
+        List<ServerRegistration> nodeRegistrations = IntStream.range(0, nodeCount)
+                .mapToObj(nodeIndex -> startEmbeddedNode(testInfo, nodeIndex, nodeBootstrapConfigTemplate, nodeBootstrapConfigUpdater))
                 .collect(toList());
 
-        List<String> metaStorageAndCmgNodeNames = Arrays.stream(cmgNodes).mapToObj(i -> testNodeName(testInfo, i)).collect(toList());
+        List<IgniteServer> metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+                .mapToObj(nodeRegistrations::get)
+                .map(ServerRegistration::server)
+                .collect(toList());
 
         InitParametersBuilder builder = InitParameters.builder()
-                .destinationNodeName(metaStorageAndCmgNodeNames.get(0))
-                .metaStorageNodeNames(metaStorageAndCmgNodeNames)
-                .clusterName("cluster");
+                .metaStorageNodes(metaStorageAndCmgNodes)
+                .clusterName(clusterConfiguration.clusterName());
 
         initParametersConfigurator.accept(builder);
 
-        TestIgnitionManager.init(builder.build());
+        TestIgnitionManager.init(metaStorageAndCmgNodes.get(0), builder.build());
 
-        for (CompletableFuture<IgniteImpl> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
+        for (ServerRegistration registration : nodeRegistrations) {
+            assertThat(registration.registrationFuture(), willCompleteSuccessfully());
         }
 
         started = true;
     }
 
     /**
-     * Starts a cluster node with the default bootstrap config template and returns its startup future.
+     * Starts the cluster with the given number of nodes and initializes it.
      *
-     * @param nodeIndex Index of the node to start.
-     * @return Future that will be completed when the node starts.
+     * @param nodeCount Number of nodes in the cluster.
+     * @param nodeBootstrapConfigUpdater Boot configuration updater before starting the node.
      */
-    public CompletableFuture<IgniteImpl> startNodeAsync(int nodeIndex) {
-        return startNodeAsync(nodeIndex, defaultNodeBootstrapConfigTemplate);
+    public void startAndInitWithUpdateBootstrapConfig(int nodeCount, NodeBootstrapConfigUpdater nodeBootstrapConfigUpdater) {
+        startAndInit(
+                null,
+                nodeCount,
+                new int[]{0},
+                clusterConfiguration.defaultNodeBootstrapConfigTemplate(),
+                builder -> {},
+                nodeBootstrapConfigUpdater
+        );
     }
 
     /**
-     * Starts a cluster node and returns its startup future.
+     * Starts a cluster node with the default bootstrap config template.
      *
-     * @param nodeIndex Index of the nodex to start.
-     * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
-     * @return Future that will be completed when the node starts.
+     * @param nodeIndex Index of the node to start.
+     * @return Started server and its registration future.
      */
-    public CompletableFuture<IgniteImpl> startNodeAsync(int nodeIndex, String nodeBootstrapConfigTemplate) {
-        String nodeName = testNodeName(testInfo, nodeIndex);
+    public ServerRegistration startEmbeddedNode(int nodeIndex) {
+        return startEmbeddedNode(nodeIndex, clusterConfiguration.defaultNodeBootstrapConfigTemplate());
+    }
 
-        String config = IgniteStringFormatter.format(
+    /**
+     * Starts a cluster node.
+     *
+     * @param nodeIndex Index of the node to start.
+     * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
+     * @return Started server and its registration future.
+     */
+    public ServerRegistration startEmbeddedNode(int nodeIndex, String nodeBootstrapConfigTemplate) {
+        return startEmbeddedNode(null, nodeIndex, nodeBootstrapConfigTemplate, NodeBootstrapConfigUpdater.noop());
+    }
+
+    /**
+     * Starts a cluster node.
+     *
+     * @param testInfo Test info.
+     * @param nodeIndex Index of the node to start.
+     * @param nodeBootstrapConfigTemplate Bootstrap config template to use for this node.
+     * @param nodeBootstrapConfigUpdater Boot configuration updater before starting the node.
+     * @return Started server and its registration future.
+     */
+    public ServerRegistration startEmbeddedNode(
+            @Nullable TestInfo testInfo,
+            int nodeIndex,
+            String nodeBootstrapConfigTemplate,
+            NodeBootstrapConfigUpdater nodeBootstrapConfigUpdater
+    ) {
+        String nodeName = nodeName(nodeIndex);
+
+        String config = nodeBootstrapConfigUpdater.update(IgniteStringFormatter.format(
                 nodeBootstrapConfigTemplate,
-                BASE_PORT + nodeIndex,
+                port(nodeIndex),
                 seedAddressesString(),
-                BASE_CLIENT_PORT + nodeIndex,
-                BASE_HTTP_PORT + nodeIndex,
-                BASE_HTTPS_PORT + nodeIndex
+                clusterConfiguration.baseClientPort() + nodeIndex,
+                httpPort(nodeIndex),
+                clusterConfiguration.baseHttpsPort() + nodeIndex
+        ));
+
+        if (testInfo != null && containsOverrides(testInfo, nodeIndex)) {
+            config = TestIgnitionManager.applyOverridesToConfig(config, configOverrides(testInfo, nodeIndex));
+        }
+
+        IgniteServer node = TestIgnitionManager.start(
+                nodeName,
+                config,
+                clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName)
         );
 
-        return TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
-                .thenApply(IgniteImpl.class::cast)
-                .thenApply(ignite -> {
-                    synchronized (nodes) {
-                        while (nodes.size() < nodeIndex) {
-                            nodes.add(null);
-                        }
+        synchronized (igniteServers) {
+            setListAtIndex(igniteServers, nodeIndex, node);
+        }
 
-                        if (nodes.size() < nodeIndex + 1) {
-                            nodes.add(ignite);
-                        } else {
-                            nodes.set(nodeIndex, ignite);
-                        }
-                    }
+        CompletableFuture<Void> registrationFuture = node.waitForInitAsync().thenRun(() -> {
+            synchronized (nodes) {
+                setListAtIndex(nodes, nodeIndex, node.api());
+            }
 
-                    if (stopped) {
-                        // Make sure we stop even a node that finished starting after the cluster has been stopped.
+            if (stopped) {
+                // Make sure we stop even a node that finished starting after the cluster has been stopped.
+                node.shutdown();
+            }
+        });
 
-                        IgnitionManager.stop(ignite.name());
-                    }
+        return new ServerRegistration(node, registrationFuture);
+    }
 
-                    return ignite;
-                });
+    /**
+     * Returns node name by index.
+     *
+     * @param nodeIndex Index of the node of interest.
+     */
+    public String nodeName(int nodeIndex) {
+        return clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
+    }
+
+    public int port(int nodeIndex) {
+        return clusterConfiguration.basePort() + nodeIndex;
+    }
+
+    /**
+     * Returns HTTP port by index.
+     */
+    public int httpPort(int nodeIndex) {
+        return clusterConfiguration.baseHttpPort() + nodeIndex;
     }
 
     private String seedAddressesString() {
+        int localSeedCountOverride = seedCountOverride;
         // We do this maxing because in some scenarios startAndInit() is not invoked, instead startNode() is used directly.
-        int seedsCount = Math.max(Math.max(initialClusterSize, nodes.size()), 1);
+        int seedsCount = localSeedCountOverride > 0 ? localSeedCountOverride
+                : Math.max(Math.max(initialClusterSize, nodes.size()), 1);
 
         return IntStream.range(0, seedsCount)
-                .map(index -> BASE_PORT + index)
+                .map(this::port)
                 .mapToObj(port -> "\"localhost:" + port + '\"')
                 .collect(joining(", "));
     }
 
     /**
+     * Returns all Ignite servers.
+     */
+    public List<IgniteServer> servers() {
+        return igniteServers;
+    }
+
+    /**
+     * Returns an Ignite server by its index.
+     */
+    public IgniteServer server(int index) {
+        return igniteServers.get(index);
+    }
+
+    /**
      * Returns an Ignite node (a member of the cluster) by its index.
      */
-    public IgniteImpl node(int index) {
-        return Objects.requireNonNull(nodes.get(index));
+    public Ignite node(int index) {
+        return Objects.requireNonNull(nodes.get(index), "index=" + index);
+    }
+
+    /**
+     * Returns an Ignite node (a member of the cluster) by its index.
+     */
+    public @Nullable Ignite nullableNode(int index) {
+        return nodes.get(index);
     }
 
     /**
      * Returns a node that is not stopped and not knocked out (so it can be used to interact with the cluster).
      */
-    public IgniteImpl aliveNode() {
+    public Ignite aliveNode() {
         return IntStream.range(0, nodes.size())
                 .filter(index -> nodes.get(index) != null)
                 .filter(index -> !knockedOutNodesIndices.contains(index))
@@ -319,14 +410,25 @@ public class Cluster {
     }
 
     /**
+     * Returns all alive nodes and their corresponding indexes.
+     */
+    public List<IgniteBiTuple<Integer, Ignite>> aliveNodesWithIndices() {
+        return IntStream.range(0, nodes.size())
+                .filter(index -> nodes.get(index) != null)
+                .filter(index -> !knockedOutNodesIndices.contains(index))
+                .mapToObj(index -> new IgniteBiTuple<>(index, nodes.get(index)))
+                .collect(toList());
+    }
+
+    /**
      * Starts a new node with the given index.
      *
      * @param index Node index.
      * @return Started node (if the cluster is already initialized, the node is returned when it joins the cluster; if it
      *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
-    public IgniteImpl startNode(int index) {
-        return startNode(index, defaultNodeBootstrapConfigTemplate);
+    public Ignite startNode(int index) {
+        return startNode(index, clusterConfiguration.defaultNodeBootstrapConfigTemplate());
     }
 
     /**
@@ -337,32 +439,14 @@ public class Cluster {
      * @return Started node (if the cluster is already initialized, the node is returned when it joins the cluster; if it
      *     is not initialized, the node is returned in a state in which it is ready to join the cluster).
      */
-    public IgniteImpl startNode(int index, String nodeBootstrapConfigTemplate) {
-        IgniteImpl newIgniteNode;
-
-        try {
-            newIgniteNode = startNodeAsync(index, nodeBootstrapConfigTemplate).get(20, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new RuntimeException(e);
-        } catch (ExecutionException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
+    public Ignite startNode(int index, String nodeBootstrapConfigTemplate) {
+        ServerRegistration registration = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
+        assertThat("nodeIndex=" + index, registration.registrationFuture(), willSucceedIn(20, SECONDS));
+        Ignite newIgniteNode = registration.server().api();
 
         assertEquals(newIgniteNode, nodes.get(index));
 
         return newIgniteNode;
-    }
-
-    private void checkNodeIndex(int index) {
-        if (index < 0) {
-            throw new IllegalArgumentException("Index cannot be negative");
-        }
-        if (index >= nodes.size()) {
-            throw new IllegalArgumentException("Cluster only contains " + nodes.size() + " nodes, but node with index "
-                    + index + " was tried to be accessed");
-        }
     }
 
     /**
@@ -371,9 +455,11 @@ public class Cluster {
      * @param index Node index in the cluster.
      */
     public void stopNode(int index) {
-        checkNodeIndex(index);
+        IgniteServer server = igniteServers.set(index, null);
 
-        IgnitionManager.stop(nodes.get(index).name());
+        if (server != null) {
+            server.shutdown();
+        }
 
         nodes.set(index, null);
     }
@@ -385,6 +471,25 @@ public class Cluster {
      */
     public void stopNode(String name) {
         stopNode(nodeIndex(name));
+    }
+
+    /**
+     * Stops a node by index asynchronously.
+     *
+     * @param index Node index in the cluster.
+     */
+    public CompletableFuture<Void> stopNodeAsync(int index) {
+        IgniteServer server = igniteServers.get(index);
+
+        if (server != null) {
+            return server.shutdownAsync().thenRun(() -> {
+                igniteServers.set(index, null);
+
+                nodes.set(index, null);
+            });
+        }
+
+        return nullCompletedFuture();
     }
 
     /**
@@ -409,7 +514,7 @@ public class Cluster {
      * @param index Node index in the cluster.
      * @return New node.
      */
-    public IgniteImpl restartNode(int index) {
+    public Ignite restartNode(int index) {
         stopNode(index);
 
         return startNode(index);
@@ -446,7 +551,7 @@ public class Cluster {
     @Nullable
     private RaftGroupService currentLeaderServiceFor(ReplicationGroupId groupId) {
         return runningNodes()
-                .map(IgniteImpl.class::cast)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .flatMap(ignite -> {
                     JraftServerImpl server = (JraftServerImpl) ignite.raftManager().server();
 
@@ -464,23 +569,30 @@ public class Cluster {
     /**
      * Returns nodes that are started and not stopped. This can include knocked out nodes.
      */
-    public Stream<IgniteImpl> runningNodes() {
+    public Stream<Ignite> runningNodes() {
         return nodes.stream().filter(Objects::nonNull);
     }
 
     /**
-     * Shuts down the  cluster by stopping all its nodes.
+     * Shuts down the cluster by stopping all its nodes.
      */
     public void shutdown() {
         stopped = true;
 
-        List<IgniteImpl> nodesToStop;
+        List<IgniteServer> serversToStop = new ArrayList<>(igniteServers);
 
-        synchronized (nodes) {
-            nodesToStop = runningNodes().collect(toList());
-        }
+        List<String> serverNames = serversToStop.stream()
+                .filter(Objects::nonNull)
+                .map(IgniteServer::name)
+                .collect(toList());
+        LOG.info("Shutting the cluster down [nodes={}]", serverNames);
 
-        nodesToStop.parallelStream().forEach(node -> IgnitionManager.stop(node.name()));
+        Collections.fill(igniteServers, null);
+        Collections.fill(nodes, null);
+
+        serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
+
+        LOG.info("Shut the cluster down");
     }
 
     /**
@@ -530,10 +642,11 @@ public class Cluster {
      * @param nodeIndex Index of the node messages to which need to be dropped.
      */
     public void simulateNetworkPartitionOf(int nodeIndex) {
-        IgniteImpl recipient = node(nodeIndex);
+        Ignite recipient = node(nodeIndex);
 
         runningNodes()
                 .filter(node -> node != recipient)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .forEach(sourceNode -> {
                     sourceNode.dropMessages(
                             new AddCensorshipByRecipientConsistentId(recipient.name(), sourceNode.dropMessagesPredicate())
@@ -552,10 +665,11 @@ public class Cluster {
      * @see #simulateNetworkPartitionOf(int)
      */
     public void removeNetworkPartitionOf(int nodeIndex) {
-        IgniteImpl receiver = node(nodeIndex);
+        Ignite receiver = node(nodeIndex);
 
         runningNodes()
                 .filter(node -> node != receiver)
+                .map(TestWrappers::unwrapIgniteImpl)
                 .forEach(ignite -> {
                     var censor = (AddCensorshipByRecipientConsistentId) ignite.dropMessagesPredicate();
 
@@ -574,14 +688,14 @@ public class Cluster {
     }
 
     /**
-     * Transfers leadsership over a replication group to a node identified by the given index.
+     * Transfers leadership over a replication group to a node identified by the given index.
      *
      * @param nodeIndex Node index of the new leader.
      * @param groupId ID of the replication group.
      * @throws InterruptedException If interrupted while waiting.
      */
     public void transferLeadershipTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
-        String nodeConsistentId = node(nodeIndex).node().name();
+        String nodeConsistentId = unwrapIgniteImpl(node(nodeIndex)).node().name();
 
         int maxAttempts = 3;
 
@@ -630,15 +744,66 @@ public class Cluster {
     }
 
     /**
-     * Returns the ID of the sole table partition that exists in the cluster or throws if there are less than one
+     * Transfers primary replica of given replication group to the node with given index.
+     *
+     * @param nodeIndex Destination node index.
+     * @param groupId ID of the replication group.
+     */
+    public void transferPrimaryTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
+        String proposedPrimaryName = node(nodeIndex).name();
+
+        if (!proposedPrimaryName.equals(getPrimaryReplicaName(groupId))) {
+
+            String newPrimaryName = NodeUtils.transferPrimary(
+                    runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
+                    groupId,
+                    proposedPrimaryName
+            );
+
+            assertEquals(proposedPrimaryName, newPrimaryName);
+        }
+    }
+
+    private @Nullable String getPrimaryReplicaName(ReplicationGroupId groupId) {
+        IgniteImpl node = unwrapIgniteImpl(aliveNode());
+
+        CompletableFuture<ReplicaMeta> primary = node.placementDriver()
+                .awaitPrimaryReplica(groupId, node.clockService().now(), 30, SECONDS);
+
+        assertThat(primary, willCompleteSuccessfully());
+
+        @Nullable ReplicaMeta replicaMeta = primary.join();
+        return replicaMeta != null ? replicaMeta.getLeaseholder() : null;
+    }
+
+    /**
+     * Returns the ID of the sole partition that exists in the cluster or throws if there are less than one
      * or more than one partitions.
      */
-    public TablePartitionId solePartitionId() {
-        List<TablePartitionId> tablePartitionIds = ReplicationGroupsUtils.tablePartitionIds(aliveNode());
+    public ReplicationGroupId solePartitionId(String zoneName, String tableName) {
+        IgniteImpl node = unwrapIgniteImpl(aliveNode());
 
-        assertThat(tablePartitionIds.size(), is(1));
+        Catalog catalog = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion());
 
-        return tablePartitionIds.get(0);
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
+        CatalogTableDescriptor tableDescriptor = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName.toUpperCase());
+
+        List<? extends ReplicationGroupId> replicationGroupIds = colocationEnabled()
+                ? zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id())
+                : tablePartitionIds(unwrapIgniteImpl(aliveNode()), tableDescriptor.id());
+
+        assertThat(replicationGroupIds.size(), is(1));
+
+        return replicationGroupIds.get(0);
+    }
+
+    /**
+     * Sets number of seeds to use instead of initialClusterSize.
+     *
+     * @param newOverride New override value.
+     */
+    public void overrideSeedsCount(int newOverride) {
+        seedCountOverride = newOverride;
     }
 
     private static class AddCensorshipByRecipientConsistentId implements BiPredicate<String, NetworkMessage> {
@@ -655,6 +820,29 @@ public class Cluster {
         public boolean test(String recipientConsistentId, NetworkMessage networkMessage) {
             return Objects.equals(recipientConsistentId, recipientName)
                     || (prevPredicate != null && prevPredicate.test(recipientConsistentId, networkMessage));
+        }
+    }
+
+    /** {@link IgniteServer} and future that completes when the server gets started, joins and gets registered with a Cluster. */
+    public static class ServerRegistration {
+        private final IgniteServer server;
+        private final CompletableFuture<Void> registrationFuture;
+
+        public ServerRegistration(IgniteServer server, CompletableFuture<Void> registrationFuture) {
+            this.server = server;
+            this.registrationFuture = registrationFuture;
+        }
+
+        /** Returns IgniteServer. */
+        public IgniteServer server() {
+            return server;
+        }
+
+        /**
+         * Returns a future that gets completed when the server gets started, joins and gets registered with the Cluster which starts it.
+         */
+        public CompletableFuture<Void> registrationFuture() {
+            return registrationFuture;
         }
     }
 }

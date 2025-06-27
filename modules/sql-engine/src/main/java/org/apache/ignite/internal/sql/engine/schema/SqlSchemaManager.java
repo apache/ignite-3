@@ -18,35 +18,37 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.calcite.schema.SchemaPlus;
 
 /**
  * Sql schemas operations interface.
  */
 public interface SqlSchemaManager {
     /**
-     * Returns root schema of the given version.
+     * Returns a schema container derived from catalog of the given version.
      */
-    SchemaPlus schema(int version);
+    IgniteSchemas schemas(int catalogVersion);
 
     /**
-     * Returns root schema by the given timestamp.
+     * Returns a schema container derived from catalog of version which was considered active at the given timestamp.
      */
-    SchemaPlus schema(long timestamp);
+    IgniteSchemas schemas(long timestamp);
+
+    /** Returns version of the schemas which is considered to active at the given timestamp. */
+    int catalogVersion(long timestamp);
 
     /**
-     * Returns table by given id, which version correspond to the one from schema of given version.
+     * Returns table by given id, which version correspond to the one from catalog of given version.
      *
-     * @param schemaVersion Version of the schema.
+     * @param catalogVersion Version of the catalog.
      * @param tableId An identifier of a table of interest.
      * @return A table.
      */
-    IgniteTable table(int schemaVersion, int tableId);
+    IgniteTable table(int catalogVersion, int tableId);
 
     /**
-     * Returns a future to wait for given SQL schema version readiness.
+     * Returns a future to wait for given catalog version readiness.
      *
-     * @param version SQL schema version to wait.
+     * @param catalogVersion version of the catalog to wait.
      */
-    CompletableFuture<Void> schemaReadyFuture(int version);
+    CompletableFuture<Void> schemaReadyFuture(int catalogVersion);
 }

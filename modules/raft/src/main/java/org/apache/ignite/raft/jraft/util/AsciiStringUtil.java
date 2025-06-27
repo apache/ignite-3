@@ -48,15 +48,6 @@ public final class AsciiStringUtil {
         return unsafeDecode(in, 0, in.length);
     }
 
-    public static String unsafeDecode(final ByteString in) {
-        final int len = in.size();
-        final char[] out = new char[len];
-        for (int i = 0; i < len; i++) {
-            out[i] = (char) (in.byteAt(i) & 0xFF);
-        }
-        return moveToString(out);
-    }
-
     private AsciiStringUtil() {
     }
 

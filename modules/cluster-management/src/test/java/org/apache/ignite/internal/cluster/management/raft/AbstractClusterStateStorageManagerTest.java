@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static java.util.UUID.randomUUID;
+import static org.apache.ignite.internal.cluster.management.ClusterTag.randomClusterTag;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,6 +35,7 @@ import java.util.Set;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -43,10 +45,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Tests for {@link RaftStorageManager}.
+ * Tests for {@link ClusterStateStorageManager}.
  */
 public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstractTest {
-    private RaftStorageManager storageManager;
+    private ClusterStateStorageManager storageManager;
 
     private ClusterStateStorage storage;
 
@@ -58,14 +60,14 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
     void setUp(TestInfo testInfo) {
         storage = clusterStateStorage(testNodeName(testInfo, 0));
 
-        assertThat(storage.startAsync(), willCompleteSuccessfully());
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        storageManager = new RaftStorageManager(storage);
+        storageManager = new ClusterStateStorageManager(storage);
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
@@ -73,7 +75,7 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
      */
     @Test
     void testClusterState() {
-        ClusterTag clusterTag1 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag1 = randomClusterTag(msgFactory, "cluster");
         var state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo", "bar")))
                 .metaStorageNodes(Set.copyOf(List.of("foo", "baz")))
@@ -88,7 +90,7 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
         assertThat(storageManager.getClusterState(), is(equalTo(state)));
 
         IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("3.3.3");
-        ClusterTag clusterTag = clusterTag(msgFactory, "new_cluster");
+        ClusterTag clusterTag = randomClusterTag(msgFactory, "new_cluster");
         state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("foo")))
@@ -106,7 +108,7 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
      */
     @Test
     void testSnapshot() throws IOException {
-        ClusterTag clusterTag1 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag1 = randomClusterTag(msgFactory, "cluster");
         var state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo", "bar")))
                 .metaStorageNodes(Set.copyOf(List.of("foo", "baz")))
@@ -122,7 +124,7 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
         assertThat(storageManager.snapshot(snapshotDir), willCompleteSuccessfully());
 
         IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("3.3.3");
-        ClusterTag clusterTag = clusterTag(msgFactory, "new_cluster");
+        ClusterTag clusterTag = randomClusterTag(msgFactory, "new_cluster");
         var newState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("foo")))
@@ -142,9 +144,9 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
      */
     @Test
     void testValidatedNodes() {
-        var node1 = new LogicalNode("node1", "node1", new NetworkAddress("localhost", 10_000));
-        var node2 = new LogicalNode("node2", "node2", new NetworkAddress("localhost", 10_001));
-        var node3 = new LogicalNode("node3", "node3", new NetworkAddress("localhost", 10_002));
+        var node1 = new LogicalNode(randomUUID(), "node1", new NetworkAddress("localhost", 10_000));
+        var node2 = new LogicalNode(randomUUID(), "node2", new NetworkAddress("localhost", 10_001));
+        var node3 = new LogicalNode(randomUUID(), "node3", new NetworkAddress("localhost", 10_002));
 
         storageManager.putValidatedNode(node1);
 

@@ -17,14 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -35,28 +41,35 @@ import org.apache.ignite.tx.TransactionException;
  */
 public final class NoOpTransaction implements InternalTransaction {
 
-    private final UUID id = UUID.randomUUID();
+    private final UUID id = randomUUID();
 
-    private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1);
+    private final HybridTimestamp hybridTimestamp = new HybridTimestamp(1, 1)
+            .addPhysicalTime(System.currentTimeMillis());
 
-    private final IgniteBiTuple<ClusterNode, Long> tuple;
+    private final ClusterNode enlistmentNode;
+
+    private final PendingTxPartitionEnlistment enlistment;
 
     private final TablePartitionId groupId = new TablePartitionId(1, 0);
 
+    private final boolean implicit;
+
     private final boolean readOnly;
+
+    private boolean isRolledBackWithTimeoutExceeded = false;
 
     private final CompletableFuture<Void> commitFut = new CompletableFuture<>();
 
     private final CompletableFuture<Void> rollbackFut = new CompletableFuture<>();
 
     /** Creates a read-write transaction. */
-    public static NoOpTransaction readWrite(String name) {
-        return new NoOpTransaction(name, false);
+    public static NoOpTransaction readWrite(String name, boolean implicit) {
+        return new NoOpTransaction(name, implicit, false);
     }
 
     /** Creates a read only transaction. */
-    public static NoOpTransaction readOnly(String name) {
-        return new NoOpTransaction(name, true);
+    public static NoOpTransaction readOnly(String name, boolean implicit) {
+        return new NoOpTransaction(name, implicit, true);
     }
 
     /**
@@ -64,25 +77,28 @@ public final class NoOpTransaction implements InternalTransaction {
      *
      * @param name Name of the node.
      */
-    public NoOpTransaction(String name) {
-        this(name, true);
+    public NoOpTransaction(String name, boolean implicit) {
+        this(name, implicit, true);
     }
 
     /**
      * Constructs a transaction.
      *
      * @param name Name of the node.
+     * @param implicit Implicit transaction flag.
      * @param readOnly Read-only or not.
      */
-    private NoOpTransaction(String name, boolean readOnly) {
+    public NoOpTransaction(String name, boolean implicit, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-        this.tuple = new IgniteBiTuple<>(new ClusterNodeImpl(name, name, networkAddress), 1L);
+        this.enlistmentNode = new ClusterNodeImpl(randomUUID(), name, networkAddress);
+        this.enlistment = new PendingTxPartitionEnlistment(enlistmentNode.name(), 1L, groupId.tableId());
+        this.implicit = implicit;
         this.readOnly = readOnly;
     }
 
     /** Node at which this transaction was start. */
     public ClusterNode clusterNode() {
-        return tuple.get1();
+        return enlistmentNode;
     }
 
     @Override
@@ -92,8 +108,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        commitFut.complete(null);
-        return commitFut;
+        return finish(true, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, false);
     }
 
     @Override
@@ -103,8 +118,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        rollbackFut.complete(null);
-        return rollbackFut;
+        return finish(false, nullableHybridTimestamp(NULL_HYBRID_TIMESTAMP), false, false);
     }
 
     @Override
@@ -121,7 +135,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public HybridTimestamp startTimestamp() {
+    public HybridTimestamp schemaTimestamp() {
         return hybridTimestamp;
     }
 
@@ -131,13 +145,13 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public String coordinatorId() {
+    public UUID coordinatorId() {
         return clusterNode().id();
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
-        return tuple;
+    public PendingTxPartitionEnlistment enlistedPartition(ReplicationGroupId tablePartitionId) {
+        return enlistment;
     }
 
     @Override
@@ -146,7 +160,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
+    public boolean assignCommitPartition(ReplicationGroupId replicationGroupId) {
         return true;
     }
 
@@ -156,9 +170,56 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
-        return nodeAndConsistencyToken;
+    public boolean implicit() {
+        return implicit;
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
+        CompletableFuture<Void> fut = commit ? commitFut : rollbackFut;
+
+        fut.complete(null);
+
+        return fut;
+    }
+
+    @Override
+    public boolean isFinishingOrFinished() {
+        return commitFut.isDone() || rollbackFut.isDone();
+    }
+
+    @Override
+    public long getTimeout() {
+        return 10_000;
+    }
+
+    @Override
+    public void enlist(
+            ReplicationGroupId replicationGroupId,
+            int tableId,
+            String primaryNodeConsistentId,
+            long consistencyToken
+    ) {
+        requireNonNull(replicationGroupId, "replicationGroupId");
+        requireNonNull(primaryNodeConsistentId, "primaryNodeConsistentId");
+
+        // No-op.
+    }
+
+    @Override
+    public CompletableFuture<Void> kill() {
+        return rollbackAsync();
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+        this.isRolledBackWithTimeoutExceeded = true;
+        return rollbackAsync();
+    }
+
+    @Override
+    public boolean isRolledBackWithTimeoutExceeded() {
+        return isRolledBackWithTimeoutExceeded;
     }
 
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */

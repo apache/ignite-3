@@ -28,7 +28,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * JDBC batch execute request.
  */
-public class JdbcBatchExecuteRequest implements ClientMessage {
+public class JdbcBatchExecuteRequest extends JdbcObservableTimeAwareRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 
@@ -37,6 +37,15 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
 
     /** Flag indicating whether auto-commit mode is enabled. */
     private boolean autoCommit;
+
+    /** Query timeout in milliseconds. */
+    private long queryTimeoutMillis;
+
+    /**
+     * Token is used to uniquely identify execution request within single connection, which is required to properly coordinate cancellation
+     * request.
+     */
+    private long correlationToken;
 
     /**
      * Default constructor.
@@ -48,15 +57,25 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
      * Constructor.
      *
      * @param schemaName Schema name.
-     * @param queries    Queries.
+     * @param queries Queries.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
+     * @param queryTimeoutMillis Query timeout in millseconds.
+     * @param correlationToken Token is used to uniquely identify execution request within single connection.
      */
-    public JdbcBatchExecuteRequest(String schemaName, List<String> queries, boolean autoCommit) {
+    public JdbcBatchExecuteRequest(
+            String schemaName,
+            List<String> queries,
+            boolean autoCommit,
+            long queryTimeoutMillis,
+            long correlationToken
+    ) {
         assert !CollectionUtils.nullOrEmpty(queries);
 
         this.schemaName = schemaName;
         this.queries = queries;
         this.autoCommit = autoCommit;
+        this.queryTimeoutMillis = queryTimeoutMillis;
+        this.correlationToken = correlationToken;
     }
 
     /**
@@ -86,6 +105,19 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         return autoCommit;
     }
 
+    /**
+     * Returns the timeout in milliseconds.
+     *
+     * @return Timeout in milliseconds.
+     */
+    public long queryTimeoutMillis() {
+        return queryTimeoutMillis;
+    }
+
+    public long correlationToken() {
+        return correlationToken;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -97,6 +129,9 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         for (String q : queries) {
             packer.packString(q);
         }
+
+        packer.packLong(queryTimeoutMillis);
+        packer.packLong(correlationToken);
     }
 
     /** {@inheritDoc} */
@@ -112,6 +147,9 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         for (int i = 0; i < n; ++i) {
             queries.add(unpacker.unpackString());
         }
+
+        queryTimeoutMillis = unpacker.unpackLong();
+        correlationToken = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

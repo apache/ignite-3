@@ -29,13 +29,13 @@ public class NodeVersionCommandTest extends CliCommandTestNotInitializedIntegrat
     @DisplayName("Should display node version with provided cluster url")
     void nodeVersion() {
         // When
-        execute("node", "version", "--node-url", NODE_URL);
+        execute("node", "version", "--url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputMatches("[1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?\\s+")
+                () -> assertOutputMatches("Apache Ignite version [1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?\\s+")
         );
     }
 }

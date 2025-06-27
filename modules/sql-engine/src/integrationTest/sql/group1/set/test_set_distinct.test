@@ -1,0 +1,70 @@
+# name: test/sql/set/test_set_distinct.test
+# feature: SQL T551 - Optional keyword UNION DISTINCT, EXCEPT DISTINCT, or INTERSECT DISTINCT
+# feature: SQL F302-01 - INTERSECT table operator. INTERSECT DISTINCT table operator
+# [group] Set operations
+
+query I
+SELECT 1 UNION DISTINCT SELECT * FROM (values(1),(2),(2),(3),(3),(3),(4)) s(x)
+----
+1
+2
+3
+4
+
+query I rowsort
+SELECT * FROM (values (1),(2),(2),(3),(3),(3),(5)) s(x) EXCEPT DISTINCT SELECT * FROM (values (2),(2),(3),(3),(4)) s(x)
+----
+1
+5
+
+query I rowsort
+SELECT * FROM (values (1),(2),(2),(3),(3),(3),(5)) s(x) INTERSECT DISTINCT SELECT * FROM (values (2),(2),(3),(3),(4)) s(x)
+----
+2
+3
+
+query I rowsort
+SELECT * FROM (values (1),(2),(2),(3),(3),(3),(5)) s(x) 
+INTERSECT DISTINCT 
+SELECT * FROM (values (2),(2),(3),(3),(4), (7)) s(x) 
+  INTERSECT DISTINCT SELECT * FROM (values (2),(3),(4), (7)) s(x)
+----
+2
+3
+
+query I
+SELECT * FROM (values (1)) s(x) INTERSECT DISTINCT SELECT * FROM (values (2),(2),(3),(3),(4)) s(x)
+----
+
+query I
+SELECT count(*) FROM (values (1)) s(x) INTERSECT DISTINCT SELECT * FROM (values (2),(2),(3),(3),(4)) s(x)
+----
+
+query I rowsort
+SELECT * FROM (values (1),(2),(2),(3),(3),(3),(5)) s(x) INTERSECT DISTINCT SELECT * FROM (values (-1)) s(x)
+----
+
+query I rowsort
+SELECT count(*) FROM (values (1),(2),(2),(3),(3),(3),(5)) s(x) INTERSECT DISTINCT SELECT * FROM (values (-1)) s(x)
+----
+
+query I rowsort
+SELECT (SELECT * FROM (values (1), (2), (3)) s(x) INTERSECT DISTINCT SELECT * FROM (values (0), (2), (4)) s(x))
+----
+2
+
+query I rowsort
+SELECT (SELECT * FROM (values (1), (2), (3)) s(x) INTERSECT DISTINCT SELECT * FROM (values (-1), (-2), (-3)) s(x))
+----
+NULL
+
+statement error: Subquery returned more than 1 value.
+SELECT (SELECT * FROM (values (1), (2), (3)) s(x) INTERSECT DISTINCT SELECT * FROM (values (1), (2)) s(x))
+
+query I
+SELECT * FROM (values (null)) s(x) INTERSECT DISTINCT SELECT * FROM (values (2),(2),(3),(3),(4)) s(x)
+----
+
+query I
+SELECT * FROM (values (1)) s(x) INTERSECT DISTINCT SELECT * FROM (values (2),(null),(3),(3),(4)) s(x)
+----

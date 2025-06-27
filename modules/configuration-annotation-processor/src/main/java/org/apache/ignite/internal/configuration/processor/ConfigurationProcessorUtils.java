@@ -18,22 +18,24 @@
 package org.apache.ignite.internal.configuration.processor;
 
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 
 import com.squareup.javapoet.ClassName;
 import java.lang.annotation.Annotation;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Annotation processing utilities.
  */
-class ConfigurationProcessorUtils {
+public class ConfigurationProcessorUtils {
     /**
      * Returns {@link ClassName} for configuration class public interface.
      *
@@ -91,29 +93,53 @@ class ConfigurationProcessorUtils {
     }
 
     /**
-     * Returns the first annotation found for the class.
-     *
-     * @param clazz Class type.
-     * @param annotationClasses Annotation classes that will be searched for the class.
+     * Returns {@code true} if any of the given annotations are present on any of the given elements.
      */
     @SafeVarargs
-    public static Optional<? extends Annotation> findFirstPresentAnnotation(
-            TypeElement clazz,
-            Class<? extends Annotation>... annotationClasses
-    ) {
-        return Stream.of(annotationClasses).map(clazz::getAnnotation).filter(Objects::nonNull).findFirst();
+    public static boolean containsAnyAnnotation(List<? extends Element> elements, Class<? extends Annotation>... annotations) {
+        return elements.stream().anyMatch(e -> containsAnyAnnotation(e, annotations));
     }
 
     /**
-     * Collect fields with annotation.
-     *
-     * @param fields Fields.
-     * @param annotationClass Annotation class.
+     * Returns {@code true} if any of the given annotations are present on the given element.
      */
-    public static List<VariableElement> collectFieldsWithAnnotation(
-            Collection<VariableElement> fields,
-            Class<? extends Annotation> annotationClass
-    ) {
-        return fields.stream().filter(f -> f.getAnnotation(annotationClass) != null).collect(toList());
+    @SafeVarargs
+    public static boolean containsAnyAnnotation(Element element, Class<? extends Annotation>... annotations) {
+        return Arrays.stream(annotations).anyMatch(a -> element.getAnnotation(a) != null);
+    }
+
+    /**
+     * Checks that the type of the field with {@link Value} is valid: primitive, {@link String}, or {@link UUID} (or an array of one of
+     * these).
+     *
+     * @param type Field type with {@link Value}.
+     * @return {@code True} if the field type is valid.
+     */
+    public static boolean isValidValueAnnotationFieldType(ProcessingEnvironment processingEnvironment, TypeMirror type) {
+        if (type.getKind() == TypeKind.ARRAY) {
+            type = ((ArrayType) type).getComponentType();
+        }
+
+        if (type.getKind().isPrimitive()) {
+            return true;
+        }
+
+        return sameType(processingEnvironment, type, String.class) || sameType(processingEnvironment, type, UUID.class);
+    }
+
+    /**
+     * Returns {@code true} if the given types are the same type.
+     *
+     * @param type1 first type (represented by a mirror)
+     * @param type2 second type (represented by a {@code Class})
+     * @return {@code true} if both types represent the same type, {@code false} otherwise.
+     */
+    public static boolean sameType(ProcessingEnvironment processingEnvironment, TypeMirror type1, Class<?> type2) {
+        TypeMirror classType = processingEnvironment
+                .getElementUtils()
+                .getTypeElement(type2.getCanonicalName())
+                .asType();
+
+        return processingEnvironment.getTypeUtils().isSameType(classType, type1);
     }
 }

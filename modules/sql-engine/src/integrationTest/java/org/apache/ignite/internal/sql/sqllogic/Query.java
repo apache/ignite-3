@@ -21,6 +21,9 @@ import com.google.common.base.Strings;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -32,6 +35,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.StringUtils;
 
@@ -216,7 +220,9 @@ final class Query extends Command {
 
                 try {
                     if (singleValOnLine) {
-                        row.add(ctx.nullLbl.equals(vals[0]) ? null : vals[0]);
+                        String colValRaw = ctx.nullLbl.equals(vals[0]) ? null : vals[0];
+                        String colVal = ctx.replaceVars(colValRaw);
+                        row.add(colVal);
 
                         if (row.size() == resTypes.size()) {
                             expectedRes.add(row);
@@ -225,7 +231,9 @@ final class Query extends Command {
                         }
                     } else {
                         for (String val : vals) {
-                            row.add(ctx.nullLbl.equals(val) ? null : val);
+                            String colValRaw = ctx.nullLbl.equals(val) ? null : val;
+                            String colVal = ctx.replaceVars(colValRaw);
+                            row.add(colVal);
                         }
 
                         expectedRes.add(row);
@@ -303,7 +311,7 @@ final class Query extends Command {
         }
     }
 
-    private void checkResultTuples(ScriptContext ctx, List<List<?>> res) {
+    void checkResultTuples(ScriptContext ctx, List<List<?>> res) {
         if (expectedRes.size() != res.size()) {
             throw new AssertionError("Invalid results rows count at: " + posDesc
                     + ". [expectedRows=" + expectedRes.size() + ", actualRows=" + res.size()
@@ -320,13 +328,22 @@ final class Query extends Command {
             }
 
             for (int j = 0; j < expectedRow.size(); ++j) {
-                checkEquals(ctx,
-                        "Not expected result at: " + posDesc
-                                + ". [row=" + i + ", col=" + j
-                                + ", expected=" + expectedRow.get(j) + ", actual=" + resultToString(ctx, row.get(j)) + ']',
-                        expectedRow.get(j),
-                        row.get(j)
-                );
+                String expectStrValRaw = expectedRow.get(j);
+                String expectStrVal = ctx.replaceVars(expectStrValRaw);
+
+                try {
+                    checkEquals(ctx,
+                            "Not expected result at: " + posDesc
+                                    + ". [row=" + i + ", col=" + j
+                                    + ", expected=" + expectStrVal + ", actual=" + resultToString(ctx, row.get(j)) + ']',
+                            expectStrVal,
+                            row.get(j)
+                    );
+                } catch (AssertionError ex) {
+                    AssertionError extended = new AssertionError("Invalid results: " + res);
+                    ex.addSuppressed(extended);
+                    throw ex;
+                }
             }
         }
     }
@@ -438,6 +455,10 @@ final class Query extends Command {
             return ByteString.toString((byte[]) res, 16);
         } else if (res instanceof Map) {
             return mapToString(ctx, (Map<?, ?>) res);
+        } else if (res instanceof LocalTime) {
+            return ((LocalTime) res).format(DateTimeFormatter.ISO_TIME);
+        } else if (res instanceof LocalDateTime) {
+            return ((LocalDateTime) res).format(SqlTestUtils.SQL_CONFORMANT_DATETIME_FORMATTER);
         } else {
             return String.valueOf(res);
         }

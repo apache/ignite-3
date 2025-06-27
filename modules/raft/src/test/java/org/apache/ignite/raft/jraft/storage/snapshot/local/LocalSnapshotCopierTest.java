@@ -44,7 +44,6 @@ import org.apache.ignite.raft.jraft.storage.BaseStorageTest;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.test.TestUtils;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -196,7 +195,7 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
             .getFileResponse()
             .readSize(metaBuf.remaining())
             .eof(true)
-            .data(new ByteString(metaBuf))
+            .data(metaBuf)
             .build();
 
         closure.setResponse(response);
@@ -218,7 +217,7 @@ public class LocalSnapshotCopierTest extends BaseStorageTest {
             .getFileResponse()
             .readSize(100)
             .eof(true)
-            .data(new ByteString(new byte[100]))
+            .data(ByteBuffer.wrap(new byte[100]))
             .build();
 
         closure.setResponse(response);

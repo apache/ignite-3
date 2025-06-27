@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration.presentation;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
@@ -76,7 +78,7 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
             return CompletableFuture.failedFuture(new IllegalArgumentException(e));
         }
 
-        return registry.change(HoconConverter.hoconSource(config.root()))
+        return registry.change(HoconConverter.hoconSource(config.root(), registry.keyIgnorer()))
                 .exceptionally(e -> {
                     if (e instanceof CompletionException) {
                         e = e.getCause();
@@ -89,7 +91,7 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
                     } else if (e instanceof ConfigurationChangeException) {
                         throw (RuntimeException) e.getCause();
                     } else {
-                        throw new IgniteException(e);
+                        throw new IgniteException(INTERNAL_ERR, e);
                     }
                 });
     }

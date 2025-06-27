@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.catalog.configuration;
 
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
@@ -29,13 +28,14 @@ import org.apache.ignite.configuration.validation.Range;
  *
  * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-98%3A+Schema+Synchronization">Schema Synchronization IEP</a>
  */
-@ConfigurationRoot(rootName = "schemaSync", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class SchemaSynchronizationConfigurationSchema {
     /** Delay Duration (ms), see the spec for details. */
     @Value(hasDefault = true)
     @Range(min = 1)
     @Immutable
-    public long delayDuration = TimeUnit.SECONDS.toMillis(1);
+    @PublicName(legacyNames = "delayDuration")
+    public long delayDurationMillis = 500;
 
     /**
      * Max physical clock skew (ms) that is tolerated by the cluster. If difference between physical clocks of 2 nodes of a cluster
@@ -44,5 +44,6 @@ public class SchemaSynchronizationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     @Immutable
-    public long maxClockSkew = 500;
+    @PublicName(legacyNames = "maxClockSkew")
+    public long maxClockSkewMillis = 500;
 }

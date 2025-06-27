@@ -18,6 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 description = 'ignite-rest-api'
 
@@ -28,6 +29,7 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
     implementation libs.jackson.annotations
     implementation libs.jackson.databind
@@ -42,14 +44,13 @@ dependencies {
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     testImplementation testFixtures(project(':ignite-core'))
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
-    testImplementation libs.mockito.core
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
     testImplementation libs.micronaut.http.server.netty
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
+
+    testFixturesImplementation testFixtures(project(":ignite-core"))
+    testFixturesImplementation libs.micronaut.http.core
+    testFixturesImplementation libs.micronaut.http.client
 }
 
 ext {
@@ -58,7 +59,9 @@ ext {
     openapiProps = [
             'micronaut.openapi.property.naming.strategy' : 'LOWER_CAMEL_CASE',
             'micronaut.openapi.target.file' : openapiFile.path,
-            'micronaut.openapi.field.visibility.level' : 'PRIVATE'
+            'micronaut.openapi.field.visibility.level' : 'PRIVATE',
+            'api.version' : project.version,
+            'api.product' : project.product
     ]
 }
 

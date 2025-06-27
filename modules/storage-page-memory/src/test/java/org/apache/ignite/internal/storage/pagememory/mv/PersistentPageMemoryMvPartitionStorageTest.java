@@ -20,27 +20,42 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
-import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataRegion;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -49,13 +64,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
 class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
-    @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
-    private PersistentPageMemoryStorageEngineConfiguration engineConfig;
+    @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
+    private StorageConfiguration storageConfig;
 
-    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
-    private StorageConfiguration storageConfiguration;
+    @InjectExecutorService
+    ExecutorService executorService;
 
     @WorkDirectory
     private Path workDir;
@@ -72,13 +87,16 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
-                engineConfig,
-                storageConfiguration,
+                mock(MetricManager.class),
+                storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,
-                mock(FailureProcessor.class),
-                mock(LogSyncer.class)
+                mock(FailureManager.class),
+                mock(LogSyncer.class),
+                executorService,
+                clock
         );
 
         engine.start();
@@ -104,7 +122,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
     @Override
     int pageSize() {
-        return engineConfig.pageSize().value();
+        return engine.configuration().pageSizeBytes().value();
     }
 
     @Test
@@ -113,7 +131,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         restartStorage();
 
-        assertThat(read(rowId, HybridTimestamp.MAX_VALUE), is(equalToRow(binaryRow)));
+        assertThat(read(rowId, HybridTimestamp.MAX_VALUE), isRow(binaryRow));
     }
 
     private void restartStorage() throws Exception {
@@ -197,4 +215,53 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         assertThat(readConfig, is(equalTo(configWhichFitsInOnePage)));
     }
+
+    @Test
+    void testDeltaFileCompactionAfterClearPartition() throws InterruptedException {
+        addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
+
+        assertThat(table.clearPartition(PARTITION_ID), willCompleteSuccessfully());
+
+        waitForDeltaFileCompaction((PersistentPageMemoryTableStorage) table);
+    }
+
+    @Test
+    void testDeltaFileCompactionAfterPartitionRebalanced() throws InterruptedException {
+        addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
+
+        var leaseInfo = new LeaseInfo(333, new UUID(1, 2), "primary");
+
+        var partitionMeta = new MvPartitionMeta(1, 2, BYTE_EMPTY_ARRAY, leaseInfo, BYTE_EMPTY_ARRAY);
+
+        CompletableFuture<Void> rebalance = table.startRebalancePartition(PARTITION_ID)
+                .thenCompose(v -> table.finishRebalancePartition(PARTITION_ID, partitionMeta));
+
+        assertThat(rebalance, willCompleteSuccessfully());
+
+        waitForDeltaFileCompaction((PersistentPageMemoryTableStorage) table);
+    }
+
+    @Test
+    void testDeltaFileCompactionAfterPartitionRebalanceAborted() throws InterruptedException {
+        addWriteCommitted(new RowId(PARTITION_ID), binaryRow, clock.now());
+
+        CompletableFuture<Void> abortRebalance = table.startRebalancePartition(PARTITION_ID)
+                .thenCompose(v -> table.abortRebalancePartition(PARTITION_ID));
+
+        assertThat(abortRebalance, willCompleteSuccessfully());
+
+        waitForDeltaFileCompaction((PersistentPageMemoryTableStorage) table);
+    }
+
+    private void waitForDeltaFileCompaction(PersistentPageMemoryTableStorage tableStorage) throws InterruptedException {
+        PersistentPageMemoryDataRegion dataRegion = tableStorage.dataRegion();
+
+        CheckpointProgress checkpointProgress = engine.checkpointManager().forceCheckpoint("Test compaction");
+        assertThat(checkpointProgress.futureFor(FINISHED), willCompleteSuccessfully());
+
+        FilePageStore fileStore = dataRegion.filePageStoreManager().getStore(new GroupPartitionId(tableStorage.getTableId(), PARTITION_ID));
+
+        assertTrue(waitForCondition(() -> fileStore.deltaFileCount() == 0, 1000));
+    }
+
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -26,9 +27,9 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -75,12 +75,12 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
                 .name("T1")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .partitions(42)
-                .distribution(IgniteDistributions.affinity(List.of(0), 2, "3"))
+                .distribution(TestBuilders.affinity(List.of(0), 2, 3))
                 .partitions(assignments.size())
                 .build();
 
         ColocationGroup group = new ColocationGroup(
-                List.of(1L, 2L), List.of("n1", "n2", "n3"),
+                LongList.of(1L, 2L), List.of("n1", "n2", "n3"),
                 assignments,
                 partitionsPerNode
         );
@@ -120,12 +120,12 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
                 .name("T1")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .partitions(assignments.size())
-                .distribution(IgniteDistributions.affinity(List.of(0), 2, "3"))
+                .distribution(TestBuilders.affinity(List.of(0), 2, 3))
                 .partitions(assignments.size())
                 .build();
 
         ColocationGroup group = new ColocationGroup(
-                List.of(1L, 2L), List.of("n1", "n2", "n3"),
+                LongList.of(1L, 2L), List.of("n1", "n2", "n3"),
                 assignments
         );
 
@@ -164,12 +164,12 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
                 .name("T1")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .partitions(assignments.size())
-                .distribution(IgniteDistributions.affinity(List.of(0), 2, "3"))
+                .distribution(TestBuilders.affinity(List.of(0), 2, 3))
                 .partitions(assignments.size())
                 .build();
 
         ColocationGroup group = new ColocationGroup(
-                List.of(1L, 2L), List.of("n1", "n2", "n3"),
+                LongList.of(1L, 2L), List.of("n1", "n2", "n3"),
                 assignments,
                 Map.of()
         );
@@ -197,13 +197,13 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
             ColocationGroup colocationGroup,
             @Nullable PartitionPruningMetadata metadata
     ) {
-        ClusterNodeImpl node = new ClusterNodeImpl(nodeName, nodeName, new NetworkAddress("localhost", 1234));
+        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 1234));
 
         Long2ObjectMap<ColocationGroup> map = new Long2ObjectOpenHashMap<>();
         map.put(GROUP_ID, colocationGroup);
 
         return TestBuilders.executionContext()
-                .queryId(UUID.randomUUID())
+                .queryId(randomUUID())
                 .executor(queryTaskExecutor)
                 .fragment(new FragmentDescription(1, false, map, null, null, metadata))
                 .localNode(node)

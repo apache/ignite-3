@@ -18,13 +18,15 @@
 namespace Apache.Ignite.Tests.Transactions
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
-    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
-    using System.Transactions;
     using Ignite.Transactions;
+    using Internal;
+    using Internal.Transactions;
     using NUnit.Framework;
     using Table;
+    using Tx;
     using TransactionOptions = Ignite.Transactions.TransactionOptions;
 
     /// <summary>
@@ -107,12 +109,24 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
+        [SuppressMessage("ReSharper", "UseAwaitUsing", Justification = "Testing synchronous Dispose.")]
         public async Task TestDisposeDoesNotUpdateData()
+        {
+            using (var tx = await Client.Transactions.BeginAsync())
+            {
+                await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
+            }
+
+            var (_, hasValue) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasValue);
+        }
+
+        [Test]
+        public async Task TestDisposeAsyncDoesNotUpdateData()
         {
             await using (var tx = await Client.Transactions.BeginAsync())
             {
                 await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
-                await tx.RollbackAsync();
             }
 
             var (_, hasValue) = await TupleView.GetAsync(null, GetTuple(1));
@@ -164,6 +178,8 @@ namespace Apache.Ignite.Tests.Transactions
         public async Task TestClientDisconnectClosesActiveTransactions()
         {
             await using var tx0 = await Client.Transactions.BeginAsync();
+            await TestUtils.ForceLazyTxStart(tx0, Client);
+
             await TupleView.UpsertAsync(null, GetTuple(1, "1"));
 
             using (var client2 = await IgniteClient.StartAsync(GetConfig()))
@@ -186,31 +202,32 @@ namespace Apache.Ignite.Tests.Transactions
         {
             using var client2 = await IgniteClient.StartAsync(GetConfig());
             await using var tx = await client2.Transactions.BeginAsync();
+            await using var cursor = await client2.Sql.ExecuteAsync(tx, "select 1"); // Force lazy tx start.
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "2")));
             Assert.AreEqual("Specified transaction belongs to a different IgniteClient instance.", ex!.Message);
         }
 
         [Test]
-        public async Task TestReadOnlyTxSeesOldDataAfterUpdate()
+        public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
         {
             var key = Random.Shared.NextInt64(1000, long.MaxValue);
             var keyPoco = new Poco { Key = key };
 
             await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
 
-            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
-            Assert.AreEqual("11", (await PocoView.GetAsync(tx, keyPoco)).Value.Val);
+            await using var roTx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
 
-            // Update data in a different tx.
-            await using (var tx2 = await Client.Transactions.BeginAsync())
+            if (readBeforeUpdate)
             {
-                await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "22" });
-                await tx2.CommitAsync();
+                Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
             }
 
-            // Old tx sees old data.
-            Assert.AreEqual("11", (await PocoView.GetAsync(tx, keyPoco)).Value.Val);
+            // Update data in a different (implicit) tx.
+            await PocoView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
+
+            // Old read-only tx sees old data.
+            Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
 
             // New tx sees new data
             await using var tx3 = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
@@ -221,7 +238,7 @@ namespace Apache.Ignite.Tests.Transactions
         public async Task TestUpdateInReadOnlyTxThrows()
         {
             await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
-            var ex = Assert.ThrowsAsync<Tx.TransactionException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "1")));
+            var ex = Assert.ThrowsAsync<TransactionException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "1")));
 
             Assert.AreEqual(ErrorGroups.Transactions.TxFailedReadWriteOperation, ex!.Code, ex.Message);
             StringAssert.Contains("Failed to enlist read-write operation into read-only transaction", ex.Message);
@@ -270,13 +287,18 @@ namespace Apache.Ignite.Tests.Transactions
             using var client = await IgniteClient.StartAsync(new() { Endpoints = { "127.0.0.1:" + ServerPort } });
 
             await using var tx1 = await client.Transactions.BeginAsync();
+            await TestUtils.ForceLazyTxStart(tx1, client);
+
             await using var tx2 = await client.Transactions.BeginAsync(new(ReadOnly: true));
+            await TestUtils.ForceLazyTxStart(tx2, client);
+
             await using var tx3 = await client.Transactions.BeginAsync();
+            await TestUtils.ForceLazyTxStart(tx3, client);
 
             await tx2.RollbackAsync();
             await tx3.CommitAsync();
 
-            var id = int.Parse(Regex.Match(tx1.ToString()!, @"\d+").Value);
+            var id = LazyTransaction.Get(tx1)!.Id;
 
             Assert.AreEqual($"Transaction {{ Id = {id}, State = Open, IsReadOnly = False }}", tx1.ToString());
             Assert.AreEqual($"Transaction {{ Id = {id + 1}, State = RolledBack, IsReadOnly = True }}", tx2.ToString());
@@ -284,10 +306,28 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
+        public async Task TestObservableTimestampIsInitializedFromHandshake()
+        {
+            using var client = await IgniteClient.StartAsync(new() { Endpoints = { "127.0.0.1:" + ServerPort } });
+            var observableTimestamp = ((IgniteClientInternal)client).Socket.ObservableTimestamp;
+
+            Assert.Greater(observableTimestamp, 0);
+        }
+
+        [Test]
         public async Task TestObservableTimestampPropagation([Values(true, false)] bool sql)
         {
-            using var server = new FakeServer();
+            using var server = new FakeServer
+            {
+                ObservableTimestamp = 111
+            };
+
             using var client = await server.ConnectClientAsync();
+
+            Assert.AreEqual(
+                server.ObservableTimestamp,
+                ((IgniteClientInternal)client).Socket.ObservableTimestamp,
+                "Handshake should initialize observable timestamp");
 
             server.ObservableTimestamp = 123;
 
@@ -304,30 +344,87 @@ namespace Apache.Ignite.Tests.Transactions
             }
             else
             {
-                await client.Transactions.BeginAsync();
+                await TestUtils.ForceLazyTxStart(await client.Transactions.BeginAsync(), client);
             }
 
             Assert.AreEqual(123, server.LastClientObservableTimestamp);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionUpdatesData()
+        {
+            await Client.Transactions.RunInTransactionAsync(
+                async tx => await TupleView.UpsertAsync(tx, GetTuple(1, "2")));
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithExceptionDoesNotUpdateData()
+        {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync(async tx =>
+                {
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithResultUpdatesData()
+        {
+            var res = await Client.Transactions.RunInTransactionAsync(async tx =>
+            {
+                await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
+                return await TupleView.GetAsync(tx, GetTuple(1));
+            });
+
+            Assert.AreEqual("2", res.Value[1]);
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithResultWithExceptionDoesNotUpdateData()
+        {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync<int>(async tx =>
+                {
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
         }
 
         private class CustomTx : ITransaction
         {
             public bool IsReadOnly => false;
 
-            public ValueTask DisposeAsync()
+            public ValueTask DisposeAsync() => new(Task.CompletedTask);
+
+            public void Dispose()
             {
-                return new ValueTask(Task.CompletedTask);
+                // No-op.
             }
 
-            public Task CommitAsync()
-            {
-                return Task.CompletedTask;
-            }
+            public Task CommitAsync() => Task.CompletedTask;
 
-            public Task RollbackAsync()
-            {
-                return Task.CompletedTask;
-            }
+            public Task RollbackAsync() => Task.CompletedTask;
         }
     }
 }

@@ -73,10 +73,9 @@ public class ComputeThreadPoolExecutor {
     /**
      * Shuts down the given executor service gradually, first disabling new submissions and later, if necessary, cancelling remaining
      * tasks.
-     *
      * {@link IgniteUtils#shutdownAndAwaitTermination}
      */
-    public void shutdown(long stopTimeout) {
-        IgniteUtils.shutdownAndAwaitTermination(executor, stopTimeout, TimeUnit.MILLISECONDS);
+    public void shutdown() {
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 }

@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 /**
  * NOT NULL constraint test for thin client API.
@@ -34,46 +34,17 @@ public class ItNotNullConstraintClientTest extends ItNotNullConstraintTest {
     @BeforeEach
     public void startClient() {
         client = IgniteClient.builder()
-                .addresses("localhost:" + CLUSTER.aliveNode().clientAddress().port())
+                .addresses("localhost:" + unwrapIgniteImpl(CLUSTER.aliveNode()).clientAddress().port())
                 .build();
     }
 
     @AfterEach
-    public void stopClient() throws Exception {
+    public void stopClient() {
         client.close();
     }
 
     @Override
     protected Ignite ignite() {
         return client;
-    }
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-22040 is resolved error messages for client and server API should be the same.
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
-    @Override
-    public void testKeyValueView() {
-        super.testKeyValueView();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
-    @Override
-    public void testRecordView() {
-        super.testRecordView();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
-    @Override
-    public void testKeyValueViewDataStreamer() {
-        super.testRecordView();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
-    @Override
-    public void testRecordViewDataStreamer() {
-        super.testRecordView();
     }
 }

@@ -62,7 +62,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     public void setUp() throws IOException {
         populateTable(TABLE_NAME, TABLE_SIZE, 1_000);
 
-        sql = clusterNode.sql();
+        sql = publicIgnite.sql();
     }
 
     /** Benchmark that measures performance of `SELECT count(*)` query over entire table. */

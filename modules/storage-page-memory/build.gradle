@@ -29,6 +29,7 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-file-io')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-transactions')
     implementation project(':ignite-catalog')
     implementation project(':ignite-failure-handler')
@@ -44,21 +45,19 @@ dependencies {
     testImplementation project(':ignite-transactions')
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-schema')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-storage-api')))
-    testImplementation(testFixtures(project(':ignite-schema')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.junit5.params
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-storage-api'))
+    testImplementation testFixtures(project(':ignite-schema'))
+    testImplementation testFixtures(project(':ignite-page-memory'))
+    testImplementation testFixtures(project(':ignite-metrics'))
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesAnnotationProcessor libs.auto.service
 
+    testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-configuration')
-    testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.auto.service.annotations
 }
 

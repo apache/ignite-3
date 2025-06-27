@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.message;
 
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Marshallable;
@@ -35,7 +36,7 @@ public interface JobResultResponse extends NetworkMessage {
      */
     @Nullable
     @Marshallable
-    Object result();
+    ComputeJobDataHolder result();
 
     /**
      * Returns a {@link Throwable} that was thrown during job execution ({@code null} if the execution was successful).

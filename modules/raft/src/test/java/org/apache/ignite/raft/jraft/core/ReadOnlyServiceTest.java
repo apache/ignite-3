@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static org.apache.ignite.raft.jraft.util.BytesUtil.toByteArray;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -89,11 +91,13 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
         opts.setNode(this.node);
         opts.setRaftOptions(raftOptions);
         opts.setReadOnlyServiceDisruptor(disruptor = new StripedDisruptor<>("test", "TestReadOnlyServiceDisruptor",
-            1024,
-            () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-            1,
-            false,
-            false));
+                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                1024,
+                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+                1,
+                false,
+                false,
+                null));
         NodeOptions nodeOptions = new NodeOptions();
         ExecutorService executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
         executors.add(executor);
@@ -138,7 +142,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
                     return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
                         && Utils.size(req.entriesList()) == 1
-                        && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
+                        && Arrays.equals(requestContext, toByteArray(req.entriesList().get(0)));
                 }
                 return false;
             }
@@ -170,7 +174,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
                     return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
                         && Utils.size(req.entriesList()) == 1
-                        && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
+                        && Arrays.equals(requestContext, toByteArray(req.entriesList().get(0)));
                 }
                 return false;
             }
@@ -215,7 +219,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
                     return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
                         && Utils.size(req.entriesList()) == 1
-                        && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
+                        && Arrays.equals(requestContext, toByteArray(req.entriesList().get(0)));
                 }
                 return false;
             }
@@ -258,7 +262,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
                     final ReadIndexRequest req = (ReadIndexRequest) argument;
                     return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
                         && Utils.size(req.entriesList()) == 1
-                        && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
+                        && Arrays.equals(requestContext, toByteArray(req.entriesList().get(0)));
                 }
                 return false;
             }
@@ -331,7 +335,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
                     ReadIndexRequest req = (ReadIndexRequest) argument;
                     return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
                             && Utils.size(req.entriesList()) == 1
-                            && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
+                            && Arrays.equals(requestContext, toByteArray(req.entriesList().get(0)));
                 }
                 return false;
             }

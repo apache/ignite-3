@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneCantBeDroppedValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -38,22 +38,33 @@ public class DropZoneCommand extends AbstractZoneCommand {
         return new Builder();
     }
 
+    private final boolean ifExists;
+
     /**
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private DropZoneCommand(String zoneName) throws CatalogValidationException {
+    private DropZoneCommand(String zoneName, boolean ifExists) throws CatalogValidationException {
         super(zoneName);
+
+        this.ifExists = ifExists;
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
+        CatalogZoneDescriptor zone = zone(catalog, zoneName, !ifExists);
+        if (zone == null) {
+            return List.of();
+        }
 
-        if (zone.id() == catalog.defaultZone().id()) {
-            throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped: zoneName={}", zoneName);
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+
+        if (defaultZone != null && zone.id() == defaultZone.id()) {
+            throw new CatalogValidationException("Default distribution zone can't be dropped: zoneName={}.", zoneName);
         }
 
         catalog.schemas().stream()
@@ -61,11 +72,14 @@ public class DropZoneCommand extends AbstractZoneCommand {
                 .filter(t -> t.zoneId() == zone.id())
                 .findAny()
                 .ifPresent(t -> {
-                    throw new DistributionZoneCantBeDroppedValidationException("Distribution zone '{}' is assigned to the table '{}'",
-                            zone.name(), t.name());
+                    throw new CatalogValidationException("Distribution zone '{}' is assigned to the table '{}'.", zone.name(), t.name());
                 });
 
         return List.of(new DropZoneEntry(zone.id()));
+    }
+
+    public boolean ifExists() {
+        return ifExists;
     }
 
     /**
@@ -73,6 +87,7 @@ public class DropZoneCommand extends AbstractZoneCommand {
      */
     private static class Builder implements DropZoneCommandBuilder {
         private String zoneName;
+        private boolean ifExists;
 
         @Override
         public DropZoneCommandBuilder zoneName(String zoneName) {
@@ -82,8 +97,15 @@ public class DropZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
+        public DropZoneCommandBuilder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
-            return new DropZoneCommand(zoneName);
+            return new DropZoneCommand(zoneName, ifExists);
         }
     }
 }

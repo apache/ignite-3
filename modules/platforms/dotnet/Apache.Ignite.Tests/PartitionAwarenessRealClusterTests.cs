@@ -34,9 +34,10 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
     /// Uses <see cref="ComputeTests.NodeNameJob"/> to get the name of the node that should be the primary for the given key,
     /// and compares to the actual node that received the request (using IgniteProxy).
     /// </summary>
+    /// <param name="withTx">Whether to use transactions.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous unit test.</returns>
     [Test]
-    public async Task TestPutRoutesRequestToPrimaryNode()
+    public async Task TestPutRoutesRequestToPrimaryNode([Values(true, false)] bool withTx)
     {
         var proxies = GetProxies();
         using var client = await IgniteClient.StartAsync(GetConfig(proxies));
@@ -50,11 +51,10 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         {
             var keyTuple = new IgniteTuple { ["KEY"] = key };
 
-            var primaryNodeNameExec = await client.Compute.SubmitColocatedAsync<string>(
-                TableName,
-                keyTuple,
-                Array.Empty<DeploymentUnit>(),
-                ComputeTests.NodeNameJob);
+            var primaryNodeNameExec = await client.Compute.SubmitAsync(
+                JobTarget.Colocated(TableName, keyTuple),
+                ComputeTests.NodeNameJob,
+                null);
 
             var primaryNodeName = await primaryNodeNameExec.GetResultAsync();
 
@@ -64,10 +64,22 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
                 continue;
             }
 
-            await recordView.UpsertAsync(null, keyTuple);
-            var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.TupleUpsert);
+            var tx = withTx ? await client.Transactions.BeginAsync() : null;
 
-            Assert.AreEqual(primaryNodeName, requestTargetNodeName);
+            try
+            {
+                await recordView.UpsertAsync(tx, keyTuple);
+                var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.TupleUpsert);
+
+                Assert.AreEqual(primaryNodeName, requestTargetNodeName);
+            }
+            finally
+            {
+                if (tx != null)
+                {
+                    await tx.RollbackAsync();
+                }
+            }
         }
     }
 }

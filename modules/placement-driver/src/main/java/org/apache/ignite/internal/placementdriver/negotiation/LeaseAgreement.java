@@ -23,12 +23,13 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -45,10 +46,13 @@ public class LeaseAgreement {
      * The agreement, which has not try negotiating yet. We assume that it is {@link #ready()} and not {@link #isAccepted()}
      * which allows both initiation and retries of negotiation.
      */
-    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, nullCompletedFuture());
+    static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, nullCompletedFuture(), false);
 
     /** Lease. */
     private final Lease lease;
+
+    /** Forced agreement. */
+    private final boolean forced;
 
     /** Future to {@link LeaseGrantedMessageResponse} response. */
     private final CompletableFuture<LeaseGrantedMessageResponse> responseFut;
@@ -57,11 +61,23 @@ public class LeaseAgreement {
      * The constructor.
      *
      * @param lease Lease.
-     * @param remoteNodeResponseFuture The future of response from the remote node which is negotiating the agreement.
+     * @param forced Forced agreement.
      */
-    public LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture) {
+    public LeaseAgreement(Lease lease, boolean forced) {
+        this(lease, new CompletableFuture<>(), forced);
+    }
+
+    /**
+     * The constructor for private use.
+     *
+     * @param lease Lease.
+     * @param remoteNodeResponseFuture The future of response from the remote node which is negotiating the agreement.
+     * @param forced Forced agreement.
+     */
+    private LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture, boolean forced) {
         this.lease = lease;
         this.responseFut = requireNonNull(remoteNodeResponseFuture);
+        this.forced = forced;
     }
 
     /**
@@ -71,6 +87,24 @@ public class LeaseAgreement {
      */
     public Lease getLease() {
         return lease;
+    }
+
+    /**
+     * Group id of lease.
+     *
+     * @return Group id.
+     */
+    public ReplicationGroupId groupId() {
+        return lease.replicationGroupId();
+    }
+
+    /**
+     * Gets a forced agreement flag.
+     *
+     * @return Forced agreement flag.
+     */
+    public boolean forced() {
+        return forced;
     }
 
     /**
@@ -126,6 +160,15 @@ public class LeaseAgreement {
     }
 
     /**
+     * Returns true if the agreement is cancelled, false otherwise.
+     *
+     * @return True if the agreement is cancelled, false otherwise.
+     */
+    public boolean isCancelled() {
+        return responseFut.isDone() && !responseFut.isCompletedExceptionally() && responseFut.join() == null;
+    }
+
+    /**
      * Check the validity of the agreement in the current logical topology and group assignments. If the suggested leaseholder
      * has left topology or not included into the current assignments, the agreement is broken.
      *
@@ -148,7 +191,7 @@ public class LeaseAgreement {
 
             responseFut.complete(null);
         } else if (currentTopologySnapshot != null) {
-            Set<String> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
+            Set<UUID> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
 
             if (!nodeIds.contains(lease.getLeaseholderId())) {
                 LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
@@ -157,5 +200,13 @@ public class LeaseAgreement {
                 responseFut.complete(null);
             }
         }
+    }
+
+    void onResponse(LeaseGrantedMessageResponse response) {
+        responseFut.complete(response);
+    }
+
+    void cancel() {
+        responseFut.complete(null);
     }
 }

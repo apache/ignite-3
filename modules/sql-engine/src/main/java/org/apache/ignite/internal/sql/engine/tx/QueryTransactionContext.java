@@ -17,65 +17,26 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
-
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.TransactionOptions;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Starts an implicit transaction if there is no external transaction.
+ * Context that allows to get explicit transaction provided by user or start implicit one.
  */
-public class QueryTransactionContext {
-    private final IgniteTransactions transactions;
-    private final @Nullable InternalTransaction tx;
-
-    public QueryTransactionContext(IgniteTransactions transactions, @Nullable InternalTransaction tx) {
-        this.transactions = transactions;
-        this.tx = tx;
-    }
-
+public interface QueryTransactionContext {
     /**
-     * Starts an implicit transaction if there is no external transaction.
+     * Starts an implicit transaction if one has not been started previously
+     * and if there is no external (user-managed) transaction.
      *
-     * @param queryType Query type.
+     * @param readOnly Indicates whether the read-only transaction or read-write transaction should be started.
+     * @param implicit Indicates whether the implicit transaction will be managed by the table storage or the SQL engine.
      * @return Transaction wrapper.
      */
-    public QueryTransactionWrapper getOrStartImplicit(SqlQueryType queryType) {
-        InternalTransaction outerTx = tx;
+    QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit);
 
-        if (outerTx == null) {
-            return new QueryTransactionWrapperImpl((InternalTransaction) transactions.begin(
-                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML)), true);
-        }
+    /** Updates tracker of latest time observed by client. */
+    void updateObservableTime(HybridTimestamp time);
 
-        validateStatement(queryType, outerTx.isReadOnly());
-
-        return new QueryTransactionWrapperImpl(outerTx, false);
-    }
-
-
-    /** Returns transactions facade. */
-    IgniteTransactions transactions() {
-        return transactions;
-    }
-
-    /** Returns the external transaction if one has been started. */
-    @Nullable InternalTransaction transaction() {
-        return tx;
-    }
-
-    /** Checks that the statement is allowed within an external/script transaction. */
-    static void validateStatement(SqlQueryType queryType, boolean readOnly) {
-        if (SqlQueryType.DDL == queryType) {
-            throw new SqlException(RUNTIME_ERR, "DDL doesn't support transactions.");
-        }
-
-        if (SqlQueryType.DML == queryType && readOnly) {
-            throw new SqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.");
-        }
-    }
+    /** Returns explicit transaction if one was provided by user. */
+    @Nullable QueryTransactionWrapper explicitTx();
 }

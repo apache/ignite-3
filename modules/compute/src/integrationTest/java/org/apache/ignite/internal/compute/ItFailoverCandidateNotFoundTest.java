@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
@@ -56,7 +58,7 @@ public class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegrationTe
 
     @Test
     void embeddedFailoverCandidateLeavesCluster() throws Exception {
-        String address = "127.0.0.1:" + node(0).clientAddress().port();
+        String address = "127.0.0.1:" + unwrapIgniteImpl(node(0)).clientAddress().port();
         try (IgniteClient client = IgniteClient.builder().addresses(address).build()) {
             failoverCandidateLeavesCluster(client.compute());
         }
@@ -64,7 +66,7 @@ public class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegrationTe
 
     private void failoverCandidateLeavesCluster(IgniteCompute compute) throws Exception {
         // Given remote candidates to execute a job.
-        Set<ClusterNode> remoteWorkerCandidates = Set.of(node(1).node(), node(2).node());
+        Set<ClusterNode> remoteWorkerCandidates = Set.of(unwrapIgniteImpl(node(1)).node(), unwrapIgniteImpl(node(2)).node());
         Set<String> remoteWorkerCandidateNames = remoteWorkerCandidates.stream()
                 .map(ClusterNode::name)
                 .collect(Collectors.toCollection(HashSet::new));
@@ -95,6 +97,10 @@ public class ItFailoverCandidateNotFoundTest extends ClusterPerTestIntegrationTe
     }
 
     private static TestingJobExecution<String> executeGlobalInteractiveJob(IgniteCompute compute, Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(compute.submit(nodes, List.of(), InteractiveJobs.globalJob().name()));
+        return new TestingJobExecution<>(compute.submitAsync(
+                JobTarget.anyNode(nodes),
+                JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(),
+                null
+        ));
     }
 }

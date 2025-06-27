@@ -17,21 +17,21 @@
 
 package org.apache.ignite.client.fakes;
 
-import static org.apache.ignite.internal.sql.engine.QueryProperty.DEFAULT_SCHEMA;
-import static org.apache.ignite.internal.sql.engine.QueryProperty.QUERY_TIMEOUT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,16 +43,21 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     String lastScript;
 
     @Override
-    public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
-            @Nullable InternalTransaction transaction, String qry, Object... params) {
+    public CompletableFuture<QueryMetadata> prepareSingleAsync(
+            SqlProperties properties,
+            @Nullable InternalTransaction transaction,
+            String qry,
+            Object... params
+    ) {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String qry,
             Object... params
     ) {
@@ -70,8 +75,8 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             }
 
             sb.append(']').append(", ")
-                    .append("defaultSchema=").append(properties.getOrDefault(DEFAULT_SCHEMA, "<not set>")).append(", ")
-                    .append("defaultQueryTimeout=").append(properties.get(QUERY_TIMEOUT));
+                    .append("defaultSchema=").append(properties.defaultSchema()).append(", ")
+                    .append("defaultQueryTimeout=").append(properties.queryTimeout());
 
             lastScript = sb.toString();
         }
@@ -80,12 +85,12 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 }

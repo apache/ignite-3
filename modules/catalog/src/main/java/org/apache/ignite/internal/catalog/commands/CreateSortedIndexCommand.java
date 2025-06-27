@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 
 /**
@@ -45,15 +46,23 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
      *
      * @param schemaName Name of the schema to create index in. Should not be null or blank.
      * @param indexName Name of the index to create. Should not be null or blank.
+     * @param ifNotExists Flag indicating whether the {@code IF NOT EXISTS} was specified.
      * @param tableName Name of the table the index belong to. Should not be null or blank.
      * @param unique A flag denoting whether index keeps at most one row per every key or not.
      * @param columns List of the indexed columns. There should be at least one column.
      * @param collations List of the columns collations. The size of this list should much size of the columns.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private CreateSortedIndexCommand(String schemaName, String indexName, String tableName, boolean unique, List<String> columns,
-            List<CatalogColumnCollation> collations) throws CatalogValidationException {
-        super(schemaName, indexName, tableName, unique, columns);
+    private CreateSortedIndexCommand(
+            String schemaName,
+            String indexName,
+            boolean ifNotExists,
+            String tableName,
+            boolean unique,
+            List<String> columns,
+            List<CatalogColumnCollation> collations
+    ) throws CatalogValidationException {
+        super(schemaName, indexName, ifNotExists, tableName, unique, columns);
 
         this.collations = copyOrNull(collations);
 
@@ -61,7 +70,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
     }
 
     @Override
-    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, int creationCatalogVersion) {
+    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status, boolean createdWithTable) {
         var indexColumnDescriptors = new ArrayList<CatalogIndexColumnDescriptor>(columns.size());
 
         for (int i = 0; i < columns.size(); i++) {
@@ -71,23 +80,24 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         return new CatalogSortedIndexDescriptor(
-                indexId, indexName, tableId, unique, creationCatalogVersion, indexColumnDescriptors
+                indexId, indexName, tableId, unique, status, indexColumnDescriptors, createdWithTable
         );
     }
 
     private void validate() {
         if (nullOrEmpty(collations)) {
-            throw new CatalogValidationException("Collations not specified");
+            throw new CatalogValidationException("Collations not specified.");
         }
 
         if (collations.size() != columns.size()) {
-            throw new CatalogValidationException("Columns collations doesn't match number of columns");
+            throw new CatalogValidationException("Columns collations doesn't match number of columns.");
         }
     }
 
     private static class Builder implements CreateSortedIndexCommandBuilder {
         private String schemaName;
         private String indexName;
+        private boolean ifNotExists;
         private String tableName;
         private List<String> columns;
         private List<CatalogColumnCollation> collations;
@@ -129,6 +139,13 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         @Override
+        public CreateSortedIndexCommandBuilder ifNotExists(boolean ifNotExists) {
+            this.ifNotExists = ifNotExists;
+
+            return this;
+        }
+
+        @Override
         public CreateSortedIndexCommandBuilder collations(List<CatalogColumnCollation> collations) {
             this.collations = collations;
 
@@ -138,7 +155,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         @Override
         public CatalogCommand build() {
             return new CreateSortedIndexCommand(
-                    schemaName, indexName, tableName, unique, columns, collations
+                    schemaName, indexName, ifNotExists, tableName, unique, columns, collations
             );
         }
     }

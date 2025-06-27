@@ -18,7 +18,9 @@
 package org.apache.ignite.internal;
 
 import static java.util.Collections.reverse;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -35,8 +37,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import java.util.stream.IntStream;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -53,8 +55,10 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -82,21 +86,21 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     @Language("HOCON")
     protected static final String RAFT_CFG = "{\n"
             + "  fsync: false,\n"
-            + "  retryDelay: 20\n"
+            + "  retryDelayMillis: 20\n"
             + "}";
 
     /** Nodes bootstrap configuration pattern. */
     @Language("HOCON")
-    protected static final String NODE_BOOTSTRAP_CFG = "{\n"
+    protected static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
             + "  network.membership: {\n"
-            + "    membershipSyncInterval: 1000,\n"
-            + "    failurePingInterval: 500,\n"
+            + "    membershipSyncIntervalMillis: 1000,\n"
+            + "    failurePingIntervalMillis: 500,\n"
             + "    scaleCube: {\n"
             + "      membershipSuspicionMultiplier: 1,\n"
             + "      failurePingRequestMembers: 1,\n"
-            + "      gossipInterval: 10\n"
+            + "      gossipIntervalMillis: 10\n"
             + "    },\n"
             + "  },\n"
             + "  raft: " + RAFT_CFG + ",\n"
@@ -115,7 +119,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
     public TestInfo testInfo;
 
-    protected static final List<String> CLUSTER_NODES_NAMES = new ArrayList<>();
+    protected static final List<IgniteServer> IGNITE_SERVERS = new ArrayList<>();
 
     /** Cluster nodes. */
     protected List<PartialNode> partialNodes;
@@ -135,9 +139,9 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     public void afterEachTest() throws Exception {
         var closeables = new ArrayList<AutoCloseable>();
 
-        for (String name : CLUSTER_NODES_NAMES) {
-            if (name != null) {
-                closeables.add(() -> IgnitionManager.stop(name));
+        for (IgniteServer node : IGNITE_SERVERS) {
+            if (node != null) {
+                closeables.add(node::shutdown);
             }
         }
 
@@ -149,7 +153,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         closeAll(closeables);
 
-        CLUSTER_NODES_NAMES.clear();
+        IGNITE_SERVERS.clear();
     }
 
     /**
@@ -223,7 +227,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param idx Node index.
      * @return Configuration string.
      */
-    protected static String configurationString(int idx) {
+    protected String configurationString(int idx) {
         return configurationString(idx, "{}");
     }
 
@@ -274,22 +278,19 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             ConfigurationRegistry clusterConfigRegistry,
             HybridClock clock
     ) {
-        CompletableFuture<?> startFuture = CompletableFuture.allOf(
-                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                clusterConfigRegistry.notifyCurrentConfigurationListeners(),
-                ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart()
-        ).thenCompose(unused ->
-                // Deploy all registered watches because all components are ready and have registered their listeners.
-                metaStorageMgr.deployWatches()
-        );
+        CompletableFuture<?> startFuture = ((MetaStorageManagerImpl) metaStorageMgr).notifyRevisionUpdateListenerOnStart()
+                .thenCompose(unused ->
+                        // Deploy all registered watches because all components are ready and have registered their listeners.
+                        metaStorageMgr.deployWatches()
+                );
 
         assertThat("Partial node was not started", startFuture, willCompleteSuccessfully());
 
-        Long recoveryRevision = metaStorageMgr.recoveryFinishedFuture().getNow(null);
+        Revisions recoveryRevisions = metaStorageMgr.recoveryFinishedFuture().getNow(null);
 
-        assertNotNull(recoveryRevision);
+        assertNotNull(recoveryRevisions);
 
-        log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevision);
+        log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevisions);
 
         return new PartialNode(
                 name,
@@ -319,26 +320,21 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @return Created node instance.
      */
     protected IgniteImpl startNode(int idx, @Nullable String cfg) {
-        boolean initNeeded = CLUSTER_NODES_NAMES.isEmpty();
+        boolean initNeeded = IGNITE_SERVERS.isEmpty();
 
-        CompletableFuture<Ignite> future = startNodeAsync(idx, cfg);
+        IgniteServer node = startEmbeddedNode(idx, cfg);
 
         if (initNeeded) {
-            String nodeName = CLUSTER_NODES_NAMES.get(0);
-
             InitParameters initParameters = InitParameters.builder()
-                    .destinationNodeName(nodeName)
-                    .metaStorageNodeNames(List.of(nodeName))
+                    .metaStorageNodes(node)
                     .clusterName("cluster")
                     .build();
-            TestIgnitionManager.init(initParameters);
+            TestIgnitionManager.init(node, initParameters);
         }
 
-        assertThat(future, willCompleteSuccessfully());
+        assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
 
-        Ignite ignite = future.join();
-
-        return (IgniteImpl) ignite;
+        return unwrapIgniteImpl(node.api());
     }
 
     /**
@@ -348,20 +344,51 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param cfg Configuration string or {@code null} to use the default configuration.
      * @return Future that completes with a created node instance.
      */
-    protected CompletableFuture<Ignite> startNodeAsync(int idx, @Nullable String cfg) {
+    protected IgniteServer startEmbeddedNode(int idx, @Nullable String cfg) {
         String nodeName = testNodeName(testInfo, idx);
 
         String cfgString = cfg == null ? configurationString(idx) : cfg;
 
-        if (CLUSTER_NODES_NAMES.size() == idx) {
-            CLUSTER_NODES_NAMES.add(nodeName);
-        } else {
-            assertNull(CLUSTER_NODES_NAMES.get(idx));
+        IgniteServer node = TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
-            CLUSTER_NODES_NAMES.set(idx, nodeName);
+        if (IGNITE_SERVERS.size() == idx) {
+            IGNITE_SERVERS.add(node);
+        } else {
+            assertNull(IGNITE_SERVERS.get(idx));
+
+            IGNITE_SERVERS.set(idx, node);
         }
 
-        return TestIgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+        return node;
+    }
+
+    /**
+     * Starts an {@code amount} number of nodes (with sequential indices starting from 0).
+     */
+    protected List<IgniteImpl> startNodes(int amount) {
+        boolean initNeeded = IGNITE_SERVERS.isEmpty();
+
+        List<IgniteServer> nodes = IntStream.range(0, amount)
+                .mapToObj(i -> startEmbeddedNode(i, null))
+                .collect(toList());
+
+        if (initNeeded) {
+            IgniteServer node = nodes.get(0);
+
+            InitParameters initParameters = InitParameters.builder()
+                    .metaStorageNodes(node)
+                    .clusterName("cluster")
+                    .build();
+            TestIgnitionManager.init(node, initParameters);
+        }
+
+        return nodes.stream()
+                .map(node -> {
+                    assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+
+                    return unwrapIgniteImpl(node.api());
+                })
+                .collect(toList());
     }
 
     /**
@@ -370,10 +397,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param idx Node index.
      */
     protected void stopNode(int idx) {
-        String nodeName = CLUSTER_NODES_NAMES.set(idx, null);
+        IgniteServer node = IGNITE_SERVERS.set(idx, null);
 
-        if (nodeName != null) {
-            IgnitionManager.stop(nodeName);
+        if (node != null) {
+            node.shutdown();
         }
     }
 
@@ -433,7 +460,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
                 }
             }
 
-            assertThat(stopAsync(components), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
 
             closeables.forEach(c -> {
                 try {

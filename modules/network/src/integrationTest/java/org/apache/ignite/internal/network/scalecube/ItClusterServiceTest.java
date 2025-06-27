@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -56,9 +57,9 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
         ClusterService service = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        assertThat(service.startAsync(), willCompleteSuccessfully());
+        assertThat(service.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        assertThat(service.stopAsync(), willCompleteSuccessfully());
+        assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(service.isStopped(), is(true));
 
@@ -78,8 +79,8 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
         var addr2 = new NetworkAddress("localhost", 10001);
         ClusterService service1 = clusterService(testInfo, addr1.port(), new StaticNodeFinder(List.of(addr1, addr2)));
         ClusterService service2 = clusterService(testInfo, addr2.port(), new StaticNodeFinder(List.of(addr1, addr2)));
-        assertThat(service1.startAsync(), willCompleteSuccessfully());
-        assertThat(service2.startAsync(), willCompleteSuccessfully());
+        assertThat(service1.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(service2.startAsync(new ComponentContext()), willCompleteSuccessfully());
         assertTrue(waitForCondition(() -> service1.topologyService().allMembers().size() == 2, 1000));
         assertTrue(waitForCondition(() -> service2.topologyService().allMembers().size() == 2, 1000));
         try {
@@ -95,7 +96,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
             checkAllMeta(service1, Set.of(meta1, meta2));
             checkAllMeta(service2, Set.of(meta1, meta2));
         } finally {
-            assertThat(stopAsync(service1, service2), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), service1, service2), willCompleteSuccessfully());
         }
     }
 

@@ -20,16 +20,23 @@ package org.apache.ignite.jdbc;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -302,14 +309,13 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testBrokenTransaction() throws Exception {
-        boolean res = stmt.execute("START TRANSACTION;");
-        assertFalse(res);
-        assertNull(stmt.getResultSet());
-        assertEquals(0, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());
-        assertEquals(-1, stmt.getUpdateCount());
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(
+                "Transaction block doesn't have a COMMIT statement at the end.",
+                () -> stmt.execute("START TRANSACTION;")
+        );
 
-        res = stmt.execute("COMMIT;");
+        boolean res = stmt.execute("COMMIT;");
         assertFalse(res);
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
@@ -381,20 +387,6 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    public void testAutoCommitFalseNonCompleted() throws Exception {
-        String txErrMsg = "Transaction control statement cannot be executed within an external transaction";
-        conn.setAutoCommit(false);
-        assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
-
-        boolean res = stmt.execute("SELECT 1;COMMIT");
-        assertTrue(res);
-        assertNotNull(stmt.getResultSet());
-        assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
-
-        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1;"));
-    }
-
-    @Test
     public void testAutoCommitFalse() throws Exception {
         conn.setAutoCommit(false);
 
@@ -422,11 +414,69 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21167")
-    public void testAutoCommitFalseWithEmptyTx() throws Exception {
-        String txErrMsg = "Transaction control statement cannot be executed within an external transaction";
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testAutoCommitFalseTxControlStatementsNotSupported() throws Exception {
+        String txErrMsg = "Transaction control statements are not supported when autocommit mode is disabled";
         conn.setAutoCommit(false);
-        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT;"));
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT"));
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; COMMIT;"));
+
+        boolean res = stmt.execute("SELECT 1;COMMIT");
+        assertTrue(res);
+        assertNotNull(stmt.getResultSet());
+        assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
+
+        // Even though TX control statements don't affect a JDBC managed transaction directly,
+        // exceptions during execution of previous statements may cause the transaction to rollback.
+        assertThrowsSqlException(
+                "Transaction is already finished",
+                () -> stmt.executeQuery("SELECT COUNT(1) FROM TEST_TX")
+        );
+
+        // Let's recover connection.
+        conn.rollback();
+
+        {
+            long initialRowsCount;
+
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(1) FROM TEST_TX")) {
+                assertTrue(rs.next());
+
+                initialRowsCount = rs.getLong(1);
+            }
+
+            stmt.execute("INSERT INTO TEST_TX VALUES (5, 5, '5'); COMMIT; INSERT INTO TEST_TX VALUES (6, 6, '6')");
+            assertEquals(1, stmt.getUpdateCount());
+
+            // Next statement throws the expected exception.
+            assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
+
+            stmt.close();
+
+            // JDBC managed transaction was not rolled back or committed.
+            try (Connection conn0 = DriverManager.getConnection(URL)) {
+                Statement stmt0 = conn0.createStatement();
+
+                try (ResultSet rs = stmt0.executeQuery("SELECT COUNT(1) FROM TEST_TX")) {
+                    assertTrue(rs.next());
+                    assertEquals(initialRowsCount, rs.getLong(1));
+                }
+            }
+
+            // Commit JDBC managed transaction.
+            conn.commit();
+
+            try (Connection conn0 = DriverManager.getConnection(URL)) {
+                Statement stmt0 = conn0.createStatement();
+
+                try (ResultSet rs = stmt0.executeQuery("SELECT COUNT(1) FROM TEST_TX")) {
+                    assertTrue(rs.next());
+
+                    assertEquals(initialRowsCount, rs.getLong(1));
+                }
+            }
+        }
     }
 
     @Test
@@ -606,6 +656,51 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
                 assertFalse(pers.next());
             }
         }
+    }
+
+    @Test
+    public void testTimeout() throws SQLException {
+        JdbcStatement igniteStmt = (JdbcStatement) stmt;
+        igniteStmt.timeout(500);
+
+        int attempts = 10;
+
+        for (int i = 0; i < attempts; i++) {
+            stmt.execute("SELECT 1; SELECT * FROM TABLE(SYSTEM_RANGE(1, 1000000000)); SELECT * FROM TABLE(SYSTEM_RANGE(1, 10));");
+
+            // The first statement should succeed, if it times out, retry.
+            try {
+                try (ResultSet rs = stmt.getResultSet()) {
+                    while (rs.next()) {
+                        assertNotNull(rs.getObject(1));
+                    }
+                }
+            } catch (SQLException e) {
+                // Ignore timeout for the first statement, if takes too long.
+                // Skip both planning and execution timeouts.
+                assertThat("Unexpected error", e.getMessage(), containsString("timeout"));
+                continue;
+            }
+
+            assertTrue(stmt.getMoreResults(), "Expected more results");
+
+            // The second statement should always fail.
+            assertThrowsSqlException(SQLException.class,
+                    "Query timeout", () -> {
+                        try (ResultSet rs = stmt.getResultSet()) {
+                            while (rs.next()) {
+                                assertNotNull(rs.getObject(1));
+                            }
+                        }
+                    });
+
+            // Script timed out. We should also get a timeout.
+            assertThrowsSqlException(SQLException.class, "Query timeout", () -> stmt.getMoreResults());
+
+            return;
+        }
+
+        fail("Failed to get expected timeout error");
     }
 
     /**

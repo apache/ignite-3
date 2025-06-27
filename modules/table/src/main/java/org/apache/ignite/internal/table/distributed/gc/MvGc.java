@@ -22,18 +22,21 @@ import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LO
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -63,7 +66,7 @@ public class MvGc implements ManuallyCloseable {
     private final GcConfiguration gcConfig;
 
     /** Garbage collection thread pool. */
-    private volatile ExecutorService executor;
+    private volatile ThreadPoolExecutor executor;
 
     /** Prevents double closing. */
     private final AtomicBoolean closeGuard = new AtomicBoolean();
@@ -74,6 +77,8 @@ public class MvGc implements ManuallyCloseable {
     /** Low watermark. */
     private final LowWatermark lowWatermark;
 
+    private final FailureProcessor failureProcessor;
+
     /** Storage handler by table partition ID for which garbage will be collected. */
     private final ConcurrentMap<TablePartitionId, GcStorageHandler> storageHandlerByPartitionId = new ConcurrentHashMap<>();
 
@@ -83,11 +88,13 @@ public class MvGc implements ManuallyCloseable {
      * @param nodeName Node name.
      * @param gcConfig Garbage collector configuration.
      * @param lowWatermark Low watermark.
+     * @param failureProcessor Failure processor.
      */
-    public MvGc(String nodeName, GcConfiguration gcConfig, LowWatermark lowWatermark) {
+    public MvGc(String nodeName, GcConfiguration gcConfig, LowWatermark lowWatermark, FailureProcessor failureProcessor) {
         this.nodeName = nodeName;
         this.gcConfig = gcConfig;
         this.lowWatermark = lowWatermark;
+        this.failureProcessor = failureProcessor;
     }
 
     /** Starts the garbage collector. */
@@ -103,6 +110,7 @@ public class MvGc implements ManuallyCloseable {
                     new LinkedBlockingQueue<>(),
                     IgniteThreadFactory.create(nodeName, "mv-gc", LOG, STORAGE_READ, STORAGE_WRITE)
             );
+            executor.allowCoreThreadTimeOut(true);
 
             lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
         });
@@ -153,7 +161,7 @@ public class MvGc implements ManuallyCloseable {
     }
 
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
-        inBusyLock(() -> executor.submit(() -> inBusyLock(this::initNewGcBusy)));
+        inBusyLockSafe(busyLock, () -> executor.submit(() -> inBusyLock(this::initNewGcBusy)));
     }
 
     @Override
@@ -226,10 +234,13 @@ public class MvGc implements ManuallyCloseable {
                         .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, gcConfig.value().batchSize(), true), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
-                                if (throwable instanceof TrackerClosedException
-                                        || throwable.getCause() instanceof TrackerClosedException) {
+                                if (unwrapCause(throwable) instanceof TrackerClosedException) {
+                                    LOG.debug("TrackerClosedException caught", throwable);
+
                                     currentGcFuture.complete(null);
                                 } else {
+                                    failureProcessor.process(new FailureContext(throwable, "Error when running GC"));
+
                                     currentGcFuture.completeExceptionally(throwable);
                                 }
 
@@ -245,6 +256,8 @@ public class MvGc implements ManuallyCloseable {
                             }
                         });
             } catch (Throwable t) {
+                failureProcessor.process(new FailureContext(t, "Error when running GC"));
+
                 currentGcFuture.completeExceptionally(t);
             }
         });

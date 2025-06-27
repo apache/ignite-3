@@ -17,12 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import java.util.Comparator;
 import java.util.List;
-import java.util.function.BiPredicate;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -30,7 +25,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.jetbrains.annotations.Nullable;
@@ -39,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  * Expression factory.
  */
 public interface ExpressionFactory<RowT> {
-    Supplier<List<AccumulatorWrapper<RowT>>> accumulatorsFactory(
+    AccumulatorsFactory<RowT> accumulatorsFactory(
             AggregateType type,
             List<AggregateCall> calls,
             RelDataType rowType
@@ -51,7 +46,7 @@ public interface ExpressionFactory<RowT> {
      * @param collations Collations.
      * @return Row comparator.
      */
-    Comparator<RowT> comparator(RelCollation collations);
+    SqlComparator<RowT> comparator(RelCollation collations);
 
     /**
      * Creates a comparator for different rows by given field collations. Mainly used for merge join rows comparison. Note: Both list has to
@@ -63,16 +58,7 @@ public interface ExpressionFactory<RowT> {
      * @param equalNulls Bitset with null comparison strategy, use in case of NOT DISTINCT FROM syntax.
      * @return Rows comparator.
      */
-    Comparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls);
-
-    /**
-     * Creates a Filter predicate.
-     *
-     * @param filter  Filter expression.
-     * @param rowType Input row type.
-     * @return Filter predicate.
-     */
-    Predicate<RowT> predicate(RexNode filter, RelDataType rowType);
+    SqlComparator<RowT> comparator(List<RelFieldCollation> left, List<RelFieldCollation> right, ImmutableBitSet equalNulls);
 
     /**
      * Creates a Filter predicate.
@@ -81,7 +67,17 @@ public interface ExpressionFactory<RowT> {
      * @param rowType Input row type.
      * @return Filter predicate.
      */
-    BiPredicate<RowT, RowT> biPredicate(RexNode filter, RelDataType rowType);
+    SqlPredicate<RowT> predicate(RexNode filter, RelDataType rowType);
+
+    /**
+     * Creates a Filter predicate.
+     *
+     * @param filter Filter expression.
+     * @param rowType Input row type.
+     * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
+     * @return Filter predicate.
+     */
+    SqlJoinPredicate<RowT> joinPredicate(RexNode filter, RelDataType rowType, int firstRowSize);
 
     /**
      * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
@@ -90,7 +86,17 @@ public interface ExpressionFactory<RowT> {
      * @param rowType  Input row type.
      * @return Project function.
      */
-    Function<RowT, RowT> project(List<RexNode> projects, RelDataType rowType);
+    SqlProjection<RowT> project(List<RexNode> projects, RelDataType rowType);
+
+    /**
+     * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
+     *
+     * @param projects Projection expressions.
+     * @param rowType Input row type.
+     * @param firstRowSize Size of the first (left) row. Used to adjust index and route request to a proper row.
+     * @return Project function.
+     */
+    SqlJoinProjection<RowT> joinProject(List<RexNode> projects, RelDataType rowType, int firstRowSize);
 
     /**
      * Creates a Values relational node rows source.
@@ -99,15 +105,15 @@ public interface ExpressionFactory<RowT> {
      * @param rowType Output row type.
      * @return Values relational node rows source.
      */
-    Iterable<RowT> values(List<RexLiteral> values, RelDataType rowType);
+    SqlScalar<RowT, List<RowT>> values(List<List<RexLiteral>> values, RelDataType rowType);
 
     /**
      * Creates row from RexNodes.
      *
-     * @param values Values ({@code null} values allowed in this list).
+     * @param values Values.
      * @return Row.
      */
-    Supplier<RowT> rowSource(List<RexNode> values);
+    SqlRowProvider<RowT> rowSource(List<RexNode> values);
 
     /**
      * Creates iterable search bounds tuples (lower row/upper row) by search bounds expressions.
@@ -116,14 +122,14 @@ public interface ExpressionFactory<RowT> {
      * @param rowType Row type.
      * @param comparator Comparator to return bounds in particular order.
      */
-    RangeIterable<RowT> ranges(
+    SqlScalar<RowT, RangeIterable<RowT>> ranges(
             List<SearchBounds> searchBounds,
             RelDataType rowType,
-            @Nullable Comparator<RowT> comparator
+            @Nullable SqlComparator<RowT> comparator
     );
 
     /**
      * Executes expression.
      */
-    <T> Supplier<T> execute(RexNode node);
+    <T> SqlScalar<RowT, T> scalar(RexNode node);
 }

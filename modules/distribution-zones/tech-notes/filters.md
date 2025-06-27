@@ -16,8 +16,8 @@ In the `ignite-config.conf` it looks like this:
 
 ```
 nodeAttributes.nodeAttributes {
-      region.attribute = "US"
-      storage.attribute = "SSD"
+      region = "US"
+      storage = "SSD"
 }
 ```
 
@@ -27,12 +27,8 @@ or like this in a `ignite-config.json`:
 {
    "nodeAttributes":{
       "nodeAttributes":{
-         "region":{
-            "attribute":"US"
-         },
-         "storage":{
-            "attribute":"SSD"
-         }
+         "region": "US",
+         "storage": "SSD"
       }
    }
 }
@@ -65,6 +61,3 @@ To check all capabilities of JSONPath, see https://github.com/json-path/JsonPath
 
 Note that as a default value for filter '$..*' filter is used, meaning that all nodes match the filter.
 Also it is important, that if there are no specified attributes for a node, it means that a node match only the default filter. 
-
-
-

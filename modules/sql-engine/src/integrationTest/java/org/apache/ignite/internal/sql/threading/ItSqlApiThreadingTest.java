@@ -47,7 +47,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-@SuppressWarnings("resource")
 class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
@@ -197,10 +196,7 @@ class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
         // EXECUTE_QUERY_WITH_MAPPER_ASYNC(sql -> sql.executeAsync(null, (Mapper<?>) null, SELECT_QUERY)),
         // EXECUTE_STATEMENT_WITH_MAPPER_ASYNC(sql -> sql.executeAsync(null, (Mapper<?>) null, sql.createStatement(SELECT_QUERY))),
         EXECUTE_BATCH_QUERY_ASYNC(sql -> sql.executeBatchAsync(null, UPDATE_QUERY, BatchedArguments.of(10_000))),
-        // TODO: IGNITE-21872 - uncomment the following lines.
-        // EXECUTE_BATCH_STATEMENT_ASYNC(
-        //         sql -> sql.executeBatchAsync(null, sql.createStatement(UPDATE_QUERY), BatchedArguments.of(10_000))
-        // ),
+        EXECUTE_BATCH_STATEMENT_ASYNC(sql -> sql.executeBatchAsync(null, sql.createStatement(UPDATE_QUERY), BatchedArguments.of(10_000))),
         EXECUTE_SCRIPT_ASYNC(sql -> sql.executeScriptAsync(SELECT_QUERY));
 
         private final Function<IgniteSql, CompletableFuture<?>> action;

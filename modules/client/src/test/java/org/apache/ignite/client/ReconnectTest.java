@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
@@ -51,7 +50,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void clientReconnectsToAnotherAddressOnNodeFail() throws Exception {
+    public void clientReconnectsToAnotherAddressOnNodeFail() {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
@@ -62,7 +61,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
                 .retryPolicy(new RetryLimitPolicy().retryLimit(100))
                 .build();
 
-        assertEquals("t", client.tables().tables().get(0).name());
+        assertEquals("T", client.tables().tables().get(0).qualifiedName().objectName());
 
         server.close();
 
@@ -71,12 +70,12 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
 
         server2 = new TestServer(0, ignite2, null, null, null, AbstractClientTest.clusterId, null, 10950);
 
-        assertEquals("t2", client.tables().tables().get(0).name());
+        assertEquals("T2", client.tables().tables().get(0).qualifiedName().objectName());
     }
 
     @Test
     @SuppressWarnings("ThrowableNotThrown")
-    public void testOperationFailsWhenAllServersFail() throws Exception {
+    public void testOperationFailsWhenAllServersFail() {
         FakeIgnite ignite1 = new FakeIgnite();
         ((FakeIgniteTables) ignite1.tables()).createTable("t");
 
@@ -86,7 +85,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
                 .addresses("127.0.0.1:" + server.port(), "127.0.0.1:10960")
                 .build();
 
-        assertEquals("t", client.tables().tables().get(0).name());
+        assertEquals("T", client.tables().tables().get(0).qualifiedName().objectName());
 
         server.close();
 
@@ -100,7 +99,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
 
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10901", "127.0.0.1:10902", "127.0.0.1:10903")
-                .reconnectInterval(reconnectEnabled ? 50 : 0)
+                .backgroundReconnectInterval(reconnectEnabled ? 50 : 0)
                 .heartbeatInterval(50);
 
         try (var client = builder.build()) {
@@ -109,7 +108,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
             server2.close();
             waitForConnections(client, 1);
 
-            Ignite ignite = new FakeIgnite();
+            FakeIgnite ignite = new FakeIgnite();
             server2 = new TestServer(0, ignite, null, null, "node3", AbstractClientTest.clusterId, null, 10903);
 
             if (reconnectEnabled) {
@@ -130,7 +129,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
 
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10901", "127.0.0.1:10902")
-                .reconnectInterval(50)
+                .backgroundReconnectInterval(50)
                 .heartbeatInterval(50);
 
         try (var client = builder.build()) {
@@ -145,9 +144,9 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
     }
 
     private void startTwoServers() {
-        Ignite ignite = new FakeIgnite();
+        FakeIgnite ignite = new FakeIgnite();
         server = new TestServer(0, ignite, null, null, "node1", AbstractClientTest.clusterId, null, 10901);
-        Ignite ignite1 = new FakeIgnite();
+        FakeIgnite ignite1 = new FakeIgnite();
         server2 = new TestServer(0, ignite1, null, null, "node2", AbstractClientTest.clusterId, null, 10902);
     }
 

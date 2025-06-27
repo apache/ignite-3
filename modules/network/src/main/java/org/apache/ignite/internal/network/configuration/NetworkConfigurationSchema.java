@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.network.configuration;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for network endpoint subtree.
  */
-@ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
+@Config
 public class NetworkConfigurationSchema {
     /** Default network port. */
     public static final int DEFAULT_PORT = 47500;
@@ -36,9 +36,9 @@ public class NetworkConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = DEFAULT_PORT;
 
-    /** Address (IP or hostname) to listen on. Will listen on all interfaces if empty. */
+    /** Addresses (IPs or hostnames) to listen on. Will listen on all interfaces if empty. */
     @Value(hasDefault = true)
-    public String listenAddress = "";
+    public String[] listenAddresses = new String[0];
 
     /**
      * Graceful shutdown of the Netty's EventExecutorGroup ensures that no tasks are submitted for
@@ -47,7 +47,8 @@ public class NetworkConfigurationSchema {
      */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final long shutdownQuietPeriod = 0;
+    @PublicName(legacyNames = "shutdownQuietPeriod")
+    public final long shutdownQuietPeriodMillis = 0;
 
     /**
      * The maximum amount of time to wait until each Netty's EventExecutorGroup is shutdown regardless if a new network message was
@@ -55,13 +56,14 @@ public class NetworkConfigurationSchema {
      */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final long shutdownTimeout = 15_000;
+    @PublicName(legacyNames = "shutdownTimeout")
+    public final long shutdownTimeoutMillis = 15_000;
 
-    /** Server configuration. */
+    /** Inbound (TCP server) configuration. */
     @ConfigValue
     public InboundConfigurationSchema inbound;
 
-    /** Client configuration. */
+    /** Outbound (TCP client of server-to-server protocol) configuration. */
     @ConfigValue
     public OutboundConfigurationSchema outbound;
 

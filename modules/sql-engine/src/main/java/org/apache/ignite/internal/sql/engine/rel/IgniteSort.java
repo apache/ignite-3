@@ -38,8 +38,10 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite sort operator.
@@ -62,8 +64,8 @@ public class IgniteSort extends Sort implements IgniteRel {
             RelTraitSet traits,
             RelNode child,
             RelCollation collation,
-            RexNode offset,
-            RexNode fetch
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
     ) {
         super(cluster, traits, child, collation, offset, fetch);
     }
@@ -85,8 +87,9 @@ public class IgniteSort extends Sort implements IgniteRel {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor used for deserialization.
+     *
+     * @param input Serialized representation.
      */
     public IgniteSort(RelInput input) {
         super(changeTraits(input, IgniteConvention.INSTANCE));
@@ -98,8 +101,8 @@ public class IgniteSort extends Sort implements IgniteRel {
             RelTraitSet traitSet,
             RelNode newInput,
             RelCollation newCollation,
-            RexNode offset,
-            RexNode fetch
+            @Nullable RexNode offset,
+            @Nullable RexNode fetch
     ) {
         return new IgniteSort(getCluster(), traitSet, newInput, traitSet.getCollation(), offset, fetch);
     }
@@ -148,7 +151,7 @@ public class IgniteSort extends Sort implements IgniteRel {
     /** {@inheritDoc} */
     @Override
     public double estimateRowCount(RelMetadataQuery mq) {
-        return memRows(mq.getRowCount(getInput()));
+        return IgniteLimit.estimateRowCount(mq.getRowCount(getInput()), offset, fetch);
     }
 
     /** {@inheritDoc} */
@@ -194,5 +197,18 @@ public class IgniteSort extends Sort implements IgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        if (offset != null) {
+            writer.addOffset(offset);
+        }
+
+        if (fetch != null) {
+            writer.addFetch(fetch);
+        }
+
+        return writer.addCollation(collation, getRowType());
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.raft.jraft.storage.logit.storage.file;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
@@ -29,6 +30,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import java.util.function.LongToIntFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -50,6 +52,9 @@ import sun.nio.ch.DirectBuffer;
 public abstract class AbstractFile extends ReferenceResource {
     private static final IgniteLogger LOG = Loggers.forClass(AbstractFile.class);
 
+    /** Byte order that's used to encode data in log. */
+    public static final ByteOrder LOGIT_BYTE_ORDER = ByteOrder.LITTLE_ENDIAN;
+
     protected static final int    BLANK_HOLE_SIZE = 64;
 
     protected static final byte   FILE_END_BYTE   = 'x';
@@ -68,10 +73,10 @@ public abstract class AbstractFile extends ReferenceResource {
     protected MappedByteBuffer    mappedByteBuffer;
 
     // Current write position
-    protected final AtomicInteger wrotePosition   = new AtomicInteger(0);
+    protected volatile int wrotePosition = 0;
 
     // Current flush position
-    protected final AtomicInteger flushedPosition = new AtomicInteger(0);
+    protected volatile int flushedPosition = 0;
 
     protected final ReadWriteLock readWriteLock   = new ReentrantReadWriteLock();
     protected final Lock          readLock        = this.readWriteLock.readLock();
@@ -119,6 +124,7 @@ public abstract class AbstractFile extends ReferenceResource {
                 try (final RandomAccessFile randomAccessFile = new RandomAccessFile(this.file, "rw");
                         final FileChannel fileChannel = randomAccessFile.getChannel()) {
                     this.mappedByteBuffer = fileChannel.map(mapMode, 0, this.fileSize);
+                    mappedByteBuffer.order(LOGIT_BYTE_ORDER);
                     this.isMapped = true;
                 }
             }
@@ -136,7 +142,7 @@ public abstract class AbstractFile extends ReferenceResource {
             try {
                 if (isMapped()) {
                     this.mappedByteBuffer.force();
-                    this.flushedPosition.set(getWrotePosition());
+                    this.flushedPosition = getWrotePosition();
                     if (this.mappedByteBuffer != null) {
                         if (Platform.isLinux()) {
                             hintUnload();
@@ -262,10 +268,10 @@ public abstract class AbstractFile extends ReferenceResource {
     /**
      * Append data to file end
      * @param logIndex logEntry index
-     * @param data data array
+     * @param append Data append function
      * @return wrote position
      */
-    protected int doAppend(final long logIndex, final byte[] data) {
+    protected int doAppend(final long logIndex, LongToIntFunction append) {
         this.writeLock.lock();
         try {
             int wrotePos = getWrotePosition();
@@ -277,8 +283,11 @@ public abstract class AbstractFile extends ReferenceResource {
             }
             // Write data and update header
             final ByteBuffer buffer = sliceByteBuffer();
-            put(buffer, wrotePos, data);
-            setWrotePosition(wrotePos + data.length);
+
+            long pointer = GridUnsafe.bufferAddress(buffer) + wrotePos;
+            int length = append.applyAsInt(pointer);
+            setWrotePosition(wrotePos + length);
+
             this.header.setLastLogIndex(logIndex);
             return wrotePos;
         } finally {
@@ -436,7 +445,7 @@ public abstract class AbstractFile extends ReferenceResource {
     }
 
     public ByteBuffer sliceByteBuffer() {
-        return this.mappedByteBuffer.slice();
+        return this.mappedByteBuffer.slice().order(LOGIT_BYTE_ORDER);
     }
 
     public void warmupFile() {
@@ -481,19 +490,19 @@ public abstract class AbstractFile extends ReferenceResource {
     }
 
     public int getWrotePosition() {
-        return wrotePosition.get();
+        return wrotePosition;
     }
 
     public void setWrotePosition(final int position) {
-        this.wrotePosition.set(position);
+        this.wrotePosition = position;
     }
 
     public int getFlushedPosition() {
-        return flushedPosition.get();
+        return flushedPosition;
     }
 
     public void setFlushPosition(final int position) {
-        this.flushedPosition.set(position);
+        this.flushedPosition = position;
     }
 
     /**

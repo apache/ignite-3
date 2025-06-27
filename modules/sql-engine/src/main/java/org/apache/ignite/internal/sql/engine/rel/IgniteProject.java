@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.sql.engine.rel;
 
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
-import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.GEN_RANDOM_UUID;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.RAND_UUID;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.broadcast;
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.hash;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.changeTraits;
 
@@ -52,7 +51,9 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 
@@ -129,7 +130,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         }
 
         if (srcKeys.size() == keys.size()) {
-            return Pair.of(nodeTraits, List.of(in.replace(hash(ImmutableIntList.of(srcKeys.elements()), distribution.function()))));
+            return Pair.of(nodeTraits, List.of(in.replace(IgniteDistributions.clone(distribution, srcKeys))));
         }
 
         return Pair.of(nodeTraits.replace(single()), List.of(in.replace(single())));
@@ -197,7 +198,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         RexVisitor<Void> v = new RexVisitorImpl<>(true) {
             @Override
             public Void visitCall(RexCall call) {
-                if (call.getOperator() == GEN_RANDOM_UUID) {
+                if (call.getOperator() == RAND_UUID) {
                     throw Util.FoundOne.NULL;
                 }
                 return super.visitCall(call);
@@ -250,5 +251,10 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer.addProjection(exps, getInput().getRowType());
     }
 }

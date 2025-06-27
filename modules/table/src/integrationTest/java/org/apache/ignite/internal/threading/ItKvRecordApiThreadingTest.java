@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -50,7 +49,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 
-@SuppressWarnings("resource")
 class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
@@ -112,11 +110,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum KeyValueViewAsyncOperation operation,
             @Enum KeyValueViewKind kind
     ) {
-        assumeTrue(
-                kind.supportsGetNullable() || !operation.isGetNullable(),
-                "Skipping the test as getNullable() is not supported by views of kind " + kind
-        );
-
         KeyValueView<?, ?> tableView = kind.view();
 
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
@@ -175,8 +168,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum KeyValueViewAsyncOperation operation,
             @Enum KeyValueViewKind kind
     ) {
-        assumeTrue(kind.supportsGetNullable() || !operation.isGetNullable());
-
         KeyValueView<?, ?> tableView = kind.viewForInternalUse();
 
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
@@ -321,6 +312,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         GET_OR_DEFAULT_ASYNC((view, context) -> view.getOrDefaultAsync(null, context.key, context.anotherValue)),
         GET_ALL_ASYNC((view, context) -> view.getAllAsync(null, List.of(context.key))),
         CONTAINS_ASYNC((view, context) -> view.containsAsync(null, context.key)),
+        CONTAINS_ALL_ASYNC((view, context) -> view.containsAllAsync(null, List.of(context.key))),
         PUT_ASYNC((view, context) -> view.putAsync(null, context.key, context.usualValue)),
         PUT_ALL_ASYNC((view, context) -> view.putAllAsync(null, Map.of(context.key, context.usualValue))),
         GET_AND_PUT_ASYNC((view, context) -> view.getAndPutAsync(null, context.key, context.usualValue)),
@@ -353,18 +345,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         CompletableFuture<?> executeOn(KeyValueView<?, ?> tableView, KeyValueContext<?, ?> context) {
             return action.apply((KeyValueView<Object, Object>) tableView, (KeyValueContext<Object, Object>) context);
         }
-
-        boolean isGetNullable() {
-            switch (this) {
-                case GET_NULLABLE_ASYNC:
-                case GET_NULLABLE_AND_PUT_ASYNC:
-                case GET_NULLABLE_AND_REMOVE_ASYNC:
-                case GET_NULLABLE_AND_REPLACE_ASYNC:
-                    return true;
-                default:
-                    return false;
-            }
-        }
     }
 
     private static class KeyValueContext<K, V> {
@@ -392,10 +372,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
         KeyValueContext<?, ?> context() {
             return this == PLAIN ? plainKeyValueContext() : binaryKeyValueContext();
-        }
-
-        boolean supportsGetNullable() {
-            return this == PLAIN;
         }
     }
 
@@ -425,6 +401,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         GET_ASYNC((view, context) -> view.getAsync(null, context.keyRecord)),
         GET_ALL_ASYNC((view, context) -> view.getAllAsync(null, List.of(context.keyRecord))),
         CONTAINS_ASYNC((view, context) -> view.containsAsync(null, context.keyRecord)),
+        CONTAINS_ALL_ASYNC((view, context) -> view.containsAllAsync(null, List.of(context.keyRecord))),
         UPSERT_ASYNC((view, context) -> view.upsertAsync(null, context.fullRecord)),
         UPSERT_ALL_ASYNC((view, context) -> view.upsertAllAsync(null, List.of(context.fullRecord))),
         GET_AND_UPSERT_ASYNC((view, context) -> view.getAndUpsertAsync(null, context.fullRecord)),

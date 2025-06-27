@@ -44,6 +44,14 @@ public interface IgniteTable extends IgniteDataSource {
     RelDataType rowTypeForInsert(IgniteTypeFactory factory);
 
     /**
+     * Returns row type excluding effectively virtual fields.
+     *
+     * @param factory Type factory.
+     * @return Row type for UPDATE operation.
+     */
+    RelDataType rowTypeForUpdate(IgniteTypeFactory factory);
+
+    /**
      * Returns row type containing only key fields.
      *
      * @param factory Type factory.
@@ -72,4 +80,11 @@ public interface IgniteTable extends IgniteDataSource {
      * @return Number of partitions.
      */
     int partitions();
+
+    /**
+     * Returns ID of the distribution zone to which the table belongs.
+     *
+     * @return Distribution zone ID.
+     */
+    int zoneId();
 }

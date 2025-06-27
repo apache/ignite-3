@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.annotations.Transferable;
@@ -26,25 +26,19 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * Represents invoke command for meta storage.
  */
 @Transferable(MetastorageCommandsMessageGroup.INVOKE)
-public interface InvokeCommand extends MetaStorageWriteCommand {
+public interface InvokeCommand extends IdempotentCommand {
     /**
      * Returns condition.
-     *
-     * @return Condition.
      */
     Condition condition();
 
     /**
      * Returns success operations.
-     *
-     * @return Success operations.
      */
-    Collection<Operation> success();
+    List<Operation> success();
 
     /**
      * Returns failure operations.
-     *
-     * @return Failure operations.
      */
-    Collection<Operation> failure();
+    List<Operation> failure();
 }

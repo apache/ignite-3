@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.round;
+import static java.util.Objects.requireNonNullElse;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateConsistencyMode;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfiles;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
@@ -27,16 +32,17 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_R
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultQuorumSize;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.STRONG_CONSISTENCY;
 
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -51,9 +57,13 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         return new Builder();
     }
 
+    private final boolean ifNotExists;
+
     private final @Nullable Integer partitions;
 
     private final @Nullable Integer replicas;
+
+    private final @Nullable Integer quorumSize;
 
     private final @Nullable Integer dataNodesAutoAdjust;
 
@@ -65,12 +75,16 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
     private final List<StorageProfileParams> storageProfileParams;
 
+    private final @Nullable ConsistencyMode consistencyMode;
+
     /**
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifNotExists Flag indicating whether the {@code IF NOT EXISTS} was specified.
      * @param partitions Number of partitions.
      * @param replicas Number of replicas.
+     * @param quorumSize Quorum size.
      * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
@@ -80,31 +94,45 @@ public class CreateZoneCommand extends AbstractZoneCommand {
      */
     private CreateZoneCommand(
             String zoneName,
+            boolean ifNotExists,
             @Nullable Integer partitions,
             @Nullable Integer replicas,
+            @Nullable Integer quorumSize,
             @Nullable Integer dataNodesAutoAdjust,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
-            List<StorageProfileParams> storageProfileParams
+            List<StorageProfileParams> storageProfileParams,
+            @Nullable ConsistencyMode consistencyMode
     ) throws CatalogValidationException {
         super(zoneName);
-
+        this.ifNotExists = ifNotExists;
         this.partitions = partitions;
         this.replicas = replicas;
+        this.quorumSize = quorumSize;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
         this.storageProfileParams = storageProfileParams;
+        this.consistencyMode = consistencyMode;
 
         validate();
     }
 
+    public boolean ifNotExists() {
+        return ifNotExists;
+    }
+
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
         if (catalog.zone(zoneName) != null) {
-            throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists", zoneName));
+            if (ifNotExists) {
+                return List.of();
+            }
+
+            throw new CatalogValidationException("Distribution zone with name '{}' already exists.", zoneName);
         }
 
         CatalogZoneDescriptor zoneDesc = descriptor(catalog.objectIdGenState());
@@ -116,27 +144,35 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     }
 
     private CatalogZoneDescriptor descriptor(int objectId) {
-        CatalogZoneDescriptor zone = new CatalogZoneDescriptor(
+        int replicas = requireNonNullElse(this.replicas, DEFAULT_REPLICA_COUNT);
+
+        return new CatalogZoneDescriptor(
                 objectId,
                 zoneName,
-                Objects.requireNonNullElse(partitions, DEFAULT_PARTITION_COUNT),
-                Objects.requireNonNullElse(replicas, DEFAULT_REPLICA_COUNT),
-                Objects.requireNonNullElse(dataNodesAutoAdjust, INFINITE_TIMER_VALUE),
-                Objects.requireNonNullElse(
+                requireNonNullElse(partitions, DEFAULT_PARTITION_COUNT),
+                replicas,
+                requireNonNullElse(quorumSize, defaultQuorumSize(replicas)),
+                requireNonNullElse(dataNodesAutoAdjust, INFINITE_TIMER_VALUE),
+                requireNonNullElse(
                         dataNodesAutoAdjustScaleUp,
                         dataNodesAutoAdjust != null ? INFINITE_TIMER_VALUE : IMMEDIATE_TIMER_VALUE
                 ),
-                Objects.requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE),
-                Objects.requireNonNullElse(filter, DEFAULT_FILTER),
-                fromParams(storageProfileParams)
+                requireNonNullElse(dataNodesAutoAdjustScaleDown, INFINITE_TIMER_VALUE),
+                requireNonNullElse(filter, DEFAULT_FILTER),
+                fromParams(storageProfileParams),
+                requireNonNullElse(consistencyMode, STRONG_CONSISTENCY)
         );
-
-        return zone;
     }
 
     private void validate() {
         validateField(partitions, 1, MAX_PARTITION_COUNT, "Invalid number of partitions");
         validateField(replicas, 1, null, "Invalid number of replicas");
+        validateField(quorumSize, 1, null, "Invalid quorum size");
+
+        int replicas = requireNonNullElse(this.replicas, DEFAULT_REPLICA_COUNT);
+        int quorumSize = requireNonNullElse(this.quorumSize, defaultQuorumSize(replicas));
+        validateReplicasAndQuorumCompatibility(replicas, quorumSize);
+
         validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
         validateField(dataNodesAutoAdjustScaleDown, 0, null, "Invalid data nodes auto adjust scale down");
@@ -149,7 +185,44 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         validateZoneFilter(filter);
 
+        validateConsistencyMode(consistencyMode);
+
         validateStorageProfiles(storageProfileParams);
+    }
+
+    /**
+     * Validates replicas count and quorum size compatibility.
+     *
+     * @param replicas Number of replicas.
+     * @param quorumSize Quorum size.
+     */
+    private void validateReplicasAndQuorumCompatibility(int replicas, int quorumSize) {
+        int minQuorum = min(replicas, 2);
+        int maxQuorum = max(minQuorum, (int) (round(replicas / 2.0)));
+
+        if (quorumSize < minQuorum || quorumSize > maxQuorum) {
+            throw new CatalogValidationException(
+                    "{}: [quorum size={}, min={}, max={}, replicas count={}].",
+                    getErrPrefix(), quorumSize, minQuorum, maxQuorum, replicas
+            );
+        }
+    }
+
+    private String getErrPrefix() {
+        if (this.quorumSize != null) {
+            if (this.replicas != null) {
+                return "Specified quorum size doesn't fit into the specified replicas count";
+            } else {
+                return "Specified quorum size doesn't fit into the default replicas count";
+            }
+        } else {
+            if (this.replicas != null) {
+                return "Current quorum size doesn't fit into the specified replicas count";
+            } else {
+                // Should never happen - this means that the default zone parameters are incompatible
+                return "Default quorum size doesn't fit into the default replicas count";
+            }
+        }
     }
 
     /**
@@ -158,9 +231,13 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     private static class Builder implements CreateZoneCommandBuilder {
         private String zoneName;
 
+        private boolean ifNotExists;
+
         private @Nullable Integer partitions;
 
         private @Nullable Integer replicas;
+
+        private @Nullable Integer quorumSize;
 
         private @Nullable Integer dataNodesAutoAdjust;
 
@@ -170,11 +247,20 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         private @Nullable String filter;
 
+        private @Nullable ConsistencyMode consistencyMode;
+
         private List<StorageProfileParams> storageProfileParams;
 
         @Override
         public CreateZoneCommandBuilder zoneName(String zoneName) {
             this.zoneName = zoneName;
+
+            return this;
+        }
+
+        @Override
+        public CreateZoneCommandBuilder ifNotExists(boolean ifNotExists) {
+            this.ifNotExists = ifNotExists;
 
             return this;
         }
@@ -189,6 +275,13 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         @Override
         public CreateZoneCommandBuilder replicas(Integer replicas) {
             this.replicas = replicas;
+
+            return this;
+        }
+
+        @Override
+        public CreateZoneCommandBuilder quorumSize(Integer quorumSize) {
+            this.quorumSize = quorumSize;
 
             return this;
         }
@@ -229,16 +322,26 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
+        public CreateZoneCommandBuilder consistencyModeParams(@Nullable ConsistencyMode params) {
+            this.consistencyMode = params;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new CreateZoneCommand(
                     zoneName,
+                    ifNotExists,
                     partitions,
                     replicas,
+                    quorumSize,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
-                    storageProfileParams
+                    storageProfileParams,
+                    consistencyMode
             );
         }
     }

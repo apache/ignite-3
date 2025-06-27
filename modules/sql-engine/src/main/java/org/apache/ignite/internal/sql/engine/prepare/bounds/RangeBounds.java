@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.bounds;
 
 import java.util.Objects;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -93,6 +94,20 @@ public class RangeBounds extends SearchBounds {
     @Override
     public Type type() {
         return Type.RANGE;
+    }
+
+    @Override
+    public SearchBounds accept(RexShuttle shuttle) {
+        RexNode condition = condition();
+        RexNode newCondition = shuttle.apply(condition);
+        RexNode newLowerBound = shuttle.apply(lowerBound);
+        RexNode newUpperBound = shuttle.apply(upperBound);
+
+        if (newLowerBound == lowerBound && newUpperBound == upperBound && newCondition == condition) {
+            return this;
+        }
+
+        return new RangeBounds(condition, newLowerBound, newUpperBound, lowerInclude, upperInclude);
     }
 
     /** {@inheritDoc} */

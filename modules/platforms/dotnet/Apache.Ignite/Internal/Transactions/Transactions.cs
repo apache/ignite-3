@@ -15,55 +15,31 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Transactions
+namespace Apache.Ignite.Internal.Transactions;
+
+using System.Diagnostics.CodeAnalysis;
+using System.Threading.Tasks;
+using Common;
+using Ignite.Transactions;
+
+/// <summary>
+/// Transactions API.
+/// </summary>
+internal class Transactions : ITransactions
 {
-    using System.Threading.Tasks;
-    using Common;
-    using Ignite.Transactions;
-    using Proto;
+    private readonly ClientFailoverSocket _socket;
 
     /// <summary>
-    /// Transactions API.
+    /// Initializes a new instance of the <see cref="Transactions"/> class.
     /// </summary>
-    internal class Transactions : ITransactions
-    {
-        /** Underlying connection. */
-        private readonly ClientFailoverSocket _socket;
+    /// <param name="socket">Socket.</param>
+    public Transactions(ClientFailoverSocket socket) => _socket = socket;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Transactions"/> class.
-        /// </summary>
-        /// <param name="socket">Socket.</param>
-        public Transactions(ClientFailoverSocket socket)
-        {
-            _socket = socket;
-        }
+    /// <inheritdoc/>
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Tx is returned.")]
+    public ValueTask<ITransaction> BeginAsync(TransactionOptions options) =>
+        ValueTask.FromResult<ITransaction>(new LazyTransaction(options, _socket.ObservableTimestamp));
 
-        /// <inheritdoc/>
-        public async Task<ITransaction> BeginAsync(TransactionOptions options)
-        {
-            using var writer = ProtoCommon.GetMessageWriter();
-            Write();
-
-            // Transaction and all corresponding operations must be performed using the same connection.
-            var (resBuf, socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.TxBegin, request: writer).ConfigureAwait(false);
-
-            using (resBuf)
-            {
-                var txId = resBuf.GetReader().ReadInt64();
-
-                return new Transaction(txId, socket, _socket, options.ReadOnly);
-            }
-
-            void Write()
-            {
-                var w = writer.MessageWriter;
-                w.Write(options.ReadOnly);
-                w.Write(_socket.ObservableTimestamp);
-            }
-        }
-
-        /// <inheritdoc />
-        public override string ToString() => IgniteToStringBuilder.Build(GetType());
-    }
+    /// <inheritdoc />
+    public override string ToString() => IgniteToStringBuilder.Build(GetType());
 }

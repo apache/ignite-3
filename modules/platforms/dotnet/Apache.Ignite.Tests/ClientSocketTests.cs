@@ -35,10 +35,10 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestConnectAndSendRequestReturnsResponse()
         {
-            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), Listener);
+            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), GetConfigInternal(), Listener);
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
-            requestWriter.MessageWriter.Write("non-existent-table");
+            requestWriter.MessageWriter.Write("\"non-existent-table\"");
 
             using var response = await socket.DoOutInOpAsync(ClientOp.TableGet, requestWriter);
             Assert.IsTrue(response.GetReader().TryReadNil());
@@ -47,7 +47,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestConnectAndSendRequestWithInvalidOpCodeThrowsError()
         {
-            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), Listener);
+            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), GetConfigInternal(), Listener);
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
             requestWriter.MessageWriter.Write(123);
@@ -61,7 +61,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestDisposedSocketThrowsExceptionOnSend()
         {
-            var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), Listener);
+            var socket = await ClientSocket.ConnectAsync(GetEndPoint(), GetConfigInternal(), Listener);
 
             socket.Dispose();
 
@@ -80,11 +80,14 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestConnectWithoutServerThrowsException()
         {
-            Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(GetEndPoint(569), new(), Listener));
+            Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(GetEndPoint(569), GetConfigInternal(), Listener));
         }
 
         private static SocketEndpoint GetEndPoint(int? serverPort = null) =>
             new(new(IPAddress.Loopback, serverPort ?? ServerPort), string.Empty, string.Empty);
+
+        private static IgniteClientConfigurationInternal GetConfigInternal() =>
+            new(new(), Task.FromResult((IgniteApiAccessor)null!));
 
         private class NoOpListener : IClientSocketEventListener
         {

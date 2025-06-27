@@ -20,19 +20,37 @@ package org.apache.ignite.internal.sql.engine.tx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
  */
 public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
-    private final boolean implicit;
+    /**
+     * This flag does not signify the type of transaction.
+     * It means that the transaction was started in the SQL engine and was not passed from outside.
+     */
+    private final boolean queryImplicit;
 
     private final InternalTransaction transaction;
 
-    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit) {
+    private final TransactionalOperationTracker txTracker;
+
+    private final AtomicBoolean committed = new AtomicBoolean();
+
+    /**
+     * Constructor.
+     *
+     * @param transaction Transaction.
+     * @param implicit Whether tx is implicit.
+     * @param txTracker Transaction tracker.
+     */
+    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit, TransactionalOperationTracker txTracker) {
         this.transaction = transaction;
-        this.implicit = implicit;
+        this.queryImplicit = implicit;
+        this.txTracker = txTracker;
     }
 
     @Override
@@ -41,8 +59,12 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     }
 
     @Override
-    public CompletableFuture<Void> commitImplicit() {
-        if (implicit) {
+    public CompletableFuture<Void> finalise() {
+        if (committed.compareAndSet(false, true)) {
+            txTracker.registerOperationFinish(transaction);
+        }
+
+        if (queryImplicit) {
             return transaction.commitAsync();
         }
 
@@ -50,12 +72,18 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     }
 
     @Override
-    public CompletableFuture<Void> rollback(Throwable cause) {
+    public CompletableFuture<Void> finalise(Throwable error) {
+        assert error != null;
+
+        if (committed.compareAndSet(false, true)) {
+            txTracker.registerOperationFinish(transaction);
+        }
+
         return transaction.rollbackAsync();
     }
 
     @Override
     public boolean implicit() {
-        return implicit;
+        return queryImplicit;
     }
 }

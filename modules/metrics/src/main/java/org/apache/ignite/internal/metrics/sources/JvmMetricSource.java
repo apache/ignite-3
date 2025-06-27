@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.metrics.sources;
 
+import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
-import java.util.HashMap;
+import java.lang.management.RuntimeMXBean;
+import java.util.List;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.metrics.LongGauge;
-import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.MetricSetBuilder;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,7 +33,6 @@ import org.jetbrains.annotations.Nullable;
  * Metric source, which provides JVM metrics like memory usage, gc stats etc.
  */
 public class JvmMetricSource implements MetricSource {
-
     /** Source name. */
     private static final String SOURCE_NAME = "jvm";
 
@@ -42,16 +42,25 @@ public class JvmMetricSource implements MetricSource {
     /** JVM standard MXBean to provide information about memory usage. */
     private final MemoryMXBean memoryMxBean;
 
-    /** True, if source is enabled, false otherwise. */
+    private final List<GarbageCollectorMXBean> gcMxBeans;
+
+    /** The managed bean for the runtime system of the Java virtual machine. */
+    private final RuntimeMXBean runtimeBean;
+
+    /** Enablement status. Accessed from different threads under synchronization on this object. */
     private boolean enabled;
 
     /**
      * Constructor.
      *
+     * @param runtimeBean MXBean implementation to receive runtime info.
      * @param memoryMxBean MXBean implementation to receive memory info.
+     * @param gcMxBeans MXBean implementation to receive GC info.
      */
-    JvmMetricSource(MemoryMXBean memoryMxBean) {
+    JvmMetricSource(RuntimeMXBean runtimeBean, MemoryMXBean memoryMxBean, List<GarbageCollectorMXBean> gcMxBeans) {
+        this.runtimeBean = runtimeBean;
         this.memoryMxBean = memoryMxBean;
+        this.gcMxBeans = List.copyOf(gcMxBeans);
     }
 
     /**
@@ -59,65 +68,93 @@ public class JvmMetricSource implements MetricSource {
      */
     public JvmMetricSource() {
         memoryMxBean = ManagementFactory.getMemoryMXBean();
+        gcMxBeans = ManagementFactory.getGarbageCollectorMXBeans();
+        runtimeBean = ManagementFactory.getRuntimeMXBean();
     }
 
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return SOURCE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public synchronized @Nullable MetricSet enable() {
-        var metrics = new HashMap<String, Metric>();
+        if (enabled) {
+            return null;
+        }
+
+        var metricSetBuilder = new MetricSetBuilder(SOURCE_NAME);
 
         CachedMemoryUsage heapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
-        metrics.put("memory.heap.Init",
-                new LongGauge("memory.heap.Init", "Initial amount of heap memory", () -> heapMemoryUsage.get().getInit()));
-        metrics.put("memory.heap.Used",
-                new LongGauge("memory.heap.Used",
-                        "Current used amount of heap memory",
-                        () -> heapMemoryUsage.get().getUsed()));
-        metrics.put("memory.heap.Committed",
-                new LongGauge("memory.heap.Committed",
-                        "Committed amount of heap memory",
-                        () -> heapMemoryUsage.get().getCommitted()));
-        metrics.put("memory.heap.Max",
-                new LongGauge("memory.heap.Max",
-                        "Maximum amount of heap memory",
-                        () -> heapMemoryUsage.get().getMax()));
+        metricSetBuilder.longGauge(
+                "memory.heap.Init",
+                "Initial amount of heap memory",
+                () -> heapMemoryUsage.get().getInit());
+        metricSetBuilder.longGauge(
+                "memory.heap.Used",
+                "Current used amount of heap memory",
+                () -> heapMemoryUsage.get().getUsed());
+        metricSetBuilder.longGauge(
+                "memory.heap.Committed",
+                "Committed amount of heap memory",
+                () -> heapMemoryUsage.get().getCommitted());
+        metricSetBuilder.longGauge(
+                "memory.heap.Max",
+                "Maximum amount of heap memory",
+                () -> heapMemoryUsage.get().getMax());
 
         CachedMemoryUsage nonHeapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getNonHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
-        metrics.put("memory.non-heap.Init",
-                new LongGauge("memory.non-heap.Init",
-                        "Initial amount of non-heap memory",
-                        () -> nonHeapMemoryUsage.get().getInit()));
-        metrics.put("memory.non-heap.Used",
-                new LongGauge("memory.non-heap.Used",
-                        "Used amount of non-heap memory",
-                        () -> nonHeapMemoryUsage.get().getUsed()));
-        metrics.put("memory.non-heap.Committed",
-                new LongGauge("memory.non-heap.Committed",
-                        "Committed amount of non-heap memory",
-                        () -> nonHeapMemoryUsage.get().getCommitted()));
-        metrics.put("memory.non-heap.Max",
-                new LongGauge("memory.non-heap.Max",
-                        "Maximum amount of non-heap memory",
-                        () -> nonHeapMemoryUsage.get().getMax()));
+        metricSetBuilder.longGauge(
+                "memory.non-heap.Init",
+                "Initial amount of non-heap memory",
+                () -> nonHeapMemoryUsage.get().getInit());
+        metricSetBuilder.longGauge(
+                "memory.non-heap.Used",
+                "Used amount of non-heap memory",
+                () -> nonHeapMemoryUsage.get().getUsed());
+        metricSetBuilder.longGauge(
+                "memory.non-heap.Committed",
+                "Committed amount of non-heap memory",
+                () -> nonHeapMemoryUsage.get().getCommitted());
+        metricSetBuilder.longGauge(
+                "memory.non-heap.Max",
+                "Maximum amount of non-heap memory",
+                () -> nonHeapMemoryUsage.get().getMax());
+
+        metricSetBuilder.longGauge(
+                "gc.CollectionTime",
+                "Approximate total time spent on garbage collection in milliseconds, summed across all collectors.",
+                this::totalCollectionTime);
+
+        metricSetBuilder.longGauge(
+                "UpTime",
+                "The uptime of the Java virtual machine in milliseconds.",
+                runtimeBean::getUptime);
 
         enabled = true;
 
-        return new MetricSet(SOURCE_NAME, metrics);
+        return metricSetBuilder.build();
     }
 
-    /** {@inheritDoc} */
+    private long totalCollectionTime() {
+        long total = 0;
+
+        for (GarbageCollectorMXBean gcMxBean : gcMxBeans) {
+            long time = gcMxBean.getCollectionTime();
+
+            if (time > 0) {
+                total += time;
+            }
+        }
+
+        return total;
+    }
+
     @Override
     public synchronized void disable() {
         enabled = false;
     }
 
-    /** {@inheritDoc} */
     @Override
     public synchronized boolean enabled() {
         return enabled;

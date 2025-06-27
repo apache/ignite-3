@@ -17,99 +17,37 @@
 
 package org.apache.ignite.internal.rest.api.compute;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
-import java.time.Instant;
-import java.util.UUID;
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Rest representation of {@link org.apache.ignite.compute.JobStatus}.
  */
-@Schema(name = "JobStatus")
-public class JobStatus {
+public enum JobStatus {
     /**
-     * Job ID.
+     * The job is submitted and waiting for an execution start.
      */
-    @Schema(description = "Job ID.", requiredMode = RequiredMode.REQUIRED)
-    private final UUID id;
+    QUEUED,
 
     /**
-     * Job state.
+     * The job is being executed.
      */
-    @Schema(description = "Job state.", requiredMode = RequiredMode.REQUIRED)
-    private final JobState state;
+    EXECUTING,
 
     /**
-     * Job create time.
+     * The job was unexpectedly terminated during execution.
      */
-    @Schema(description = "Job create time.", requiredMode = RequiredMode.REQUIRED)
-    private final Instant createTime;
+    FAILED,
 
     /**
-     * Job start time.
+     * The job was executed successfully and the execution result was returned.
      */
-    @Schema(description = "Job start time.", requiredMode = RequiredMode.NOT_REQUIRED)
-    @Nullable
-    private final Instant startTime;
+    COMPLETED,
 
     /**
-     * Job finish time.
+     * The job has received the cancel command, but it is still running.
      */
-    @Schema(description = "Job finish time.", requiredMode = RequiredMode.NOT_REQUIRED)
-    @Nullable
-    private final Instant finishTime;
+    CANCELING,
 
     /**
-     * Constructor.
-     *
-     * @param id Job ID.
-     * @param state Job state.
-     * @param createTime Job create time.
-     * @param startTime Job start time.
-     * @param finishTime Job finish time.
+     * The job was successfully cancelled.
      */
-    @JsonCreator
-    public JobStatus(
-            @JsonProperty("id") UUID id,
-            @JsonProperty("state") JobState state,
-            @JsonProperty("createTime") Instant createTime,
-            @JsonProperty("startTime") @Nullable Instant startTime,
-            @JsonProperty("finishTime") @Nullable Instant finishTime
-    ) {
-        this.id = id;
-        this.state = state;
-        this.createTime = createTime;
-        this.startTime = startTime;
-        this.finishTime = finishTime;
-    }
-
-    @JsonProperty("id")
-    public UUID id() {
-        return id;
-    }
-
-    @JsonProperty("state")
-    public JobState state() {
-        return state;
-    }
-
-    @JsonProperty("createTime")
-    public Instant createTime() {
-        return createTime;
-    }
-
-    @Nullable
-    @JsonProperty("startTime")
-    public Instant startTime() {
-        return startTime;
-    }
-
-    @Nullable
-    @JsonProperty("finishTime")
-    public Instant finishTime() {
-        return finishTime;
-    }
+    CANCELED;
 }

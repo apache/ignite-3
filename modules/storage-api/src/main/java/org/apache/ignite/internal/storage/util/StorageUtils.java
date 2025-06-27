@@ -17,16 +17,23 @@
 
 package org.apache.ignite.internal.storage.util;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.schema.BinaryTupleComparator;
+import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexNotBuiltException;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -217,11 +224,10 @@ public class StorageUtils {
     }
 
     /**
-     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
+     * If not already in a terminal state, transitions to the {@link StorageState#DESTROYED} state and returns {@code true},
+     * otherwise just returns {@code false}.
      */
-    public static boolean transitionToTerminalState(StorageState targetState, AtomicReference<StorageState> stateRef) {
-        assert targetState.isTerminal() : "Not a terminal state: " + targetState;
-
+    public static boolean transitionToDestroyedState(AtomicReference<StorageState> stateRef) {
         while (true) {
             StorageState previous = stateRef.get();
 
@@ -229,10 +235,28 @@ public class StorageUtils {
                 return false;
             }
 
-            if (stateRef.compareAndSet(previous, targetState)) {
+            if (stateRef.compareAndSet(previous, StorageState.DESTROYED)) {
                 return true;
             }
         }
+    }
+
+    /**
+     * If not already closed and in a running state, transitions to the {@link StorageState#CLOSED} state. Otherwise
+     * throws {@link StorageException}.
+     */
+    public static boolean transitionToClosedState(AtomicReference<StorageState> stateRef, Supplier<String> errorMsgSupplier) {
+        StorageState prevState = stateRef.compareAndExchange(StorageState.RUNNABLE, StorageState.CLOSED);
+
+        if (prevState.isTerminal()) {
+            return false;
+        }
+
+        if (prevState != StorageState.RUNNABLE) {
+            throwExceptionDependingOnStorageState(prevState, errorMsgSupplier.get());
+        }
+
+        return true;
     }
 
     /**
@@ -252,5 +276,35 @@ public class StorageUtils {
         if (nextRowIdToBuild != null) {
             throw new IndexNotBuiltException("Index not built yet: [{}]", storageInfoSupplier.get());
         }
+    }
+
+    /**
+     * Creates a comparator for a Sorted Index identified by the given columns descriptors.
+     */
+    public static BinaryTupleComparator binaryTupleComparator(List<StorageSortedIndexColumnDescriptor> columns) {
+        List<CatalogColumnCollation> columnCollation = new ArrayList<>(columns.size());
+        List<NativeType> columnTypes = new ArrayList<>(columns.size());
+
+        for (StorageSortedIndexColumnDescriptor col : columns) {
+            columnCollation.add(CatalogColumnCollation.get(col.asc(), col.nullsFirst()));
+            columnTypes.add(col.type());
+        }
+
+        return new BinaryTupleComparator(columnCollation, columnTypes);
+    }
+
+    /**
+     * Creates a comparator for a Sorted Index identified by the given columns descriptors.
+     */
+    public static PartialBinaryTupleMatcher partialBinaryTupleComparator(List<StorageSortedIndexColumnDescriptor> columns) {
+        List<CatalogColumnCollation> columnCollation = new ArrayList<>(columns.size());
+        List<NativeType> columnTypes = new ArrayList<>(columns.size());
+
+        for (StorageSortedIndexColumnDescriptor col : columns) {
+            columnCollation.add(CatalogColumnCollation.get(col.asc(), col.nullsFirst()));
+            columnTypes.add(col.type());
+        }
+
+        return new PartialBinaryTupleMatcher(columnCollation, columnTypes);
     }
 }

@@ -17,44 +17,30 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import java.util.function.DoubleSupplier;
+import java.util.function.LongSupplier;
 import org.apache.calcite.schema.Statistic;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Supported table statistics.
  */
 public class IgniteStatistic implements Statistic {
-
-    public static final double MIN_ROWS = 10_000.0;
-
-    private final DoubleSupplier rowCountSupplier;
+    private final LongSupplier rowCountSupplier;
 
     private final IgniteDistribution distribution;
 
-    private final DoubleSupplier minRows;
-
     /** Constructor. */
-    public IgniteStatistic(DoubleSupplier rowCountSupplier, IgniteDistribution distribution) {
-        this(rowCountSupplier, distribution, () -> MIN_ROWS);
-    }
-
-    /** Constructor. */
-    public IgniteStatistic(DoubleSupplier rowCountSupplier, IgniteDistribution distribution, @Nullable DoubleSupplier minRows) {
+    public IgniteStatistic(LongSupplier rowCountSupplier, IgniteDistribution distribution) {
         this.distribution = distribution;
         this.rowCountSupplier = rowCountSupplier;
-        this.minRows = minRows == null ? () -> MIN_ROWS : minRows;
     }
 
     /** {@inheritDoc} */
     @Override
     public final Double getRowCount() {
-        double localRowCnt = rowCountSupplier.getAsDouble();
+        long approximateRowCount = rowCountSupplier.getAsLong();
 
-        // Forbid zero result, to prevent zero cost for table and index scans.
-        double minRows = this.minRows.getAsDouble();
-        return Math.max(minRows, localRowCnt);
+        return (double) approximateRowCount;
     }
 
     /** {@inheritDoc} */

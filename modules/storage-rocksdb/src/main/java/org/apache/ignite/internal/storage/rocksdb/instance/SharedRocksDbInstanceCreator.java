@@ -28,15 +28,16 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageProfile;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -55,15 +56,21 @@ import org.rocksdb.RocksDBException;
  * Contains a boilerplate code for reading/creating the DB.
  */
 public class SharedRocksDbInstanceCreator {
+    private final FailureProcessor failureProcessor;
+
     /** List of resources that must be closed if DB creation failed in the process. */
     private final List<AutoCloseable> resources = new ArrayList<>();
+
+    public SharedRocksDbInstanceCreator(FailureProcessor failureProcessor) {
+        this.failureProcessor = failureProcessor;
+    }
 
     /**
      * Creates an instance of {@link SharedRocksDbInstance}.
      */
     public SharedRocksDbInstance create(
             RocksDbStorageEngine engine,
-            RocksDbDataRegion region,
+            RocksDbStorageProfile profile,
             Path path
     ) throws RocksDBException, IOException {
         var busyLock = new IgniteSpinBusyLock();
@@ -72,11 +79,13 @@ public class SharedRocksDbInstanceCreator {
             Files.createDirectories(path);
 
             var flusher = new RocksDbFlusher(
+                    "rocksdb storage profile [" + profile.name() + "]",
                     busyLock,
                     engine.scheduledPool(),
                     engine.threadPool(),
                     engine.configuration().flushDelayMillis()::value,
                     engine.logSyncer(),
+                    failureProcessor,
                     () -> {} // No-op.
             );
 
@@ -90,14 +99,18 @@ public class SharedRocksDbInstanceCreator {
                     // Atomic flush must be enabled to guarantee consistency between different column families when WAL is disabled.
                     .setAtomicFlush(true)
                     .setListeners(List.of(flusher.listener()))
-                    .setWriteBufferManager(region.writeBufferManager())
+                    .setWriteBufferManager(profile.writeBufferManager())
+                    // Don't flush on shutdown to speed up node shutdown as on recovery we'll apply commands from log.
+                    .setAvoidFlushDuringShutdown(true)
             );
 
             RocksDB db = add(RocksDB.open(dbOptions, path.toAbsolutePath().toString(), cfDescriptors, cfHandles));
+            this.resources.addAll(cfHandles);
 
             RocksDbMetaStorage meta = null;
             ColumnFamily partitionCf = null;
             ColumnFamily gcQueueCf = null;
+            ColumnFamily dataCf = null;
             ColumnFamily hashIndexCf = null;
             var sortedIndexCfs = new ArrayList<ColumnFamily>();
 
@@ -118,6 +131,11 @@ public class SharedRocksDbInstanceCreator {
 
                     case GC_QUEUE:
                         gcQueueCf = cf;
+
+                        break;
+
+                    case DATA:
+                        dataCf = cf;
 
                         break;
 
@@ -147,8 +165,10 @@ public class SharedRocksDbInstanceCreator {
                     requireNonNull(meta, "meta"),
                     requireNonNull(partitionCf, "partitionCf"),
                     requireNonNull(gcQueueCf, "gcQueueCf"),
+                    requireNonNull(dataCf, "dataCf"),
                     requireNonNull(hashIndexCf, "hashIndexCf"),
-                    sortedIndexCfs
+                    sortedIndexCfs,
+                    resources // Trusts the inner class to copy the resources!!
             );
         } catch (Throwable t) {
             Collections.reverse(resources);
@@ -195,6 +215,7 @@ public class SharedRocksDbInstanceCreator {
         switch (ColumnFamilyType.fromCfName(utf8cfName)) {
             case META:
             case GC_QUEUE:
+            case DATA:
                 return add(new ColumnFamilyOptions());
 
             case PARTITION:

@@ -20,18 +20,22 @@ package org.apache.ignite.internal.network.processor.serialization;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.PropertyName;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
 
@@ -140,8 +144,43 @@ class BaseMethodNameResolver {
             return "Map";
         } else if (typeUtils.isSameType(parameterType, ByteBuffer.class)) {
             return "ByteBuffer";
-        } else {
-            throw new ProcessingException("Unsupported reference type for message (de-)serialization: " + parameterType);
+        } else if (typeUtils.isSameType(parameterType, HybridTimestamp.class)) {
+            return "HybridTimestamp";
+        }
+
+        throw new ProcessingException("Unsupported reference type for message (de-)serialization: " + parameterType);
+    }
+
+    static String propertyName(ExecutableElement getter) {
+        PropertyName propertyNameAnnotation = getter.getAnnotation(PropertyName.class);
+
+        return propertyNameAnnotation == null ? getter.getSimpleName().toString() : propertyNameAnnotation.value();
+    }
+
+    static void checkPropertyNames(List<ExecutableElement> getters) {
+        checkPropertyNamesValue(getters);
+        checkThatPropertyNamesDoNotMatch(getters);
+    }
+
+    private static void checkPropertyNamesValue(List<ExecutableElement> getters) {
+        for (ExecutableElement getter : getters) {
+            String propertyName = propertyName(getter);
+
+            if (propertyName.isBlank()) {
+                throw new ProcessingException("Property name cannot be blank: " + getter);
+            }
+        }
+    }
+
+    private static void checkThatPropertyNamesDoNotMatch(List<ExecutableElement> getters) {
+        var getterByPropertyName = new HashMap<String, ExecutableElement>();
+
+        for (ExecutableElement getter : getters) {
+            ExecutableElement previous = getterByPropertyName.put(propertyName(getter), getter);
+
+            if (previous != null) {
+                throw new ProcessingException(String.format("Property names must not be the same for %s and %s.", getter, previous));
+            }
         }
     }
 }

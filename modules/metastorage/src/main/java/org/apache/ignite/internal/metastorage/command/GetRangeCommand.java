@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,10 +30,10 @@ public interface GetRangeCommand extends PaginationCommand {
     /**
      * Returns start key of range (inclusive).
      */
-    byte[] keyFrom();
+    ByteBuffer keyFrom();
 
     /**
      * Returns end key of range (exclusive), {@code null} means open upper bound.
      */
-    byte @Nullable [] keyTo();
+    @Nullable ByteBuffer keyTo();
 }

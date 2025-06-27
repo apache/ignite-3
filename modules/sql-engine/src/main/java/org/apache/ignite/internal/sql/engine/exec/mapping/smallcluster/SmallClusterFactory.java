@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
 
+import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingException;
 
 /**
  * A factory that able to create targets for cluster with up to 64 nodes.
@@ -38,19 +44,32 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
             throw new IllegalArgumentException("Supported up to 64 nodes, but was " + nodes.size());
         }
 
-        this.nodes = nodes;
+        // to make mapping stable
+        this.nodes = nodes.stream().sorted().collect(Collectors.toList());
 
         nodeNameToId = new Object2LongOpenHashMap<>(nodes.size());
 
         int idx = 0;
-        for (String name : nodes) {
+        for (String name : this.nodes) {
             nodeNameToId.putIfAbsent(name, 1L << idx++);
         }
     }
 
     @Override
     public ExecutionTarget allOf(List<String> nodes) {
-        return new AllOfTarget(nodeListToMap(nodes));
+        long nodesMap = 0;
+
+        for (String name : nodes) {
+            long node = nodeNameToId.getOrDefault(name, -1);
+
+            if (node == -1) {
+                throw new MappingException("Mandatory node was excluded from mapping: " + name);
+            }
+
+            nodesMap |= node;
+        }
+
+        return new AllOfTarget(nodesMap);
     }
 
     @Override
@@ -64,42 +83,74 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     @Override
-    public ExecutionTarget partitioned(List<NodeWithConsistencyToken> nodes) {
-        long[] partitionNodes = new long[nodes.size()];
-        long[] enlistmentConsistencyTokens = new long[nodes.size()];
+    public ExecutionTarget partitioned(List<TokenizedAssignments> assignments) {
+        long[] partitionNodes = new long[assignments.size()];
+        long[] enlistmentConsistencyTokens = new long[assignments.size()];
 
         int idx = 0;
-        for (NodeWithConsistencyToken e : nodes) {
-            partitionNodes[idx] = nodeNameToId.getOrDefault(e.name(), 0);
-            enlistmentConsistencyTokens[idx++] = e.enlistmentConsistencyToken();
+        boolean finalised = true;
+        for (TokenizedAssignments assignment : assignments) {
+            long currentPartitionNodes = 0L;
+            for (Assignment a : assignment.nodes()) {
+                long node = nodeNameToId.getOrDefault(a.consistentId(), -1);
+
+                if (node != -1) {
+                    currentPartitionNodes |= node;
+                }
+            }
+
+            if (currentPartitionNodes == 0) {
+                List<String> nodes = assignment.nodes().stream()
+                        .map(Assignment::consistentId)
+                        .collect(Collectors.toList());
+
+                throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes);
+            }
+
+            finalised = finalised && isPow2(currentPartitionNodes);
+
+            partitionNodes[idx] = currentPartitionNodes;
+            enlistmentConsistencyTokens[idx] = assignment.token();
+
+            idx++;
         }
 
-        return new PartitionedTarget(true, partitionNodes, enlistmentConsistencyTokens);
+        return new PartitionedTarget(finalised, partitionNodes, enlistmentConsistencyTokens);
     }
 
     @Override
     public List<String> resolveNodes(ExecutionTarget target) {
-        target = target.finalise();
-
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
+
+        target = ((AbstractTarget) target).finalise();
 
         return ((AbstractTarget) target).nodes(nodes);
     }
 
     @Override
     public Int2ObjectMap<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
-        target = target.finalise();
-
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
+
+        target = ((AbstractTarget) target).finalise();
 
         return ((AbstractTarget) target).assignments(nodes);
     }
 
     private long nodeListToMap(List<String> nodes) {
+        assert !nodes.isEmpty() : "Empty target is not allowed";
+
         long nodesMap = 0;
 
         for (String name : nodes) {
-            nodesMap |= nodeNameToId.getOrDefault(name, 0);
+            long node = nodeNameToId.getOrDefault(name, -1);
+
+            if (node >= 0) {
+                nodesMap |= node;
+            }
+        }
+
+        if (nodesMap == 0) {
+            throw new MappingException("Mandatory nodes was excluded from mapping: " + nodes);
         }
 
         return nodesMap;

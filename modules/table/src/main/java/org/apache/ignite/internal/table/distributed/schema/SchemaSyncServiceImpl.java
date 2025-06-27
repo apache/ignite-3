@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
  * A default implementation of {@link SchemaSyncService}.

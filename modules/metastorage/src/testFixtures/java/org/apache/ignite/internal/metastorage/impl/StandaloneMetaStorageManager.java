@@ -19,25 +19,41 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -46,11 +62,14 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockSettings;
 import org.mockito.quality.Strictness;
+import org.mockito.stubbing.Answer;
 
 /**
  * MetaStorageManager dummy implementation.
@@ -63,13 +82,37 @@ import org.mockito.quality.Strictness;
 public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static final String TEST_NODE_NAME = "standalone-ms-node";
 
+    private static final UUID TEST_NODE_ID = UUID.randomUUID();
+
+    private static final ClusterNode TEST_NODE = new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, new NetworkAddress("host", 3000));
+
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 
-    /**
-     * Creates standalone MetaStorage manager.
-     */
+    @Nullable
+    private Consumer<Boolean> afterInvokeInterceptor;
+
+    /** Creates standalone MetaStorage manager. */
     public static StandaloneMetaStorageManager create() {
-        return create(new SimpleInMemoryKeyValueStorage(TEST_NODE_NAME));
+        return create(TEST_NODE_NAME);
+    }
+
+    /** Creates standalone MetaStorage manager. */
+    public static StandaloneMetaStorageManager create(HybridClock clock) {
+        return create(TEST_NODE_NAME, clock);
+    }
+
+    /** Creates standalone MetaStorage manager. */
+    public static StandaloneMetaStorageManager create(String nodeName) {
+        var tracker = new ReadOperationForCompactionTracker();
+
+        return create(new SimpleInMemoryKeyValueStorage(nodeName, tracker), tracker);
+    }
+
+    /** Creates standalone MetaStorage manager. */
+    public static StandaloneMetaStorageManager create(String nodeName, HybridClock clock) {
+        var tracker = new ReadOperationForCompactionTracker();
+
+        return create(new SimpleInMemoryKeyValueStorage(nodeName, tracker), clock, tracker);
     }
 
     /**
@@ -79,7 +122,21 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
      * @param keyValueStorage Key-value storage.
      */
     public static StandaloneMetaStorageManager create(KeyValueStorage keyValueStorage) {
-        return create(keyValueStorage, new HybridClockImpl());
+        return create(keyValueStorage, new HybridClockImpl(), new ReadOperationForCompactionTracker());
+    }
+
+    /**
+     * Creates standalone MetaStorage manager for provided key-value storage. The manager is responsible for starting/stopping provided
+     * key-value storage.
+     *
+     * @param keyValueStorage Key-value storage.
+     * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
+     */
+    public static StandaloneMetaStorageManager create(
+            KeyValueStorage keyValueStorage,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker
+    ) {
+        return create(keyValueStorage, new HybridClockImpl(), readOperationForCompactionTracker);
     }
 
     /**
@@ -88,8 +145,13 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
      *
      * @param keyValueStorage Key-value storage.
      * @param clock Clock.
+     * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      */
-    public static StandaloneMetaStorageManager create(KeyValueStorage keyValueStorage, HybridClock clock) {
+    public static StandaloneMetaStorageManager create(
+            KeyValueStorage keyValueStorage,
+            HybridClock clock,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker
+    ) {
         return new StandaloneMetaStorageManager(
                 mockClusterService(),
                 mockClusterGroupManager(),
@@ -97,20 +159,13 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mockRaftManager(),
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                mockConfiguration(),
-                clock
+                mockSystemConfiguration(),
+                clock,
+                RaftGroupOptionsConfigurer.EMPTY,
+                readOperationForCompactionTracker
         );
     }
 
-    /**
-     * The constructor.
-     *
-     * @param clusterService Cluster network service.
-     * @param cmgMgr Cluster management service Manager.
-     * @param logicalTopologyService Logical topology service.
-     * @param raftMgr Raft manager.
-     * @param storage Storage. This component owns this resource and will manage its lifecycle.
-     */
     private StandaloneMetaStorageManager(
             ClusterService clusterService,
             ClusterManagementGroupManager cmgMgr,
@@ -118,8 +173,10 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             RaftManager raftMgr,
             KeyValueStorage storage,
             TopologyAwareRaftGroupServiceFactory raftServiceFactory,
-            MetaStorageConfiguration configuration,
-            HybridClock clock
+            SystemDistributedConfiguration systemConfiguration,
+            HybridClock clock,
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
+            ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
         super(
                 clusterService,
@@ -129,71 +186,133 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 storage,
                 clock,
                 raftServiceFactory,
-                configuration
+                new NoOpMetricManager(),
+                systemConfiguration,
+                raftGroupOptionsConfigurer,
+                readOperationForCompactionTracker
         );
     }
 
     private static ClusterService mockClusterService() {
-        ClusterService clusterService = mock(ClusterService.class);
+        ClusterService clusterService = mock(ClusterService.class, LENIENT_SETTINGS);
 
         when(clusterService.nodeName()).thenReturn(TEST_NODE_NAME);
+
+        TopologyService topologyService = mock(TopologyService.class, LENIENT_SETTINGS);
+        when(topologyService.localMember()).thenReturn(TEST_NODE);
+
+        when(clusterService.topologyService()).thenReturn(topologyService);
 
         return clusterService;
     }
 
     private static ClusterManagementGroupManager mockClusterGroupManager() {
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
-        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(TEST_NODE_NAME)));
+
+        when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
+                new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(TEST_NODE_NAME)).build()
+        ));
+
+        configureCmgManagerToStartMetastorage(cmgManager);
 
         return cmgManager;
+    }
+
+    /**
+     * Configures {@link ClusterManagementGroupManager} mock to return cluster state needed for {@link MetaStorageManagerImpl} start.
+     *
+     * @param cmgManagerMock Mock to configure.
+     */
+    public static void configureCmgManagerToStartMetastorage(ClusterManagementGroupManager cmgManagerMock) {
+        ClusterState clusterState = mock(ClusterState.class);
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(new CmgMessagesFactory(), "cluster");
+
+        when(clusterState.clusterTag()).thenReturn(clusterTag);
+        when(cmgManagerMock.clusterState()).thenReturn(completedFuture(clusterState));
+    }
+
+    public void setAfterInvokeInterceptor(@Nullable Consumer<Boolean> afterInvokeInterceptor) {
+        this.afterInvokeInterceptor = afterInvokeInterceptor;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> invoke(Condition cond, Operation success, Operation failure) {
+        return super.invoke(cond, success, failure)
+                .thenApply(res -> {
+                    if (afterInvokeInterceptor != null) {
+                        afterInvokeInterceptor.accept(res);
+                    }
+
+                    return res;
+                });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> invoke(Condition cond, List<Operation> success, List<Operation> failure) {
+        return super.invoke(cond, success, failure)
+                .thenApply(res -> {
+                    if (afterInvokeInterceptor != null) {
+                        afterInvokeInterceptor.accept(res);
+                    }
+
+                    return res;
+                });
     }
 
     private static RaftManager mockRaftManager() {
         ArgumentCaptor<RaftGroupListener> listenerCaptor = ArgumentCaptor.forClass(RaftGroupListener.class);
         RaftManager raftManager = mock(RaftManager.class, LENIENT_SETTINGS);
-        TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
+        TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class, LENIENT_SETTINGS);
 
         try {
-            when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
-                    any(),
-                    any(),
-                    listenerCaptor.capture(),
-                    any(),
-                    any()
-            )).thenReturn(completedFuture(raftGroupService));
-
-            when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
+            when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                     any(),
                     any(),
                     listenerCaptor.capture(),
                     any(),
                     any(),
                     any()
-            )).thenReturn(completedFuture(raftGroupService));
+            )).thenReturn(raftGroupService);
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
         }
 
-        when(raftGroupService.run(any())).thenAnswer(invocation -> {
-            Command command = invocation.getArgument(0);
+        Answer<Object> answer = invocation -> {
             RaftGroupListener listener = listenerCaptor.getValue();
+            // Both onBeforeApply and command processing within listener should be thread-safe.
+            // onBeforeApply is guarded by group specific monitor, precisely synchronized (groupIdSyncMonitor(request.groupId())).
+            // See ActionRequestProcessor.handleRequestInternal for more details.
+            // Command processing on its turn is expected to be processed under raft umbrella, meaning in single-thread environment.
+            synchronized (listener) {
+                Command command = invocation.getArgument(0);
 
-            if (listener instanceof BeforeApplyHandler) {
-                ((BeforeApplyHandler) listener).onBeforeApply(command);
+                if (listener instanceof BeforeApplyHandler && command instanceof WriteCommand) {
+                    ((BeforeApplyHandler) listener).onBeforeApply(command);
+                }
+
+                return runCommand(command, listener);
             }
+        };
+        when(raftGroupService.run(any())).thenAnswer(answer);
+        when(raftGroupService.run(any(), anyLong())).thenAnswer(answer);
 
-            return runCommand(command, listener);
+        when(raftGroupService.subscribeLeader(any())).thenAnswer(invocation -> {
+            LeaderElectionListener callback = invocation.getArgument(0);
+
+            callback.onLeaderElected(TEST_NODE, 0);
+
+            return nullCompletedFuture();
         });
 
         return raftManager;
     }
 
-    private static MetaStorageConfiguration mockConfiguration() {
-        MetaStorageConfiguration configuration = mock(MetaStorageConfiguration.class, LENIENT_SETTINGS);
+    private static SystemDistributedConfiguration mockSystemConfiguration() {
+        SystemDistributedConfiguration configuration = mock(SystemDistributedConfiguration.class, LENIENT_SETTINGS);
         ConfigurationValue<Long> value = mock(ConfigurationValue.class, LENIENT_SETTINGS);
 
-        when(configuration.idleSyncTimeInterval()).thenReturn(value);
-        when(value.value()).thenReturn(1000L);
+        when(configuration.idleSafeTimeSyncIntervalMillis()).thenReturn(value);
+        when(value.value()).thenReturn(50L);
 
         return configuration;
     }

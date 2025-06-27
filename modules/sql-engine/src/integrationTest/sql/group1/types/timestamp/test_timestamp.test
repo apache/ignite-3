@@ -1,0 +1,186 @@
+# name: test/sql/types/timestamp/test_timestamp.test
+# description: Test TIMESTAMP type
+# group: [timestamp]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE IF NOT EXISTS timestamp_t (t TIMESTAMP, t2 TIMESTAMP(1) WITHOUT TIME ZONE);
+
+statement ok
+INSERT INTO timestamp_t VALUES (timestamp '2008-01-01 00:00:01', timestamp '2008-01-01 00:00:01'), (NULL, NULL), (timestamp '2007-01-01 00:00:01.999', timestamp '2007-01-01 00:00:01.999'), (timestamp '2008-02-01 00:00:01', timestamp '2008-02-01 00:00:01'), (timestamp '2008-01-02 00:00:01', timestamp '2008-01-02 00:00:01'), (timestamp '2008-01-01 10:00:00', timestamp '2008-01-01 10:00:00'), (timestamp '2008-01-01 00:10:00', timestamp '2008-01-01 00:10:00'), (timestamp '2008-01-01 00:00:10', timestamp '2008-01-01 00:00:10')
+
+query T
+SELECT timestamp '2017-07-23 13:10:11';
+----
+2017-07-23 13:10:11
+
+# iso timestamps
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-19161
+query TT
+SELECT timestamp '2017-07-23T13:10:11', timestamp '2017-07-23T13:10:11Z';
+----
+2017-07-23 13:10:11
+2017-07-23 13:10:11
+
+# spaces everywhere
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-19161
+query T
+SELECT timestamp '    2017-07-23     13:10:11    ';
+----
+2017-07-23 13:10:11
+
+# other trailing, preceding, or middle gunk is not accepted
+statement error: Illegal TIMESTAMP literal
+SELECT timestamp '    2017-07-23     13:10:11    AA';
+
+statement error: Illegal TIMESTAMP literal
+SELECT timestamp 'AA2017-07-23 13:10:11';
+
+statement error: Illegal TIMESTAMP literal
+SELECT timestamp '2017-07-23A13:10:11';
+
+query TTT
+SELECT t, t2, t=t2 FROM timestamp_t ORDER BY t;
+----
+2007-01-01 00:00:01.999	2007-01-01 00:00:01.9	false
+2008-01-01 00:00:01	2008-01-01 00:00:01	true
+2008-01-01 00:00:10	2008-01-01 00:00:10	true
+2008-01-01 00:10:00	2008-01-01 00:10:00	true
+2008-01-01 10:00:00	2008-01-01 10:00:00	true
+2008-01-02 00:00:01	2008-01-02 00:00:01	true
+2008-02-01 00:00:01	2008-02-01 00:00:01	true
+NULL	NULL	NULL
+
+query T
+SELECT MIN(t) FROM timestamp_t;
+----
+2007-01-01 00:00:01.999
+
+query T
+SELECT MAX(t) FROM timestamp_t;
+----
+2008-02-01 00:00:01
+
+statement error: Cannot apply 'SUM' to arguments of type 'SUM(<TIMESTAMP(6)>)'. Supported form(s): 'SUM(<NUMERIC>)'
+SELECT SUM(t) FROM timestamp_t
+
+statement error: Cannot apply 'AVG' to arguments of type 'AVG(<TIMESTAMP(6)>)'. Supported form(s): 'AVG(<NUMERIC>)'
+SELECT AVG(t) FROM timestamp_t
+
+statement error: Cannot apply '+' to arguments of type '<TIMESTAMP(6)> + <TIMESTAMP(6)>'. Supported form(s): '<NUMERIC> + <NUMERIC>'
+SELECT t+t FROM timestamp_t
+
+statement error: Cannot apply '*' to arguments of type '<TIMESTAMP(6)> * <TIMESTAMP(6)>'. Supported form(s): '<NUMERIC> * <NUMERIC>'
+SELECT t*t FROM timestamp_t
+
+statement error: Cannot apply '/' to arguments of type '<TIMESTAMP(6)> / <TIMESTAMP(6)>'. Supported form(s): '<NUMERIC> / <NUMERIC>'
+SELECT t/t FROM timestamp_t
+
+statement error: Cannot apply '%' to arguments of type '<TIMESTAMP(6)> % <TIMESTAMP(6)>'. Supported form(s): '<EXACT_NUMERIC> % <EXACT_NUMERIC>'
+SELECT t%t FROM timestamp_t
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-20968
+query T
+SELECT t-t FROM timestamp_t
+----
+00:00:00
+NULL
+00:00:00
+00:00:00
+00:00:00
+00:00:00
+00:00:00
+00:00:00
+
+query I
+SELECT YEAR(TIMESTAMP '1992-01-01 01:01:01');
+----
+1992
+
+query I
+SELECT YEAR(TIMESTAMP '1992-01-01 01:01:01'::DATE);
+----
+1992
+
+query T
+SELECT (TIMESTAMP '1992-01-01 01:01:01')::DATE;
+----
+1992-01-01
+
+query T
+SELECT (TIMESTAMP '1992-01-01 01:01:01')::TIME;
+----
+01:01:01
+
+query T
+SELECT t::DATE FROM timestamp_t WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
+----
+2007-01-01
+
+query T
+SELECT t::TIME(3) FROM timestamp_t WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
+----
+00:00:01.999
+
+query T
+SELECT (DATE '1992-01-01')::TIMESTAMP;
+----
+1992-01-01 00:00:00
+
+query T
+SELECT TIMESTAMP '2008-01-01 00:00:01.5'::VARCHAR
+----
+2008-01-01 00:00:01.5
+
+query T
+SELECT TIMESTAMP '2008-01-01 00:00:01.999'::VARCHAR
+----
+2008-01-01 00:00:01.999
+
+# timestamp with large date
+statement error: Timestamp literal 'TIMESTAMP '100000-01-01 00:00:01.5'' out of range.
+SELECT TIMESTAMP '100000-01-01 00:00:01.5'::VARCHAR
+
+query T
+SELECT '2008-01-01 00:00:01.999'::TIMESTAMP::VARCHAR
+----
+2008-01-01 00:00:01.999
+
+# Value must be trimmed without rounding.
+query T
+SELECT '2008-01-01 00:00:01.9995'::TIMESTAMP(3)::VARCHAR
+----
+2008-01-01 00:00:01.999
+
+# Value must be trimmed.
+query T
+SELECT '2008-01-01 00:00:01.9994'::TIMESTAMP(3)::VARCHAR
+----
+2008-01-01 00:00:01.999
+
+# Minimum allowed value.
+query T
+SELECT TIMESTAMP '0001-01-01 18:00:00'
+----
+0001-01-01 18:00:00
+
+query T
+SELECT '0001-01-01 18:00:00'::TIMESTAMP
+----
+0001-01-01 18:00:00
+
+# Maximum allowed value.
+query T
+SELECT TIMESTAMP '9999-12-31 05:59:59.999999999'
+----
+9999-12-31 05:59:59.999
+
+query T
+SELECT '9999-12-31 05:59:59.999'::TIMESTAMP
+----
+9999-12-31 05:59:59.999

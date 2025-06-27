@@ -24,9 +24,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -338,6 +338,15 @@ public interface MessageWriter {
      * @return Whether a value was fully written.
      */
     boolean writeIgniteUuid(String name, IgniteUuid val);
+
+    /**
+     * Writes an {@link HybridTimestamp}.
+     *
+     * @param name Field name.
+     * @param val {@link HybridTimestamp}.
+     * @return Whether a value was fully written.
+     */
+    boolean writeHybridTimestamp(String name, @Nullable HybridTimestamp val);
 
     /**
      * Writes a nested message.

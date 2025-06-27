@@ -47,7 +47,8 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     private static string TestTableName => TestContext.CurrentContext.Test.Name
         .Replace("(", "_")
         .Replace(",", "_")
-        .Replace(")", string.Empty);
+        .Replace(")", string.Empty)
+        .ToUpperInvariant();
 
     [TearDown]
     public async Task DeleteTable() => await Client.Sql.ExecuteAsync(null, $"DROP TABLE {TestTableName}");
@@ -96,8 +97,10 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                     break;
 
                 case TestMode.Compute:
-                    await Client.Compute.SubmitColocatedAsync<string>(
-                        table.Name, rec2, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                    await Client.Compute.SubmitAsync(
+                        JobTarget.Colocated(table.Name, rec2),
+                        ComputeTests.NodeNameJob,
+                        null);
                     break;
 
                 default:
@@ -153,8 +156,10 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
             case TestMode.Compute:
                 // ExecuteColocated requires key part only.
-                await Client.Compute.SubmitColocatedAsync<string>(
-                    table.Name, rec, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                await Client.Compute.SubmitAsync(
+                    JobTarget.Colocated(table.Name, rec),
+                    ComputeTests.NodeNameJob,
+                    null);
                 break;
 
             default:
@@ -293,8 +298,10 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 break;
 
             case TestMode.Compute:
-                var jobExecution = await Client.Compute.SubmitColocatedAsync<string, Poco>(
-                    table.Name, new Poco(1, "foo"), Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                var jobExecution = await Client.Compute.SubmitAsync(
+                    JobTarget.Colocated(table.Name, new Poco(1, "foo")),
+                    ComputeTests.NodeNameJob,
+                    null);
 
                 await jobExecution.GetResultAsync();
 
@@ -337,14 +344,15 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed")]
     public async Task TestSchemaUpdateWhileStreaming(
         [Values(true, false)] bool insertNewColumn,
-        [Values(true, false)] bool withRemove)
+        [Values(true, false)] bool withRemove,
+        [Values(1, 2, 10)] int pageSize)
     {
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
 
         var table = await Client.Tables.GetTableAsync(TestTableName);
         var view = table!.RecordBinaryView;
 
-        var options = DataStreamerOptions.Default with { PageSize = 2 };
+        var options = DataStreamerOptions.Default with { PageSize = pageSize };
         await view.StreamDataAsync(GetData(), options);
 
         // Inserted with old schema.

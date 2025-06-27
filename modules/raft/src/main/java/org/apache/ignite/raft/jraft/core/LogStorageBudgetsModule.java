@@ -18,7 +18,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.Map;
-import org.apache.ignite.raft.jraft.storage.impl.LogStorageBudget;
+import org.apache.ignite.internal.raft.storage.impl.LogStorageBudget;
 
 /**
  * Used to add {@link LogStorageBudget} factories using {@link java.util.ServiceLoader}.

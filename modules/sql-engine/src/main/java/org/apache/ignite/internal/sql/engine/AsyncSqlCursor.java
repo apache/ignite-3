@@ -19,15 +19,17 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Sql query cursor.
  *
  * @param <T> Type of elements.
  */
-public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
+public interface AsyncSqlCursor<T> extends AsyncDataCursor<T> {
     /**
      * Returns query type.
      */
@@ -38,29 +40,14 @@ public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
      */
     ResultSetMetadata metadata();
 
+    /** Returns partition awareness metadata. */
+    @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata();
+
     /**
      * Returns {@code true} if the current cursor is the result of a multi-statement query
      * and this statement is not the last one, {@code false} otherwise.
      */
     boolean hasNextResult();
-
-    /**
-     * Returns {@link CompletableFuture} that will be completed when cursor is closed.
-     *
-     * <p>The future will be completed with {@link null} if cursor was completed successfully,
-     * or with an exception otherwise.
-     *
-     * @return A future representing result of operation.
-     */
-    CompletableFuture<Void> onClose();
-
-    /**
-     * Returns {@link CompletableFuture} that will be completed when first page is fetched and ready
-     * to be returned to user.
-     *
-     * @return A future representing result of operation.
-     */
-    CompletableFuture<Void> onFirstPageReady();
 
     /**
      * Returns the future for the next statement of the query.

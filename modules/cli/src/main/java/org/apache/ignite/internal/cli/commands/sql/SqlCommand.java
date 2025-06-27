@@ -20,12 +20,10 @@ package org.apache.ignite.internal.cli.commands.sql;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_SHORT;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,8 +50,7 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlCommand extends BaseCommand implements Callable<Integer> {
-    @Option(names = {JDBC_URL_OPTION, JDBC_URL_OPTION_SHORT}, required = true,
-            descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
+    @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
@@ -66,7 +63,7 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
         @Parameters(index = "0", description = "SQL query to execute")
         private String command;
 
-        @Option(names = {SCRIPT_FILE_OPTION, SCRIPT_FILE_OPTION_SHORT}, description = SCRIPT_FILE_OPTION_DESC)
+        @Option(names = SCRIPT_FILE_OPTION, description = SCRIPT_FILE_OPTION_DESC)
         private File file;
     }
 
@@ -85,15 +82,14 @@ public class SqlCommand extends BaseCommand implements Callable<Integer> {
     public Integer call() {
         try (SqlManager sqlManager = new SqlManager(jdbc)) {
             String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-            return CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
+            return runPipeline(CallExecutionPipeline.builder(new SqlQueryCall(sqlManager))
                     .inputProvider(() -> new StringCallInput(executeCommand))
-                    .output(spec.commandLine().getOut())
-                    .errOutput(spec.commandLine().getErr())
+                    .exceptionHandler(SqlExceptionHandler.INSTANCE)
                     .decorator(new SqlQueryResultDecorator(plain))
-                    .verbose(verbose)
-                    .build().runPipeline();
+            );
         } catch (SQLException e) {
-            return new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);
+            ExceptionWriter exceptionWriter = ExceptionWriter.fromPrintWriter(spec.commandLine().getErr());
+            return SqlExceptionHandler.INSTANCE.handle(exceptionWriter, e);
         }
     }
 }

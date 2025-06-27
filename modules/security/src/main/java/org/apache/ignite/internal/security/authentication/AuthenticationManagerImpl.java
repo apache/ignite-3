@@ -17,16 +17,16 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.security.authentication.AuthenticationUtils.findBasicProviderName;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -36,6 +36,7 @@ import org.apache.ignite.internal.eventlog.api.IgniteEvents;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfiguration;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
@@ -85,19 +86,9 @@ public class AuthenticationManagerImpl
     private final AuthenticationProviderEventFactory providerEventFactory;
 
     /**
-     * Read-write lock for the list of authenticators and the authentication enabled flag.
+     * List of authenticators. Null when authentication is disabled.
      */
-    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
-
-    /**
-     * List of authenticators.
-     */
-    private List<Authenticator> authenticators = new ArrayList<>();
-
-    /**
-     * Authentication enabled flag.
-     */
-    private boolean authEnabled = false;
+    private volatile @Nullable List<Authenticator> authenticators;
 
     private final EventLog eventLog;
 
@@ -128,7 +119,7 @@ public class AuthenticationManagerImpl
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         securityConfiguration.listen(securityConfigurationListener);
         securityConfiguration.enabled().listen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().listenElements(providerEventFactory);
@@ -138,11 +129,13 @@ public class AuthenticationManagerImpl
                 securityConfiguration.authentication().providers().get(basicAuthenticationProviderName);
         basicAuthenticationProviderConfiguration.users().listenElements(userEventFactory);
 
+        refreshProviders(securityConfiguration.value());
+
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         securityConfiguration.stopListen(securityConfigurationListener);
         securityConfiguration.enabled().stopListen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().stopListenElements(providerEventFactory);
@@ -159,56 +152,95 @@ public class AuthenticationManagerImpl
      * {@inheritDoc}
      */
     @Override
-    public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
-        rwLock.readLock().lock();
-        try {
-            if (authEnabled) {
-                return authenticators.stream()
-                        .map(authenticator -> authenticate(authenticator, authenticationRequest))
-                        .filter(Objects::nonNull)
-                        .findFirst()
-                        .map(userDetails ->  {
-                            eventLog.log(() ->
-                                    IgniteEvents.USER_AUTHENTICATED.create(EventUser.of(
-                                            userDetails.username(), userDetails.providerName()
-                                    )));
+    public CompletableFuture<UserDetails> authenticateAsync(AuthenticationRequest<?, ?> authenticationRequest) {
+        var providers = authenticators;
 
-                            return userDetails;
-                        })
-                        .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
-            } else {
-                return UserDetails.UNKNOWN;
-            }
-        } finally {
-            rwLock.readLock().unlock();
+        if (providers != null) {
+            return authenticate(providers.iterator(), authenticationRequest);
+        } else {
+            return completedFuture(UserDetails.UNKNOWN);
         }
     }
 
-    @Nullable
-    private static UserDetails authenticate(Authenticator authenticator, AuthenticationRequest<?, ?> authenticationRequest) {
-        try {
-            return authenticator.authenticate(authenticationRequest);
-        } catch (InvalidCredentialsException | UnsupportedAuthenticationTypeException exception) {
-            return null;
-        } catch (Exception e) {
-            LOG.error("Unexpected exception during authentication", e);
-            return null;
+    private CompletableFuture<UserDetails> authenticate(Iterator<Authenticator> iter, AuthenticationRequest<?, ?> authenticationRequest) {
+        if (!iter.hasNext()) {
+            return failedFuture(new InvalidCredentialsException("Authentication failed"));
         }
+
+        return authenticate(iter.next(), authenticationRequest)
+                .thenCompose(userDetails -> {
+                    if (userDetails != null) {
+                        return completedFuture(userDetails);
+                    }
+
+                    return authenticate(iter, authenticationRequest);
+                });
+    }
+
+    private CompletableFuture<UserDetails> authenticate(
+            Authenticator authenticator,
+            AuthenticationRequest<?, ?> authenticationRequest
+    ) {
+        try {
+            return authenticator.authenticateAsync(authenticationRequest)
+                    .handle((userDetails, throwable) -> {
+                        if (throwable != null) {
+                            if (!(throwable instanceof InvalidCredentialsException
+                                    || throwable instanceof UnsupportedAuthenticationTypeException)) {
+                                LOG.error("Unexpected exception during authentication", throwable);
+                            }
+
+                            logAuthenticationFailure(authenticationRequest);
+                            return null;
+                        }
+
+                        if (userDetails != null) {
+                            logUserAuthenticated(userDetails);
+                        }
+                        return userDetails;
+                    });
+        } catch (Exception e) {
+            logAuthenticationFailure(authenticationRequest);
+            LOG.error("Unexpected exception during authentication", e);
+            return nullCompletedFuture();
+        }
+    }
+
+    private void logAuthenticationFailure(AuthenticationRequest<?, ?> authenticationRequest) {
+        eventLog.log(
+                IgniteEvents.USER_AUTHENTICATION_FAILURE.type(),
+                () -> IgniteEvents.USER_AUTHENTICATION_FAILURE.builder()
+                        .user(EventUser.system())
+                        .fields(Map.of("identity", tryGetUsernameOrUnknown(authenticationRequest)))
+                        .build()
+        );
+    }
+
+    private static String tryGetUsernameOrUnknown(AuthenticationRequest<?, ?> authenticationRequest) {
+        if (authenticationRequest instanceof UsernamePasswordRequest) {
+            return ((UsernamePasswordRequest) authenticationRequest).getIdentity();
+        }
+        return "UNKNOWN_AUTHENTICATION_TYPE";
+    }
+
+    private void logUserAuthenticated(UserDetails userDetails) {
+        eventLog.log(
+                IgniteEvents.USER_AUTHENTICATION_SUCCESS.type(),
+                () -> IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(
+                        userDetails.username(), userDetails.providerName()
+                ))
+        );
     }
 
     private void refreshProviders(@Nullable SecurityView view) {
-        rwLock.writeLock().lock();
         try {
             if (view == null || !view.enabled()) {
-                authEnabled = false;
+                authenticators = null;
             } else {
                 authenticators = providersFromAuthView(view.authentication());
-                authEnabled = true;
             }
         } catch (Exception exception) {
             LOG.error("Couldn't refresh authentication providers. Leaving the old settings", exception);
-        } finally {
-            rwLock.writeLock().unlock();
         }
     }
 
@@ -228,12 +260,7 @@ public class AuthenticationManagerImpl
 
     @Override
     public boolean authenticationEnabled() {
-        return authEnabled;
-    }
-
-    @TestOnly
-    public void authEnabled(boolean authEnabled) {
-        this.authEnabled = authEnabled;
+        return authenticators != null;
     }
 
     @TestOnly

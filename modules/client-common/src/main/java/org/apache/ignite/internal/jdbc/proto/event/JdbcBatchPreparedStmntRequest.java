@@ -29,7 +29,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * JDBC prepared statement query batch execute request.
  */
-public class JdbcBatchPreparedStmntRequest implements ClientMessage {
+public class JdbcBatchPreparedStmntRequest extends JdbcObservableTimeAwareRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 
@@ -41,6 +41,15 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
 
     /** Flag indicating whether auto-commit mode is enabled. */
     private boolean autoCommit;
+
+    /** Query timeout in milliseconds. */
+    private long queryTimeoutMillis;
+
+    /**
+     * Token is used to uniquely identify execution request within single connection, which is required to properly coordinate cancellation
+     * request.
+     */
+    private long correlationToken;
 
     /**
      * Default constructor.
@@ -55,8 +64,17 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
      * @param query Sql query string.
      * @param args Sql query arguments.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
+     * @param queryTimeoutMillis Query timeout in millseconds.
+     * @param correlationToken Token is used to uniquely identify execution request within single connection.
      */
-    public JdbcBatchPreparedStmntRequest(String schemaName, String query, List<Object[]> args, boolean autoCommit) {
+    public JdbcBatchPreparedStmntRequest(
+            String schemaName, 
+            String query, 
+            List<Object[]> args, 
+            boolean autoCommit, 
+            long queryTimeoutMillis,
+            long correlationToken
+    ) {
         assert !StringUtil.isNullOrEmpty(query);
         assert !CollectionUtils.nullOrEmpty(args);
 
@@ -64,6 +82,8 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         this.args = args;
         this.schemaName = schemaName;
         this.autoCommit = autoCommit;
+        this.queryTimeoutMillis = queryTimeoutMillis;
+        this.correlationToken = correlationToken;
     }
 
     /**
@@ -102,6 +122,19 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         return autoCommit;
     }
 
+    /**
+     * Returns the timeout in milliseconds.
+     *
+     * @return Timeout in milliseconds.
+     */
+    public long queryTimeoutMillis() {
+        return queryTimeoutMillis;
+    }
+
+    public long correlationToken() {
+        return correlationToken;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -114,6 +147,9 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         for (Object[] arg : args) {
             packer.packObjectArrayAsBinaryTuple(arg);
         }
+
+        packer.packLong(queryTimeoutMillis);
+        packer.packLong(correlationToken);
     }
 
     /** {@inheritDoc} */
@@ -131,6 +167,9 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         for (int i = 0; i < n; ++i) {
             args.add(unpacker.unpackObjectArrayFromBinaryTuple());
         }
+
+        queryTimeoutMillis = unpacker.unpackLong();
+        correlationToken = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

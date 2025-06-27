@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,6 +71,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -408,6 +411,18 @@ public class TraitUtils {
      * @param keys The keys to create collation from.
      * @return New collation.
      */
+    public static RelCollation createCollation(IntList keys) {
+        return RelCollations.of(
+                keys.intStream().mapToObj(TraitUtils::createFieldCollation).collect(Collectors.toList())
+        );
+    }
+
+    /**
+     * Creates collations from provided keys.
+     *
+     * @param keys The keys to create collation from.
+     * @return New collation.
+     */
     public static RelCollation createCollation(Collection<Integer> keys) {
         return RelCollations.of(
                 keys.stream().map(TraitUtils::createFieldCollation).collect(Collectors.toList())
@@ -556,6 +571,21 @@ public class TraitUtils {
         public List<Pair<RelTraitSet, List<RelTraitSet>>> combinations() {
             return List.copyOf(combinations);
         }
+    }
+
+    /**
+     * Constructs a human-readable label describing the affinity distribution of a table within a specific zone.
+     *
+     * <p>Used primarily for diagnostic or EXPLAIN output to indicate the table's placement context.
+     *
+     * @param schemaName The name of the schema containing the table.
+     * @param tableName The name of the table.
+     * @param zoneName The name of the distribution zone.
+     * @return A string label for distribution.
+     */
+    public static String affinityDistributionLabel(String schemaName, String tableName, String zoneName) {
+        return format("table {} in zone {}",
+                QualifiedNameHelper.fromNormalized(schemaName, tableName).toCanonicalForm(), IgniteNameUtils.quoteIfNeeded(zoneName));
     }
 
     private interface TraitsPropagator {

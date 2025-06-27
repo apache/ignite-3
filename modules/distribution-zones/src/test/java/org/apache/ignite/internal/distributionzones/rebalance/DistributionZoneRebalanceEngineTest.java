@@ -21,22 +21,21 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,7 +44,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -55,40 +53,41 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -96,23 +95,28 @@ import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests the distribution zone dataNodes watch listener in {@link DistributionZoneRebalanceEngine}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private static final String ZONE_NAME_0 = "zone0";
 
@@ -136,25 +140,25 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
-    private ScheduledExecutorService rebalanceScheduler;
+    private Map<UUID, NodeWithAttributes> nodeWithAttributesMap;
 
     @BeforeEach
     public void setUp() {
         String nodeName = "test";
 
         catalogManager = createTestCatalogManager(nodeName, clock);
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
 
-        Map<String, NodeWithAttributes> nodeWithAttributesMap = Map.of(
-                "node0",  new NodeWithAttributes("node0", "node0", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node1",  new NodeWithAttributes("node1", "node1", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node2",  new NodeWithAttributes("node2", "node2", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node3",  new NodeWithAttributes("node3", "node3", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node4",  new NodeWithAttributes("node4", "node4", Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
-                "node5",  new NodeWithAttributes("node5", "node5", Map.of(), List.of(DEFAULT_STORAGE_PROFILE))
+        nodeWithAttributesMap = Map.of(
+                id(0),  new NodeWithAttributes("node0", id(0), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(1),  new NodeWithAttributes("node1", id(1), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(2),  new NodeWithAttributes("node2", id(2), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(3),  new NodeWithAttributes("node3", id(3), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(4),  new NodeWithAttributes("node4", id(4), Map.of(), List.of(DEFAULT_STORAGE_PROFILE)),
+                id(5),  new NodeWithAttributes("node5", id(5), Map.of(), List.of(DEFAULT_STORAGE_PROFILE))
         );
 
         when(distributionZoneManager.nodesAttributes()).thenReturn(nodeWithAttributesMap);
@@ -164,20 +168,22 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             WatchListener watchListener = invocation.getArgument(1);
 
-            if (Arrays.equals(key.bytes(), zoneDataNodesKey().bytes())) {
+            if (new String(key.bytes(), UTF_8).startsWith(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX)) {
                 this.watchListener = watchListener;
             }
 
             return null;
         }).when(metaStorageManager).registerPrefixWatch(any(), any());
 
-        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
 
         AtomicLong raftIndex = new AtomicLong();
 
         keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, mock(ClusterTimeImpl.class));
+        ClusterTimeImpl clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
+
+        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clock, clusterTime);
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
 
@@ -187,7 +193,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                     Command cmd = invocationClose.getArgument(0);
 
                     if (cmd instanceof MetaStorageWriteCommand) {
-                        ((MetaStorageWriteCommand) cmd).safeTimeLong(10);
+                        ((MetaStorageWriteCommand) cmd).safeTime(hybridTimestamp(10));
                     }
 
                     long commandIndex = raftIndex.incrementAndGet();
@@ -227,10 +233,16 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID.randomUUID());
+
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
+                    .iif(iif)
+                    .id(commandIdGenerator.newId())
+                    .initiatorTime(clock.now())
+                    .build();
 
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
@@ -255,18 +267,19 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             return completedFuture(result);
         }).when(metaStorageManager).getAll(any());
+    }
 
-        rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(nodeName, "test-rebalance-scheduler", logger()));
+    private static UUID id(int n) {
+        return new UUID(0, n);
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         closeAll(
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close,
-                rebalanceEngine == null ? null : rebalanceEngine::stop,
-                () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS)
+                rebalanceEngine == null ? null : rebalanceEngine::stop
         );
     }
 
@@ -281,7 +294,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -293,9 +306,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
-        verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(8)).invoke(any(), any(), any());
     }
 
     @Test
@@ -304,7 +317,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -316,9 +329,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
         nodes = Set.of("node3", "node4", "node5");
 
@@ -329,7 +342,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any(), any());
     }
 
     @Test
@@ -338,7 +351,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
         int zoneId = getZoneId(ZONE_NAME_0);
 
@@ -352,9 +365,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
         Set<String> emptyNodes = emptySet();
 
@@ -365,7 +378,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         checkAssignments(zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
     }
 
     @Test
@@ -374,7 +387,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         createRebalanceEngine();
 
-        rebalanceEngine.start();
+        rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
@@ -386,50 +399,53 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         zoneNodes.put(zoneId, nodes);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
-        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(1)).invoke(any(), any(), any());
 
         Set<String> nodes2 = Set.of("node3", "node4", "node5");
 
         watchListenerOnUpdate(zoneId, nodes2, 1);
 
-        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
+        checkAssignments(zoneNodes, RebalanceUtil::pendingPartAssignmentsQueueKey, bytes -> AssignmentsQueue.fromBytes(bytes).poll());
 
         TablePartitionId partId = new TablePartitionId(getTableId(TABLE_NAME), 0);
 
         assertNull(keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(partId).bytes()).value());
 
-        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any());
+        verify(keyValueStorage, timeout(1000).times(2)).invoke(any(), any(), any());
     }
 
     @Test
     void replicasTriggersAssignmentsChangingOnNonDefaultZones() throws Exception {
         createTable(ZONE_NAME_0, TABLE_NAME);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
-        byte[] assignmentsBytes = Assignments.of(Assignment.forPeer("node0")).toBytes();
+        int catalogVersion = catalogManager.latestCatalogVersion();
+        long timestamp = catalogManager.catalog(catalogVersion).time();
+
+        byte[] assignmentsBytes = Assignments.of(timestamp, Assignment.forPeer("node0")).toBytes();
 
         keyValueStorage.put(
                 stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), 0)).bytes(), assignmentsBytes,
-                clock.now()
+                kvContext(clock.now())
         );
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        assertThat(realMetaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(realMetaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             createRebalanceEngine(realMetaStorageManager);
 
-            rebalanceEngine.start();
+            rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
             alterZone(ZONE_NAME_0, 2);
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            assertThat(realMetaStorageManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(realMetaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -437,31 +453,34 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     void replicasTriggersAssignmentsChangingOnDefaultZone() throws Exception {
         createTable(ZONE_NAME_0, TABLE_NAME);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
+
+        int catalogVersion = catalogManager.latestCatalogVersion();
+        long timestamp = catalogManager.catalog(catalogVersion).time();
 
         for (int i = 0; i < 25; i++) {
-            byte[] assignmentsBytes = Assignments.of(Assignment.forPeer("node0")).toBytes();
+            byte[] assignmentsBytes = Assignments.of(timestamp, Assignment.forPeer("node0")).toBytes();
 
             keyValueStorage.put(
                     stablePartAssignmentsKey(new TablePartitionId(getTableId(TABLE_NAME), i)).bytes(), assignmentsBytes,
-                    clock.now()
+                    kvContext(clock.now())
             );
         }
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        assertThat(realMetaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(realMetaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             createRebalanceEngine(realMetaStorageManager);
 
-            rebalanceEngine.start();
+            rebalanceEngine.startAsync(catalogManager.latestCatalogVersion());
 
             alterZone(getDefaultZone(catalogManager, clock.nowLong()).name(), 2);
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            assertThat(realMetaStorageManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(realMetaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -475,17 +494,25 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 metaStorageManager,
                 distributionZoneManager,
                 catalogManager,
-                rebalanceScheduler
+                new SystemPropertiesNodeProperties()
         );
     }
 
     private void checkAssignments(Map<Integer, Set<String>> zoneNodes, Function<TablePartitionId, ByteArray> assignmentFunction) {
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        checkAssignments(zoneNodes, assignmentFunction, Assignments::fromBytes);
+    }
 
-        catalogManager.tables(catalogVersion).forEach(tableDescriptor -> {
+    private void checkAssignments(
+            Map<Integer, Set<String>> zoneNodes,
+            Function<TablePartitionId, ByteArray> assignmentFunction,
+            Function<byte[], Assignments> assignmentsFromBytesFunction
+    ) {
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+        catalog.tables().forEach(tableDescriptor -> {
             int tableId = tableDescriptor.id();
 
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), catalogVersion);
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
 
             assertNotNull(zoneDescriptor, "tableName=" + tableDescriptor.name() + ", zoneId=" + tableDescriptor.zoneId());
 
@@ -497,13 +524,18 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 Set<String> expectedNodes = zoneNodes.get(tableDescriptor.zoneId());
 
                 if (expectedNodes != null) {
-                    Set<String> expectedAssignments =
-                            calculateAssignmentForPartition(expectedNodes, j, zoneDescriptor.replicas())
-                                    .stream().map(Assignment::consistentId).collect(toSet());
+                    Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
+                            expectedNodes,
+                            j,
+                            zoneDescriptor.partitions(),
+                            zoneDescriptor.replicas(),
+                            zoneDescriptor.consensusGroupSize()
+                    );
+                    Set<String> expectedAssignments = calculatedAssignments.stream().map(Assignment::consistentId).collect(toSet());
 
                     assertNotNull(actualAssignmentsBytes);
 
-                    Set<String> actualAssignments = Assignments.fromBytes(actualAssignmentsBytes).nodes()
+                    Set<String> actualAssignments = assignmentsFromBytesFunction.apply(actualAssignmentsBytes).nodes()
                             .stream().map(Assignment::consistentId).collect(toSet());
 
                     assertTrue(expectedAssignments.containsAll(actualAssignments));
@@ -520,20 +552,32 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         byte[] newLogicalTopology;
 
         if (nodes != null) {
-            newLogicalTopology = toBytes(toDataNodesMap(nodes.stream()
-                    .map(n -> new Node(n, n))
-                    .collect(toSet())));
+            Set<NodeWithAttributes> nodeWithAttributes = nodes.stream()
+                    .map(n -> nodeWithAttributesMap.get(findNodeIdByConsistentId(n)))
+                    .collect(toSet());
+
+            DataNodesHistory history = new DataNodesHistory().addHistoryEntry(clock.now(), nodeWithAttributes);
+
+            newLogicalTopology = DataNodesHistorySerializer.serialize(history);
         } else {
             newLogicalTopology = null;
         }
 
-        Entry newEntry = new EntryImpl(zoneDataNodesKey(zoneId).bytes(), newLogicalTopology, rev, 1);
+        Entry newEntry = new EntryImpl(zoneDataNodesHistoryKey(zoneId).bytes(), newLogicalTopology, rev, hybridTimestamp(rev));
 
         EntryEvent entryEvent = new EntryEvent(null, newEntry);
 
         WatchEvent evt = new WatchEvent(entryEvent);
 
         watchListener.onUpdate(evt);
+    }
+
+    private UUID findNodeIdByConsistentId(String consistentId) {
+        return nodeWithAttributesMap.values().stream()
+                .filter(node -> node.nodeName().equals(consistentId))
+                .findAny()
+                .orElseThrow(() -> new RuntimeException("Did not find any node by consistentId='" + consistentId + "'"))
+                .nodeId();
     }
 
     private void createZone(String zoneName, int partitions, int replicas) {
@@ -547,7 +591,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private void createTable(String zoneName, String tableName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 zoneName,
                 tableName,
                 List.of(ColumnParams.builder().name("k1").type(STRING).length(100).build()),
@@ -557,16 +601,26 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         var tableId = getTableId(tableName);
         var zoneId = getZoneId(zoneName);
 
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
         Set<String> initialDataNodes = Set.of("node0");
-        List<Set<Assignment>> initialAssignments =
-                AffinityUtils.calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
+        List<Set<Assignment>> initialAssignments = calculateAssignments(
+                initialDataNodes,
+                zoneDescriptor.partitions(),
+                zoneDescriptor.replicas(),
+                zoneDescriptor.consensusGroupSize()
+        );
+
+        long timestamp = catalog.time();
 
         for (int i = 0; i < initialAssignments.size(); i++) {
             var stableAssignmentPartitionKey = stablePartAssignmentsKey(new TablePartitionId(tableId, i)).bytes();
 
-            keyValueStorage.put(stableAssignmentPartitionKey, Assignments.toBytes(initialAssignments.get(i)), clock.now());
+            keyValueStorage.put(stableAssignmentPartitionKey,
+                    Assignments.toBytes(initialAssignments.get(i), timestamp),
+                    kvContext(clock.now())
+            );
         }
     }
 

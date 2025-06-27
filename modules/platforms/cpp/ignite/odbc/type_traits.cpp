@@ -16,7 +16,7 @@
  */
 
 #include "ignite/odbc/type_traits.h"
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/odbc/system/odbc_constants.h"
 
 namespace ignite {
@@ -147,7 +147,6 @@ const std::string &ignite_type_to_sql_type_name(ignite_type typ) {
             return sql_type_name::VARCHAR;
 
         case ignite_type::DECIMAL:
-        case ignite_type::NUMBER:
             return sql_type_name::DECIMAL;
 
         case ignite_type::UUID:
@@ -163,12 +162,13 @@ const std::string &ignite_type_to_sql_type_name(ignite_type typ) {
         case ignite_type::TIME:
             return sql_type_name::TIME;
 
-        case ignite_type::BITMASK:
         case ignite_type::BYTE_ARRAY:
+            return sql_type_name::BINARY;
+
         case ignite_type::PERIOD:
         case ignite_type::DURATION:
         default:
-            // TODO: IGNITE-19969 implement support for period, duration and big_integer
+            // TODO: IGNITE-19969 implement support for period and duration
             break;
     }
 
@@ -373,7 +373,6 @@ std::int16_t ignite_type_to_sql_type(ignite_type typ) {
             return SQL_BIT;
 
         case ignite_type::DECIMAL:
-        case ignite_type::NUMBER:
             return SQL_DECIMAL;
 
         case ignite_type::STRING:
@@ -392,12 +391,13 @@ std::int16_t ignite_type_to_sql_type(ignite_type typ) {
         case ignite_type::TIME:
             return SQL_TYPE_TIME;
 
-        case ignite_type::BITMASK:
         case ignite_type::BYTE_ARRAY:
+            return SQL_BINARY;
+
         case ignite_type::PERIOD:
         case ignite_type::DURATION:
         default:
-            // TODO: IGNITE-19969 implement support for period, duration and big_integer
+            // TODO: IGNITE-19969 implement support for period and duration
             break;
     }
 

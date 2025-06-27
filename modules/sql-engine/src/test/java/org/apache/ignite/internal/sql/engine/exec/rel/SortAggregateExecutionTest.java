@@ -21,11 +21,13 @@ import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.M
 import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.REDUCE;
 import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.SINGLE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -34,10 +36,13 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
  * SortAggregateExecutionTest.
@@ -51,8 +56,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     ) {
         assert grpSets.size() == 1;
 
@@ -60,26 +65,36 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
-        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
-
-        sort.register(scan);
-
-        if (grpSet.isEmpty() && cmp == null) {
+        Comparator<Object[]> cmp;
+        if (grpSet.isEmpty() && (collation == null || nullOrEmpty(collation.getFieldCollations()))) {
             cmp = (k1, k2) -> 0;
+        } else {
+            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(collation);
+
+            cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
+
+        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
 
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
                 ctx,
                 SINGLE,
                 grpSet,
                 accFactory(ctx, call, SINGLE, inRowType),
-                rowFactory,
+                outputRowFactory,
                 cmp
         );
 
-        agg.register(sort);
+        if (group) {
+            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+
+            sort.register(scan);
+
+            agg.register(sort);
+        } else {
+            agg.register(scan);
+        }
 
         return agg;
     }
@@ -91,9 +106,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RelDataType aggRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     ) {
         assert grpSets.size() == 1;
 
@@ -101,26 +115,39 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
-        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
-
-        sort.register(scan);
-
-        if (grpSet.isEmpty() && cmp == null) {
+        Comparator<Object[]> cmp;
+        if (grpSet.isEmpty() && (collation == null || nullOrEmpty(collation.getFieldCollations()))) {
             cmp = (k1, k2) -> 0;
+        } else {
+            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(collation);
+
+            cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
+
+        // Map node
+        RowSchema reduceRowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(inRowType));
+        RowFactory<Object[]> mapRowFactory = ctx.rowHandler().factory(reduceRowSchema);
 
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
                 MAP,
                 grpSet,
                 accFactory(ctx, call, MAP, inRowType),
-                rowFactory,
+                mapRowFactory,
                 cmp
         );
 
-        aggMap.register(sort);
+        if (group) {
+            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+
+            sort.register(scan);
+
+            aggMap.register(sort);
+        } else {
+            aggMap.register(scan);
+        }
+
+        // Reduce node
 
         // The group's fields placed on the begin of the output row (planner
         // does this by Projection node for aggregate input).
@@ -130,10 +157,13 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation rdcCollation = RelCollations.of(reduceGrpFields);
 
-        Comparator<Object[]> rdcCmp = ctx.expressionFactory().comparator(rdcCollation);
-
-        if (grpSet.isEmpty() && rdcCmp == null) {
+        Comparator<Object[]> rdcCmp;
+        if (grpSet.isEmpty() && (rdcCollation == null || nullOrEmpty(rdcCollation.getFieldCollations()))) {
             rdcCmp = (k1, k2) -> 0;
+        } else {
+            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(rdcCollation);
+
+            rdcCmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
 
         Mapping mapping = Commons.trimmingMapping(grpSet.length(), grpSet);
@@ -145,12 +175,15 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 true
         );
 
+        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
+
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,
                 REDUCE,
                 ImmutableBitSet.of(reduceGrpFields),
-                accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, aggRowType),
-                rowFactory,
+                accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, inRowType),
+                outputRowFactory,
                 rdcCmp
         );
 

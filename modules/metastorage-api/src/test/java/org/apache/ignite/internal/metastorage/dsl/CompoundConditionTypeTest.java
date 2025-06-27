@@ -18,18 +18,44 @@
 package org.apache.ignite.internal.metastorage.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import org.apache.ignite.internal.metastorage.dsl.CompoundConditionType;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests that persisted enum ordinals have not been accidentally changed by a developer.
+ * Tests that persisted enum IDs have not been accidentally changed by a developer.
  */
 class CompoundConditionTypeTest {
-    @Test
-    void testOrdinal() {
-        assertEquals(0, CompoundConditionType.AND.ordinal());
+    private static Stream<Arguments> conditionTypeIds() {
+        return Stream.of(
+                arguments(CompoundConditionType.AND, 0),
+                arguments(CompoundConditionType.OR, 1)
+        );
+    }
 
-        assertEquals(1, CompoundConditionType.OR.ordinal());
+    @ParameterizedTest
+    @MethodSource("conditionTypeIds")
+    void testId(CompoundConditionType compoundConditionType, int expectedId) {
+        assertEquals(expectedId, compoundConditionType.id());
+    }
+
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @ParameterizedTest
+    @MethodSource("conditionTypeIds")
+    void testFromId(CompoundConditionType expectedEnumEntry, int id) {
+        assertEquals(expectedEnumEntry, CompoundConditionType.fromId(id));
+
+    }
+
+    @Test
+    void testFromIdThrows() {
+        assertThrows(IllegalArgumentException.class, () -> CompoundConditionType.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> CompoundConditionType.fromId(2));
     }
 }

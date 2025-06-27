@@ -25,12 +25,12 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class NoOpFailureHandler extends AbstractFailureHandler {
     @Override
-    protected boolean handle(String nodeName, FailureContext failureCtx) {
+    protected boolean handle(FailureContext failureCtx) {
         return false;
     }
 
     @Override
     public String toString() {
-        return S.toString(NoOpFailureHandler.class, this);
+        return S.toString(NoOpFailureHandler.class, this, super.toString());
     }
 }

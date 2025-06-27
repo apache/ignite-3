@@ -22,17 +22,16 @@ import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_WITH_DEFAULT_VALUES;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AssertionFailureBuilder;
 
 /**
  * Base class for client table tests.
@@ -60,33 +59,45 @@ public class AbstractClientTableTest extends AbstractClientTest {
         return res;
     }
 
-    protected static Tuple tuple() {
+    static Tuple tuple() {
         return Tuple.create()
                 .set("id", DEFAULT_ID)
                 .set("name", DEFAULT_NAME);
     }
 
-    protected static Tuple tuple(Long id) {
+    static Tuple tuple(Long id) {
         return Tuple.create()
                 .set("id", id);
     }
 
-    protected static Tuple tuple(Long id, String name) {
+    static Tuple tuple(Long id, String name) {
         return Tuple.create()
                 .set("id", id)
                 .set("name", name);
     }
 
-    protected static Tuple defaultTupleKey() {
+    static Tuple defaultTupleKey() {
         return Tuple.create().set("id", DEFAULT_ID);
     }
 
-    protected static Tuple tupleKey(long id) {
+    static Tuple tupleKey(long id) {
         return Tuple.create().set("id", id);
     }
 
     protected static Tuple tupleVal(String name) {
         return Tuple.create().set("name", name);
+    }
+
+    protected static void assertDecimalEqual(BigDecimal expected, BigDecimal actual) {
+        if (expected == null && actual == null) {
+            return;
+        }
+
+        if (expected != null && actual != null && expected.compareTo(actual) == 0) {
+            return;
+        }
+
+        AssertionFailureBuilder.assertionFailure().expected(expected).actual(actual).buildAndThrow();
     }
 
     protected Table defaultTable() {
@@ -123,9 +134,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
                 .set("ztimestamp", instant)
                 .set("zstring", name)
                 .set("zbytes", new byte[]{1, 2})
-                .set("zbitmask", BitSet.valueOf(new byte[]{32}))
                 .set("zdecimal", BigDecimal.valueOf(21))
-                .set("znumber", BigInteger.valueOf(22))
                 .set("zuuid", uuid);
 
         if (!skipKey) {
@@ -210,6 +219,13 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public long gid;
     }
 
+    /** Partial column set. */
+    protected static class IncompleteValPojo {
+        public byte zbyte;
+        public String zstring;
+        public byte[] zbytes;
+    }
+
     /** Columns of all types. */
     protected static class AllColumnsPojo {
         public long gid;
@@ -227,9 +243,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public String zstring;
         public byte[] zbytes;
         public UUID zuuid;
-        public BitSet zbitmask;
         public BigDecimal zdecimal;
-        public BigInteger znumber;
     }
 
     /** Columns of all types. */
@@ -249,9 +263,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public String zstring;
         public byte[] zbytes;
         public UUID zuuid;
-        public BitSet zbitmask;
         public BigDecimal zdecimal;
-        public BigInteger znumber;
     }
 
     /** Columns of all types. */
@@ -269,9 +281,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public String zstring;
         public byte[] zbytes;
         public UUID zuuid;
-        public BitSet zbitmask;
         public BigDecimal zdecimal;
-        public BigInteger znumber;
     }
 
     /** Columns of all types. */
@@ -289,9 +299,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public String zstring;
         public byte[] zbytes;
         public UUID zuuid;
-        public BitSet zbitmask;
         public BigDecimal zdecimal;
-        public BigInteger znumber;
     }
 
     /** Columns with default values. */

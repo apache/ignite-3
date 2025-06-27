@@ -28,10 +28,10 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
+import org.apache.ignite.internal.storage.rocksdb.IgniteRocksDbException;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -59,8 +59,6 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
     /** Length of the fixed part of the key: Table ID + Index ID + Partition ID + Hash. */
     public static final int FIXED_PREFIX_LENGTH = PREFIX_WITH_IDS_LENGTH + Integer.BYTES;
 
-    private final StorageHashIndexDescriptor descriptor;
-
     private final ColumnFamily indexCf;
 
     /** Constant prefix of every index key. */
@@ -82,9 +80,8 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
             ColumnFamily indexCf,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        super(tableId, descriptor.id(), partitionId, indexMetaStorage, descriptor.isPk());
+        super(descriptor, tableId, partitionId, indexMetaStorage);
 
-        this.descriptor = descriptor;
         this.indexCf = indexCf;
 
         this.constantPrefix = ByteBuffer.allocate(PREFIX_WITH_IDS_LENGTH)
@@ -97,7 +94,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
     @Override
     public StorageHashIndexDescriptor indexDescriptor() {
-        return descriptor;
+        return (StorageHashIndexDescriptor) descriptor;
     }
 
     @Override
@@ -134,7 +131,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Unable to insert data into hash index. Index ID: " + descriptor.id(), e);
+                throw new IgniteRocksDbException("Unable to insert data into hash index. Index ID: " + descriptor.id(), e);
             }
         });
     }
@@ -151,7 +148,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
+                throw new IgniteRocksDbException("Unable to remove data from hash index. Index ID: " + descriptor.id(), e);
             }
         });
     }

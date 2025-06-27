@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -31,35 +31,27 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes a column replacement.
  */
 public class AlterColumnEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<AlterColumnEntry> SERIALIZER = new AlterColumnEntrySerializer();
-
     private final int tableId;
 
     private final CatalogTableColumnDescriptor column;
-
-    private final String schemaName;
 
     /**
      * Constructs the object.
      *
      * @param tableId An id the table to be modified.
      * @param column A modified descriptor of the column to be replaced.
-     * @param schemaName Schema name.
      */
-    public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column, String schemaName) {
+    public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column) {
         this.tableId = tableId;
         this.column = column;
-        this.schemaName = schemaName;
     }
 
     /** Returns an id the table to be modified. */
@@ -88,19 +80,18 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
+        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
-        CatalogTableDescriptor currentTableDescriptor = requireNonNull(catalog.table(tableId));
-
-        CatalogTableDescriptor newTableDescriptor = currentTableDescriptor.newDescriptor(
-                currentTableDescriptor.name(),
-                currentTableDescriptor.tableVersion() + 1,
-                currentTableDescriptor.columns().stream()
+        CatalogTableDescriptor newTable = table.newDescriptor(
+                table.name(),
+                table.tableVersion() + 1,
+                table.columns().stream()
                         .map(source -> source.name().equals(column.name()) ? column : source)
                         .collect(toList()),
-                causalityToken,
-                currentTableDescriptor.storageProfile()
+                timestamp,
+                table.storageProfile()
         );
 
         return new Catalog(
@@ -108,8 +99,8 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas()),
-                catalog.defaultZone().id()
+                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
+                defaultZoneIdOpt(catalog)
         );
     }
 
@@ -118,26 +109,4 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
         return S.toString(this);
     }
 
-    /**
-     * Serializer for {@link AlterColumnEntry}.
-     */
-    private static class AlterColumnEntrySerializer implements CatalogObjectSerializer<AlterColumnEntry> {
-        @Override
-        public AlterColumnEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogTableColumnDescriptor descriptor = CatalogTableColumnDescriptor.SERIALIZER.readFrom(input);
-
-            String schemaName = input.readUTF();
-            int tableId = input.readInt();
-
-            return new AlterColumnEntry(tableId, descriptor, schemaName);
-        }
-
-        @Override
-        public void writeTo(AlterColumnEntry value, IgniteDataOutput output) throws IOException {
-            CatalogTableColumnDescriptor.SERIALIZER.writeTo(value.descriptor(), output);
-
-            output.writeUTF(value.schemaName);
-            output.writeInt(value.tableId);
-        }
-    }
 }

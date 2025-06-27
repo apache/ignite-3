@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -29,11 +32,12 @@ import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -48,17 +52,21 @@ import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -70,7 +78,9 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -103,11 +113,20 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
     private static final int AWAIT_TIMEOUT_MILLIS = 10_000;
 
+    private static final int LONG_RUNNING_TX_TIMEOUT_MILLIS = 30_000;
+
     private SchemaDescriptor schema;
 
     private TableViewInternal table;
 
     private InternalTable internalTable;
+
+    @Override
+    protected void configureInitParameters(InitParametersBuilder builder) {
+        // Set a short timeout for the test because it uses defaultTimeouts for implicit transactions,
+        // It is too long to wait for 30 seconds (default value for Read-Write Transactions).
+        builder.clusterConfiguration("{ignite.transaction.readWriteTimeoutMillis: 5000}");
+    }
 
     @BeforeEach
     public void beforeTest() {
@@ -122,7 +141,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
     @AfterEach
     public void afterTest() {
-        CLUSTER.runningNodes().forEach(this::checkResourcesAreReleased);
+        CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(this::checkResourcesAreReleased);
 
         clearData(table);
     }
@@ -135,7 +154,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private void checkResourcesAreReleased(IgniteImpl ignite) {
         checkCursorsAreClosed(ignite);
 
-        assertTrue(ignite.txManager().lockManager().isEmpty());
+        try {
+            assertTrue(waitForCondition(() -> ignite.txManager().lockManager().isEmpty(), 1000));
+        } catch (InterruptedException e) {
+            fail("Unexpected interruption");
+        }
     }
 
     /**
@@ -151,23 +174,27 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 tableViewInternal.internalTable().storage().getMvPartition(PART_ID),
                 TestMvPartitionStorage.class
         );
-        TestSortedIndexStorage sortedIdxStorage = unwrapNullable(
-                tableViewInternal.internalTable().storage().getIndex(PART_ID, sortedIdxId),
-                TestSortedIndexStorage.class
-        );
 
-        try {
-            assertTrue(
-                    waitForCondition(() -> partitionStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
-                    "Alive versioned storage cursors: " + partitionStorage.pendingCursors()
+        if (partitionStorage != null) {
+            TestSortedIndexStorage sortedIdxStorage = unwrapNullable(
+                    tableViewInternal.internalTable().storage().getIndex(PART_ID, sortedIdxId),
+                    TestSortedIndexStorage.class
             );
+            assertThat(sortedIdxStorage, is(notNullValue()));
 
-            assertTrue(
-                    waitForCondition(() -> sortedIdxStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
-                    "Alive index storage cursors: " + sortedIdxStorage.pendingCursors()
-            );
-        } catch (InterruptedException e) {
-            fail("Waiting cursors close was interrupted.");
+            try {
+                assertTrue(
+                        waitForCondition(() -> partitionStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
+                        "Alive versioned storage cursors: " + partitionStorage.pendingCursors()
+                );
+
+                assertTrue(
+                        waitForCondition(() -> sortedIdxStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
+                        "Alive index storage cursors: " + sortedIdxStorage.pendingCursors()
+                );
+            } catch (InterruptedException e) {
+                fail("Waiting cursors close was interrupted.");
+            }
         }
     }
 
@@ -180,9 +207,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private int getIndexId(IgniteImpl ignite, String idxName) {
         CatalogManager catalogManager = ignite.catalogManager();
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
-        return catalogManager.indexes(catalogVersion).stream()
+        return catalog.indexes().stream()
                 .filter(index -> {
                     log.info("Scanned idx " + index.name());
 
@@ -519,8 +546,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertFalse(scanned.isDone());
 
-        assertThrows(TransactionException.class,
-                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3")));
+        IgniteTestUtils.assertThrowsWithCode(
+                TransactionException.class,
+                Transactions.ACQUIRE_LOCK_ERR,
+                () -> kvView.put(null, Tuple.create().set("key", 3), Tuple.create().set("valInt", 3).set("valStr", "New_3")),
+                "Failed to acquire a lock due to a possible deadlock"
+        );
 
         kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8"));
 
@@ -561,14 +592,16 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     public void testScanWithUpperBound() throws Exception {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
-        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1).appendInt(5).build()));
-        BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1).appendInt(9).build()));
+        BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(
+                new BinaryTuple(1, new BinaryTupleBuilder(1).appendInt(5).build())
+        );
+        BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(
+                new BinaryTuple(1, new BinaryTupleBuilder(1).appendInt(9).build())
+        );
 
         int soredIndexId = getSortedIndexId();
 
-        InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
+        InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false, LONG_RUNNING_TX_TIMEOUT_MILLIS);
         PrimaryReplica recipient = getPrimaryReplica(PART_ID, tx);
 
         Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
@@ -594,10 +627,16 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         assertEquals(3, scannedRows.size());
 
-        assertThrows(TransactionException.class, () ->
-                kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8")));
-        assertThrows(TransactionException.class, () ->
-                kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")));
+        IgniteTestUtils.assertThrowsWithCode(
+                TransactionException.class,
+                Transactions.ACQUIRE_LOCK_ERR,
+                () -> kvView.put(null, Tuple.create().set("key", 8), Tuple.create().set("valInt", 8).set("valStr", "New_8")),
+                "Failed to acquire a lock due to a possible deadlock");
+        IgniteTestUtils.assertThrowsWithCode(
+                TransactionException.class,
+                Transactions.ACQUIRE_LOCK_ERR,
+                () -> kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")),
+                "Failed to acquire a lock due to a possible deadlock");
 
         Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
                 tx,
@@ -725,14 +764,13 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Ensures that multiple consecutive scan requests with different requested rows amount
-     * return the expected total number of requested rows.
+     * Ensures that multiple consecutive scan requests with different requested rows amount return the expected total number of requested
+     * rows.
      *
      * @param requestAmount1 Number of rows in the first request.
      * @param requestAmount2 Number of rows in the second request.
      * @param readOnly If true, RO transaction is initiated, otherwise, RW transaction is initiated.
      * @param implicit If false, an explicit transaction is initiated, otherwise, an implicit one.
-     *
      * @throws Exception If failed.
      */
     @ParameterizedTest
@@ -746,15 +784,20 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         InternalTransaction tx = null;
 
         if (readOnly) {
-            IgniteImpl ignite = CLUSTER.aliveNode();
+            IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            var tablePartId = new TablePartitionId(internalTable.tableId(), PART_ID);
+            ReplicationGroupId partitionId = colocationEnabled()
+                    ? new ZonePartitionId(internalTable.zoneId(), PART_ID)
+                    : new TablePartitionId(internalTable.tableId(), PART_ID);
 
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                    ignite.placementDriver().awaitPrimaryReplica(tablePartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
+                    ignite.placementDriver().awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
-            ClusterNode recipientNode = ignite.clusterNodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
-                    .findFirst().get();
+            ClusterNode recipientNode = ignite.cluster().nodes().stream()
+                    .filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
+                    .findFirst()
+                    .get();
+
             tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true));
 
             publisher = internalTable.scan(PART_ID, tx.id(), ignite.clock().now(), recipientNode, tx.coordinatorId());
@@ -778,13 +821,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         subscription.cancel();
 
-        CLUSTER.runningNodes().forEach(this::checkCursorsAreClosed);
+        CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(this::checkCursorsAreClosed);
 
         if (tx != null) {
             tx.rollback();
         }
-
-        assertThat(scanned, willCompleteSuccessfully());
     }
 
     @ParameterizedTest
@@ -805,14 +846,14 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
             if (readOnly) {
                 // Any node from assignments will do it.
-                Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().clusterNodes().stream().map(
-                        ClusterNode::name).collect(Collectors.toList()), 0, 1);
+                Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().cluster().nodes().stream().map(
+                        ClusterNode::name).collect(Collectors.toList()), 0, 1, 1, 1);
 
                 assertFalse(assignments.isEmpty());
 
                 String consId = assignments.iterator().next().consistentId();
 
-                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(n -> n.name().equals(consId)).findAny()
+                ClusterNode node0 = CLUSTER.aliveNode().cluster().nodes().stream().filter(n -> n.name().equals(consId)).findAny()
                         .orElseThrow();
 
                 //noinspection DataFlowIssue
@@ -848,9 +889,20 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
-        IgniteBiTuple<ClusterNode, Long> primaryReplica = tx.enlistedNodeAndConsistencyToken(new TablePartitionId(table.tableId(), partId));
+        ReplicationGroupId replicationGroupId = colocationEnabled()
+                ? new ZonePartitionId(table.zoneId(), partId)
+                : new TablePartitionId(table.tableId(), partId);
 
-        return new PrimaryReplica(primaryReplica.get1(), primaryReplica.get2());
+        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
+
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        ClusterNode primaryNode = ignite.cluster().nodes().stream()
+                .filter(n -> n.name().equals(enlistment.primaryNodeConsistentId()))
+                .findAny()
+                .orElseThrow();
+
+        return new PrimaryReplica(primaryNode, enlistment.consistencyToken());
     }
 
     /**
@@ -919,11 +971,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * Gets an index id.
      */
     private static int getSortedIndexId() {
-        CatalogManager catalogManager = (CLUSTER.aliveNode()).catalogManager();
+        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
-        return catalogManager.indexes(catalogVersion).stream()
+        return catalog.indexes().stream()
                 .filter(index -> SORTED_IDX.equalsIgnoreCase(index.name()))
                 .mapToInt(CatalogObjectDescriptor::id)
                 .findFirst()
@@ -936,10 +988,10 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Ignite table.
      */
     private static TableViewInternal getOrCreateTable() {
-        sql("CREATE ZONE IF NOT EXISTS ZONE1 WITH REPLICAS=1, PARTITIONS=1, STORAGE_PROFILES='test'");
+        sql("CREATE ZONE IF NOT EXISTS ZONE1 (REPLICAS 1, PARTITIONS 1) STORAGE PROFILES ['test']");
 
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
-                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH PRIMARY_ZONE='ZONE1';");
+                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) ZONE ZONE1;");
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING SORTED (valInt)");
 
@@ -1010,27 +1062,47 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Transaction.
      */
     private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly) {
-        IgniteImpl ignite = CLUSTER.aliveNode();
+        // Default values for timeout is too long for the test,
+        // So the test changes them to 5 secs. As a result,
+        // implicit RW transactions have 5 secs timeout.
+        // But we want explicit transaction to be longer that implicit one,
+        // so here we set timeout to 10 seconds.
+        return startTxWithEnlistedPartition(partId, readOnly, 10_000);
+    }
 
-        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
+    /**
+     * Starts an RW transaction and enlists the specified partition in it.
+     *
+     * @param partId Partition ID.
+     * @param readOnly Read-only flag for transaction.
+     * @param timeoutMillis Transaction timeout.
+     * @return Transaction.
+     */
+    private InternalTransaction startTxWithEnlistedPartition(int partId, boolean readOnly, long timeoutMillis) {
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+        InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(
+                new TransactionOptions().timeoutMillis(timeoutMillis).readOnly(readOnly)
+        );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
-        TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
+        ReplicationGroupId replicationGroupId = colocationEnabled()
+                ? new ZonePartitionId(table.zoneId(), partId)
+                : new TablePartitionId(table.tableId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
-
-        tx.enlist(
-                tblPartId,
-                new IgniteBiTuple<>(
-                        ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder()))
-                                .findFirst().orElseThrow(),
-                        primaryReplica.getStartTime().longValue()
-                )
+                placementDriver.awaitPrimaryReplica(replicationGroupId, ignite.clock().now(), 30, TimeUnit.SECONDS)
         );
 
-        tx.assignCommitPartition(tblPartId);
+        tx.enlist(
+                replicationGroupId,
+                table.tableId(),
+                requireNonNull(primaryReplica.getLeaseholder(), "primaryReplica#getLeaseholder"),
+                primaryReplica.getStartTime().longValue()
+        );
+
+        tx.assignCommitPartition(replicationGroupId);
 
         return tx;
     }

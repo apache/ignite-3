@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
@@ -27,10 +28,16 @@ import org.junit.jupiter.api.BeforeEach;
  * Abstract test for {@link KeyValueStorage}.
  */
 public abstract class AbstractKeyValueStorageTest extends BaseIgniteAbstractTest {
+    protected static final String NODE_NAME = "test";
+
+    protected static final String PREFIX = "key";
+
+    protected static final byte[] PREFIX_BYTES = PREFIX.getBytes(UTF_8);
+
     protected KeyValueStorage storage;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         storage = createStorage();
 
         storage.start();
@@ -46,11 +53,21 @@ public abstract class AbstractKeyValueStorageTest extends BaseIgniteAbstractTest
      */
     protected abstract KeyValueStorage createStorage();
 
+    protected void restartStorage() throws Exception {
+        assertNotNull(storage);
+
+        storage.close();
+
+        storage = createStorage();
+
+        storage.start();
+    }
+
     protected static byte[] key(int k) {
-        return ("key" + k).getBytes(UTF_8);
+        return (PREFIX + k).getBytes(UTF_8);
     }
 
     protected static byte[] keyValue(int k, int v) {
-        return ("key" + k + '_' + "val" + v).getBytes(UTF_8);
+        return (PREFIX + k + '_' + "val" + v).getBytes(UTF_8);
     }
 }

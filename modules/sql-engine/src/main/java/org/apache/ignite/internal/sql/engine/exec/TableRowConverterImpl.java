@@ -17,70 +17,45 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.BitSet;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
-import org.apache.ignite.internal.sql.engine.util.FormatAwareProjectedTuple;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Converts rows to execution engine representation.
  */
 public class TableRowConverterImpl implements TableRowConverter {
 
-    private final SchemaRegistry schemaRegistry;
+    protected final SchemaRegistry schemaRegistry;
 
-    private final SchemaDescriptor schemaDescriptor;
-
-    private final BinaryTupleSchema fullTupleSchema;
-
-    /**
-     * Mapping of required columns to their indexes in physical schema.
-     */
-    private final int[] requiredColumnsMapping;
-
-    private final boolean skipTrimming;
+    protected final SchemaDescriptor schemaDescriptor;
 
     /** Constructor. */
     TableRowConverterImpl(
             SchemaRegistry schemaRegistry,
-            BinaryTupleSchema fullTupleSchema,
-            SchemaDescriptor schemaDescriptor,
-            @Nullable BitSet requiredColumns
+            SchemaDescriptor schemaDescriptor
     ) {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
-        this.fullTupleSchema = fullTupleSchema;
-
-        this.skipTrimming = requiredColumns == null;
-
-        int size = requiredColumns == null
-                ? schemaDescriptor.length()
-                : requiredColumns.cardinality();
-
-        requiredColumnsMapping = new int[size];
-
-        int requiredIndex = 0;
-        for (Column column : schemaDescriptor.columns()) {
-            if (requiredColumns == null || requiredColumns.get(column.positionInRow())) {
-                requiredColumnsMapping[requiredIndex++] = column.positionInRow();
-            }
-        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+    public <RowT> BinaryRowEx toFullRow(ExecutionContext<RowT> ectx, RowT row) {
         BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
 
-        return SqlOutputBinaryRow.newRow(schemaDescriptor, key, binaryTuple);
+        return SqlOutputBinaryRow.newRow(schemaDescriptor, binaryTuple);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> BinaryRowEx toKeyRow(ExecutionContext<RowT> ectx, RowT row) {
+        BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
+
+        return SqlOutputBinaryRow.newKeyRow(schemaDescriptor, binaryTuple);
     }
 
     /** {@inheritDoc} */
@@ -91,20 +66,11 @@ public class TableRowConverterImpl implements TableRowConverter {
             RowHandler.RowFactory<RowT> factory
     ) {
         InternalTuple tuple;
+
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
-            InternalTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
-
-            tuple = skipTrimming
-                    ? tableTuple
-                    : new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
+            tuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
         } else {
-            InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
-
-            tuple = new FieldDeserializingProjectedTuple(
-                    fullTupleSchema,
-                    tableTuple,
-                    requiredColumnsMapping
-            );
+            tuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
         }
 
         return factory.create(tuple);

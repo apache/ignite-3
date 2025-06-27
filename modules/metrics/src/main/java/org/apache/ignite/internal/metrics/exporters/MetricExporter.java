@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import java.util.UUID;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
@@ -38,8 +41,10 @@ public interface MetricExporter<CfgT extends ExporterView> {
      *
      * @param metricProvider Provider of metric sources.
      * @param configuration Exporter configuration view.
+     * @param clusterIdSupplier Cluster ID supplier.
+     * @param nodeName Node name.
      */
-    void start(MetricProvider metricProvider, CfgT configuration);
+    void start(MetricProvider metricProvider, CfgT configuration, Supplier<UUID> clusterIdSupplier, String nodeName);
 
     /**
      * Stop and cleanup work for current exporter must be implemented here.
@@ -64,18 +69,22 @@ public interface MetricExporter<CfgT extends ExporterView> {
     void reconfigure(CfgT newValue);
 
     /**
-     * {@link org.apache.ignite.internal.metrics.MetricManager} invokes this method,
+     * {@link MetricManagerImpl} invokes this method,
      * when new metric source was enabled.
      *
      * @param metricSet Named metric set.
      */
-    void addMetricSet(MetricSet metricSet);
+    default void addMetricSet(MetricSet metricSet) {
+        // No-op.
+    }
 
     /**
-     * {@link org.apache.ignite.internal.metrics.MetricManager} invokes this method,
+     * {@link MetricManagerImpl} invokes this method,
      * when the metric source was disabled.
      *
      * @param metricSetName Name of metric set to remove.
      */
-    void removeMetricSet(String metricSetName);
+    default void removeMetricSet(String metricSetName) {
+        // No-op.
+    }
 }

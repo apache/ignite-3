@@ -17,29 +17,25 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for {@link ClusterInitCommand}.
+ *
+ * <p>Because the {@link org.apache.ignite.internal.cli.CliIntegrationTest} extends
+ * {@link org.apache.ignite.internal.ClusterPerClassIntegrationTest}, each CLI test case for init has to be placed in a separate
+ * test class. It'd ideal to refactor the base classes to have a CLI init test class with multiple test cases.
+ * This may be needed if more tests are added.
  */
 public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBase {
-    private static TestInfo TEST_INFO;
-
-    @BeforeAll
-    static void captureTestInfo(TestInfo testInfo) {
-        TEST_INFO = testInfo;
-    }
-
     @Test
     @DisplayName("Init cluster with basic authentication")
     void initClusterWithBasicAuthentication() throws InterruptedException {
@@ -47,18 +43,18 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
         // when
         connect(NODE_URL);
 
-        resetOutput();
-
         File clusterConfigurationFile = TestConfigManagerHelper.readClusterConfigurationWithEnabledAuthFile();
 
         execute(
                 "cluster", "init",
-                "--meta-storage-node", testNodeName(TEST_INFO, 0),
-                "--cluster-name", "cluster",
-                "--cluster-config-file", clusterConfigurationFile.getAbsolutePath()
+                "--metastorage-group", CLUSTER.nodeName(1),
+                "--cluster-management-group", CLUSTER.nodeName(2),
+                "--name", "cluster",
+                "--config-files", clusterConfigurationFile.getAbsolutePath()
         );
 
         assertAll(
+                this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Cluster was initialized successfully")
         );
@@ -75,14 +71,19 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
 
         // REST is available
         assertRestIsAvailable();
+
+        execute("cluster", "topology", "logical");
+        assertExitCodeIsZero();
+        for (int i = 0; i < initialNodes(); i++) {
+            assertOutputContains(CLUSTER.nodeName(i));
+        }
     }
 
     private void awaitClusterInitialized() throws InterruptedException {
-        waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 30_000);
+        assertTrue(waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 30_000));
     }
 
     private void assertRestIsUnavailable() {
-        resetOutput();
         execute("cluster", "config", "show");
 
         assertAll(
@@ -92,7 +93,6 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
     }
 
     private void assertRestIsAvailable() {
-        resetOutput();
         execute("cluster", "config", "show");
 
         assertAll(
@@ -100,5 +100,4 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
                 this::assertOutputIsNotEmpty
         );
     }
-
 }

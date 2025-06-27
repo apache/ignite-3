@@ -32,6 +32,7 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 
 /**
  * Ignite Join converter.
@@ -63,9 +64,12 @@ public class MergeJoinConverterRule extends AbstractIgniteConverterRule<LogicalJ
         JoinInfo joinInfo = JoinInfo.of(rel.getLeft(), rel.getRight(), rel.getCondition());
 
         RelTraitSet leftInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                .replace(IgniteDistributions.single())
                 .replace(RelCollations.of(joinInfo.leftKeys));
-        RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
+        RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                .replace(IgniteDistributions.single());
         RelTraitSet rightInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                .replace(IgniteDistributions.single())
                 .replace(RelCollations.of(joinInfo.rightKeys));
 
         RelNode left = convert(rel.getLeft(), leftInTraits);

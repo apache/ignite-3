@@ -38,12 +38,20 @@ public interface ClusterStateStorage extends IgniteComponent {
     byte @Nullable [] get(byte[] key);
 
     /**
-     * Adds a new key-value pair to the storage.
+     * Assigns a value to a key in the storage.
      *
      * @param key Key.
      * @param value Value.
      */
     void put(byte[] key, byte[] value);
+
+    /**
+     * Assigns a few values to their corresponding keys in the storage.
+     *
+     * @param keys Keys.
+     * @param values Values. This list must have the same number of elements as keys.
+     */
+    void putAll(List<byte[]> keys, List<byte[]> values);
 
     /**
      * Atomically removes all keys starting with the given prefix and inserts a new value associated with the given key.

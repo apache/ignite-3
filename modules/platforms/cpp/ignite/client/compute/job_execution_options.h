@@ -61,10 +61,10 @@ public:
 
 private:
     /** Job execution priority. */
-    const std::int32_t m_priority{0};
+    std::int32_t m_priority{0};
 
     /** Max re-tries. */
-    const std::int32_t m_max_retries{0};
+    std::int32_t m_max_retries{0};
 };
 
 } // namespace ignite

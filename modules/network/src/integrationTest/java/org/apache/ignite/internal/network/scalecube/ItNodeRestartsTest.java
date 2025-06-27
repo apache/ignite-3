@@ -25,12 +25,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
@@ -44,13 +49,15 @@ class ItNodeRestartsTest {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItNodeRestartsTest.class);
 
+    private final ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(UUID.randomUUID());
+
     /** Created {@link ClusterService}s. Needed for resource management. */
     private List<ClusterService> services;
 
     /** Tear down method. */
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(services), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), services), willCompleteSuccessfully());
     }
 
     /**
@@ -77,10 +84,10 @@ class ItNodeRestartsTest {
         int idx1 = 2;
 
         LOG.info("Shutdown {}", addresses.get(idx0));
-        assertThat(services.get(idx0).stopAsync(), willCompleteSuccessfully());
+        assertThat(services.get(idx0).stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         LOG.info("Shutdown {}", addresses.get(idx1));
-        assertThat(services.get(idx1).stopAsync(), willCompleteSuccessfully());
+        assertThat(services.get(idx1).stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         LOG.info("Starting {}", addresses.get(idx0));
         ClusterService svc0 = startNetwork(testInfo, addresses.get(idx0), nodeFinder);
@@ -107,9 +114,15 @@ class ItNodeRestartsTest {
      * @return Created Cluster Service.
      */
     private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder) {
-        ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
+        ClusterService clusterService = ClusterServiceTestUtils.clusterService(
+                testInfo,
+                addr.port(),
+                nodeFinder,
+                new InMemoryStaleIds(),
+                clusterIdSupplier
+        );
 
-        assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+        assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return clusterService;
     }

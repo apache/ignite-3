@@ -44,13 +44,9 @@ public class NodeMetricSourceEnableCommand extends BaseCommand implements Callab
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> metricSource.buildEnableCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot enable metrics", "ignite cluster init"))
-                .build()
-                .runPipeline();
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot enable metrics"))
+        );
     }
 }

@@ -30,12 +30,9 @@ import org.apache.ignite.internal.systemview.api.ClusterSystemView;
 import org.apache.ignite.internal.systemview.api.NodeSystemView;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewColumn;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnType;
@@ -116,11 +113,11 @@ public class SystemViewUtils {
     private static ColumnParams systemViewColumnToColumnParams(SystemViewColumn<?, ?> column) {
         NativeType type = column.type();
 
-        NativeTypeSpec typeSpec = type.spec();
+        ColumnType typeSpec = type.spec();
 
         Builder builder = ColumnParams.builder()
                 .name(column.name())
-                .type(typeSpec.asColumnType())
+                .type(typeSpec)
                 .nullable(true);
 
         switch (typeSpec) {
@@ -134,11 +131,6 @@ public class SystemViewUtils {
             case UUID:
             case BOOLEAN:
                 break;
-            case NUMBER:
-                assert type instanceof NumberNativeType : type.getClass().getCanonicalName();
-
-                builder.precision(((NumberNativeType) type).precision());
-                break;
             case DECIMAL:
                 assert type instanceof DecimalNativeType : type.getClass().getCanonicalName();
 
@@ -146,15 +138,10 @@ public class SystemViewUtils {
                 builder.scale(((DecimalNativeType) type).scale());
                 break;
             case STRING:
-            case BYTES:
+            case BYTE_ARRAY:
                 assert type instanceof VarlenNativeType : type.getClass().getCanonicalName();
 
                 builder.length(((VarlenNativeType) type).length());
-                break;
-            case BITMASK:
-                assert type instanceof BitmaskNativeType : type.getClass().getCanonicalName();
-
-                builder.length(((BitmaskNativeType) type).bits());
                 break;
             case TIME:
             case DATETIME:

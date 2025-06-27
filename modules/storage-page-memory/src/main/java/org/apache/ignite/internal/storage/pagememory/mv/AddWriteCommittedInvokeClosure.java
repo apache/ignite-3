@@ -27,6 +27,7 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
@@ -63,6 +64,11 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
      */
     private long rowLinkForAddToGcQueue = NULL_LINK;
 
+    @Nullable
+    private RowVersion prevRowVersion;
+
+    private AddWriteCommittedResult addWriteCommittedResult;
+
     AddWriteCommittedInvokeClosure(
             RowId rowId,
             @Nullable BinaryRow row,
@@ -79,9 +85,17 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
     @Override
     public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
         if (oldRow != null && oldRow.isUncommitted()) {
-            // This means that there is a bug in our code as the caller must make sure that no write intent exists below this write.
-            throw new StorageException("Write intent exists: [rowId={}, {}]", oldRow.rowId(), storage.createStorageInfo());
+            operationType = OperationType.NOOP;
+
+            addWriteCommittedResult = AddWriteCommittedResult.writeIntentExists(
+                    oldRow.transactionId(),
+                    AddWriteInvokeClosure.latestCommitTimestamp(storage, oldRow, this::addWriteCommittedInfo)
+            );
+
+            return;
         }
+
+        addWriteCommittedResult = AddWriteCommittedResult.success();
 
         if (row == null && oldRow == null) {
             // If there is only one version, and it is a tombstone, then don't save the chain.
@@ -97,10 +111,10 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
             newRow = VersionChain.createCommitted(rowId, newVersion.link(), newVersion.nextLink());
         } else {
-            RowVersion current = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
+            prevRowVersion = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
 
             // If the current and new version are tombstones, then there is no need to add a new version.
-            if (current.isTombstone() && row == null) {
+            if (prevRowVersion.isTombstone() && row == null) {
                 operationType = OperationType.NOOP;
             } else {
                 operationType = OperationType.PUT;
@@ -116,14 +130,15 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
     @Override
     public @Nullable VersionChain newRow() {
-        assert operationType == OperationType.PUT ? newRow != null : newRow == null : "newRow=" + newRow + ", op=" + operationType;
+        assert (operationType == OperationType.PUT) == (newRow != null) :
+                addWriteCommittedInfo() + ", newRow=" + newRow + ", op=" + operationType;
 
         return newRow;
     }
 
     @Override
     public OperationType operationType() {
-        assert operationType != null;
+        assert operationType != null : addWriteCommittedInfo();
 
         return operationType;
     }
@@ -143,5 +158,25 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
         if (rowLinkForAddToGcQueue != NULL_LINK) {
             gcQueue.add(rowId, commitTimestamp, rowLinkForAddToGcQueue);
         }
+
+        if (operationType == OperationType.PUT) {
+            if (prevRowVersion == null || prevRowVersion.isTombstone()) {
+                if (row != null) {
+                    storage.incrementEstimatedSize();
+                }
+            } else {
+                if (row == null) {
+                    storage.decrementEstimatedSize();
+                }
+            }
+        }
+    }
+
+    AddWriteCommittedResult addWriteCommittedResult() {
+        return addWriteCommittedResult;
+    }
+
+    private String addWriteCommittedInfo() {
+        return storage.addWriteCommittedInfo(rowId, row, commitTimestamp);
     }
 }

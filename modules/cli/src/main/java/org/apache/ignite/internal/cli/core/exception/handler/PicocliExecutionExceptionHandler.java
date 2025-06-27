@@ -33,7 +33,8 @@ public class PicocliExecutionExceptionHandler implements IExecutionExceptionHand
     }
 
     public PicocliExecutionExceptionHandler(ExceptionHandlers exceptionHandlers) {
-        this.exceptionHandlers = exceptionHandlers;
+        this.exceptionHandlers = new DefaultExceptionHandlers();
+        this.exceptionHandlers.addExceptionHandlers(exceptionHandlers);
     }
 
     @Override

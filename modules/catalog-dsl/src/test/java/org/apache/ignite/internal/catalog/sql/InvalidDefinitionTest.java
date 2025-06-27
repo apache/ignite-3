@@ -27,6 +27,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.catalog.ColumnSorted;
+import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
@@ -43,8 +45,9 @@ class InvalidDefinitionTest {
     void zone() {
         assertZoneBuilderNull(ZoneDefinition.Builder::partitions, 1, "Number of partitions");
         assertZoneBuilderNull(ZoneDefinition.Builder::replicas, 1, "Number of replicas");
+        assertZoneBuilderNull(ZoneDefinition.Builder::quorumSize, 1, "Quorum size");
 
-        assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::affinity, "a", "Affinity function");
+        assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::distributionAlgorithm, "a", "Partition distribution algorithm");
 
         assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjust, 1,
                 "Timeout between node added or node left topology event itself and data nodes switch");
@@ -147,6 +150,53 @@ class InvalidDefinitionTest {
         assertThrows(NullPointerException.class,
                 () -> tableBuilder().index(null, DEFAULT, singletonList(null)),
                 "Index column must not be null.");
+
+        SortOrder[] invalidSortOrders = {
+                SortOrder.DESC,
+                SortOrder.DESC_NULLS_FIRST,
+                SortOrder.DESC_NULLS_LAST,
+                SortOrder.ASC,
+                SortOrder.ASC_NULLS_FIRST,
+                SortOrder.ASC_NULLS_LAST,
+                SortOrder.NULLS_FIRST,
+                SortOrder.NULLS_LAST
+        };
+
+        for (SortOrder order : invalidSortOrders) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> tableBuilder()
+                            .index(null, IndexType.HASH, ColumnSorted.column(validColumn.columnName(), order))
+                            .build(),
+                    "Index columns must not define a sort order in hash indexes."
+            );
+        }
+    }
+
+    @Test
+    void indexColumnsEmptyListMustFail() {
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index("idx", DEFAULT),
+                "Index columns list must not be empty.");
+    }
+
+    @Test
+    void indexColumnWhitespaceMustFail() {
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index(""),
+                "Index column must not be blank.");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index(" "),
+                "Index column must not be blank.");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index("   "),
+                "Index column must not be blank.");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> tableBuilder().index("col1", "   "),
+                "Index column must not be blank.");
     }
 
     @Test

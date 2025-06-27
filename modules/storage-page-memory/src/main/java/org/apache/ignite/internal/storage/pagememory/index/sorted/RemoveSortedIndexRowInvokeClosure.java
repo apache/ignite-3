@@ -20,15 +20,15 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Insert closure that removes corresponding {@link IndexColumns} from a {@link IndexColumnsFreeList} after removing it from the {@link
+ * Insert closure that removes corresponding {@link IndexColumns} from a {@link FreeListImpl} after removing it from the {@link
  * SortedIndexTree}.
  */
 class RemoveSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow> {
@@ -36,7 +36,7 @@ class RemoveSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow>
     private final SortedIndexRow sortedIndexRow;
 
     /** Free list to insert data into in case of necessity. */
-    private final IndexColumnsFreeList freeList;
+    private final FreeListImpl freeList;
 
     /** Operation type, either {@link OperationType#REMOVE} or {@link OperationType#NOOP} if row is missing. */
     private OperationType operationType = OperationType.REMOVE;
@@ -47,7 +47,7 @@ class RemoveSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow>
      * @param sortedIndexRow Sorted index row instance for removal.
      * @param freeList Free list to insert data into in case of necessity.
      */
-    public RemoveSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, IndexColumnsFreeList freeList) {
+    public RemoveSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, FreeListImpl freeList) {
         assert sortedIndexRow.indexColumns().link() == 0L;
 
         this.sortedIndexRow = sortedIndexRow;

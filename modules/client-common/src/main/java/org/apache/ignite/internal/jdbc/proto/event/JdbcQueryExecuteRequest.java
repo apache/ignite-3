@@ -27,7 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC query execute request.
  */
-public class JdbcQueryExecuteRequest implements ClientMessage {
+public class JdbcQueryExecuteRequest extends JdbcObservableTimeAwareRequest implements ClientMessage {
     /** Expected statement type. */
     private JdbcStatementType stmtType;
 
@@ -52,6 +52,18 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     /** Multiple statement flag. */
     private boolean multiStatement;
 
+    /** Query timeout in milliseconds. */
+    private long queryTimeoutMillis;
+
+    /**
+     * Token is used to uniquely identify execution request within single connection, which is required to properly coordinate cancellation
+     * request.
+     */
+    private long correlationToken;
+
+    /** The latest time observed by client. */
+    private long observableTime;
+
     /**
      * Default constructor. For deserialization purposes.
      */
@@ -69,9 +81,22 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      * @param args       Arguments list.
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      * @param multiStatement Multiple statement flag.
+     * @param queryTimeoutMillis Query timeout in millseconds.
+     * @param correlationToken Token is used to uniquely identify execution request within single connection.
      */
-    public JdbcQueryExecuteRequest(JdbcStatementType stmtType, String schemaName,
-            int pageSize, int maxRows, String sqlQry, Object[] args, boolean autoCommit, boolean multiStatement) {
+    public JdbcQueryExecuteRequest(
+            JdbcStatementType stmtType,
+            String schemaName,
+            int pageSize,
+            int maxRows,
+            String sqlQry,
+            Object[] args,
+            boolean autoCommit,
+            boolean multiStatement,
+            long queryTimeoutMillis,
+            long correlationToken,
+            long observableTime
+    ) {
         Objects.requireNonNull(stmtType);
 
         this.autoCommit = autoCommit;
@@ -82,6 +107,9 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         this.sqlQry = sqlQry;
         this.args = args;
         this.multiStatement = multiStatement;
+        this.queryTimeoutMillis = queryTimeoutMillis;
+        this.correlationToken = correlationToken;
+        this.observableTime = observableTime;
     }
 
     /**
@@ -154,6 +182,23 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         return autoCommit;
     }
 
+    /**
+     * Returns the timeout in milliseconds.
+     *
+     * @return Timeout in milliseconds.
+     */
+    public long queryTimeoutMillis() {
+        return queryTimeoutMillis;
+    }
+
+    public long correlationToken() {
+        return correlationToken;
+    }
+
+    public long observableTime() {
+        return observableTime;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -166,6 +211,9 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packBoolean(multiStatement);
 
         packer.packObjectArrayAsBinaryTuple(args);
+        packer.packLong(queryTimeoutMillis);
+        packer.packLong(correlationToken);
+        packer.packLong(observableTime);
     }
 
     /** {@inheritDoc} */
@@ -180,6 +228,9 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         multiStatement = unpacker.unpackBoolean();
 
         args = unpacker.unpackObjectArrayFromBinaryTuple();
+        queryTimeoutMillis = unpacker.unpackLong();
+        correlationToken = unpacker.unpackLong();
+        observableTime = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

@@ -17,21 +17,20 @@
 
 package org.apache.ignite.client.fakes;
 
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.IgniteCatalog;
-import org.apache.ignite.catalog.Options;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
 /**
@@ -45,7 +44,13 @@ public class FakeIgnite implements Ignite {
     private final FakeTxManager txMgr = new FakeTxManager(clock);
 
     /** Timestamp tracker. */
-    private final HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
+    private final HybridTimestampTracker hybridTimestampTracker = HybridTimestampTracker.atomicTracker(null);
+
+    private final FakeCompute compute;
+
+    private final IgniteTables tables;
+
+    private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
 
     /**
      * Default constructor.
@@ -60,11 +65,10 @@ public class FakeIgnite implements Ignite {
      * @param name Name.
      */
     public FakeIgnite(String name) {
-        super();
         this.name = name;
+        this.compute = new FakeCompute(name, this);
+        this.tables = new FakeIgniteTables(compute, placementDriver);
     }
-
-    private final IgniteTables tables = new FakeIgniteTables();
 
     /** {@inheritDoc} */
     @Override
@@ -91,30 +95,17 @@ public class FakeIgnite implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteCompute compute() {
+        return compute;
+    }
+
+    @Override
+    public IgniteCatalog catalog() {
+        return new IgniteCatalogSqlImpl(sql(), tables);
+    }
+
+    @Override
+    public IgniteCluster cluster() {
         throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<ClusterNode> clusterNodes() {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    @Override
-    public IgniteCatalog catalog(Options options) {
-        return new IgniteCatalogSqlImpl(sql(), options);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void close() {
-        // No-op.
     }
 
     /** {@inheritDoc} */
@@ -123,7 +114,11 @@ public class FakeIgnite implements Ignite {
         return name;
     }
 
-    public HybridTimestampTracker timestampTracker() {
-        return hybridTimestampTracker;
+    public FakePlacementDriver placementDriver() {
+        return placementDriver;
+    }
+
+    public TxManager txManager() {
+        return txMgr;
     }
 }

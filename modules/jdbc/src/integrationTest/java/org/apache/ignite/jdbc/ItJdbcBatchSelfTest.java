@@ -17,9 +17,12 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -38,13 +41,29 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.TestWrappers;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.jdbc.JdbcPreparedStatement;
+import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.tx.TxManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Statement test.
@@ -101,6 +120,14 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
 
         assertTrue(pstmt.isClosed());
+
+        long countOfPendingTransactions = CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .map(IgniteImpl::txManager)
+                .collect(Collectors.summarizingInt(TxManager::pending))
+                .getSum();
+
+        assertEquals(0, countOfPendingTransactions);
     }
 
     @Test
@@ -118,6 +145,51 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         for (int i = 0; i < batchSize; ++i) {
             assertEquals(i + 1, updCnts[i], "Invalid update count");
+        }
+    }
+
+    @Test
+    public void testBatchWithDdl() throws SQLException {
+        stmt.addBatch("CREATE TABLE t1(ID INT PRIMARY KEY)");
+        stmt.addBatch("CREATE TABLE t2(ID INT PRIMARY KEY)");
+        stmt.addBatch("INSERT INTO t1 VALUES (1)");
+        stmt.addBatch("INSERT INTO t2 VALUES (1), (2)");
+
+        int[] updCnts = stmt.executeBatch();
+
+        assertEquals(4, updCnts.length, "Invalid update counts size");
+        assertEquals(Statement.SUCCESS_NO_INFO, updCnts[0]);
+        assertEquals(Statement.SUCCESS_NO_INFO, updCnts[1]);
+        assertEquals(1, updCnts[2]);
+        assertEquals(2, updCnts[3]);
+    }
+
+    @Test
+    public void testBatchWithKill() throws SQLException {
+        try (Statement targetQueryStatement = conn.createStatement()) {
+            try (ResultSet rs = targetQueryStatement.executeQuery("SELECT x FROM system_range(0, 100000);")) {
+                IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
+                SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
+
+                List<QueryInfo> queries = queryProcessor.runningQueries();
+
+                assertThat(queries, hasSize(1));
+                UUID targetId = queries.get(0).id();
+
+                stmt.addBatch("KILL QUERY '" + targetId + "'");
+                stmt.executeBatch();
+
+                SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, is(0));
+
+                //noinspection ThrowableNotThrown
+                assertThrowsSqlException(
+                        QueryCancelledException.CANCEL_MSG, () -> {
+                            //noinspection StatementWithEmptyBody
+                            while (rs.next()) {
+                            }
+                        }
+                );
+            }
         }
     }
 
@@ -201,6 +273,18 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
         }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("forbiddenStatements")
+    public void testForbiddenQueryTypes(String sql, String expectedError) throws SQLException {
+        stmt.addBatch(sql);
+
+        assertThrowsSqlException(
+                BatchUpdateException.class,
+                expectedError,
+                stmt::executeBatch
+        );
     }
 
     @Test
@@ -675,6 +759,106 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertEquals(0L, personsCount(), "Test table should be empty after empty batch is performed.");
     }
 
+    @Test
+    public void testPreparedBatchTimeout() throws SQLException {
+        pstmt.close();
+
+        // Use some complex query that is not transformed into KV plan easily.
+        String updateStmt = "UPDATE Person SET age = ? "
+                + "WHERE id IN "
+                + "(SELECT * FROM TABLE(SYSTEM_RANGE(1, 50)) "
+                + "UNION "
+                + "SELECT * FROM TABLE(SYSTEM_RANGE(50, 100)))";
+        pstmt = conn.prepareStatement(updateStmt);
+
+        JdbcPreparedStatement igniteStmt = pstmt.unwrap(JdbcPreparedStatement.class);
+
+        {
+            // Disable timeout
+            igniteStmt.timeout(0);
+
+            for (int i = 0; i < 3; i++) {
+                pstmt.setInt(1, 42);
+
+                igniteStmt.addBatch();
+            }
+
+            int[] updated = igniteStmt.executeBatch();
+            assertEquals(3, updated.length);
+        }
+
+        // Each statement in a batch is executed separately, and timeout is applied to each statement.
+        {
+            int timeoutMillis = ThreadLocalRandom.current().nextInt(1, 5);
+            igniteStmt.timeout(timeoutMillis);
+
+            for (int i = 0; i < 3; i++) {
+                pstmt.setInt(1, 42);
+
+                igniteStmt.addBatch();
+            }
+
+            assertThrowsSqlException(SQLException.class,
+                    "Query timeout", igniteStmt::executeBatch);
+        }
+
+        {
+            // Disable timeout
+            igniteStmt.timeout(0);
+
+            for (int i = 0; i < 3; i++) {
+                pstmt.setInt(1, 42);
+
+                igniteStmt.addBatch();
+            }
+
+            int[] updated = igniteStmt.executeBatch();
+            assertEquals(3, updated.length);
+        }
+    }
+
+    @Test
+    public void testBatchTimeout() throws SQLException {
+        JdbcStatement igniteStmt = stmt.unwrap(JdbcStatement.class);
+
+        {
+            // Disable timeout
+            igniteStmt.timeout(0);
+
+            for (int persIdx = 0; persIdx < 3; persIdx++) {
+                String stmt = "insert into Person (id, firstName, lastName, age) values " + generateValues(persIdx, 1);
+                igniteStmt.addBatch(stmt);
+            }
+
+            int[] updated = igniteStmt.executeBatch();
+            assertEquals(3, updated.length);
+        }
+
+        // Each statement in a batch is executed separately, so a timeout is applied to each statement.
+        {
+            igniteStmt.timeout(1);
+
+            String stmt = "insert into Person (id, firstName, lastName, age) values " + generateValues(200, 100);
+            igniteStmt.addBatch(stmt);
+
+            assertThrowsSqlException(SQLException.class,
+                    "Query timeout", igniteStmt::executeBatch);
+        }
+
+        {
+            // Disable timeout
+            igniteStmt.timeout(0);
+
+            for (int persIdx = 10; persIdx < 13; persIdx++) {
+                String stmt = "insert into Person (id, firstName, lastName, age) values " + generateValues(persIdx, 1);
+                igniteStmt.addBatch(stmt);
+            }
+
+            int[] updated = igniteStmt.executeBatch();
+            assertEquals(3, updated.length);
+        }
+    }
+
     /**
      * Generate values for insert query.
      *
@@ -734,5 +918,24 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             return cnt.getLong(1);
         }
+    }
+
+    private static List<Arguments> forbiddenStatements() {
+        return List.of(
+                Arguments.of("SELECT * FROM Person",
+                        "Invalid SQL statement type."),
+
+                Arguments.of("EXPLAIN PLAN FOR DELETE FROM Person",
+                        "Invalid SQL statement type."),
+
+                Arguments.of("START TRANSACTION",
+                        "Transaction control statement can not be executed as an independent statement."),
+
+                Arguments.of("COMMIT",
+                        "Transaction control statement can not be executed as an independent statement."),
+
+                Arguments.of("START TRANSACTION; COMMIT",
+                        "Multiple statements are not allowed.")
+        );
     }
 }

@@ -18,14 +18,11 @@
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.marshaller.MarshallerWriter;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 
@@ -100,16 +97,6 @@ class RowWriter implements MarshallerWriter {
     }
 
     @Override
-    public void writeBitSet(BitSet val) {
-        rowAssembler.appendBitmaskNotNull(val);
-    }
-
-    @Override
-    public void writeBigInt(BigInteger val) {
-        rowAssembler.appendNumberNotNull(val);
-    }
-
-    @Override
     public void writeBigDecimal(BigDecimal val, int scale) {
         rowAssembler.appendDecimalNotNull(val);
     }
@@ -132,10 +119,5 @@ class RowWriter implements MarshallerWriter {
     @Override
     public void writeDateTime(LocalDateTime val) {
         rowAssembler.appendDateTimeNotNull(val);
-    }
-
-    @Override
-    public void writeValue(MarshallerColumn col, Object val) {
-        rowAssembler.appendValue(val);
     }
 }

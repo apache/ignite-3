@@ -20,31 +20,29 @@ package org.apache.ignite.internal.catalog.sql;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import org.apache.ignite.catalog.Options;
+import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 class DropTableTest {
     @Test
     void testDropTable() {
-        String sql = dropTable().name("table1").toSqlString();
-        assertThat(sql, is("DROP TABLE table1;"));
+        Query query1 = dropTable().name(QualifiedName.parse("table1"));
+        String sql = query1.toString();
+        assertThat(sql, is("DROP TABLE PUBLIC.TABLE1;"));
 
-        sql = dropTable().ifExists().name("table1").toSqlString();
-        assertThat(sql, is("DROP TABLE IF EXISTS table1;"));
+        Query query2 = dropTable().ifExists().name(QualifiedName.parse("table1"));
+        assertThat(query2.toString(), is("DROP TABLE IF EXISTS PUBLIC.TABLE1;"));
 
-        sql = dropTableQuoted().ifExists().name("table1").toSqlString();
-        assertThat(sql, is("DROP TABLE IF EXISTS \"table1\";"));
+        Query query3 = dropTable().ifExists().name(QualifiedName.parse("\"a b\""));
+        sql = query3.toString();
+        assertThat(sql, is("DROP TABLE IF EXISTS PUBLIC.\"a b\";"));
+
+        Query query4 = dropTable().name(QualifiedName.parse("\"MyTable\""));
+        sql = query4.toString();
+        assertThat(sql, is("DROP TABLE PUBLIC.\"MyTable\";"));
     }
 
     private static DropTableImpl dropTable() {
-        return dropTable(Options.DEFAULT);
-    }
-
-    private static DropTableImpl dropTable(Options options) {
-        return new DropTableImpl(null, options);
-    }
-
-    private static DropTableImpl dropTableQuoted() {
-        return dropTable(Options.builder().quoteIdentifiers().build());
+        return new DropTableImpl(null);
     }
 }

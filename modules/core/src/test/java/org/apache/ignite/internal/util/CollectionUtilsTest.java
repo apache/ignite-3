@@ -76,14 +76,14 @@ public class CollectionUtilsTest {
     void testSetUnion() {
         assertTrue(union(null, null).isEmpty());
         assertTrue(union(Set.of(), null).isEmpty());
-        assertTrue(union(null, new Object[]{}).isEmpty());
+        assertTrue(union(null, Set.of()).isEmpty());
 
         assertEquals(Set.of(1), union(Set.of(1), null));
-        assertEquals(Set.of(1), union(Set.of(1), new Integer[]{}));
-        assertEquals(Set.of(1), union(null, 1));
-        assertEquals(Set.of(1), union(Set.of(), 1));
+        assertEquals(Set.of(1), union(Set.of(1), Set.of()));
+        assertEquals(Set.of(1), union(null, Set.of(1)));
+        assertEquals(Set.of(1), union(Set.of(), Set.of(1)));
 
-        assertEquals(Set.of(1, 2), union(Set.of(1), 2));
+        assertEquals(Set.of(1, 2), union(Set.of(1), Set.of(2)));
     }
 
     @Test

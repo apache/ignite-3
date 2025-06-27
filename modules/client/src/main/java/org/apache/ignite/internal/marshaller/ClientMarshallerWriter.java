@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -119,18 +118,6 @@ public class ClientMarshallerWriter implements MarshallerWriter {
     @Override
     public void writeBytes(byte[] val) {
         packer.appendBytes(val);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void writeBitSet(BitSet val) {
-        packer.appendBitmask(val);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void writeBigInt(BigInteger val) {
-        packer.appendNumber(val);
     }
 
     /** {@inheritDoc} */

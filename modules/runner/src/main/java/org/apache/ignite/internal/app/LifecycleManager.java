@@ -19,23 +19,28 @@ package org.apache.ignite.internal.app;
 
 import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.lang.Debuggable;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rest.api.node.State;
 import org.apache.ignite.internal.rest.node.StateProvider;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Class for managing the lifecycle of Ignite components.
  */
-class LifecycleManager implements StateProvider {
+class LifecycleManager implements StateProvider, Debuggable {
     private static final IgniteLogger LOG = Loggers.forClass(LifecycleManager.class);
 
     /** Ignite node name. */
@@ -51,7 +56,7 @@ class LifecycleManager implements StateProvider {
      */
     private final List<IgniteComponent> startedComponents = new ArrayList<>();
 
-    private final List<CompletableFuture<Void>> allComponentsStartFuture = new ArrayList<>();
+    private final List<CompletableFuture<Void>> allComponentsStartFutures = new ArrayList<>();
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
 
@@ -69,9 +74,12 @@ class LifecycleManager implements StateProvider {
      * thrown.
      *
      * @param component Ignite component to start.
+     * @param componentContext Component context.
+     * @return Future that will be completed when the asynchronous part of the start is processed.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponent(IgniteComponent component) throws NodeStoppingException {
+    CompletableFuture<Void> startComponentAsync(IgniteComponent component, ComponentContext componentContext)
+            throws NodeStoppingException {
         if (status.get() == State.STOPPING) {
             throw new NodeStoppingException("Node=[" + nodeName + "] was stopped");
         }
@@ -79,20 +87,27 @@ class LifecycleManager implements StateProvider {
         synchronized (this) {
             startedComponents.add(component);
 
-            allComponentsStartFuture.add(component.startAsync());
+            CompletableFuture<Void> future = component.startAsync(componentContext);
+            allComponentsStartFutures.add(future);
+            return future;
         }
     }
 
     /**
-     * Similar to {@link #startComponent} but allows to start multiple components at once.
+     * Similar to {@link #startComponentAsync} but allows to start multiple components at once.
      *
+     * @param componentContext Component context.
      * @param components Ignite components to start.
+     * @return Future that will be completed when all the components are started.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponents(IgniteComponent... components) throws NodeStoppingException {
-        for (IgniteComponent component : components) {
-            startComponent(component);
+    CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, IgniteComponent... components)
+            throws NodeStoppingException {
+        CompletableFuture<?>[] futures = new CompletableFuture[components.length];
+        for (int i = 0; i < components.length; i++) {
+            futures[i] = startComponentAsync(components[i], componentContext);
         }
+        return allOf(futures);
     }
 
     /**
@@ -114,38 +129,44 @@ class LifecycleManager implements StateProvider {
     }
 
     /**
-     * Represents future that will be completed when all components start futures will be completed.
-     * Note that it is designed that this method is called only once.
+     * Represents future that will be completed when all components start futures will be completed. Note that it is designed that this
+     * method is called only once.
      *
      * @return Future that will be completed when all components start futures will be completed.
      */
     synchronized CompletableFuture<Void> allComponentsStartFuture() {
-        return allOf(allComponentsStartFuture.toArray(CompletableFuture[]::new))
+        return allOf(allComponentsStartFutures.toArray(CompletableFuture[]::new))
                 .whenComplete((v, e) -> {
                     synchronized (this) {
-                        allComponentsStartFuture.clear();
+                        allComponentsStartFutures.clear();
                     }
                 });
     }
 
     /**
      * Stops all started components and transfers the node into the {@link State#STOPPING} state.
+     *
+     * @param componentContext Component context.
      */
-    CompletableFuture<Void> stopNode() {
+    CompletableFuture<Void> stopNode(ComponentContext componentContext) {
         State currentStatus = status.getAndSet(State.STOPPING);
 
         if (currentStatus != State.STOPPING) {
-            stopAllComponents();
+            initiateAllComponentsStop(componentContext);
         }
 
         return stopFuture;
     }
 
     /**
-     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stopAsync()} for all components in
+     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stopAsync(ComponentContext)} for all components in
      * start-reverse-order.
+     *
+     * <p>Does NOT wait for the async stop to be completed. To track it, {@link #stopFuture} is used.
+     *
+     * @param componentContext Component context.
      */
-    private synchronized void stopAllComponents() {
+    private synchronized void initiateAllComponentsStop(ComponentContext componentContext) {
         List<IgniteComponent> components = new ArrayList<>(startedComponents);
         reverse(components);
 
@@ -157,7 +178,13 @@ class LifecycleManager implements StateProvider {
             }
         }
 
-        stopAsync(components)
-                .whenComplete((v, e) -> stopFuture.complete(null));
+        stopAsync(componentContext, components)
+                .whenComplete(copyStateTo(stopFuture));
+    }
+
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        Debuggable.dumpState(writer, indent, startedComponents);
     }
 }

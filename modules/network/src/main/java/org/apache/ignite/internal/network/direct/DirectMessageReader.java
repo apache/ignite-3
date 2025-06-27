@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.direct;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collection;
@@ -24,15 +26,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.direct.state.DirectMessageState;
 import org.apache.ignite.internal.network.direct.state.DirectMessageStateItem;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
+import org.apache.ignite.internal.network.serialization.MessageCollectionItemType;
 import org.apache.ignite.internal.network.serialization.MessageReader;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -433,6 +436,21 @@ public class DirectMessageReader implements MessageReader {
         lastRead = stream.lastFinished();
 
         return val;
+    }
+
+    @Override
+    public @Nullable HybridTimestamp readHybridTimestamp(String name) {
+        DirectByteBufferStream stream = state.item().stream;
+
+        long val = stream.readLong();
+
+        lastRead = stream.lastFinished();
+
+        if (!lastRead) {
+            return null;
+        }
+
+        return nullableHybridTimestamp(val);
     }
 
     @Override

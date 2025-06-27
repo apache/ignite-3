@@ -28,9 +28,9 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
@@ -70,10 +70,10 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
         int version = CLUSTER.catalogManager().latestCatalogVersion();
 
         List<CatalogCommand> commands = new ArrayList<>();
-        for (CatalogTableDescriptor table : CLUSTER.catalogManager().tables(version)) {
+        for (CatalogTableDescriptor table : CLUSTER.catalogManager().catalog(version).tables()) {
             commands.add(
                     DropTableCommand.builder()
-                            .schemaName(CatalogService.DEFAULT_SCHEMA_NAME)
+                            .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                             .tableName(table.name())
                             .build()
             );
@@ -169,7 +169,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertExpressions(KeyValueModifyPlan plan, String... expectedExpressions) {
-        List<String> keyExpressions = plan.modifyNode().expressions().stream()
+        List<String> keyExpressions = (plan.getRel()).expressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 

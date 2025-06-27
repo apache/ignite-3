@@ -34,17 +34,13 @@ public class NodeVersionCommand extends BaseCommand implements Callable<Integer>
     private NodeUrlProfileMixin nodeUrl;
 
     @Inject
-    private NodeVersionCall nodeVersionCall;
+    private NodeVersionCall call;
 
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(nodeVersionCall)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 }

@@ -21,13 +21,14 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.en
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -46,8 +47,9 @@ public class RenameTableCommand extends AbstractTableCommand {
 
     private final String newTableName;
 
-    private RenameTableCommand(String schemaName, String tableName, String newTableName) throws CatalogValidationException {
-        super(schemaName, tableName);
+    private RenameTableCommand(String schemaName, String tableName, boolean ifExists, String newTableName)
+            throws CatalogValidationException {
+        super(schemaName, tableName, ifExists, true);
 
         validateIdentifier(newTableName, "New table name");
 
@@ -55,12 +57,19 @@ public class RenameTableCommand extends AbstractTableCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifTableExists);
+        if (schema == null) {
+            return List.of();
+        }
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, newTableName);
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        CatalogTableDescriptor table = table(schema, tableName, !ifTableExists);
+        if (table == null) {
+            return List.of();
+        }
 
         String newPkIndexName = pkIndexName(newTableName);
 
@@ -79,6 +88,8 @@ public class RenameTableCommand extends AbstractTableCommand {
 
         private String tableName;
 
+        private boolean ifExists;
+
         private String newTableName;
 
         @Override
@@ -96,6 +107,13 @@ public class RenameTableCommand extends AbstractTableCommand {
         }
 
         @Override
+        public RenameTableCommandBuilder ifTableExists(boolean ifExists) {
+            this.ifExists = ifExists;
+
+            return this;
+        }
+
+        @Override
         public RenameTableCommandBuilder newTableName(String newTableName) {
             this.newTableName = newTableName;
 
@@ -104,7 +122,7 @@ public class RenameTableCommand extends AbstractTableCommand {
 
         @Override
         public CatalogCommand build() {
-            return new RenameTableCommand(schemaName, tableName, newTableName);
+            return new RenameTableCommand(schemaName, tableName, ifExists, newTableName);
         }
     }
 }

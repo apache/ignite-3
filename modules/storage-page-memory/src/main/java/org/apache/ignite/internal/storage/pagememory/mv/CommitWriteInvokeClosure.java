@@ -19,20 +19,27 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
+import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.freelist.FreeList;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
+import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
+ * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#commitWrite}.
  *
  * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
@@ -43,9 +50,11 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final HybridTimestamp timestamp;
 
+    private final UUID txId;
+
     private final AbstractPageMemoryMvPartitionStorage storage;
 
-    private final RowVersionFreeList rowVersionFreeList;
+    private final FreeList freeList;
 
     private final GcQueue gcQueue;
 
@@ -57,6 +66,8 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private @Nullable RowVersion toRemove;
 
+    private CommitResult commitResult;
+
     /**
      * Row version that will be added to the garbage collection queue when the {@link #afterCompletion() closure completes}.
      *
@@ -65,15 +76,53 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
      */
     private long rowLinkForAddToGcQueue = NULL_LINK;
 
-    CommitWriteInvokeClosure(RowId rowId, HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+    private final UpdateTimestampHandler updateTimestampHandler;
+
+    @Nullable
+    private RowVersion currentRowVersion;
+
+    @Nullable
+    private RowVersion prevRowVersion;
+
+    CommitWriteInvokeClosure(
+            RowId rowId,
+            HybridTimestamp timestamp,
+            UUID txId,
+            UpdateTimestampHandler updateTimestampHandler,
+            AbstractPageMemoryMvPartitionStorage storage
+    ) {
         this.rowId = rowId;
         this.timestamp = timestamp;
+        this.txId = txId;
         this.storage = storage;
+        this.updateTimestampHandler = updateTimestampHandler;
 
         RenewablePartitionStorageState localState = storage.renewableState;
 
-        this.rowVersionFreeList = localState.rowVersionFreeList();
+        this.freeList = localState.freeList();
         this.gcQueue = localState.gcQueue();
+    }
+
+    static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
+
+        @Override
+        public Object run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                HybridTimestamp arg,
+                int itemId
+        ) throws IgniteInternalCheckedException {
+            DataPageIo dataIo = (DataPageIo) io;
+
+            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
+
+            HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, arg);
+
+            return true;
+        }
     }
 
     @Override
@@ -82,47 +131,63 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
             operationType = OperationType.NOOP;
 
+            commitResult = CommitResult.noWriteIntent();
+
+            return;
+        } else if (!txId.equals(oldRow.transactionId())) {
+            operationType = OperationType.NOOP;
+
+            commitResult = CommitResult.txMismatch(oldRow.transactionId());
+
             return;
         }
 
         operationType = OperationType.PUT;
 
-        RowVersion current = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
-        RowVersion next = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), DONT_LOAD_VALUE) : null;
+        commitResult = CommitResult.success();
 
-        if (next == null && current.isTombstone()) {
+        currentRowVersion = storage.readRowVersion(oldRow.headLink(), DONT_LOAD_VALUE);
+
+        assert currentRowVersion != null : commitWriteInfo() + ", headLink=" + oldRow.headLink();
+
+        prevRowVersion = oldRow.hasNextLink() ? storage.readRowVersion(oldRow.nextLink(), DONT_LOAD_VALUE) : null;
+
+        if (prevRowVersion == null && currentRowVersion.isTombstone()) {
             // If there is only one version, and it is a tombstone, then remove the chain.
             operationType = OperationType.REMOVE;
 
             return;
         }
 
+        boolean isPreviousRowTombstone = prevRowVersion != null && prevRowVersion.isTombstone();
+
         // If the previous and current version are tombstones, then delete the current version.
-        if (next != null && current.isTombstone() && next.isTombstone()) {
-            toRemove = current;
+        if (isPreviousRowTombstone && currentRowVersion.isTombstone()) {
+            toRemove = currentRowVersion;
 
-            newRow = VersionChain.createCommitted(oldRow.rowId(), next.link(), next.nextLink());
+            newRow = VersionChain.createCommitted(rowId, prevRowVersion.link(), prevRowVersion.nextLink());
         } else {
-            updateTimestampLink = oldRow.headLink();
+            updateTimestampLink = currentRowVersion.link();
 
-            newRow = VersionChain.createCommitted(oldRow.rowId(), oldRow.headLink(), oldRow.nextLink());
+            newRow = VersionChain.createCommitted(rowId, currentRowVersion.link(), currentRowVersion.nextLink());
 
-            if (oldRow.hasNextLink()) {
-                rowLinkForAddToGcQueue = oldRow.headLink();
+            if (currentRowVersion.hasNextLink()) {
+                rowLinkForAddToGcQueue = currentRowVersion.link();
             }
         }
     }
 
     @Override
     public @Nullable VersionChain newRow() {
-        assert operationType == OperationType.PUT ? newRow != null : newRow == null : "newRow=" + newRow + ", op=" + operationType;
+        assert (operationType == OperationType.PUT) == (newRow != null) :
+                commitWriteInfo() + ", newRow=" + newRow + ", op=" + operationType;
 
         return newRow;
     }
 
     @Override
     public OperationType operationType() {
-        assert operationType != null;
+        assert operationType != null : commitWriteInfo();
 
         return operationType;
     }
@@ -130,16 +195,13 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
     @Override
     public void onUpdate() {
         assert operationType == OperationType.PUT || updateTimestampLink == NULL_LINK :
-                "link=" + updateTimestampLink + ", op=" + operationType;
+                commitWriteInfo() + ", link=" + updateTimestampLink + ", op=" + operationType;
 
         if (updateTimestampLink != NULL_LINK) {
             try {
-                rowVersionFreeList.updateTimestamp(updateTimestampLink, timestamp);
+                freeList.updateDataRow(updateTimestampLink, updateTimestampHandler, timestamp);
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException(
-                        "Error while update timestamp: [link={}, timestamp={}, {}]",
-                        e,
-                        updateTimestampLink, timestamp, storage.createStorageInfo());
+                throw new StorageException("Error while update timestamp: [link={}, {}]", e, updateTimestampLink, commitWriteInfo());
             }
         }
     }
@@ -148,7 +210,14 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
      * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
      */
     void afterCompletion() {
-        assert operationType == OperationType.PUT || toRemove == null : "toRemove=" + toRemove + ", op=" + operationType;
+        assert operationType == OperationType.PUT || toRemove == null :
+                commitWriteInfo() + ", toRemove=" + toRemove + ", op=" + operationType;
+
+        if (operationType == OperationType.NOOP) {
+            return;
+        }
+
+        assert currentRowVersion != null : commitWriteInfo();
 
         if (toRemove != null) {
             storage.removeRowVersion(toRemove);
@@ -157,5 +226,25 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (rowLinkForAddToGcQueue != NULL_LINK) {
             gcQueue.add(rowId, timestamp, rowLinkForAddToGcQueue);
         }
+
+        if (operationType == OperationType.PUT) {
+            if (prevRowVersion == null || prevRowVersion.isTombstone()) {
+                if (!currentRowVersion.isTombstone()) {
+                    storage.incrementEstimatedSize();
+                }
+            } else {
+                if (currentRowVersion.isTombstone()) {
+                    storage.decrementEstimatedSize();
+                }
+            }
+        }
+    }
+
+    CommitResult commitResult() {
+        return commitResult;
+    }
+
+    private String commitWriteInfo() {
+        return storage.commitWriteInfo(rowId, timestamp, txId);
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.call.cluster.status;
 
 import jakarta.inject.Singleton;
+import java.util.List;
 import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus.ClusterStatusBuilder;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.Call;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.model.ClusterNode;
 import org.apache.ignite.rest.client.model.ClusterState;
 
 /**
@@ -71,7 +73,11 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterStatus> {
     }
 
     private int fetchNumberOfAllNodes(UrlCallInput input) {
-        return physicalTopologyCall.execute(input).body().size();
+        List<ClusterNode> body = physicalTopologyCall.execute(input).body();
+        if (body == null) {
+            return -1;
+        }
+        return body.size();
     }
 
     private ClusterState fetchClusterState(String url) throws ApiException {

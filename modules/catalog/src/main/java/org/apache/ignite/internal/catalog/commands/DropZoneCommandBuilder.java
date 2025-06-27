@@ -25,5 +25,5 @@ package org.apache.ignite.internal.catalog.commands;
  * side effects on builder's state or any object created by the same builder.
  */
 public interface DropZoneCommandBuilder extends AbstractZoneCommandBuilder<DropZoneCommandBuilder> {
-
+    DropZoneCommandBuilder ifExists(boolean ifExists);
 }

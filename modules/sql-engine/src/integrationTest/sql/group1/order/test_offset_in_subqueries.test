@@ -1,0 +1,61 @@
+# name: test/sql/order/test_offset_in_subqueries.test
+# description: offset clause tests
+# feature: SQL F862 (<result offset clause> in subqueries)
+# group: [order]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE test (b INTEGER)
+
+statement ok
+INSERT INTO test VALUES (22), (2), (7)
+
+# Subquery
+
+query I
+SELECT (SELECT b FROM test ORDER BY b OFFSET 10)
+----
+NULL
+
+query I
+SELECT (SELECT count(*) FROM test OFFSET 0)
+----
+3
+
+query I
+SELECT (SELECT b FROM test ORDER BY b OFFSET 2)
+----
+22
+
+query II
+SELECT (SELECT b FROM test ORDER BY b OFFSET 2), (SELECT count(*) FROM test OFFSET 1)
+----
+22	NULL
+
+statement error: Subquery returned more than 1 value
+SELECT (SELECT b FROM test ORDER BY b OFFSET 1)
+
+query II
+SELECT b, (SELECT b FROM test ORDER BY b OFFSET 2) FROM test ORDER BY b ASC
+----
+2	22
+7	22
+22	22
+
+# ROW, ROWS
+
+query II
+SELECT b, (SELECT b FROM test ORDER BY b OFFSET 2 ROW) FROM test ORDER BY b ASC
+----
+2	22
+7	22
+22	22
+
+query II
+SELECT b, (SELECT b FROM test ORDER BY b OFFSET 2 ROWS) FROM test ORDER BY b ASC
+----
+2	22
+7	22
+22	22

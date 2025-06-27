@@ -23,6 +23,7 @@ using Ignite.Sql;
 using Ignite.Table;
 using Internal.Proto.BinaryTuple;
 using Internal.Table;
+using NodaTime;
 using NUnit.Framework;
 
 /// <summary>
@@ -137,24 +138,23 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
 
         return new BinaryTupleIgniteTupleAdapter(buf, schema, keyOnly: false);
 
-        static ColumnType GetColumnType(object? obj)
-        {
-            if (obj == null || obj is string)
+        static ColumnType GetColumnType(object? obj) =>
+            obj switch
             {
-                return ColumnType.String;
-            }
-
-            if (obj is int)
-            {
-                return ColumnType.Int32;
-            }
-
-            if (obj is long)
-            {
-                return ColumnType.Int64;
-            }
-
-            throw new NotSupportedException("Unsupported type: " + obj.GetType());
-        }
+                null => ColumnType.String,
+                string => ColumnType.String,
+                int => ColumnType.Int32,
+                long => ColumnType.Int64,
+                short => ColumnType.Int16,
+                sbyte => ColumnType.Int8,
+                byte[] => ColumnType.ByteArray,
+                Guid => ColumnType.Uuid,
+                LocalDateTime => ColumnType.Datetime,
+                double => ColumnType.Double,
+                float => ColumnType.Float,
+                decimal => ColumnType.Decimal,
+                bool => ColumnType.Boolean,
+                _ => throw new NotSupportedException("Unsupported type: " + obj.GetType())
+            };
     }
 }

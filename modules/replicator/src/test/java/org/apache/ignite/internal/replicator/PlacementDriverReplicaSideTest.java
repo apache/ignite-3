@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.lang.System.currentTimeMillis;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -59,15 +62,17 @@ import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test for placement driver messages processing on replica side.
  */
+@ExtendWith(FailureManagerExtension.class)
 public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private static final ReplicationGroupId GRP_ID = new TestReplicationGroupId("group_1");
 
-    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id0", "name0", new NetworkAddress("localhost", 1234));
-    private static final ClusterNode ANOTHER_NODE = new ClusterNodeImpl("id1", "name`", new NetworkAddress("localhost", 2345));
+    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(randomUUID(), "name0", new NetworkAddress("localhost", 1234));
+    private static final ClusterNode ANOTHER_NODE = new ClusterNodeImpl(randomUUID(), "name`", new NetworkAddress("localhost", 2345));
 
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -82,6 +87,8 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private Peer currentLeader = null;
 
     private int countOfTimeoutExceptionsOnReadIndexToThrow = 0;
+
+    private Runnable reservationClosure;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             NamedThreadFactory.create("common", "replica", log)
@@ -115,15 +122,30 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         when(raftClient.run(any())).thenAnswer(invocationOnMock -> completedFuture(null));
 
-        return new Replica(
+        var listener = mock(ReplicaListener.class);
+        when(listener.raftClient()).thenReturn(raftClient);
+
+        var placementDriver = new TestPlacementDriver(LOCAL_NODE);
+
+        var placementDriverMessageProcessor = new PlacementDriverMessageProcessor(
                 GRP_ID,
-                mock(ReplicaListener.class),
-                storageIndexTracker,
-                raftClient,
                 LOCAL_NODE,
+                placementDriver,
+                new TestClockService(new HybridClockImpl()),
+                (unused0, unused1) -> reservationClosure.run(),
                 executor,
-                new TestPlacementDriver(LOCAL_NODE),
-                new TestClockService(new HybridClockImpl())
+                storageIndexTracker,
+                raftClient
+        );
+
+        return new ReplicaImpl(
+                GRP_ID,
+                listener,
+                LOCAL_NODE,
+                placementDriver,
+                groupId -> null,
+                null,
+                placementDriverMessageProcessor
         );
     }
 
@@ -133,6 +155,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         indexOnLeader.set(1L);
         currentLeader = null;
         countOfTimeoutExceptionsOnReadIndexToThrow = 0;
+        reservationClosure = () -> { };
         replica = startReplica();
     }
 
@@ -167,8 +190,8 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     ) {
         PlacementDriverReplicaMessage msg = MSG_FACTORY.leaseGrantedMessage()
                 .groupId(GRP_ID)
-                .leaseStartTimeLong(leaseStartTime.longValue())
-                .leaseExpirationTimeLong(leaseExpirationTime.longValue())
+                .leaseStartTime(leaseStartTime)
+                .leaseExpirationTime(leaseExpirationTime)
                 .force(force)
                 .build();
 
@@ -189,7 +212,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
         assertFalse(respFut.isDone());
         leaderElection(LOCAL_NODE);
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
     }
 
     @Test
@@ -197,7 +220,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
         assertFalse(respFut.isDone());
         leaderElection(ANOTHER_NODE);
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
     }
 
     @Test
@@ -206,7 +229,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
 
         updateIndex(1L);
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
 
         LeaseGrantedMessageResponse resp = respFut.join();
         assertTrue(resp.accepted());
@@ -218,7 +241,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         leaderElection(ANOTHER_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
 
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
 
         LeaseGrantedMessageResponse resp = respFut.join();
         assertFalse(resp.accepted());
@@ -233,7 +256,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
 
         updateIndex(1L);
-        assertTrue(respFut0.isDone());
+        assertThat(respFut0, willSucceedFast());
 
         LeaseGrantedMessageResponse resp0 = respFut0.join();
         assertTrue(resp0.accepted());
@@ -244,7 +267,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 8), hts(leaseStartTime + 18), false);
 
-        assertTrue(respFut1.isDone());
+        assertThat(respFut1, willSucceedFast());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
         assertFalse(resp1.accepted());
@@ -258,7 +281,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         leaderElection(LOCAL_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
-        assertTrue(respFut0.isDone());
+        assertThat(respFut0, willSucceedFast());
 
         LeaseGrantedMessageResponse resp0 = respFut0.join();
         assertTrue(resp0.accepted());
@@ -266,7 +289,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
-        assertTrue(respFut1.isDone());
+        assertThat(respFut1, willSucceedFast());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
         assertTrue(resp1.accepted());
@@ -280,7 +303,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         leaderElection(LOCAL_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
-        assertTrue(respFut0.isDone());
+        assertThat(respFut0, willSucceedFast());
 
         LeaseGrantedMessageResponse resp0 = respFut0.join();
         assertTrue(resp0.accepted());
@@ -290,7 +313,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
-        assertTrue(respFut1.isDone());
+        assertThat(respFut1, willSucceedFast());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
         assertFalse(resp1.accepted());
@@ -306,7 +329,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         assertFalse(respFut.isDone());
 
         updateIndex(1L);
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
 
         LeaseGrantedMessageResponse resp = respFut.join();
         assertTrue(resp.accepted());
@@ -323,7 +346,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         leaderElection(ANOTHER_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
-        assertTrue(respFut0.isDone());
+        assertThat(respFut0, willSucceedFast());
 
         LeaseGrantedMessageResponse resp0 = respFut0.join();
         assertFalse(resp0.accepted());
@@ -335,7 +358,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         updateIndex(1L);
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
-        assertTrue(respFut1.isDone());
+        assertThat(respFut1, willSucceedFast());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
 
@@ -352,5 +375,27 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         // Actually, it completes faster because TimeoutException is thrown from mock instantly.
         assertThat(respFut0, willSucceedIn(5, TimeUnit.SECONDS));
         assertEquals(0, countOfTimeoutExceptionsOnReadIndexToThrow);
+    }
+
+    @Test
+    public void testReservationFailed() {
+        long leaseStartTime = 10;
+
+        reservationClosure = () -> {
+            throw new ReplicaReservationFailedException("Test: replica reservation failed");
+        };
+
+        leaderElection(LOCAL_NODE);
+
+        CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
+        assertThat(respFut, willSucceedIn(5, TimeUnit.SECONDS));
+        LeaseGrantedMessageResponse resp = respFut.join();
+        assertFalse(resp.accepted());
+
+        CompletableFuture<LeaseGrantedMessageResponse> respFutForce = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
+        assertThat(respFutForce, willSucceedIn(5, TimeUnit.SECONDS));
+        LeaseGrantedMessageResponse respForce = respFutForce.join();
+        // Force lease grant should also fail because of exception on replica side.
+        assertFalse(respForce.accepted());
     }
 }

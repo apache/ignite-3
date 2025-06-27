@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.checkpointUrgency;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager.pageIndexesForDeltaFilePageStore;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -40,17 +41,17 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -60,6 +61,8 @@ import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStor
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.invocation.InvocationOnMock;
@@ -67,10 +70,11 @@ import org.mockito.invocation.InvocationOnMock;
 /**
  * For {@link CheckpointManager} testing.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, ExecutorServiceExtension.class})
 public class CheckpointManagerTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration
-    private PageMemoryCheckpointConfiguration checkpointConfig;
+
+    @InjectExecutorService
+    private ExecutorService executorService;
 
     @Test
     void testSimple() throws Exception {
@@ -81,14 +85,14 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         CheckpointManager checkpointManager = new CheckpointManager(
                 "test",
                 null,
-                null,
-                mock(FailureProcessor.class),
-                checkpointConfig,
+                mock(FailureManager.class),
+                CheckpointConfiguration.builder().build(),
                 mock(FilePageStoreManager.class),
                 mock(PartitionMetaManager.class),
                 List.of(dataRegion),
                 mock(PageIoRegistry.class),
                 mock(LogSyncer.class),
+                executorService,
                 1024
         );
 
@@ -146,9 +150,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
-        CheckpointDirtyPages dirtyPages = new CheckpointDirtyPages(List.of(
-                new DataRegionDirtyPages<>(pageMemory0, dirtyPageArray(0, 0, 1)),
-                new DataRegionDirtyPages<>(pageMemory1, dirtyPageArray(0, 1, 2, 3, 4))
+        var dirtyPages = new CheckpointDirtyPages(List.of(
+                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 1)),
+                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 2, 3, 4))
         ));
 
         assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
@@ -160,9 +164,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         PersistentPageMemory pageMemory0 = mock(PersistentPageMemory.class);
         PersistentPageMemory pageMemory1 = mock(PersistentPageMemory.class);
 
-        CheckpointDirtyPages dirtyPages = new CheckpointDirtyPages(List.of(
-                new DataRegionDirtyPages<>(pageMemory0, dirtyPageArray(0, 0, 0, 1)),
-                new DataRegionDirtyPages<>(pageMemory1, dirtyPageArray(0, 1, 0, 2, 3, 4))
+        var dirtyPages = new CheckpointDirtyPages(List.of(
+                createDirtyPagesAndPartitions(pageMemory0, dirtyPageArray(0, 0, 0, 1)),
+                createDirtyPagesAndPartitions(pageMemory1, dirtyPageArray(0, 1, 0, 2, 3, 4))
         ));
 
         assertArrayEquals(new int[]{0, 1}, pageIndexesForDeltaFilePageStore(dirtyPages.getPartitionView(pageMemory0, 0, 0)));
@@ -194,14 +198,14 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         CheckpointManager checkpointManager = spy(new CheckpointManager(
                 "test",
                 null,
-                null,
-                mock(FailureProcessor.class),
-                checkpointConfig,
+                mock(FailureManager.class),
+                CheckpointConfiguration.builder().build(),
                 filePageStoreManager,
                 mock(PartitionMetaManager.class),
                 List.of(),
                 mock(PageIoRegistry.class),
                 mock(LogSyncer.class),
+                executorService,
                 1024
         ));
 
@@ -209,9 +213,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
 
         CheckpointProgress checkpointProgress = mock(CheckpointProgress.class);
 
-        CheckpointDirtyPages dirtyPages = new CheckpointDirtyPages(List.of(
-                new DataRegionDirtyPages<>(pageMemory, new FullPageId[]{dirtyPageId})
-        ));
+        var dirtyPages = new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, dirtyPageId)));
 
         when(checkpointProgress.inProgress()).thenReturn(true);
 
@@ -222,9 +224,9 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
         // Spying because mocking ByteBuffer does not work on Java 21.
         ByteBuffer pageBuf = spy(ByteBuffer.wrap(new byte[deltaFilePageStoreIo.pageSize()]));
 
-        checkpointManager.writePageToDeltaFilePageStore(pageMemory, dirtyPageId, pageBuf, true);
+        checkpointManager.writePageToDeltaFilePageStore(pageMemory, dirtyPageId, pageBuf);
 
-        verify(deltaFilePageStoreIo, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf), eq(true));
+        verify(deltaFilePageStoreIo, times(1)).write(eq(dirtyPageId.pageId()), eq(pageBuf));
     }
 
     private static FullPageId[] dirtyPageArray(int grpId, int partId, int... pageIndex) {

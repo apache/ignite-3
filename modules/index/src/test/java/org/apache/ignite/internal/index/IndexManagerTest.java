@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
@@ -39,6 +38,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,19 +49,25 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
-import java.util.function.LongFunction;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
+import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
@@ -72,9 +78,13 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,11 +93,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Test class to verify {@link IndexManager}. */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class IndexManagerTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     @WorkDirectory
     private Path workDir;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     private TableManager mockTableManager;
 
@@ -101,7 +115,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     private final Map<Integer, TableViewInternal> tableViewInternalByTableId = new ConcurrentHashMap<>();
 
-    private TestLowWatermark lowWatermark = new TestLowWatermark();
+    private final TestLowWatermark lowWatermark = new TestLowWatermark();
 
     @BeforeEach
     public void setUp() {
@@ -124,7 +138,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(metaStorageManager, catalogManager, indexManager), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), metaStorageManager, catalogManager, indexManager), willCompleteSuccessfully());
     }
 
     @Test
@@ -139,18 +153,20 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testDestroyIndex() {
+        TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
+
+        when(tableViewInternal.internalTable().storage().destroyIndex(anyInt()))
+                .thenReturn(nullCompletedFuture());
+
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        int tableId = tableId();
         int indexId = indexId();
 
         dropIndex(INDEX_NAME);
         assertThat(fireDestroyEvent(), willCompleteSuccessfully());
 
-        TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId);
-
-        verify(tableViewInternal).unregisterIndex(indexId);
-        verify(tableViewInternal.internalTable().storage()).destroyIndex(indexId);
+        verify(tableViewInternal, timeout(1000)).unregisterIndex(indexId);
+        verify(tableViewInternal.internalTable().storage(), timeout(1000)).destroyIndex(indexId);
     }
 
     @Test
@@ -174,7 +190,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private TableViewInternal newMockTable(int tableId) {
-        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong())));
+        Catalog catalog = Objects.requireNonNull(catalogManager.activeCatalog(clock.nowLong()));
         CatalogZoneDescriptor zone = catalog.defaultZone();
 
         assertNotNull(zone);
@@ -190,18 +206,25 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(internalTable.tableId()).thenReturn(tableId);
         when(internalTable.storage()).thenReturn(mvTableStorage);
 
-        CatalogTableDescriptor table = catalogManager.table(tableId, catalogManager.latestCatalogVersion());
+        CatalogTableDescriptor table = catalog.table(tableId);
 
         ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
         return spy(new TableImpl(
                 internalTable,
-                new HeapLockManager(),
+                lockManager(),
                 new ConstantSchemaVersions(1),
                 marshallers,
                 mock(IgniteSql.class),
+                mock(FailureProcessor.class),
                 table.primaryKeyIndexId()
         ));
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     private int tableId() {
@@ -213,7 +236,17 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void createAndStartComponents() {
-        metaStorageManager = StandaloneMetaStorageManager.create(new TestRocksDbKeyValueStorage(NODE_NAME, workDir));
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var storage = new RocksDbKeyValueStorage(
+                NODE_NAME,
+                workDir,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
+
+        metaStorageManager = StandaloneMetaStorageManager.create(storage, clock, readOperationForCompactionTracker);
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
@@ -222,17 +255,26 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 mockTableManager,
                 catalogManager,
                 ForkJoinPool.commonPool(),
-                (LongFunction<CompletableFuture<?>> function) -> metaStorageManager.registerRevisionUpdateListener(function::apply),
+                new MetaStorageRevisionListenerRegistry(metaStorageManager),
                 lowWatermark
         );
 
+        ComponentContext context = new ComponentContext();
+
         assertThat(
-                startAsync(metaStorageManager, catalogManager, indexManager)
-                        .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
+                startAsync(context, metaStorageManager)
+                        .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture()),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(
+                startAsync(context, catalogManager, indexManager)
                         .thenCompose(unused -> metaStorageManager.notifyRevisionUpdateListenerOnStart())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
+
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
     }
 
     private void createTable(String tableName) {
@@ -240,15 +282,15 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void dropTable(String tableName) {
-        TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
+        TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
     }
 
     private void createIndex(String tableName, String indexName) {
-        createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(COLUMN_NAME), false);
+        createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(COLUMN_NAME), false);
     }
 
     private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private CompletableFuture<Void> fireDestroyEvent() {

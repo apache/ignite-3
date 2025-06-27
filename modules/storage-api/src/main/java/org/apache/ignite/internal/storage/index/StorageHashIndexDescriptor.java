@@ -84,7 +84,7 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
     @IgniteToStringInclude
     private final List<StorageHashIndexColumnDescriptor> columns;
 
-    private final boolean pk;
+    private final boolean mustBeBuilt;
 
     /**
      * Constructor.
@@ -93,7 +93,7 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
      * @param index Catalog index descriptor.
      */
     public StorageHashIndexDescriptor(CatalogTableDescriptor table, CatalogHashIndexDescriptor index) {
-        this(index.id(), extractIndexColumnsConfiguration(table, index), table.primaryKeyIndexId() == index.id());
+        this(index.id(), extractIndexColumnsConfiguration(table, index), !index.isCreatedWithTable());
     }
 
     /**
@@ -101,12 +101,12 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
      *
      * @param indexId Index id.
      * @param columns Columns descriptors.
-     * @param pk Primary index flag.
+     * @param mustBeBuilt Flag indicating that this index must be built by a background task.
      */
-    public StorageHashIndexDescriptor(int indexId, List<StorageHashIndexColumnDescriptor> columns, boolean pk) {
+    public StorageHashIndexDescriptor(int indexId, List<StorageHashIndexColumnDescriptor> columns, boolean mustBeBuilt) {
         this.id = indexId;
         this.columns = columns;
-        this.pk = pk;
+        this.mustBeBuilt = mustBeBuilt;
     }
 
     @Override
@@ -120,8 +120,8 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
     }
 
     @Override
-    public boolean isPk() {
-        return pk;
+    public boolean mustBeBuilt() {
+        return mustBeBuilt;
     }
 
     @Override

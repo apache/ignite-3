@@ -19,7 +19,6 @@ package org.apache.ignite.internal.placementdriver.leases;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Collections.emptyMap;
-import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
@@ -31,12 +30,14 @@ import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +46,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -53,7 +56,8 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -63,14 +67,14 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class tracks cluster leases in memory.
  * At first, the class state recoveries from Vault, then updates on watch's listener.
  */
-public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements PlacementDriver {
+public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
+        LeasePlacementDriver {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseTracker.class);
 
@@ -195,7 +199,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                                     .update(lease.getExpirationTime(), lease);
 
                             if (needFireEventReplicaBecomePrimary(previousLeasesMap.get(grpId), lease)) {
-                                fireEventFutures.add(fireEventReplicaBecomePrimary(event.revision(), lease));
+                                fireEventFutures.add(fireEventPrimaryReplicaElected(event.revision(), lease));
                             }
                         }
 
@@ -214,20 +218,15 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         }
                     }
 
-                    leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
+                    leases = new Leases(leasesMap, leasesBytes);
 
                     for (Lease expiredLease : expiredLeases) {
-                        firePrimaryReplicaExpiredEvent(event.revision(), expiredLease);
+                        fireEventPrimaryReplicaExpired(event.revision(), expiredLease);
                     }
                 }
 
                 return allOf(fireEventFutures.toArray(CompletableFuture[]::new));
             });
-        }
-
-        @Override
-        public void onError(Throwable e) {
-            LOG.warn("Unable to process update leases event", e);
         }
     }
 
@@ -260,6 +259,19 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+        try {
+            ReplicaMeta currentMeta = getCurrentPrimaryReplica(groupId, timestamp);
+
+            if (currentMeta != null && clusterNodeResolver.getById(currentMeta.getLeaseholderId()) != null) {
+                return completedFuture(currentMeta);
+            }
+        } finally {
+            busyLock.leaveBusy();
+        }
+
         CompletableFuture<ReplicaMeta> future = new CompletableFuture<>();
 
         awaitPrimaryReplica(groupId, timestamp, future);
@@ -297,6 +309,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         }
                     }));
         });
+    }
+
+    @Override
+    public @Nullable ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        Lease lease = getLease(replicationGroupId);
+
+        if (lease.isAccepted() && clockService.after(lease.getExpirationTime(), timestamp)) {
+            return lease;
+        }
+
+        return null;
     }
 
     /**
@@ -343,7 +366,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                 }
             });
 
-            leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
+            leases = new Leases(leasesMap, leasesBytes);
         }
 
         LOG.info("Leases cache recovered [leases={}]", leases);
@@ -379,7 +402,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param causalityToken Causality token.
      * @param expiredLease Expired lease.
      */
-    private void firePrimaryReplicaExpiredEvent(long causalityToken, Lease expiredLease) {
+    private void fireEventPrimaryReplicaExpired(long causalityToken, Lease expiredLease) {
         ReplicationGroupId grpId = expiredLease.replicationGroupId();
 
         CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
@@ -396,8 +419,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
     }
 
-    private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
-        String leaseholderId = lease.getLeaseholderId();
+    private CompletableFuture<Void> fireEventPrimaryReplicaElected(long causalityToken, Lease lease) {
+        UUID leaseholderId = lease.getLeaseholderId();
 
         assert leaseholderId != null : lease;
 

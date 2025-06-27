@@ -18,19 +18,35 @@
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
 import java.util.UUID;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseJoinDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 
 /**
- * Tests for {@code JOIN} operator for {@link UuidType UUID data type}.
+ * Tests for {@code JOIN} operator for {@link SqlTypeName#UUID UUID data type}.
  */
 public class ItUuidJoinTest extends BaseJoinDataTypeTest<UUID> {
-
     /** {@inheritDoc} */
     @Override
     protected DataTypeTestSpec<UUID> getTypeSpec() {
         return DataTypeTestSpecs.UUID_TYPE;
+    }
+
+    @Override
+    @AfterEach
+    public void cleanJoinTables() {
+        runSql("DELETE FROM t_join_uuid");
+        runSql("DELETE FROM t_join_varchar");
+    }
+
+    /** Creates join tables. */
+    @Override
+    @BeforeAll
+    public void createJoinTables() {
+        runSql("create table t_join_uuid(id integer primary key, test_key uuid)");
+        runSql("create table t_join_varchar(id integer primary key, test_key varchar)");
     }
 }

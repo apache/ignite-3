@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.sql.engine.util.Commons.readValue;
 
 import java.nio.ByteBuffer;
+import java.util.function.ToIntFunction;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -68,17 +69,31 @@ public class SqlOutputBinaryRow extends BinaryTupleReader implements BinaryRowEx
     }
 
     /** Creates BinaryRow from the given tuple. */
-    public static SqlOutputBinaryRow newRow(
+    static SqlOutputBinaryRow newRow(
             SchemaDescriptor descriptor,
-            boolean keyOnly,
             InternalTuple binaryTuple
+    ) {
+        return newRow0(descriptor, binaryTuple, Column::positionInRow);
+    }
+
+    /** Creates BinaryRow of key columns from the given tuple. */
+    static SqlOutputBinaryRow newKeyRow(
+            SchemaDescriptor descriptor,
+            InternalTuple binaryTuple
+    ) {
+        return newRow0(descriptor, binaryTuple, Column::positionInKey);
+    }
+
+    /** Creates BinaryRow from the given tuple. */
+    private static SqlOutputBinaryRow newRow0(
+            SchemaDescriptor descriptor,
+            InternalTuple binaryTuple,
+            ToIntFunction<Column> columnPosition
     ) {
         HashCalculator hashCalc = new HashCalculator();
 
         for (Column column : descriptor.colocationColumns()) {
-            int idx = keyOnly
-                    ? column.positionInKey()
-                    : column.positionInRow();
+            int idx = columnPosition.applyAsInt(column);
 
             assert idx >= 0 : column;
 

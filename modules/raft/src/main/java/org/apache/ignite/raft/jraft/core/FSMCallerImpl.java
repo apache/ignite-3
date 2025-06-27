@@ -39,6 +39,7 @@ import org.apache.ignite.raft.jraft.closure.SaveSnapshotClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -97,10 +98,7 @@ public class FSMCallerImpl implements FSMCaller {
     /**
      * Apply task for disruptor.
      */
-    public static class ApplyTask implements NodeIdAware {
-        /** Raft node id. */
-        NodeId nodeId;
-
+    public static class ApplyTask extends NodeIdAware {
         public TaskType type;
         // union fields
         public long committedIndex;
@@ -111,11 +109,9 @@ public class FSMCallerImpl implements FSMCaller {
         public CountDownLatch shutdownLatch;
 
         @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
-
         public void reset() {
+            super.reset();
+
             this.type = null;
             this.committedIndex = 0;
             this.term = 0;
@@ -123,7 +119,6 @@ public class FSMCallerImpl implements FSMCaller {
             this.leaderChangeCtx = null;
             this.done = null;
             this.shutdownLatch = null;
-            this.nodeId = null;
         }
     }
 
@@ -157,6 +152,8 @@ public class FSMCallerImpl implements FSMCaller {
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
     private RaftMessagesFactory msgFactory;
 
+    private volatile boolean shuttingDown;
+
     public FSMCallerImpl() {
         super();
         this.currTask = TaskType.IDLE;
@@ -188,7 +185,7 @@ public class FSMCallerImpl implements FSMCaller {
         }
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
-        LOG.info("Starts FSMCaller successfully.");
+        LOG.info("Starts FSMCaller successfully [nodeId={}].", nodeId);
         return true;
     }
 
@@ -199,12 +196,15 @@ public class FSMCallerImpl implements FSMCaller {
         }
         LOG.info("Shutting down FSMCaller...");
 
+        this.shuttingDown = true;
+
         if (this.taskQueue != null) {
             final CountDownLatch latch = new CountDownLatch(1);
             this.shutdownLatch = latch;
 
             Utils.runInThread(this.node.getOptions().getCommonExecutor(), () -> this.taskQueue.publishEvent((task, sequence) -> {
                 task.reset();
+
                 task.nodeId = this.nodeId;
                 task.type = TaskType.SHUTDOWN;
                 task.shutdownLatch = latch;
@@ -237,6 +237,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onCommitted(final long committedIndex) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.COMMITTED;
             task.committedIndex = committedIndex;
         });
@@ -250,6 +252,8 @@ public class FSMCallerImpl implements FSMCaller {
         final CountDownLatch latch = new CountDownLatch(1);
         enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.FLUSH;
             task.shutdownLatch = latch;
         });
@@ -260,6 +264,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onSnapshotLoad(final LoadSnapshotClosure done) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.SNAPSHOT_LOAD;
             task.done = done;
         });
@@ -269,6 +275,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onSnapshotSave(final SaveSnapshotClosure done) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.SNAPSHOT_SAVE;
             task.done = done;
         });
@@ -278,6 +286,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onLeaderStop(final Status status) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.LEADER_STOP;
             task.status = new Status(status);
         });
@@ -287,6 +297,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onLeaderStart(final long term) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.LEADER_START;
             task.term = term;
         });
@@ -296,6 +308,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onStartFollowing(final LeaderChangeContext ctx) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.START_FOLLOWING;
             task.leaderChangeCtx = new LeaderChangeContext(ctx.getLeaderId(), ctx.getTerm(), ctx.getStatus());
         });
@@ -305,6 +319,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onStopFollowing(final LeaderChangeContext ctx) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.STOP_FOLLOWING;
             task.leaderChangeCtx = new LeaderChangeContext(ctx.getLeaderId(), ctx.getTerm(), ctx.getStatus());
         });
@@ -343,6 +359,8 @@ public class FSMCallerImpl implements FSMCaller {
         final OnErrorClosure c = new OnErrorClosure(error);
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.ERROR;
             task.done = c;
         });
@@ -491,12 +509,13 @@ public class FSMCallerImpl implements FSMCaller {
             final IteratorImpl iterImpl = new IteratorImpl(this.fsm, this.logManager, closures, firstClosureIndex,
                 lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions());
 
-            while (iterImpl.isGood()) {
+            while (!shuttingDown && iterImpl.isGood()) {
                 final LogEntry logEntry = iterImpl.entry();
                 if (logEntry.getType() != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
                     if (logEntry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
+                        LogId logId = logEntry.getId();
                         ConfigurationEntry configurationEntry = new ConfigurationEntry(
-                                logEntry.getId().copy(),
+                                logId.copy(),
                                 new Configuration(logEntry.getPeers(), logEntry.getLearners()),
                                 new Configuration()
                         );
@@ -504,7 +523,7 @@ public class FSMCallerImpl implements FSMCaller {
                             configurationEntry.setOldConf(new Configuration(logEntry.getOldPeers(), logEntry.getOldLearners()));
                         }
 
-                        this.fsm.onRawConfigurationCommitted(configurationEntry);
+                        this.fsm.onRawConfigurationCommitted(configurationEntry, logId.getIndex(), logId.getTerm());
 
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
                             // Joint stage is not supposed to be noticeable by end users.
@@ -528,6 +547,8 @@ public class FSMCallerImpl implements FSMCaller {
             if (iterImpl.hasError()) {
                 setError(iterImpl.getError());
                 iterImpl.runTheRestClosureWithError();
+            } else if (shuttingDown) {
+                iterImpl.runTheRestClosureWithShutdownException();
             }
             final long lastIndex = iterImpl.getIndex() - 1;
             final long lastTerm = this.logManager.getTerm(lastIndex);
@@ -550,7 +571,7 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     private void doApplyTasks(final IteratorImpl iterImpl) {
-        final IteratorWrapper iter = new IteratorWrapper(iterImpl);
+        final IteratorWrapper iter = new IteratorWrapper(iterImpl, () -> shuttingDown);
         final long startApplyMs = Utils.monotonicMs();
         final long startIndex = iter.getIndex();
         try {
@@ -564,7 +585,11 @@ public class FSMCallerImpl implements FSMCaller {
             LOG.error("Iterator is still valid, did you return before iterator reached the end?");
         }
         // Try move to next in case that we pass the same log twice.
-        iter.next();
+        // But if we are shutting down, current entry is not applied, so we should not advance the iterator to allow a ShutdownException
+        // being sent to its client.
+        if (!shuttingDown) {
+            iter.next();
+        }
     }
 
     private void doSnapshotSave(final SaveSnapshotClosure done) {
@@ -579,6 +604,8 @@ public class FSMCallerImpl implements FSMCaller {
         }
 
         SnapshotMetaBuilder metaBuilder = msgFactory.snapshotMeta()
+            .cfgIndex(confEntry.getId().getIndex())
+            .cfgTerm(confEntry.getId().getTerm())
             .lastIncludedIndex(lastAppliedIndex)
             .lastIncludedTerm(this.lastAppliedTerm)
             .peersList(confEntry.getConf().getPeers().stream().map(Object::toString).collect(toList()))
@@ -676,7 +703,7 @@ public class FSMCallerImpl implements FSMCaller {
         // so we have to protect from this. In production, these methods never return null.
         if (meta.peersList() != null && meta.learnersList() != null) {
             ConfigurationEntry configurationEntry = new ConfigurationEntry(
-                    snapshotId.copy(),
+                    new LogId(meta.cfgIndex(), meta.cfgTerm()),
                     new Configuration(
                             meta.peersList().stream().map(PeerId::parsePeer).collect(toList()),
                             meta.learnersList().stream().map(PeerId::parsePeer).collect(toList())
@@ -690,7 +717,7 @@ public class FSMCallerImpl implements FSMCaller {
                 ));
             }
 
-            this.fsm.onRawConfigurationCommitted(configurationEntry);
+            this.fsm.onRawConfigurationCommitted(configurationEntry, snapshotId.getIndex(), snapshotId.getTerm());
         }
 
         if (meta.oldPeersList() == null) {

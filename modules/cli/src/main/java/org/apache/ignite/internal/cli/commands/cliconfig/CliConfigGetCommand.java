@@ -44,14 +44,10 @@ public class CliConfigGetCommand extends BaseCommand implements Callable<Integer
 
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(CliConfigGetCallInput.builder()
                         .key(key)
                         .profileName(profileName.getProfileName())::build)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 }

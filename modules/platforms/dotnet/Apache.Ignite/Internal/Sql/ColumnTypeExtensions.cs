@@ -18,10 +18,7 @@
 namespace Apache.Ignite.Internal.Sql;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
 using Ignite.Sql;
 using NodaTime;
 
@@ -30,13 +27,7 @@ using NodaTime;
 /// </summary>
 internal static class ColumnTypeExtensions
 {
-    private static readonly IReadOnlyDictionary<Type, ColumnType> ClrToSql =
-        Enum.GetValues<ColumnType>().ToDictionary(x => x.ToClrType(), x => x);
-
-    private static readonly IReadOnlyDictionary<Type, string> ClrToSqlName =
-        Enum.GetValues<ColumnType>()
-            .Where(x => x != ColumnType.Period && x != ColumnType.Duration)
-            .ToDictionary(x => x.ToClrType(), x => x.ToSqlTypeName());
+    private static readonly Dictionary<Type, ColumnType> ClrToSql = GetClrToSqlMap();
 
     /// <summary>
     /// Gets corresponding .NET type.
@@ -53,20 +44,26 @@ internal static class ColumnTypeExtensions
         ColumnType.Int64 => typeof(long),
         ColumnType.Float => typeof(float),
         ColumnType.Double => typeof(double),
-        ColumnType.Decimal => typeof(decimal),
+        ColumnType.Decimal => typeof(BigDecimal),
         ColumnType.Date => typeof(LocalDate),
         ColumnType.Time => typeof(LocalTime),
         ColumnType.Datetime => typeof(LocalDateTime),
         ColumnType.Timestamp => typeof(Instant),
         ColumnType.Uuid => typeof(Guid),
-        ColumnType.Bitmask => typeof(BitArray),
         ColumnType.String => typeof(string),
         ColumnType.ByteArray => typeof(byte[]),
         ColumnType.Period => typeof(Period),
         ColumnType.Duration => typeof(Duration),
-        ColumnType.Number => typeof(BigInteger),
         _ => throw new InvalidOperationException($"Invalid {nameof(ColumnType)}: {columnType}")
     };
+
+    /// <summary>
+    /// Gets alternative CLR type for a give column type.
+    /// </summary>
+    /// <param name="columnType">Column type.</param>
+    /// <returns>CLR type, or null when there is no alternative type.</returns>
+    public static Type? ToClrTypeAlternative(this ColumnType columnType) =>
+        columnType == ColumnType.Decimal ? typeof(decimal) : null;
 
     /// <summary>
     /// Gets corresponding .NET type.
@@ -102,10 +99,8 @@ internal static class ColumnTypeExtensions
         ColumnType.Datetime => "timestamp",
         ColumnType.Timestamp => "timestamp_tz",
         ColumnType.Uuid => "uuid",
-        ColumnType.Bitmask => "bitmap",
         ColumnType.String => "varchar",
         ColumnType.ByteArray => "varbinary",
-        ColumnType.Number => "numeric",
         ColumnType.Period => "interval",
         ColumnType.Duration => "duration",
         _ => throw new InvalidOperationException($"Unsupported {nameof(ColumnType)}: {columnType}")
@@ -117,8 +112,8 @@ internal static class ColumnTypeExtensions
     /// <param name="type">CLR type.</param>
     /// <returns>SQL type name.</returns>
     public static string ToSqlTypeName(this Type type) =>
-        ClrToSqlName.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var sqlTypeName)
-            ? sqlTypeName
+        ClrToSql.TryGetValue(Nullable.GetUnderlyingType(type) ?? type, out var columnType)
+            ? columnType.ToSqlTypeName()
             : throw new InvalidOperationException($"Type is not supported in SQL: {type}");
 
     /// <summary>
@@ -144,4 +139,20 @@ internal static class ColumnTypeExtensions
     /// <returns>Whether the type is floating point.</returns>
     public static bool IsAnyFloat(this ColumnType columnType) =>
         columnType is ColumnType.Float or ColumnType.Double;
+
+    private static Dictionary<Type, ColumnType> GetClrToSqlMap()
+    {
+        var columnTypes = Enum.GetValues<ColumnType>();
+        var clrToSql = new Dictionary<Type, ColumnType>(columnTypes.Length + 1);
+
+        foreach (var columnType in columnTypes)
+        {
+            var clrType = columnType.ToClrType();
+            clrToSql[clrType] = columnType;
+        }
+
+        clrToSql[typeof(decimal)] = ColumnType.Decimal;
+
+        return clrToSql;
+    }
 }

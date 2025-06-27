@@ -21,19 +21,21 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
+import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
+import org.apache.ignite.internal.partition.replicator.schemacompat.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -41,8 +43,6 @@ import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.criteria.SqlSerializer.Builder;
-import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
-import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.AsyncCursor;
@@ -100,26 +100,6 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     }
 
     /**
-     * Waits for operation completion.
-     *
-     * @param future Future to wait to.
-     * @param <T> Future result type.
-     * @return Future result.
-     */
-    protected static <T> T sync(CompletableFuture<T> future) {
-        try {
-            return future.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
-        } catch (ExecutionException e) {
-            Throwable cause = unwrapCause(e);
-            throw sneakyThrow(cause);
-        }
-    }
-
-    /**
      * Combines the effect of {@link #withSchemaSync(Transaction, KvAction)} and
      * {@link IgniteExceptionMapperUtil#convertToPublicFuture(CompletableFuture)}.
      *
@@ -151,13 +131,14 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @return Whatever the action returns.
      */
     protected final <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, KvAction<T> action) {
-        return withSchemaSync(tx, null, action);
+        return withSchemaSync((InternalTransaction) tx, null, action);
     }
 
-    private <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, @Nullable Integer previousSchemaVersion, KvAction<T> action) {
-        CompletableFuture<Integer> schemaVersionFuture = tx == null
-                ? schemaVersions.schemaVersionAtNow(tbl.tableId())
-                : schemaVersions.schemaVersionAt(((InternalTransaction) tx).startTimestamp(), tbl.tableId());
+    private <T> CompletableFuture<T> withSchemaSync(@Nullable InternalTransaction tx, @Nullable Integer previousSchemaVersion,
+            KvAction<T> action) {
+        CompletableFuture<Integer> schemaVersionFuture = isDirectFlowApplicableTx(tx)
+                ? schemaVersions.schemaVersionAtCurrentTime(tbl.tableId())
+                : schemaVersions.schemaVersionAt(tx.schemaTimestamp(), tbl.tableId());
 
         return schemaVersionFuture
                 .thenCompose(schemaVersion -> action.act(schemaVersion)
@@ -173,12 +154,12 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                                 // version corresponding to the transaction creation moment, so this mismatch is not tolerable: we need
                                 // to retry the operation here.
 
-                                assert tx == null : "Only for implicit transactions a retry might be requested";
+                                assert isDirectFlowApplicableTx(tx) : "Only for direct flow applicable tx a retry might be requested";
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
                                 // Repeat.
                                 return withSchemaSync(tx, schemaVersion, action);
-                            } else if (tx == null && isOrCausedBy(IncompatibleSchemaException.class, ex)) {
+                            } else if (tx == null && isOrCausedBy(IncompatibleSchemaVersionException.class, ex)) {
                                 // Table version was changed while we were executing an implicit transaction (between it had been created
                                 // and the moment when the operation actually touched the partition), let's retry.
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
@@ -274,7 +255,6 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
             throw new CompletionException(mapToPublicCriteriaException(unwrapCause(th)));
         });
     }
-
 
     /**
      * Action representing some KV operation. When executed, the action is supplied with schema version corresponding

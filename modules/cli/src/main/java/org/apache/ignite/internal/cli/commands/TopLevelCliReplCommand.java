@@ -17,20 +17,33 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.apache.ignite.internal.cli.commands.CommandConstants.ABBREVIATE_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.COMMAND_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.DESCRIPTION_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.OPTION_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.PARAMETER_LIST_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.REQUIRED_OPTION_MARKER;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_OPTIONS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SORT_SYNOPSIS;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.SYNOPSIS_HEADING;
+import static org.apache.ignite.internal.cli.commands.CommandConstants.USAGE_HELP_AUTO_WIDTH;
+
 import org.apache.ignite.internal.cli.commands.cliconfig.CliReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.DisconnectCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeReplCommand;
+import org.apache.ignite.internal.cli.commands.recovery.RecoveryReplCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlReplCommand;
 import org.apache.ignite.internal.cli.commands.version.VersionCommand;
 import picocli.CommandLine;
+import picocli.CommandLine.Command;
 import picocli.shell.jline3.PicocliCommands;
 
 /**
  * Top-level command that just prints help.
  */
-@CommandLine.Command(name = "",
+@Command(name = "",
         footer = {"", "Press Ctrl-D to exit."},
         subcommands = {
                 SqlReplCommand.class,
@@ -42,7 +55,21 @@ import picocli.shell.jline3.PicocliCommands;
                 ConnectReplCommand.class,
                 DisconnectCommand.class,
                 NodeReplCommand.class,
-                ClusterReplCommand.class
-        })
+                ClusterReplCommand.class,
+                RecoveryReplCommand.class
+        },
+
+        descriptionHeading = DESCRIPTION_HEADING,
+        optionListHeading = OPTION_LIST_HEADING,
+        synopsisHeading = SYNOPSIS_HEADING,
+        requiredOptionMarker = REQUIRED_OPTION_MARKER,
+        usageHelpAutoWidth = USAGE_HELP_AUTO_WIDTH,
+        sortOptions = SORT_OPTIONS,
+        sortSynopsis = SORT_SYNOPSIS,
+        abbreviateSynopsis = ABBREVIATE_SYNOPSIS,
+        commandListHeading = COMMAND_LIST_HEADING,
+        parameterListHeading = PARAMETER_LIST_HEADING
+
+)
 public class TopLevelCliReplCommand {
 }

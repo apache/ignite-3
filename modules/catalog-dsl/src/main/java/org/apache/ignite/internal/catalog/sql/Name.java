@@ -17,52 +17,77 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.regex.Pattern;
-import org.apache.ignite.internal.util.StringUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * SQL identifier.
  */
 class Name extends QueryPart {
-    /**
-     * Pattern to find possible SQL injections in identifiers.
-     */
-    private static final Pattern PATTERN = Pattern.compile("[';\r\n\t\\s\\/]|(--[^\r\n]*)");
+    private final List<String> names;
 
-    private final List<String> names = new ArrayList<>();
+    private final QualifiedName qualifiedName;
 
     /**
-     * Identifier name. E.g [db, schema, table] become 'db.schema.table' or '"db"."schema"."table"' depending on DDL options.
+     * Creates a simple name.
      *
-     * @param names name parts of qualified identifier.
+     * @param name Name.
+     * @return Name.
      */
-    Name(String... names) {
-        Objects.requireNonNull(names, "Names must not be null");
+    static Name simple(String name) {
+        return new Name(List.of(name));
+    }
 
+    /**
+     * Creates a name from a qualified name.
+     *
+     * @param qualifiedName Qualified name.
+     * @return Name.
+     */
+    static Name qualified(QualifiedName qualifiedName) {
+        return new Name(qualifiedName);
+    }
+
+    private Name(QualifiedName qualifiedName) {
+        this.qualifiedName = qualifiedName;
+        this.names = null;
+    }
+
+    private Name(List<String> names) {
         for (String name : names) {
-            if (StringUtils.nullOrBlank(name)) {
-                // Skip parts instead of failure as nulls can be used as defaults from annotations or builders.
-                continue;
+            if (name == null || name.isEmpty()) {
+                throw new IllegalArgumentException("Name parts can not be null or empty: " + names);
             }
-            // We need to sanitize the identifiers to prevent SQL injection.
-            // Ignite DDL doesn't have prepared statements yet which could be used instead of creating a raw query.
-            if (PATTERN.matcher(name).find()) {
-                throw new IllegalArgumentException("Name part " + name + " is invalid");
-            }
-            this.names.add(name);
         }
+        this.qualifiedName = null;
+        this.names = names;
     }
 
     @Override
     protected void accept(QueryContext ctx) {
-        String quote = ctx.isQuoteNames() ? "\"" : "";
-        String separator = "";
-        for (String name : names) {
-            ctx.sql(separator).sql(quote).sql(name).sql(quote);
-            separator = ".";
+        if (qualifiedName != null) {
+            ctx.sql(qualifiedName.toCanonicalForm());
+        } else {
+            assert names != null : "Names must be specified";
+
+            String separator = "";
+            for (String name : names) {
+                // If a name is quoted, we must preserve case sensitivity -> write it as is
+                // If a name UPPER(name) is a valid normalized id, then this is a case insensitive name,
+                // write it in uppercase for consistency. Otherwise we must quote it.
+                if (name.startsWith("\"")) {
+                    ctx.sql(separator).sql(name);
+                } else {
+                    String upperCase = name.toUpperCase();
+                    if (IgniteNameUtils.isValidNormalizedIdentifier(upperCase)) {
+                        ctx.sql(separator).sql(upperCase);
+                    } else {
+                        ctx.sql(separator).sql(IgniteNameUtils.quoteIfNeeded(name));
+                    }
+                }
+                separator = ".";
+            }
         }
     }
 }

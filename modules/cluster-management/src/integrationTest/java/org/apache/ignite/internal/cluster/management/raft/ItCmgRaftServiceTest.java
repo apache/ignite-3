@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -41,6 +40,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.cluster.management.ClusterIdHolder;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
@@ -51,23 +51,29 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -98,25 +104,38 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         private final RaftManager raftManager;
 
-        private final ClusterStateStorage raftStorage = new TestClusterStateStorage();
+        private final LogStorageFactory partitionsLogStorageFactory;
+
+        private final ClusterStateStorage clusterStateStorage = new TestClusterStateStorage();
 
         private final LogicalTopology logicalTopology;
 
+        private final ComponentWorkingDir workingDir;
+
         Node(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) {
             this.clusterService = clusterService(testInfo, addr.port(), nodeFinder);
-            this.raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
-            this.logicalTopology = new LogicalTopologyImpl(raftStorage);
+            workingDir = new ComponentWorkingDir(workDir);
+
+            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    workingDir.raftLogPath()
+            );
+            this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
+            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new NoOpFailureManager());
         }
 
         void start() {
-            assertThat(startAsync(clusterService, raftManager), willCompleteSuccessfully());
+            assertThat(
+                    startAsync(new ComponentContext(), clusterService, partitionsLogStorageFactory, raftManager),
+                    willCompleteSuccessfully()
+            );
         }
 
         void afterNodeStart() {
             try {
                 assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
 
-                assertThat(raftStorage.startAsync(), willCompleteSuccessfully());
+                assertThat(clusterStateStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
                         .map(ClusterNode::name)
@@ -124,26 +143,31 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
                 Peer serverPeer = configuration.peer(localMember().name());
 
-                CompletableFuture<RaftGroupService> raftService;
+                RaftGroupService raftService;
 
                 if (serverPeer == null) {
-                    raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration);
+                    raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration, true);
                 } else {
-                    raftService = raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
+                    var clusterStateStorageMgr = new ClusterStateStorageManager(clusterStateStorage);
+
+                    raftService = raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(
-                                    raftStorage,
-                                    new LogicalTopologyImpl(raftStorage),
-                                    term -> {}
+                                    clusterStateStorageMgr,
+                                    logicalTopology,
+                                    new ValidationManager(clusterStateStorageMgr, logicalTopology),
+                                    term -> {},
+                                    new ClusterIdHolder(),
+                                    new NoOpFailureManager()
                             ),
-                            RaftGroupEventsListener.noopLsnr
+                            RaftGroupEventsListener.noopLsnr,
+                            null,
+                            RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())
                     );
                 }
 
-                assertThat(raftService, willCompleteSuccessfully());
-
-                this.raftService = new CmgRaftService(raftService.join(), clusterService, logicalTopology);
+                this.raftService = new CmgRaftService(raftService, clusterService.topologyService(), logicalTopology);
             } catch (InterruptedException | NodeStoppingException e) {
                 throw new RuntimeException(e);
             }
@@ -157,7 +181,10 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(raftManager, raftStorage, clusterService), willCompleteSuccessfully());
+            assertThat(
+                    stopAsync(new ComponentContext(), raftManager, partitionsLogStorageFactory, clusterStateStorage, clusterService),
+                    willCompleteSuccessfully()
+            );
         }
 
         ClusterNode localMember() {
@@ -211,7 +238,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 .cmgNodes(Set.copyOf(node1.raftService.nodeNames()))
                 .metaStorageNodes(Set.copyOf(node1.raftService.nodeNames()))
                 .version(IgniteProductVersion.CURRENT_VERSION.toString())
-                .clusterTag(clusterTag(msgFactory, "cluster"))
+                .clusterTag(ClusterTag.randomClusterTag(msgFactory, "cluster"))
                 .build();
 
         assertThat(node1.raftService.initClusterState(clusterState), willCompleteSuccessfully());
@@ -268,7 +295,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         Collection<String> cmgNodes = node1.raftService.nodeNames();
         Collection<String> msNodes = node1.raftService.nodeNames();
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         var clusterState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(cmgNodes))
                 .metaStorageNodes(Set.copyOf(msNodes))
@@ -340,7 +367,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         assertThat(node1.raftService.readClusterState(), willCompleteSuccessfully());
         assertThat(node2.raftService.readClusterState(), willCompleteSuccessfully());
 
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -362,7 +389,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         Node node1 = cluster.get(0);
         Node node2 = cluster.get(1);
 
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -376,7 +403,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         assertThat(node1.raftService.startJoinCluster(state.clusterTag(), null), willCompleteSuccessfully());
 
         // incorrect tag
-        var incorrectTag = clusterTag(msgFactory, "invalid");
+        var incorrectTag = ClusterTag.randomClusterTag(msgFactory, "invalid");
 
         assertThrowsWithCause(
                 () -> node2.raftService.startJoinCluster(incorrectTag, null).get(10, TimeUnit.SECONDS),
@@ -389,41 +416,13 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Test validation of Ignite Product Version upon join.
-     */
-    @Test
-    void testIgniteVersionValidation() {
-        CmgRaftService raftService = cluster.get(0).raftService;
-
-        IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("1.2.3");
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
-        ClusterState state = msgFactory.clusterState()
-                .cmgNodes(Set.copyOf(List.of("foo")))
-                .metaStorageNodes(Set.copyOf(List.of("bar")))
-                .version(igniteVersion.toString())
-                .clusterTag(clusterTag)
-                .build();
-
-        assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
-
-        assertThrowsWithCause(
-                () -> raftService.startJoinCluster(state.clusterTag(), null).get(10, TimeUnit.SECONDS),
-                IgniteInternalException.class,
-                String.format(
-                        "Join request denied, reason: Ignite versions do not match. Version: %s, version stored in CMG: %s",
-                        IgniteProductVersion.CURRENT_VERSION, state.igniteVersion()
-                )
-        );
-    }
-
-    /**
      * Tests that join commands can only be executed in a sequential order: startJoinCluster -> completeJoinCluster.
      */
     @Test
     void testValidationCommandOrder() {
         CmgRaftService raftService = cluster.get(0).raftService;
 
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -458,7 +457,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
     void testClusterStateValidation() {
         CmgRaftService raftService = cluster.get(0).raftService;
 
-        ClusterTag clusterTag4 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag4 = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -472,7 +471,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
 
         // Invalid CMG nodes
-        ClusterTag clusterTag3 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag3 = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState invalidCmgState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("baz")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -490,7 +489,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         );
 
         // Invalid MetaStorage nodes
-        ClusterTag clusterTag2 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag2 = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState invalidMsState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("baz")))
@@ -510,7 +509,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
 
         // Invalid version
         IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("1.2.3");
-        ClusterTag clusterTag1 = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag1 = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState invalidVersionState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -528,7 +527,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         );
 
         // Invalid tag
-        ClusterTag clusterTag = clusterTag(msgFactory, "invalid");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "invalid");
         ClusterState invalidTagState = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))
@@ -551,7 +550,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testJoinCommandsIdempotence() {
-        ClusterTag clusterTag = clusterTag(msgFactory, "cluster");
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
         ClusterState state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo")))
                 .metaStorageNodes(Set.copyOf(List.of("bar")))

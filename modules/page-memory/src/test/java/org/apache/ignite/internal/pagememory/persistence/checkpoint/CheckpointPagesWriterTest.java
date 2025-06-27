@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.createPartitionMetaManager;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -100,9 +103,9 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         FullPageId fullPageId5 = new FullPageId(pageId(0, FLAG_DATA, 5), 0);
         FullPageId fullPageId6 = new FullPageId(pageId(1, FLAG_DATA, 6), 0);
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
-                Map.of(pageMemory, List.of(fullPageId1, fullPageId2, fullPageId3, fullPageId4, fullPageId5, fullPageId6))
-        );
+        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
+                createDirtyPagesAndPartitions(pageMemory, fullPageId1, fullPageId2, fullPageId3, fullPageId4, fullPageId5, fullPageId6)
+        ));
 
         GroupPartitionId groupPartId0 = groupPartId(0, 0);
         GroupPartitionId groupPartId1 = groupPartId(0, 1);
@@ -122,13 +125,18 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
         CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
 
         CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(0);
+        progressImpl.pagesToWrite(checkpointDirtyPages);
 
         PartitionMeta partitionMeta0 = mock(PartitionMeta.class);
         PartitionMeta partitionMeta1 = mock(PartitionMeta.class);
 
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue
+                = checkpointDirtyPages.toDirtyPartitionQueue();
+
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 tracker,
-                writePageIds,
+                dirtyPartitionQueue,
+                singletonList(pageMemory),
                 updatedPartitions,
                 doneFuture,
                 beforePageWrite,
@@ -146,7 +154,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         assertDoesNotThrow(() -> doneFuture.get(1, TimeUnit.SECONDS));
 
-        assertTrue(writePageIds.isEmpty());
+        assertTrue(dirtyPartitionQueue.isEmpty());
 
         assertThat(updatedPartitions.keySet(), containsInAnyOrder(groupPartId0, groupPartId1));
 
@@ -160,20 +168,23 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                 writtenFullPageIds.getAllValues(),
                 equalTo(List.of(
                         // At the beginning, we write the partition meta for each new partition.
-                        fullPageId(0, 0, 0),
+                        new FullPageId(pageId(0, FLAG_AUX, 0), 0),
                         // Order is different because the first 3 pages we have to try to write to the page store 2 times.
                         fullPageId4, fullPageId5,
-                        fullPageId(0, 1, 0),
-                        fullPageId6, fullPageId1, fullPageId2, fullPageId3
+                        // At the beginning, we write the partition meta for each new partition.
+                        new FullPageId(pageId(1, FLAG_AUX, 0), 0),
+                        fullPageId6,
+                        // Now the retry pages.
+                        fullPageId1, fullPageId2, fullPageId3
                 ))
         );
 
-        verify(beforePageWrite, times(9)).run();
+        verify(beforePageWrite, times(14)).run();
 
-        verify(threadBuf, times(2)).get();
+        verify(threadBuf, times(1)).get();
 
         verify(partitionMeta0, times(1)).metaSnapshot(any(UUID.class));
-        verify(partitionMeta0, times(1)).metaSnapshot(any(UUID.class));
+        verify(partitionMeta1, times(1)).metaSnapshot(any(UUID.class));
     }
 
     @Test
@@ -182,7 +193,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
-        doThrow(IgniteInternalCheckedException.class)
+        doThrow(new IgniteInternalCheckedException(INTERNAL_ERR))
                 .when(pageMemory)
                 .checkpointWritePage(
                         any(FullPageId.class),
@@ -193,14 +204,22 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
+        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
+                createDirtyPagesAndPartitions(pageMemory, new FullPageId(pageId(0, FLAG_DATA, 1), 0))
+        ));
+
+        CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
+        checkpointProgress.pagesToWrite(checkpointDirtyPages);
+
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 new CheckpointMetricsTracker(),
-                new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(fullPageId(0, 0, 1)))),
+                new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(new GroupPartitionId(0, 0)))),
+                singletonList(pageMemory),
                 new ConcurrentHashMap<>(),
                 doneFuture,
                 () -> {},
                 createThreadLocalBuffer(),
-                new CheckpointProgressImpl(0),
+                checkpointProgress,
                 createDirtyPageWriter(null),
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
@@ -235,22 +254,29 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
                         any(CheckpointMetricsTracker.class)
                 );
 
-        IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> writePageIds = new IgniteConcurrentMultiPairQueue<>(
-                Map.of(pageMemory, List.of(fullPageId(0, 0, 1), fullPageId(0, 0, 2)))
-        );
+        CheckpointDirtyPages checkpointDirtyPages = new CheckpointDirtyPages(List.of(
+                createDirtyPagesAndPartitions(pageMemory, fullPageId(0, 0, 1), fullPageId(0, 1, 2))
+        ));
 
         GroupPartitionId groupPartId = groupPartId(0, 0);
 
         ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions = new ConcurrentHashMap<>();
 
+        CheckpointProgressImpl checkpointProgress = new CheckpointProgressImpl(0);
+        checkpointProgress.pagesToWrite(checkpointDirtyPages);
+
+        IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> dirtyPartitionQueue
+                = checkpointDirtyPages.toDirtyPartitionQueue();
+
         CheckpointPagesWriter pagesWriter = new CheckpointPagesWriter(
                 new CheckpointMetricsTracker(),
-                writePageIds,
+                dirtyPartitionQueue,
+                singletonList(pageMemory),
                 updatedPartitions,
                 doneFuture,
                 () -> {},
                 createThreadLocalBuffer(),
-                new CheckpointProgressImpl(0),
+                checkpointProgress,
                 createDirtyPageWriter(null),
                 ioRegistry,
                 createPartitionMetaManager(Map.of(groupPartId, mock(PartitionMeta.class))),
@@ -261,7 +287,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         assertDoesNotThrow(() -> doneFuture.get(1, TimeUnit.SECONDS));
 
-        assertThat(writePageIds.size(), equalTo(1));
+        assertThat(dirtyPartitionQueue.size(), equalTo(1));
         assertThat(updatedPartitions.keySet(), contains(groupPartId));
     }
 

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import java.util.UUID;
+
 /**
  * Represents a set of IDs that became stale.
  *
@@ -28,5 +30,5 @@ public interface StaleIds extends StaleIdDetector {
      *
      * @param nodeId ID to mark as stale.
      */
-    void markAsStale(String nodeId);
+    void markAsStale(UUID nodeId);
 }

@@ -1,0 +1,41 @@
+@startuml
+title Compaction stage
+
+database Coordinator as crd
+database "Cluster node" as node
+
+activate crd
+
+crd -> node ++ : MinimumTimesRequest
+node -> node
+note right
+  obtain previously published minimum
+  tx begin time using MinimumRequiredTimeCollectorService
+  from all local replication groups
+end note
+node -> node : compute minimum among all replication groups
+node -> node : select minimum required time between low watermark and min tx timestamp
+node -> crd -- : MinimumTimesResponse
+note right
+  response include
+  1. local minimum required time
+  2. local replication groups
+end note
+crd -> crd : compute global minimum required time
+crd -> crd : determine the version of the catalog up to which (inclusive) history can be trimmed
+alt <font color="#880000">compaction aborted</font>
+  crd -[#660000]x crd : <font color="#440000">verify restrictions
+  note right #ffdddd
+    All required nodes present in logical topology
+    Timestamp was published on all replicas
+    Distribution of replicas matches expected
+    There is no active rebalance related to the compacted version (or below)
+    Calculated catalog version has no index that is still building
+  end note
+  crd -[#660000]> crd : <font color="#440000"> abort compaction
+else <font color="#006600">compaction successful</font>
+  crd -[#green]> crd : <font color="#004400"> verify restrictions
+  crd -[#green]> crd : <font color="#004400"> save catalog snapshot (trim history)
+end
+
+@enduml

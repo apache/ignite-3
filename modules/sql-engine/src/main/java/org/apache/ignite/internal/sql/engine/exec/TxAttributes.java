@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -35,11 +36,15 @@ import org.jetbrains.annotations.Nullable;
 public class TxAttributes implements Serializable {
     private static final long serialVersionUID = 3933878724800694086L;
 
+    private static final TxAttributes DUMMY = new TxAttributes(
+            new UUID(0L, 0L), (TablePartitionId) null, new UUID(0, 0)
+    );
+
     private final UUID id;
-    private final String coordinatorId;
+    private final UUID coordinatorId;
     private final boolean readOnly;
     private final @Nullable HybridTimestamp readTimestamp;
-    private final @Nullable TablePartitionId commitPartition;
+    private final @Nullable ReplicationGroupId commitPartition;
 
     /**
      * Derives transactional attributes from the given transaction.
@@ -62,10 +67,22 @@ public class TxAttributes implements Serializable {
         return new TxAttributes(tx.id(), tx.commitPartition(), tx.coordinatorId());
     }
 
+    /**
+     * Returns attributes of a fake transaction.
+     *
+     * <p>This attributes used like a stub to create execution context for fragment that doesn't have sql engine managed
+     * transaction. It's up to the caller to make sure this fake attributes won't be used for actual query execution.
+     *
+     * @return Attributes of fake transaction.
+     */
+    public static TxAttributes dummy() {
+        return DUMMY;
+    }
+
     private TxAttributes(
             UUID id,
             HybridTimestamp readTimestamp,
-            String coordinatorId
+            UUID coordinatorId
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.readTimestamp = Objects.requireNonNull(readTimestamp, "timestamp");
@@ -77,8 +94,8 @@ public class TxAttributes implements Serializable {
 
     private TxAttributes(
             UUID id,
-            @Nullable TablePartitionId commitPartitionId,
-            String coordinatorId
+            @Nullable ReplicationGroupId commitPartitionId,
+            UUID coordinatorId
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.commitPartition = commitPartitionId;
@@ -96,7 +113,7 @@ public class TxAttributes implements Serializable {
      *
      * @return An identifier of commit partition, or {@code null} if commit partition was not yet assigned.
      */
-    public @Nullable TablePartitionId commitPartition() {
+    public @Nullable ReplicationGroupId commitPartition() {
         return commitPartition;
     }
 
@@ -121,7 +138,7 @@ public class TxAttributes implements Serializable {
      *
      * @return Transaction coordinator inconsistent ID.
      */
-    public String coordinatorId() {
+    public UUID coordinatorId() {
         return coordinatorId;
     }
 

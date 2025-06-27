@@ -18,21 +18,28 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.checkPropertyNames;
+import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.propertyName;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
+import org.apache.ignite.internal.network.processor.ProcessingException;
+import org.apache.ignite.internal.network.processor.TypeUtils;
 import org.apache.ignite.internal.network.serialization.MessageMappingException;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.network.serialization.MessageWriter;
@@ -41,21 +48,25 @@ import org.apache.ignite.internal.network.serialization.MessageWriter;
  * Class for generating {@link MessageSerializer} classes.
  */
 public class MessageSerializerGenerator {
-    /** Processing environment. */
-    private final ProcessingEnvironment processingEnvironment;
+    private static final String ID_METHOD_NAME = "id";
 
-    /** Message group. */
+    /** Processing environment. */
+    private final ProcessingEnvironment processingEnv;
+
+    /** Message Types declarations for the current module. */
     private final MessageGroupWrapper messageGroup;
 
-    /**
-     * Constructor.
-     *
-     * @param processingEnvironment Processing environment.
-     * @param messageGroup          Message group.
-     */
-    public MessageSerializerGenerator(ProcessingEnvironment processingEnvironment, MessageGroupWrapper messageGroup) {
-        this.processingEnvironment = processingEnvironment;
+    private final TypeUtils typeUtils;
+
+    private final MessageWriterMethodResolver methodResolver;
+
+    /** Constructor. */
+    public MessageSerializerGenerator(ProcessingEnvironment processingEnv, MessageGroupWrapper messageGroup) {
+        this.processingEnv = processingEnv;
         this.messageGroup = messageGroup;
+
+        typeUtils = new TypeUtils(processingEnv);
+        methodResolver = new MessageWriterMethodResolver(processingEnv);
     }
 
     /**
@@ -65,12 +76,25 @@ public class MessageSerializerGenerator {
      * @return {@code TypeSpec} of the generated serializer
      */
     public TypeSpec generateSerializer(MessageClass message) {
-        processingEnvironment.getMessager()
+        processingEnv.getMessager()
                 .printMessage(Diagnostic.Kind.NOTE, "Generating a MessageSerializer for " + message.className());
 
-        return TypeSpec.classBuilder(message.simpleName() + "Serializer")
+        ClassName serializerClassName = message.serializerClassName();
+
+        return TypeSpec.classBuilder(serializerClassName)
                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(MessageSerializer.class), message.className()))
+                .addMethod(MethodSpec.constructorBuilder()
+                        .addModifiers(Modifier.PRIVATE)
+                        .build())
                 .addMethod(writeMessageMethod(message))
+                .addField(FieldSpec.builder(serializerClassName, "INSTANCE")
+                        .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                        .build()
+                )
+                .addStaticBlock(CodeBlock.builder()
+                        .addStatement("INSTANCE = new $T()", serializerClassName)
+                        .build()
+                )
                 .addOriginatingElement(message.element())
                 .addOriginatingElement(messageGroup.element())
                 .build();
@@ -106,6 +130,8 @@ public class MessageSerializerGenerator {
                 .addCode("\n");
 
         if (!getters.isEmpty()) {
+            checkPropertyNames(getters);
+
             method.beginControlFlow("switch (writer.state())");
 
             for (int i = 0; i < getters.size(); ++i) {
@@ -126,23 +152,45 @@ public class MessageSerializerGenerator {
         return method.build();
     }
 
-    /**
-     * Helper method for resolving a {@link MessageWriter} "write*" call based on the message field type.
-     */
+    /** Helper method for resolving a {@link MessageWriter} "write*" call based on the message field type. */
     private CodeBlock writeMessageCodeBlock(ExecutableElement getter) {
-        var methodResolver = new MessageWriterMethodResolver(processingEnvironment);
+        CodeBlock.Builder writerMethodCallBuilder = CodeBlock.builder();
 
-        CodeBlock writerMethodCall = CodeBlock.builder()
-                .add("boolean written = writer.")
-                .add(methodResolver.resolveWriteMethod(getter))
-                .build();
+        if (typeUtils.isEnum(getter.getReturnType())) {
+            String getterName = getter.getSimpleName().toString();
+
+            checkIdMethodExists(getter.getReturnType());
+
+            // Let's write the shifted id to efficiently transfer null (since we use "var int").
+            writerMethodCallBuilder
+                    .add("int idShifted = message.$L() == null ? 0 : message.$L().id() + 1;", getterName, getterName)
+                    .add("\n")
+                    .add("boolean written = writer.writeInt($S, idShifted)", propertyName(getter));
+        } else {
+            writerMethodCallBuilder
+                    .add("boolean written = writer.")
+                    .add(methodResolver.resolveWriteMethod(getter));
+        }
 
         return CodeBlock.builder()
-                .addStatement(writerMethodCall)
+                .addStatement(writerMethodCallBuilder.build())
                 .add("\n")
                 .beginControlFlow("if (!written)")
                 .addStatement("return false")
                 .endControlFlow()
                 .build();
+    }
+
+    private void checkIdMethodExists(TypeMirror enumType) {
+        assert typeUtils.isEnum(enumType) : enumType;
+
+        typeUtils.types().asElement(enumType).getEnclosedElements().stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD)
+                .filter(element -> element.getSimpleName().toString().equals(ID_METHOD_NAME))
+                .filter(element -> element.getModifiers().contains(Modifier.PUBLIC))
+                .findAny()
+                .orElseThrow(() -> new ProcessingException(
+                        String.format("Missing public method \"%s\" for enum %s", ID_METHOD_NAME, enumType)
+                ));
     }
 }

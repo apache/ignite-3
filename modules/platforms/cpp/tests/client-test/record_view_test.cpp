@@ -199,6 +199,9 @@ protected:
 
         m_client = ignite_client::start(cfg, std::chrono::seconds(30));
         auto table = m_client.get_tables().get_table(TABLE_1);
+        if (!table) {
+            throw std::runtime_error("Failed to get table");
+        }
 
         view = table->get_record_view<test_type>();
     }
@@ -919,9 +922,6 @@ TEST_F(record_view_test, remove_all_nonexisting_keys_return_all) {
     auto res = view.remove_all(nullptr, non_existing);
 
     EXPECT_EQ(res.size(), 2);
-
-    EXPECT_EQ(1, res[0].key);
-    EXPECT_EQ(2, res[1].key);
 }
 
 TEST_F(record_view_test, remove_all_only_existing) {
@@ -950,9 +950,6 @@ TEST_F(record_view_test, remove_all_overlapped) {
     auto res = view.remove_all(nullptr, to_remove);
 
     EXPECT_EQ(res.size(), 2);
-
-    EXPECT_EQ(11, res[0].key);
-    EXPECT_EQ(12, res[1].key);
 }
 
 TEST_F(record_view_test, remove_all_empty) {
@@ -964,9 +961,6 @@ TEST_F(record_view_test, remove_all_exact_nonexisting) {
     auto res = view.remove_all_exact(nullptr, {test_type(1, "foo"), test_type(2, "bar")});
 
     ASSERT_EQ(2, res.size());
-
-    EXPECT_EQ(1, res[0].key);
-    EXPECT_EQ(2, res[1].key);
 }
 
 TEST_F(record_view_test, remove_all_exact_overlapped) {
@@ -1025,7 +1019,6 @@ TEST_F(record_view_test, types_test) {
     inserted.m_double = .6f;
     inserted.m_uuid = {0x123e4567e89b12d3, 0x7456426614174000};
     inserted.m_date = {2023, 2, 7};
-    inserted.m_bitmask = bit_array{16, true};
     inserted.m_time = {17, 4, 12, 3543634};
     inserted.m_time2 = {17, 4, 12, 3543634};
     inserted.m_datetime = {{2020, 7, 28}, {2, 15, 52, 6349879}};
@@ -1051,7 +1044,6 @@ TEST_F(record_view_test, types_test) {
     EXPECT_EQ(inserted.m_double, res->m_double);
     EXPECT_EQ(inserted.m_uuid, res->m_uuid);
     EXPECT_EQ(inserted.m_date, res->m_date);
-    EXPECT_EQ(inserted.m_bitmask, res->m_bitmask);
     EXPECT_EQ(inserted.m_time, res->m_time);
     EXPECT_EQ(inserted.m_datetime, res->m_datetime);
     EXPECT_EQ(inserted.m_timestamp, res->m_timestamp);

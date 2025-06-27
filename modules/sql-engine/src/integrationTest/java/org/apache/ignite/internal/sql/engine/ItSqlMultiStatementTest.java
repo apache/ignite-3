@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -123,8 +124,8 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
 
         String expectedMessage = "Unexpected number of query parameters";
 
-        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> runScript(sql, null, 0));
-        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> runScript(sql, null, 0, 1, 2, 3, 4, 5));
+        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> runScript(sql, 0));
+        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> runScript(sql, 0, 1, 2, 3, 4, 5));
     }
 
     @Test
@@ -150,11 +151,10 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
         {
             assertThrowsSqlException(
                     STMT_VALIDATION_ERR,
-                    "operator must have compatible types",
+                    "Values passed to VALUES operator must have compatible types",
                     () -> executeScript(
-                            "INSERT INTO test VALUES (?);"
-                                    + "INSERT INTO test VALUES (1)",
-                            "Incompatible param"
+                            "INSERT INTO test VALUES (?), (?)",
+                            "1", 2
                     )
             );
 
@@ -236,5 +236,67 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
         assertThat(batch.items().get(0).get(0), is(tableSize));
 
         iterateThroughResultsAndCloseThem(cursor);
+    }
+
+    @Test
+    void indexesAvailableAfterScriptExecutionAndBuiltProperly() {
+        long tableSize = 1_000;
+
+        @SuppressWarnings("ConcatenationWithEmptyString")
+        String script = ""
+                + "CREATE TABLE integers (id INT PRIMARY KEY, val_1 INT, val_2 INT);"
+                + "CREATE INDEX integers_val_1_ind ON integers(val_1);"
+                + "INSERT INTO integers SELECT x, x, x FROM system_range(1, " + tableSize + ");"
+                + "CREATE INDEX integers_val_2_ind ON integers(val_2);";
+
+        AsyncSqlCursor<InternalSqlRow> cursor = runScript(script);
+
+        iterateThroughResultsAndCloseThem(cursor);
+
+        assertQuery("SELECT /*+ FORCE_INDEX(INTEGERS_VAL_1_IND) */ COUNT(*) FROM integers WHERE val_1 > 0")
+                .matches(containsIndexScan("PUBLIC", "INTEGERS", "INTEGERS_VAL_1_IND"))
+                .returns(tableSize)
+                .check();
+
+        assertQuery("SELECT /*+ FORCE_INDEX(INTEGERS_VAL_2_IND) */ COUNT(*) FROM integers WHERE val_2 > 0")
+                .matches(containsIndexScan("PUBLIC", "INTEGERS", "INTEGERS_VAL_2_IND"))
+                .returns(tableSize)
+                .check();
+    }
+
+    @Test
+    void batchedAlterTableProcessedCorrectly() {
+        long tableSize = 1_000;
+
+        {
+            AsyncSqlCursor<InternalSqlRow> cursor = runScript(
+                    "CREATE TABLE test1 (id INT PRIMARY KEY, val INT);"
+                            + "ALTER TABLE test1 DROP COLUMN val;"
+                            + "ALTER TABLE test1 ADD COLUMN val INT;"
+                            + "INSERT INTO test1 SELECT x, x FROM system_range(1, " + tableSize + ");"
+            );
+
+            iterateThroughResultsAndCloseThem(cursor);
+
+            assertQuery("SELECT COUNT(*) FROM test1")
+                    .returns(tableSize)
+                    .check();
+        }
+
+        {
+            sql("CREATE TABLE test2 (id INT PRIMARY KEY, val INT);");
+
+            AsyncSqlCursor<InternalSqlRow> cursor = runScript(
+                    "ALTER TABLE test2 DROP COLUMN val;"
+                            + "ALTER TABLE test2 ADD COLUMN val INT;"
+                            + "INSERT INTO test2 SELECT x, x FROM system_range(1, " + tableSize + ");"
+            );
+
+            iterateThroughResultsAndCloseThem(cursor);
+
+            assertQuery("SELECT COUNT(*) FROM test2")
+                    .returns(tableSize)
+                    .check();
+        }
     }
 }

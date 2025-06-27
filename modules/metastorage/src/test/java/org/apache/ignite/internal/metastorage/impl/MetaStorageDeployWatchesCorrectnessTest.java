@@ -18,26 +18,37 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionsCommand;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -52,7 +63,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ExtendWith(ConfigurationExtension.class)
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
     @InjectConfiguration
-    private static MetaStorageConfiguration metaStorageConfiguration;
+    private static SystemDistributedConfiguration systemConfiguration;
 
     /**
      * Returns a stream with test arguments.
@@ -69,11 +80,22 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         RaftManager raftManager = mock(RaftManager.class);
         TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
 
-        when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of(mcNodeName)));
+        when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
+                new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(mcNodeName)).build()
+        ));
+        configureCmgManagerToStartMetastorage(cmgManager);
+
+        TopologyService topologyService = mock(TopologyService.class);
+        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(UUID.randomUUID(), mcNodeName, null));
+
         when(clusterService.nodeName()).thenReturn(mcNodeName);
-        when(raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(any(), any(), any(), any(), any(), any()))
-                .thenReturn(completedFuture(raftGroupService));
-        when(raftGroupService.run(any(GetCurrentRevisionCommand.class))).thenAnswer(invocation -> completedFuture(0L));
+        when(clusterService.topologyService()).thenReturn(topologyService);
+        when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any()))
+                .thenReturn(raftGroupService);
+        when(raftGroupService.run(any(GetCurrentRevisionsCommand.class), anyLong()))
+                .thenAnswer(invocation -> completedFuture(new RevisionsInfo(0, -1)));
+
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
         return Stream.of(
                 new MetaStorageManagerImpl(
@@ -81,10 +103,13 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         cmgManager,
                         mock(LogicalTopologyService.class),
                         raftManager,
-                        new SimpleInMemoryKeyValueStorage(mcNodeName),
+                        new SimpleInMemoryKeyValueStorage(mcNodeName, readOperationForCompactionTracker),
                         clock,
                         mock(TopologyAwareRaftGroupServiceFactory.class),
-                        metaStorageConfiguration
+                        new NoOpMetricManager(),
+                        systemConfiguration,
+                        RaftGroupOptionsConfigurer.EMPTY,
+                        readOperationForCompactionTracker
                 ),
                 StandaloneMetaStorageManager.create()
         );
@@ -102,12 +127,12 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         assertFalse(deployWatchesFut.isDone());
 
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(deployWatchesFut, willCompleteSuccessfully());
 
         metastore.beforeNodeStop();
 
-        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
+        assertThat(metastore.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 }

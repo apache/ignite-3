@@ -53,7 +53,7 @@ public interface DeploymentCodeApi {
     /**
      * Deploy unit REST method.
      */
-    @Operation(operationId = "deployUnit", description = "Deploys provided unit to the cluster.")
+    @Operation(operationId = "deployUnit", summary = "Deploy unit", description = "Deploys provided unit to the cluster.")
     @ApiResponse(responseCode = "200", description = "Unit deployed successfully.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(type = "boolean"))
     )
@@ -83,7 +83,11 @@ public interface DeploymentCodeApi {
     /**
      * Undeploy unit REST method.
      */
-    @Operation(operationId = "undeployUnit", description = "Undeploys the unit with provided unitId and unitVersion.")
+    @Operation(
+            operationId = "undeployUnit",
+            summary = "Undeploy unit",
+            description = "Undeploys the unit with provided unitId and unitVersion."
+    )
     @ApiResponse(responseCode = "200", description = "Unit undeployed successfully.")
     @ApiResponse(responseCode = "404",
             description = "Unit with provided identifier and version does not exist.",
@@ -104,7 +108,7 @@ public interface DeploymentCodeApi {
     /**
      * Cluster unit statuses REST method.
      */
-    @Operation(operationId = "listClusterStatuses", description = "Cluster unit statuses.")
+    @Operation(operationId = "listClusterStatuses", summary = "Get cluster unit statuses", description = "Cluster unit statuses.")
     @ApiResponse(responseCode = "200",
             description = "All statuses returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatus.class)))
@@ -122,7 +126,11 @@ public interface DeploymentCodeApi {
     /**
      * Cluster unit statuses REST method.
      */
-    @Operation(operationId = "listClusterStatusesByUnit", description = "Cluster unit statuses.")
+    @Operation(
+            operationId = "listClusterStatusesByUnit",
+            summary = "Get specific cluster unit statuses",
+            description = "Cluster unit statuses by unit."
+    )
     @ApiResponse(responseCode = "200",
             description = "All statuses returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatus.class)))
@@ -144,9 +152,13 @@ public interface DeploymentCodeApi {
     /**
      * Node unit statuses REST method.
      */
-    @Operation(operationId = "listNodeStatuses", description = "Node unit statuses.")
+    @Operation(
+            operationId = "listNodeStatuses",
+            summary = "Get node unit statuses",
+            description = "Returns a list of unit statuses per node."
+    )
     @ApiResponse(responseCode = "200",
-            description = "All statuses returned successfully.",
+            description = "All statuses were returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatus.class)))
     )
     @ApiResponse(responseCode = "500",
@@ -162,7 +174,11 @@ public interface DeploymentCodeApi {
     /**
      * Node unit statuses REST method.
      */
-    @Operation(operationId = "listNodeStatusesByUnit", description = "Node unit statuses.")
+    @Operation(
+            operationId = "listNodeStatusesByUnit",
+            summary = "Get specific node unit statuses",
+            description = "Returns a list of node unit statuses by unit."
+    )
     @ApiResponse(responseCode = "200",
             description = "All statuses returned successfully.",
             content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = UnitStatus.class)))

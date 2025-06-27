@@ -21,6 +21,8 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.type.NativeTypes;
 
 /**
  * Test execution of MINUS (EXCEPT) operator.
@@ -30,7 +32,32 @@ public class MinusExecutionTest extends AbstractSetOpExecutionTest {
     @Override
     protected AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
             AggregateType type, int columnCount, boolean all, int inputsCnt) {
-        return new MinusNode<>(ctx, columnCount, type, all, rowFactory());
+
+        RowSchema rowSchema;
+
+        switch (type) {
+            case MAP:
+                rowSchema = RowSchema.builder()
+                        // input columns
+                        .addField(NativeTypes.STRING)
+                        .addField(NativeTypes.INT32)
+                        // counters
+                        .addField(NativeTypes.INT32)
+                        .addField(NativeTypes.INT32)
+                        .build();
+                break;
+            case REDUCE:
+            case SINGLE:
+                rowSchema = RowSchema.builder()
+                        .addField(NativeTypes.STRING)
+                        .addField(NativeTypes.INT32)
+                        .build();
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected aggregate type: " + type);
+        }
+
+        return new MinusNode<>(ctx, columnCount, type, all, rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */

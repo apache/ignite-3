@@ -25,6 +25,7 @@ import java.util.Map;
  */
 public class ExceptionHandlers {
     private final Map<Class<? extends Throwable>, ExceptionHandler<? extends Throwable>> map = new HashMap<>();
+
     private final ExceptionHandler<Throwable> defaultHandler;
 
     public ExceptionHandlers() {
@@ -67,17 +68,6 @@ public class ExceptionHandlers {
         return processException(errOutput, e instanceof WrappedException ? e.getCause() : e);
     }
 
-    /**
-     * Handles an exception.
-     *
-     * @param e exception instance.
-     * @param <T> exception type.
-     * @return exit code.
-     */
-    public <T extends Throwable> int handleException(T e) {
-        return processException(ExceptionWriter.nullWriter(), e instanceof WrappedException ? e.getCause() : e);
-    }
-
     @SuppressWarnings("unchecked")
     private <T extends Throwable> int processException(ExceptionWriter errOutput, T e) {
         ExceptionHandler<T> exceptionHandler = (ExceptionHandler<T>) map.get(e.getClass());
@@ -87,5 +77,4 @@ public class ExceptionHandlers {
             return defaultHandler.handle(errOutput, e);
         }
     }
-
 }

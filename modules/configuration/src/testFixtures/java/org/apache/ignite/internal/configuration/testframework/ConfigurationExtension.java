@@ -26,18 +26,13 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fi
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.DynamicConfigurationChanger;
@@ -88,14 +84,14 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     /** Key to store {@link ExecutorService} in {@link ExtensionContext.Store}. */
     private static final Object POOL_KEY = new Object();
 
+    private static final List<ConfigurationModule> LOCAL_MODULES = new ArrayList<>();
+    private static final List<ConfigurationModule> DISTRIBUTED_MODULES = new ArrayList<>();
+
     /** All {@link ConfigurationExtension} classes in classpath. */
     private static final List<Class<?>> EXTENSIONS;
 
     /** All {@link PolymorphicConfigInstance} classes in classpath. */
     private static final List<Class<?>> POLYMORPHIC_EXTENSIONS;
-
-    /** Map from root key name to configuration modules. */
-    private static final Map<String, ConfigurationModule> ROOT_KEY_TO_MODULES = new HashMap<>();
 
     static {
         // Automatically find all @InternalConfiguration and @PolymorphicConfigInstance classes
@@ -108,10 +104,11 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         modules.forEach(configurationModule -> {
             extensions.addAll(configurationModule.schemaExtensions());
             polymorphicExtensions.addAll(configurationModule.polymorphicSchemaExtensions());
-
-            configurationModule.rootKeys().forEach(rootKey -> {
-                ROOT_KEY_TO_MODULES.put(rootKey.key(), configurationModule);
-            });
+            if (configurationModule.type() == LOCAL) {
+                LOCAL_MODULES.add(configurationModule);
+            } else {
+                DISTRIBUTED_MODULES.add(configurationModule);
+            }
         });
 
         EXTENSIONS = List.copyOf(extensions);
@@ -241,12 +238,12 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         );
 
         // RootKey must be mocked, there's no way to instantiate it using a public constructor.
-        RootKey rootKey = mock(RootKey.class, withSettings().lenient());
-
-        when(rootKey.key()).thenReturn(annotation.rootName().isBlank() ? "mock" : annotation.rootName());
-        when(rootKey.type()).thenReturn(LOCAL);
-        when(rootKey.schemaClass()).thenReturn(schemaClass);
-        when(rootKey.internal()).thenReturn(false);
+        RootKey<?, ?, ?> rootKey = new RootKey<>(
+                annotation.rootName().isBlank() ? "mock" : annotation.rootName(),
+                LOCAL,
+                schemaClass,
+                false
+        );
 
         SuperRoot superRoot = new SuperRoot(s -> new RootInnerNode(rootKey, cgen.instantiateNode(schemaClass)));
 
@@ -255,7 +252,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         HoconConverter.hoconSource(hoconCfg).descend(superRoot);
 
         if (!annotation.rootName().isBlank()) {
-            patchWithDynamicDefaults(annotation.rootName(), superRoot);
+            patchWithDynamicDefault(annotation.type(), superRoot);
         }
 
         ConfigurationUtil.addDefaults(superRoot);
@@ -313,7 +310,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             }
 
             @Override
-            public InnerNode getRootNode(RootKey<?, ?> rk) {
+            public InnerNode getRootNode(RootKey<?, ?, ?> rk) {
                 return superRootRef.get().getRoot(rk);
             }
 
@@ -346,10 +343,12 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         return type.getCanonicalName().endsWith("Configuration");
     }
 
-    private static void patchWithDynamicDefaults(String rootName, SuperRoot superRoot) {
-        if (ROOT_KEY_TO_MODULES.containsKey(rootName)) {
-            SuperRootChangeImpl rootChange = new SuperRootChangeImpl(superRoot);
-            ROOT_KEY_TO_MODULES.get(rootName).patchConfigurationWithDynamicDefaults(rootChange);
+    private static void patchWithDynamicDefault(ConfigurationType type, SuperRoot superRoot) {
+        SuperRootChangeImpl rootChange = new SuperRootChangeImpl(superRoot);
+        if (type == LOCAL) {
+            LOCAL_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
+        } else {
+            DISTRIBUTED_MODULES.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
         }
     }
 }

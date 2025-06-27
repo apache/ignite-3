@@ -22,7 +22,6 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -35,6 +34,13 @@ public interface TableViewInternal extends Table {
      * @return Table id as UUID.
      */
     int tableId();
+
+    /**
+     * Returns a zone id.
+     *
+     * @return Zone id.
+     */
+    int zoneId();
 
     /** Returns an ID of a primary index, {@code -1} if not set. */
     int pkId();
@@ -61,30 +67,21 @@ public interface TableViewInternal extends Table {
     void schemaView(SchemaRegistry schemaReg);
 
     /**
-     * Returns a partition for a key tuple.
+     * Returns a partition ID for a key tuple.
      *
      * @param key The tuple.
-     * @return The partition.
+     * @return The partition ID.
      */
-    int partition(Tuple key);
+    int partitionId(Tuple key);
 
     /**
-     * Returns a partition for a key.
+     * Returns a partition ID for a key.
      *
      * @param key The key.
      * @param keyMapper Key mapper
-     * @return The partition.
+     * @return The partition ID.
      */
-    <K> int partition(K key, Mapper<K> keyMapper);
-
-    /**
-     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
-     * it cannot be found.
-     *
-     * @param partition Partition number.
-     * @return Leader node of the partition group corresponding to the partition.
-     */
-    ClusterNode leaderAssignment(int partition);
+    <K> int partitionId(K key, Mapper<K> keyMapper);
 
     /**
      * Registers the index with given id in a table.
@@ -104,10 +101,12 @@ public interface TableViewInternal extends Table {
      * Registers the index with given id in a table.
      *
      * @param indexDescriptor Index descriptor.
+     * @param unique A flag indicating whether the given index unique or not.
      * @param searchRowResolver Function which converts given table row to an index key.
      */
     void registerSortedIndex(
             StorageSortedIndexDescriptor indexDescriptor,
+            boolean unique,
             ColumnsExtractor searchRowResolver,
             PartitionSet partitions
     );

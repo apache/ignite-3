@@ -21,13 +21,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,8 +44,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
@@ -179,7 +178,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
         CompletableFuture<Data> future = metaStorageMgr.recoveryFinishedFuture()
-                .thenApplyAsync(this::readDataOnRecovery0, threadPool);
+                .thenApplyAsync(revisions -> readDataOnRecovery0(revisions.revision()), threadPool);
 
         return registerFuture(future);
     }
@@ -210,11 +209,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     continue;
                 }
 
-                int startIdx = DST_KEYS_START_RANGE.length();
-
-                int keyLengthWithoutPrefix = key.length - startIdx;
-
-                var dataKey = new String(key, startIdx, keyLengthWithoutPrefix, UTF_8);
+                String dataKey = toStringWithoutPrefix(key, DST_KEYS_START_RANGE.length());
 
                 data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
             }
@@ -242,7 +237,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             return falseCompletedFuture();
         }
 
-        Set<Operation> operations = new HashSet<>();
+        var operations = new ArrayList<Operation>();
 
         for (Map.Entry<String, ? extends Serializable> entry : newValues.entrySet()) {
             ByteArray key = new ByteArray(DISTRIBUTED_PREFIX + entry.getKey());
@@ -263,7 +258,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 ? notExists(MASTER_KEY)
                 : revision(MASTER_KEY).eq(curChangeId);
 
-        return metaStorageMgr.invoke(condition, operations, Set.of(Operations.noop()));
+        return metaStorageMgr.invoke(condition, operations, List.of(Operations.noop()));
     }
 
     @Override
@@ -272,45 +267,37 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         this.lsnr = lsnr;
 
-        metaStorageMgr.registerPrefixWatch(DST_KEYS_START_RANGE, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent events) {
-                Map<String, Serializable> data = IgniteUtils.newHashMap(events.entryEvents().size() - 1);
+        metaStorageMgr.registerPrefixWatch(DST_KEYS_START_RANGE, events -> {
+            Map<String, Serializable> data = IgniteUtils.newHashMap(events.entryEvents().size() - 1);
 
-                Entry masterKeyEntry = null;
+            Entry masterKeyEntry = null;
 
-                for (EntryEvent event : events.entryEvents()) {
-                    Entry e = event.newEntry();
+            for (EntryEvent event : events.entryEvents()) {
+                Entry e = event.newEntry();
 
-                    if (Arrays.equals(e.key(), MASTER_KEY.bytes())) {
-                        masterKeyEntry = e;
-                    } else {
-                        String key = new String(e.key(), UTF_8).substring(DISTRIBUTED_PREFIX.length());
+                if (Arrays.equals(e.key(), MASTER_KEY.bytes())) {
+                    masterKeyEntry = e;
+                } else {
+                    String key = new String(e.key(), UTF_8).substring(DISTRIBUTED_PREFIX.length());
 
-                        Serializable value = e.value() == null ? null : ConfigurationSerializationUtil.fromBytes(e.value());
+                    Serializable value = e.value() == null ? null : ConfigurationSerializationUtil.fromBytes(e.value());
 
-                        data.put(key, value);
-                    }
+                    data.put(key, value);
                 }
-
-                // Contract of meta storage ensures that all updates of one revision will come in one batch.
-                // Also masterKey should be updated every time when we update cfg.
-                // That means that masterKey update must be included in the batch.
-                assert masterKeyEntry != null;
-
-                long newChangeId = masterKeyEntry.revision();
-
-                assert newChangeId > changeId;
-
-                changeId = newChangeId;
-
-                return lsnr.onEntriesChanged(new Data(data, newChangeId));
             }
 
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Meta storage listener issue", e);
-            }
+            // Contract of meta storage ensures that all updates of one revision will come in one batch.
+            // Also masterKey should be updated every time when we update cfg.
+            // That means that masterKey update must be included in the batch.
+            assert masterKeyEntry != null;
+
+            long newChangeId = masterKeyEntry.revision();
+
+            assert newChangeId > changeId;
+
+            changeId = newChangeId;
+
+            return lsnr.onEntriesChanged(new Data(data, newChangeId));
         });
     }
 
@@ -329,7 +316,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> localRevision() {
         return metaStorageMgr.recoveryFinishedFuture()
-                .thenApply(rev -> metaStorageMgr.getLocally(MASTER_KEY, rev).revision());
+                .thenApply(revisions -> metaStorageMgr.getLocally(MASTER_KEY, revisions.revision()).revision());
     }
 
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {

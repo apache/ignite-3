@@ -27,9 +27,10 @@ import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUt
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -85,6 +86,11 @@ public class UnitClusterStatus extends UnitStatus {
         int result = super.hashCode();
         result = 31 * result + (initialNodesToDeploy != null ? initialNodesToDeploy.hashCode() : 0);
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(UnitClusterStatus.class, this, super.toString());
     }
 
     /**

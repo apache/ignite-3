@@ -19,11 +19,12 @@ package org.apache.ignite.internal.cluster.management.topology.api;
 
 import static java.util.Collections.emptySet;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A snapshot of a logical topology as seen locally. Includes nodes participating in the logical topology and the version
@@ -31,20 +32,33 @@ import org.apache.ignite.internal.tostring.S;
  *
  * <p>Instances of this class are immutable.
  */
-public class LogicalTopologySnapshot implements Serializable {
-    private static final long serialVersionUID = 0L;
+public class LogicalTopologySnapshot {
+    /** Version that first topology snapshot in history will have. */
+    public static final long FIRST_VERSION = 1;
 
     /** Initial 'topology' for an empty cluster (before any node has joined). */
-    public static final LogicalTopologySnapshot INITIAL = new LogicalTopologySnapshot(0, emptySet());
+    public static final LogicalTopologySnapshot INITIAL = new LogicalTopologySnapshot(FIRST_VERSION - 1, emptySet(), new UUID(0, 0));
 
     private final long version;
 
     @IgniteToStringInclude
     private final Set<LogicalNode> nodes;
 
-    public LogicalTopologySnapshot(long version, Collection<LogicalNode> nodes) {
+    private final UUID clusterId;
+
+    /** Constructor. */
+    public LogicalTopologySnapshot(long version, Collection<LogicalNode> nodes, UUID clusterId) {
         this.version = version;
         this.nodes = Set.copyOf(nodes);
+        this.clusterId = clusterId;
+    }
+
+    /**
+     * Creates a snapshot with a random cluster ID (only suitable for tests that don't care about clusterIds).
+     */
+    @TestOnly
+    public LogicalTopologySnapshot(long version, Collection<LogicalNode> nodes) {
+        this(version, nodes, UUID.randomUUID());
     }
 
     /**
@@ -59,6 +73,13 @@ public class LogicalTopologySnapshot implements Serializable {
      */
     public Set<LogicalNode> nodes() {
         return nodes;
+    }
+
+    /**
+     * Returns ID of the cluster in which this topology snapshot was created.
+     */
+    public UUID clusterId() {
+        return clusterId;
     }
 
     @Override

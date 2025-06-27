@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.UUID;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 
 /**
- * Handles Cursor Cleanup request ({@link FinishedTransactionsBatchMessage}).
+ * Handles Transaction cleanup request ({@link FinishedTransactionsBatchMessage}).
  */
 public class FinishedTransactionBatchRequestHandler {
     /** Messaging service. */
@@ -32,6 +34,8 @@ public class FinishedTransactionBatchRequestHandler {
     /** Resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
+    private final LowWatermark lowWatermark;
+
     private final Executor asyncExecutor;
 
     /**
@@ -39,15 +43,18 @@ public class FinishedTransactionBatchRequestHandler {
      *
      * @param messagingService Messaging service.
      * @param resourcesRegistry Resources registry.
+     * @param lowWatermark Low watermark.
      * @param asyncExecutor Executor to run cleanup commands.
      */
     public FinishedTransactionBatchRequestHandler(
             MessagingService messagingService,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
+            LowWatermark lowWatermark,
             Executor asyncExecutor
     ) {
         this.messagingService = messagingService;
         this.resourcesRegistry = resourcesRegistry;
+        this.lowWatermark = lowWatermark;
         this.asyncExecutor = asyncExecutor;
     }
 
@@ -57,13 +64,19 @@ public class FinishedTransactionBatchRequestHandler {
     public void start() {
         messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
             if (msg instanceof FinishedTransactionsBatchMessage) {
-                processTxCleanup((FinishedTransactionsBatchMessage) msg);
+                processFinishedTransactionsBatchMessage((FinishedTransactionsBatchMessage) msg);
             }
         });
     }
 
-    private void processTxCleanup(FinishedTransactionsBatchMessage closeCursorsMessage) {
-        asyncExecutor.execute(() -> closeCursorsMessage.transactions().forEach(resourcesRegistry::close));
+    private void processFinishedTransactionsBatchMessage(FinishedTransactionsBatchMessage closeCursorsMessage) {
+        asyncExecutor.execute(() -> closeCursorsMessage.transactions().forEach(this::cleanUpForTransaction));
+    }
+
+    private void cleanUpForTransaction(UUID transactionId) {
+        resourcesRegistry.close(transactionId);
+
+        lowWatermark.unlock(transactionId);
     }
 
 }

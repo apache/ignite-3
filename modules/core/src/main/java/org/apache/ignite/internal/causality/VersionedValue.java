@@ -29,6 +29,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface VersionedValue<T> {
     /**
+     * Returns the name of this versioned value.
+     */
+    String name();
+
+    /**
      * Creates a future for this value and causality token, or returns it if it already exists.
      *
      * <p>The returned future is associated with an update having the given causality token and completes when this update is finished.
@@ -66,4 +71,10 @@ public interface VersionedValue<T> {
      * @param action Action to remove.
      */
     void removeWhenComplete(CompletionListener<T> action);
+
+    /** Adds a listener. */
+    void whenDelete(DeletionListener<T> action);
+
+    /** Removes a listener. */
+    void removeWhenDelete(DeletionListener<T> action);
 }

@@ -17,39 +17,23 @@
 
 package org.apache.ignite.jdbc;
 
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.IgniteIntegrationTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestInstance.Lifecycle;
 
-class ItJdbcAuthenticationTest extends IgniteIntegrationTest {
-    private Cluster cluster;
-
+class ItJdbcAuthenticationTest {
     @Nested
     @DisplayName("Given basic authentication disabled on the cluster")
-    @TestInstance(Lifecycle.PER_CLASS)
-    class ClusterWithoutAuth {
-        @BeforeAll
-        void setUp(TestInfo testInfo, @WorkDirectory Path workDir) {
-            cluster = new Cluster(testInfo, workDir);
-            cluster.startAndInit(1);
-        }
-
-        @AfterAll
-        void tearDown() {
-            cluster.shutdown();
+    class ClusterWithoutAuth extends ClusterPerClassIntegrationTest {
+        @Override
+        protected int initialNodes() {
+            return 1;
         }
 
         @Test
@@ -64,13 +48,16 @@ class ItJdbcAuthenticationTest extends IgniteIntegrationTest {
 
     @Nested
     @DisplayName("Given basic authentication enabled on the cluster")
-    @TestInstance(Lifecycle.PER_CLASS)
-    class ClusterWithAuth {
-        @BeforeAll
-        void setUp(TestInfo testInfo, @WorkDirectory Path workDir) {
-            cluster = new Cluster(testInfo, workDir);
-            cluster.startAndInit(1, builder -> builder.clusterConfiguration(
-                    "{\n"
+    class ClusterWithAuth extends ClusterPerClassIntegrationTest {
+        @Override
+        protected int initialNodes() {
+            return 1;
+        }
+
+        @Override
+        protected void configureInitParameters(InitParametersBuilder builder) {
+            builder.clusterConfiguration(
+                    "ignite {\n"
                             + "  \"security\": {\n"
                             + "  \"enabled\": true,\n"
                             + "    \"authentication\": {\n"
@@ -89,12 +76,7 @@ class ItJdbcAuthenticationTest extends IgniteIntegrationTest {
                             + "    }\n"
                             + "  }\n"
                             + "}\n"
-            ));
-        }
-
-        @AfterAll
-        void tearDown() {
-            cluster.shutdown();
+            );
         }
 
         @Test

@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Optimized string builder with better API.
@@ -112,7 +113,7 @@ public class IgniteStringBuilder implements Serializable {
      * @param obj Element to add.
      * @return This buffer for chaining method calls.
      */
-    public IgniteStringBuilder app(Object obj) {
+    public IgniteStringBuilder app(@Nullable Object obj) {
         impl.append(obj);
 
         return this;

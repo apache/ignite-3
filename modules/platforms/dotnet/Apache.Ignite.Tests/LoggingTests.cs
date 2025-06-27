@@ -22,6 +22,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading.Tasks;
 using Internal;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using NUnit.Framework;
@@ -45,7 +46,7 @@ public class LoggingTests
             SocketTimeout = TimeSpan.FromSeconds(1)
         };
 
-        using var servers = FakeServerGroup.Create(3);
+        using (var servers = FakeServerGroup.Create(3))
         using (var client = await servers.ConnectClientAsync(cfg))
         {
             client.WaitForConnections(3);
@@ -63,28 +64,37 @@ public class LoggingTests
 
         StringAssert.Contains("[Debug] Connection established", log);
         StringAssert.Contains("[Debug] Handshake succeeded [remoteAddress=[", log);
-        StringAssert.Contains("ClientFailoverSocket [Debug] Trying to establish secondary connections - awaiting 2 tasks", log);
-        StringAssert.Contains("ClientFailoverSocket [Debug] 2 secondary connections established, 0 failed", log);
         StringAssert.Contains("[Trace] Sending request [requestId=1, op=TablesGet, remoteAddress=", log);
         StringAssert.Contains("[Trace] Received response [requestId=1, flags=PartitionAssignmentChanged, remoteAddress=", log);
         StringAssert.Contains("op=SqlExec", log);
         StringAssert.Contains("[Debug] Connection closed gracefully", log);
+        StringAssert.DoesNotContain("[Error]", log);
     }
 
     [Test]
     public async Task TestMicrosoftConsoleLogger()
     {
-        var oldWriter = Console.Out;
-        var writer = new StringWriter();
-        Console.SetOut(TextWriter.Synchronized(writer));
+        var oldTextWriter = Console.Out;
+        var stringWriter = new StringWriter();
+        var textWriter = TextWriter.Synchronized(stringWriter);
+        Console.SetOut(textWriter);
 
         try
         {
             var cfg = new IgniteClientConfiguration
             {
                 LoggerFactory = LoggerFactory.Create(builder =>
-                    builder.AddSimpleConsole(opt => opt.ColorBehavior = LoggerColorBehavior.Disabled)
-                        .SetMinimumLevel(LogLevel.Trace))
+                {
+                    builder.AddConsole(opt =>
+                        {
+                            opt.MaxQueueLength = 1;
+                            opt.QueueFullMode = ConsoleLoggerQueueFullMode.Wait;
+                            opt.FormatterName = ConsoleFormatterNames.Simple;
+                        })
+                        .SetMinimumLevel(LogLevel.Trace);
+
+                    builder.Services.Configure((SimpleConsoleFormatterOptions opts) => opts.ColorBehavior = LoggerColorBehavior.Disabled);
+                })
             };
 
             using var server = new FakeServer();
@@ -93,12 +103,13 @@ public class LoggingTests
         }
         finally
         {
-            Console.SetOut(oldWriter);
+            Console.SetOut(oldTextWriter);
         }
 
         // Prevent further writes before accessing the inner StringBuilder.
-        writer.Close();
-        var log = writer.ToString();
+        textWriter.Close();
+        stringWriter.Close();
+        var log = stringWriter.ToString();
 
         StringAssert.Contains("dbug: Apache.Ignite.Internal.ClientSocket", log);
         StringAssert.Contains("Connection established", log);

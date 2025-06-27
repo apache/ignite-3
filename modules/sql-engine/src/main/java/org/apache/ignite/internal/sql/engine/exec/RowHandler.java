@@ -43,24 +43,6 @@ public interface RowHandler<RowT> {
      */
     boolean isNull(int field, RowT row);
 
-    /** Concatenate two rows. */
-    RowT concat(RowT left, RowT right);
-
-    /**
-     * Creates a new row containing only the fields specified in the provided mapping.
-     *
-     * <p>For example:
-     * <pre>
-     *    source row [5, 6, 7, 8] apply mapping [1, 3]
-     *    result row will be [6, 8]
-     * </pre>
-     *
-     * @param row Source row.
-     * @param mapping Target field indexes.
-     * @return A new row with fields from the specified mapping.
-     */
-    RowT map(RowT row, int[] mapping);
-
     /** Return column count contained in the incoming row. */
     int columnCount(RowT row);
 
@@ -107,6 +89,28 @@ public interface RowHandler<RowT> {
          * @return Instantiation defined representation.
          */
         RowT create(InternalTuple tuple);
+
+        /**
+         * Returns an instance of a row schema used by this factory.
+         *
+         * @return RowSchema.
+         */
+        RowSchema rowSchema();
+
+        /**
+         * The result row will satisfy the current factory's schema.
+         *
+         * <p>For example:
+         * <pre>
+         *    source row [5, 6, 7, 8] apply mapping [1, 3]
+         *    result row will be [6, 8]
+         * </pre>
+         *
+         * @param row Source row.
+         * @param mapping Target field indexes. Mapping should satisfy to row schema for the factory.
+         * @return A new row with fields from the specified mapping.
+         */
+        RowT map(RowT row, int[] mapping);
     }
 
     /**

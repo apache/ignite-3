@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
+import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 
 /**
  * Remove all command for MetaStorageCommandListener that removes entries for given keys.
@@ -28,5 +31,6 @@ public interface RemoveAllCommand extends MetaStorageWriteCommand {
     /**
      * Returns the keys list. Couldn't be {@code null}.
      */
-    List<byte[]> keys();
+    @IgniteStringifier(name = "keys.size", value = SizeOnlyStringifier.class)
+    List<ByteBuffer> keys();
 }

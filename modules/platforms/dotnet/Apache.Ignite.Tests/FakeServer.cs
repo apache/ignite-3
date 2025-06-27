@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -29,6 +30,7 @@ namespace Apache.Ignite.Tests
     using Ignite.Sql;
     using Internal.Buffers;
     using Internal.Common;
+    using Internal.Compute;
     using Internal.Network;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
@@ -39,15 +41,16 @@ namespace Apache.Ignite.Tests
     /// <summary>
     /// Fake Ignite server for test purposes.
     /// </summary>
+    [SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Tests")]
     public sealed class FakeServer : IgniteServerBase
     {
         public const string Err = "Err!";
 
-        public const string ExistingTableName = "tbl1";
+        public const string ExistingTableName = "TBL1";
 
-        public const string CompositeKeyTableName = "tbl2";
+        public const string CompositeKeyTableName = "TBL2";
 
-        public const string CustomColocationKeyTableName = "tbl3";
+        public const string CustomColocationKeyTableName = "TBL3";
 
         public const string GetDetailsJob = "get-details";
 
@@ -76,12 +79,15 @@ namespace Apache.Ignite.Tests
         internal FakeServer(
             Func<RequestContext, bool>? shouldDropConnection = null,
             string nodeName = "fake-server",
-            bool disableOpsTracking = false)
+            bool disableOpsTracking = false,
+            int port = 0)
+            : base(port)
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
 
-            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)Listener.LocalEndPoint!);
-            PartitionAssignment = new[] { Node.Id };
+            Node = new ClusterNode(Guid.NewGuid(), nodeName, IPEndPoint.Parse("127.0.0.1:" + Port));
+            PartitionAssignment = new[] { nodeName };
+            ClusterNodes = new[] { Node };
 
             if (!disableOpsTracking)
             {
@@ -92,6 +98,8 @@ namespace Apache.Ignite.Tests
         public IClusterNode Node { get; }
 
         public Guid ClusterId { get; set; }
+
+        public string ClusterName { get; set; } = "fake-cluster";
 
         public string[] PartitionAssignment { get; set; }
 
@@ -126,6 +134,10 @@ namespace Apache.Ignite.Tests
         public long ObservableTimestamp { get; set; }
 
         public long LastClientObservableTimestamp { get; set; }
+
+        public IList<IClusterNode> ClusterNodes { get; set; }
+
+        public bool DisableRandomHandshake { get; set; }
 
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
@@ -164,9 +176,38 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(0); // Idle timeout.
             handshakeWriter.Write(Node.Id); // Node id.
             handshakeWriter.Write(Node.Name); // Node name (consistent id).
+
+            handshakeWriter.Write(1); // 1 cluster id.
             handshakeWriter.Write(ClusterId);
-            handshakeWriter.WriteBinaryHeader(0); // Features.
-            handshakeWriter.Write(0); // Extensions.
+            handshakeWriter.Write(ClusterName);
+
+            handshakeWriter.Write(ObservableTimestamp);
+
+            // Cluster version.
+            handshakeWriter.Write(1);
+            handshakeWriter.Write(2);
+            handshakeWriter.Write(3);
+            handshakeWriter.Write(4);
+            handshakeWriter.Write("-abcd");
+
+            if (DisableRandomHandshake || Random.Shared.Next(2) == 1)
+            {
+                handshakeWriter.WriteBinaryHeader(0); // Features.
+                handshakeWriter.Write(0); // Extensions.
+            }
+            else
+            {
+                // Test that client skips those correctly.
+                handshakeWriter.WriteBinaryHeader(3); // Features.
+                handshakeWriter.Write([1, 2, 3]); // Random feature bits
+
+                handshakeWriter.Write(5); // Extensions.
+                for (int i = 0; i < 5; i++)
+                {
+                    handshakeWriter.Write("test-ext-" + i);
+                    handshakeWriter.Write(i);
+                }
+            }
 
             var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
             handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
@@ -218,6 +259,7 @@ namespace Apache.Ignite.Tests
                         {
                             using var arrayBufferWriter = new PooledArrayBuffer();
                             arrayBufferWriter.MessageWriter.Write(tableId);
+                            arrayBufferWriter.MessageWriter.Write(tableName);
 
                             Send(handler, requestId, arrayBufferWriter);
 
@@ -286,6 +328,7 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.TxBegin:
                         reader.Skip(); // Read only.
+                        reader.Skip(); // TimeoutMillis.
                         LastClientObservableTimestamp = reader.ReadInt64();
 
                         Send(handler, requestId, new byte[] { 0 }.AsMemory());
@@ -305,7 +348,8 @@ namespace Apache.Ignite.Tests
                             rw.Write(1);
                         }
 
-                        rw.Write(Guid.NewGuid());
+                        rw.Write(Guid.NewGuid()); // Job id.
+                        WriteNode(Node, ref rw);
 
                         Send(handler, requestId, resWriter);
                         Send(handler, requestId, pooledArrayBuffer, isNotification: true);
@@ -332,17 +376,83 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.StreamerBatchSend:
                         reader.Skip(4);
-                        StreamerRowCount += reader.ReadInt32();
+                        var batchSize = reader.ReadInt32();
+                        StreamerRowCount += batchSize;
+
+                        if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                        {
+                            Thread.Sleep(MultiRowOperationDelayPerRow * batchSize);
+                        }
 
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
+
+                    case ClientOp.StreamerWithReceiverBatchSend:
+                    {
+                        reader.ReadInt32(); // table
+                        reader.ReadInt32(); // partition
+                        var unitCount = reader.ReadInt32();
+                        reader.Skip(unitCount);
+                        reader.ReadBoolean(); // returnResults.
+
+                        var payloadTupleSize = reader.ReadInt32();
+                        var payloadItemCount = payloadTupleSize - 6; // NOTE: Ignores args.
+                        StreamerRowCount += payloadItemCount;
+
+                        if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                        {
+                            Thread.Sleep(MultiRowOperationDelayPerRow * payloadItemCount);
+                        }
+
+                        Send(handler, requestId, Array.Empty<byte>());
+                        continue;
+                    }
+
+                    case ClientOp.PrimaryReplicasGet:
+                    {
+                        using var arrayBufferWriter = new PooledArrayBuffer();
+                        var writer = new MsgPackWriter(arrayBufferWriter);
+
+                        writer.Write(PartitionAssignment.Length);
+
+                        for (var index = 0; index < PartitionAssignment.Length; index++)
+                        {
+                            var nodeId = PartitionAssignment[index];
+
+                            writer.Write(index); // Partition id.
+                            writer.Write(4); // Prop count.
+                            writer.Write(Guid.NewGuid()); // Id.
+                            writer.Write(nodeId); // Name.
+                            writer.Write("localhost"); // Host.
+                            writer.Write(10900 + index); // Port.
+                        }
+
+                        Send(handler, requestId, arrayBufferWriter);
+                        continue;
+                    }
+
+                    case ClientOp.ClusterGetNodes:
+                    {
+                        using var arrayBufferWriter = new PooledArrayBuffer();
+                        var writer = new MsgPackWriter(arrayBufferWriter);
+
+                        writer.Write(ClusterNodes.Count);
+
+                        foreach (var node in ClusterNodes)
+                        {
+                            WriteNode(node, ref writer);
+                        }
+
+                        Send(handler, requestId, arrayBufferWriter);
+                        continue;
+                    }
                 }
 
                 // Fake error message for any other op code.
                 using var errWriter = new PooledArrayBuffer();
                 var w = new MsgPackWriter(errWriter);
                 w.Write(Guid.Empty);
-                w.Write(262150);
+                w.Write(262148);
                 w.Write("org.foo.bar.BazException");
                 w.Write(Err);
                 w.WriteNil(); // Stack trace.
@@ -352,6 +462,25 @@ namespace Apache.Ignite.Tests
             }
 
             handler.Disconnect(true);
+        }
+
+        private static (string Host, int Port) GetNodeAddress(IClusterNode node)
+        {
+            return node.Address is IPEndPoint ip
+                ? (ip.Address.ToString(), ip.Port)
+                : (((DnsEndPoint)node.Address).Host, ((DnsEndPoint)node.Address).Port);
+        }
+
+        private static void WriteNode(IClusterNode node, ref MsgPackWriter writer)
+        {
+            writer.Write(4); // Field count.
+
+            writer.Write(node.Id);
+            writer.Write(node.Name);
+
+            var (host, port) = GetNodeAddress(node);
+            writer.Write(host);
+            writer.Write(port);
         }
 
         private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false, bool isNotification = false)
@@ -427,6 +556,7 @@ namespace Apache.Ignite.Tests
             props["timeoutMs"] = timeoutMs;
 
             props["sessionTimeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+            props["timeZoneId"] = reader.TryReadNil() ? null : reader.ReadString();
 
             // ReSharper restore RedundantCast
             var propCount = reader.ReadInt32();
@@ -536,7 +666,8 @@ namespace Apache.Ignite.Tests
                 ["schema"] = reader.TryReadNil() ? null : reader.ReadString(),
                 ["pageSize"] = reader.TryReadNil() ? null : reader.ReadInt32(),
                 ["timeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
-                ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64()
+                ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
+                ["timeZoneId"] = reader.TryReadNil() ? null : reader.ReadString()
             };
 
             var propCount = reader.ReadInt32();
@@ -673,6 +804,7 @@ namespace Apache.Ignite.Tests
             var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
 
+            writer.Write(ComputePacker.Native); // ComputePacker.Native
             writer.Write(builder.Build().Span);
 
             // Status

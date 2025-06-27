@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import java.util.BitSet;
+
 /**
  * Client operation codes.
  */
@@ -105,9 +107,6 @@ public class ClientOp {
     /** Get primary key metadata. */
     public static final int JDBC_PK_META = 41;
 
-    /** Get query metadata. */
-    public static final int JDBC_QUERY_META = 42;
-
     /** Begin transaction. */
     public static final int TX_BEGIN = 43;
 
@@ -156,8 +155,8 @@ public class ClientOp {
     /** JDBC get more results command. */
     public static final int JDBC_MORE_RESULTS = 58;
 
-    /** Get compute job status. */
-    public static final int COMPUTE_GET_STATUS = 59;
+    /** Get compute job state. */
+    public static final int COMPUTE_GET_STATE = 59;
 
     /** Cancel compute job. */
     public static final int COMPUTE_CANCEL = 60;
@@ -170,4 +169,91 @@ public class ClientOp {
 
     /** Execute SQL query with the parameters batch. */
     public static final int SQL_EXEC_BATCH = 63;
+
+    /** Execute MapReduce task. */
+    public static final int COMPUTE_EXECUTE_MAPREDUCE = 64;
+
+    /** Get all primary replicas mapping to cluster nodes. */
+    public static final int PRIMARY_REPLICAS_GET = 65;
+
+    /** Send streamer batch with receiver. */
+    public static final int STREAMER_WITH_RECEIVER_BATCH_SEND = 66;
+
+    /** Check if all tuples with the given keys collection exist. */
+    public static final int TUPLE_CONTAINS_ALL_KEYS = 67;
+
+    /** Cancels the execution of JDBC statement. */
+    public static final int JDBC_CANCEL = 68;
+
+    /** Execute partitioned compute job. */
+    public static final int COMPUTE_EXECUTE_PARTITIONED = 69;
+
+    /** Cancel execution of a request previously initiated on the same connection. */
+    public static final int OPERATION_CANCEL = 70;
+
+    /** Get tables (returns Qualified names). */
+    public static final int TABLES_GET_QUALIFIED = 71;
+
+    /** Get table by qualified names (returns Qualified names). */
+    public static final int TABLE_GET_QUALIFIED = 72;
+
+    /** Response to a server->client operation. */
+    public static final int SERVER_OP_RESPONSE = 73;
+
+    /** Reserved for extensions: min. */
+    @SuppressWarnings("unused")
+    public static final int RESERVED_EXTENSION_RANGE_START = 1000;
+
+    /** Reserved for extensions: max. */
+    @SuppressWarnings("unused")
+    public static final int RESERVED_EXTENSION_RANGE_END = 2000;
+
+    /** Write mask. */
+    private static final BitSet WRITE_MASK = new BitSet(64);
+
+    /** Batch mask. */
+    private static final BitSet BATCH_MASK = new BitSet(64);
+
+    static {
+        WRITE_MASK.set(TUPLE_UPSERT);
+        WRITE_MASK.set(TUPLE_GET_AND_UPSERT);
+        WRITE_MASK.set(TUPLE_INSERT);
+        WRITE_MASK.set(TUPLE_REPLACE);
+        WRITE_MASK.set(TUPLE_REPLACE_EXACT);
+        WRITE_MASK.set(TUPLE_GET_AND_REPLACE);
+        WRITE_MASK.set(TUPLE_DELETE);
+        WRITE_MASK.set(TUPLE_DELETE_EXACT);
+        WRITE_MASK.set(TUPLE_GET_AND_DELETE);
+        WRITE_MASK.set(TUPLE_UPSERT_ALL);
+        WRITE_MASK.set(TUPLE_INSERT_ALL);
+        WRITE_MASK.set(TUPLE_DELETE_ALL);
+        WRITE_MASK.set(TUPLE_DELETE_ALL_EXACT);
+
+        BATCH_MASK.set(TUPLE_CONTAINS_ALL_KEYS);
+        BATCH_MASK.set(TUPLE_GET_ALL);
+        BATCH_MASK.set(TUPLE_UPSERT_ALL);
+        BATCH_MASK.set(TUPLE_INSERT_ALL);
+        BATCH_MASK.set(TUPLE_DELETE_ALL);
+        BATCH_MASK.set(TUPLE_DELETE_ALL_EXACT);
+    }
+
+    /**
+     * Test if the operation is a write.
+     *
+     * @param opCode The operation code.
+     * @return The status.
+     */
+    public static boolean isWrite(int opCode) {
+        return WRITE_MASK.get(opCode);
+    }
+
+    /**
+     * Test if the operation is a batch.
+     *
+     * @param opCode The operation code.
+     * @return The status.
+     */
+    public static boolean isBatch(int opCode) {
+        return BATCH_MASK.get(opCode);
+    }
 }

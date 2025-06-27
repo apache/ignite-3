@@ -28,12 +28,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.PrimaryReplicasResult;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
 class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     private static final int PARTITIONS = 2;
 
+    private static final int ZONE_ID = 12;
     private static final int TABLE_ID = 123;
 
     private ClientPrimaryReplicaTracker tracker;
@@ -52,13 +54,16 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setUp() throws Exception {
         driver = new FakePlacementDriver(PARTITIONS);
-        driver.setReplicas(List.of("s1", "s2"), TABLE_ID, 1);
+        driver.setReplicas(List.of("s1", "s2"), TABLE_ID, ZONE_ID, 1);
 
         InternalTable internalTable = mock(InternalTable.class);
         when(internalTable.partitions()).thenReturn(PARTITIONS);
+        when(internalTable.tableId()).thenReturn(TABLE_ID);
+        when(internalTable.zoneId()).thenReturn(ZONE_ID);
 
         TableViewInternal table = mock(TableViewInternal.class);
         when(table.tableId()).thenReturn(TABLE_ID);
+        when(table.zoneId()).thenReturn(ZONE_ID);
         when(table.internalTable()).thenReturn(internalTable);
 
         IgniteTablesInternal tables = mock(IgniteTablesInternal.class);
@@ -68,10 +73,11 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
         tracker = new ClientPrimaryReplicaTracker(
                 driver,
-                new FakeCatalogService(PARTITIONS),
+                new FakeCatalogService(PARTITIONS, tableId -> ZONE_ID),
                 new TestClockService(new TestHybridClock(currentTime::get)),
                 new AlwaysSyncedSchemaSyncService(),
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                new SystemPropertiesNodeProperties()
         );
     }
 
@@ -89,10 +95,10 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     public void testUpdateByEvent() {
         tracker.start();
 
-        assertEquals(1, tracker.maxStartTime());
-        driver.updateReplica("s3", TABLE_ID, 0, 2);
-
         assertEquals(2, tracker.maxStartTime());
+        driver.updateReplica("s3", TABLE_ID, ZONE_ID, 0, 3);
+
+        assertEquals(3, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
@@ -102,18 +108,17 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testNullReplicas() {
-        driver.updateReplica(null, TABLE_ID, 0, 2);
+        driver.updateReplica(null, TABLE_ID, ZONE_ID, 0, 2);
         tracker.start();
 
-        assertEquals(1, tracker.maxStartTime());
-        driver.updateReplica(null, TABLE_ID, 1, 2);
-
         assertEquals(2, tracker.maxStartTime());
+        driver.updateReplica(null, TABLE_ID, ZONE_ID, 1, 3);
+
+        assertEquals(3, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
-        assertEquals(PARTITIONS, replicas.nodeNames().size());
-        assertNull(replicas.nodeNames().get(0));
-        assertNull(replicas.nodeNames().get(1));
+        assertNull(replicas.nodeNames());
+        assertEquals(PARTITIONS, replicas.partitions());
     }
 
     @Test
@@ -136,10 +141,10 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         tracker.start();
         tracker.primaryReplicasAsync(TABLE_ID, null).join(); // Start tracking the table.
 
-        driver.updateReplica("update-1", TABLE_ID, 0, 10);
-        driver.updateReplica("old-update-2", TABLE_ID, 0, 5);
-        driver.updateReplica("update-3", TABLE_ID, 0, 15);
-        driver.updateReplica("old-update-4", TABLE_ID, 0, 14);
+        driver.updateReplica("update-1", TABLE_ID, ZONE_ID, 0, 10);
+        driver.updateReplica("old-update-2", TABLE_ID, ZONE_ID, 0, 5);
+        driver.updateReplica("update-3", TABLE_ID, ZONE_ID, 0, 15);
+        driver.updateReplica("old-update-4", TABLE_ID, ZONE_ID, 0, 14);
 
         assertEquals(15, tracker.maxStartTime());
 

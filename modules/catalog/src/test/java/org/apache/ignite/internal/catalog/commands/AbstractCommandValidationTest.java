@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -58,13 +60,23 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     static final String SCHEMA_NAME = "PUBLIC";
     static final String TABLE_NAME = "TEST";
     static final String ZONE_NAME = "Default";
+    static final String INDEX_NAME = "IDX";
     static final TablePrimaryKey ID_PK = TableHashPrimaryKey.builder()
             .columns(List.of("ID"))
             .build();
 
     private static final CatalogZoneDescriptor DEFAULT_ZONE = new CatalogZoneDescriptor(
-            0, ZONE_NAME, 1, -1, -1, -1, -1, "",
-            fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+            0,
+            ZONE_NAME,
+            1,
+            1,
+            1,
+            -1,
+            -1,
+            -1,
+            "",
+            fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())),
+            ConsistencyMode.STRONG_CONSISTENCY
     );
 
     static Stream<Arguments> nullAndBlankStrings() {
@@ -83,7 +95,47 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return Stream.of(null, Set.of()).map(Arguments::of);
     }
 
+    /**
+     * Test cases for the create/alter zone parameter validation. The order is: number of replicas, default quorum size, default consensus
+     * group size, minimum quorum size, maximum quorum size.
+     *
+     * @return Stream of arguments for parameterized test.
+     */
+    static Stream<Arguments> quorumTable() {
+        return Stream.of(
+                Arguments.of(null, 1, 1, 1, 1), // default replicas count is 1
+                Arguments.of(1, 1, 1, 1, 1),
+                Arguments.of(2, 2, 2, 2, 2),
+                Arguments.of(3, 2, 3, 2, 2),
+                Arguments.of(4, 2, 3, 2, 2),
+                Arguments.of(5, 3, 5, 2, 3),
+                Arguments.of(6, 3, 5, 2, 3),
+                Arguments.of(7, 3, 5, 2, 4),
+                Arguments.of(8, 3, 5, 2, 4),
+                Arguments.of(9, 3, 5, 2, 5),
+                Arguments.of(10, 3, 5, 2, 5)
+        );
+    }
+
     static Catalog emptyCatalog() {
+        return new Catalog(
+                0,
+                0L,
+                1,
+                List.of(),
+                List.of(new CatalogSchemaDescriptor(
+                        0,
+                        SCHEMA_NAME,
+                        new CatalogTableDescriptor[0],
+                        new CatalogIndexDescriptor[0],
+                        new CatalogSystemViewDescriptor[0],
+                        INITIAL_TIMESTAMP
+                )),
+                null
+        );
+    }
+
+    static Catalog catalogWithDefaultZone() {
         return catalog(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
@@ -166,17 +218,18 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog applyCommandsToCatalog(Catalog catalog, CatalogCommand... commandsToApply) {
+        UpdateContext updateContext = new UpdateContext(catalog);
         for (CatalogCommand command : commandsToApply) {
-            for (UpdateEntry updates : command.get(catalog)) {
-                catalog = updates.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
+            for (UpdateEntry updates : command.get(updateContext)) {
+                updateContext.updateCatalog(catalog0 -> updates.applyUpdate(catalog0, INITIAL_TIMESTAMP));
             }
         }
 
-        return catalog;
+        return updateContext.catalog();
     }
 
     static Catalog catalog(CatalogCommand... commandsToApply) {
-        return applyCommandsToCatalog(emptyCatalog(), commandsToApply);
+        return applyCommandsToCatalog(catalogWithDefaultZone(), commandsToApply);
     }
 
     static Catalog catalog(
@@ -196,7 +249,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         tables,
                         indexes,
                         systemViews,
-                        INITIAL_CAUSALITY_TOKEN
+                        INITIAL_TIMESTAMP
                 )),
                 DEFAULT_ZONE.id());
     }

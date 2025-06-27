@@ -17,23 +17,22 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
@@ -47,20 +46,14 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.PublicApiThreading.ApiEntryRole;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -72,21 +65,16 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for the internal table API.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItInternalTableTest extends BaseIgniteAbstractTest {
+public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "SOME_TABLE";
 
     private static final SchemaDescriptor SCHEMA_1 = new SchemaDescriptor(
@@ -98,54 +86,11 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
             }
     );
 
-    private static final int BASE_PORT = 3344;
-
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
-            + "    }\n"
-            + "  }\n"
-            + "}";
-
-    private static Ignite NODE;
-
-    @WorkDirectory
-    private static Path WORK_DIR;
-
     private Table table;
 
-    @BeforeAll
-    static void startNode(TestInfo testInfo) {
-        String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
-
-        String nodeName = testNodeName(testInfo, 0);
-
-        String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT, connectNodeAddr);
-
-        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName));
-
-        String metaStorageNodeName = testNodeName(testInfo, nodes() - 1);
-
-        InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
-                .clusterName("cluster")
-                .build();
-
-        TestIgnitionManager.init(initParameters);
-
-        assertThat(future, willCompleteSuccessfully());
-
-        NODE = future.join();
-    }
-
-    @AfterAll
-    static void stopNode(TestInfo testInfo) throws Exception {
-        NODE = null;
-
-        closeAll(() -> IgnitionManager.stop(testNodeName(testInfo, 0)));
+    @Override
+    protected int initialNodes() {
+        return 1;
     }
 
     @BeforeEach
@@ -191,7 +136,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertThat(res, is(equalToRow(keyValueRow)));
+        assertThat(res, isRow(keyValueRow));
     }
 
     @Test
@@ -223,7 +168,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertThat(res, is(equalToRow(keyValueRow2)));
+        assertThat(res, isRow(keyValueRow2));
     }
 
     @Test
@@ -284,13 +229,13 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertThat(res, is(equalToRow(keyValueRow)));
+        assertThat(res, isRow(keyValueRow));
 
         tx2.commit();
 
         res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertThat(res, is(equalToRow(keyValueRow2)));
+        assertThat(res, isRow(keyValueRow2));
     }
 
     @Test
@@ -423,16 +368,13 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         assertThat(deleteAllFut, willCompleteSuccessfully());
 
         List<BinaryRow> res = deleteAllFut.join();
-
-        Iterator<BinaryRow> resIter = res.iterator();
+        List<Tuple> keyTups = res.stream().map(r -> TableRow.tuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, r))).collect(toList());
 
         for (BinaryRowEx key : keyRows) {
-            int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+            Tuple tuple = TableRow.tuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key));
 
-            if (i % 2 == 1) {
-                Tuple rowTuple = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, resIter.next()));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+            if (tuple.longValue("key") % 2 == 1) {
+                assertTrue(keyTups.contains(tuple));
             }
         }
     }
@@ -449,18 +391,13 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         assertThat(deleteAllExactFut, willCompleteSuccessfully());
 
         List<BinaryRow> res = deleteAllExactFut.join();
-
-        Iterator<BinaryRow> resIter = res.iterator();
+        List<Tuple> tups = res.stream().map(r -> TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, r))).collect(toList());
 
         for (BinaryRowEx key : rowsToLookup) {
-            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+            Tuple tuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key));
 
-            if (i % 2 == 1) {
-                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
-                assertEquals(i, rowTuple.<Integer>value("valInt"));
-                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            if (tuple.longValue("key") % 2 == 1) {
+                assertTrue(tups.contains(tuple));
             }
         }
     }
@@ -477,18 +414,15 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         assertThat(insertAllFut, willCompleteSuccessfully());
 
         List<BinaryRow> res = insertAllFut.join();
+        List<Tuple> tups = res.stream().map(r -> TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, r))).collect(toList());
 
-        Iterator<BinaryRow> resIter = res.iterator();
+        assertEquals(rowsToLookup.size(), res.size() * 2, "Expecting the half returned");
 
         for (BinaryRowEx key : rowsToLookup) {
-            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+            Tuple tuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key));
 
-            if (i % 2 == 0) {
-                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
-                assertEquals(i, rowTuple.<Integer>value("valInt"));
-                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            if (tuple.longValue("key") % 2 == 0) {
+                assertTrue(tups.contains(tuple));
             }
         }
     }
@@ -567,7 +501,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
         var keyRows = new ArrayList<BinaryRowEx>();
 
-        for (int i = 0; i < 15; i++) {
+        for (int i = 0; i < 16; i++) {
             keyRows.add(keyOnly ? createKeyRow(i) : createKeyValueRow(i, i, "some string row" + i));
 
             if (i % 2 == 0) {
@@ -699,13 +633,13 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         String zoneName = zoneNameForTable(tableName);
         IgniteSql sql = node.sql();
 
-        sql.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d, storage_profiles='%s'",
+        sql.execute(null, String.format("create zone %s (partitions 3, replicas %d) storage profiles ['%s']",
                 zoneName, DEFAULT_REPLICA_COUNT, DEFAULT_STORAGE_PROFILE));
 
         sql.execute(null,
                 String.format(
-                        "create table \"%s\" (key bigint primary key, valInt int, valStr varchar default 'default') "
-                                + "with primary_zone='%s'",
+                        "create table %s (key bigint primary key, valInt int, valStr varchar default 'default') "
+                                + "zone %s",
                         tableName, zoneName
                 )
         );
@@ -733,6 +667,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     protected static IgniteImpl node() {
-        return (IgniteImpl) NODE;
+        return unwrapIgniteImpl(CLUSTER.node(0));
     }
 }

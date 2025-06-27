@@ -25,8 +25,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -34,18 +32,16 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.config.schema.ChannelView;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.jetbrains.annotations.Nullable;
 
 class ConfigurationBasedChannelRegistry implements ChannelRegistry {
-    private final ReadWriteLock guard;
+    private volatile Map<String, EventChannel> cache;
 
-    private final Map<String, EventChannel> cache;
-
-    private final Map<String, Set<EventChannel>> typeCache;
+    private volatile Map<String, Set<EventChannel>> typeCache;
 
     private final SinkRegistry sinkRegistry;
 
     ConfigurationBasedChannelRegistry(EventLogConfiguration cfg, SinkRegistry sinkRegistry) {
-        this.guard = new ReentrantReadWriteLock();
         this.cache = new HashMap<>();
         this.typeCache = new HashMap<>();
         this.sinkRegistry = sinkRegistry;
@@ -55,23 +51,13 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
 
     @Override
     public EventChannel getByName(String name) {
-        guard.readLock().lock();
-        try {
-            return cache.get(name);
-        } finally {
-            guard.readLock().unlock();
-        }
+        return cache.get(name);
     }
 
     @Override
+    @Nullable
     public Set<EventChannel> findAllChannelsByEventType(String igniteEventType) {
-        guard.readLock().lock();
-        try {
-            Set<EventChannel> result = typeCache.get(igniteEventType);
-            return result == null ? Set.of() : new HashSet<>(result);
-        } finally {
-            guard.readLock().unlock();
-        }
+        return typeCache.get(igniteEventType);
     }
 
     private class CacheUpdater implements ConfigurationListener<NamedListView<ChannelView>> {
@@ -79,29 +65,26 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<NamedListView<ChannelView>> ctx) {
             NamedListView<ChannelView> newListValue = ctx.newValue();
 
-            guard.writeLock().lock();
+            Map<String, EventChannel> newCache = new HashMap<>();
+            Map<String, Set<EventChannel>> newTypeCache = new HashMap<>();
 
-            try {
-                cache.clear();
-                typeCache.clear();
-
-                newListValue.forEach(view -> {
-                    if (view.enabled()) {
-                        EventChannel channel = createChannel(view);
-                        cache.put(view.name(), channel);
-                        for (String eventType : view.events()) {
-                            typeCache.computeIfAbsent(
-                                    eventType.trim(),
-                                    t -> new HashSet<>()
-                            ).add(channel);
-                        }
+            newListValue.forEach(view -> {
+                if (view.enabled()) {
+                    EventChannel channel = createChannel(view);
+                    newCache.put(view.name(), channel);
+                    for (String eventType : view.events()) {
+                        newTypeCache.computeIfAbsent(
+                                eventType.trim(),
+                                t -> new HashSet<>()
+                        ).add(channel);
                     }
-                });
+                }
+            });
 
-                return completedFuture(null);
-            } finally {
-                guard.writeLock().unlock();
-            }
+            cache = newCache;
+            typeCache = newTypeCache;
+
+            return completedFuture(null);
         }
 
         private EventChannel createChannel(ChannelView view) {

@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.util.AdaptiveBufAllocator;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.apache.ignite.raft.jraft.util.RecyclableByteBufferList;
 import org.apache.ignite.raft.jraft.util.RecycleUtil;
@@ -170,7 +169,7 @@ public class AppendEntriesBenchmark {
         }
         final ByteBuffer buf = dataBuffer.getBuffer();
         buf.flip();
-        rb.data(new ByteString(buf));
+        rb.data(buf);
         return JDKMarshaller.INSTANCE.marshall(rb.build());
     }
 
@@ -187,7 +186,7 @@ public class AppendEntriesBenchmark {
             }
             final ByteBuffer buf = dataBuffer.getBuffer();
             buf.flip();
-            rb.data(new ByteString(buf));
+            rb.data(buf);
             return JDKMarshaller.INSTANCE.marshall(rb.build());
         }
         finally {
@@ -210,7 +209,7 @@ public class AppendEntriesBenchmark {
             buf.flip();
             final int remaining = buf.remaining();
             handleThreadLocal.get().record(remaining);
-            rb.data(new ByteString(buf));
+            rb.data(buf);
             return JDKMarshaller.INSTANCE.marshall(rb.build());
         }
         finally {

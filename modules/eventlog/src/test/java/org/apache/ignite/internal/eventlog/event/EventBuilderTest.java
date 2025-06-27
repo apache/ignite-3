@@ -28,6 +28,7 @@ import org.apache.ignite.internal.eventlog.event.exception.InvalidEventTypeExcep
 import org.apache.ignite.internal.eventlog.event.exception.InvalidProductVersionException;
 import org.apache.ignite.internal.eventlog.event.exception.MissingEventTypeException;
 import org.apache.ignite.internal.eventlog.event.exception.MissingEventUserException;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -84,7 +85,7 @@ class EventBuilderTest {
 
         assertEquals(EVENT_TYPE, event.getType());
         assertThat(event.getTimestamp(), greaterThan(0L));
-        assertEquals("3.0.0", event.getProductVersion());
+        assertEquals(IgniteProductVersion.CURRENT_VERSION.toString(), event.getProductVersion());
         assertEquals(EventUser.system(), event.getUser());
         assertEquals(Map.of(), event.getFields());
     }

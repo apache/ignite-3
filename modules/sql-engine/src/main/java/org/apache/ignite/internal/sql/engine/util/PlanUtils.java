@@ -80,7 +80,7 @@ public class PlanUtils {
             builder.add(fld);
         }
 
-        addAccumulatorFields(typeFactory, aggregateCalls, builder);
+        addAccumulatorFields(typeFactory, aggregateCalls, inputType, builder);
 
         return builder.build();
     }
@@ -115,19 +115,24 @@ public class PlanUtils {
             builder.add(fld);
         }
 
-        addAccumulatorFields(typeFactory, aggregateCalls, builder);
+        addAccumulatorFields(typeFactory, aggregateCalls, inputType, builder);
 
         builder.add("_GROUP_ID", SqlTypeName.TINYINT);
 
         return builder.build();
     }
 
-    private static void addAccumulatorFields(IgniteTypeFactory typeFactory, List<AggregateCall> aggregateCalls, Builder builder) {
+    private static void addAccumulatorFields(
+            IgniteTypeFactory typeFactory,
+            List<AggregateCall> aggregateCalls,
+            RelDataType inputType,
+            Builder builder
+    ) {
         Accumulators accumulators = new Accumulators(typeFactory);
 
         for (int i = 0; i < aggregateCalls.size(); i++) {
             AggregateCall call = aggregateCalls.get(i);
-            Accumulator acc = accumulators.accumulatorFactory(call).get();
+            Accumulator acc = accumulators.accumulatorFactory(call, inputType).get();
             RelDataType fieldType;
             // For a decimal type Accumulator::returnType returns a type with default precision and scale,
             // that can cause precision loss when a tuple is sent over the wire by an exchanger/outbox.

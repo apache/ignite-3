@@ -58,8 +58,7 @@ public class ToStringTests
                     continue;
                 }
 
-                if (code.Contains("record " + GetCleanTypeName(type)) ||
-                    code.Contains("record struct " + GetCleanTypeName(type)))
+                if (code.Contains("record struct " + GetCleanTypeName(type)))
                 {
                     // records provide property-based ToString() in the same format we use.
                     continue;
@@ -120,7 +119,7 @@ public class ToStringTests
                 continue;
             }
 
-            if (type.IsInterface || type.IsAbstract || type.IsEnum)
+            if (type.IsInterface || type.IsAbstract || type.IsEnum || type.IsRecordClass())
             {
                 continue;
             }

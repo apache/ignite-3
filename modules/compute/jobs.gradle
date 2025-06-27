@@ -82,6 +82,7 @@ processIntegrationTestResources {
 
 dependencies {
     jobsImplementation project(':ignite-api')
+    jobsImplementation project(':ignite-core')
     unit1Implementation project(':ignite-api')
     unit2Implementation project(':ignite-api')
 

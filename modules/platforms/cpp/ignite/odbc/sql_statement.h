@@ -150,6 +150,14 @@ public:
     void execute_sql_query(const std::string &query);
 
     /**
+     * Execute SQL query with the custom parameter set.
+     *
+     * @param query SQL query.
+     * @param params Custom parameter set.
+     */
+    void execute_sql_query(const std::string &query, parameter_set &params);
+
+    /**
      * Execute SQL query.
      */
     void execute_sql_query();
@@ -337,6 +345,13 @@ public:
     void describe_param(std::uint16_t param_num, std::int16_t *data_type, SQLULEN *param_size,
         std::int16_t *decimal_digits, std::int16_t *nullable);
 
+    /**
+     * Get a pointer to the current query.
+     *
+     * @return Current query.
+     */
+    [[nodiscard]] query *get_query() { return m_current_query.get(); }
+
 private:
     /**
      * Bind result column to specified data buffer.
@@ -459,6 +474,15 @@ private:
      * @return Operation result.
      */
     sql_result internal_execute_sql_query(const std::string &query);
+
+    /**
+     * Execute SQL query.
+     *
+     * @param query SQL query.
+     * @param params Custom parameter set.
+     * @return Operation result.
+     */
+    sql_result internal_execute_sql_query(const std::string &query, parameter_set &params);
 
     /**
      * Execute SQL query.
@@ -598,7 +622,7 @@ private:
      * @param param_ptr Pointer to param id stored here.
      * @return Operation result.
      */
-    sql_result internal_select_aram(void **param_ptr);
+    sql_result internal_select_param(void **param_ptr);
 
     /**
      * Puts data for previously selected parameter or column.
@@ -660,7 +684,7 @@ private:
     SQLULEN m_row_array_size{1};
 
     /** Parameters. */
-    parameter_set m_parameters;
+    parameter_set_impl m_parameters;
 
     /** Query timeout in seconds. */
     std::int32_t m_timeout{0};

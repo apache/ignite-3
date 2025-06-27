@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -26,6 +27,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,6 +36,8 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.type.RelDataType;
@@ -47,9 +52,12 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
+import org.apache.ignite.internal.sql.engine.framework.DataProvider;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -59,6 +67,8 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test {@link IndexScanNode} execution.
@@ -116,6 +126,70 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         validateResult(result, List.of(new Object[]{2}, new Object[]{1}, new Object[]{0}));
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void indexScanNodeWithVariousBufferSize(boolean sorted) {
+        // Buffer of size 1.
+        int bufferSize = 1;
+        checkIndexScan(sorted, bufferSize, 1, 0);
+        checkIndexScan(sorted, bufferSize, 1, 1);
+        checkIndexScan(sorted, bufferSize, 5, 1);
+
+        // Partitions of size 1, which amount is close to buffer size.
+        bufferSize = 10;
+        checkIndexScan(sorted, bufferSize, bufferSize - 1, 1);
+        checkIndexScan(sorted, bufferSize, bufferSize, 1);
+        checkIndexScan(sorted, bufferSize, bufferSize + 1, 1);
+
+        // Default buffer size.
+        bufferSize = IN_BUFFER_SIZE;
+        checkIndexScan(sorted, bufferSize, 1, 0);
+        checkIndexScan(sorted, bufferSize, 1, 1);
+        checkIndexScan(sorted, bufferSize, 1, bufferSize - 1);
+        checkIndexScan(sorted, bufferSize, 1, bufferSize);
+        checkIndexScan(sorted, bufferSize, 1, bufferSize + 1);
+        checkIndexScan(sorted, bufferSize, 1, 2 * bufferSize);
+    }
+
+    private void checkIndexScan(boolean sorted, int bufferSize, int partitionsCount, int partDataSize) {
+        List<String> columns = List.of("C1");
+        List<Collation> collations = List.of(IgniteIndex.Collation.ASC_NULLS_LAST);
+
+        ExecutionContext<Object[]> ctx = executionContext(bufferSize);
+
+        List<PartitionWithConsistencyToken> partitions = IntStream.range(0, partitionsCount)
+                .mapToObj(i -> new PartitionWithConsistencyToken(1, 42L))
+                .collect(Collectors.toList());
+
+        SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
+
+        RowSchema schema = RowSchema.builder().addField(NativeTypes.INT32).build();
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(schema);
+
+        TableDescriptor tableDescriptor = createTableDescriptor(columns);
+        IgniteIndex indexDescriptor = sorted
+                ? createSortedIndexDescriptor(columns, collations, tableDescriptor)
+                : createHashIndexDescriptor(columns, tableDescriptor);
+
+        Comparator<Object[]> comparator = sorted
+                ? Comparator.comparing(row -> (Comparable<Object>) row[0])
+                : null;
+
+        ScannableTable scannableIndex = sorted
+                ? TestBuilders.indexRangeScan(DataProvider.fromRow(new Object[]{42}, partDataSize))
+                : TestBuilders.indexLookup(DataProvider.fromRow(new Object[]{42}, partDataSize));
+
+        IndexScanNode<Object[]> scanNode = new IndexScanNode<>(ctx, rowFactory, indexDescriptor, scannableIndex, tableDescriptor,
+                c -> partitions, comparator, conditions, null, null, null);
+        RootNode<Object[]> rootNode = new RootNode<>(ctx);
+
+        rootNode.register(scanNode);
+
+        long count = StreamSupport.stream(Spliterators.spliteratorUnknownSize(rootNode, Spliterator.ORDERED), false).count();
+
+        assertEquals((long) partDataSize * partitionsCount, count);
+    }
+
     private static TableDescriptor createTableDescriptor(List<String> columns) {
         Builder rowTypeBuilder = new Builder(Commons.typeFactory());
 
@@ -123,7 +197,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
         }
 
-        RelDataType rowType =  rowTypeBuilder.build();
+        RelDataType rowType = rowTypeBuilder.build();
 
         return new TestTableDescriptor(IgniteDistributions::single, rowType);
     }
@@ -146,7 +220,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         RelCollation collation = TraitUtils.createCollation(columns, collations, tableDescriptor);
         IgniteDistribution distribution = tableDescriptor.distribution();
 
-        return new IgniteIndex(1, "IDX", IgniteIndex.Type.HASH, distribution, collation);
+        return new IgniteIndex(1, "IDX", Type.SORTED, distribution, collation);
     }
 
     private static class Tester {
@@ -261,8 +335,13 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         }
 
         @Override
-        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
                 RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<Long> estimatedSize() {
             throw new UnsupportedOperationException();
         }
 

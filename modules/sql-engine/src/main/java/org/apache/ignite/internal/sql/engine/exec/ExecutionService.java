@@ -17,15 +17,43 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor;
 
 /**
  * SQL query plan execution interface.
  */
 public interface ExecutionService extends LifecycleAware {
-    AsyncCursor<InternalSqlRow> executePlan(InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx);
+    /**
+     * Executes the given plan.
+     *
+     * @param plan Plan to execute.
+     * @param operationContext Context of operation.
+     * @return Future that will be completed when cursor is successfully initialized, implying for distributed plans all fragments have been
+     *         sent successfully.
+     */
+    CompletableFuture<AsyncDataCursor<InternalSqlRow>> executePlan(
+            QueryPlan plan, SqlOperationContext operationContext
+    );
+
+    /**
+     * Executes given batch of {@link DdlPlan}s atomically.
+     *
+     * <p>The whole batch will be executed at once. If exception arises during execution of any plan within the batch, then
+     * none of the changes will be saved.
+     *
+     * @param batch A batch to execute.
+     * @param activationTimeListener A listener to notify with activation time of catalog in which all changes become visible.
+     * @return A future containing a list of cursors representing result of execution, one per each command.
+     */
+    CompletableFuture<List<AsyncDataCursor<InternalSqlRow>>> executeDdlBatch(
+            List<DdlPlan> batch,
+            Consumer<HybridTimestamp> activationTimeListener
+    );
 }

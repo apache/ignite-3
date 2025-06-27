@@ -24,7 +24,6 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.decorators.NodeStatusDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
@@ -43,13 +42,8 @@ public class NodeStatusCommand extends BaseCommand implements Callable<Integer> 
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new NodeStatusDecorator())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 }

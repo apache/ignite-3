@@ -19,12 +19,13 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 
-/** {@link ItMetaStorageMultipleNodesAbstractTest} with {@link SimpleInMemoryKeyValueStorage} implementation. */
-public class ItMetaStorageMultipleNodesSimpleStorageTest extends ItMetaStorageMultipleNodesAbstractTest {
+/** {@link ItMetaStorageMultipleNodesVsStorageTest} with {@link SimpleInMemoryKeyValueStorage} implementation. */
+public class ItMetaStorageMultipleNodesSimpleStorageTest extends ItMetaStorageMultipleNodesVsStorageTest {
     @Override
-    public KeyValueStorage createStorage(String nodeName, Path path) {
-        return new SimpleInMemoryKeyValueStorage(nodeName);
+    public KeyValueStorage createStorage(String nodeName, Path path, ReadOperationForCompactionTracker readOperationForCompactionTracker) {
+        return new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker);
     }
 }

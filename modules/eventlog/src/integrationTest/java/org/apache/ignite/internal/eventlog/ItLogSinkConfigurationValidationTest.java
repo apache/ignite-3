@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.eventlog;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -33,8 +36,8 @@ class ItLogSinkConfigurationValidationTest extends ClusterPerClassIntegrationTes
             "all", "trace", "debug", "info", "warning", "error", "off"
     })
     void validLogLevelTest(String level) {
-        assertDoesNotThrow(() -> CLUSTER.aliveNode().clusterConfiguration().change(c ->
-                c.changeRoot(EventLogConfiguration.KEY).changeSinks().create("logSink" + level, s -> {
+        assertDoesNotThrow(() -> eventLogConfiguration().change(c ->
+                c.changeSinks().create("logSink" + level, s -> {
                     var logSinkChange = (LogSinkChange) s.convert("log");
                     logSinkChange.changeCriteria("EventLog");
                     logSinkChange.changeLevel(level);
@@ -43,13 +46,17 @@ class ItLogSinkConfigurationValidationTest extends ClusterPerClassIntegrationTes
         );
     }
 
+    private static IgniteImpl aliveIgniteImpl() {
+        return unwrapIgniteImpl(CLUSTER.aliveNode());
+    }
+
     @ParameterizedTest
     @CsvSource({"INVALID", "123", "null", "WARN"})
     void invalidLogLevel(String logLevel) {
         assertThrows(
                 Exception.class,
-                () -> CLUSTER.aliveNode().clusterConfiguration().change(c ->
-                        c.changeRoot(EventLogConfiguration.KEY).changeSinks().create("logSink", s -> {
+                () -> eventLogConfiguration().change(c ->
+                        c.changeSinks().create("logSink", s -> {
                             var logSinkChange = (LogSinkChange) s.convert("log");
                             logSinkChange.changeCriteria("EventLog");
                             logSinkChange.changeLevel(logLevel);
@@ -61,8 +68,8 @@ class ItLogSinkConfigurationValidationTest extends ClusterPerClassIntegrationTes
     @ParameterizedTest
     @CsvSource({"json", "JSON"})
     void validLogFormatTest(String format) {
-        assertDoesNotThrow(() -> CLUSTER.aliveNode().clusterConfiguration().change(c ->
-                c.changeRoot(EventLogConfiguration.KEY).changeSinks().create("logSink" + format, s -> {
+        assertDoesNotThrow(() -> eventLogConfiguration().change(c ->
+                c.changeSinks().create("logSink" + format, s -> {
                     var logSinkChange = (LogSinkChange) s.convert("log");
                     logSinkChange.changeCriteria("EventLog");
                     logSinkChange.changeLevel("INFO");
@@ -76,14 +83,18 @@ class ItLogSinkConfigurationValidationTest extends ClusterPerClassIntegrationTes
     void invalidLogFormat(String logFormat) {
         assertThrows(
                 Exception.class,
-                () -> CLUSTER.aliveNode().clusterConfiguration().change(c ->
-                        c.changeRoot(EventLogConfiguration.KEY).changeSinks().create("logSink", s -> {
+                () -> eventLogConfiguration().change(c ->
+                        c.changeSinks().create("logSink", s -> {
                             var logSinkChange = (LogSinkChange) s.convert("log");
                             logSinkChange.changeCriteria("EventLog");
                             logSinkChange.changeLevel("INFO");
                             logSinkChange.changeFormat(logFormat);
                         })).get()
         );
+    }
+
+    private static EventLogConfiguration eventLogConfiguration() {
+        return aliveIgniteImpl().clusterConfiguration().getConfiguration(EventLogExtensionConfiguration.KEY).eventlog();
     }
 }
 

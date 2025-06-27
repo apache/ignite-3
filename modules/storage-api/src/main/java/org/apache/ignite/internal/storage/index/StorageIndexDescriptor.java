@@ -60,8 +60,13 @@ public interface StorageIndexDescriptor {
      */
     List<? extends StorageColumnDescriptor> columns();
 
-    /** Returns {@code true} for the primary index. */
-    boolean isPk();
+    /**
+     * Returns {@code true} if this index must be built by a background task and {@code false} if this index will be built when inserting
+     * data into its table.
+     *
+     * <p>The value of this field is deduced based on the {@link CatalogIndexDescriptor#isCreatedWithTable} flag value.
+     */
+    boolean mustBeBuilt();
 
     /**
      * Creates an index description based on the catalog descriptors.
@@ -104,8 +109,6 @@ public interface StorageIndexDescriptor {
                 return NativeTypes.DOUBLE;
             case DECIMAL:
                 return NativeTypes.decimalOf(column.precision(), column.scale());
-            case NUMBER:
-                return NativeTypes.numberOf(column.precision());
             case DATE:
                 return NativeTypes.DATE;
             case TIME:
@@ -116,8 +119,6 @@ public interface StorageIndexDescriptor {
                 return NativeTypes.timestamp(column.precision());
             case UUID:
                 return NativeTypes.UUID;
-            case BITMASK:
-                return NativeTypes.bitmaskOf(column.length());
             case STRING:
                 return NativeTypes.stringOf(column.length());
             case BYTE_ARRAY:

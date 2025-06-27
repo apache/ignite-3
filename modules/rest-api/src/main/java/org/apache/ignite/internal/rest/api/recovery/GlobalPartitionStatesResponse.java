@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.api.recovery;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
@@ -28,7 +29,9 @@ import java.util.List;
  */
 @Schema(description = "Information about global partition states.")
 public class GlobalPartitionStatesResponse {
+    // Using JsonInclude to handle empty list correctly.
     @Schema
+    @JsonInclude
     private final List<GlobalPartitionStateResponse> states;
 
     @JsonCreator

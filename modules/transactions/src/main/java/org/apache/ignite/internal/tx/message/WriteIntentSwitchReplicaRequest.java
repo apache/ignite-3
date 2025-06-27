@@ -17,48 +17,15 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
-import java.util.UUID;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import java.util.Set;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
  * or removes them (TxState.ABORTED).
  */
 @Transferable(TxMessageGroup.WRITE_INTENT_SWITCH_REQUEST)
-public interface WriteIntentSwitchReplicaRequest extends ReplicaRequest, TimestampAware {
-    /**
-     * Returns transaction Id.
-     *
-     * @return Transaction id.
-     */
-    UUID txId();
-
-    /**
-     * Returns {@code True} if a commit request.
-     *
-     * @return {@code True} to commit.
-     */
-    boolean commit();
-
-    /**
-     * Returns a transaction commit timestamp.
-     *
-     * @return Commit timestamp.
-     */
-    long commitTimestampLong();
-
-    /**
-     * Returns a transaction commit timestamp.
-     *
-     * @return Commit timestamp.
-     */
-    default @Nullable HybridTimestamp commitTimestamp() {
-        return nullableHybridTimestamp(commitTimestampLong());
-    }
+public interface WriteIntentSwitchReplicaRequest extends WriteIntentSwitchReplicaRequestBase {
+    /** IDs of tables in which the partition in question had write intents. */
+    Set<Integer> tableIds();
 }

@@ -23,8 +23,8 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.rest.RestFactory;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Factory that creates beans that are needed for {@link ClusterManagementController}.

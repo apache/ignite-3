@@ -20,7 +20,6 @@ package org.apache.ignite.internal.worker;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_WORKER_BLOCKED_ERR;
 
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
@@ -36,12 +35,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,23 +68,23 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     private final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
 
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Creates a new instance of the watchdog.
      *
      * @param configuration Configuration.
      * @param scheduler Scheduler.
-     * @param failureProcessor Failure processor.
+     * @param failureManager Failure processor.
      */
     public CriticalWorkerWatchdog(
             CriticalWorkersConfiguration configuration,
             ScheduledExecutorService scheduler,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.configuration = configuration;
         this.scheduler = scheduler;
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
     }
 
     @Override
@@ -99,8 +98,8 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
-        long livenessCheckIntervalMs = configuration.livenessCheckInterval().value();
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        long livenessCheckIntervalMs = configuration.livenessCheckIntervalMillis().value();
 
         livenessProbeTaskFuture = scheduler.scheduleAtFixedRate(
                 this::probeLiveness,
@@ -118,12 +117,12 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         } catch (Exception | AssertionError e) {
             LOG.debug("Error while probing liveness", e);
         } catch (Error e) {
-            failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+            failureManager.process(new FailureContext(CRITICAL_ERROR, e));
         }
     }
 
     private void doProbeLiveness() {
-        long maxAllowedLag = configuration.maxAllowedLag().value();
+        long maxAllowedLag = configuration.maxAllowedLagMillis().value();
 
         Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays(maxAllowedLag);
 
@@ -138,18 +137,16 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
         for (ThreadInfo threadInfo : threadInfos) {
             if (threadInfo != null) {
-                String message = String.format(
-                        "A critical thread is blocked for %d ms that is more than the allowed %d ms, it is %s",
-                        delayedThreadIdsToDelays.get(threadInfo.getThreadId()),
-                        maxAllowedLag,
-                        toString(threadInfo));
+                StringBuilder message = new StringBuilder()
+                        .append("A critical thread is blocked for ")
+                        .append(delayedThreadIdsToDelays.get(threadInfo.getThreadId()))
+                        .append(" ms that is more than the allowed ")
+                        .append(maxAllowedLag)
+                        .append(" ms, it is ");
 
-                LOG.error(message);
+                appendThreadInfo(message, threadInfo);
 
-                failureProcessor.process(
-                        new FailureContext(
-                                SYSTEM_WORKER_BLOCKED,
-                                new IgniteException(SYSTEM_WORKER_BLOCKED_ERR, message)));
+                failureManager.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null, message.toString()));
             }
         }
     }
@@ -180,12 +177,12 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
         return delayedThreadIdsToDelays;
     }
 
-    private static String toString(ThreadInfo threadInfo) {
+    private static void appendThreadInfo(StringBuilder sb, ThreadInfo threadInfo) {
         // This method is based on code taken from ThreadInfo#toString(). The original method limits the depth of the
         // stacktrace it includes in the string representation to just 8 frames, which is too few. Here, we
         // removed this limitation and include the stack trace in its entirety.
 
-        StringBuilder sb = new StringBuilder()
+        sb
                 .append('\"').append(threadInfo.getThreadName()).append('\"')
                 .append(threadInfo.isDaemon() ? " daemon" : "")
                 .append(" prio=").append(threadInfo.getPriority())
@@ -248,11 +245,10 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
             }
         }
         sb.append('\n');
-        return sb.toString();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         ScheduledFuture<?> taskFuture = livenessProbeTaskFuture;
         if (taskFuture != null) {
             taskFuture.cancel(false);

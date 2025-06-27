@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageExceptionIfItCause;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToClosedState;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.ArrayList;
@@ -32,16 +33,21 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -49,17 +55,16 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateTimestampHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
+import org.apache.ignite.internal.storage.pagememory.mv.RemoveWriteOnGcInvokeClosure.UpdateNextLinkHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcRowVersion;
 import org.apache.ignite.internal.storage.util.LocalLocker;
@@ -105,12 +110,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     final GradualTaskExecutor destructionExecutor;
 
+    final FailureProcessor failureProcessor;
+
     volatile RenewablePartitionStorageState renewableState;
 
     private final DataPageReader rowVersionDataPageReader;
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final UpdateNextLinkHandler updateNextLinkHandler;
+
+    private final UpdateTimestampHandler updateTimestampHandler;
 
     /**
      * Constructor.
@@ -122,17 +133,21 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             int partitionId,
             AbstractPageMemoryTableStorage tableStorage,
             RenewablePartitionStorageState renewableState,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
         this.renewableState = renewableState;
         this.destructionExecutor = createGradualTaskExecutor(destructionExecutor);
-        this.indexes = new PageMemoryIndexes(this.destructionExecutor, this::runConsistently);
+        this.failureProcessor = failureProcessor;
+        this.indexes = new PageMemoryIndexes(this.destructionExecutor, failureProcessor, this::runConsistently);
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
-        rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId(), IoStatisticsHolderNoOp.INSTANCE);
+        rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId());
+        updateNextLinkHandler = new UpdateNextLinkHandler();
+        updateTimestampHandler = new UpdateTimestampHandler();
     }
 
     protected abstract GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool);
@@ -168,27 +183,26 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
-     * Returns a hash index instance, creating index it if necessary.
+     * Creates a hash index.
      *
      * @param indexDescriptor Index descriptor.
      */
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        return busy(() -> indexes.getOrCreateHashIndex(indexDescriptor, renewableState.indexStorageFactory()));
+    public void createHashIndex(StorageHashIndexDescriptor indexDescriptor) {
+        busy(() -> indexes.createHashIndex(indexDescriptor, renewableState.indexStorageFactory()));
     }
 
     /**
-     * Returns a sorted index instance, creating index it if necessary.
+     * Creates a sorted index.
      *
      * @param indexDescriptor Index descriptor.
      */
-    public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        return busy(() -> indexes.getOrCreateSortedIndex(indexDescriptor, renewableState.indexStorageFactory()));
+    public void createSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
+        busy(() -> indexes.createSortedIndex(indexDescriptor, renewableState.indexStorageFactory()));
     }
 
     void updateRenewableState(
             VersionChainTree versionChainTree,
-            RowVersionFreeList rowVersionFreeList,
-            IndexColumnsFreeList indexFreeList,
+            FreeListImpl freeList,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue
     ) {
@@ -196,8 +210,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 tableStorage,
                 partitionId,
                 versionChainTree,
-                rowVersionFreeList,
-                indexFreeList,
+                freeList,
                 indexMetaTree,
                 gcQueue
         );
@@ -241,7 +254,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private static boolean lookingForLatestVersion(HybridTimestamp timestamp) {
-        return timestamp == HybridTimestamp.MAX_VALUE;
+        return HybridTimestamp.MAX_VALUE.equals(timestamp);
     }
 
     ReadResult findLatestRowVersion(VersionChain versionChain) {
@@ -380,7 +393,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return ReadResult.empty(chain.rowId());
     }
 
-    private ReadResult writeIntentToResult(VersionChain chain, RowVersion rowVersion, @Nullable HybridTimestamp lastCommittedTimestamp) {
+    private static ReadResult writeIntentToResult(
+            VersionChain chain,
+            RowVersion rowVersion,
+            @Nullable HybridTimestamp lastCommittedTimestamp
+    ) {
         assert rowVersion.isUncommitted();
 
         UUID transactionId = chain.transactionId();
@@ -399,122 +416,156 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     void insertRowVersion(RowVersion rowVersion) {
         try {
-            renewableState.rowVersionFreeList().insertDataRow(rowVersion);
+            renewableState.freeList().insertDataRow(rowVersion);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot store a row version: [row={}, {}]", e, rowVersion, createStorageInfo());
         }
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
             try {
-                AddWriteInvokeClosure addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableId, commitPartitionId, this);
+                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
                 addWrite.afterCompletion();
 
-                return addWrite.getPreviousUncommittedRowVersion();
+                AddWriteResult addWriteResult = addWrite.addWriteResult();
+
+                assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+
+                return addWriteResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                if (e.getCause() instanceof TxIdMismatchException) {
-                    throw (TxIdMismatchException) e.getCause();
-                }
-
-                throw new StorageException("Error while executing addWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException(
+                        "Error while executing addWrite: [{}]",
+                        e,
+                        addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId)
+                );
             }
         });
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+    public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
+        assert rowId.partitionId() == partitionId : abortWriteInfo(rowId, txId);
 
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : abortWriteInfo(rowId, txId);
 
             try {
-                AbortWriteInvokeClosure abortWrite = new AbortWriteInvokeClosure(rowId, this);
+                var abortWrite = new AbortWriteInvokeClosure(rowId, txId, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, abortWrite);
 
                 abortWrite.afterCompletion();
 
-                return abortWrite.getPreviousUncommittedRowVersion();
+                AbortResult abortResult = abortWrite.abortResult();
+
+                assert abortResult != null : abortWriteInfo(rowId, txId);
+
+                return abortResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException("Error while executing abortWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException("Error while executing abortWrite: [{}]", e, abortWriteInfo(rowId, txId));
             }
         });
     }
 
     @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+    public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
+        assert rowId.partitionId() == partitionId : commitWriteInfo(rowId, timestamp, txId);
 
-        busy(() -> {
+        return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : commitWriteInfo(rowId, timestamp, txId);
 
             try {
-                CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(rowId, timestamp, this);
+                var commitWrite = new CommitWriteInvokeClosure(
+                        rowId,
+                        timestamp,
+                        txId,
+                        updateTimestampHandler,
+                        this
+                );
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, commitWrite);
 
                 commitWrite.afterCompletion();
 
-                return null;
+                CommitResult commitResult = commitWrite.commitResult();
+
+                assert commitResult != null : commitWriteInfo(rowId, timestamp, txId);
+
+                return commitResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException("Error while executing commitWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException("Error while executing commitWrite: [{}]", e, commitWriteInfo(rowId, timestamp, txId));
             }
         });
     }
 
     void removeRowVersion(RowVersion rowVersion) {
         try {
-            renewableState.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
+            renewableState.freeList().removeDataRowByLink(rowVersion.link());
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot remove row version: [row={}, {}]", e, rowVersion, createStorageInfo());
         }
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : addWriteCommittedInfo(rowId, row, commitTimestamp);
 
-        busy(() -> {
+        return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : addWriteCommittedInfo(rowId, row, commitTimestamp);
 
             try {
-                AddWriteCommittedInvokeClosure addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp,
-                        this);
+                var addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWriteCommitted);
 
                 addWriteCommitted.afterCompletion();
 
-                return null;
+                AddWriteCommittedResult addWriteCommittedResult = addWriteCommitted.addWriteCommittedResult();
+
+                assert addWriteCommittedResult != null : addWriteCommittedInfo(rowId, row, commitTimestamp);
+
+                return addWriteCommittedResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException("Error while executing addWriteCommitted: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException(
+                        "Error while executing addWriteCommitted: [{}]",
+                        e,
+                        addWriteCommittedInfo(rowId, row, commitTimestamp)
+                );
             }
         });
     }
@@ -563,34 +614,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public long rowsCount() {
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
-
-            try {
-                return renewableState.versionChainTree().size();
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error occurred while fetching the size.", e);
-            }
-        });
-    }
-
-    @Override
     public void close() {
-        if (!transitionToTerminalState(StorageState.CLOSED)) {
+        if (!transitionToClosedState(state, this::createStorageInfo)) {
             return;
         }
 
         busyLock.block();
 
         closeResources();
-    }
-
-    /**
-     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
-     */
-    private boolean transitionToTerminalState(StorageState targetState) {
-        return StorageUtils.transitionToTerminalState(targetState, state);
     }
 
     /**
@@ -629,7 +660,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @return {@code true} if this call actually made the transition and, hence, the caller must call {@link #closeResources()}.
      */
     public boolean transitionToDestroyedState() {
-        if (!transitionToTerminalState(StorageState.DESTROYED)) {
+        if (!StorageUtils.transitionToDestroyedState(state)) {
             return false;
         }
 
@@ -661,6 +692,24 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
+     * Executes a Runnable using a {@link #busyLock}.
+     *
+     * @param action Action.
+     * @throws StorageClosedException If the storage is closed.
+     */
+    void busy(Runnable action) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            action.run();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Performs a {@code fn} in {@code busyLock} if {@link IgniteSpinBusyLock#enterBusy()} succeed. Otherwise it just silently returns.
      *
      * @param fn Runnable to run.
@@ -682,6 +731,42 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     public String createStorageInfo() {
         return IgniteStringFormatter.format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
+    }
+
+    /** Creates a string with information about the {@link #commitWrite} for logging and errors. */
+    String commitWriteInfo(RowId rowId, HybridTimestamp timestamp, UUID txId) {
+        return IgniteStringFormatter.format("rowId={}, timestamp={}, txId={}, {}", rowId, timestamp, txId, createStorageInfo());
+    }
+
+    /** Creates a string with information about the {@link #abortWrite} for logging and errors. */
+    String abortWriteInfo(RowId rowId, UUID txId) {
+        return IgniteStringFormatter.format("rowId={}, txId={}, {}", rowId, txId, createStorageInfo());
+    }
+
+    /** Creates a string with information about the {@link #addWrite} for logging and errors. */
+    String addWriteInfo(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) {
+        return IgniteStringFormatter.format(
+                "rowId={}, rowIsTombstone={}, txId={}, commitTableOrZoneId={}, commitPartitionId={}, {}",
+                rowId, row == null, txId, commitTableOrZoneId, commitPartitionId, createStorageInfo()
+        );
+    }
+
+    /** Creates a string with information about the {@link #addWriteCommitted} for logging and errors. */
+    String addWriteCommittedInfo(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) {
+        return IgniteStringFormatter.format(
+                "rowId={}, rowIsTombstone={}, commitTimestamp={}, {}",
+                rowId, row == null, commitTimestamp, createStorageInfo()
+        );
     }
 
     /**
@@ -743,6 +828,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Sets the RAFT group configuration on rebalance.
      */
     public abstract void committedGroupConfigurationOnRebalance(byte[] config);
+
+    /**
+     * Updates the current lease information in the storage on rebalance.
+     */
+    public abstract void updateLeaseOnRebalance(LeaseInfo leaseInfo);
 
     /**
      * Prepares the storage and its indexes for cleanup.
@@ -851,7 +941,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     private RowVersion removeWriteOnGc(RowId rowId, HybridTimestamp rowTimestamp, long rowLink) {
-        RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, rowLink, this);
+        RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(
+                rowId,
+                rowTimestamp,
+                rowLink,
+                updateNextLinkHandler,
+                this
+        );
 
         try {
             renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, removeWriteOnGc);
@@ -888,4 +984,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public CompletableFuture<Void> destroyIndex(int indexId) {
         return busy(() -> indexes.destroyIndex(indexId, renewableState.indexMetaTree()));
     }
+
+    /**
+     * Increments the estimated size of this partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public abstract void incrementEstimatedSize();
+
+    /**
+     * Decrements the estimated size of this partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public abstract void decrementEstimatedSize();
 }

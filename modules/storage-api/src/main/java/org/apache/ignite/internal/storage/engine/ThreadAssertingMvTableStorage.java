@@ -23,14 +23,11 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.ThreadAssertingMvPartitionStorage;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.ThreadAssertingHashIndexStorage;
-import org.apache.ignite.internal.storage.index.ThreadAssertingSortedIndexStorage;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.apache.ignite.internal.wrapper.Wrapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see ThreadAssertions
  */
-public class ThreadAssertingMvTableStorage implements MvTableStorage {
+public class ThreadAssertingMvTableStorage implements MvTableStorage, Wrapper {
     private final MvTableStorage tableStorage;
 
     /** Constructor. */
@@ -74,19 +71,17 @@ public class ThreadAssertingMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
+    public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         assertThreadAllowsToWrite();
 
-        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(partitionId, indexDescriptor);
-        return new ThreadAssertingSortedIndexStorage(indexStorage);
+        tableStorage.createSortedIndex(partitionId, indexDescriptor);
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
+    public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         assertThreadAllowsToWrite();
 
-        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(partitionId, indexDescriptor);
-        return new ThreadAssertingHashIndexStorage(indexStorage);
+        tableStorage.createHashIndex(partitionId, indexDescriptor);
     }
 
     @Override
@@ -123,15 +118,10 @@ public class ThreadAssertingMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(
-            int partitionId,
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            byte[] groupConfig
-    ) {
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta) {
         assertThreadAllowsToWrite();
 
-        return tableStorage.finishRebalancePartition(partitionId, lastAppliedIndex, lastAppliedTerm, groupConfig);
+        return tableStorage.finishRebalancePartition(partitionId, partitionMeta);
     }
 
     @Override
@@ -149,5 +139,10 @@ public class ThreadAssertingMvTableStorage implements MvTableStorage {
     @Override
     public StorageTableDescriptor getTableDescriptor() {
         return tableStorage.getTableDescriptor();
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return classToUnwrap.cast(tableStorage);
     }
 }

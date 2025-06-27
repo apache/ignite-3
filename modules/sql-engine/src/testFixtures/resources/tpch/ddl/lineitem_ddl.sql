@@ -13,13 +13,13 @@ CREATE TABLE lineitem (
     l_extendedprice decimal(15, 2) NOT NULL,
     l_discount      decimal(15, 2) NOT NULL,
     l_tax           decimal(15, 2) NOT NULL,
-    l_returnflag    char(1)        NOT NULL,
-    l_linestatus    char(1)        NOT NULL,
+    l_returnflag    varchar(1)     NOT NULL,
+    l_linestatus    varchar(1)     NOT NULL,
     l_shipdate      date           NOT NULL,
     l_commitdate    date           NOT NULL,
     l_receiptdate   date           NOT NULL,
-    l_shipinstruct  char(25)       NOT NULL,
-    l_shipmode      char(10)       NOT NULL,
+    l_shipinstruct  varchar(25)    NOT NULL,
+    l_shipmode      varchar(10)    NOT NULL,
     l_comment       varchar(44)    NOT NULL,
     PRIMARY KEY (l_orderkey, l_linenumber)
 );

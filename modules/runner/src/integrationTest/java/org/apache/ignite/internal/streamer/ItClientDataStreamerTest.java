@@ -34,7 +34,7 @@ public class ItClientDataStreamerTest extends ItAbstractDataStreamerTest {
     }
 
     @AfterAll
-    public static void stopClient() throws Exception {
+    public static void stopClient() {
         client.close();
     }
 

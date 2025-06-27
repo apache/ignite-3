@@ -24,10 +24,11 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql2rel.InitializerContext;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,6 +56,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     private final IgniteDistribution distribution;
 
     private final RelDataType rowType;
+    private final RelDataType rowTypeSansHidden;
 
     /**
      * Constructor.
@@ -66,17 +69,26 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
         Map<String, ColumnDescriptor> descriptorsMap = newHashMap(columnDescriptors.size());
 
-        RelDataTypeFactory factory = Commons.typeFactory();
+        IgniteTypeFactory factory = Commons.typeFactory();
         RelDataTypeFactory.Builder typeBuilder = new RelDataTypeFactory.Builder(factory);
+        RelDataTypeFactory.Builder typeSansHiddenBuilder = new RelDataTypeFactory.Builder(factory);
+
         for (ColumnDescriptor descriptor : columnDescriptors) {
-            typeBuilder.add(descriptor.name(), deriveLogicalType(factory, descriptor));
+            RelDataType columnType = deriveLogicalType(factory, descriptor);
+
+            typeBuilder.add(descriptor.name(), columnType);
+
+            if (!descriptor.hidden()) {
+                typeSansHiddenBuilder.add(descriptor.name(), columnType);
+            }
+
             descriptorsMap.put(descriptor.name(), descriptor);
         }
 
         this.descriptors = columnDescriptors.toArray(DUMMY);
         this.descriptorsMap = descriptorsMap;
-
         this.rowType = typeBuilder.build();
+        this.rowTypeSansHidden = typeSansHiddenBuilder.build();
     }
 
     @Override
@@ -93,6 +105,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public ColumnStrategy generationStrategy(RelOptTable tbl, int colIdx) {
+        if (descriptors[colIdx].virtual()) {
+            return ColumnStrategy.VIRTUAL;
+        }
         if (descriptors[colIdx].defaultStrategy() != DefaultValueStrategy.DEFAULT_NULL) {
             return ColumnStrategy.DEFAULT;
         }
@@ -113,17 +128,22 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
                 return rexBuilder.makeNullLiteral(fieldType);
             }
             case DEFAULT_CONSTANT: {
-                Class<?> storageType = Commons.nativeTypeToClass(descriptor.physicalType());
+                NativeType nativeType = descriptor.physicalType();
                 Object defaultVal = descriptor.defaultValue();
-                Object internalValue = TypeUtils.toInternal(defaultVal, storageType);
+                Object internalValue = defaultVal == null ? defaultVal : TypeUtils.toInternal(defaultVal, nativeType.spec());
                 RelDataType relDataType = deriveLogicalType(rexBuilder.getTypeFactory(), descriptor);
 
                 return rexBuilder.makeLiteral(internalValue, relDataType, false);
             }
+
             case DEFAULT_COMPUTED: {
+                if (descriptor.virtual()) {
+                    return rexBuilder.makeInputRef(tbl.getRowType().getFieldList().get(colIdx).getType(), colIdx);
+                }
+
                 assert descriptor.key() : "DEFAULT_COMPUTED is only supported for primary key columns. Column: " + descriptor.name();
 
-                return rexBuilder.makeCall(IgniteSqlOperatorTable.GEN_RANDOM_UUID);
+                return rexBuilder.makeCall(IgniteSqlOperatorTable.RAND_UUID);
             }
             default:
                 throw new IllegalStateException("Unknown default strategy: " + descriptor.defaultStrategy());
@@ -136,10 +156,20 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         if (usedColumns == null || usedColumns.cardinality() == descriptors.length) {
             return rowType;
         } else {
-            return new RelDataTypeFactory.Builder(factory).addAll(rowType.getFieldList().stream()
-                    .filter(field -> usedColumns.get(field.getIndex()))
-                    .collect(Collectors.toList())).build();
+            Builder builder = new Builder(factory);
+
+            List<RelDataTypeField> fieldList = rowType.getFieldList();
+            for (int i : usedColumns) {
+                builder.add(fieldList.get(i));
+            }
+
+            return builder.build();
         }
+    }
+
+    @Override
+    public RelDataType rowTypeSansHidden() {
+        return rowTypeSansHidden;
     }
 
     /** {@inheritDoc} */

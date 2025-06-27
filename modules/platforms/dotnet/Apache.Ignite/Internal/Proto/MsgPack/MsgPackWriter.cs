@@ -18,11 +18,11 @@
 namespace Apache.Ignite.Internal.Proto.MsgPack;
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using BinaryTuple;
 using Buffers;
-using Transactions;
 
 /// <summary>
 /// MsgPack writer. Wraps <see cref="PooledArrayBuffer"/>. Writer index is kept by the buffer, so this struct is readonly.
@@ -41,6 +41,11 @@ internal readonly ref struct MsgPackWriter
     {
         Buf = buf;
     }
+
+    /// <summary>
+    /// Gets the current position.
+    /// </summary>
+    public int Position => Buf.Position;
 
     private PooledArrayBuffer Buf { get; }
 
@@ -337,19 +342,57 @@ internal readonly ref struct MsgPackWriter
     }
 
     /// <summary>
+    /// Appends bytes using <see cref="IBufferWriter{T}"/> directly to the underlying buffer, avoiding extra copying.
+    /// </summary>
+    /// <param name="action">Appender action.</param>
+    /// <param name="arg">Argument.</param>
+    /// <typeparam name="TArg">Argument type.</typeparam>
+    public void Write<TArg>(Action<IBufferWriter<byte>, TArg> action, TArg arg)
+    {
+        // Reserve space for size.
+        var sizeSpan = Buf.GetSpanAndAdvance(5);
+        sizeSpan[0] = MsgPackCode.Bin32;
+
+        var startPos = Buf.Position;
+        action(Buf, arg);
+        var length = Buf.Position - startPos;
+
+        // Write size to the reserved space.
+        BinaryPrimitives.WriteUInt32BigEndian(sizeSpan[1..], (uint)length);
+    }
+
+    /// <summary>
     /// Writes a transaction.
     /// </summary>
-    /// <param name="tx">Transaction.</param>
-    public void WriteTx(Transaction? tx)
+    /// <param name="txId">Transaction id.</param>
+    public void WriteTx(long? txId)
     {
-        if (tx == null)
+        if (txId == null)
         {
             WriteNil();
         }
         else
         {
-            Write(tx.Id);
+            Write(txId.Value);
         }
+    }
+
+    /// <summary>
+    /// Writes an object with type code.
+    /// </summary>
+    /// <param name="obj">Object.</param>
+    public void WriteObjectAsBinaryTuple(object? obj)
+    {
+        if (obj == null)
+        {
+            WriteNil();
+
+            return;
+        }
+
+        using var builder = new BinaryTupleBuilder(3);
+        builder.AppendObjectWithType(obj);
+        Write(builder.Build().Span);
     }
 
     /// <summary>

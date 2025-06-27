@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static org.apache.calcite.sql.type.SqlTypeUtil.isApproximateNumeric;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
-import static org.apache.ignite.internal.sql.engine.util.Commons.rexBuilder;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,7 +39,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.AvaticaUtils;
 import org.apache.calcite.avatica.util.ByteString;
@@ -81,7 +84,6 @@ import org.apache.calcite.rex.RexWindowBounds;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.JoinType;
 import org.apache.calcite.sql.SqlAggFunction;
-import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
@@ -97,7 +99,6 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelectKeyword;
 import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.SqlWindow;
-import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
 import org.apache.calcite.sql.fun.SqlTrimFunction;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
@@ -112,7 +113,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -186,7 +186,6 @@ class RelJson {
         register(enumByName, SqlTypeName.class);
         register(enumByName, SqlKind.class);
         register(enumByName, SqlSyntax.class);
-        register(enumByName, SqlExplain.Depth.class);
         register(enumByName, SqlExplainFormat.class);
         register(enumByName, SqlExplainLevel.class);
         register(enumByName, SqlInsertKeyword.class);
@@ -263,7 +262,8 @@ class RelJson {
         if (value == null
                 || value instanceof Number
                 || value instanceof String
-                || value instanceof Boolean) {
+                || value instanceof Boolean
+                || value instanceof UUID) {
             return value;
         } else if (value instanceof Enum) {
             return toJson((Enum) value);
@@ -340,11 +340,7 @@ class RelJson {
         map.put("operands", node.getArgList());
         map.put("filter", node.filterArg);
         map.put("name", node.getName());
-        // workaround for https://issues.apache.org/jira/browse/CALCITE-5969
-        if (node.getAggregation() == SqlLiteralAggFunction.INSTANCE) {
-            RexNode boolLiteral = rexBuilder().makeLiteral(true);
-            map.put("rexList", toJson(boolLiteral));
-        }
+        map.put("rexList", toJson(node.rexList));
         return map;
     }
 
@@ -391,6 +387,7 @@ class RelJson {
                 // In case of a custom data type we must store its name to correctly
                 // deserialize it because we want to distinguish a custom type from ANY.
                 IgniteCustomType customType = (IgniteCustomType) node;
+                map.put("type", toJson(SqlTypeName.ANY));
                 map.put("customType", customType.getCustomTypeName());
             }
             return map;
@@ -542,11 +539,10 @@ class RelJson {
                 map.put("func", distribution.function().name());
                 map.put("keys", keys);
 
-                DistributionFunction function = distribution.function();
-
-                if (function.affinity()) {
-                    map.put("zoneId", ((AffinityDistribution) function).zoneId());
-                    map.put("tableId", ((AffinityDistribution) function).tableId());
+                if (distribution.isTableDistribution()) {
+                    map.put("zoneId", distribution.zoneId());
+                    map.put("tableId", distribution.tableId());
+                    map.put("label", distribution.label());
                 }
 
                 return map;
@@ -594,6 +590,10 @@ class RelJson {
         map.put("name", operator.getName());
         map.put("kind", toJson(operator.kind));
         map.put("syntax", toJson(operator.getSyntax()));
+
+        if (operator.getOperandTypeChecker() != null && operator.getAllowedSignatures() != null) {
+            map.put("signature", toJson(operator.getAllowedSignatures()));
+        }
         return map;
     }
 
@@ -689,15 +689,19 @@ class RelJson {
 
                 return IgniteDistributions.identity(keys.get(0));
             }
-            case "hash":
-                return IgniteDistributions.hash(keys, DistributionFunction.hash());
-            default: {
-                assert functionName.startsWith("affinity");
+            case "hash": {
+                if (map.get("tableId") == null) {
+                    return IgniteDistributions.hash(keys, DistributionFunction.hash());
+                }
 
                 int tableId = (int) map.get("tableId");
-                Object zoneId = map.get("zoneId");
+                int zoneId = (int) map.get("zoneId");
+                String label = (String) map.get("label");
 
-                return IgniteDistributions.affinity(keys, tableId, zoneId);
+                return IgniteDistributions.affinity(keys, tableId, zoneId, label);
+            }
+            default: {
+                throw new IllegalStateException("Unsupported distribution function: " + functionName);
             }
         }
     }
@@ -873,12 +877,32 @@ class RelJson {
                     return rexBuilder.makeNullLiteral(type);
                 }
 
+                // RexBuilder can transform literal which holds exact numeric representation into E notation form.
+                // I.e. 100 can be presented like 1E2 which is also correct form but can differs from serialized plan notation.
+                // near "if" branch is only matters for fragments serialization\deserialization correctness check
+                if ((literal instanceof Long || literal instanceof Integer) && isApproximateNumeric(type)) {
+                    literal = new BigDecimal(((Number) literal).longValue());
+                }
+
+                if (literal instanceof BigInteger) {
+                    // If the literal is a BigInteger, RexBuilder assumes it represents a long value
+                    // within the valid range and converts it without checking the bounds. If the
+                    // actual value falls outside the valid range, an overflow will occur, leading to
+                    // incorrect results. To prevent this, we should convert BigInteger to BigDecimal
+                    // so RexBuilder can handle the conversion correctly
+                    literal = new BigDecimal((BigInteger) literal);
+                }
+
                 if (type.getSqlTypeName() == SqlTypeName.SYMBOL) {
                     literal = toEnum(literal);
                 } else if (type.getSqlTypeName().getFamily() == SqlTypeFamily.BINARY) {
                     literal = toByteString(literal);
                 } else if (type.getSqlTypeName().getFamily() == SqlTypeFamily.TIMESTAMP && literal instanceof Integer) {
                     literal = ((Integer) literal).longValue();
+                } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
+                    assert literal instanceof String : literal;
+
+                    literal = UUID.fromString((String) literal);
                 }
 
                 return rexBuilder.makeLiteral(literal, type, true);
@@ -908,6 +932,8 @@ class RelJson {
         String name = map.get("name").toString();
         SqlKind sqlKind = toEnum(map.get("kind"));
         SqlSyntax sqlSyntax = toEnum(map.get("syntax"));
+        String sig = (String) map.get("signature");
+        Predicate signature = s -> sig == null || sig.equals(s);
         List<SqlOperator> operators = new ArrayList<>();
 
         FRAMEWORK_CONFIG.getOperatorTable().lookupOperatorOverloads(
@@ -919,10 +945,19 @@ class RelJson {
         );
 
         for (SqlOperator operator : operators) {
+            if (operator.kind == sqlKind && (operator.getOperandTypeChecker() == null || signature.test(operator.getAllowedSignatures()))) {
+                return operator;
+            }
+        }
+
+        // Fallback still need for IgniteSqlOperatorTable.EQUALS and so on operators, can be removed
+        // after operandTypeChecker will be aligned
+        for (SqlOperator operator : operators) {
             if (operator.kind == sqlKind) {
                 return operator;
             }
         }
+
         String cls = (String) map.get("class");
         if (cls != null) {
             return AvaticaUtils.instantiatePlugin(SqlOperator.class, cls);

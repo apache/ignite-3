@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.message;
 
+import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -25,6 +26,13 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(TxMessageGroup.TX_CLEANUP_MSG_ERR_RESPONSE)
 public interface TxCleanupMessageErrorResponse extends TxCleanupMessageResponse {
+    /**
+     * Transaction id.
+     *
+     * @return Transaction id.
+     */
+    UUID txId();
+
     /**
      * Returns a {@link Throwable} that was thrown during handling a lock release message.
      *

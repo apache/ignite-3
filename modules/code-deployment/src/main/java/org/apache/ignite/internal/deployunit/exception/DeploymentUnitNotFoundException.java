@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.deployunit.exception;
 
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.lang.ErrorGroups.CodeDeployment;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;

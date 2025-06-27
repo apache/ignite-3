@@ -1,0 +1,67 @@
+# name: test/sql/cast/test_cast_binary.test
+# description: CAST BINARY/VARBINARY
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+query T
+SELECT CAST(x'00' AS VARBINARY);
+----
+00
+
+query T
+SELECT CAST(x'0001'::VARBINARY AS VARBINARY);
+----
+0001
+
+query T
+SELECT CAST(x'0001'::BINARY(2) AS VARBINARY);
+----
+0001
+
+statement error: Cast function cannot convert value of type CHAR(1) to type VARBINARY
+SELECT CAST('0' AS VARBINARY);
+
+statement error: Cast function cannot convert value of type VARCHAR to type VARBINARY
+SELECT CAST('0'::VARCHAR AS VARBINARY);
+
+statement error: Cast function cannot convert value of type BOOLEAN to type VARBINARY
+SELECT CAST(TRUE AS VARBINARY);
+
+statement error: Cast function cannot convert value of type TINYINT to type VARBINARY
+SELECT CAST(1::TINYINT AS VARBINARY);
+
+statement error: Cast function cannot convert value of type SMALLINT to type VARBINARY
+SELECT CAST(1::SMALLINT AS VARBINARY);
+
+statement error: Cast function cannot convert value of type INTEGER to type VARBINARY
+SELECT CAST(1::INT AS VARBINARY);
+
+statement error: Cast function cannot convert value of type BIGINT to type VARBINARY
+SELECT CAST(1::BIGINT AS VARBINARY);
+
+statement error: Cast function cannot convert value of type REAL to type VARBINARY
+SELECT CAST(1::REAL AS VARBINARY);
+
+statement error: Cast function cannot convert value of type FLOAT to type VARBINARY
+SELECT CAST(1::FLOAT AS VARBINARY);
+
+statement error: Cast function cannot convert value of type DOUBLE to type VARBINARY
+SELECT CAST(1::DOUBLE AS VARBINARY);
+
+statement error: Cast function cannot convert value of type DECIMAL(5, 0) to type VARBINARY
+SELECT CAST(1::DECIMAL(5) AS VARBINARY);
+
+statement error: Cast function cannot convert value of type DECIMAL(5, 2) to type VARBINARY
+SELECT CAST(1::DECIMAL(5, 2) AS VARBINARY);
+
+statement error: Cast function cannot convert value of type DATE to type VARBINARY
+SELECT CAST('2001-01-02'::DATE AS VARBINARY);
+
+statement error: Cast function cannot convert value of type TIME(0) to type VARBINARY
+SELECT CAST('10:11:12'::TIME AS VARBINARY);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type VARBINARY
+SELECT CAST('2001-01-02 10:11:12'::TIMESTAMP AS VARBINARY);
+
+statement error: Cast function cannot convert value of type UUID to type VARBINARY
+SELECT CAST(CAST('c4a0327c-44be-416d-ae90-75c05079789f' AS UUID) AS VARBINARY)

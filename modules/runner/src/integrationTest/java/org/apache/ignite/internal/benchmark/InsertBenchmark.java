@@ -60,7 +60,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "2", "3"})
     private int clusterSize;
@@ -68,11 +68,30 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "2", "4", "8", "16", "32"})
     private int partitionCount;
 
+    @Param({"1", "2", "3"})
+    private int replicaCount;
+
     /**
      * Benchmark for SQL insert via embedded client.
      */
     @Benchmark
-    public void sqlInsert(SqlState state) {
+    public void sqlPreparedInsert(SqlState state) {
+        state.executeQuery();
+    }
+
+    /**
+     * Benchmark for SQL insert via embedded client.
+     */
+    @Benchmark
+    public void sqlInlinedInsert(SqlState state) {
+        state.executeInlinedQuery();
+    }
+
+    /**
+     * Benchmark for SQL multiple rows insert via embedded client.
+     */
+    @Benchmark
+    public void sqlInsertMulti(SqlStateMultiValues state) {
         state.executeQuery();
     }
 
@@ -129,14 +148,14 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + InsertBenchmark.class.getSimpleName() + ".*")
+                .include(".*[.]" + InsertBenchmark.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(opt).run();
     }
 
     /**
-     * Benchmark state for {@link #sqlInsert(SqlState)} and {@link #sqlInsertScript(SqlState)}.
+     * Benchmark state for {@link #sqlPreparedInsert(SqlState)} and {@link #sqlInsertScript(SqlState)}.
      *
      * <p>Holds {@link Statement}.
      */
@@ -152,7 +171,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createInsertStatement();
 
-            sql = clusterNode.sql();
+            sql = publicIgnite.sql();
             statement = sql.createStatement(queryStr);
         }
 
@@ -164,8 +183,44 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
             }
         }
 
+        void executeInlinedQuery() {
+            try (ResultSet<?> rs = sql.execute(null, createInsertStatement(id++))) {
+                // NO-OP
+            }
+        }
+
         void executeScript() {
             sql.executeScript(statement.query(), id++);
+        }
+    }
+
+    /**
+     * Benchmark state for {@link #sqlPreparedInsert(SqlState)} and {@link #sqlInsertScript(SqlState)}.
+     *
+     * <p>Holds {@link Statement}.
+     */
+    @State(Scope.Benchmark)
+    public static class SqlStateMultiValues {
+        private Statement statement;
+        private IgniteSql sql;
+
+        /**
+         * Initializes session and statement.
+         */
+        @Setup
+        public void setUp() {
+            String queryStr = createMultiInsertStatement();
+
+            sql = publicIgnite.sql();
+            statement = sql.createStatement(queryStr);
+        }
+
+        private int id = 0;
+
+        void executeQuery() {
+            try (ResultSet<?> rs = sql.execute(null, statement, id + 1, id + 2);) {
+                id += 2;
+            }
         }
     }
 
@@ -266,7 +321,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
 
         private int id = 0;
 
-        private final KeyValueView<Tuple, Tuple> kvView = clusterNode.tables().table(TABLE_NAME).keyValueView();
+        private final KeyValueView<Tuple, Tuple> kvView = publicIgnite.tables().table(TABLE_NAME).keyValueView();
 
         /**
          * Initializes the tuple.
@@ -329,6 +384,24 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
     }
 
+    private static String createInsertStatement(int key) {
+        String insertQueryTemplate = "insert into {}({}, {}) values({}, {})";
+
+        String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
+        String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
+
+        return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, key, valQ);
+    }
+
+    private static String createMultiInsertStatement() {
+        String insertQueryTemplate = "insert into {}({}, {}) values(?, {}), (?, {})";
+
+        String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
+        String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL_WITH_SPACES + "'").collect(joining(","));
+
+        return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ, valQ);
+    }
+
     @Override
     protected int nodes() {
         return clusterSize;
@@ -337,5 +410,10 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Override
     protected int partitionCount() {
         return partitionCount;
+    }
+
+    @Override
+    protected int replicaCount() {
+        return replicaCount;
     }
 }

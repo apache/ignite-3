@@ -17,12 +17,9 @@
 
 package org.apache.ignite.client.fakes;
 
-import static org.apache.ignite.internal.sql.engine.QueryProperty.DEFAULT_SCHEMA;
-import static org.apache.ignite.internal.sql.engine.QueryProperty.QUERY_TIMEOUT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -30,25 +27,27 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake {@link AsyncSqlCursor}.
  */
 public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     private final String qry;
+    private final @Nullable PartitionAwarenessMetadata paMeta;
     private final List<ColumnMetadata> columns = new ArrayList<>();
     private final List<InternalSqlRow> rows = new ArrayList<>();
 
@@ -56,12 +55,17 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
         this.qry = qry;
 
         if ("SELECT PROPS".equals(qry)) {
+            paMeta = null;
+
             columns.add(new FakeColumnMetadata("name", ColumnType.STRING));
             columns.add(new FakeColumnMetadata("val", ColumnType.STRING));
 
-            rows.add(getRow("schema", properties.get(DEFAULT_SCHEMA)));
-            rows.add(getRow("timeout", String.valueOf(properties.get(QUERY_TIMEOUT))));
+            rows.add(getRow("schema", properties.defaultSchema()));
+            rows.add(getRow("timeout", String.valueOf(properties.queryTimeout())));
+            rows.add(getRow("timeZoneId", String.valueOf(properties.timeZoneId())));
         } else if ("SELECT META".equals(qry)) {
+            paMeta = null;
+
             columns.add(new FakeColumnMetadata("BOOL", ColumnType.BOOLEAN));
             columns.add(new FakeColumnMetadata("INT8", ColumnType.INT8));
             columns.add(new FakeColumnMetadata("INT16", ColumnType.INT16));
@@ -76,11 +80,9 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
             columns.add(new FakeColumnMetadata("DATETIME", ColumnType.DATETIME));
             columns.add(new FakeColumnMetadata("TIMESTAMP", ColumnType.TIMESTAMP));
             columns.add(new FakeColumnMetadata("UUID", ColumnType.UUID));
-            columns.add(new FakeColumnMetadata("BITMASK", ColumnType.BITMASK));
             columns.add(new FakeColumnMetadata("BYTE_ARRAY", ColumnType.BYTE_ARRAY));
             columns.add(new FakeColumnMetadata("PERIOD", ColumnType.PERIOD));
             columns.add(new FakeColumnMetadata("DURATION", ColumnType.DURATION));
-            columns.add(new FakeColumnMetadata("NUMBER", ColumnType.NUMBER));
 
             var row = getRow(
                     true,
@@ -96,17 +98,22 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
                     LocalDateTime.of(2001, 3, 4, 5, 6),
                     Instant.ofEpochSecond(987),
                     new UUID(0, 0),
-                    BitSet.valueOf(new byte[0]),
                     new byte[1],
                     Period.of(10, 9, 8),
-                    Duration.ofDays(11),
-                    BigInteger.valueOf(42));
+                    Duration.ofDays(11)
+            );
 
             rows.add(row);
         } else if ("SELECT LAST SCRIPT".equals(qry)) {
+            paMeta = null;
             rows.add(getRow(proc.lastScript));
             columns.add(new FakeColumnMetadata("script", ColumnType.STRING));
+        } else if ("SELECT PA".equals(qry)) {
+            paMeta = new PartitionAwarenessMetadata(1, new int[] {0, -1, -2, 2}, new int[] {100, 500});
+            rows.add(getRow(1));
+            columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
         } else {
+            paMeta = null;
             rows.add(getRow(1));
             columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
         }
@@ -115,6 +122,11 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> cancelAsync(CancellationReason reason) {
+        return closeAsync();
     }
 
     @Override
@@ -149,6 +161,11 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     }
 
     @Override
+    public @Nullable PartitionAwarenessMetadata partitionAwarenessMetadata() {
+        return paMeta;
+    }
+
+    @Override
     public boolean hasNextResult() {
         return false;
     }
@@ -160,7 +177,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
 
     @Override
     public CompletableFuture<Void> onClose() {
-        throw new UnsupportedOperationException();
+        return nullCompletedFuture();
     }
 
     @Override

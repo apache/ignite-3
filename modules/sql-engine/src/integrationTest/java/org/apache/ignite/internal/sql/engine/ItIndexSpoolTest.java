@@ -24,11 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -40,25 +36,13 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
 public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
-
     /**
      * After each.
      */
     @AfterEach
     protected void cleanUp() {
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Start cleanUp()");
-        }
-
-        for (Table table : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + table.name());
-            sql("DROP ZONE " + "ZONE_" + table.name().toUpperCase());
-        }
-
-        if (LOG.isInfoEnabled()) {
-            LOG.info("End cleanUp()");
-        }
+        dropAllTables();
+        dropAllZonesExceptDefaultOne();
     }
 
     private static Stream<Arguments> rowsWithPartitionsArgs() {
@@ -80,7 +64,7 @@ public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
     public void test(int rows, int partitions) throws InterruptedException {
         prepareDataSet(rows, partitions);
 
-        var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
+        var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter', 'HashJoinConverter') */"
                         + "T0.val, T1.val FROM TEST0 as T0 "
                         + "JOIN TEST1 as T1 on T0.jid = T1.jid "
         );
@@ -99,13 +83,13 @@ public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
 
         for (String name : List.of("TEST0", "TEST1")) {
             sql(String.format(
-                    "CREATE ZONE %s with replicas=2, partitions=%d, storage_profiles='%s'",
-                    "ZONE_" + name.toUpperCase(),
+                    "CREATE ZONE %s (replicas 2, partitions %d) storage profiles ['%s']",
+                    "ZONE_" + name,
                     parts,
                     DEFAULT_STORAGE_PROFILE
             ));
-            sql(String.format("CREATE TABLE %s(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH PRIMARY_ZONE='%s'",
-                    name, "ZONE_" + name.toUpperCase()));
+            sql(String.format("CREATE TABLE %s(id INT PRIMARY KEY, jid INT, val VARCHAR) ZONE %s",
+                    name, "ZONE_" + name));
 
             sql("CREATE INDEX " + name + "_jid_idx ON " + name + "(jid)");
 

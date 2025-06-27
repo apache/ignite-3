@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.metastorage.server.persistence;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.server.Value.TOMBSTONE;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.jetbrains.annotations.Nullable;
 
@@ -123,53 +125,63 @@ class RocksStorageUtils {
      * Gets a revision from a key with a revision.
      *
      * @param rocksKey Key with a revision.
-     * @return Revision.
      */
     static long revisionFromRocksKey(byte[] rocksKey) {
         return (long) LONG_ARRAY_HANDLE.get(rocksKey, 0);
     }
 
     /**
-     * Builds a value from a byte array.
+     * Gets a operation timestamp from a value bytes.
      *
-     * @param valueBytes Value byte array.
-     * @return Value.
+     * @param rocksValue Value bytes with a operation timestamp.
      */
+    static long timestampFromRocksValue(byte[] rocksValue) {
+        return (long) LONG_ARRAY_HANDLE.get(rocksValue, 0);
+    }
+
+    /** Converts from a byte array to a {@link Value}. */
     static Value bytesToValue(byte[] valueBytes) {
-        // At least an 8-byte update counter and a 1-byte boolean
+        // At least an 8-bytes operation timestamp and a 1-byte boolean.
         assert valueBytes.length > Long.BYTES;
 
-        // Read an update counter (8-byte long) from the entry.
-        long updateCounter = (long) LONG_ARRAY_HANDLE.get(valueBytes, 0);
+        var pos = 0;
+
+        // Read an operation timestamp (8-byte long) from the entry.
+        long operationTimestamp = (long) LONG_ARRAY_HANDLE.get(valueBytes, pos);
+        pos += Long.BYTES;
 
         // Read a has-value flag (1 byte) from the entry.
-        boolean hasValue = valueBytes[Long.BYTES] != 0;
+        boolean hasValue = valueBytes[pos] != 0;
+        pos += Byte.BYTES;
 
         byte[] val;
         if (hasValue) { // Copy the value.
-            val = Arrays.copyOfRange(valueBytes, Long.BYTES + 1, valueBytes.length);
+            val = Arrays.copyOfRange(valueBytes, pos, valueBytes.length);
         } else { // There is no value, mark it as a tombstone.
             val = TOMBSTONE;
         }
 
-        return new Value(val, updateCounter);
+        return new Value(val, hybridTimestamp(operationTimestamp));
     }
 
     /**
-     * Adds an update counter and a tombstone flag to a value.
+     * Converts the contents of a {@link Value} to a byte array.
      *
-     * @param value         Value byte array.
-     * @param updateCounter Update counter.
-     * @return Value with an update counter and a tombstone.
+     * @param value Value byte array.
+     * @param operationTimestamp Operation timestamp.
+     * @return Value bytes.
      */
-    static byte[] valueToBytes(byte[] value, long updateCounter) {
+    static byte[] valueToBytes(byte[] value, HybridTimestamp operationTimestamp) {
         var bytes = new byte[Long.BYTES + Byte.BYTES + value.length];
+        var pos = 0;
 
-        LONG_ARRAY_HANDLE.set(bytes, 0, updateCounter);
+        LONG_ARRAY_HANDLE.set(bytes, pos, operationTimestamp.longValue());
+        pos += Long.BYTES;
 
-        bytes[Long.BYTES] = (byte) (value == TOMBSTONE ? 0 : 1);
+        bytes[pos] = (byte) (value == TOMBSTONE ? 0 : 1);
+        pos += Byte.BYTES;
 
-        System.arraycopy(value, 0, bytes, Long.BYTES + Byte.BYTES, value.length);
+        System.arraycopy(value, 0, bytes, pos, value.length);
 
         return bytes;
     }
@@ -218,11 +230,11 @@ class RocksStorageUtils {
     /**
      * Converts an array of {@code long} values to an array of bytes.
      *
-     * @param values Array of values.
      * @param valuesOffset Offset in the array of values to start from.
+     * @param values Array of values.
      * @return Array of bytes.
      */
-    static byte[] longsToBytes(long[] values, int valuesOffset) {
+    static byte[] longsToBytes(int valuesOffset, long... values) {
         assert valuesOffset < values.length : "off=" + valuesOffset + ", arr.len=" + values.length;
 
         var result = new byte[(values.length - valuesOffset) * Long.BYTES];

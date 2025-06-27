@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -47,8 +48,6 @@ using Serialization;
 /// </summary>
 internal static class DataStreamer
 {
-    private static readonly TimeSpan PartitionAssignmentUpdateFrequency = TimeSpan.FromSeconds(15);
-
     /// <summary>
     /// Streams the data.
     /// </summary>
@@ -59,47 +58,42 @@ internal static class DataStreamer
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="T">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup.")]
+    [SuppressMessage("Usage", "CA2219:Do not raise exceptions in finally clauses", Justification = "Rethrow.")]
+    [SuppressMessage(
+        "Reliability",
+        "CA2000:Dispose objects before losing scope",
+        Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<DataStreamerItem<T>> data,
         Table table,
-        RecordSerializer<T> writer,
+        IRecordSerializerHandler<T> writer,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
     {
         IgniteArgumentCheck.NotNull(data);
-
-        IgniteArgumentCheck.Ensure(
-            options.PageSize > 0,
-            nameof(options.PageSize),
-            $"{nameof(options.PageSize)} should be positive.");
-
-        IgniteArgumentCheck.Ensure(
-            options.AutoFlushFrequency > TimeSpan.Zero,
-            nameof(options.AutoFlushFrequency),
-            $"{nameof(options.AutoFlushFrequency)} should be positive.");
-
-        IgniteArgumentCheck.Ensure(
-            options.RetryLimit >= 0,
-            nameof(options.RetryLimit),
-            $"{nameof(options.RetryLimit)} should be non-negative.");
+        ValidateOptions(options);
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
         var batches = new Dictionary<int, Batch<T>>();
+        var failedItems = new ConcurrentQueue<DataStreamerItem<T>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
         var schema = await table.GetSchemaAsync(null).ConfigureAwait(false);
+        var schemaLock = new SemaphoreSlim(1);
 
         var partitionAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
         var partitionCount = partitionAssignment.Length; // Can't be changed.
         Debug.Assert(partitionCount > 0, "partitionCount > 0");
-        var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
 
-        using var flushCts = new CancellationTokenSource();
+        using var autoFlushCts = new CancellationTokenSource();
+        Task? autoFlushTask = null;
+        Exception? error = null;
 
         try
         {
-            _ = AutoFlushAsync(flushCts.Token);
+            autoFlushTask = AutoFlushAsync(autoFlushCts.Token);
 
             await foreach (var item in data.WithCancellation(cancellationToken))
             {
@@ -107,39 +101,77 @@ internal static class DataStreamer
                 // However, not all producers support cancellation, so we need to check it here as well.
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var newAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
+                if (newAssignment != partitionAssignment)
+                {
+                    // Drain all batches to preserve order when partition assignment changes.
+                    await Drain().ConfigureAwait(false);
+                    partitionAssignment = newAssignment;
+                }
+
                 var batch = await AddWithRetryUnmapped(item).ConfigureAwait(false);
                 if (batch.Count >= options.PageSize)
                 {
                     await SendAsync(batch).ConfigureAwait(false);
                 }
 
-                if (lastPartitionsAssignmentCheck.Elapsed > PartitionAssignmentUpdateFrequency)
+                if (autoFlushTask.IsFaulted)
                 {
-                    var newAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
-
-                    if (newAssignment != partitionAssignment)
-                    {
-                        // Drain all batches to preserve order when partition assignment changes.
-                        await Drain().ConfigureAwait(false);
-                        partitionAssignment = newAssignment;
-                    }
-
-                    lastPartitionsAssignmentCheck.Restart();
+                    await autoFlushTask.ConfigureAwait(false);
                 }
             }
 
             await Drain().ConfigureAwait(false);
         }
+        catch (Exception e)
+        {
+            error = e;
+        }
         finally
         {
-            flushCts.Cancel();
+            await autoFlushCts.CancelAsync().ConfigureAwait(false);
+
+            if (autoFlushTask is { })
+            {
+                try
+                {
+                    await autoFlushTask.ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    if (e is not OperationCanceledException)
+                    {
+                        error ??= e;
+                    }
+                }
+            }
+
             foreach (var batch in batches.Values)
             {
-                batch.Buffer.Dispose();
-                GetPool<T>().Return(batch.Items);
+                lock (batch)
+                {
+                    for (var i = 0; i < batch.Count; i++)
+                    {
+                        failedItems.Enqueue(batch.Items[i]);
+                    }
 
-                Metrics.StreamerItemsQueuedDecrement(batch.Count);
-                Metrics.StreamerBatchesActiveDecrement();
+                    batch.Buffer.Dispose();
+                    GetPool<T>().Return(batch.Items);
+
+                    Metrics.StreamerItemsQueuedDecrement(batch.Count);
+                    Metrics.StreamerBatchesActiveDecrement();
+                }
+            }
+
+            if (error is { })
+            {
+                throw DataStreamerException.Create(error, failedItems);
+            }
+
+            if (!failedItems.IsEmpty)
+            {
+                // Should not happen.
+                throw DataStreamerException.Create(new InvalidOperationException("Some items were not processed."), failedItems);
             }
         }
 
@@ -153,7 +185,7 @@ internal static class DataStreamer
             }
             catch (Exception e) when (e.CausedByUnmappedColumns())
             {
-                schema = await table.GetSchemaAsync(Table.SchemaVersionForceLatest).ConfigureAwait(false);
+                await UpdateSchema().ConfigureAwait(false);
                 return Add(item);
             }
         }
@@ -188,7 +220,7 @@ internal static class DataStreamer
             Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
             var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Handler.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
+            writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
 
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
@@ -251,15 +283,15 @@ internal static class DataStreamer
 
                 FinalizeBatchHeader(batch);
                 batch.Task = SendAndDisposeBufAsync(
-                    batch.Buffer, batch.PartitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
+                    batch.Buffer, batch.PartitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated, batch.Schema.Version);
 
                 batch.Items = GetPool<T>().Rent(options.PageSize);
                 batch.Count = 0;
-                batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
-                InitBuffer(batch, schema);
-                batch.LastFlush = Stopwatch.GetTimestamp();
                 batch.Schema = schema;
                 batch.SchemaOutdated = false;
+                batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
+                InitBuffer(batch, batch.Schema);
+                batch.LastFlush = Stopwatch.GetTimestamp();
 
                 Metrics.StreamerBatchesActiveIncrement();
             }
@@ -271,37 +303,34 @@ internal static class DataStreamer
             Task oldTask,
             DataStreamerItem<T>[] items,
             int count,
-            bool batchSchemaOutdated)
+            bool batchSchemaOutdated,
+            int batchSchemaVer)
         {
-            Debug.Assert(items.Length > 0, "items.Length > 0");
-
-            if (batchSchemaOutdated)
-            {
-                // Schema update was detected while the batch was being filled.
-                // Re-serialize the whole batch.
-                ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
-            }
-
-            // ReSharper disable once AccessToModifiedClosure
-            var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
-
             try
             {
+                Debug.Assert(items.Length > 0, "items.Length > 0");
+                var schema0 = schema;
+
+                if (batchSchemaOutdated || batchSchemaVer < schema0.Version)
+                {
+                    // Schema update was detected while the batch was being filled.
+                    // Re-serialize the whole batch.
+                    ReWriteBatch(buf, partitionId, schema0, items.AsSpan(0, count), writer);
+                }
+
+                // ReSharper disable once AccessToModifiedClosure
+                var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
+
                 int? schemaVersion = null;
                 while (true)
                 {
                     try
                     {
-                        if (schemaVersion != null)
+                        if (schemaVersion is { })
                         {
-                            // Might be updated by another batch.
-                            if (schema.Version != schemaVersion)
-                            {
-                                schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
-                            }
-
                             // Serialize again with the new schema.
-                            ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
+                            schema0 = await UpdateSchema(schemaVersion.Value).ConfigureAwait(false);
+                            ReWriteBatch(buf, partitionId, schema0, items.AsSpan(0, count), writer);
                         }
 
                         // Wait for the previous batch for this node to preserve item order.
@@ -316,11 +345,20 @@ internal static class DataStreamer
                         // Schema update detected after the batch was serialized.
                         schemaVersion = e.GetExpectedSchemaVersion();
                     }
-                    catch (Exception e) when (e.CausedByUnmappedColumns() && schemaVersion == null)
+                    catch (Exception e) when (e.CausedByUnmappedColumns())
                     {
                         schemaVersion = Table.SchemaVersionForceLatest;
                     }
                 }
+            }
+            catch (Exception)
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    failedItems.Enqueue(items[i]);
+                }
+
+                throw;
             }
             finally
             {
@@ -336,12 +374,12 @@ internal static class DataStreamer
         {
             while (!flushCt.IsCancellationRequested)
             {
-                await Task.Delay(options.AutoFlushFrequency, flushCt).ConfigureAwait(false);
+                await Task.Delay(options.AutoFlushInterval, flushCt).ConfigureAwait(false);
                 var ts = Stopwatch.GetTimestamp();
 
                 foreach (var batch in batches.Values)
                 {
-                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushFrequency.Ticks)
+                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushInterval.Ticks)
                     {
                         await SendAsync(batch).ConfigureAwait(false);
                     }
@@ -361,6 +399,48 @@ internal static class DataStreamer
                 await batch.Task.ConfigureAwait(false);
             }
         }
+
+        async ValueTask<Schema> UpdateSchema(int ver = Table.SchemaVersionForceLatest)
+        {
+            await schemaLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                if (ver != Table.SchemaVersionForceLatest && schema.Version >= ver)
+                {
+                    return schema;
+                }
+
+                schema = await table.GetSchemaAsync(ver).ConfigureAwait(false);
+                return schema;
+            }
+            finally
+            {
+                schemaLock.Release();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates the options.
+    /// </summary>
+    /// <param name="options">Streamer options.</param>
+    internal static void ValidateOptions(DataStreamerOptions options)
+    {
+        IgniteArgumentCheck.Ensure(
+            options.PageSize > 0,
+            nameof(options.PageSize),
+            $"{nameof(options.PageSize)} should be positive.");
+
+        IgniteArgumentCheck.Ensure(
+            options.AutoFlushInterval > TimeSpan.Zero,
+            nameof(options.AutoFlushInterval),
+            $"{nameof(options.AutoFlushInterval)} should be positive.");
+
+        IgniteArgumentCheck.Ensure(
+            options.RetryLimit >= 0,
+            nameof(options.RetryLimit),
+            $"{nameof(options.RetryLimit)} should be non-negative.");
     }
 
     private static void InitBuffer<T>(Batch<T> batch, Schema schema)
@@ -436,7 +516,7 @@ internal static class DataStreamer
         int partitionId,
         Schema schema,
         ReadOnlySpan<DataStreamerItem<T>> items,
-        RecordSerializer<T> writer)
+        IRecordSerializerHandler<T> writer)
     {
         buf.Reset();
 
@@ -467,7 +547,7 @@ internal static class DataStreamer
         foreach (var item in items)
         {
             var remove = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Handler.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
+            writer.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
         }
     }
 

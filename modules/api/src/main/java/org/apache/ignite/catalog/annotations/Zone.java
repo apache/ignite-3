@@ -17,7 +17,6 @@
 
 package org.apache.ignite.catalog.annotations;
 
-import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
@@ -26,7 +25,7 @@ import java.lang.annotation.Target;
 /**
  * Describes a distribution zone.
  */
-@Target(TYPE)
+@Target({})
 @Retention(RUNTIME)
 public @interface Zone {
     /**
@@ -34,7 +33,14 @@ public @interface Zone {
      *
      * @return The name of the zone.
      */
-    String value() default "";
+    String value();
+
+    /**
+     * Storage profiles.
+     *
+     * @return Storage profiles.
+     */
+    String storageProfiles();
 
     /**
      * Number of partitions.
@@ -51,11 +57,18 @@ public @interface Zone {
     int replicas() default -1;
 
     /**
-     * Affinity function.
+     * Quorum size.
      *
-     * @return Affinity function.
+     * @return Quorum size.
      */
-    String affinityFunction() default "";
+    int quorumSize() default -1;
+
+    /**
+     * Distribution algorithm.
+     *
+     * @return Distribution algorithm.
+     */
+    String distributionAlgorithm() default "";
 
     /**
      * Timeout in seconds between node added or node left topology event itself and data nodes switch.
@@ -86,9 +99,9 @@ public @interface Zone {
     String filter() default "";
 
     /**
-     * Storage profiles.
+     * Consistency mode.
      *
-     * @return Storage profiles.
+     * @return Consistency mode.
      */
-    String storageProfiles();
+    String consistencyMode() default "";
 }

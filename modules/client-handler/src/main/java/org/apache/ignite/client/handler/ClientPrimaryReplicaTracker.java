@@ -21,19 +21,23 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.tableIdNotFoundException;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -44,9 +48,11 @@ import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.LongPriorityQueue;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -73,7 +79,7 @@ import org.jetbrains.annotations.Nullable;
  *       Don't block the client for too long, it is better to miss the primary than to delay the request.
  */
 public class ClientPrimaryReplicaTracker {
-    private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ReplicationGroupId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicLong maxStartTime = new AtomicLong();
 
@@ -86,6 +92,8 @@ public class ClientPrimaryReplicaTracker {
     private final SchemaSyncService schemaSyncService;
 
     private final LowWatermark lowWatermark;
+
+    private final NodeProperties nodeProperties;
 
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
@@ -113,13 +121,15 @@ public class ClientPrimaryReplicaTracker {
             CatalogService catalogService,
             ClockService clockService,
             SchemaSyncService schemaSyncService,
-            LowWatermark lowWatermark
+            LowWatermark lowWatermark,
+            NodeProperties nodeProperties
     ) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
         this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.lowWatermark = lowWatermark;
+        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -169,11 +179,11 @@ public class ClientPrimaryReplicaTracker {
             CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
             for (int partition = 0; partition < partitions; partition++) {
-                TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
+                ReplicationGroupId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
 
-                futures[partition] = placementDriver.getPrimaryReplica(tablePartitionId, timestamp).thenAccept(replicaMeta -> {
+                futures[partition] = placementDriver.getPrimaryReplica(replicationGroupId, timestamp).thenAccept(replicaMeta -> {
                     if (replicaMeta != null && replicaMeta.getLeaseholder() != null) {
-                        updatePrimaryReplica(tablePartitionId, replicaMeta.getStartTime(), replicaMeta.getLeaseholder());
+                        updatePrimaryReplica(replicationGroupId, replicaMeta.getStartTime(), replicaMeta.getLeaseholder());
                     }
                 });
             }
@@ -223,10 +233,11 @@ public class ClientPrimaryReplicaTracker {
         }
 
         List<String> res = new ArrayList<>(partitions);
+        boolean hasKnown = false;
 
         for (int partition = 0; partition < partitions; partition++) {
-            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
-            ReplicaHolder holder = primaryReplicas.get(tablePartitionId);
+            ReplicationGroupId replicationGroupId = replicationGroupId(tableId, partition, timestamp);
+            ReplicaHolder holder = primaryReplicas.get(replicationGroupId);
 
             if (holder == null || holder.nodeName == null || holder.leaseStartTime == null) {
                 if (allowUnknownReplicas) {
@@ -238,9 +249,19 @@ public class ClientPrimaryReplicaTracker {
             }
 
             res.add(holder.nodeName);
+            hasKnown = true;
         }
 
-        return new PrimaryReplicasResult(res, currentMaxStartTime);
+        return hasKnown ? new PrimaryReplicasResult(res, currentMaxStartTime) : null;
+    }
+
+    private ReplicationGroupId replicationGroupId(int tableId, int partition, HybridTimestamp timestamp) {
+        if (nodeProperties.colocationEnabled()) {
+            CatalogTableDescriptor table = requiredTable(tableId, timestamp);
+            return new ZonePartitionId(table.zoneId(), partition);
+        } else {
+            return new TablePartitionId(tableId, partition);
+        }
     }
 
     private CompletableFuture<Integer> partitionsAsync(int tableId, HybridTimestamp timestamp) {
@@ -248,19 +269,29 @@ public class ClientPrimaryReplicaTracker {
     }
 
     private int partitionsNoWait(int tableId, HybridTimestamp timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableId, timestamp.longValue());
+        Catalog catalog = catalogService.activeCatalog(timestamp.longValue());
 
-        if (table == null) {
-            throw tableIdNotFoundException(tableId);
-        }
+        CatalogTableDescriptor table = requiredTable(tableId, timestamp);
 
-        CatalogZoneDescriptor zone = catalogService.zone(table.zoneId(), timestamp.longValue());
+        CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
 
         if (zone == null) {
             throw tableIdNotFoundException(tableId);
         }
 
         return zone.partitions();
+    }
+
+    private CatalogTableDescriptor requiredTable(int tableId, HybridTimestamp timestamp) {
+        Catalog catalog = catalogService.activeCatalog(timestamp.longValue());
+
+        CatalogTableDescriptor table = catalog.table(tableId);
+
+        if (table == null) {
+            throw tableIdNotFoundException(tableId);
+        }
+
+        return table;
     }
 
     long maxStartTime() {
@@ -291,13 +322,7 @@ public class ClientPrimaryReplicaTracker {
 
     private void onPrimaryReplicaChanged(PrimaryReplicaEventParameters primaryReplicaEvent) {
         inBusyLock(busyLock, () -> {
-            if (!(primaryReplicaEvent.groupId() instanceof TablePartitionId)) {
-                return;
-            }
-
-            TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
-
-            updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
+            updatePrimaryReplica(primaryReplicaEvent.groupId(), primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
         });
     }
 
@@ -315,7 +340,8 @@ public class ClientPrimaryReplicaTracker {
     }
 
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
-        inBusyLock(busyLock, () -> {
+        inBusyLockSafe(busyLock, () -> {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-24345 - support zone destruction.
             int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
@@ -331,10 +357,10 @@ public class ClientPrimaryReplicaTracker {
         }
     }
 
-    private void updatePrimaryReplica(TablePartitionId tablePartitionId, HybridTimestamp startTime, String nodeName) {
+    private void updatePrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp startTime, String nodeName) {
         long startTimeLong = startTime.longValue();
 
-        primaryReplicas.compute(tablePartitionId, (key, existingVal) -> {
+        primaryReplicas.compute(replicationGroupId, (key, existingVal) -> {
             if (existingVal != null
                     && existingVal.leaseStartTime != null
                     && existingVal.leaseStartTime.longValue() >= startTimeLong) {
@@ -348,12 +374,15 @@ public class ClientPrimaryReplicaTracker {
     }
 
     private static int getTablePartitionsFromCatalog(CatalogService catalogService, int catalogVersion, int tableId) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
+        Catalog catalog = catalogService.catalog(catalogVersion);
+        assert catalog != null : "catalogVersion=" + catalogVersion;
+
+        CatalogTableDescriptor tableDescriptor = catalog.table(tableId);
         assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
 
         int zoneId = tableDescriptor.zoneId();
 
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
         assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + catalogVersion;
 
         return zoneDescriptor.partitions();

@@ -32,7 +32,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -67,11 +66,11 @@ public class ColocationHashCalculationTest {
     public void simple() {
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{
-                        new Column("id0", INT8, false),
-                        new Column("id1", INT32, false),
-                        new Column("id2", STRING, false),
+                        new Column("ID0", INT8, false),
+                        new Column("ID1", INT32, false),
+                        new Column("ID2", STRING, false),
                 },
-                new Column[]{new Column("val", INT32, true)});
+                new Column[]{new Column("VAL", INT32, true)});
 
         RowAssembler rasm = new RowAssembler(schema, -1);
 
@@ -97,16 +96,16 @@ public class ColocationHashCalculationTest {
     }
 
     @Test
-    public void allTypes() throws TupleMarshallerException {
+    public void allTypes() {
         Column[] keyCols = IntStream.range(0, SchemaTestUtils.ALL_TYPES.size())
                 .mapToObj(i -> {
                     NativeType t = SchemaTestUtils.ALL_TYPES.get(i);
-                    return new Column("id_" + t.spec().name(), t, false);
+                    return new Column("ID_" + t.spec().name().toUpperCase(), t, false);
                 })
                 .toArray(Column[]::new);
 
         SchemaDescriptor schema = new SchemaDescriptor(42, keyCols,
-                new Column[]{new Column("val", INT32, true)});
+                new Column[]{new Column("VAL", INT32, true)});
 
         Row r = generateRandomRow(rnd, schema);
         assertEquals(colocationHash(r), r.colocationHash());
@@ -180,7 +179,7 @@ public class ColocationHashCalculationTest {
         }
     }
 
-    private static Row generateRandomRow(Random rnd, SchemaDescriptor schema) throws TupleMarshallerException {
+    private static Row generateRandomRow(Random rnd, SchemaDescriptor schema) {
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Tuple t = Tuple.create();

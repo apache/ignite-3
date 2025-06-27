@@ -35,9 +35,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
@@ -121,21 +121,22 @@ public class RowSchemaTypesTest {
 
         // Check for missed types add fail if such types present.
 
-        Set<Entry<NativeTypeSpec, Boolean>> nativeTypeSpecs = new CopyOnWriteArraySet<>();
-        for (NativeTypeSpec spec : NativeTypeSpec.values()) {
-            nativeTypeSpecs.add(Map.entry(spec, true));
-            nativeTypeSpecs.add(Map.entry(spec, false));
+        Set<Entry<ColumnType, Boolean>> typeSpecs = new CopyOnWriteArraySet<>();
+
+        for (ColumnType spec : NativeType.nativeTypes()) {
+            typeSpecs.add(Map.entry(spec, true));
+            typeSpecs.add(Map.entry(spec, false));
         }
 
         DynamicTest dynamicTest = DynamicTest.dynamicTest("Ensure all native types were checked", () -> {
             for (NativeTypeToBaseTestCase test : testCaseList) {
-                nativeTypeSpecs.remove(Map.entry(test.nativeType.spec(), test.nullable));
+                typeSpecs.remove(Map.entry(test.nativeType.spec(), test.nullable));
             }
-            List<String> typePairs = nativeTypeSpecs.stream()
+            List<String> typePairs = typeSpecs.stream()
                     .map(p -> format("<{}, nullable={}>", p.getKey().name(), p.getValue()))
                     .collect(Collectors.toList());
 
-            assertTrue(nativeTypeSpecs.isEmpty(), typePairs.toString());
+            assertTrue(typeSpecs.isEmpty(), typePairs.toString());
         });
 
         return Streams.concat(testCaseList.stream().map(NativeTypeToBaseTestCase::toTest), Stream.of(dynamicTest));
@@ -153,7 +154,6 @@ public class RowSchemaTypesTest {
         DOUBLE(NativeTypes.DOUBLE, true),
         DECIMAL_10_0(NativeTypes.decimalOf(10, 0), false),
         DECIMAL_10_4(NativeTypes.decimalOf(10, 4), false),
-        NUMBER_10(NativeTypes.numberOf(10), false),
 
         STRING(NativeTypes.INT16, true),
         STRING_8(NativeTypes.stringOf(8), false),
@@ -166,7 +166,6 @@ public class RowSchemaTypesTest {
         TIME_2(NativeTypes.time(2), false),
         DATETIME_2(NativeTypes.datetime(2), false),
         TIMESTAMP_2(NativeTypes.timestamp(2), false),
-        BITMASK_8(NativeTypes.bitmaskOf(8), false),
         ;
 
         final NativeType nativeType;

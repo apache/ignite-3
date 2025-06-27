@@ -32,28 +32,13 @@ class ItTopologyCommandNotInitializedClusterTest extends CliCommandTestNotInitia
     @DisplayName("Should print physical topology when valid cluster url is provided")
     void printPhysicalTopology() {
         // When
-        execute("cluster", "topology", "physical", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "topology", "physical", "--url", NODE_URL);
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 this::assertOutputIsNotEmpty
-        );
-    }
-
-    @Test
-    @DisplayName("Should not print logical topology when valid cluster url is provided but cluster is not initialized")
-    void printLogicalTopology() {
-        // When
-        execute("cluster", "topology", "logical", "--cluster-endpoint-url", NODE_URL);
-
-        // Then prints nothing
-        assertAll(
-                this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Cannot show logical topology" + System.lineSeparator()
-                                + "Probably, you have not initialized the cluster, try to run ignite cluster init command"
-                )
         );
     }
 }

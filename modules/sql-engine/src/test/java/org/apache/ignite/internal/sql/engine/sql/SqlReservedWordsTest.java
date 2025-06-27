@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test reserved keywords.
  */
-public class SqlReservedWordsTest extends AbstractDdlParserTest {
+public class SqlReservedWordsTest extends AbstractParserTest {
     /** List of keywords reserved in Ignite SQL. */
     private static final Set<String> RESERVED_WORDS = Set.of(
             "ABS",
@@ -40,6 +40,7 @@ public class SqlReservedWordsTest extends AbstractDdlParserTest {
             "ARRAY",
             "ARRAY_MAX_CARDINALITY",
             "AS",
+            "ASOF",
             "ASYMMETRIC", // BETWEEN ASYMMETRIC .. AND ..
             "AVG",
             "BETWEEN",
@@ -133,8 +134,10 @@ public class SqlReservedWordsTest extends AbstractDdlParserTest {
             "LOCALTIME",
             "LOCALTIMESTAMP",
             "LOWER",
+            "MATCH_CONDITION",
             "MATCH_RECOGNIZE",
             "MAX",
+            "MEASURE",
             "MERGE",
             "MIN",
             "MINUS",
@@ -214,8 +217,10 @@ public class SqlReservedWordsTest extends AbstractDdlParserTest {
             "UPSERT",
             "USER",
             "USING",
+            "UUID",
             "VALUE",
             "VALUES",
+            "VARIANT",
             "VAR_POP",
             "VAR_SAMP",
             "WEDNESDAY",

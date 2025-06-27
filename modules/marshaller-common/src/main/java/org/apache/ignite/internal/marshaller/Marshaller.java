@@ -26,6 +26,7 @@ import java.util.TreeSet;
 import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.OneColumnMapper;
 import org.apache.ignite.table.mapper.PojoMapper;
@@ -150,6 +151,10 @@ public abstract class Marshaller {
                 Set<String> fieldSet = new TreeSet<>(fields);
                 for (MarshallerColumn col : cols) {
                     String fieldName = mapper.fieldForColumn(col.name());
+                    if (fieldName == null) {
+                        assert !requireAllFields;
+                        continue;
+                    }
                     fieldSet.remove(fieldName);
                 }
 

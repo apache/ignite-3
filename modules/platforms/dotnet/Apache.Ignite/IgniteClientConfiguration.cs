@@ -113,8 +113,8 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets or sets the operation timeout. Default is <see cref="Timeout.InfiniteTimeSpan"/> (no timeout).
         /// <para />
-        /// The timeout applies to all operations except handshake and heartbeats.
-        /// The time is measured from the moment the request is written to the socket to the moment the response is received.
+        /// An "operation" is a single client request to the server. Some public API calls may involve multiple operations, in
+        /// which case the operation timeout is applied to each individual network call.
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "-00:00:00.001")]
         public TimeSpan OperationTimeout { get; set; } = Timeout.InfiniteTimeSpan;

@@ -82,7 +82,7 @@ public:
      */
     [[nodiscard]] const primitive &get(uint32_t idx) const {
         if (idx > m_pairs.size()) {
-            throw ignite_error(
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT,
                 "Index is too large: idx=" + std::to_string(idx) + ", columns_num=" + std::to_string(m_pairs.size()));
         }
         return m_pairs[idx].second;
@@ -110,7 +110,7 @@ public:
     template<typename T>
     void set(uint32_t idx, T &&value) {
         if (idx > m_pairs.size()) {
-            throw ignite_error(
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT,
                 "Index is too large: idx=" + std::to_string(idx) + ", columns_num=" + std::to_string(m_pairs.size()));
         }
         m_pairs[idx].second = std::forward<T>(value);
@@ -125,7 +125,8 @@ public:
     [[nodiscard]] const primitive &get(std::string_view name) const {
         auto it = m_indices.find(parse_name(name));
         if (it == m_indices.end())
-            throw ignite_error("Can not find column with the name '" + std::string(name) + "' in the tuple");
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT,
+                "Can not find column with the name '" + std::string(name) + "' in the tuple");
         auto idx = it->second;
         return m_pairs[idx].second;
     }
@@ -171,7 +172,7 @@ public:
      */
     [[nodiscard]] const std::string &column_name(uint32_t idx) const {
         if (idx > m_pairs.size()) {
-            throw ignite_error(
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT,
                 "Index is too large: idx=" + std::to_string(idx) + ", columns_num=" + std::to_string(m_pairs.size()));
         }
         return m_pairs[idx].first;

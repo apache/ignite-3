@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.table;
 
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
+import org.apache.ignite.lang.MarshallerException;
 
 /**
  * Partition awareness provider for data streamer.
@@ -39,18 +39,14 @@ class PojoStreamerPartitionAwarenessProvider<R> extends AbstractClientStreamerPa
     }
 
     @Override
-    int colocationHash(SchemaDescriptor schema, R item) {
-        try {
-            HashCalculator hashCalc = new HashCalculator();
+    int colocationHash(SchemaDescriptor schema, R item) throws MarshallerException {
+        HashCalculator hashCalc = new HashCalculator();
 
-            for (Column c : schema.colocationColumns()) {
-                Object val = marsh.value(item, c.positionInRow());
-                ColocationUtils.append(hashCalc, val, c.type());
-            }
-
-            return hashCalc.hash();
-        } catch (MarshallerException e) {
-            throw new org.apache.ignite.lang.MarshallerException(e);
+        for (Column c : schema.colocationColumns()) {
+            Object val = marsh.value(item, c.positionInRow());
+            ColocationUtils.append(hashCalc, val, c.type());
         }
+
+        return hashCalc.hash();
     }
 }

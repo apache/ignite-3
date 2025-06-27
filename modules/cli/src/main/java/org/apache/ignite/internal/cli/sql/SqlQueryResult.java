@@ -17,54 +17,55 @@
 
 package org.apache.ignite.internal.cli.sql;
 
-import org.apache.ignite.internal.cli.core.decorator.Decorator;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
-import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.sql.table.Table;
 
 /**
  * Composite object of sql query result.
  */
 public class SqlQueryResult {
-    private final Table<String> table;
+    private final List<SqlQueryResultItem> sqlQueryResultItems;
 
-    private final String message;
-
-    /**
-     * Constructor.
-     *
-     * @param table non null result table.
-     */
-    public SqlQueryResult(Table<String> table) {
-        this(table, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param message non null result message.
-     */
-    public SqlQueryResult(String message) {
-        this(null, message);
-    }
-
-    private SqlQueryResult(Table<String> table, String message) {
-        this.table = table;
-        this.message = message;
+    private SqlQueryResult(List<SqlQueryResultItem> sqlQueryResultItems) {
+        this.sqlQueryResultItems = sqlQueryResultItems;
     }
 
     /**
      * SQL query result provider.
      *
-     * @param tableDecorator instance of {@link TableDecorator}.
-     * @param messageDecorator decorator of message.
-     * @return terminal output of non-null field of class.
+     * @return terminal output all items in query result.
      */
-    public TerminalOutput getResult(TableDecorator tableDecorator,
-                                    Decorator<String, TerminalOutput> messageDecorator) {
-        if (table != null) {
-            return tableDecorator.decorate(table);
+    public TerminalOutput getResult(boolean plain) {
+        return () -> sqlQueryResultItems.stream()
+            .map(x -> x.decorate(plain).toTerminalString())
+            .collect(Collectors.joining(""));
+    }
+
+    /**
+     * Builder for {@link SqlQueryResult}.
+     */
+    static class SqlQueryResultBuilder {
+        private final List<SqlQueryResultItem> sqlQueryResultItems = new ArrayList<>();
+
+        /**
+         * Add table to query result.
+         */
+        void addTable(Table<String> table) {
+            sqlQueryResultItems.add(new SqlQueryResultTable(table));
         }
-        return messageDecorator.decorate(message);
+
+        /**
+         * Add message to query result.
+         */
+        void addMessage(String message) {
+            sqlQueryResultItems.add(new SqlQueryResultMessage(message + "\n"));
+        }
+
+        public SqlQueryResult build() {
+            return new SqlQueryResult(sqlQueryResultItems);
+        }
     }
 }

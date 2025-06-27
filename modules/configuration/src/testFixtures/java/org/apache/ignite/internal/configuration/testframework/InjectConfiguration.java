@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
+import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
@@ -72,6 +75,11 @@ public @interface InjectConfiguration {
      * {@link org.apache.ignite.configuration.ConfigurationModule#patchConfigurationWithDynamicDefaults(SuperRootChange)}
      */
     String rootName() default "";
+
+    /**
+     * Type of the configuration. Used to select the modules to patch the configuration tree with dynamic configuration defaults.
+     */
+    ConfigurationType type() default LOCAL;
 
     /**
      * Array of configuration schema extensions. Every class in the array must be annotated with {@link ConfigurationExtension} and extend

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
 /**
  * Local partition state schema class.
@@ -28,29 +29,49 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "Information about local partition state.")
 public class LocalPartitionStateResponse {
     private final int partitionId;
+    private final String zoneName;
+    @Schema(requiredMode = RequiredMode.NOT_REQUIRED)
+    private final int tableId;
+    @Schema(requiredMode = RequiredMode.NOT_REQUIRED)
+    private final String schemaName;
+    @Schema(requiredMode = RequiredMode.NOT_REQUIRED)
     private final String tableName;
     private final String nodeName;
     private final String state;
+    private final long estimatedRows;
 
     /**
      * Constructor.
      */
     @JsonCreator
     public LocalPartitionStateResponse(
-            @JsonProperty("partitionId") int partitionId,
-            @JsonProperty("tableName") String tableName,
             @JsonProperty("nodeName") String nodeName,
-            @JsonProperty("state") String state
+            @JsonProperty("zoneName") String zoneName,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableId") int tableId,
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("partitionId") int partitionId,
+            @JsonProperty("state") String state,
+            @JsonProperty("estimatedRows") long estimatedRows
     ) {
         this.partitionId = partitionId;
+        this.tableId = tableId;
+        this.schemaName = schemaName;
         this.tableName = tableName;
+        this.zoneName = zoneName;
         this.nodeName = nodeName;
         this.state = state;
+        this.estimatedRows = estimatedRows;
     }
 
     @JsonGetter("partitionId")
     public int partitionId() {
         return partitionId;
+    }
+
+    @JsonGetter("tableId")
+    public int tableId() {
+        return tableId;
     }
 
     @JsonGetter("tableName")
@@ -63,8 +84,23 @@ public class LocalPartitionStateResponse {
         return nodeName;
     }
 
+    @JsonGetter("zoneName")
+    public String zoneName() {
+        return zoneName;
+    }
+
+    @JsonGetter("schemaName")
+    public String schemaName() {
+        return schemaName;
+    }
+
     @JsonGetter("state")
     public String state() {
         return state;
+    }
+
+    @JsonGetter("estimatedRows")
+    public long estimatedRows() {
+        return estimatedRows;
     }
 }

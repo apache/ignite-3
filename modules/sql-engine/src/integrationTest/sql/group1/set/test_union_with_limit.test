@@ -1,0 +1,110 @@
+# name: test/sql/set/union_with_limit.test
+# description: UNION with nested sort/limit
+# group: [set]
+
+statement ok
+CREATE TABLE test (a INTEGER)
+
+statement ok
+INSERT INTO test VALUES (1), (2), (3), (4)
+
+query I rowsort
+SELECT a FROM
+  (SELECT a FROM test ORDER BY a OFFSET 2) t(a)
+UNION ALL
+  SELECT a FROM test
+----
+1
+2
+3
+3
+4
+4
+
+query I rowsort
+SELECT a FROM test
+UNION ALL
+SELECT a FROM
+  (SELECT a FROM test ORDER BY a OFFSET 2) t(a)
+----
+1
+2
+3
+3
+4
+4
+
+query I rowsort
+SELECT a FROM
+  (SELECT a FROM test ORDER BY a LIMIT 1 OFFSET 1) t(a)
+----
+2
+
+query I rowsort
+SELECT a FROM
+  (SELECT a FROM
+    (SELECT a FROM test ORDER BY a LIMIT 3 OFFSET 2) i(a)
+    ORDER BY a OFFSET 1
+  ) t(a)
+----
+4
+
+query I rowsort
+SELECT a FROM
+  (SELECT a FROM test ORDER BY a LIMIT 1 OFFSET 1) t(a)
+UNION ALL
+SELECT a FROM
+  (SELECT a FROM
+    (SELECT a FROM test ORDER BY a LIMIT 3 OFFSET 2) i(a)
+    ORDER BY a OFFSET 1
+  ) t(a)
+----
+2
+4
+
+query I rowsort
+SELECT a FROM
+  (SELECT a FROM test ORDER BY a OFFSET 2) t(a)
+UNION ALL
+SELECT a FROM
+  (SELECT a FROM
+    (SELECT a FROM test ORDER BY a OFFSET 2) i(a)
+    ORDER BY a OFFSET 3
+  ) t(a)
+----
+3
+4
+
+query I rowsort
+SELECT a FROM test
+UNION ALL
+SELECT a FROM
+  (SELECT a FROM
+    (SELECT a FROM test ORDER BY a OFFSET 2) i(a)
+    ORDER BY a OFFSET 3
+  ) t(a)
+----
+1
+2
+3
+4
+
+
+statement ok
+CREATE TABLE test2 (a INTEGER)
+
+statement ok
+INSERT INTO test2 VALUES (1), (2), (3), (4)
+
+query I rowsort
+SELECT a FROM
+  (SELECT a FROM test ORDER BY a LIMIT 1 OFFSET 1) t(a)
+UNION ALL
+SELECT a FROM
+  (SELECT a FROM
+    (SELECT a FROM test2 ORDER BY a LIMIT 3 OFFSET 2) i(a)
+    ORDER BY a OFFSET 1
+  ) t(a);
+----
+2
+4

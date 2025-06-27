@@ -18,55 +18,93 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
+import org.apache.ignite.internal.metastorage.command.GetChecksumCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
-import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
+import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionsCommand;
 import org.apache.ignite.internal.metastorage.command.GetPrefixCommand;
 import org.apache.ignite.internal.metastorage.command.GetRangeCommand;
 import org.apache.ignite.internal.metastorage.command.PaginationCommand;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
+import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
+import org.apache.ignite.internal.metastorage.server.ChecksumAndRevisions;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Meta storage listener.
  * TODO: IGNITE-14693 Implement Meta storage exception handling logic.
  */
 public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandler {
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     private final MetaStorageWriteHandler writeHandler;
 
-    /** Storage. */
     private final KeyValueStorage storage;
 
-    /**
-     * Constructor.
-     *
-     * @param storage Storage.
-     */
-    public MetaStorageListener(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
+    private final Consumer<RaftGroupConfiguration> onConfigurationCommitted;
+
+    private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
+
+    /** Constructor. */
+    @TestOnly
+    public MetaStorageListener(KeyValueStorage storage, HybridClock clock, ClusterTimeImpl clusterTime) {
+        this(storage, clock, clusterTime, newConfig -> {});
+    }
+
+    /** Constructor. */
+    public MetaStorageListener(
+            KeyValueStorage storage,
+            HybridClock clock,
+            ClusterTimeImpl clusterTime,
+            Consumer<RaftGroupConfiguration> onConfigurationCommitted
+    ) {
         this.storage = storage;
-        this.writeHandler = new MetaStorageWriteHandler(storage, clusterTime);
+        this.onConfigurationCommitted = onConfigurationCommitted;
+
+        writeHandler = new MetaStorageWriteHandler(storage, clock, clusterTime);
     }
 
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iter) {
+        if (!busyLock.enterBusy()) {
+            iter.forEachRemaining(clo -> clo.result(new ShutdownException()));
+        }
+
+        try {
+            onReadBusy(iter);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void onReadBusy(Iterator<CommandClosure<ReadCommand>> iter) {
         while (iter.hasNext()) {
             CommandClosure<ReadCommand> clo = iter.next();
 
@@ -77,16 +115,16 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                     GetCommand getCmd = (GetCommand) command;
 
                     Entry e = getCmd.revision() == MetaStorageManager.LATEST_REVISION
-                            ? storage.get(getCmd.key())
-                            : storage.get(getCmd.key(), getCmd.revision());
+                            ? storage.get(toByteArray(getCmd.key()))
+                            : storage.get(toByteArray(getCmd.key()), getCmd.revision());
 
                     clo.result(e);
                 } else if (command instanceof GetAllCommand) {
                     GetAllCommand getAllCmd = (GetAllCommand) command;
 
-                    Collection<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
-                            ? storage.getAll(getAllCmd.keys())
-                            : storage.getAll(getAllCmd.keys(), getAllCmd.revision());
+                    List<Entry> entries = getAllCmd.revision() == MetaStorageManager.LATEST_REVISION
+                            ? storage.getAll(toByteArrayList(getAllCmd.keys()))
+                            : storage.getAll(toByteArrayList(getAllCmd.keys()), getAllCmd.revision());
 
                     clo.result((Serializable) entries);
                 } else if (command instanceof GetRangeCommand) {
@@ -95,26 +133,36 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
                     byte[] previousKey = rangeCmd.previousKey();
 
                     byte[] keyFrom = previousKey == null
-                            ? rangeCmd.keyFrom()
+                            ? toByteArray(rangeCmd.keyFrom())
                             : requireNonNull(storage.nextKey(previousKey));
 
-                    clo.result(handlePaginationCommand(keyFrom, rangeCmd.keyTo(), rangeCmd));
+                    byte @Nullable [] keyTo = rangeCmd.keyTo() == null ? null : toByteArray(rangeCmd.keyTo());
+
+                    clo.result(handlePaginationCommand(keyFrom, keyTo, rangeCmd));
                 } else if (command instanceof GetPrefixCommand) {
                     var prefixCmd = (GetPrefixCommand) command;
 
                     byte[] previousKey = prefixCmd.previousKey();
 
-                    byte[] keyFrom = previousKey == null
-                            ? prefixCmd.prefix()
-                            : requireNonNull(storage.nextKey(previousKey));
+                    byte[] prefix = toByteArray(prefixCmd.prefix());
 
-                    byte[] keyTo = storage.nextKey(prefixCmd.prefix());
+                    byte[] keyFrom = previousKey == null ? prefix : requireNonNull(storage.nextKey(previousKey));
+
+                    byte[] keyTo = storage.nextKey(prefix);
 
                     clo.result(handlePaginationCommand(keyFrom, keyTo, prefixCmd));
-                } else if (command instanceof GetCurrentRevisionCommand) {
-                    long revision = storage.revision();
+                } else if (command instanceof GetCurrentRevisionsCommand) {
+                    Revisions currentRevisions = storage.revisions();
 
-                    clo.result(revision);
+                    clo.result(RevisionsInfo.of(currentRevisions));
+                } else if (command instanceof GetChecksumCommand) {
+                    ChecksumAndRevisions checksumInfo = storage.checksumAndRevisions(((GetChecksumCommand) command).revision());
+
+                    clo.result(new ChecksumInfo(
+                            checksumInfo.checksum(),
+                            checksumInfo.minChecksummedRevision(),
+                            checksumInfo.maxChecksummedRevision()
+                    ));
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -159,6 +207,21 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     }
 
     @Override
+    public void onConfigurationCommitted(
+            RaftGroupConfiguration config,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
+        storage.saveConfiguration(
+                configurationConverter.toBytes(config),
+                lastAppliedIndex,
+                lastAppliedTerm
+        );
+
+        onConfigurationCommitted.accept(config);
+    }
+
+    @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
         storage.snapshot(path)
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
@@ -166,11 +229,18 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     @Override
     public boolean onSnapshotLoad(Path path) {
-        storage.restoreSnapshot(path);
+        // Startup snapshot should always be ignored, because we always restore from rocksdb folder instead of a separate set of SST files.
+        if (!path.toString().isEmpty()) { // See "org.apache.ignite.internal.metastorage.impl.raft.StartupMetaStorageSnapshotReader.getPath"
+            storage.restoreSnapshot(path);
+        }
+
+        // Restore internal state.
+        writeHandler.onSnapshotLoad();
         return true;
     }
 
     @Override
     public void onShutdown() {
+        busyLock.block();
     }
 }

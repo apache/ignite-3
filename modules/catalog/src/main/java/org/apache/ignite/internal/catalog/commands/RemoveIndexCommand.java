@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
@@ -57,11 +58,12 @@ public class RemoveIndexCommand implements CatalogCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
         CatalogIndexDescriptor index = indexOrThrow(catalog, indexId);
 
         if (index.status() != STOPPING) {
-            throw new CatalogValidationException("Cannot remove index {} because its status is {}", indexId, index.status());
+            throw new CatalogValidationException("Cannot remove index {} because its status is {}.", indexId, index.status());
         }
 
         return List.of(new RemoveIndexEntry(indexId));

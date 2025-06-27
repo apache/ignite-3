@@ -63,7 +63,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -554,7 +554,7 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
                 workDir,
                 new RandomAccessFileIoFactory(),
                 PAGE_SIZE,
-                mock(FailureProcessor.class)
+                mock(FailureManager.class)
         );
 
         managers.add(manager);

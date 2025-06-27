@@ -39,9 +39,6 @@ public abstract class Response implements ClientMessage {
     /** Error. */
     private String err;
 
-    /** Has results. */
-    protected boolean hasResults;
-
     /**
      * Constructs successful response.
      */
@@ -65,7 +62,6 @@ public abstract class Response implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        packer.packBoolean(hasResults);
         packer.packInt(status);
 
         if (StringUtil.isNullOrEmpty(err)) {
@@ -78,7 +74,6 @@ public abstract class Response implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        hasResults = unpacker.unpackBoolean();
         status = unpacker.unpackInt();
 
         if (!unpacker.tryUnpackNil()) {
@@ -123,12 +118,12 @@ public abstract class Response implements ClientMessage {
     }
 
     /**
-     * Gets hasResults flag.
+     * Gets success status.
      *
-     * @return Has results.
+     * @return {@code True} if command succeeded, {@code false} otherwise.
      */
-    public boolean hasResults() {
-        return hasResults;
+    public boolean success() {
+        return status == STATUS_SUCCESS;
     }
 
     /** {@inheritDoc} */

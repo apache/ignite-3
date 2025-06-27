@@ -19,6 +19,7 @@ namespace Apache.Ignite.Compute;
 
 using System;
 using System.Threading.Tasks;
+using Network;
 
 /// <summary>
 /// Job control object, provides information about the job execution process and result, allows cancelling the job.
@@ -32,27 +33,23 @@ public interface IJobExecution<T>
     Guid Id { get; }
 
     /// <summary>
+    /// Gets the node where the job is executing.
+    /// </summary>
+    IClusterNode Node { get; }
+
+    /// <summary>
     /// Gets the job execution result.
     /// </summary>
     /// <returns>Job execution result.</returns>
     Task<T> GetResultAsync();
 
     /// <summary>
-    /// Gets the job execution status. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
+    /// Gets the job execution state. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
     /// </summary>
     /// <returns>
-    /// Job execution status. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
+    /// Job execution state. Can be <c>null</c> if the job status no longer exists due to exceeding the retention time limit.
     /// </returns>
-    Task<JobStatus?> GetStatusAsync();
-
-    /// <summary>
-    /// Cancels the job execution.
-    /// </summary>
-    /// <returns>
-    /// Returns <c>true</c> if the job was successfully cancelled, <c>false</c> if the job has already finished,
-    /// <c>null</c> if the job was not found (no longer exists due to exceeding the retention time limit).
-    /// </returns>
-    Task<bool?> CancelAsync();
+    Task<JobState?> GetStateAsync();
 
     /// <summary>
     /// Changes the job priority. After priority change the job will be the last in the queue of jobs with the same priority.

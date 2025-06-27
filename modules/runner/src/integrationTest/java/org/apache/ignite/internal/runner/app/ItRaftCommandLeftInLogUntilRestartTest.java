@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,20 +36,22 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.TaskType;
@@ -159,19 +164,23 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
     private void restartClusterWithNotAppliedCommands(
             Consumer<Transaction> beforeBlock,
             Consumer<Transaction> afterBlock,
-            Consumer<IgniteImpl> checkAction
+            Consumer<Ignite> checkAction
     ) throws Exception {
-        var node0 = CLUSTER.node(0);
-        var node1 = CLUSTER.node(1);
+        IgniteImpl node0 = unwrapIgniteImpl(CLUSTER.node(0));
+        IgniteImpl node1 = unwrapIgniteImpl(CLUSTER.node(1));
 
         AtomicReference<IgniteBiTuple<ClusterNode, String>> leaderAndGroupRef = new AtomicReference<>();
 
         var appliedIndexNode0 = partitionUpdateInhibitor(node0, leaderAndGroupRef);
         var appliedIndexNode1 = partitionUpdateInhibitor(node1, leaderAndGroupRef);
 
-        TableViewInternal table = (TableViewInternal) createTable(DEFAULT_TABLE_NAME, 2, 1);
+        TableViewInternal table = unwrapTableViewInternal(createTable(DEFAULT_TABLE_NAME, 2, 1));
 
-        ClusterNode leader = table.internalTable().tableRaftService().leaderAssignment(0);
+        ClusterNode leader = ReplicaTestUtils.leaderAssignment(
+                node0,
+                colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                0
+        );
 
         boolean isNode0Leader = node0.id().equals(leader.id());
 
@@ -190,9 +199,14 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> appliedIndexNode0.get() == appliedIndexNode1.get(), 10_000));
 
-            RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
+            RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
+                            node0,
+                            colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                            0
+                    )
+                    .orElseThrow(AssertionError::new);
 
-            raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer), willCompleteSuccessfully()));
+            raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer, false), willCompleteSuccessfully()));
 
             leaderAndGroupRef.set(new IgniteBiTuple<>(leader, table.tableId() + "_part_0"));
 
@@ -218,7 +232,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         clearData(ignite.tables().table(DEFAULT_TABLE_NAME));
     }
 
-    private static Row marshalKey(TableViewInternal table, Tuple tuple) throws TupleMarshallerException {
+    private static Row marshalKey(TableViewInternal table, Tuple tuple) {
         SchemaRegistry schemaReg = table.schemaView();
         var marshaller = new TupleMarshallerImpl(schemaReg.lastKnownSchema());
 
@@ -245,11 +259,13 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                 node.name() + "-test",
                 "JRaft-FSMCaller-Disruptor",
+                (stripeName, logger) -> NamedThreadFactory.create(node.name() + "-test", stripeName, true, logger),
                 64,
                 () -> new ApplyTask(),
                 1,
                 false,
-                false
+                false,
+                null
         ) {
             @Override
             public RingBuffer<ApplyTask> subscribe(NodeId group, EventHandler<ApplyTask> handler,
@@ -288,7 +304,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         return appliedIndex;
     }
 
-    private void checkData(IgniteImpl ignite, Object[][] dataSet) {
+    private void checkData(Ignite ignite, Object[][] dataSet) {
         TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
         assertNotNull(table);
@@ -304,7 +320,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
                 BinaryRowEx testKey = marshalKey(table, Tuple.create().set("ID", row[0]));
 
-                BinaryRow readOnlyBinaryRow = table.internalTable().get(testKey, ignite.clock().now(), ignite.node()).get();
+                IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
+                BinaryRow readOnlyBinaryRow = table.internalTable().get(testKey, igniteImpl.clock().now(), igniteImpl.node()).get();
 
                 assertNotNull(readOnlyBinaryRow);
 
@@ -338,10 +355,15 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
      *
      * @param ignite Ignite instance.
      */
-    private void transferLeadershipToLocalNode(IgniteImpl ignite) {
+    private void transferLeadershipToLocalNode(Ignite ignite) {
         TableViewInternal table = (TableViewInternal) ignite.tables().table(DEFAULT_TABLE_NAME);
 
-        RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
+        RaftGroupService raftGroupService = ReplicaTestUtils.getRaftClient(
+                        ignite,
+                        colocationEnabled() ? table.internalTable().zoneId() : table.tableId(),
+                        0
+                )
+                .orElseThrow(AssertionError::new);
 
         List<Peer> peers = raftGroupService.peers();
         assertNotNull(peers);

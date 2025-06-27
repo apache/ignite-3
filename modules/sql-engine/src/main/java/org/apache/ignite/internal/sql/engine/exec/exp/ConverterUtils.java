@@ -21,6 +21,7 @@ import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.RexImpTable;
 import org.apache.calcite.linq4j.tree.ConstantUntypedNull;
@@ -30,13 +31,17 @@ import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 
 /**
- * ConverterUtils.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Utility class to convert from/to internal and external representations of different data types and their internal representations.
+ * Uses to modify default Calcite behaviour when it doesn't meet our rules and common sense.
  */
 public class ConverterUtils {
     private ConverterUtils() {
@@ -176,7 +181,7 @@ public class ConverterUtils {
      * @param targetType Target type
      * @return An expression with BidDecimal type, which calls IgniteSqlFunctions.toBigDecimal function.
      */
-    public static Expression convertToDecimal(Expression operand, RelDataType targetType) {
+    private static Expression convertToDecimal(Expression operand, RelDataType targetType) {
         assert targetType.getSqlTypeName() == SqlTypeName.DECIMAL;
         return Expressions.call(
                 IgniteSqlFunctions.class,
@@ -186,27 +191,67 @@ public class ConverterUtils {
                 Expressions.constant(targetType.getScale()));
     }
 
+    private static Expression convertToDate(Expression operand, RelDataType targetType) {
+        assert targetType.getSqlTypeName() == SqlTypeName.DATE;
+        return Expressions.call(
+                IgniteSqlFunctions.class,
+                "toDateExact",
+                operand
+        );
+    }
+
+    private static Expression convertToTimestamp(Expression operand, RelDataType targetType) {
+        String methodName;
+
+        if (targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP) {
+            methodName = "toTimestampExact";
+        } else {
+            assert targetType.getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE : targetType;
+
+            methodName = "toTimestampLtzExact";
+        }
+
+        return Expressions.call(
+                IgniteSqlFunctions.class,
+                methodName,
+                operand
+        );
+    }
+
+    /**
+     * Convert {@code operand} to {@code targetType}.
+     *
+     * @param operand The expression to convert
+     * @param targetType Target type
+     * @return A new expression with java type corresponding to {@code targetType} or original expression if there is no need to convert.
+     */
+    public static Expression convert(Expression operand, RelDataType targetType) {
+        if (SqlTypeUtil.isDecimal(targetType)) {
+            return convertToDecimal(operand, targetType);
+        }
+
+        if (SqlTypeUtil.isDate(targetType)) {
+            return convertToDate(operand, targetType);
+        }
+
+        if (SqlTypeUtil.isTimestamp(targetType)) {
+            return convertToTimestamp(operand, targetType);
+        }
+
+        return convert(operand, Commons.typeFactory().getJavaClass(targetType));
+    }
+
     /**
      * Convert {@code operand} to target type {@code toType}.
+     * Just for internal usage. Shouldn't be use outside the class.
      *
      * @param operand The expression to convert.
      * @param toType  Target type.
      * @return A new expression with type {@code toType} or original if there is no need to convert.
      */
-    public static Expression convert(Expression operand, Type toType) {
-        final Type fromType = operand.getType();
-        return convert(operand, fromType, toType);
-    }
+    private static Expression convert(Expression operand, Type toType) {
+        Type fromType = operand.getType();
 
-    /**
-     * Convert {@code operand} to target type {@code toType}.
-     *
-     * @param operand  The expression to convert.
-     * @param fromType Field type.
-     * @param toType   Target type.
-     * @return A new expression with type {@code toType} or original if there is no need to convert.
-     */
-    public static Expression convert(Expression operand, Type fromType, Type toType) {
         if (!Types.needTypeCast(fromType, toType)) {
             return operand;
         }
@@ -222,31 +267,32 @@ public class ConverterUtils {
         Primitive toPrimitive = Primitive.of(toType);
         Primitive fromPrimitive = Primitive.of(fromType);
 
-        // check overflow for 'integer' subtypes
-        if (fromPrimitive == Primitive.LONG && toPrimitive == Primitive.INT) {
-            return IgniteExpressions.convertToIntExact(operand);
-        }
+        boolean fromNumber = fromType instanceof Class
+                && Number.class.isAssignableFrom((Class<?>) fromType);
+        Primitive fromBox = Primitive.ofBox(fromType);
 
-        if ((fromPrimitive == Primitive.LONG || fromPrimitive == Primitive.INT) && toPrimitive == Primitive.SHORT) {
-            return IgniteExpressions.convertToShortExact(operand);
-        }
-
-        if ((fromPrimitive == Primitive.LONG || fromPrimitive == Primitive.INT || fromPrimitive == Primitive.SHORT)
-                && toPrimitive == Primitive.BYTE) {
-            return IgniteExpressions.convertToByteExact(operand);
-        }
-
-        if (!Primitive.isBox(fromType)) {
-            if ((fromType == BigDecimal.class || fromType == String.class) && toPrimitive == Primitive.LONG) {
-                return IgniteExpressions.convertToLongExact(operand);
+        if (toPrimitive != null) {
+            if ((toPrimitive == Primitive.LONG || toPrimitive == Primitive.INT || toPrimitive == Primitive.SHORT
+                    || toPrimitive == Primitive.BYTE) && fromType == String.class) {
+                return Expressions.call(IgniteMath.class, "convertTo"
+                        + SqlFunctions.initcap(toPrimitive.primitiveName) + "Exact", operand);
             }
 
-            if (fromType == BigDecimal.class && toPrimitive == Primitive.BYTE) {
-                return IgniteExpressions.convertToByteExact(operand);
+            if (fromPrimitive != null) {
+                // E.g. from "float" to "double"
+                return IgniteExpressions.convertChecked(operand, fromPrimitive, toPrimitive);
             }
 
-            if (fromType == BigDecimal.class && toPrimitive == Primitive.SHORT) {
-                return IgniteExpressions.convertToShortExact(operand);
+            if (fromNumber) {
+                // Generate "x.shortValue()".
+                return IgniteExpressions.unboxChecked(operand, fromBox, toPrimitive);
+            } else {
+                // E.g. from "Object" to "short".
+                // Generate "SqlFunctions.toShort(x)"
+                return Expressions.call(
+                        SqlFunctions.class,
+                        "to" + SqlFunctions.initcap(toPrimitive.primitiveName),
+                        operand);
             }
         }
 
@@ -265,6 +311,11 @@ public class ConverterUtils {
             }
         }
 
+        // EnumUtils.convert lacks UUID handling, therefore we will WA on our side.
+        if (toType == UUID.class && fromType == String.class) {
+            return Expressions.call(UUID.class, "fromString", operand);
+        }
+
         var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, toType);
         return toCustomType != null ? toCustomType : EnumUtils.convert(operand, toType);
     }
@@ -272,12 +323,6 @@ public class ConverterUtils {
     private static boolean isA(Type fromType, Primitive primitive) {
         return Primitive.of(fromType) == primitive
                 || Primitive.ofBox(fromType) == primitive;
-    }
-
-    private static boolean representAsInternalType(Type type) {
-        return type == java.sql.Date.class
-                || type == java.sql.Time.class
-                || type == java.sql.Timestamp.class;
     }
 
     /**

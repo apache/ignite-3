@@ -41,6 +41,9 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
      */
     RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns);
 
+    /** Returns type of the row excluding all {@link ColumnDescriptor#hidden() hidden} columns. */
+    RelDataType rowTypeSansHidden();
+
     /**
      * Returns column descriptor for given field name.
      *

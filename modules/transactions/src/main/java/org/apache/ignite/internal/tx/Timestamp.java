@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -223,7 +225,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
 
             return buffer.getLong();
         } catch (Exception e) {
-            throw new IgniteException("Failed to get local node id", e);
+            throw new IgniteException(INTERNAL_ERR, "Failed to get local node id", e);
         }
     }
 }

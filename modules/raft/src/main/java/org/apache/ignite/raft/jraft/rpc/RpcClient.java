@@ -16,18 +16,15 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Lifecycle;
 import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.error.RemotingException;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
-import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * RPC client.
  */
-public interface RpcClient extends Lifecycle<RpcOptions> {
+public interface RpcClient extends Lifecycle<RpcOptions>, NetworkInvoker {
     /**
      * Check connection for given address.
      *
@@ -43,23 +40,4 @@ public interface RpcClient extends Lifecycle<RpcOptions> {
      * @param handler The handler.
      */
     void registerConnectEventListener(TopologyEventHandler handler);
-
-    /**
-     * Asynchronous invocation with a callback.
-     *
-     * @param peerId target peer ID
-     * @param request request object
-     * @param ctx invoke context
-     * @param callback invoke callback
-     * @param timeoutMs timeout millisecond
-     *
-     * @return The future.
-     */
-    CompletableFuture<Message> invokeAsync(
-        PeerId peerId,
-        Object request,
-        @Nullable InvokeContext ctx,
-        InvokeCallback callback,
-        long timeoutMs
-    ) throws InterruptedException, RemotingException;
 }

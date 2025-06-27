@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +43,7 @@ class ItIndexAvailabilityTest extends BaseSqlIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        sql(String.format("CREATE TABLE IF NOT EXISTS %s (key BIGINT PRIMARY KEY, val VARCHAR)", TABLE_NAME));
+        sql(createTableStatement(TABLE_NAME));
     }
 
     @AfterEach
@@ -55,8 +55,34 @@ class ItIndexAvailabilityTest extends BaseSqlIntegrationTest {
     void indexIsQueriableRightAfterCreationFutureCompletes() {
         sql(String.format("CREATE INDEX %s ON %s (val)", INDEX_NAME, TABLE_NAME));
 
-        assertQuery(format("SELECT * FROM {} WHERE val = 'test'", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX(TEST_INDEX) */ * FROM {} WHERE val = 'test'", TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .check();
+    }
+
+    /**
+     * Similar to {@link #indexIsQueriableRightAfterCreationFutureCompletes()}, but index is created as second statement
+     * of script, and first item is conditional statement that won't be applied.
+     */
+    @Test
+    void indexIsQueriableRightAfterCreationFutureCompletes2() {
+        // Make sure table with required name already exists.
+        assertQuery("SELECT COUNT(*) FROM system.tables WHERE name = ?")
+                .withParam(TABLE_NAME)
+                .returns(1L)
+                .check();
+
+        CLUSTER.aliveNode().sql().executeScript(
+                createTableStatement(TABLE_NAME) + ";"
+                + String.format("CREATE INDEX %s ON %s (val)", INDEX_NAME, TABLE_NAME)
+        );
+
+        assertQuery(format("SELECT /*+ FORCE_INDEX(TEST_INDEX) */ * FROM {} WHERE val = 'test'", TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+                .check();
+    }
+
+    private static String createTableStatement(String tableName) {
+        return String.format("CREATE TABLE IF NOT EXISTS %s (key BIGINT PRIMARY KEY, val VARCHAR)", tableName);
     }
 }

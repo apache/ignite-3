@@ -150,10 +150,10 @@ public class RocksSnapshotManager {
      * @param snapshot Point-in-time snapshot.
      * @param snapshotDir Directory to put the SST file in.
      */
-    private static void createSstFile(ColumnFamilyRange range, Snapshot snapshot, Path snapshotDir) {
+    private void createSstFile(ColumnFamilyRange range, Snapshot snapshot, Path snapshotDir) {
         try (
                 EnvOptions envOptions = new EnvOptions();
-                Options options = new Options();
+                Options options = new Options().setEnv(db.getEnv());
                 SstFileWriter sstFileWriter = new SstFileWriter(envOptions, options);
                 RocksIterator it = snapshotIterator(range, snapshot)
         ) {
@@ -201,6 +201,7 @@ public class RocksSnapshotManager {
      * @param snapshotDir Path to the directory where a snapshot was created.
      */
     public void restoreSnapshot(Path snapshotDir) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23393 No failure protection if we fail during one of ingestions.
         try (IngestExternalFileOptions ingestOptions = new IngestExternalFileOptions()) {
             for (ColumnFamilyRange range : ranges) {
                 Path snapshotPath = snapshotDir.resolve(range.columnFamily().name());

@@ -18,12 +18,17 @@
 package org.apache.ignite.table;
 
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionManager;
 
 /**
- * Table provides the different views (key-value vs record) and approaches (mapped-object vs binary) to access the data.
+ * Table provides different views (key-value vs record) and approaches (mapped-object vs binary) to access the data.
  *
- * <p>Binary table views might be useful in the various scenarios, including when the user key-value classes 
+ * <p>Binary table views might be useful in the various scenarios, including when the user key-value classes
  * are not in classpath and/or when deserialization of the entire table record is undesirable for performance reasons.
+ *
+ * <p>Key-value views project table rows into key-value pairs, where all key columns are mapped to the key object,
+ * and the rest of the columns are mapped to the value object.
+ * Record and key-value views provide identical functionality, the projection is performed on the client side.
  *
  * @see RecordView
  * @see KeyValueView
@@ -31,33 +36,52 @@ import org.apache.ignite.table.mapper.Mapper;
  */
 public interface Table {
     /**
-     * Gets a name of a table.
+     * Gets the canonical name of the table ([schema_name].[table_name]) with SQL-parser style quotation.
      *
-     * @return Table name.
+     * <p>E.g. "PUBLIC.TBL0" - for TBL0 table in PUBLIC schema (both names are case insensitive),
+     * "\"MySchema\".\"Tbl0\"" - for Tbl0 table in MySchema schema (both names are case sensitive), etc.
+     *
+     * @return Canonical table name.
      */
-    String name();
+    default String name() {
+        return qualifiedName().toCanonicalForm();
+    }
 
     /**
-     * Creates a record view of a table for the record class mapper provided.
+     * Gets the qualified name of the table.
+     *
+     * @return Qualified name of the table.
+     */
+    QualifiedName qualifiedName();
+
+    /**
+     * Gets the partition manager.
+     *
+     * @return Partition manager.
+     */
+    PartitionManager partitionManager();
+
+    /**
+     * Gets a record view of the table using the specified record class mapper.
      *
      * @param recMapper Record class mapper.
-     * @param <R>       Record type.
+     * @param <R> Record type.
      * @return Table record view.
      */
     <R> RecordView<R> recordView(Mapper<R> recMapper);
 
     /**
-     * Creates a record view of a table for the binary object concept.
+     * Gets a record view of the table.
      *
      * @return Table record view.
      */
     RecordView<Tuple> recordView();
 
     /**
-     * Creates a record view of a table for the record class provided.
+     * Gets a record view of the table using the default mapper for the specified record class.
      *
      * @param recCls Record class.
-     * @param <R>    Record type.
+     * @param <R> Record type.
      * @return Table record view.
      */
     default <R> RecordView<R> recordView(Class<R> recCls) {
@@ -65,30 +89,30 @@ public interface Table {
     }
 
     /**
-     * Creates a key-value view of a table for the key-value class mappers provided.
+     * Gets a key-value view of the table using the specified key-value class mappers.
      *
      * @param keyMapper Key class mapper.
      * @param valMapper Value class mapper.
-     * @param <K>       Key type.
-     * @param <V>       Value type.
+     * @param <K> Key type.
+     * @param <V> Value type.
      * @return Table key-value view.
      */
     <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper);
 
     /**
-     * Creates a key-value view of a table for the binary object concept.
+     * Gets a key-value view of the table.
      *
      * @return Table key-value view.
      */
     KeyValueView<Tuple, Tuple> keyValueView();
 
     /**
-     * Creates a key-value view of a table for the key and value classes provided.
+     * Gets a key-value view of the table using the default mapper for the specified key and value classes.
      *
      * @param keyCls Key class.
      * @param valCls Value class.
-     * @param <K>    Key type.
-     * @param <V>    Value type.
+     * @param <K> Key type.
+     * @param <V> Value type.
      * @return Table key-value view.
      */
     default <K, V> KeyValueView<K, V> keyValueView(Class<K> keyCls, Class<V> valCls) {

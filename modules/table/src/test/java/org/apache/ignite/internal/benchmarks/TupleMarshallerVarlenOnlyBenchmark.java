@@ -30,7 +30,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
@@ -54,13 +53,18 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Serializer benchmark.
  */
 @State(Scope.Benchmark)
-@Warmup(iterations = 1, time = 15)
-@Measurement(iterations = 1, time = 30)
+@Warmup(iterations = 10, time = 1)
+@Measurement(iterations = 20, time = 1)
 @BenchmarkMode({Mode.AverageTime})
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Fork(jvmArgs = "-Djava.lang.invoke.stringConcat=BC_SB" /* Workaround for Java 9+ */, value = 1)
 @SuppressWarnings("InstanceVariableMayNotBeInitialized")
 public class TupleMarshallerVarlenOnlyBenchmark {
+    /** Type of the generated payload. */
+    public enum Type {
+        BYTES, PREDEFINED_STRING, RANDOM_STRING
+    }
+
     /** Random. */
     private Random rnd;
 
@@ -79,9 +83,12 @@ public class TupleMarshallerVarlenOnlyBenchmark {
     //    @Param({"true", "false"})
     public boolean nullable = true;
 
+    @Param({"a", "ж", "我"})
+    public String character;
+
     /** Column types. */
-    @Param({"string", "bytes"})
-    public String type;
+    @Param({"PREDEFINED_STRING"})
+    public Type type;
 
     /** Schema descriptor. */
     private SchemaDescriptor schema;
@@ -106,30 +113,41 @@ public class TupleMarshallerVarlenOnlyBenchmark {
     @Setup
     public void init() {
         final long seed = System.currentTimeMillis();
-        final boolean useString = "string".equals(type);
 
         rnd = new Random(seed);
 
         schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("key", INT64, false, DefaultValueProvider.constantProvider(0L))},
+                new Column[]{new Column("KEY", INT64, false, DefaultValueProvider.constantProvider(0L))},
                 IntStream.range(0, fieldsCount).boxed()
-                        .map(i -> new Column("col" + i, useString ? STRING : BYTES, nullable))
+                        .map(i -> new Column("COL" + i, type == Type.BYTES ? BYTES : STRING, nullable))
                         .toArray(Column[]::new)
         );
 
         marshaller = new TupleMarshallerImpl(schema);
 
-        if (useString) {
-            final byte[] data = new byte[dataSize / fieldsCount];
+        switch (type) {
+            case RANDOM_STRING: {
+                final byte[] data = new byte[dataSize / fieldsCount];
 
-            for (int i = 0; i < data.length; i++) {
-                data[i] = (byte) (rnd.nextInt() & 0x7F);
+                for (int i = 0; i < data.length; i++) {
+                    data[i] = (byte) (rnd.nextInt() & 0x7F);
+                }
+
+                val = new String(data, StandardCharsets.ISO_8859_1); // Latin1 string.
+
+                break;
             }
+            case PREDEFINED_STRING: {
+                val = character.repeat(dataSize / fieldsCount / character.getBytes(StandardCharsets.UTF_8).length);
 
-            val = new String(data, StandardCharsets.ISO_8859_1); // Latin1 string.
-        } else {
-            rnd.nextBytes((byte[]) (val = new byte[dataSize / fieldsCount]));
+                break;
+            }
+            case BYTES: {
+                rnd.nextBytes((byte[]) (val = new byte[dataSize / fieldsCount]));
+                break;
+            }
+            default: throw new IllegalStateException("Unknown type " + type);
         }
     }
 
@@ -139,7 +157,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
      * @param bh Black hole.
      */
     @Benchmark
-    public void measureTupleBuildAndMarshallerCost(Blackhole bh) throws TupleMarshallerException {
+    public void measureTupleBuildAndMarshallerCost(Blackhole bh) {
         List<Column> cols = schema.valueColumns();
 
         final Tuple valBld = Tuple.create(cols.size());

@@ -18,14 +18,18 @@
 namespace Apache.Ignite.Tests.Compute
 {
     using System;
+    using System.Buffers;
     using System.Collections;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
     using System.Net;
-    using System.Numerics;
+    using System.Text;
+    using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Compute;
+    using Ignite.Marshalling;
     using Ignite.Table;
     using Internal.Compute;
     using Internal.Network;
@@ -34,37 +38,50 @@ namespace Apache.Ignite.Tests.Compute
     using NodaTime;
     using NUnit.Framework;
     using Table;
+    using TaskStatus = Ignite.Compute.TaskStatus;
 
     /// <summary>
     /// Tests <see cref="ICompute"/>.
     /// </summary>
     public class ComputeTests : IgniteTestsBase
     {
-        public const string NodeNameJob = ItThinClientComputeTest + "$NodeNameJob";
+        public const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
-        private const string ItThinClientComputeTest = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
+        public const string ItThinClientComputeTest = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
 
-        private const string ConcatJob = ItThinClientComputeTest + "$ConcatJob";
+        public static readonly JobDescriptor<object?, string> NodeNameJob = new(ItThinClientComputeTest + "$NodeNameJob");
 
-        private const string ErrorJob = ItThinClientComputeTest + "$IgniteExceptionJob";
+        public static readonly JobDescriptor<string?, string> ConcatJob = new(ItThinClientComputeTest + "$ConcatJob");
 
-        private const string EchoJob = ItThinClientComputeTest + "$EchoJob";
+        public static readonly JobDescriptor<string, string> ErrorJob = new(ItThinClientComputeTest + "$IgniteExceptionJob");
 
-        private const string SleepJob = ItThinClientComputeTest + "$SleepJob";
+        public static readonly JobDescriptor<object?, object> EchoJob = new(ItThinClientComputeTest + "$EchoJob");
 
-        private const string DecimalJob = ItThinClientComputeTest + "$DecimalJob";
+        public static readonly JobDescriptor<object, string> ToStringJob = new(ItThinClientComputeTest + "$ToStringJob");
 
-        private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
+        public static readonly JobDescriptor<int, string> SleepJob = new(ItThinClientComputeTest + "$SleepJob");
 
-        private const string CreateTableJob = PlatformTestNodeRunner + "$CreateTableJob";
+        public static readonly JobDescriptor<string, BigDecimal> DecimalJob = new(ItThinClientComputeTest + "$DecimalJob");
 
-        private const string DropTableJob = PlatformTestNodeRunner + "$DropTableJob";
+        public static readonly JobDescriptor<string, string> CreateTableJob = new(PlatformTestNodeRunner + "$CreateTableJob");
 
-        private const string ExceptionJob = PlatformTestNodeRunner + "$ExceptionJob";
+        public static readonly JobDescriptor<string, string> DropTableJob = new(PlatformTestNodeRunner + "$DropTableJob");
 
-        private const string CheckedExceptionJob = PlatformTestNodeRunner + "$CheckedExceptionJob";
+        public static readonly JobDescriptor<object, object> ExceptionJob = new(PlatformTestNodeRunner + "$ExceptionJob");
 
-        private static readonly IList<DeploymentUnit> Units = Array.Empty<DeploymentUnit>();
+        public static readonly JobDescriptor<string, object> CheckedExceptionJob = new(PlatformTestNodeRunner + "$CheckedExceptionJob");
+
+        public static readonly JobDescriptor<long, int> PartitionJob = new(PlatformTestNodeRunner + "$PartitionJob");
+
+        public static readonly TaskDescriptor<string, string> NodeNameTask = new(ItThinClientComputeTest + "$MapReduceNodeNameTask");
+
+        public static readonly TaskDescriptor<int, object?> SleepTask = new(PlatformTestNodeRunner + "$SleepTask");
+
+        public static readonly TaskDescriptor<object?, object?> SplitExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnSplitTask");
+
+        public static readonly TaskDescriptor<object?, object?> ReduceExceptionTask = new(ItThinClientComputeTest + "$MapReduceExceptionOnReduceTask");
+
+        public static readonly JobDescriptor<int, string> ExceptionCodeAsStringJob = new(PlatformTestNodeRunner + "$ExceptionCodeAsStringJob");
 
         [Test]
         public async Task TestGetClusterNodes()
@@ -73,31 +90,31 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.AreEqual(4, res.Count);
 
-            Assert.IsNotEmpty(res[0].Id);
-            Assert.IsNotEmpty(res[1].Id);
+            Assert.AreNotEqual(Guid.Empty, res[0].Id);
+            Assert.AreNotEqual(Guid.Empty, res[1].Id);
 
-            Assert.AreEqual(3344, res[0].Address.Port);
-            Assert.AreEqual(3345, res[1].Address.Port);
+            var addrs = res.Select(x => (IPEndPoint)x.Address).ToArray();
 
-            Assert.AreNotEqual(IPAddress.None, res[0].Address.Address);
-            Assert.AreNotEqual(IPAddress.None, res[1].Address.Address);
-            Assert.AreEqual(res[0].Address.Address, res[1].Address.Address);
+            Assert.AreEqual(3344, addrs[0].Port);
+            Assert.AreEqual(3345, addrs[1].Port);
+            Assert.AreEqual(addrs[0].Address, addrs[1].Address);
         }
 
         [Test]
         public async Task TestExecuteOnSpecificNode()
         {
-            var res1 = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(0), Units, NodeNameJob, "-", 11);
-            var res2 = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), Units, NodeNameJob, ":", 22);
+            var res1 = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "-11");
+            var res2 = await Client.Compute.SubmitAsync(await GetNodeAsync(1), NodeNameJob, 33);
 
-            Assert.AreEqual(PlatformTestNodeRunner + "-_11", await res1.GetResultAsync());
-            Assert.AreEqual(PlatformTestNodeRunner + "_2:_22", await res2.GetResultAsync());
+            Assert.AreEqual(PlatformTestNodeRunner + "-11", await res1.GetResultAsync());
+            Assert.AreEqual(PlatformTestNodeRunner + "_233", await res2.GetResultAsync());
         }
 
         [Test]
         public async Task TestExecuteOnRandomNode()
         {
-            var jobExecution = await Client.Compute.SubmitAsync<string>(await Client.GetClusterNodesAsync(), Units, NodeNameJob);
+            var jobTarget = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+            var jobExecution = await Client.Compute.SubmitAsync(jobTarget, NodeNameJob, null);
             var res = await jobExecution.GetResultAsync();
 
             var expectedNodeNames = Enumerable.Range(1, 4)
@@ -110,27 +127,25 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteResultTypeMismatchThrowsInvalidCastException()
         {
-            var jobExecution = await Client.Compute.SubmitAsync<Guid>(await Client.GetClusterNodesAsync(), Units, NodeNameJob);
+            var jobDescriptor = new JobDescriptor<object?, Guid>(NodeNameJob.JobClassName);
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(0), jobDescriptor, null);
             Assert.ThrowsAsync<InvalidCastException>(async () => await jobExecution.GetResultAsync());
         }
 
         [Test]
         public async Task TestBroadcastOneNode()
         {
-            var nodes = await GetNodeAsync(0);
+            var node = (await GetNodeAsync(0)).Data;
 
-            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.SubmitBroadcast<string>(
-                nodes,
-                Units,
+            var broadcastExec = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(node),
                 NodeNameJob,
-                JobExecutionOptions.Default,
                 "123");
-            var res = await taskMap[nodes[0]];
 
-            Assert.AreEqual(1, taskMap.Count);
-            Assert.AreSame(nodes[0], taskMap.Keys.Single());
+            var jobExec = broadcastExec.JobExecutions.Single();
 
-            Assert.AreEqual(PlatformTestNodeRunner + "123", await res.GetResultAsync());
+            Assert.AreEqual(node, jobExec.Node);
+            Assert.AreEqual(PlatformTestNodeRunner + "123", await jobExec.GetResultAsync());
         }
 
         [Test]
@@ -138,16 +153,17 @@ namespace Apache.Ignite.Tests.Compute
         {
             var nodes = await Client.GetClusterNodesAsync();
 
-            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.SubmitBroadcast<string>(
-                nodes,
-                Units,
+            IBroadcastExecution<string> broadcastExecution = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(nodes),
                 NodeNameJob,
-                JobExecutionOptions.Default,
                 "123");
-            var res1 = await taskMap[nodes[0]];
-            var res2 = await taskMap[nodes[1]];
-            var res3 = await taskMap[nodes[2]];
-            var res4 = await taskMap[nodes[3]];
+
+            var taskMap = broadcastExecution.JobExecutions.ToDictionary(x => x.Node);
+
+            IJobExecution<string> res1 = taskMap[nodes[0]];
+            IJobExecution<string> res2 = taskMap[nodes[1]];
+            IJobExecution<string> res3 = taskMap[nodes[2]];
+            IJobExecution<string> res4 = taskMap[nodes[3]];
 
             Assert.AreEqual(4, taskMap.Count);
 
@@ -158,25 +174,9 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestExecuteWithArgs()
-        {
-            var res = await Client.Compute.SubmitAsync<string>(
-                await Client.GetClusterNodesAsync(),
-                Units,
-                ConcatJob,
-                JobExecutionOptions.Default,
-                1.1,
-                Guid.Empty,
-                "3",
-                null);
-
-            Assert.AreEqual("1.1_00000000-0000-0000-0000-000000000000_3_null", await res.GetResultAsync());
-        }
-
-        [Test]
         public async Task TestExecuteWithNullArgs()
         {
-            var res = await Client.Compute.SubmitAsync<string>(await Client.GetClusterNodesAsync(), Units, ConcatJob, args: null);
+            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ConcatJob, null);
 
             Assert.IsNull(await res.GetResultAsync());
         }
@@ -184,7 +184,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJobErrorPropagatesToClientWithClassAndMessage()
         {
-            var jobExecution = await Client.Compute.SubmitAsync<string>(await Client.GetClusterNodesAsync(), Units, ErrorJob, "unused");
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ErrorJob, "unused");
             var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExecution.GetResultAsync());
 
             StringAssert.Contains("Custom job error", ex!.Message);
@@ -193,19 +193,19 @@ namespace Apache.Ignite.Tests.Compute
                 "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException",
                 ex.InnerException!.Message);
 
-            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
-            Assert.AreEqual("IGN-TBL-3", ex.CodeAsString);
-            Assert.AreEqual(3, ex.ErrorCode);
+            Assert.AreEqual(ErrorGroups.Table.ColumnNotFound, ex.Code);
+            Assert.AreEqual("IGN-TBL-4", ex.CodeAsString);
+            Assert.AreEqual(4, ex.ErrorCode);
             Assert.AreEqual("TBL", ex.GroupName);
         }
 
         [Test]
         public void TestUnknownNodeSubmitThrows()
         {
-            var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
+            var unknownNode = JobTarget.Node(new ClusterNode(Guid.NewGuid(), "y", new IPEndPoint(IPAddress.Loopback, 0)));
 
             var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () =>
-                await Client.Compute.SubmitAsync<string>(new[] { unknownNode }, Units, EchoJob, "unused"));
+                await Client.Compute.SubmitAsync(unknownNode, EchoJob, "unused"));
 
             StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
             Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
@@ -214,12 +214,10 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestUnknownNodeSubmitBroadcastThrows()
         {
-            var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
+            var unknownNode = new ClusterNode(Guid.NewGuid(), "y", new IPEndPoint(IPAddress.Loopback, 0));
 
-            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap =
-                Client.Compute.SubmitBroadcast<string>(new[] { unknownNode }, Units, EchoJob, "unused");
-
-            var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () => await taskMap[unknownNode]);
+            var ex = Assert.ThrowsAsync<NodeNotFoundException>(
+                async () => await Client.Compute.SubmitBroadcastAsync(BroadcastJobTarget.Nodes(unknownNode), EchoJob, "unused"));
 
             StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
             Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
@@ -245,20 +243,15 @@ namespace Apache.Ignite.Tests.Compute
             await Test(-123.456m);
             await Test(decimal.MinValue);
             await Test(decimal.MaxValue);
+            await Test(new BigDecimal(long.MinValue, 10));
+            await Test(new BigDecimal(long.MaxValue, 20));
 
-            await Test(new byte[] { 1, 255 });
+            await Test(new byte[] { 1, 255 }, "[1, -1]");
             await Test("Ignite 🔥");
-            await Test(new BitArray(new[] { byte.MaxValue }), "{0, 1, 2, 3, 4, 5, 6, 7}");
             await Test(LocalDate.MinIsoValue, "-9998-01-01");
             await Test(LocalTime.Noon, "12:00");
             await Test(LocalDateTime.MaxIsoValue, "9999-12-31T23:59:59.999999999");
             await Test(Instant.FromUtc(2001, 3, 4, 5, 6));
-
-            await Test(BigInteger.One);
-            await Test(BigInteger.Zero);
-            await Test(BigInteger.MinusOne);
-            await Test(new BigInteger(123456));
-            await Test(BigInteger.Pow(1234, 56));
 
             await Test(Guid.Empty);
             await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
@@ -266,12 +259,26 @@ namespace Apache.Ignite.Tests.Compute
 
             async Task Test(object val, string? expectedStr = null)
             {
-                var nodes = await Client.GetClusterNodesAsync();
-                var str = expectedStr ?? val.ToString()!.Replace("E+", "E");
-                IJobExecution<object> resExec = await Client.Compute.SubmitAsync<object>(nodes, Units, EchoJob, val, str);
+                var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+
+                IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, val);
                 object res = await resExec.GetResultAsync();
 
+                if (res is BigDecimal bigDecimal && val is decimal)
+                {
+                    res = bigDecimal.ToDecimal();
+                }
+
                 Assert.AreEqual(val, res);
+
+                var strExec = await Client.Compute.SubmitAsync(nodes, ToStringJob, val);
+                var str = await strExec.GetResultAsync();
+
+                expectedStr ??= val is IFormattable formattable
+                    ? formattable.ToString(null, CultureInfo.InvariantCulture).Replace("E+", "E")
+                    : val.ToString();
+
+                Assert.AreEqual(expectedStr, str);
             }
         }
 
@@ -293,15 +300,15 @@ namespace Apache.Ignite.Tests.Compute
             client.WaitForConnections(proxies.Count);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };
-            var resNodeName = await client.Compute.SubmitColocatedAsync<string>(TableName, keyTuple, Units, NodeNameJob);
+            var resNodeName = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), NodeNameJob, null);
             var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPoco = new Poco { Key = key };
-            var resNodeName2 = await client.Compute.SubmitColocatedAsync<string, Poco>(TableName, keyPoco, Units.Reverse(), NodeNameJob);
+            var resNodeName2 = await client.Compute.SubmitAsync(JobTarget.Colocated(QualifiedName.Parse(TableName), keyPoco), NodeNameJob, null);
             var requestTargetNodeName2 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPocoStruct = new PocoStruct(key, null);
-            var resNodeName3 = await client.Compute.SubmitColocatedAsync<string, PocoStruct>(TableName, keyPocoStruct, Units, NodeNameJob);
+            var resNodeName3 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPocoStruct), NodeNameJob, null);
             var requestTargetNodeName3 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var nodeName = nodeIdx == 1 ? string.Empty : "_" + nodeIdx;
@@ -324,20 +331,18 @@ namespace Apache.Ignite.Tests.Compute
         public void TestExecuteColocatedThrowsWhenTableDoesNotExist()
         {
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
-                await Client.Compute.SubmitColocatedAsync<string>("unknownTable", new IgniteTuple(), Units, EchoJob));
+                await Client.Compute.SubmitAsync(JobTarget.Colocated("unknownTable", new IgniteTuple()), EchoJob, null));
 
-            Assert.AreEqual("Table 'unknownTable' does not exist.", ex!.Message);
+            Assert.AreEqual("Table 'PUBLIC.UNKNOWNTABLE' does not exist.", ex!.Message);
         }
 
         [Test]
         public void TestExecuteColocatedThrowsWhenKeyColumnIsMissing()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
-                await Client.Compute.SubmitColocatedAsync<string>(TableName, new IgniteTuple { ["VAL"] = "1" }, Units, EchoJob));
+                await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, new IgniteTuple { ["VAL"] = "1" }), EchoJob, null));
 
-            Assert.AreEqual(
-                "Can't map 'IgniteTuple { VAL = 1 }' to columns 'Int64 KEY, String VAL'. Matching fields not found.",
-                ex!.Message);
+            Assert.AreEqual("Key column 'KEY' not found in the provided tuple 'IgniteTuple { VAL = 1 }'", ex!.Message);
         }
 
         [Test]
@@ -345,37 +350,38 @@ namespace Apache.Ignite.Tests.Compute
         {
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
-            var tableNameExec = await Client.Compute.SubmitAsync<string>(nodes, Units, CreateTableJob, "drop_me");
+
+            var tableNameExec = await Client.Compute.SubmitAsync(nodes, CreateTableJob, "DROP_ME");
             var tableName = await tableNameExec.GetResultAsync();
 
             try
             {
                 var keyTuple = new IgniteTuple { [KeyCol] = 1L };
-                var resNodeNameExec = await Client.Compute.SubmitColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
+                var resNodeNameExec = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, keyTuple), NodeNameJob, null);
                 var resNodeName = await resNodeNameExec.GetResultAsync();
 
                 // Drop table and create a new one with a different ID, then execute a computation again.
                 // This should update the cached table and complete the computation successfully.
-                var dropExec = await Client.Compute.SubmitAsync<string>(nodes, Units, DropTableJob, tableName);
+                var dropExec = await Client.Compute.SubmitAsync(nodes, DropTableJob, tableName);
                 await dropExec.GetResultAsync();
 
-                var createExec = await Client.Compute.SubmitAsync<string>(nodes, Units, CreateTableJob, tableName);
+                var createExec = await Client.Compute.SubmitAsync(nodes, CreateTableJob, tableName);
                 await createExec.GetResultAsync();
 
                 if (forceLoadAssignment)
                 {
-                    var table = Client.Compute.GetFieldValue<IDictionary>("_tableCache")[tableName]!;
+                    var table = Client.Compute.GetFieldValue<IDictionary>("_tableCache")[QualifiedName.Parse(tableName)]!;
                     table.SetFieldValue("_partitionAssignment", null);
                 }
 
-                var resNodeName2Exec = await Client.Compute.SubmitColocatedAsync<string>(tableName, keyTuple, Units, NodeNameJob);
+                var resNodeName2Exec = await Client.Compute.SubmitAsync(JobTarget.Colocated(QualifiedName.Parse(tableName), keyTuple), NodeNameJob, null);
                 var resNodeName2 = await resNodeName2Exec.GetResultAsync();
 
                 Assert.AreEqual(resNodeName, resNodeName2);
             }
             finally
             {
-                await (await Client.Compute.SubmitAsync<string>(nodes, Units, DropTableJob, tableName)).GetResultAsync();
+                await (await Client.Compute.SubmitAsync(nodes, DropTableJob, tableName)).GetResultAsync();
             }
         }
 
@@ -390,8 +396,8 @@ namespace Apache.Ignite.Tests.Compute
             {
                 await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {tableName} (KEY BIGINT PRIMARY KEY, VAL VARCHAR)");
 
-                var exec1 = await Client.Compute.SubmitColocatedAsync<string>(tableName, tupleKey, Units, NodeNameJob);
-                var exec2 = await Client.Compute.SubmitColocatedAsync<string, long>(tableName, key, Units, NodeNameJob);
+                var exec1 = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, tupleKey), NodeNameJob, null);
+                var exec2 = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, key), NodeNameJob, null);
 
                 var res1 = await exec1.GetResultAsync();
                 var res2 = await exec2.GetResultAsync();
@@ -407,7 +413,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
         {
-            var jobExecution = await Client.Compute.SubmitAsync<object>(await GetNodeAsync(1), Units, ExceptionJob, "foo-bar");
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), ExceptionJob, "foo-bar");
             var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExecution.GetResultAsync());
 
             Assert.AreEqual("Job execution failed: java.lang.RuntimeException: Test exception: foo-bar", ex!.Message);
@@ -416,14 +422,14 @@ namespace Apache.Ignite.Tests.Compute
             var str = ex.ToString();
 
             StringAssert.Contains(
-                "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.execute(PlatformTestNodeRunner.java:",
+                "at org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$ExceptionJob.executeAsync(PlatformTestNodeRunner.java:",
                 str);
         }
 
         [Test]
         public async Task TestCheckedExceptionInJobPropagatesToClient()
         {
-            var jobExecution = await Client.Compute.SubmitAsync<object>(await GetNodeAsync(1), Units, CheckedExceptionJob, "foo-bar");
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), CheckedExceptionJob, "foo-bar");
             var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExecution.GetResultAsync());
 
             Assert.AreEqual("TestCheckedEx: foo-bar", ex!.Message);
@@ -444,17 +450,27 @@ namespace Apache.Ignite.Tests.Compute
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
 
-            var res = await client.Compute.SubmitAsync<string>(await GetNodeAsync(1), units, FakeServer.GetDetailsJob);
+            var res = await client.Compute.SubmitAsync(
+                await GetNodeAsync(1),
+                new JobDescriptor<object?, string>(FakeServer.GetDetailsJob, units),
+                null);
+
             StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", await res.GetResultAsync());
 
             // Lazy enumerable.
-            var res2 = await client.Compute.SubmitAsync<string>(await GetNodeAsync(1), units.Reverse(), FakeServer.GetDetailsJob);
+            var res2 = await client.Compute.SubmitAsync(
+                await GetNodeAsync(1),
+                new JobDescriptor<object?, string>(FakeServer.GetDetailsJob, units.Reverse()),
+                null);
+
             StringAssert.Contains("Units = unit1|1.0.0, unit-latest|latest", await res2.GetResultAsync());
 
             // Colocated.
             var keyTuple = new IgniteTuple { ["ID"] = 1 };
-            var res3 = await client.Compute.SubmitColocatedAsync<string>(
-                FakeServer.ExistingTableName, keyTuple, units, FakeServer.GetDetailsJob);
+            var res3 = await client.Compute.SubmitAsync(
+                JobTarget.Colocated(FakeServer.ExistingTableName, keyTuple),
+                new JobDescriptor<object?, string>(FakeServer.GetDetailsJob, units),
+                null);
 
             StringAssert.Contains("Units = unit-latest|latest, unit1|1.0.0", await res3.GetResultAsync());
         }
@@ -462,10 +478,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestExecuteOnUnknownUnitWithLatestVersionThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new("unit-latest") };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new("unit-latest")
+                }
+            };
 
-            var ex = Assert.ThrowsAsync<IgniteException>(
-                async () => await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+            var ex = Assert.ThrowsAsync<ComputeException>(
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
@@ -474,10 +496,16 @@ namespace Apache.Ignite.Tests.Compute
         public void TestExecuteColocatedOnUnknownUnitWithLatestVersionThrows()
         {
             var keyTuple = new IgniteTuple { [KeyCol] = 1L };
-            var deploymentUnits = new DeploymentUnit[] { new("unit-latest") };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new("unit-latest")
+                }
+            };
 
-            var ex = Assert.ThrowsAsync<IgniteException>(
-                async () => await Client.Compute.SubmitColocatedAsync<string>(TableName, keyTuple, deploymentUnits, NodeNameJob));
+            var ex = Assert.ThrowsAsync<ComputeException>(
+                async () => await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyTuple), job, null));
 
             StringAssert.Contains("Deployment unit unit-latest:latest doesn't exist", ex!.Message);
         }
@@ -485,10 +513,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestNullUnitNameThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new(null!) };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new(null!)
+                }
+            };
 
             var ex = Assert.ThrowsAsync<ArgumentNullException>(
-                async () => await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             Assert.AreEqual("Value cannot be null. (Parameter 'unit.Name')", ex!.Message);
         }
@@ -496,10 +530,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestEmptyUnitNameThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new(string.Empty) };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new(string.Empty)
+                }
+            };
 
             var ex = Assert.ThrowsAsync<ArgumentException>(
-                async () => await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Name')", ex!.Message);
         }
@@ -507,10 +547,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestNullUnitVersionThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new("u", null!) };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new("u", null!)
+                }
+            };
 
             var ex = Assert.ThrowsAsync<ArgumentNullException>(
-                async () => await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             Assert.AreEqual("Value cannot be null. (Parameter 'unit.Version')", ex!.Message);
         }
@@ -518,10 +564,16 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestEmptyUnitVersionThrows()
         {
-            var deploymentUnits = new DeploymentUnit[] { new("u", string.Empty) };
+            var job = NodeNameJob with
+            {
+                DeploymentUnits = new DeploymentUnit[]
+                {
+                    new("u", string.Empty)
+                }
+            };
 
             var ex = Assert.ThrowsAsync<ArgumentException>(
-                async () => await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), deploymentUnits, NodeNameJob));
+                async () => await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null));
 
             Assert.AreEqual("The value cannot be an empty string. (Parameter 'unit.Version')", ex!.Message);
         }
@@ -534,11 +586,13 @@ namespace Apache.Ignite.Tests.Compute
             using var client = await IgniteClient.StartAsync(GetConfig());
 
             const int sleepMs = 3000;
-            var jobExecution = await client.Compute.SubmitAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+            var jobExecution = await client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
             var jobTask = jobExecution.GetResultAsync();
 
             // Wait a bit and close the connection.
             await Task.Delay(10);
+
+            // ReSharper disable once DisposeOnUsingVariable (intentional)
             client.Dispose();
 
             var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await jobTask);
@@ -548,69 +602,219 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJobExecutionStatusExecuting()
         {
-            const int sleepMs = 3000;
-            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+            const int sleepMs = 5_000;
+            var beforeStart = GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
 
-            await AssertJobStatus(jobExecution, JobState.Executing, beforeStart);
+            await AssertWaitJobStatus(jobExecution, JobStatus.Executing, beforeStart);
         }
 
         [Test]
         public async Task TestJobExecutionStatusCompleted()
         {
             const int sleepMs = 1;
-            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+            var beforeStart = GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
             await jobExecution.GetResultAsync();
 
-            await AssertJobStatus(jobExecution, JobState.Completed, beforeStart);
+            await AssertJobStatus(jobExecution, JobStatus.Completed, beforeStart);
         }
 
         [Test]
         public async Task TestJobExecutionStatusFailed()
         {
-            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+            var beforeStart = GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), Units, ErrorJob, "unused");
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), ErrorJob, "unused");
             Assert.CatchAsync(async () => await jobExecution.GetResultAsync());
 
-            await AssertJobStatus(jobExecution, JobState.Failed, beforeStart);
+            await AssertJobStatus(jobExecution, JobStatus.Failed, beforeStart);
         }
 
         [Test]
         public async Task TestJobExecutionStatusNull()
         {
             var fakeJobExecution = new JobExecution<int>(
-                Guid.NewGuid(), Task.FromException<(int, JobStatus)>(new Exception("x")), (Compute)Client.Compute);
+                Guid.NewGuid(), Task.FromException<(int, JobState)>(new Exception("x")), (Compute)Client.Compute, null!);
 
-            var status = await fakeJobExecution.GetStatusAsync();
+            var status = await fakeJobExecution.GetStateAsync();
 
             Assert.IsNull(status);
         }
 
         [Test]
-        public async Task TestJobExecutionCancel()
+        public async Task TestCancelJob()
         {
-            const int sleepMs = 5000;
-            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+            const int sleepMs = 10_000;
+            var beforeStart = GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync<string>(await GetNodeAsync(1), Units, SleepJob, sleepMs);
-            await jobExecution.CancelAsync();
+            var cts = new CancellationTokenSource();
 
-            await AssertJobStatus(jobExecution, JobState.Canceled, beforeStart);
+            IJobExecution<string> jobExecution = await Client.Compute.SubmitAsync(
+                await GetNodeAsync(1),
+                SleepJob,
+                sleepMs,
+                cts.Token);
+
+            await cts.CancelAsync();
+
+            await AssertWaitJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
+
+            var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExecution.GetResultAsync());
+
+            Assert.AreEqual(
+                "Job execution failed: java.lang.RuntimeException: java.lang.InterruptedException: sleep interrupted",
+                ex.Message);
         }
 
         [Test]
-        public async Task TestChangePriority()
+        public async Task TestCancelBroadcast()
         {
-            var jobExecution = await Client.Compute.SubmitAsync<string>(
-                await GetNodeAsync(1),
-                Units,
+            const int sleepMs = 10_000;
+            var beforeStart = GetCurrentInstant();
+
+            var cts = new CancellationTokenSource();
+
+            IBroadcastExecution<string> jobExecution = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()),
                 SleepJob,
-                new JobExecutionOptions(Priority: 10, MaxRetries: 11),
+                sleepMs,
+                cts.Token);
+
+            await cts.CancelAsync();
+
+            foreach (var jobExec in jobExecution.JobExecutions)
+            {
+                await AssertWaitJobStatus(jobExec, JobStatus.Canceled, beforeStart);
+
+                var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExec.GetResultAsync());
+
+                Assert.AreEqual(
+                    "Job execution failed: java.lang.RuntimeException: java.lang.InterruptedException: sleep interrupted",
+                    ex.Message);
+            }
+        }
+
+        [Test]
+        public async Task TestCancelMapReduce()
+        {
+            var cts = new CancellationTokenSource();
+
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 10_000, cts.Token);
+
+            await cts.CancelAsync();
+
+            var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await taskExec.GetResultAsync());
+            Assert.IsInstanceOf<ComputeException>(ex?.InnerException);
+
+            IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
+
+            foreach (var jobState in jobStates)
+            {
+                Assert.AreEqual(JobStatus.Canceled, jobState?.Status);
+            }
+
+            TaskState? state = await taskExec.GetStateAsync();
+
+            // TODO IGNITE-25640: must be TaskStatus.Canceled.
+            Assert.AreEqual(TaskStatus.Failed, state?.Status);
+        }
+
+        [Test]
+        public async Task TestJobCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "x", cts.Token);
+            await exec.GetResultAsync();
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public void TestJobExceptionCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            Assert.CatchAsync<ComputeException>(async () =>
+            {
+                var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ExceptionJob, "x", cts.Token);
+                await exec.GetResultAsync();
+            });
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public async Task TestBroadcastCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()), NodeNameJob, "x", cts.Token);
+
+            foreach (var jobExec in exec.JobExecutions)
+            {
+                await jobExec.GetResultAsync();
+            }
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public async Task TestBroadcastExceptionCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()), ExceptionJob, "x", cts.Token);
+
+            foreach (var jobExec in exec.JobExecutions)
+            {
+                Assert.CatchAsync<ComputeException>(async () => await jobExec.GetResultAsync());
+            }
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public async Task TestMapReduceCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "a", cts.Token);
+            await exec.GetResultAsync();
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public void TestMapReduceExceptionCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            Assert.CatchAsync<IgniteException>(async () =>
+            {
+                var exec = await Client.Compute.SubmitMapReduceAsync(ReduceExceptionTask, "a", cts.Token);
+                await exec.GetResultAsync();
+            });
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
+        }
+
+        [Test]
+        public async Task TestChangeJobPriority()
+        {
+            var jobExecution = await Client.Compute.SubmitAsync(
+                await GetNodeAsync(1),
+                SleepJob with
+                {
+                    Options = new(Priority: 10, MaxRetries: 11)
+                },
                 5000);
+
             var res = await jobExecution.ChangePriorityAsync(123);
 
             // Job exists, but is already executing.
@@ -621,23 +825,28 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestJobExecutionOptionsPropagation()
         {
             // ReSharper disable once WithExpressionModifiesAllMembers
-            var options = JobExecutionOptions.Default with { Priority = 999, MaxRetries = 66 };
-            var units = new DeploymentUnit[] { new("unit1", "1.0.0") };
+            var job = new JobDescriptor<object?, string>(FakeServer.GetDetailsJob)
+            {
+                Options = JobExecutionOptions.Default with
+                {
+                    Priority = 999,
+                    MaxRetries = 66
+                },
+                DeploymentUnits = new DeploymentUnit[] { new("unit1", "1.0.0") }
+            };
 
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
 
-            var defaultRes = await client.Compute.SubmitAsync<string>(
-                await GetNodeAsync(1), units, FakeServer.GetDetailsJob, JobExecutionOptions.Default);
+            var defaultRes = await client.Compute.SubmitAsync(await GetNodeAsync(1), job with { Options = default }, null);
             StringAssert.Contains("priority = 0, maxRetries = 0", await defaultRes.GetResultAsync());
 
-            var res = await client.Compute.SubmitAsync<string>(await GetNodeAsync(1), units, FakeServer.GetDetailsJob, options);
+            var res = await client.Compute.SubmitAsync(await GetNodeAsync(1), job, null);
             StringAssert.Contains("priority = 999, maxRetries = 66", await res.GetResultAsync());
 
             // Colocated.
             var keyTuple = new IgniteTuple { ["ID"] = 1 };
-            var colocatedRes = await client.Compute.SubmitColocatedAsync<string>(
-                FakeServer.ExistingTableName, keyTuple, units, FakeServer.GetDetailsJob, options);
+            var colocatedRes = await client.Compute.SubmitAsync(JobTarget.Colocated(FakeServer.ExistingTableName, keyTuple), job, null);
 
             StringAssert.Contains("priority = 999, maxRetries = 66", await colocatedRes.GetResultAsync());
         }
@@ -649,40 +858,256 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase("1.123456789", 5)]
         public async Task TestBigDecimalPropagation(string number, int scale)
         {
-            var res = await Client.Compute.SubmitAsync<decimal>(await GetNodeAsync(1), Units, DecimalJob, number, scale);
+            var res = await Client.Compute.SubmitAsync(await GetNodeAsync(1), DecimalJob, $"{number},{scale}");
             var resVal = await res.GetResultAsync();
 
-            var expected = decimal.Parse(number, NumberStyles.Float);
+            var expected = decimal.Parse(number, NumberStyles.Float, CultureInfo.InvariantCulture);
 
             if (scale > 0)
             {
                 expected = decimal.Round(expected, scale);
             }
 
-            Assert.AreEqual(expected, resVal);
+            Assert.AreEqual(expected, resVal.ToDecimal());
         }
 
-        private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobState state, Instant beforeStart)
+        [Test]
+        public async Task TestMapReduceNodeNameTask()
         {
-            JobStatus? status = await jobExecution.GetStatusAsync();
+            Instant beforeStart = GetCurrentInstant();
 
-            Assert.IsNotNull(status);
-            Assert.AreEqual(jobExecution.Id, status!.Id);
-            Assert.AreEqual(state, status.State);
-            Assert.Greater(status.CreateTime, beforeStart);
-            Assert.Greater(status.StartTime, status.CreateTime);
+            ITaskExecution<string> taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "+arg");
 
-            if (state is JobState.Canceled or JobState.Completed or JobState.Failed)
+            // Result.
+            string nodeNameString = await taskExec.GetResultAsync();
+            string[] nodeNames = nodeNameString.Split(',');
+
+            var expectedNodeNames = (await Client.GetClusterNodesAsync())
+                .Select(x => x.Name + "+arg")
+                .ToList();
+
+            CollectionAssert.AreEquivalent(expectedNodeNames, nodeNames);
+
+            // Execution.
+            Assert.AreNotEqual(Guid.Empty, taskExec.Id);
+            Assert.AreEqual(expectedNodeNames.Count, taskExec.JobIds.Count);
+            CollectionAssert.DoesNotContain(taskExec.JobIds, Guid.Empty);
+
+            // Task state.
+            TaskState? state = await taskExec.GetStateAsync();
+
+            Assert.IsNotNull(state);
+            Assert.AreEqual(TaskStatus.Completed, state.Status);
+            Assert.AreEqual(taskExec.Id, state.Id);
+            Assert.That(state.CreateTime, Is.GreaterThanOrEqualTo(beforeStart));
+            Assert.That(state.StartTime, Is.GreaterThanOrEqualTo(state.CreateTime));
+            Assert.That(state.FinishTime, Is.GreaterThanOrEqualTo(state.StartTime));
+
+            // Job states.
+            IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
+
+            Assert.AreEqual(expectedNodeNames.Count, jobStates.Count);
+
+            foreach (var jobState in jobStates)
             {
-                Assert.Greater(status.FinishTime, status.StartTime);
+                Assert.IsNotNull(jobState);
+                Assert.AreEqual(JobStatus.Completed, jobState!.Status);
+            }
+        }
+
+        [Test]
+        public async Task TestExceptionInTask([Values(true, false)] bool splitOrReduce)
+        {
+            TaskDescriptor<object?, object?> task = splitOrReduce ? SplitExceptionTask : ReduceExceptionTask;
+
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(task, null);
+            var ex = Assert.ThrowsAsync<IgniteException>(async () => await taskExec.GetResultAsync());
+
+            var taskState = await taskExec.GetStateAsync();
+            var jobStates = await taskExec.GetJobStatesAsync();
+
+            // Result - exception.
+            Assert.AreEqual("Custom job error", ex.Message);
+            StringAssert.Contains("ItThinClientComputeTest$CustomException", ex.InnerException!.Message);
+            Assert.AreEqual(ErrorGroups.Table.ColumnNotFound, ex.Code);
+
+            // Failed task state.
+            Assert.IsNotNull(taskState);
+            Assert.IsNotNull(taskState.FinishTime);
+            Assert.AreEqual(TaskStatus.Failed, taskState.Status);
+
+            if (splitOrReduce)
+            {
+                // Exception in split: no jobs were created.
+                Assert.AreEqual(0, taskExec.JobIds.Count);
+                Assert.AreEqual(0, jobStates.Count);
             }
             else
             {
-                Assert.IsNull(status.FinishTime);
+                // Exception in reduce: all jobs succeeded.
+                Assert.That(taskExec.JobIds.Count, Is.GreaterThan(1));
+
+                foreach (var jobState in jobStates)
+                {
+                    Assert.IsNotNull(jobState);
+                    Assert.AreEqual(JobStatus.Completed, jobState!.Status);
+                }
             }
         }
 
-        private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
-            (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).Take(1).ToList();
+        [Test]
+        public async Task TestChangeTaskPriority()
+        {
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
+
+            var state = await taskExec.GetStateAsync();
+            Assert.AreEqual(TaskStatus.Executing, state!.Status);
+
+            var changePriorityRes = await taskExec.ChangePriorityAsync(1000);
+            Assert.IsFalse(changePriorityRes);
+        }
+
+        [Test]
+        public async Task TestNestedObjectsWithJsonMarshaller()
+        {
+            var job = new JobDescriptor<MyArg, MyResult>(PlatformTestNodeRunner + "$JsonMarshallerJob")
+            {
+                ArgMarshaller = new JsonMarshaller<MyArg>(),
+                ResultMarshaller = new JsonMarshaller<MyResult>()
+            };
+
+            var arg = new MyArg(1, "foo", new Nested(Guid.NewGuid(), 1.234m));
+
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
+            MyResult res = await exec.GetResultAsync();
+
+            Assert.AreEqual("foo_1", res.Data);
+            Assert.AreEqual(arg.Nested, res.Nested);
+        }
+
+        [Test]
+        public async Task TestCustomMarshaller()
+        {
+            var job = new JobDescriptor<Nested, Nested>(PlatformTestNodeRunner + "$ToStringMarshallerJob")
+            {
+                ArgMarshaller = new ToStringMarshaller(),
+                ResultMarshaller = new ToStringMarshaller()
+            };
+
+            var arg = new Nested(Guid.NewGuid(), 1.234m);
+
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, arg);
+            Nested res = await exec.GetResultAsync();
+
+            var nullExec = await Client.Compute.SubmitAsync(await GetNodeAsync(1), job, null!);
+            Nested nullRes = await nullExec.GetResultAsync();
+
+            Assert.AreEqual(arg.Id, res.Id);
+            Assert.AreEqual(arg.Price + 1, res.Price);
+
+            Assert.IsNull(nullRes);
+        }
+
+        [Test]
+        public async Task TestTupleWithSchemaRoundTrip()
+        {
+            var tuple = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+            tuple["nested_tuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+
+            var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+            IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, tuple);
+            var res = await resExec.GetResultAsync();
+
+            Assert.AreEqual(tuple, res);
+        }
+
+        [Test]
+        public async Task TestDeepNestedTupleWithSchemaRoundTrip()
+        {
+            var tuple = TestCases.GetNestedTuple(100);
+
+            var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+            IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, tuple);
+            var res = await resExec.GetResultAsync();
+
+            Assert.AreEqual(tuple, res);
+            StringAssert.Contains("CHILD99 = IgniteTuple { ID = 99, CHILD100 = IgniteTuple { ID = 100 } } } } } } } }", res.ToString());
+        }
+
+        [Test]
+        public async Task TestDeepNestedTupleWithSchemaToString()
+        {
+            var tuple = TestCases.GetNestedTuple(100);
+
+            var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+            IJobExecution<string> resExec = await Client.Compute.SubmitAsync(nodes, ToStringJob, tuple);
+            var res = await resExec.GetResultAsync();
+
+            StringAssert.Contains("[ID=97, CHILD98=TupleImpl [ID=98, CHILD99=TupleImpl [ID=99, CHILD100=TupleImpl [ID=100]]]]]]]]", res);
+        }
+
+        private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
+        {
+            JobState? state = await jobExecution.GetStateAsync();
+
+            Assert.IsNotNull(state);
+            Assert.AreEqual(jobExecution.Id, state!.Id);
+            Assert.AreEqual(status, state.Status);
+            Assert.That(state.CreateTime, Is.GreaterThanOrEqualTo(beforeStart));
+            Assert.That(state.StartTime, Is.GreaterThanOrEqualTo(state.CreateTime));
+
+            if (status is JobStatus.Canceled or JobStatus.Completed or JobStatus.Failed)
+            {
+                Assert.That(state.FinishTime, Is.GreaterThanOrEqualTo(state.StartTime));
+            }
+            else
+            {
+                Assert.IsNull(state.FinishTime);
+            }
+        }
+
+        private static async Task AssertWaitJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
+        {
+            await TestUtils.WaitForConditionAsync(async () => (await jobExecution.GetStateAsync())!.Status == status);
+
+            await AssertJobStatus(jobExecution, status, beforeStart);
+        }
+
+        private static Instant GetCurrentInstant()
+        {
+            var instant = SystemClock.Instance.GetCurrentInstant();
+
+            // Subtract 1 milli to account for OS-specific time resolution differences in .NET and Java.
+            return OperatingSystem.IsWindows()
+                ? instant.Minus(Duration.FromMilliseconds(1))
+                : instant;
+        }
+
+        private async Task<IJobTarget<IClusterNode>> GetNodeAsync(int index) =>
+            JobTarget.Node(
+                (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).First());
+
+        private record Nested(Guid Id, decimal Price);
+
+        [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests.")]
+        private record MyArg(int Id, string Name, Nested Nested);
+
+        private record MyResult(string Data, Nested Nested);
+
+        private class ToStringMarshaller : IMarshaller<Nested>
+        {
+            public void Marshal(Nested obj, IBufferWriter<byte> writer)
+            {
+                var str = obj.Id + ":" + obj.Price.ToString(CultureInfo.InvariantCulture);
+                Encoding.ASCII.GetBytes(str, writer);
+            }
+
+            public Nested Unmarshal(ReadOnlySpan<byte> bytes)
+            {
+                var str = Encoding.ASCII.GetString(bytes);
+                var parts = str.Split(':');
+                return new(Guid.Parse(parts[0]), decimal.Parse(parts[1], CultureInfo.InvariantCulture));
+            }
+        }
     }
 }

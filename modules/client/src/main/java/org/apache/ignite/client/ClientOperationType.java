@@ -18,18 +18,21 @@
 package org.apache.ignite.client;
 
 import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerTarget;
+import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 
 /**
  * Client operation type.
+ *
+ * <p>Used for custom {@link RetryPolicy} implementations - see {@link RetryPolicyContext}, {@link IgniteClientConfiguration#retryPolicy()}.
  */
 public enum ClientOperationType {
     /**
@@ -128,17 +131,27 @@ public enum ClientOperationType {
     TUPLE_CONTAINS_KEY,
 
     /**
-     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submit(Set, List, String, Object...)}).
+     * Contains All Keys ({@link org.apache.ignite.table.KeyValueView#containsAll(Transaction, Collection)}).
+     */
+    TUPLE_CONTAINS_ALL_KEYS,
+
+    /**
+     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submitAsync(JobTarget, JobDescriptor, Object)}).
      */
     COMPUTE_EXECUTE,
 
     /**
-     * Get compute job status ({@link org.apache.ignite.compute.JobExecution#statusAsync()}).
+     * Compute Execute MapReduce ({@link org.apache.ignite.compute.IgniteCompute#submitMapReduce}).
      */
-    COMPUTE_GET_STATUS,
+    COMPUTE_EXECUTE_MAPREDUCE,
 
     /**
-     * Cancel compute job ({@link org.apache.ignite.compute.JobExecution#cancelAsync()}).
+     * Get compute job state ({@link org.apache.ignite.compute.JobExecution#stateAsync()}).
+     */
+    COMPUTE_GET_STATE,
+
+    /**
+     * Cancel compute job.
      */
     COMPUTE_CANCEL,
 
@@ -168,7 +181,17 @@ public enum ClientOperationType {
     STREAMER_BATCH_SEND,
 
     /**
+     * Send streamer batch with receiver ({@link DataStreamerTarget#streamData}).
+     */
+    STREAMER_WITH_RECEIVER_BATCH_SEND,
+
+    /**
      * SQL Execute batch ({@link IgniteSql#executeBatchAsync(Transaction, String, BatchedArguments)}).
      */
-    SQL_EXECUTE_BATCH
+    SQL_EXECUTE_BATCH,
+
+    /**
+     * Get all primary replicas mapping to cluster nodes ({@link PartitionManager#primaryReplicasAsync()}).
+     */
+    PRIMARY_REPLICAS_GET
 }

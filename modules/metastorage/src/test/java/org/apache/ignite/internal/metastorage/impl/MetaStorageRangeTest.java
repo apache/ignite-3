@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -40,9 +41,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -64,19 +68,23 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
 
     abstract KeyValueStorage getStorage(Path path);
 
+    private static final KeyValueUpdateContext KV_UPDATE_CONTEXT = kvContext(HybridTimestamp.MIN_VALUE);
+
+    protected final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {
         storage = spy(getStorage(workDir));
 
-        metaStorageManager = StandaloneMetaStorageManager.create(storage);
+        metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
 
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
         metaStorageManager.beforeNodeStop();
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -95,7 +103,7 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
                 .mapToObj(ByteUtils::intToBytes)
                 .collect(toList());
 
-        storage.putAll(keys, keys, HybridTimestamp.MIN_VALUE);
+        storage.putAll(keys, keys, KV_UPDATE_CONTEXT);
 
         List<Entry> expectedEntries = getAll(keys);
 
@@ -142,7 +150,7 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
                 .map(s -> s.getBytes(StandardCharsets.UTF_8))
                 .collect(toList());
 
-        storage.putAll(keys, keys, HybridTimestamp.MIN_VALUE);
+        storage.putAll(keys, keys, KV_UPDATE_CONTEXT);
 
         assertThat(prefix(ByteArray.fromString("foo")), willBe(getAll(keys)));
 
@@ -157,7 +165,7 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
                 .map(s -> s.getBytes(StandardCharsets.UTF_8))
                 .collect(toList());
 
-        storage.putAll(keys, keys, HybridTimestamp.MIN_VALUE);
+        storage.putAll(keys, keys, KV_UPDATE_CONTEXT);
 
         assertThat(prefix(ByteArray.fromString("foo")), willBe(getAll(keys)));
 

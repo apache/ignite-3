@@ -25,32 +25,37 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
-import java.util.UUID;
+import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A part of exchange which sends batches to a remote downstream.
  */
 public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT>, Downstream<RowT> {
     private static final IgniteLogger LOG = Loggers.forClass(Outbox.class);
-    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
 
     private final long exchangeId;
     private final long targetFragmentId;
@@ -117,7 +122,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
         downstream.onBatchRequested(amountOfBatches);
 
-        if (waiting != -1 || !inBuf.isEmpty()) {
+        if (waiting != NOT_WAITING || !inBuf.isEmpty()) {
             flush();
         }
     }
@@ -155,8 +160,6 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     public void push(RowT row) throws Exception {
         assert waiting > 0 : waiting;
 
-        checkState();
-
         waiting--;
 
         if (currentNode == null || dest.targets(row).contains(currentNode)) {
@@ -171,9 +174,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     public void end() throws Exception {
         assert waiting > 0 : waiting;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         flush();
     }
@@ -236,6 +237,27 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         return this;
     }
 
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        writer.app(indent)
+                .app("class=").app(getClass().getSimpleName())
+                .app(", waiting=").app(waiting)
+                .nl();
+
+        String childIndent = Debuggable.childIndentation(indent);
+
+        for (Entry<String, RemoteDownstream<RowT>> entry : this.nodeBuffers.entrySet()) {
+            writer.app(childIndent)
+                    .app("class=" + entry.getValue().getClass().getSimpleName())
+                    .app(", nodeName=").app(entry.getKey())
+                    .app(", state=").app(entry.getValue().state)
+                    .nl();
+        }
+
+        Debuggable.dumpState(writer, childIndent, sources());
+    }
+
     private void sendBatch(String nodeName, int batchId, boolean last, List<RowT> rows) {
         RowHandler<RowT> handler = context().rowHandler();
 
@@ -252,7 +274,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             );
         }
 
-        exchange.sendBatch(nodeName, queryId(), targetFragmentId, exchangeId, batchId, last, rows0)
+        exchange.sendBatch(nodeName, executionId(), targetFragmentId, exchangeId, batchId, last, rows0)
                 .whenComplete((ignored, ex) -> {
                     if (ex == null) {
                         return;
@@ -265,16 +287,16 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                             ex
                     );
 
-                    context().execute(() -> onError(wrapperEx), this::onError);
+                    this.execute(() -> onError(wrapperEx));
                 });
     }
 
     private void sendError(Throwable original) {
         String nodeName = context().originatingNodeName();
-        UUID queryId = queryId();
+        ExecutionId executionId = executionId();
         long fragmentId = fragmentId();
 
-        exchange.sendError(nodeName, queryId, fragmentId, original)
+        exchange.sendError(nodeName, executionId, fragmentId, original)
                 .whenComplete((ignored, ex) -> {
                     if (ex == null) {
                         return;
@@ -289,15 +311,13 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
                     wrapperEx.addSuppressed(original);
 
-                    LOG.warn("Unable to send error to a remote node [queryId={}, fragmentId={}, targetNode={}]",
-                            queryId, fragmentId, nodeName, wrapperEx);
+                    LOG.warn("Unable to send error to a remote node [executionId={}, fragmentId={}, targetNode={}]",
+                            executionId, fragmentId, nodeName, wrapperEx);
                 });
     }
 
     private void flush() throws Exception {
         while (!inBuf.isEmpty()) {
-            checkState();
-
             List<String> targets = dest.targets(inBuf.peek());
             List<RemoteDownstream<RowT>> buffers = new ArrayList<>(targets.size());
 
@@ -324,7 +344,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
         if (waiting == 0) {
             source().request(waiting = inBufSize);
-        } else if (waiting == -1) {
+        } else if (waiting == NOT_WAITING) {
             if (currentNode != null) {
                 nodeBuffers.get(currentNode).end();
                 currentNode = null; // Allow incoming rewind request from next node.
@@ -338,13 +358,10 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         }
     }
 
-    /**
-     * OnNodeLeft.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onNodeLeft(String nodeName) {
-        if (nodeName.equals(context().originatingNodeName())) {
-            context().execute(this::close, this::onError);
+    /** Notifies the outbox that provided node has left the cluster. */
+    public void onNodeLeft(ClusterNode node) {
+        if (node.id().equals(context().originatingNodeId())) {
+            this.execute(this::close);
         }
     }
 
@@ -392,6 +409,11 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         rewind();
 
         onRequest(currentNode, rewind.amountOfBatches);
+    }
+
+    @TestOnly
+    public boolean isDone() {
+        return waiting == NOT_WAITING && nodeBuffers.values().stream().allMatch(RemoteDownstream::isDone);
     }
 
     private static final class RemoteDownstream<RowT> {
@@ -566,6 +588,11 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         void close() {
             curr = null;
             state = State.END;
+        }
+
+        @TestOnly
+        boolean isDone() {
+            return state == State.END;
         }
     }
 

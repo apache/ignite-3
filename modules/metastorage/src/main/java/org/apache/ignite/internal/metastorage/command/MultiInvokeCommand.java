@@ -24,7 +24,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * Represents invoke command with nested conditions and execution branches.
  */
 @Transferable(MetastorageCommandsMessageGroup.MULTI_INVOKE)
-public interface MultiInvokeCommand extends MetaStorageWriteCommand {
+public interface MultiInvokeCommand extends IdempotentCommand {
     /**
      * Returns if statement.
      *

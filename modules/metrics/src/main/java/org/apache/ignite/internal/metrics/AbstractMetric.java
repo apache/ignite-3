@@ -17,24 +17,22 @@
 
 package org.apache.ignite.internal.metrics;
 
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Abstract metric.
- */
+/** Abstract metric. */
 public abstract class AbstractMetric implements Metric {
     /** Metric name. It is local for a particular {@link MetricSet}. */
     private final String name;
 
     /** Metric description. */
-    @Nullable
-    private final String desc;
+    private final @Nullable String desc;
 
     /**
      * Constructor.
      *
-     * @param name Name.
-     * @param desc Description.
+     * @param name Metric name.
+     * @param desc Metric Description.
      */
     public AbstractMetric(String name, @Nullable String desc) {
         assert name != null;
@@ -44,20 +42,18 @@ public abstract class AbstractMetric implements Metric {
         this.desc = desc;
     }
 
-    /** {@inheritDoc} */
-    @Override public String name() {
+    @Override
+    public String name() {
         return name;
     }
 
-    /** {@inheritDoc} */
     @Override
-    @Nullable
-    public String description() {
+    public @Nullable String description() {
         return desc;
     }
 
-    /** {@inheritDoc} */
-    @Override public boolean equals(Object o) {
+    @Override
+    public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
@@ -68,15 +64,16 @@ public abstract class AbstractMetric implements Metric {
 
         AbstractMetric metric = (AbstractMetric) o;
 
-        if (!name.equals(metric.name)) {
-            return false;
-        }
-
-        return true;
+        return name.equals(metric.name);
     }
 
-    /** {@inheritDoc} */
-    @Override public int hashCode() {
+    @Override
+    public int hashCode() {
         return name.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return S.toString((Class<? super AbstractMetric>) getClass(), this, "name", name, "description", desc);
     }
 }

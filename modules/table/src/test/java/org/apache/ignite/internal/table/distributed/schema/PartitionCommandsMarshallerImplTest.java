@@ -26,22 +26,23 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandSerializationFactory;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandSerializationFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.FinishTxCommandSerializationFactory;
 import org.junit.jupiter.api.Test;
 
 class PartitionCommandsMarshallerImplTest {
-    private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory tableMessagesFactory = new PartitionReplicationMessagesFactory();
     private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
     private final MessageSerializationRegistry registry = new MessageSerializationRegistryImpl();
@@ -49,8 +50,8 @@ class PartitionCommandsMarshallerImplTest {
     {
         // For a command that has required catalog version property.
         registry.registerFactory(
-                TableMessageGroup.GROUP_TYPE,
-                TableMessageGroup.Commands.FINISH_TX,
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.Commands.FINISH_TX,
                 new FinishTxCommandSerializationFactory(tableMessagesFactory)
         );
 
@@ -73,13 +74,14 @@ class PartitionCommandsMarshallerImplTest {
         byte[] standardResult = standardMarshaller.marshall(obj);
         byte[] enrichedResult = partitionCommandsMarshaller.marshall(obj);
 
-        assertThat(enrichedResult.length, is(standardResult.length + 1));
-        assertThat(enrichedResult[0], is((byte) 0));
-        assertThat(Arrays.copyOfRange(enrichedResult, 1, enrichedResult.length), is(equalTo(standardResult)));
+        assertThat(enrichedResult.length, is(standardResult.length + 12));
+        assertThat(enrichedResult[0], is((byte) PartitionCommandsMarshaller.NO_VERSION_REQUIRED));
+        assertThat(Arrays.copyOfRange(enrichedResult, 12, enrichedResult.length), is(equalTo(standardResult)));
     }
 
     private SafeTimeSyncCommand commandWithoutRequiredCatalogVersion() {
-        return replicaMessagesFactory.safeTimeSyncCommand().build();
+        return replicaMessagesFactory.safeTimeSyncCommand()
+                .initiatorTime(HybridTimestamp.hybridTimestamp(System.currentTimeMillis())).build();
     }
 
     @Test
@@ -89,15 +91,18 @@ class PartitionCommandsMarshallerImplTest {
         byte[] standardResult = standardMarshaller.marshall(obj);
         byte[] enrichedResult = partitionCommandsMarshaller.marshall(obj);
 
-        assertThat(enrichedResult.length, is(standardResult.length + 1));
-        assertThat(enrichedResult[0], is((byte) 43));
-        assertThat(Arrays.copyOfRange(enrichedResult, 1, enrichedResult.length), is(equalTo(standardResult)));
+        assertThat(enrichedResult.length, is(standardResult.length + 12));
+        assertThat(enrichedResult[0], is((byte) 42));
+        assertThat(Arrays.copyOfRange(enrichedResult, 12, enrichedResult.length), is(equalTo(standardResult)));
     }
 
     private FinishTxCommand commandWithRequiredCatalogVersion(int requiredCatalogVersion) {
+        long time = System.currentTimeMillis();
         return tableMessagesFactory.finishTxCommand()
                 .txId(UUID.randomUUID())
-                .partitionIds(List.of())
+                .partitions(List.of())
+                .initiatorTime(HybridTimestamp.hybridTimestamp(time))
+                .safeTime(HybridTimestamp.hybridTimestamp(time))
                 .requiredCatalogVersion(requiredCatalogVersion)
                 .build();
     }
@@ -107,11 +112,13 @@ class PartitionCommandsMarshallerImplTest {
         NetworkMessage message = commandWithRequiredCatalogVersion(42);
 
         byte[] serialized = partitionCommandsMarshaller.marshall(message);
+        ByteBuffer buffer = ByteBuffer.wrap(serialized).order(OptimizedMarshaller.ORDER);
 
-        FinishTxCommand unmarshalled = partitionCommandsMarshaller.unmarshall(serialized);
+        FinishTxCommand unmarshalled = partitionCommandsMarshaller.unmarshall(buffer);
 
         assertThat(unmarshalled.requiredCatalogVersion(), is(42));
+        assertThat(buffer.position(), is(0));
 
-        assertThat(partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(serialized)), is(42));
+        assertThat(partitionCommandsMarshaller.readRequiredCatalogVersion(buffer), is(42));
     }
 }

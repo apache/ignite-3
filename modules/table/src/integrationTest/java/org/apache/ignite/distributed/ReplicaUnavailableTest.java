@@ -19,6 +19,9 @@ package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.TxAbstractTest.startNode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -27,6 +30,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -35,28 +39,46 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -66,18 +88,17 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -98,6 +119,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
+    private static final int TABLE_ID = 1;
+
     private static final String NODE_NAME = "client";
 
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
@@ -106,10 +129,10 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
-    @InjectConfiguration("mock.rpcTimeout= 3000")
+    @InjectConfiguration("mock.rpcTimeoutMillis = 3000")
     private ReplicationConfiguration replicationConfiguration;
 
-    private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory tableMessagesFactory = new PartitionReplicationMessagesFactory();
 
     private final ReplicaMessagesFactory replicaMessageFactory = new ReplicaMessagesFactory();
 
@@ -125,8 +148,25 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private ExecutorService requestsExecutor;
 
+    private Loza raftManager;
+
+    private TopologyAwareRaftGroupService raftClient;
+
+    private final Function<BiFunction<ReplicaRequest, UUID, CompletableFuture<ReplicaResult>>, ReplicaListener> replicaListenerCreator =
+            (invokeImpl) -> new ReplicaListener() {
+                @Override
+                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
+                    return invokeImpl.apply(request, senderId);
+                }
+
+                @Override
+                public RaftCommandRunner raftClient() {
+                    return raftClient;
+                }
+            };
+
     @BeforeEach
-    public void setup() {
+    public void setup() throws NodeStoppingException {
         var networkAddress = new NetworkAddress(getLocalAddress(), NODE_PORT_BASE + 1);
 
         var nodeFinder = new StaticNodeFinder(List.of(networkAddress));
@@ -138,10 +178,20 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         // This test is run without Meta storage.
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
-        requestsExecutor = new ThreadPoolExecutor(
-                0, 5,
-                0, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
+        raftManager = mock(Loza.class);
+        raftClient = mock(TopologyAwareRaftGroupService.class);
+        when(raftManager.startRaftGroupNode(
+                any(RaftNodeId.class),
+                any(PeersAndLearners.class),
+                any(RaftGroupListener.class),
+                any(RaftGroupEventsListener.class),
+                any(RaftGroupOptions.class),
+                any(TopologyAwareRaftGroupServiceFactory.class))
+        )
+                .thenReturn(raftClient);
+
+        requestsExecutor = Executors.newFixedThreadPool(
+                5,
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
@@ -150,25 +200,34 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 clock,
                 replicationConfiguration
         );
+
         replicaManager = new ReplicaManager(
                 NODE_NAME,
                 clusterService,
                 cmgManager,
                 new TestClockService(clock),
-                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,
-                new NoOpFailureProcessor()
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                new NoOpFailureManager(),
+                mock(ThreadLocalPartitionCommandsMarshaller.class),
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                raftManager,
+                RaftGroupOptionsConfigurer.EMPTY,
+                view -> new LocalLogStorageFactory(),
+                ForkJoinPool.commonPool(),
+                replicaGrpId -> nullCompletedFuture()
         );
 
-        assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
+        assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
 
-        assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
+        assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     public ReplicaUnavailableTest(TestInfo testInfo) {
@@ -179,22 +238,33 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testWithReplicaStartedAfterRequestSending() throws Exception {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
         ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
+
+        PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(clusterNode.name()));
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class,
                 (message, sender, correlationId) -> {
                     try {
                         log.info("Replica msg " + message.getClass().getSimpleName());
 
+                        ReplicaListener listener = replicaListenerCreator.apply((req, senderId) -> {
+                            ReplicaResponse response = replicaMessageFactory.replicaResponse()
+                                    .result(5)
+                                    .build();
+                            return completedFuture(new ReplicaResult(response, null));
+                        });
+
                         replicaManager.startReplica(
+                                mock(RaftGroupEventsListener.class),
+                                mock(RaftGroupListener.class),
+                                false,
+                                null,
+                                (unused) -> listener,
+                                new PendingComparableValuesTracker<>(0L),
                                 tablePartitionId,
-                                (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
-                                        .result(5)
-                                        .build(), null)),
-                                mock(TopologyAwareRaftGroupService.class),
-                                new PendingComparableValuesTracker<>(0L)
+                                newConfiguration
                         );
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
@@ -213,13 +283,14 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         BinaryRow binaryRow = createKeyValueRow(1L, 1L);
 
         return tableMessagesFactory.readWriteSingleRowReplicaRequest()
-                .groupId(tablePartitionId)
+                .groupId(toTablePartitionIdMessage(replicaMessageFactory, tablePartitionId))
+                .tableId(TABLE_ID)
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId())
-                .timestampLong(clock.nowLong())
+                .timestamp(clock.now())
                 .schemaVersion(binaryRow.schemaVersion())
                 .binaryTuple(binaryRow.tupleSlice())
-                .requestType(RequestType.RW_GET)
+                .requestType(RW_GET)
                 .enlistmentConsistencyToken(1L)
                 .coordinatorId(clusterService.topologyService().localMember().id())
                 .build();
@@ -229,7 +300,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testStopReplicaException() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
         ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
@@ -264,7 +335,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testWithNotStartedReplica() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
 
         ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
@@ -294,18 +365,26 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void testWithNotReadyReplica() {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 1);
+
+        PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(clusterNode.name()));
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, (message, sender, correlationId) -> {
             runAsync(() -> {
                 try {
                     log.info("Replica msg " + message.getClass().getSimpleName());
 
+                    ReplicaListener listener = replicaListenerCreator.apply((r, id) -> new CompletableFuture<>());
+
                     replicaManager.startReplica(
+                            mock(RaftGroupEventsListener.class),
+                            mock(RaftGroupListener.class),
+                            false,
+                            null,
+                            (unused) -> listener,
+                            new PendingComparableValuesTracker<>(0L),
                             tablePartitionId,
-                            (request, senderId) -> new CompletableFuture<>(),
-                            mock(TopologyAwareRaftGroupService.class),
-                            new PendingComparableValuesTracker<>(0L)
+                            newConfiguration
                     );
                 } catch (NodeStoppingException e) {
                     throw new RuntimeException(e);
@@ -338,8 +417,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     }
 
     private TablePartitionIdMessage tablePartitionId() {
-        return tableMessagesFactory.tablePartitionIdMessage()
-                .tableId(1)
+        return replicaMessageFactory.tablePartitionIdMessage()
+                .tableId(TABLE_ID)
                 .partitionId(1)
                 .build();
     }

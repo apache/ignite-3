@@ -24,13 +24,14 @@ import static org.apache.ignite.internal.compute.ComputeUtils.cancelFromJobCance
 import static org.apache.ignite.internal.compute.ComputeUtils.changePriorityFromJobChangePriorityResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.jobIdFromExecuteResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.resultFromJobResultResponse;
-import static org.apache.ignite.internal.compute.ComputeUtils.statusFromJobStatusResponse;
-import static org.apache.ignite.internal.compute.ComputeUtils.statusesFromJobStatusesResponse;
+import static org.apache.ignite.internal.compute.ComputeUtils.stateFromJobStateResponse;
+import static org.apache.ignite.internal.compute.ComputeUtils.statesFromJobStatesResponse;
 import static org.apache.ignite.internal.compute.ComputeUtils.toDeploymentUnit;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CANCELLING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CHANGE_JOB_PRIORITY_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Compute.FAIL_TO_GET_JOB_STATUS_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.FAIL_TO_GET_JOB_STATE_ERR;
 
 import java.util.Collection;
 import java.util.List;
@@ -39,9 +40,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.compute.ComputeException;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.internal.compute.ComputeUtils;
@@ -57,18 +58,17 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityRequest;
 import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
-import org.apache.ignite.internal.compute.message.JobStatusRequest;
-import org.apache.ignite.internal.compute.message.JobStatusResponse;
-import org.apache.ignite.internal.compute.message.JobStatusesRequest;
-import org.apache.ignite.internal.compute.message.JobStatusesResponse;
+import org.apache.ignite.internal.compute.message.JobStateRequest;
+import org.apache.ignite.internal.compute.message.JobStateResponse;
+import org.apache.ignite.internal.compute.message.JobStatesRequest;
+import org.apache.ignite.internal.compute.message.JobStatesResponse;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -130,10 +130,10 @@ public class ComputeMessaging {
             sendExecuteResponse(null, ex, sender, correlationId);
         } else if (message instanceof JobResultRequest) {
             sendJobResultResponse(null, ex, sender, correlationId);
-        } else if (message instanceof JobStatusesRequest) {
-            sendJobStatusesResponse(null, ex, sender, correlationId);
-        } else if (message instanceof JobStatusRequest) {
-            sendJobStatusResponse(null, ex, sender, correlationId);
+        } else if (message instanceof JobStatesRequest) {
+            sendJobStatesResponse(null, ex, sender, correlationId);
+        } else if (message instanceof JobStateRequest) {
+            sendJobStateResponse(null, ex, sender, correlationId);
         } else if (message instanceof JobCancelRequest) {
             sendJobCancelResponse(null, ex, sender, correlationId);
         } else if (message instanceof JobChangePriorityRequest) {
@@ -146,10 +146,10 @@ public class ComputeMessaging {
             processExecuteRequest(starter, (ExecuteRequest) message, sender, correlationId);
         } else if (message instanceof JobResultRequest) {
             processJobResultRequest((JobResultRequest) message, sender, correlationId);
-        } else if (message instanceof JobStatusesRequest) {
-            processJobStatusesRequest((JobStatusesRequest) message, sender, correlationId);
-        } else if (message instanceof JobStatusRequest) {
-            processJobStatusRequest((JobStatusRequest) message, sender, correlationId);
+        } else if (message instanceof JobStatesRequest) {
+            processJobStatesRequest((JobStatesRequest) message, sender, correlationId);
+        } else if (message instanceof JobStateRequest) {
+            processJobStateRequest((JobStateRequest) message, sender, correlationId);
         } else if (message instanceof JobCancelRequest) {
             processJobCancelRequest((JobCancelRequest) message, sender, correlationId);
         } else if (message instanceof JobChangePriorityRequest) {
@@ -171,7 +171,7 @@ public class ComputeMessaging {
      * @param remoteNode The job will be executed on this node.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
+     * @param input Arguments of the job.
      * @return Job id future that will be completed when the job is submitted on the remote node.
      */
     public CompletableFuture<UUID> remoteExecuteRequestAsync(
@@ -179,7 +179,7 @@ public class ComputeMessaging {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object[] args
+            @Nullable ComputeJobDataHolder input
     ) {
         List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
                 .map(ComputeUtils::toDeploymentUnitMsg)
@@ -189,18 +189,26 @@ public class ComputeMessaging {
                 .executeOptions(options)
                 .deploymentUnits(deploymentUnitMsgs)
                 .jobClassName(jobClassName)
-                .args(args)
+                .input(input)
                 .build();
 
-        return messagingService.invoke(remoteNode, executeRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, executeRequest)
                 .thenCompose(networkMessage -> jobIdFromExecuteResponse((ExecuteResponse) networkMessage));
     }
 
     private void processExecuteRequest(JobStarter starter, ExecuteRequest request, ClusterNode sender, long correlationId) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
-        JobExecution<Object> execution = starter.start(request.executeOptions(), units, request.jobClassName(), request.args());
-        execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, sender, correlationId));
+        starter.start(request.executeOptions(), units, request.jobClassName(), request.input())
+                .whenComplete((execution, err) -> {
+                            if (err != null) {
+                                sendExecuteResponse(null, err, sender, correlationId);
+                            } else {
+                                execution.idAsync()
+                                        .whenComplete((jobId, idErr) -> sendExecuteResponse(jobId, idErr, sender, correlationId));
+                            }
+                        }
+                );
     }
 
     private void sendExecuteResponse(@Nullable UUID jobId, @Nullable Throwable ex, ClusterNode sender, Long correlationId) {
@@ -209,7 +217,7 @@ public class ComputeMessaging {
                 .throwable(ex)
                 .build();
 
-        messagingService.respond(sender, executeResponse, correlationId);
+        respond(sender, executeResponse, correlationId);
     }
 
     /**
@@ -217,87 +225,90 @@ public class ComputeMessaging {
      *
      * @param remoteNode The job will be executed on this node.
      * @param jobId Job id.
-     * @param <R> Job result type
      * @return Job result.
      */
-    public <R> CompletableFuture<R> remoteJobResultRequestAsync(ClusterNode remoteNode, UUID jobId) {
+    public CompletableFuture<ComputeJobDataHolder> remoteJobResultRequestAsync(ClusterNode remoteNode, UUID jobId) {
         JobResultRequest jobResultRequest = messagesFactory.jobResultRequest()
                 .jobId(jobId)
                 .build();
 
-        return messagingService.invoke(remoteNode, jobResultRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, jobResultRequest)
                 .thenCompose(networkMessage -> resultFromJobResultResponse((JobResultResponse) networkMessage));
     }
 
     private void processJobResultRequest(JobResultRequest request, ClusterNode sender, long correlationId) {
-        executionManager.resultAsync(request.jobId())
-                .whenComplete((result, err) -> sendJobResultResponse(result, err, sender, correlationId));
+        executionManager.localResultAsync(request.jobId())
+                .whenComplete((result, err) -> sendJobResultResponse((ComputeJobDataHolder) result, err, sender, correlationId));
     }
 
-    private void sendJobResultResponse(@Nullable Object result, @Nullable Throwable ex, ClusterNode sender, long correlationId) {
+    private void sendJobResultResponse(
+            @Nullable ComputeJobDataHolder result,
+            @Nullable Throwable ex,
+            ClusterNode sender,
+            long correlationId) {
         JobResultResponse jobResultResponse = messagesFactory.jobResultResponse()
                 .result(result)
                 .throwable(ex)
                 .build();
 
-        messagingService.respond(sender, jobResultResponse, correlationId);
+        respond(sender, jobResultResponse, correlationId);
     }
 
-    CompletableFuture<Collection<JobStatus>> remoteStatusesAsync(ClusterNode remoteNode) {
-        JobStatusesRequest jobStatusRequest = messagesFactory.jobStatusesRequest()
+    private CompletableFuture<Collection<JobState>> remoteStatesAsync(ClusterNode remoteNode) {
+        JobStatesRequest jobStatesRequest = messagesFactory.jobStatesRequest()
                 .build();
 
-        return messagingService.invoke(remoteNode, jobStatusRequest, NETWORK_TIMEOUT_MILLIS)
-                .thenCompose(networkMessage -> statusesFromJobStatusesResponse((JobStatusesResponse) networkMessage));
+        return invoke(remoteNode, jobStatesRequest)
+                .thenCompose(networkMessage -> statesFromJobStatesResponse((JobStatesResponse) networkMessage));
     }
 
-    private void processJobStatusesRequest(JobStatusesRequest message, ClusterNode sender, long correlationId) {
-        executionManager.localStatusesAsync()
-                .whenComplete((statuses, throwable) -> sendJobStatusesResponse(statuses, throwable, sender, correlationId));
+    private void processJobStatesRequest(JobStatesRequest message, ClusterNode sender, long correlationId) {
+        executionManager.localStatesAsync()
+                .whenComplete((states, throwable) -> sendJobStatesResponse(states, throwable, sender, correlationId));
     }
 
-    private void sendJobStatusesResponse(
-            @Nullable Collection<JobStatus> statuses,
+    private void sendJobStatesResponse(
+            @Nullable Collection<JobState> states,
             @Nullable Throwable throwable,
             ClusterNode sender,
             Long correlationId
     ) {
-        JobStatusesResponse jobStatusResponse = messagesFactory.jobStatusesResponse()
-                .statuses(statuses)
+        JobStatesResponse jobStatesResponse = messagesFactory.jobStatesResponse()
+                .states(states)
                 .throwable(throwable)
                 .build();
 
-        messagingService.respond(sender, jobStatusResponse, correlationId);
+        respond(sender, jobStatesResponse, correlationId);
     }
 
     /**
-     * Gets compute job status from the remote node.
+     * Gets compute job state from the remote node.
      *
      * @param remoteNode The job will be executed on this node.
      * @param jobId Compute job id.
-     * @return The current status of the job, or {@code null} if there's no job with the specified id.
+     * @return The current state of the job, or {@code null} if there's no job with the specified id.
      */
-    CompletableFuture<@Nullable JobStatus> remoteStatusAsync(ClusterNode remoteNode, UUID jobId) {
-        JobStatusRequest jobStatusRequest = messagesFactory.jobStatusRequest()
+    CompletableFuture<@Nullable JobState> remoteStateAsync(ClusterNode remoteNode, UUID jobId) {
+        JobStateRequest jobStateRequest = messagesFactory.jobStateRequest()
                 .jobId(jobId)
                 .build();
 
-        return messagingService.invoke(remoteNode, jobStatusRequest, NETWORK_TIMEOUT_MILLIS)
-                .thenCompose(networkMessage -> statusFromJobStatusResponse((JobStatusResponse) networkMessage));
+        return invoke(remoteNode, jobStateRequest)
+                .thenCompose(networkMessage -> stateFromJobStateResponse((JobStateResponse) networkMessage));
     }
 
-    private void processJobStatusRequest(JobStatusRequest request, ClusterNode sender, long correlationId) {
-        executionManager.statusAsync(request.jobId())
-                .whenComplete((status, throwable) -> sendJobStatusResponse(status, throwable, sender, correlationId));
+    private void processJobStateRequest(JobStateRequest request, ClusterNode sender, long correlationId) {
+        executionManager.stateAsync(request.jobId())
+                .whenComplete((state, throwable) -> sendJobStateResponse(state, throwable, sender, correlationId));
     }
 
-    private void sendJobStatusResponse(@Nullable JobStatus status, @Nullable Throwable throwable, ClusterNode sender, Long correlationId) {
-        JobStatusResponse jobStatusResponse = messagesFactory.jobStatusResponse()
-                .status(status)
+    private void sendJobStateResponse(@Nullable JobState state, @Nullable Throwable throwable, ClusterNode sender, Long correlationId) {
+        JobStateResponse jobStateResponse = messagesFactory.jobStateResponse()
+                .state(state)
                 .throwable(throwable)
                 .build();
 
-        messagingService.respond(sender, jobStatusResponse, correlationId);
+        respond(sender, jobStateResponse, correlationId);
     }
 
     /**
@@ -313,7 +324,7 @@ public class ComputeMessaging {
                 .jobId(jobId)
                 .build();
 
-        return messagingService.invoke(remoteNode, jobCancelRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, jobCancelRequest)
                 .thenCompose(networkMessage -> cancelFromJobCancelResponse((JobCancelResponse) networkMessage));
     }
 
@@ -328,7 +339,7 @@ public class ComputeMessaging {
                 .throwable(throwable)
                 .build();
 
-        messagingService.respond(sender, jobCancelResponse, correlationId);
+        respond(sender, jobCancelResponse, correlationId);
     }
 
     /**
@@ -346,7 +357,7 @@ public class ComputeMessaging {
                 .priority(newPriority)
                 .build();
 
-        return messagingService.invoke(remoteNode, jobChangePriorityRequest, NETWORK_TIMEOUT_MILLIS)
+        return invoke(remoteNode, jobChangePriorityRequest)
                 .thenCompose(networkMessage -> changePriorityFromJobChangePriorityResponse((JobChangePriorityResponse) networkMessage));
     }
 
@@ -366,41 +377,40 @@ public class ComputeMessaging {
                 .result(result)
                 .build();
 
-        messagingService.respond(sender, jobChangePriorityResponse, correlationId);
+        respond(sender, jobChangePriorityResponse, correlationId);
     }
 
     /**
-     * Broadcasts job statuses request to all nodes in the cluster.
+     * Broadcasts job states request to all nodes in the cluster.
      *
-     * @return The future which will be completed with the collection of statuses from all nodes.
+     * @return The future which will be completed with the collection of states from all nodes.
      */
-    public CompletableFuture<Collection<JobStatus>> broadcastStatusesAsync() {
+    public CompletableFuture<Collection<JobState>> broadcastStatesAsync() {
         return broadcastAsyncAndCollect(
-                node -> remoteStatusesAsync(node),
+                this::remoteStatesAsync,
                 throwable -> new ComputeException(
-                        FAIL_TO_GET_JOB_STATUS_ERR,
-                        "Failed to retrieve statuses",
+                        FAIL_TO_GET_JOB_STATE_ERR,
+                        "Failed to retrieve states",
                         throwable
-                )).thenApply(statuses -> {
-                    return statuses.stream()
-                            .flatMap(Collection::stream)
-                            .filter(Objects::nonNull)
-                            .collect(toList());
-                });
+                )
+        ).thenApply(states -> states.stream()
+                .flatMap(Collection::stream)
+                .filter(Objects::nonNull)
+                .collect(toList()));
     }
 
     /**
-     * Broadcasts job status request to all nodes in the cluster.
+     * Broadcasts job state request to all nodes in the cluster.
      *
      * @param jobId Job id.
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     * @return The current state of the job, or {@code null} if the job state no longer exists due to exceeding the retention time limit.
      */
-    public CompletableFuture<@Nullable JobStatus> broadcastStatusAsync(UUID jobId) {
+    public CompletableFuture<@Nullable JobState> broadcastStateAsync(UUID jobId) {
         return broadcastAsync(
-                node -> remoteStatusAsync(node, jobId),
+                node -> remoteStateAsync(node, jobId),
                 throwable -> new ComputeException(
-                        FAIL_TO_GET_JOB_STATUS_ERR,
-                        "Failed to retrieve status of the job with ID: " + jobId,
+                        FAIL_TO_GET_JOB_STATE_ERR,
+                        "Failed to retrieve state of the job with ID: " + jobId,
                         throwable
                 ));
     }
@@ -456,7 +466,7 @@ public class ComputeMessaging {
         ClusterNode localMember = topologyService.localMember();
         CompletableFuture<?>[] futures = topologyService.allMembers()
                 .stream()
-                .filter(node -> !node.equals(localMember))
+                .filter(node -> !node.name().equals(localMember.name()))
                 .map(node -> request.apply(node)
                         .thenAccept(response -> {
                             if (response != null) {
@@ -466,12 +476,12 @@ public class ComputeMessaging {
                 .toArray(CompletableFuture[]::new);
 
         allOf(futures).whenComplete((unused, throwable) -> {
-            // If none of the nodes returned non-null status it means that either we couldn't find the status
-            // or the node which had the status thrown an exception. If any of the futures completed exceptionally
+            // If none of the nodes returned non-null state it means that either we couldn't find the state
+            // or the node which had the state thrown an exception. If any of the futures completed exceptionally
             // but the result is non-null, then ignore the exceptions from other futures.
             if (!result.isDone()) {
                 // allOf will complete exceptionally if any of the futures failed, so this condition means that we
-                // successfully couldn't find a status.
+                // successfully couldn't find a state.
                 if (throwable == null) {
                     result.complete(null);
                     return;
@@ -483,25 +493,25 @@ public class ComputeMessaging {
         return result;
     }
 
-    private <R> CompletableFuture<Collection<R>> broadcastAsyncAndCollect(
+    private <R> CompletableFuture<List<R>> broadcastAsyncAndCollect(
             Function<ClusterNode, CompletableFuture<@Nullable R>> request,
-            Function<Throwable, Throwable> error
+            Function<Throwable, RuntimeException> error
     ) {
-        CompletableFuture<Collection<R>> result = new CompletableFuture<>();
-
         CompletableFuture<R>[] futures = topologyService.allMembers()
                 .stream()
                 .map(request::apply)
                 .toArray(CompletableFuture[]::new);
 
-        CompletableFutures.allOf(futures).whenComplete((collection, throwable) -> {
-            if (throwable == null) {
-                result.complete(collection);
-            } else {
-                result.completeExceptionally(error.apply(throwable));
-            }
+        return allOfToList(futures).exceptionally(throwable -> {
+            throw error.apply(throwable);
         });
+    }
 
-        return result;
+    private CompletableFuture<NetworkMessage> invoke(ClusterNode remoteNode, NetworkMessage msg) {
+        return messagingService.invoke(remoteNode.name(), msg, NETWORK_TIMEOUT_MILLIS);
+    }
+
+    private void respond(ClusterNode sender, NetworkMessage msg, long correlationId) {
+        messagingService.respond(sender.name(), msg, correlationId);
     }
 }

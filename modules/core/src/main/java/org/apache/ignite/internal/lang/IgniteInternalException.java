@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.lang;
 
-import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
-import static org.apache.ignite.lang.ErrorGroup.errorMessage;
+import static org.apache.ignite.internal.lang.ErrorGroupHelper.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
@@ -26,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.extractGroupCode;
 import static org.apache.ignite.lang.util.TraceIdUtils.getOrCreateTraceId;
 
 import java.util.UUID;
+import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.TraceableException;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,6 +35,9 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteInternalException extends RuntimeException implements TraceableException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
+
+    /** Prefix for error message. */
+    private final String errorPrefix;
 
     /** Name of the error group. */
     private final String groupName;
@@ -70,7 +73,9 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      */
     public IgniteInternalException(UUID traceId, int code) {
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -95,7 +100,9 @@ public class IgniteInternalException extends RuntimeException implements Traceab
         super(message);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -120,7 +127,9 @@ public class IgniteInternalException extends RuntimeException implements Traceab
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -147,7 +156,9 @@ public class IgniteInternalException extends RuntimeException implements Traceab
         super(message, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -245,7 +256,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      * @return Full error code in a human-readable format.
      */
     public String codeAsString() {
-        return ERR_PREFIX + groupName() + '-' + errorCode();
+        return errorPrefix + "-" + groupName() + '-' + Short.toUnsignedInt(errorCode());
     }
 
     /**
@@ -284,6 +295,6 @@ public class IgniteInternalException extends RuntimeException implements Traceab
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return getClass().getName() + ": " + errorMessage(traceId, groupName, code, getLocalizedMessage());
+        return getClass().getName() + ": " + errorMessage(errorPrefix, traceId, groupName, code, getLocalizedMessage());
     }
 }

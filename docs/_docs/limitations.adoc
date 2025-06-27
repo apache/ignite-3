@@ -1,0 +1,100 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Known Limitations in Apache Ignite 3 Beta
+
+== Inconsistent RO Operations Across Clients
+
+Read-only transactions may miss data that was written within the last several seconds by a different client. Read-write transactions will always guarantee consistency.
+
+This behavior is intentional, and made to speed up read-only operations. Ignite only guarantees consistency within the same client for read-only transactions.
+
+Depending on the API you use, read operations may be performed in read-only transactions automatically. For example, `SELECT` operations will often be read-only. If you need to perform the operation with guaranteed consistency, perform the explicit read-write transaction.
+
+== No Schema Editing
+
+In Ignite 3 Beta, only the `PUBLIC` schema is supported. You cannot create other schemas. You can still edit the `PUBLIC` schema as required. Creating additional schemas will be supported in the initial release.
+
+== No Meta Storage Compaction
+
+Meta storage compaction is not implemented in this release. This causes meta storage to grow without indefinitely. Clusters running for a long time may require a large amount of storage to store.
+
+== SQL Performance
+
+This release does not include SQL performance optimization. Large schedules may  Performance will be improved in later versions.
+
+== Storage Limitations
+
+=== Limited Storage Types
+
+In this beta release, you can only use one storage type in your cluster.
+
+Only `aipersist` and `rocksdb` storage types are currently supported. RocksDB storage is currently not optimized for performance, and is not recommended for high load environments.
+
+
+=== Single Distribution Zone
+
+In Beta release, only 1 distribution zone is supported. Full release will support multiple distribution zones.
+
+=== No Data Colocation
+
+Data is not colocated automatically for queries. This may have negative effects on performance if required data is not already on the same node.
+
+//== CMG Idempotency is Broken
+//TODO: Check https://ggsystems.atlassian.net/browse/IGN-23898 before release
+
+
+== Exceptions During Node Startup and Shutdown
+
+Currently, the node startup and shutdown processes are not optimized, and exceptions may happen due to multiple Ignite modules starting and stopping at the same time. This should have no effect of cluster
+
+== Datacenter Replication
+
+Tables cannot be removed if replication is in progress, moreover any schema update operation is not possible until replication is finished (operation will be frozen). You need to stop replication before truncating tables.
+Replication will fail if the source or target table schema is not synced. Schema should be synced manually, after need to restart affected replications.
+In case of rolling restart/upgrade all replications should be stopped/paused before nodes restart.
+
+
+== Deployment Units Limitations
+
+This release has the following limitations with the deployment units:
+
+- Huge deployment units may cause out of memory errors.
+
+- If a node with initial deploy shuts down before the deployment unit was split to other cluster nodes, this deployment unit will be lost. To fix it, you would need to undeploy the unit manually and redeploy it.
+
+== Compute API
+
+This release has the following limitations with the distributed computing:
+
+- Compute API is not available in embedded mode.
+
+- Not all classes are supported as a Job result or Job argument.
+
+- The following data types are supported:
+
+* Boolean
+* Integer
+* Float
+* Double
+* Decimal
+* UUID
+* Instant
+* Date
+
+== Data Import and Export
+
+Partitioned import for parquet misses partitioned column.
+
+Schema inference is not supported for data import.

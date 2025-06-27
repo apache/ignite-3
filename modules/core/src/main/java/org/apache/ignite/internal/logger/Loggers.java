@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.logger;
 
+import java.lang.System.Logger;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 import org.apache.ignite.lang.LoggerFactory;
 
 /**
@@ -58,9 +60,9 @@ public final class Loggers {
      * @return Ignite logger.
      */
     public static IgniteLogger forName(String name) {
-        var delegate = System.getLogger(name);
+        Logger delegate = System.getLogger(name);
 
-        return new IgniteLogger(delegate);
+        return new IgniteLoggerImpl(delegate);
     }
 
     /**
@@ -71,9 +73,9 @@ public final class Loggers {
      * @return Ignite logger.
      */
     public static IgniteLogger forName(String name, LoggerFactory loggerFactory) {
-        var delegate = Objects.requireNonNull(loggerFactory, "loggerFactory").forName(name);
+        Logger delegate = Objects.requireNonNull(loggerFactory, "loggerFactory").forName(name);
 
-        return new IgniteLogger(delegate);
+        return new IgniteLoggerImpl(delegate);
     }
 
     /**
@@ -83,5 +85,17 @@ public final class Loggers {
      */
     public static IgniteLogger voidLogger() {
         return VoidLogger.INSTANCE;
+    }
+
+    /**
+     * Converts to {@link IgniteThrottledLogger}.
+     *
+     * @param logger Logger.
+     * @param executor Executor for cleaning internal structures.
+     */
+    public static IgniteThrottledLogger toThrottledLogger(IgniteLogger logger, Executor executor) {
+        assert logger instanceof IgniteLoggerImpl : logger;
+
+        return new IgniteThrottledLoggerImpl(((IgniteLoggerImpl) logger).delegate, executor);
     }
 }

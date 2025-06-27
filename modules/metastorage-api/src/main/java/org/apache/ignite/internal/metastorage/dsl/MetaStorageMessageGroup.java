@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition.RevisionCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition.ValueCondition;
 import org.apache.ignite.internal.metastorage.dsl.Statement.IfStatement;
@@ -57,4 +58,7 @@ public interface MetaStorageMessageGroup {
 
     /** Message type for {@link UpdateStatement}. */
     short UPDATE_STATEMENT = 10;
+
+    /** Message type for {@link CommandId}. */
+    short COMMAND_ID = 11;
 }

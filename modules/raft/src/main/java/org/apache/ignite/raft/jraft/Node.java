@@ -22,7 +22,7 @@ import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.State;
-import org.apache.ignite.raft.jraft.entity.NodeId;
+import org.apache.ignite.raft.jraft.entity.LogId;import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.entity.UserLog;
@@ -178,10 +178,11 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * Change the configuration of the raft group to |newPeers| , done.run() would be invoked after this operation
      * finishes, describing the detailed result.
      *
-     * @param newPeers new peers to change
+     * @param newConf new peers and learners configuration to apply.
+     * @param term term on which this method was called. If real raft group term will be different - configuration update will be skipped.
      * @param done callback
      */
-    void changePeers(final Configuration newPeers, final Closure done);
+    void changePeersAndLearners(final Configuration newConf, long term, final Closure done);
 
     /**
      * Asynchronously change the configuration of the raft group to |newPeers|. If done closure was completed with {@link Status#OK()},
@@ -189,10 +190,10 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * {@code STAGE_CATCHING_UP}
      *
      * @param newConf new peers and learners configuration to apply.
-     * @param term term on which this method was called.
+     * @param term term on which this method was called. If real raft group term will be different - configuration update will be skipped.
      * @param done callback
      */
-    void changePeersAsync(final Configuration newConf, long term, final Closure done);
+    void changePeersAndLearnersAsync(final Configuration newConf, long term, final Closure done);
 
     /**
      * Reset the configuration of this node individually, without any replication to other peers before this node
@@ -238,6 +239,15 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @param done callback
      */
     void snapshot(final Closure done);
+
+    /**
+     * Start a snapshot immediately if possible. done.run() would be invoked when the snapshot finishes, describing the
+     * detailed result.
+     *
+     * @param done callback
+     * @param forced {@code True} to force snapshot and log truncation.
+     */
+    void snapshot(final Closure done, boolean forced);
 
     /**
      * Reset the election_timeout for the every node.
@@ -327,4 +337,10 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * Returns the value of last replicated log index. Corresponding log entry might not yet be written to the log storage (no flush).
      */
     long lastLogIndex();
+
+    /**
+     * Returns the value of last replicated log index (with its term). Corresponding log entry might not yet be written to the log storage
+     * (no flush).
+     */
+    LogId lastLogIndexAndTerm();
 }

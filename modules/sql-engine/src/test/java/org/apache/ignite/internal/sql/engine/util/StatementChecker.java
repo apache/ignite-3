@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -40,6 +39,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
@@ -420,7 +420,7 @@ public class StatementChecker {
             tables.add(table);
         }
 
-        return new IgniteSchema(DEFAULT_SCHEMA_NAME, 0, tables);
+        return new IgniteSchema(SqlCommon.DEFAULT_SCHEMA_NAME, 0, tables);
     }
 
     private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check, boolean relCheck) {

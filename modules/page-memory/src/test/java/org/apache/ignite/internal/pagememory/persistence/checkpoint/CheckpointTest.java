@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestCheckpointUtils.createDirtyPagesAndPartitions;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -38,11 +39,11 @@ public class CheckpointTest extends BaseIgniteAbstractTest {
 
         assertFalse(new Checkpoint(EMPTY, progress).hasDelta());
 
-        DataRegionDirtyPages<FullPageId[]> biTuple = new DataRegionDirtyPages<>(
+        DirtyPagesAndPartitions dirtyPagesAndPartitions = createDirtyPagesAndPartitions(
                 mock(PersistentPageMemory.class),
-                new FullPageId[]{new FullPageId(0, 1)}
+                new FullPageId(0, 1)
         );
 
-        assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(biTuple)), progress).hasDelta());
+        assertTrue(new Checkpoint(new CheckpointDirtyPages(List.of(dirtyPagesAndPartitions)), progress).hasDelta());
     }
 }

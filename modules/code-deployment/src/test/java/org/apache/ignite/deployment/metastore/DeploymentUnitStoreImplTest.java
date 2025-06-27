@@ -36,7 +36,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.version.Version;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.ClusterStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
@@ -44,12 +45,15 @@ import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
-import org.apache.ignite.internal.failure.NoOpFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -61,6 +65,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test suite for {@link DeploymentUnitStoreImpl}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     private static final String LOCAL_NODE = "localNode";
 
@@ -89,25 +94,37 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
+
     @BeforeEach
     public void setup() {
         nodeHistory.clear();
         clusterHistory.clear();
-        KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir, new NoOpFailureProcessor("test"));
 
-        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(storage);
+        var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
+
+        var storage = new RocksDbKeyValueStorage(
+                LOCAL_NODE,
+                workDir,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
+
+        MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);
         NodeStatusWatchListener nodeListener = new NodeStatusWatchListener(metastore, LOCAL_NODE, nodeEventCallback);
         metastore.registerNodeStatusListener(nodeListener);
         ClusterStatusWatchListener clusterListener = new ClusterStatusWatchListener(clusterEventCallback);
         metastore.registerClusterStatusListener(clusterListener);
 
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         toStop = () -> {
             nodeListener.stop();
 
-            assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         };
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());

@@ -49,9 +49,6 @@ struct odbc_column_meta {
     /** Data type. */
     ignite_type data_type{ignite_type::UNDEFINED};
 
-    /** Data type name. */
-    std::string data_type_name;
-
     /** Nullability. */
     bool nullable{false};
 

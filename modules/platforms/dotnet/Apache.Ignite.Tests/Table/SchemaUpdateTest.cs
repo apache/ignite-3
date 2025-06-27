@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Ignite.Table;
 using Internal.Proto;
 using Internal.Table;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -62,11 +63,17 @@ public class SchemaUpdateTest
     [Test]
     public async Task TestFailedSchemaLoadTaskIsRetried()
     {
-        using var server = new FakeServer(shouldDropConnection: ctx => ctx is { OpCode: ClientOp.SchemasGet, RequestCount: < 3 });
+        using var server = new FakeServer(shouldDropConnection: ctx => ctx is
+        {
+            OpCode: ClientOp.SchemasGet or ClientOp.Heartbeat,
+            RequestCount: < 3
+        });
 
         var cfg = new IgniteClientConfiguration
         {
-            RetryPolicy = new RetryNonePolicy()
+            RetryPolicy = new RetryNonePolicy(),
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace),
+            HeartbeatInterval = TimeSpan.FromDays(1)
         };
 
         using var client = await server.ConnectClientAsync(cfg);

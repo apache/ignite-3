@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.inOrder;
@@ -33,34 +35,46 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import java.util.concurrent.CompletionException;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.hamcrest.CustomMatcher;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 /**
  * Tests for {@link WatchProcessor}.
  */
 public class WatchProcessorTest extends BaseIgniteAbstractTest {
+    private static final HybridTimestamp TIMESTAMP = HybridTimestamp.MAX_VALUE;
+
+    private final FailureManager failureManager = mock(FailureManager.class);
+
     private final WatchProcessor watchProcessor = new WatchProcessor(
             "test",
             WatchProcessorTest::oldEntry,
-            mock(FailureProcessor.class));
+            failureManager
+    );
 
-    private final OnRevisionAppliedCallback revisionCallback = mock(OnRevisionAppliedCallback.class);
+    private final WatchEventHandlingCallback watchEventHandlingCallback = mock(WatchEventHandlingCallback.class);
 
     @BeforeEach
     void setUp() {
-        watchProcessor.setRevisionCallback(revisionCallback);
+        watchProcessor.setWatchEventHandlingCallback(watchEventHandlingCallback);
     }
 
     @AfterEach
@@ -79,10 +93,10 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
         watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0);
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
@@ -92,7 +106,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         verify(listener1).onUpdate(new WatchEvent(entryEvent1));
         verify(listener2).onUpdate(new WatchEvent(entryEvent2));
 
-        verify(revisionCallback).onRevisionApplied(1L);
+        verify(watchEventHandlingCallback).onRevisionApplied(1L);
     }
 
     /**
@@ -106,12 +120,12 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
         watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 2, 0);
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 2, TIMESTAMP);
 
         HybridTimestamp ts = new HybridTimestamp(1, 2);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1), ts);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1), ts);
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
@@ -119,11 +133,11 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         verify(listener1).onUpdate(event);
 
-        verify(revisionCallback).onRevisionApplied(1L);
+        verify(watchEventHandlingCallback).onRevisionApplied(1L);
 
         ts = new HybridTimestamp(2, 3);
 
-        notificationFuture = watchProcessor.notifyWatches(List.of(entry2), ts);
+        notificationFuture = watchProcessor.notifyWatches(2, List.of(entry2), ts);
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
@@ -131,7 +145,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         verify(listener2).onUpdate(event);
 
-        verify(revisionCallback).onRevisionApplied(2L);
+        verify(watchEventHandlingCallback).onRevisionApplied(2L);
     }
 
     /**
@@ -148,18 +162,17 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
         watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0);
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
         assertThat(notificationFuture, willThrow(IllegalStateException.class));
 
         verify(listener1).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
         verify(listener2).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
-        verify(listener2).onError(any(IllegalStateException.class));
 
-        verify(revisionCallback, never()).onRevisionApplied(anyLong());
+        verify(watchEventHandlingCallback, never()).onRevisionApplied(anyLong());
     }
 
     /**
@@ -182,18 +195,18 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
         watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, 0);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0);
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
+        watchProcessor.notifyWatches(1, List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
         verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
         verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
 
-        var entry3 = new EntryImpl("foo".getBytes(UTF_8), null, 2, 0);
-        var entry4 = new EntryImpl("bar".getBytes(UTF_8), null, 2, 0);
+        var entry3 = new EntryImpl("foo".getBytes(UTF_8), null, 2, TIMESTAMP);
+        var entry4 = new EntryImpl("bar".getBytes(UTF_8), null, 2, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry3, entry4), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(2, List.of(entry3, entry4), HybridTimestamp.MAX_VALUE);
 
         verify(listener1, never()).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry3), entry3)));
         verify(listener2, never()).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry4), entry4)));
@@ -216,13 +229,63 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
 
-        var entry = new EntryImpl("bar".getBytes(UTF_8), null, 1, 0);
+        var entry = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry), HybridTimestamp.MAX_VALUE);
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
         verify(listener, never()).onUpdate(any());
+    }
+
+    @Test
+    void exceptionTriggersFailureManager() {
+        WatchListener listener = mockListener();
+        when(listener.onUpdate(any())).thenReturn(failedFuture(new RuntimeException("Oops")));
+
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1), HybridTimestamp.MAX_VALUE);
+
+        assertThat(notificationFuture, willThrow(RuntimeException.class));
+
+        ArgumentCaptor<FailureContext> contextCaptor = ArgumentCaptor.forClass(FailureContext.class);
+        verify(failureManager).process(contextCaptor.capture());
+
+        assertThat(contextCaptor.getValue().error(), is(wrappedRuntimeException("Oops")));
+    }
+
+    private static Matcher<Throwable> wrappedRuntimeException(String message) {
+        return new CustomMatcher<>("a RuntimeException with '" + message + "' message") {
+            @Override
+            public boolean matches(Object actual) {
+                if (actual instanceof CompletionException) {
+                    Throwable cause = ((CompletionException) actual).getCause();
+                    if (cause instanceof RuntimeException) {
+                        return Objects.equals(cause.getMessage(), message);
+                    }
+                }
+                return false;
+            }
+        };
+    }
+
+    @Test
+    void nodeStoppingExceptionDoesNotTriggerFailureManager() {
+        WatchListener listener = mockListener();
+        when(listener.onUpdate(any())).thenReturn(failedFuture(new CompletionException(new NodeStoppingException())));
+
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1), HybridTimestamp.MAX_VALUE);
+
+        assertThat(notificationFuture, willThrow(NodeStoppingException.class));
+
+        verify(failureManager, never()).process(any());
     }
 
     private static WatchListener mockListener() {
@@ -234,10 +297,10 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
     }
 
     private static Entry oldEntry(byte[] key, long revision) {
-        return new EntryImpl(key, null, revision, 0);
+        return new EntryImpl(key, null, revision, TIMESTAMP);
     }
 
     private static Entry oldEntry(Entry entry) {
-        return new EntryImpl(entry.key(), null, entry.revision() - 1, 0);
+        return new EntryImpl(entry.key(), null, entry.revision() - 1, TIMESTAMP);
     }
 }

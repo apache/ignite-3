@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -89,7 +90,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         try {
             Files.createDirectories(spillOutPath);
         } catch (IOException e) {
@@ -178,7 +179,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
         try {

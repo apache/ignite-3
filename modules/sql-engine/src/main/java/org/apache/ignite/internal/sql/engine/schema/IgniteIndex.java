@@ -38,9 +38,12 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Schema object representing an Index.
@@ -145,6 +148,7 @@ public class IgniteIndex {
     public IgniteLogicalIndexScan toRel(
             RelOptCluster cluster,
             RelOptTable relOptTable,
+            @Nullable List<String> names,
             List<RexNode> proj,
             RexNode condition,
             ImmutableBitSet requiredCols
@@ -153,19 +157,17 @@ public class IgniteIndex {
                 .replace(tableDistribution)
                 .replace(type() == Type.HASH ? RelCollations.EMPTY : collation);
 
-        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, name, proj, condition, requiredCols);
+        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, name, names, proj, condition, requiredCols);
     }
 
-    static RelCollation createIndexCollation(CatalogIndexDescriptor descriptor, TableDescriptor tableDescriptor) {
+    static RelCollation createIndexCollation(CatalogIndexDescriptor descriptor, CatalogTableDescriptor tableDescriptor) {
         if (descriptor instanceof CatalogSortedIndexDescriptor) {
             CatalogSortedIndexDescriptor sortedIndexDescriptor = (CatalogSortedIndexDescriptor) descriptor;
             List<CatalogIndexColumnDescriptor> columns = sortedIndexDescriptor.columns();
             List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
 
-            for (int i = 0; i < columns.size(); i++) {
-                CatalogIndexColumnDescriptor column = columns.get(i);
-                ColumnDescriptor columnDesc = tableDescriptor.columnDescriptor(column.name());
-                int fieldIndex = columnDesc.logicalIndex();
+            for (CatalogIndexColumnDescriptor column : columns) {
+                int fieldIndex = tableDescriptor.columnIndex(column.name());
 
                 RelFieldCollation fieldCollation;
                 switch (column.collation()) {
@@ -195,9 +197,10 @@ public class IgniteIndex {
             List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
 
             for (String columnName : columns) {
-                ColumnDescriptor columnDesc = tableDescriptor.columnDescriptor(columnName);
+                CatalogTableColumnDescriptor tableColumn = tableDescriptor.column(columnName);
+                int fieldIndex = tableDescriptor.columns().indexOf(tableColumn);
 
-                fieldCollations.add(new RelFieldCollation(columnDesc.logicalIndex(), Direction.CLUSTERED, NullDirection.UNSPECIFIED));
+                fieldCollations.add(new RelFieldCollation(fieldIndex, Direction.CLUSTERED, NullDirection.UNSPECIFIED));
             }
 
             return RelCollations.of(fieldCollations);

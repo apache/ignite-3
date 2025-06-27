@@ -1,0 +1,11 @@
+# name: test/sql/basic_queries/not_supported_queries.test
+# feature: T131, T132
+# group: [basic_queries]
+
+# SQL T131
+statement error: Failed to validate query. From line 1, column 6 to line 1, column 14: A recursive query is not supported.
+WITH RECURSIVE gen(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM gen) SELECT * FROM gen LIMIT 10
+
+# SQL T132
+statement error: Failed to validate query. From line 1, column 17 to line 1, column 25: A recursive query is not supported.
+SELECT 10=(WITH RECURSIVE gen(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM gen WHERE i < 10) SELECT count(*) FROM gen) FROM system_range(1, 2)

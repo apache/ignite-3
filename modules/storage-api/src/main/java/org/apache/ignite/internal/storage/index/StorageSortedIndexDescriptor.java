@@ -50,6 +50,8 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
         private final boolean asc;
 
+        private final boolean nullsFirst;
+
         /**
          * Creates a Column Descriptor.
          *
@@ -57,12 +59,20 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
          * @param type Type of the column.
          * @param nullable Flag indicating that the column may contain {@code null}s.
          * @param asc Sort order of the column.
+         * @param nullsFirst Flag denotes whether to put NULL values first or last in the sorted stream.
          */
-        public StorageSortedIndexColumnDescriptor(String name, NativeType type, boolean nullable, boolean asc) {
+        public StorageSortedIndexColumnDescriptor(
+                String name,
+                NativeType type,
+                boolean nullable,
+                boolean asc,
+                boolean nullsFirst
+        ) {
             this.name = name;
             this.type = type;
             this.nullable = nullable;
             this.asc = asc;
+            this.nullsFirst = nullsFirst;
         }
 
         @Override
@@ -89,6 +99,13 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
             return asc;
         }
 
+        /**
+         * Returns {@code true} if nulls in this column are put first, returns {@code false} otherwise.
+         */
+        public boolean nullsFirst() {
+            return nullsFirst;
+        }
+
         @Override
         public String toString() {
             return S.toString(this);
@@ -102,7 +119,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
     private final BinaryTupleSchema binaryTupleSchema;
 
-    private final boolean pk;
+    private final boolean mustBeBuilt;
 
     /**
      * Constructor.
@@ -111,7 +128,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
      * @param index Catalog index descriptor.
      */
     public StorageSortedIndexDescriptor(CatalogTableDescriptor table, CatalogSortedIndexDescriptor index) {
-        this(index.id(), extractIndexColumnsConfiguration(table, index), table.primaryKeyIndexId() == index.id());
+        this(index.id(), extractIndexColumnsConfiguration(table, index), !index.isCreatedWithTable());
     }
 
     /**
@@ -119,13 +136,13 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
      *
      * @param indexId Index ID.
      * @param columnDescriptors Column descriptors.
-     * @param pk Primary index flag.
+     * @param mustBeBuilt Flag indicating that this index must be built by a background task.
      */
-    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors, boolean pk) {
+    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors, boolean mustBeBuilt) {
         this.id = indexId;
         this.columns = List.copyOf(columnDescriptors);
         this.binaryTupleSchema = createSchema(columns);
-        this.pk = pk;
+        this.mustBeBuilt = mustBeBuilt;
     }
 
     private static BinaryTupleSchema createSchema(List<StorageSortedIndexColumnDescriptor> columns) {
@@ -147,8 +164,8 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
     }
 
     @Override
-    public boolean isPk() {
-        return pk;
+    public boolean mustBeBuilt() {
+        return mustBeBuilt;
     }
 
     @Override
@@ -179,7 +196,9 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
                     CatalogColumnCollation collation = columnDescriptor.collation();
 
-                    return new StorageSortedIndexColumnDescriptor(columnName, getNativeType(column), column.nullable(), collation.asc());
+                    return new StorageSortedIndexColumnDescriptor(
+                            columnName, getNativeType(column), column.nullable(), collation.asc(), collation.nullsFirst()
+                    );
                 })
                 .collect(toList());
     }

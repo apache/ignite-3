@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,7 +31,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -83,12 +81,8 @@ public final class NativeTypeValues {
                 return null;
             case DECIMAL:
                 return BigDecimal.valueOf(i + ((double) i / 1000));
-            case NUMBER:
-                return BigInteger.valueOf(i);
             case UUID:
                 return new UUID(i, i);
-            case BITMASK:
-                return new byte[]{(byte) i};
             case DURATION:
                 return Duration.ofNanos(i);
             case DATETIME:
@@ -109,20 +103,9 @@ public final class NativeTypeValues {
         }
     }
 
-    /** Returns a value of a {@link NativeType native type} that corresponds to the given {@link NativeTypeSpec}. */
-    public static Object value(int i, NativeTypeSpec spec) {
-        Object value = value(i, spec.asColumnType());
-
-        assert value != null : "Returned a null value for " + spec;
-        return value;
-    }
-
     /** Returns a value of a {@link NativeType native type} that corresponds to the given {@link RelDataType}. */
     @Nullable
     public static Object value(int i, RelDataType type) {
-        ColumnType columnType = TypeUtils.columnType(type);
-
-        assert columnType != null : "Returned a null column type for " + type;
-        return value(i, columnType);
+        return value(i, TypeUtils.columnType(type));
     }
 }

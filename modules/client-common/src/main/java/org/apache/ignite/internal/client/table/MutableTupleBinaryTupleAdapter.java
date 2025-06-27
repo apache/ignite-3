@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,6 +27,8 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -56,7 +59,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
      */
     public MutableTupleBinaryTupleAdapter(BinaryTupleReader binaryTuple, int columnCount, @Nullable BitSet noValueSet) {
         assert binaryTuple != null : "binaryTuple != null";
-        assert columnCount > 0 : "columnCount > 0";
 
         this.binaryTuple = binaryTuple;
         this.columnCount = columnCount;
@@ -258,6 +260,22 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     /** {@inheritDoc} */
     @Override
+    public BigDecimal decimalValue(String columnName) {
+        return tuple != null
+                ? tuple.decimalValue(columnName)
+                : binaryTuple.decimalValue(validateSchemaColumnType(columnName, ColumnType.DECIMAL), Integer.MIN_VALUE);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return tuple != null
+                ? tuple.decimalValue(columnIndex)
+                : binaryTuple.decimalValue(validateSchemaColumnType(columnIndex, ColumnType.DECIMAL), Integer.MIN_VALUE);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String stringValue(String columnName) {
         return tuple != null
                 ? tuple.stringValue(columnName)
@@ -274,6 +292,22 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        return tuple != null
+                ? tuple.bytesValue(columnName)
+                : binaryTuple.bytesValue(validateSchemaColumnType(columnName, ColumnType.BYTE_ARRAY));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        return tuple != null
+                ? tuple.bytesValue(columnIndex)
+                : binaryTuple.bytesValue(validateSchemaColumnType(columnIndex, ColumnType.BYTE_ARRAY));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         return tuple != null
                 ? tuple.uuidValue(columnName)
@@ -286,22 +320,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         return tuple != null
                 ? tuple.uuidValue(columnIndex)
                 : binaryTuple.uuidValue(validateSchemaColumnType(columnIndex, ColumnType.UUID));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(String columnName) {
-        return tuple != null
-                ? tuple.bitmaskValue(columnName)
-                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnName, ColumnType.BITMASK));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
-        return tuple != null
-                ? tuple.bitmaskValue(columnIndex)
-                : binaryTuple.bitmaskValue(validateSchemaColumnType(columnIndex, ColumnType.BITMASK));
     }
 
     /** {@inheritDoc} */
@@ -372,7 +390,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     @Override
     public Tuple set(String columnName, @Nullable Object value) {
         if (tuple == null) {
-            tuple = Tuple.create(this);
+            tuple = Tuple.copy(this);
 
             //noinspection DataFlowIssue
             binaryTuple = null;
@@ -482,7 +500,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     private String schemaColumnName0(int publicIndex) {
         Objects.checkIndex(publicIndex, columnCount);
 
-        return schemaColumnName(binaryTupleIndex(publicIndex));
+        return IgniteNameUtils.quoteIfNeeded(schemaColumnName(binaryTupleIndex(publicIndex)));
     }
 
     private @Nullable Object object(int binaryTupleIndex) {
@@ -532,9 +550,6 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             case UUID:
                 return binaryTuple.uuidValue(binaryTupleIndex);
 
-            case BITMASK:
-                return binaryTuple.bitmaskValue(binaryTupleIndex);
-
             case STRING:
                 return binaryTuple.stringValue(binaryTupleIndex);
 
@@ -547,11 +562,13 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
             case DURATION:
                 return binaryTuple.durationValue(binaryTupleIndex);
 
-            case NUMBER:
-                return binaryTuple.numberValue(binaryTupleIndex);
-
             default:
                 throw new IllegalStateException("Unsupported type: " + type);
         }
+    }
+
+    @Override
+    public String toString() {
+        return S.tupleToString(this);
     }
 }

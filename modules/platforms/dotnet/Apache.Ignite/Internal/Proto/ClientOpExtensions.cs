@@ -33,8 +33,8 @@ namespace Apache.Ignite.Internal.Proto
         {
             return op switch
             {
-                ClientOp.TablesGet => ClientOperationType.TablesGet,
-                ClientOp.TableGet => ClientOperationType.TableGet,
+                ClientOp.TablesGet or ClientOp.TablesGetQualified => ClientOperationType.TablesGet,
+                ClientOp.TableGet or ClientOp.TableGetQualified => ClientOperationType.TableGet,
                 ClientOp.SchemasGet => null,
                 ClientOp.TupleUpsert => ClientOperationType.TupleUpsert,
                 ClientOp.TupleGet => ClientOperationType.TupleGet,
@@ -54,6 +54,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.TupleContainsKey => ClientOperationType.TupleContainsKey,
                 ClientOp.ComputeExecute => ClientOperationType.ComputeExecute,
                 ClientOp.ComputeExecuteColocated => ClientOperationType.ComputeExecute,
+                ClientOp.ComputeExecuteMapReduce => ClientOperationType.ComputeExecuteMapReduce,
                 ClientOp.ComputeGetStatus => ClientOperationType.ComputeGetStatus,
                 ClientOp.ComputeCancel => ClientOperationType.ComputeCancel,
                 ClientOp.ComputeChangePriority => ClientOperationType.ComputeChangePriority,
@@ -69,6 +70,10 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.PartitionAssignmentGet => null,
                 ClientOp.SqlParamMeta => null,
                 ClientOp.StreamerBatchSend => ClientOperationType.StreamerBatchSend,
+                ClientOp.PrimaryReplicasGet => ClientOperationType.PrimaryReplicasGet,
+                ClientOp.StreamerWithReceiverBatchSend => ClientOperationType.StreamerBatchSend,
+                ClientOp.ServerOpResponse => null,
+                ClientOp.OperationCancel => null,
 
                 // Do not return null from default arm intentionally so we don't forget to update this when new ClientOp values are added.
                 // ReSharper disable once PatternIsRedundant

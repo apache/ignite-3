@@ -17,57 +17,69 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
+import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.client.handler.NotificationSender;
-import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.NodeNotFoundException;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.MarshallerProvider;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute execute request.
  */
 public class ClientComputeExecuteRequest {
+    private static final IgniteLogger LOG = Loggers.forClass(ClientComputeExecuteRequest.class);
+
     /**
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param compute Compute.
      * @param cluster Cluster.
      * @param notificationSender Notification sender.
+     * @param enablePlatformJobs Enable platform jobs.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteComputeInternal compute,
             ClusterService cluster,
-            NotificationSender notificationSender
+            NotificationSender notificationSender,
+            boolean enablePlatformJobs
     ) {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
+        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
 
-        List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
-        String jobClassName = in.unpackString();
-        JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-        Object[] args = unpackArgs(in);
-
-        JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
-        sendResultAndStatus(execution, notificationSender);
+        CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
+                candidates, job.deploymentUnits(), job.jobClassName(), job.options(), job.arg(), null
+        );
+        sendResultAndState(executionFut, notificationSender);
 
         //noinspection DataFlowIssue
-        return execution.idAsync().thenAccept(out::packUuid);
+        return executionFut.thenCompose(execution ->
+                execution.idAsync().thenApply(jobId -> out -> packSubmitResult(out, jobId, execution.node()))
+        );
     }
 
     private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
@@ -96,39 +108,54 @@ public class ClientComputeExecuteRequest {
         return nodes;
     }
 
-    static CompletableFuture<Object> sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
-        return execution.resultAsync().whenComplete((val, err) ->
-                execution.statusAsync().whenComplete((status, errStatus) ->
-                        notificationSender.sendNotification(w -> {
-                            w.packObjectAsBinaryTuple(val);
-                            packJobStatus(w, status);
-                        }, err)));
+    static CompletableFuture<ComputeJobDataHolder> sendResultAndState(
+            CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut,
+            NotificationSender notificationSender
+    ) {
+        return executionFut.handle((execution, throwable) -> {
+            if (throwable != null) {
+                notificationSender.sendNotification(null, throwable, NULL_HYBRID_TIMESTAMP);
+                return CompletableFuture.<ComputeJobDataHolder>failedFuture(throwable);
+            } else {
+                return execution.resultAsync().whenComplete((val, err) ->
+                        execution.stateAsync().whenComplete((state, errState) -> {
+                            try {
+                                notificationSender.sendNotification(
+                                        w -> {
+                                            Marshaller<Object, byte[]> marshaller = extractMarshaller(execution);
+                                            ClientComputeJobPacker.packJobResult(val, marshaller, w);
+                                            packJobState(w, state);
+                                        },
+                                        err,
+                                        hybridTimestamp(val));
+                            } catch (Throwable e) {
+                                LOG.error("Failed to send job result notification: " + e.getMessage(), e);
+                            }
+                        }));
+            }
+        }).thenCompose(Function.identity());
     }
 
-    /**
-     * Unpacks args.
-     *
-     * @param in Unpacker.
-     * @return Args array.
-     */
-    static Object[] unpackArgs(ClientMessageUnpacker in) {
-        return in.unpackObjectArrayFromBinaryTuple();
+    static void packSubmitResult(ClientMessagePacker out, UUID jobId, ClusterNode node) {
+        out.packUuid(jobId);
+        packClusterNode(node, out);
     }
 
-    /**
-     * Unpacks deployment units.
-     *
-     * @param in Unpacker.
-     * @return Deployment units.
-     */
-    static List<DeploymentUnit> unpackDeploymentUnits(ClientMessageUnpacker in) {
-        int size = in.tryUnpackNil() ? 0 : in.unpackInt();
-        List<DeploymentUnit> res = new ArrayList<>(size);
-
-        for (int i = 0; i < size; i++) {
-            res.add(new DeploymentUnit(in.unpackString(), in.unpackString()));
+    private static long hybridTimestamp(ComputeJobDataHolder holder) {
+        if (holder == null) {
+            return NULL_HYBRID_TIMESTAMP;
         }
 
-        return res;
+        Long observableTimestamp = holder.observableTimestamp();
+
+        return observableTimestamp == null ? NULL_HYBRID_TIMESTAMP : observableTimestamp;
+    }
+
+    private static <T> @Nullable Marshaller<T, byte[]> extractMarshaller(JobExecution<ComputeJobDataHolder> e) {
+        if (e instanceof MarshallerProvider) {
+            return ((MarshallerProvider<T>) e).resultMarshaller();
+        }
+
+        return null;
     }
 }

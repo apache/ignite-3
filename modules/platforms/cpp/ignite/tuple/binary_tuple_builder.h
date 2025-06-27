@@ -19,9 +19,9 @@
 
 #include "binary_tuple_common.h"
 
+#include "ignite/common/detail/bytes.h"
 #include <ignite/common/big_decimal.h>
 #include <ignite/common/big_integer.h>
-#include <ignite/common/bytes.h>
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_date_time.h>
@@ -154,6 +154,11 @@ public:
      * @param value Element value.
      */
     void claim_double(double value) noexcept { claim(gauge_double(value)); }
+
+    /**
+     * @brief Assigns a binary value for the next element.
+     */
+    void claim_uuid() noexcept { claim(gauge_uuid()); }
 
     /**
      * @brief Assigns a binary value for the next element.
@@ -437,9 +442,7 @@ private:
         static_assert(std::is_signed_v<SRC>);
         static_assert(std::is_signed_v<TGT>);
         static_assert(sizeof(TGT) < sizeof(SRC));
-        // Check if TGT::min <= value <= TGT::max.
-        return std::make_unsigned_t<SRC>(value + std::numeric_limits<TGT>::max() + 1)
-            <= std::numeric_limits<std::make_unsigned_t<TGT>>::max();
+        return std::numeric_limits<TGT>::min() <= value && value <= std::numeric_limits<TGT>::max();
     }
 
     /**
@@ -543,7 +546,14 @@ private:
      * @param value Actual element value.
      * @return Required size.
      */
-    static tuple_size_t gauge_uuid(const uuid & /*value*/) noexcept { return 16; }
+    static tuple_size_t gauge_uuid() noexcept { return 16; }
+
+    /**
+     * @brief Computes required binary size for a given value.
+     *
+     * @return Required size.
+     */
+    static tuple_size_t gauge_uuid(const uuid & /*value*/) noexcept { return gauge_uuid(); }
 
     /**
      * @brief Computes required binary size for a given value.
@@ -646,7 +656,7 @@ private:
      * @brief Adds an entry to the offset table.
      */
     void append_entry() {
-        auto offset = bytes::htol<std::ptrdiff_t>(next_value - value_base);
+        auto offset = detail::bytes::htol<std::ptrdiff_t>(next_value - value_base);
         std::memcpy(next_entry, &offset, entry_size);
         next_entry += entry_size;
         element_index++;

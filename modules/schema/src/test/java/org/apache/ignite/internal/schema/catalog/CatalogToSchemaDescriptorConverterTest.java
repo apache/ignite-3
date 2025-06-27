@@ -34,18 +34,16 @@ import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -59,29 +57,25 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     private static final int TEST_SCALE = 5;
 
     @ParameterizedTest
-    @EnumSource(NativeTypeSpec.class)
-    public void convertColumnType(NativeTypeSpec typeSpec) {
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    public void convertColumnType(ColumnType typeSpec) {
         CatalogTableColumnDescriptor columnDescriptor = TestColumnDescriptors.forSpec(typeSpec);
 
         NativeType type = CatalogToSchemaDescriptorConverter.convertType(columnDescriptor);
 
         if (columnDescriptor.type() == ColumnType.BYTE_ARRAY) {
-            assertThat(type.spec(), is(NativeTypeSpec.BYTES));
+            assertThat(type.spec(), is(ColumnType.BYTE_ARRAY));
         } else {
             assertThat(type.spec().name(), equalTo(columnDescriptor.type().name()));
         }
 
         if (type instanceof VarlenNativeType) {
             assertThat(((VarlenNativeType) type).length(), equalTo(TEST_LENGTH));
-        } else if (type instanceof NumberNativeType) {
-            assertThat(((NumberNativeType) type).precision(), equalTo(columnDescriptor.precision()));
         } else if (type instanceof DecimalNativeType) {
             assertThat(((DecimalNativeType) type).precision(), equalTo(columnDescriptor.precision()));
             assertThat(((DecimalNativeType) type).scale(), equalTo(columnDescriptor.scale()));
         } else if (type instanceof TemporalNativeType) {
             assertThat(((TemporalNativeType) type).precision(), equalTo(columnDescriptor.precision()));
-        } else if (type instanceof BitmaskNativeType) {
-            assertThat(((BitmaskNativeType) type).bits(), equalTo(TEST_LENGTH));
         } else {
             assertThat("Unknown type: " + type.getClass(), type.getClass(), equalTo(NativeType.class));
         }
@@ -105,12 +99,12 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     @Test
     public void convertColumnDescriptorFunctionalDefault() {
         String columnName = "UUID";
-        String functionName = DefaultValueGenerator.GEN_RANDOM_UUID.name();
+        String functionName = DefaultValueGenerator.RAND_UUID.name();
         DefaultValue defaultValue = DefaultValue.functionCall(functionName);
 
         CatalogTableColumnDescriptor columnDescriptor = new CatalogTableColumnDescriptor(
-                NativeTypeSpec.UUID.name(),
-                NativeTypeSpec.UUID.asColumnType(),
+                ColumnType.UUID.name(),
+                ColumnType.UUID,
                 false,
                 TEST_LENGTH,
                 TEST_PRECISION,
@@ -171,19 +165,16 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     }
 
     private static class TestColumnDescriptors {
-        static CatalogTableColumnDescriptor forSpec(NativeTypeSpec spec) {
-            return new CatalogTableColumnDescriptor(spec.name(), spec.asColumnType(), false, TEST_PRECISION, TEST_SCALE, TEST_LENGTH, null);
+        static CatalogTableColumnDescriptor forSpec(ColumnType spec) {
+            return new CatalogTableColumnDescriptor(spec.name(), spec, false, TEST_PRECISION, TEST_SCALE, TEST_LENGTH, null);
         }
 
         static CatalogTableColumnDescriptor forType(DefaultValueArg arg) {
             NativeType type = arg.type;
 
-            int length = type instanceof VarlenNativeType ? ((VarlenNativeType) type).length()
-                    : type instanceof BitmaskNativeType ? ((BitmaskNativeType) type).bits()
-                    : 0;
+            int length = type instanceof VarlenNativeType ? ((VarlenNativeType) type).length() : 0;
 
             int precision = type instanceof DecimalNativeType ? ((DecimalNativeType) type).precision()
-                    : type instanceof NumberNativeType ? ((NumberNativeType) type).precision()
                     : type instanceof TemporalNativeType ? ((TemporalNativeType) type).precision()
                     : 0;
 
@@ -191,7 +182,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
 
             return new CatalogTableColumnDescriptor(
                     type.spec().name(),
-                    type.spec().asColumnType(),
+                    type.spec(),
                     arg.defaultValue == null,
                     precision,
                     scale,

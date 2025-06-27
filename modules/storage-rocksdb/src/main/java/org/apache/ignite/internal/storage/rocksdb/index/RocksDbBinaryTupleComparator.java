@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.nio.ByteBuffer;
+import java.util.Comparator;
 import java.util.List;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.rocksdb.AbstractComparator;
 import org.rocksdb.ComparatorOptions;
 
@@ -29,7 +30,7 @@ import org.rocksdb.ComparatorOptions;
  * {@link AbstractComparator} implementation that compares Binary Tuples.
  */
 public class RocksDbBinaryTupleComparator extends AbstractComparator {
-    private final BinaryTupleComparator comparator;
+    private final Comparator<ByteBuffer> comparator;
 
     /** Options needed for resource management. */
     private final ComparatorOptions options;
@@ -47,7 +48,7 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
         super(options);
 
         this.options = options;
-        this.comparator = new BinaryTupleComparator(columns);
+        this.comparator = StorageUtils.binaryTupleComparator(columns);
     }
 
     @Override

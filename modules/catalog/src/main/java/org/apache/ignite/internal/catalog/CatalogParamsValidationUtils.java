@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -45,7 +45,7 @@ public class CatalogParamsValidationUtils {
      */
     public static void validateIdentifier(@Nullable String identifier, String context) throws CatalogValidationException {
         if (StringUtils.nullOrBlank(identifier)) {
-            throw new CatalogValidationException(format("{} can't be null or blank", context));
+            throw new CatalogValidationException("{} can't be null or blank.", context);
         }
     }
 
@@ -59,7 +59,7 @@ public class CatalogParamsValidationUtils {
 
         if (value < min || (max != null && value > max)) {
             throw new CatalogValidationException(
-                    "{}: [value={}, min={}" + (max == null ? ']' : ", max={}]"),
+                    "{}: [value={}, min={}" + (max == null ? ']' : ", max={}]."),
                     errorPrefix, value, min, max
             );
         }
@@ -75,7 +75,7 @@ public class CatalogParamsValidationUtils {
     ) {
         if (autoAdjust != null && (scaleUp != null || scaleDown != null)) {
             throw new CatalogValidationException(
-                    "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}]",
+                    "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}].",
                     autoAdjust, scaleUp, scaleDown
             );
         }
@@ -95,7 +95,7 @@ public class CatalogParamsValidationUtils {
             String error = e.getMessage() == null ? "Unknown JsonPath compilation error." : e.getMessage();
 
             throw new CatalogValidationException(
-                    "Invalid filter: [value={}, error={}]",
+                    "Invalid filter: [value={}, error={}].",
                     e,
                     filter, error
             );
@@ -108,14 +108,37 @@ public class CatalogParamsValidationUtils {
     public static void validateStorageProfiles(List<StorageProfileParams> storageProfiles) {
         if (storageProfiles == null) {
             throw new CatalogValidationException(
-                    "Storage profile cannot be null"
+                    "Storage profile cannot be null."
             );
         }
 
         if (storageProfiles.isEmpty()) {
             throw new CatalogValidationException(
-                    "Storage profile cannot be empty"
+                    "Storage profile cannot be empty."
             );
+        }
+    }
+
+    /**
+     * Validates that given consistency mode is has only the expected values.
+     *
+     * @param consistencyMode Consistency mode to validate.
+     */
+    public static void validateConsistencyMode(@Nullable ConsistencyMode consistencyMode) {
+        if (consistencyMode != null
+                && !(consistencyMode == ConsistencyMode.HIGH_AVAILABILITY || consistencyMode == ConsistencyMode.STRONG_CONSISTENCY)) {
+            throw new CatalogValidationException("Consistency mode is not supported: [mode={}].", consistencyMode);
+        }
+    }
+
+    /**
+     * Validates that given partitions number is null, meaning that altering of a partitions number is forbidden.
+     *
+     * @param partitions Partitions number to validate.
+     */
+    public static void validatePartition(@Nullable Integer partitions) {
+        if (partitions != null) {
+            throw new CatalogValidationException("Partitions number cannot be altered.");
         }
     }
 
@@ -128,15 +151,15 @@ public class CatalogParamsValidationUtils {
      */
     public static void ensureNoTableIndexOrSysViewExistsWithGivenName(CatalogSchemaDescriptor schema, String name) {
         if (schema.aliveIndex(name) != null) {
-            throw new IndexExistsValidationException(format("Index with name '{}.{}' already exists", schema.name(), name));
+            throw new CatalogValidationException("Index with name '{}.{}' already exists.", schema.name(), name);
         }
 
         if (schema.table(name) != null) {
-            throw new TableExistsValidationException(format("Table with name '{}.{}' already exists", schema.name(), name));
+            throw new CatalogValidationException("Table with name '{}.{}' already exists.", schema.name(), name);
         }
 
         if (schema.systemView(name) != null) {
-            throw new CatalogValidationException(format("System view with name '{}.{}' already exists", schema.name(), name));
+            throw new CatalogValidationException("System view with name '{}.{}' already exists.", schema.name(), name);
         }
     }
 
@@ -152,12 +175,22 @@ public class CatalogParamsValidationUtils {
 
         if (!zonesStorageProfile.contains(tableStorageProfile)) {
             throw new CatalogValidationException(
-                    format(
-                            "Zone with name '{}' does not contain table's storage profile [storageProfile='{}']",
-                            zone.name(),
-                            tableStorageProfile
-                    )
+                    "Zone with name '{}' does not contain table's storage profile [storageProfile='{}'].",
+                    zone.name(),
+                    tableStorageProfile
             );
+        }
+    }
+
+    /**
+     * Validates that given schema name is not a reserved system name.
+     *
+     * @param schemaName Schema name to check.
+     * @throws CatalogValidationException If given schema name is reserved system name.
+     */
+    public static void ensureNonSystemSchemaUsed(String schemaName) {
+        if (schemaName != null && CatalogUtils.isSystemSchema(schemaName)) {
+            throw new CatalogValidationException("Operations with system schemas are not allowed, schema: {}", schemaName);
         }
     }
 }

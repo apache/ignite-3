@@ -102,13 +102,12 @@ buildDeb {
 
 
 // --- release setup --- //
-tasks.register('createChecksums', Checksum) {
+def createChecksums = tasks.register('createChecksums', Checksum) {
     onlyIf {
         project.hasProperty('platforms.enable')
     }
-    dependsOn distZip
 
-    inputFiles.from distZip.outputs.files
+    inputFiles.from distZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 

@@ -18,33 +18,42 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToClosedState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToDestroyedState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor.GradualTaskCancellationException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
+import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -52,13 +61,12 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Abstract table storage implementation based on {@link PageMemory}.
  */
-public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    private final MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
+public abstract class AbstractPageMemoryTableStorage<T extends AbstractPageMemoryMvPartitionStorage> implements MvTableStorage {
+    final MvPartitionStorages<T> mvPartitionStorages;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping of the component. */
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
+    private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Table descriptor. */
     private final StorageTableDescriptor tableDescriptor;
@@ -93,13 +101,18 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      */
     public abstract DataRegion<?> dataRegion();
 
+    /** Returns storage engine for the table. */
+    public abstract AbstractPageMemoryStorageEngine engine();
+
     @Override
     public CompletableFuture<Void> destroy() {
-        if (!stopGuard.compareAndSet(false, true)) {
+        if (!transitionToDestroyedState(state)) {
             return nullCompletedFuture();
         }
 
         busyLock.block();
+
+        beforeCloseOrDestroy();
 
         return mvPartitionStorages.getAllForCloseOrDestroy()
                 .thenCompose(storages -> allOf(storages.stream().map(this::destroyMvPartitionStorage).toArray(CompletableFuture[]::new)))
@@ -121,7 +134,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * @param partitionId Partition ID.
      * @throws StorageException If there is an error while creating the mv partition storage.
      */
-    public abstract AbstractPageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) throws StorageException;
+    public abstract T createMvPartitionStorage(int partitionId) throws StorageException;
 
     /**
      * Destroys the partition multi-version storage and all its indexes.
@@ -134,7 +147,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) {
         return busy(() -> mvPartitionStorages.create(partitionId, partId -> {
-            AbstractPageMemoryMvPartitionStorage partition = createMvPartitionStorage(partitionId);
+            T partition = createMvPartitionStorage(partitionId);
 
             partition.start();
 
@@ -149,32 +162,38 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) {
-        return busy(() -> mvPartitionStorages.destroy(partitionId, this::destroyMvPartitionStorage));
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            return mvPartitionStorages.destroy(partitionId, this::destroyMvPartitionStorage);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        return busy(() -> {
+    public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
+        busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
-            if (partitionStorage == null) {
-                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            // TODO: IGNITE-24926 - throw StorageException if partitionStorage is absent.
+            if (partitionStorage != null) {
+                partitionStorage.createSortedIndex(indexDescriptor);
             }
-
-            return partitionStorage.getOrCreateSortedIndex(indexDescriptor);
         });
     }
 
     @Override
-    public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        return busy(() -> {
+    public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
+        busy(() -> {
             AbstractPageMemoryMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
 
-            if (partitionStorage == null) {
-                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            // TODO: IGNITE-24926 - throw StorageException if partitionStorage is absent.
+            if (partitionStorage != null) {
+                partitionStorage.createHashIndex(indexDescriptor);
             }
-
-            return partitionStorage.getOrCreateHashIndex(indexDescriptor);
         });
     }
 
@@ -185,14 +204,25 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         }
 
         try {
-            List<AbstractPageMemoryMvPartitionStorage> storages = mvPartitionStorages.getAll();
+            List<T> storages = mvPartitionStorages.getAll();
 
             var destroyFutures = new CompletableFuture[storages.size()];
 
             for (int i = 0; i < storages.size(); i++) {
                 AbstractPageMemoryMvPartitionStorage storage = storages.get(i);
 
-                destroyFutures[i] = storage.runConsistently(locker -> storage.destroyIndex(indexId));
+                try {
+                    destroyFutures[i] = storage.runConsistently(locker -> storage.destroyIndex(indexId))
+                            .handle((res, ex) -> {
+                                if (ex != null && isIgnorableIndexDestructionException(ex)) {
+                                    return CompletableFutures.<Void>nullCompletedFuture();
+                                }
+                                return CompletableFutures.completedOrFailedFuture(res, ex);
+                            })
+                            .thenCompose(identity());
+                } catch (StorageDestroyedException e) {
+                    destroyFutures[i] = nullCompletedFuture();
+                }
             }
 
             return allOf(destroyFutures);
@@ -201,17 +231,28 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         }
     }
 
+    private static boolean isIgnorableIndexDestructionException(Throwable ex) {
+        Throwable cause = ExceptionUtils.unwrapCause(ex);
+
+        // Ignore StorageDestroyedException as all we want is to destroy the storage.
+        return cause instanceof StorageDestroyedException
+                // Also ignore GradualTaskCancellationException as it means that either the partition has been destroyed
+                // or that the node is being stopped (and we cannot proceed; destruction will be reattempted after restart).
+                || cause instanceof GradualTaskCancellationException;
+    }
+
     @Override
     public void close() throws StorageException {
-        if (!stopGuard.compareAndSet(false, true)) {
+        if (!transitionToClosedState(state, this::createStorageInfo)) {
             return;
         }
 
         busyLock.block();
 
+        beforeCloseOrDestroy();
+
         try {
-            CompletableFuture<List<AbstractPageMemoryMvPartitionStorage>> allForCloseOrDestroy
-                    = mvPartitionStorages.getAllForCloseOrDestroy();
+            CompletableFuture<List<T>> allForCloseOrDestroy = mvPartitionStorages.getAllForCloseOrDestroy();
 
             // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
             IgniteUtils.closeAllManually(allForCloseOrDestroy.get(10, TimeUnit.SECONDS).stream());
@@ -220,13 +261,38 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
         }
     }
 
-    private <V> V busy(Supplier<V> supplier) {
-        return inBusyLock(busyLock, supplier);
+    private String createStorageInfo() {
+        return IgniteStringFormatter.format("tableId={}", getTableId());
     }
 
+    private <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void busy(Runnable action) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            action.run();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    // TODO IGNITE-25739 Optimise rebalance for persistent page storages to avoid waiting for checkpoint after storage destruction.
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
+        return busy(() -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.startRebalance();
 
             return clearStorageAndUpdateDataStructures(mvPartitionStorage)
@@ -242,7 +308,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage ->
+        return busy(() -> mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage ->
                 clearStorageAndUpdateDataStructures(mvPartitionStorage)
                         .thenAccept(unused -> {
                             mvPartitionStorage.runConsistently(locker -> {
@@ -257,17 +323,17 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(
-            int partitionId,
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            byte[] groupConfig
-    ) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta) {
+        return busy(() -> mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.runConsistently(locker -> {
-                mvPartitionStorage.lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
+                mvPartitionStorage.lastAppliedOnRebalance(partitionMeta.lastAppliedIndex(), partitionMeta.lastAppliedTerm());
+                mvPartitionStorage.committedGroupConfigurationOnRebalance(partitionMeta.groupConfig());
 
-                mvPartitionStorage.committedGroupConfigurationOnRebalance(groupConfig);
+                LeaseInfo leaseInfo = partitionMeta.leaseInfo();
+
+                if (leaseInfo != null) {
+                    mvPartitionStorage.updateLeaseOnRebalance(leaseInfo);
+                }
 
                 return null;
             });
@@ -280,7 +346,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> clearPartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.clear(partitionId, mvPartitionStorage -> {
+        return busy(() -> mvPartitionStorages.clear(partitionId, mvPartitionStorage -> {
             try {
                 mvPartitionStorage.startCleanup();
 
@@ -329,5 +395,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public StorageTableDescriptor getTableDescriptor() {
         return tableDescriptor;
+    }
+
+    protected void beforeCloseOrDestroy() {
+        // No-op.
     }
 }

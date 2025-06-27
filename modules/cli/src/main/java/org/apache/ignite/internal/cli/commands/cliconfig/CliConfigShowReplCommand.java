@@ -23,7 +23,6 @@ import org.apache.ignite.internal.cli.call.cliconfig.CliConfigShowCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
-import org.apache.ignite.internal.cli.decorators.ProfileDecorator;
 import picocli.CommandLine.Command;
 
 /**
@@ -36,13 +35,8 @@ public class CliConfigShowReplCommand extends BaseCommand implements Callable<In
 
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(StringCallInput::new)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .decorator(new ProfileDecorator())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 }

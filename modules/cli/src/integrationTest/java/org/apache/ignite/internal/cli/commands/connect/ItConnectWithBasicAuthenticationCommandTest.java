@@ -22,21 +22,23 @@ import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManage
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.readClusterConfigurationWithEnabledAuth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import jakarta.inject.Inject;
 import java.io.IOException;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTestBase {
-
     @Inject
     private ApiClientFactory apiClientFactory;
+
+    @Inject
+    private Session session;
 
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
@@ -59,7 +61,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                this::assertErrOutputIsEmpty
+                this::assertErrOutputIsEmpty,
+                () -> assertTerminalOutputIs(AUTH_ERROR_QUESTION)
         );
 
         // And prompt is still disconnected
@@ -80,7 +83,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputContains("Connected to http://localhost:10300"),
+                this::assertTerminalOutputIsEmpty
         );
 
         // And prompt shows username and node name
@@ -106,7 +110,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                this::assertErrOutputIsEmpty
+                this::assertErrOutputIsEmpty,
+                () -> assertTerminalOutputIs(AUTH_ERROR_QUESTION)
         );
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -114,7 +119,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
 
     @Test
     @DisplayName("Should connect to cluster with username/password")
-    void connectWithAuthenticationParameters() throws IOException {
+    void connectWithAuthenticationParameters() {
         // Given basic authentication is NOT configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
 
@@ -127,7 +132,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputContains("Connected to http://localhost:10300"),
+                this::assertTerminalOutputIsEmpty
         );
 
         // And prompt shows username and node name
@@ -153,7 +159,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                this::assertErrOutputIsEmpty
+                this::assertErrOutputIsEmpty,
+                () -> assertTerminalOutputIs(AUTH_ERROR_QUESTION)
         );
 
         // And prompt is still disconnected
@@ -177,7 +184,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                this::assertErrOutputIsEmpty
+                this::assertErrOutputIsEmpty,
+                () -> assertTerminalOutputIs(AUTH_ERROR_QUESTION)
         );
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -204,7 +212,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputIs(
-                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
+                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator()),
+                () -> assertTerminalOutputIs(REMEMBER_CREDENTIALS_QUESTION)
         );
 
         // And prompt shows username and node name
@@ -229,14 +238,15 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                this::assertErrOutputIsEmpty
+                this::assertErrOutputIsEmpty,
+                () -> assertTerminalOutputIs(AUTH_ERROR_QUESTION)
         );
 
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
         // Previous correct values restored in config
-        assertEquals("admin", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME));
-        assertEquals("password", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD));
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin");
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password");
     }
 
     @Test
@@ -257,7 +267,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputIs(
-                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
+                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator()),
+                () -> assertTerminalOutputIs(REMEMBER_CREDENTIALS_QUESTION)
         );
 
         // And prompt shows username and node name
@@ -285,8 +296,9 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertErrOutputIsEmpty,
                 () -> assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> "),
-                () -> assertEquals("password", apiClientFactory.currentSessionSettings().basicAuthenticationPassword()),
-                () -> assertEquals("wrong-password", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
+                () -> assertThat(apiClientFactory.currentSessionSettings().basicAuthenticationPassword()).isEqualTo("password"),
+                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("wrong-password"),
+                () -> assertTerminalOutputIs(REMEMBER_CREDENTIALS_QUESTION)
         );
     }
 
@@ -304,16 +316,15 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputContains("Connected to http://localhost:10300"),
+                this::assertTerminalOutputIsEmpty
         );
 
         // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        resetOutput();
-
-        // Should ask user to reconnect with different user, answer "y"
-        bindAnswers("y");
+        // Should ask user to reconnect with different user and remember credentials, answer "y"
+        bindAnswers("y", "y");
 
         // When connect with different auth parameters
         execute("connect", "--username", "admin1", "--password", "password");
@@ -321,7 +332,11 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputIs(
+                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator()),
+                () -> assertTerminalOutputIs("You are already connected to the http://localhost:10300 as admin,"
+                        + " do you want to connect as admin1? [Y/n] "
+                        + REMEMBER_CREDENTIALS_QUESTION)
         );
 
         // And prompt shows username and node name
@@ -342,16 +357,15 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputContains("Connected to http://localhost:10300"),
+                this::assertTerminalOutputIsEmpty
         );
 
         // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        resetOutput();
-
-        // Should ask user to reconnect with different user, answer "y"
-        bindAnswers("y");
+        // Should ask user to reconnect with different user and remember credentials, answer "y"
+        bindAnswers("y", "y");
 
         // When connect with different auth parameters
         execute("connect", "--username", "admin1", "--password", "password");
@@ -359,7 +373,11 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputIs(
+                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator()),
+                () -> assertTerminalOutputIs("You are already connected to the http://localhost:10300 as admin,"
+                        + " do you want to connect as admin1? [Y/n] "
+                        + REMEMBER_CREDENTIALS_QUESTION)
         );
 
         // And prompt shows username and node name
@@ -377,19 +395,20 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // When connect with auth parameters overriding config
         execute("connect", "--username", "admin1", "--password", "password");
 
+        // Should ask user to remember explicitly passed credentials, then to reconnect with different user, answer "y"
+        bindAnswers("y", "y");
+
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputContains("Connected to http://localhost:10300"),
+                () -> assertTerminalOutputIs(REMEMBER_CREDENTIALS_QUESTION)
         );
+
+        resetTerminalOutput();
 
         // And prompt shows username from parameters and node name
         assertThat(getPrompt()).isEqualTo("[admin1:" + nodeName() + "]> ");
-
-        resetOutput();
-
-        // Should ask user to reconnect with different user, answer "y"
-        bindAnswers("y");
 
         // When connect without auth parameters
         execute("connect");
@@ -397,7 +416,9 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
+                () -> assertOutputContains("Connected to http://localhost:10300"),
+                () -> assertTerminalOutputIs("You are already connected to the http://localhost:10300 as admin1,"
+                        + " do you want to connect as admin? [Y/n] ")
         );
 
         // And prompt shows username from config and node name
@@ -421,13 +442,48 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputIs(
-                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
+                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator()),
+                () -> assertTerminalOutputIs(AUTH_ERROR_QUESTION + USERNAME_QUESTION + PASSWORD_QUESTION + REMEMBER_CREDENTIALS_QUESTION)
         );
 
         // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
         // And correct values are stored in config
-        assertEquals("admin", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME));
-        assertEquals("password", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD));
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin");
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password");
+
+        // And JDBC URL in current session contains auth parameters
+        assertThat(session.info().jdbcUrl()).contains("username=admin&password=password");
+    }
+
+
+    @Test
+    @DisplayName("Should ask for auth configuration connect to last connected cluster HTTPS url")
+    void connectOnStartAskAuth() throws IOException {
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // And answer to the reconnect question is "y", to the auth configuration question is "y",
+        // username and password are provided and answer to save authentication is "y"
+        bindAnswers("y", "y", "admin", "password", "y");
+
+        // When asked the question
+        question.askQuestionOnReplStart();
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputIs(
+                        "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator()),
+                () -> assertTerminalOutputIs("You appear to have not connected to any node yet. "
+                        + "Do you want to connect to the default node http://localhost:10300? [Y/n] "
+                        + AUTH_ERROR_QUESTION + USERNAME_QUESTION + PASSWORD_QUESTION + REMEMBER_CREDENTIALS_QUESTION)
+        );
+
+        // And prompt shows user name and node name
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+        // And correct values are stored in config
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin");
+        assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password");
     }
 }

@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 
 /**
  * Simple interface for data, store in some RowStore.
  */
 public interface Storable {
+    /** Number of bytes a data type takes in storage. */
+    int DATA_TYPE_SIZE_BYTES = 1;
+
+    /** Offset of data type from the beginning of the row. */
+    int DATA_TYPE_OFFSET = 0;
+
     /**
      * Sets link for this row.
      *
@@ -57,7 +62,51 @@ public interface Storable {
     int headerSize();
 
     /**
-     * Returns I/O for handling this storable.
+     * Writes the row.
+     *
+     * @param pageAddr Page address.
+     * @param dataOff Data offset.
+     * @param payloadSize Payload size.
+     * @param newRow {@code False} if existing cache entry is updated, in this case skip key data write.
      */
-    IoVersions<? extends AbstractDataPageIo<?>> ioVersions();
+    void writeRowData(
+            long pageAddr,
+            int dataOff,
+            int payloadSize,
+            boolean newRow
+    );
+
+    /**
+     * Writes row data fragment.
+     *
+     * @param pageBuf Byte buffer.
+     * @param rowOff Offset in row data bytes.
+     * @param payloadSize Data length that should be written in a fragment.
+     */
+    void writeFragmentData(
+            ByteBuffer pageBuf,
+            int rowOff,
+            int payloadSize
+    );
+
+    /**
+     * Writes content of the byte buffer into the page.
+     *
+     * @param pageBuffer Direct page buffer.
+     * @param valueBuffer Byte buffer with value bytes.
+     * @param offset Offset within the value buffer.
+     * @param payloadSize Number of bytes to write.
+     */
+    static void putValueBufferIntoPage(ByteBuffer pageBuffer, ByteBuffer valueBuffer, int offset, int payloadSize) {
+        int oldPosition = valueBuffer.position();
+        int oldLimit = valueBuffer.limit();
+
+        valueBuffer.position(offset);
+        valueBuffer.limit(offset + payloadSize);
+
+        pageBuffer.put(valueBuffer);
+
+        valueBuffer.position(oldPosition);
+        valueBuffer.limit(oldLimit);
+    }
 }

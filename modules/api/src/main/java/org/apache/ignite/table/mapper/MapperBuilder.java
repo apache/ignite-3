@@ -96,7 +96,7 @@ public final class MapperBuilder<T> {
      * @return {@code type} if it is a valid POJO.
      * @throws IllegalArgumentException If {@code type} cannot be used as POJO for mapping and/or is of invalid kind.
      */
-    public <O> Class<O> ensureValidPojo(Class<O> type) {
+    private static <O> Class<O> ensureValidPojo(Class<O> type) {
         if (Mapper.nativelySupported(type)) {
             throw new IllegalArgumentException("Unsupported class. Can't map fields of natively supported type: " + type.getName());
         } else if (type.isAnonymousClass() || type.isLocalClass() || type.isSynthetic()
@@ -170,7 +170,7 @@ public final class MapperBuilder<T> {
     public MapperBuilder<T> map(String fieldName, String columnName, String... fieldColumnPairs) {
         ensureNotStale();
 
-        String colName0 = IgniteNameUtils.parseSimpleName(columnName);
+        String colName0 = IgniteNameUtils.parseIdentifier(columnName);
 
         if (columnToFields == null) {
             throw new IllegalArgumentException("Natively supported types doesn't support field mapping.");
@@ -182,7 +182,7 @@ public final class MapperBuilder<T> {
 
         for (int i = 0; i < fieldColumnPairs.length; i += 2) {
             if (columnToFields.put(
-                    IgniteNameUtils.parseSimpleName(Objects.requireNonNull(fieldColumnPairs[i + 1])),
+                    IgniteNameUtils.parseIdentifier(Objects.requireNonNull(fieldColumnPairs[i + 1])),
                     requireValidField(fieldColumnPairs[i])) != null
             ) {
                 throw new IllegalArgumentException("Mapping for a column already exists: " + colName0);
@@ -229,7 +229,7 @@ public final class MapperBuilder<T> {
     public <ObjectT, ColumnT> MapperBuilder<T> convert(String columnName, TypeConverter<ObjectT, ColumnT> converter) {
         ensureNotStale();
 
-        if (columnConverters.put(IgniteNameUtils.parseSimpleName(columnName), converter) != null) {
+        if (columnConverters.put(IgniteNameUtils.parseIdentifier(columnName), converter) != null) {
             throw new IllegalArgumentException("Column converter already exists: " + columnName);
         }
 

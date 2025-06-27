@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
-import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
-
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -35,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Test-only abstract index storage class.
  */
-abstract class AbstractTestIndexStorage implements IndexStorage {
+public abstract class AbstractTestIndexStorage implements IndexStorage {
     private volatile boolean destroyed;
 
     private volatile boolean rebalance;
@@ -44,19 +42,20 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     protected final int partitionId;
 
-    private final boolean pk;
-
-    private final int indexId;
+    private final StorageIndexDescriptor descriptor;
 
     /** Amount of cursors that opened and still do not close. */
     protected final AtomicInteger pendingCursors = new AtomicInteger();
 
     AbstractTestIndexStorage(int partitionId, StorageIndexDescriptor descriptor) {
         this.partitionId = partitionId;
-        this.pk = descriptor.isPk();
-        this.indexId = descriptor.id();
+        this.descriptor = descriptor;
 
-        nextRowIdToBuild = pk ? null : initialRowIdToBuild(partitionId);
+        nextRowIdToBuild = initialRowIdToBuild();
+    }
+
+    private @Nullable RowId initialRowIdToBuild() {
+        return descriptor.mustBeBuilt() ? StorageUtils.initialRowIdToBuild(partitionId) : null;
     }
 
     /**
@@ -126,9 +125,10 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     private void clearAndReset() {
         clear0();
 
-        nextRowIdToBuild = pk ? null : initialRowIdToBuild(partitionId);
+        nextRowIdToBuild = initialRowIdToBuild();
     }
 
+    /** Destroys the storage. */
     public void destroy() {
         destroyed = true;
 
@@ -191,7 +191,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     }
 
     private String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
+        return IgniteStringFormatter.format("indexId={}, partitionId={}", descriptor.id(), partitionId);
     }
 
     void throwExceptionIfIndexIsNotBuilt() {

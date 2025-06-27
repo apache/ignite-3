@@ -23,13 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.Column;
@@ -46,6 +46,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -76,11 +77,7 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
     protected final HybridClock clock = new HybridClockImpl();
 
     protected static BinaryRow binaryRow(TestKey key, TestValue value) {
-        try {
-            return KV_MARSHALLER.marshal(key, value);
-        } catch (MarshallerException e) {
-            throw new IllegalArgumentException(e);
-        }
+        return KV_MARSHALLER.marshal(key, value);
     }
 
     protected static IndexRow indexRow(StorageIndexDescriptor indexDescriptor, BinaryRow binaryRow, RowId rowId) {
@@ -99,20 +96,12 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
     }
 
     protected static TestKey key(BinaryRow binaryRow) {
-        try {
-            return KV_MARSHALLER.unmarshalKey(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
-        } catch (MarshallerException e) {
-            throw new IllegalArgumentException(e);
-        }
+        return KV_MARSHALLER.unmarshalKey(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
     }
 
     @Nullable
     protected static TestValue value(BinaryRow binaryRow) {
-        try {
-            return KV_MARSHALLER.unmarshalValue(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
-        } catch (MarshallerException e) {
-            throw new IllegalArgumentException(e);
-        }
+        return KV_MARSHALLER.unmarshalValue(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
     }
 
     protected static @Nullable IgniteBiTuple<TestKey, TestValue> unwrap(@Nullable BinaryRow binaryRow) {
@@ -247,5 +236,12 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
         assertThat(createMvPartitionStorageFuture, willCompleteSuccessfully());
 
         return createMvPartitionStorageFuture.join();
+    }
+
+    /**
+     * Creates a new transaction id.
+     */
+    public final UUID newTransactionId() {
+        return TransactionIds.transactionId(clock.now(), 0);
     }
 }

@@ -18,22 +18,26 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import java.util.Objects;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.sql.IgniteSql;
 
-class DropZoneImpl extends AbstractCatalogQuery {
+class DropZoneImpl extends AbstractCatalogQuery<Name> {
     private Name zoneName;
 
     private boolean ifExists;
 
-    DropZoneImpl(IgniteSql sql, Options options) {
-        super(sql, options);
+    DropZoneImpl(IgniteSql sql) {
+        super(sql);
     }
 
-    DropZoneImpl name(String... names) {
-        Objects.requireNonNull(names, "Zone name must not be null");
+    @Override
+    protected Name result() {
+        return zoneName;
+    }
 
-        this.zoneName = new Name(names);
+    DropZoneImpl name(String name) {
+        Objects.requireNonNull(name, "Zone name must not be null");
+
+        this.zoneName = Name.simple(name);
         return this;
     }
 

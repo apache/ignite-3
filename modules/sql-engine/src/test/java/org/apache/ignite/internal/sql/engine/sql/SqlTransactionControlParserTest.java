@@ -30,7 +30,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Tests for transaction control SQL statements.
  */
-public class SqlTransactionControlParserTest extends AbstractDdlParserTest {
+public class SqlTransactionControlParserTest extends AbstractParserTest {
 
     @ParameterizedTest
     @CsvSource({

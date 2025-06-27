@@ -25,6 +25,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -77,7 +78,8 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
 
         var partitionCommandsMarshaller = (PartitionCommandsMarshaller) commandsMarshaller;
 
-        int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(command));
+        int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(command).order(
+                OptimizedMarshaller.ORDER));
 
         if (requiredCatalogVersion >= 0) {
             if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {

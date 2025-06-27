@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>For {@code DML} queries, it is called after the cursor has finished prefetching
  *     the initial batch of rows (see {@link AsyncRootNode#startPrefetch}).</li>
  *     <li>For {@code DDL} queries, it is called after the corresponding DDL
- *     command has completed (see {@link DdlCommandHandler#handle(DdlCommand)}.</li>
+ *     command has completed (see {@link DdlCommandHandler#handle(CatalogCommand)}.</li>
  * </ol>
  *
  * <p>This callback is invoked asynchronously in the "{@code execution pool}".

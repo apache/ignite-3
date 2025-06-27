@@ -23,9 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -36,16 +40,13 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
-import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -67,6 +68,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test lock table.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItLockTableTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItLockTableTest.class);
 
@@ -91,21 +93,24 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected static RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration
-    protected static GcConfiguration gcConfig;
-
-    @InjectConfiguration
+    @InjectConfiguration()
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
     protected static ReplicationConfiguration replicationConfiguration;
 
-    @InjectConfiguration
-    protected static StorageUpdateConfiguration storageUpdateConfiguration;
+    @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + "\" }")
+    private static SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectExecutorService
+    protected ScheduledExecutorService commonExecutor;
 
     private ItTxTestCluster txTestCluster;
 
-    private HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+    private HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     /**
      * The constructor.
@@ -122,7 +127,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
-                storageUpdateConfiguration,
+                systemDistributedConfiguration,
                 workDir,
                 1,
                 1,
@@ -144,13 +149,10 @@ public class ItLockTableTest extends IgniteAbstractTest {
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
+                        systemDistributedConfiguration,
                         clusterService,
                         replicaSvc,
-                        new HeapLockManager(
-                                DeadlockPreventionPolicy.NO_OP,
-                                HeapLockManager.SLOTS,
-                                CACHE_SIZE,
-                                new HeapUnboundedLockManager()),
+                        new HeapLockManager(systemLocalConfiguration),
                         clockService,
                         generator,
                         placementDriver,
@@ -158,7 +160,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
                         transactionInflights,
-                        lowWatermark
+                        lowWatermark,
+                        commonExecutor
                 );
             }
         };
@@ -178,11 +181,11 @@ public class ItLockTableTest extends IgniteAbstractTest {
      * Test that a lock table behaves correctly in case of lock cache overflow.
      */
     @Test
-    public void testCollision() {
+    public void testTakeMoreLocksThanAfford() {
         RecordView<Tuple> view = testTable.recordView();
 
         int i = 0;
-        final int count = 1000;
+        final int count = 100;
         List<Transaction> txns = new ArrayList<>();
         while (i++ < count) {
             Transaction tx = txTestCluster.igniteTransactions().begin();
@@ -198,7 +201,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 total += slot.waitersCount();
             }
 
-            return total == count && lockManager.available() == 0;
+            return total >= CACHE_SIZE && lockManager.available() == 0;
         }, 10_000), "Some lockers are missing");
 
         int empty = 0;
@@ -210,8 +213,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
             int cnt = slot.waitersCount();
             if (cnt == 0) {
                 empty++;
-            }
-            if (cnt > 1) {
+            } else {
                 coll += cnt;
             }
         }
@@ -222,7 +224,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
         List<CompletableFuture<?>> finishFuts = new ArrayList<>();
         for (Transaction txn : txns) {
-            finishFuts.add(txn.commitAsync());
+            finishFuts.add(txn.rollbackAsync());
         }
 
         for (CompletableFuture<?> finishFut : finishFuts) {

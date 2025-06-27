@@ -25,6 +25,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,10 +34,7 @@ import org.jetbrains.annotations.Nullable;
  * cases to realize concrete implementation require to implement {@code scan()} method and override {@code rewindInternal()} one.
  */
 public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
-    /** Special value to highlights that all row were received and we are not waiting any more. */
-    private static final int NOT_WAITING = -1;
-
-    private final Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
+    private Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
 
     private final @Nullable Predicate<RowT> filters;
 
@@ -78,12 +76,10 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     public void request(int rowsCnt) throws Exception {
         assert rowsCnt > 0 && requested == 0 : "rowsCnt=" + rowsCnt + ", requested=" + requested;
 
-        checkState();
-
         requested = rowsCnt;
 
         if (!inLoop) {
-            context().execute(this::push, this::onError);
+            this.execute(this::push);
         }
     }
 
@@ -106,6 +102,8 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         waiting = 0;
         dataRequested = false;
 
+        inBuff = new LinkedBlockingQueue<>(inBufSize);
+
         if (activeSubscription != null) {
             activeSubscription.cancel();
 
@@ -123,17 +121,17 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     protected abstract Publisher<RowT> scan();
 
     private void push() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        checkState();
-
         if (requested > 0 && !inBuff.isEmpty()) {
+            int processed = 0;
             inLoop = true;
             try {
                 while (requested > 0 && !inBuff.isEmpty()) {
-                    checkState();
+                    if (processed++ >= inBufSize) {
+                        // Allow others to do their job.
+                        execute(this::push);
+
+                        return;
+                    }
 
                     RowT row = inBuff.poll();
 
@@ -164,13 +162,16 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
                 requested = 0;
                 downstream().end();
             } else {
-                context().execute(this::push, this::onError);
+                this.execute(this::push);
             }
         }
     }
 
     private void requestNextBatch() {
         if (waiting == NOT_WAITING) {
+            return;
+        }
+        if (isClosed()) {
             return;
         }
 
@@ -203,13 +204,23 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
+    }
+
     /** Subscriber which handle scan's rows. */
     private class SubscriberImpl implements Flow.Subscriber<RowT> {
+        private Queue<RowT> inBuffInner;
 
         /** {@inheritDoc} */
         @Override
         public void onSubscribe(Subscription subscription) {
             assert StorageScanNode.this.activeSubscription == null;
+
+            inBuffInner = inBuff;
 
             StorageScanNode.this.activeSubscription = subscription;
             subscription.request(waiting);
@@ -218,33 +229,35 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         public void onNext(RowT row) {
-            inBuff.add(row);
+            // This method is called from outside query execution thread.
+            // It is safe not to be aware about already closed execution flow.
+            inBuffInner.add(row);
 
-            if (inBuff.size() == inBufSize) {
-                context().execute(() -> {
+            if (inBuffInner.size() == inBufSize) {
+                StorageScanNode.this.execute(() -> {
                     waiting = 0;
                     push();
-                }, StorageScanNode.this::onError);
+                });
             }
         }
 
         /** {@inheritDoc} */
         @Override
         public void onError(Throwable throwable) {
-            context().execute(() -> {
+            StorageScanNode.this.execute(() -> {
                 throw throwable;
-            }, StorageScanNode.this::onError);
+            });
         }
 
         /** {@inheritDoc} */
         @Override
         public void onComplete() {
-            context().execute(() -> {
+            StorageScanNode.this.execute(() -> {
                 activeSubscription = null;
                 waiting = 0;
 
                 push();
-            }, StorageScanNode.this::onError);
+            });
         }
     }
 }

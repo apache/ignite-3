@@ -71,7 +71,10 @@ public class PagePool {
     private final int sysPageSize;
 
     /** Instance of RW Lock Updater. */
-    private OffheapReadWriteLock rwLock;
+    private final OffheapReadWriteLock rwLock;
+
+    /** Max number of pages in this pool. */
+    private final int pages;
 
     /**
      * Constructor.
@@ -81,7 +84,7 @@ public class PagePool {
      * @param sysPageSize System page size.
      * @param rwLock Instance of RW Lock Updater.
      */
-    protected PagePool(
+    public PagePool(
             int idx,
             DirectMemoryRegion region,
             int sysPageSize,
@@ -107,6 +110,8 @@ public class PagePool {
 
         putLong(freePageListPtr, INVALID_REL_PTR);
         putLong(lastAllocatedIdxPtr, 0L);
+
+        pages = (int) ((region.size() - (pagesBase - region.address())) / sysPageSize);
     }
 
     /**
@@ -122,7 +127,7 @@ public class PagePool {
             relPtr = allocateFreePage(tag);
         }
 
-        if (relPtr != INVALID_REL_PTR && pagesCntr != null) {
+        if (relPtr != INVALID_REL_PTR) {
             pagesCntr.incrementAndGet();
         }
 
@@ -231,7 +236,7 @@ public class PagePool {
      *
      * @param relativePtr Relative pointer.
      */
-    long absolute(long relativePtr) {
+    public long absolute(long relativePtr) {
         int segIdx = (int) ((relativePtr >> 40) & 0xFFFF);
 
         assert segIdx == idx : "expected=" + idx + ", actual=" + segIdx + ", relativePtr=" + hexLong(relativePtr);
@@ -265,7 +270,7 @@ public class PagePool {
      * Returns max number of pages in the pool.
      */
     public int pages() {
-        return (int) ((region.size() - (pagesBase - region.address())) / sysPageSize);
+        return pages;
     }
 
     /**

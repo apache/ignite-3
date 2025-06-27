@@ -19,6 +19,9 @@ package org.apache.ignite.internal.tx;
 
 import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,4 +33,7 @@ public interface TransactionMeta extends Serializable {
 
     /** Commit timestamp. */
     @Nullable HybridTimestamp commitTimestamp();
+
+    /** Converts to network message. */
+    TransactionMetaMessage toTransactionMetaMessage(ReplicaMessagesFactory replicaMessagesFactory, TxMessagesFactory txMessagesFactory);
 }

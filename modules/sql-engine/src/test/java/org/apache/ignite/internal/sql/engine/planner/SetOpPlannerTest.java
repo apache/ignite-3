@@ -65,11 +65,11 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 createTable("BROADCAST_TBL2", IgniteDistributions.broadcast()),
                 createTable("SINGLE_TBL1", IgniteDistributions.single()),
                 createTable("SINGLE_TBL2", IgniteDistributions.single()),
-                createTable("AFFINITY_TBL1", IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
+                createTable("AFFINITY_TBL1", TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
                 createTable("HASH_TBL1", IgniteDistributions.hash(List.of(0))),
-                createTable("AFFINITY_TBL2", IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
-                createTable("AFFINITY_TBL3", IgniteDistributions.affinity(1, nextTableId(), DEFAULT_ZONE_ID)),
-                createTable("AFFINITY_TBL4", IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID + 1)),
+                createTable("AFFINITY_TBL2", TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
+                createTable("AFFINITY_TBL3", TestBuilders.affinity(1, nextTableId(), DEFAULT_ZONE_ID)),
+                createTable("AFFINITY_TBL4", TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID + 1)),
                 createTable("IDENTITY_TBL1", IgniteDistributions.identity(0)),
                 createTable("IDENTITY_TBL2", IgniteDistributions.identity(0)),
                 createTable("IDENTITY_TBL3", IgniteDistributions.identity(1))
@@ -270,7 +270,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
                 .and(input(isInstanceOf(setOp.colocated)
-                        .and(hasDistribution(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)))
+                        .and(hasDistribution(TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID)))
                         .and(input(0, isTableScan("affinity_tbl1")))
                         .and(input(1, isTableScan("affinity_tbl2")))
                 ))
@@ -294,7 +294,7 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
                 .and(input(isInstanceOf(setOp.colocated)
-                        .and(hasDistribution(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)))
+                        .and(hasDistribution(TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID)))
                         .and(input(0, isTableScan("affinity_tbl1")))
                         .and(input(1, isInstanceOf(IgniteTrimExchange.class)
                                 .and(input(isTableScan("broadcast_tbl1")))
@@ -728,9 +728,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + " SELECT * FROM table3 ";
 
         assertPlan(sql, publicSchema, nodeOrAnyChild(isInstanceOf(setOp.map)
-                        .and(input(0, projectFromTable("TABLE1", "CAST($0):DOUBLE", "$1")))
+                        .and(input(0, tableWithProjection("TABLE1", "CAST($t0):DOUBLE", "$t1")))
                         .and(input(1, isTableScan("TABLE2")))
-                        .and(input(2, projectFromTable("TABLE3", "CAST($0):DOUBLE", "$1")))
+                        .and(input(2, tableWithProjection("TABLE3", "CAST($t0):DOUBLE", "$t1")))
                 )
         );
     }

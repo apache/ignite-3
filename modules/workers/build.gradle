@@ -28,23 +28,23 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
 
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
+    testImplementation testFixtures(project(':ignite-core'))
 
     testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation libs.jetbrains.annotations
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-partition-replicator')
+    integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation libs.netty.transport

@@ -21,13 +21,16 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -38,6 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Storage test implementation for {@link RocksDbMvPartitionStorage}.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     private RocksDbStorageEngine engine;
@@ -47,12 +51,20 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock {flushDelayMillis = 0}")
-            RocksDbStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
-            StorageConfiguration storageConfiguration
+            // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
+            @InjectConfiguration("mock.profiles.default = {engine = rocksdb, sizeBytes = 16777216, writeBufferSizeBytes = 67108864}")
+            StorageConfiguration storageConfiguration,
+            @InjectExecutorService
+            ScheduledExecutorService scheduledExecutor
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
+        engine = new RocksDbStorageEngine(
+                "test",
+                storageConfiguration,
+                workDir,
+                mock(LogSyncer.class),
+                scheduledExecutor,
+                mock(FailureProcessor.class)
+        );
 
         engine.start();
 
@@ -73,13 +85,5 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
                 table,
                 engine == null ? null : engine::stop
         );
-    }
-
-    @Override
-    public void addWriteCommittedThrowsIfUncommittedVersionExists() {
-        // Disable this test because RocksDbMvPartitionStorage does not throw. It does not throw because this
-        // exception is thrown only to ease debugging as the caller must make sure that no write intent exists
-        // before calling addWriteCommitted(). For RocksDbMvPartitionStorage, it is not that cheap to check whether
-        // there is a write intent in the storage, so we do not require it to throw this optional exception.
     }
 }

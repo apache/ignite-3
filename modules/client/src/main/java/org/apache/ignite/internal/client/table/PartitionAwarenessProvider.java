@@ -18,57 +18,41 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.function.Function;
-import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Partition awareness provider.
- * Represents 3 use cases:
- * 1. Partition awareness is enabled. Use hashFunc to determine partition.
- * 2. Transaction is used. Use specific channel.
- * 3. Null instance = No partition awareness and no transaction. Use any channel.
+ * Used to calculate a partition for a specific operation.
  */
 public class PartitionAwarenessProvider {
+    static PartitionAwarenessProvider NULL_PROVIDER = of((Integer) null);
+
     private final @Nullable Integer partition;
 
     private final @Nullable Function<ClientSchema, Integer> hashFunc;
 
-    private final @Nullable ClientLazyTransaction tx;
-
-    private PartitionAwarenessProvider(
-            @Nullable Function<ClientSchema, Integer> hashFunc,
-            @Nullable Integer partition,
-            @Nullable ClientLazyTransaction tx) {
+    private PartitionAwarenessProvider(@Nullable Function<ClientSchema, Integer> hashFunc, @Nullable Integer partition) {
         this.hashFunc = hashFunc;
         this.partition = partition;
-        this.tx = tx;
     }
 
     public static PartitionAwarenessProvider of(Integer partition) {
-        return new PartitionAwarenessProvider(null, partition, null);
+        return new PartitionAwarenessProvider(null, partition);
     }
 
-    public static PartitionAwarenessProvider of(@Nullable ClientLazyTransaction tx, Function<ClientSchema, Integer> hashFunc) {
-        return new PartitionAwarenessProvider(hashFunc, null, tx);
-    }
-
-    @Nullable String nodeName() {
-        return tx != null ? tx.nodeName() : null;
+    public static PartitionAwarenessProvider of(Function<ClientSchema, Integer> hashFunc) {
+        return new PartitionAwarenessProvider(hashFunc, null);
     }
 
     @Nullable Integer partition() {
         return partition;
     }
 
-    Integer getObjectHashCode(ClientSchema schema) {
+    @Nullable Integer getObjectHashCode(ClientSchema schema) {
         if (hashFunc == null) {
-            throw new IllegalStateException("Partition awareness is not enabled. Check channel() first.");
+            return null;
         }
 
         return hashFunc.apply(schema);
-    }
-
-    boolean isPartitionAwarenessEnabled() {
-        return hashFunc != null || partition != null;
     }
 }

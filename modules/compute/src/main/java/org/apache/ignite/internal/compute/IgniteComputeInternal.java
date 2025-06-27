@@ -23,12 +23,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -41,20 +42,21 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * Executes a {@link ComputeJob} of the given class on a single node. If the node leaves the cluster, it will be restarted on one of the
      * candidate nodes.
      *
-     * @param <R> Job result type.
      * @param nodes Candidate nodes; In case target node left the cluster, the job will be restarted on one of them.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options.
-     * @param args Arguments of the job.
+     * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return CompletableFuture Job result.
      */
-    <R> JobExecution<R> executeAsyncWithFailover(
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object... args
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -66,43 +68,56 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options job execution options (priority, max retries).
-     * @param args Arguments of the job.
-     * @param <R> Job result type.
+     * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Job execution object.
      */
-    <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            Object[] args);
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    );
 
     /**
-     * Wraps the given future into a job execution object.
+     * Submits a job of the given class for the execution on the node where the given partition's primary replica is located.
      *
-     * @param fut Future to wrap.
-     * @param <R> Job result type.
+     * @param table Table whose partition is used to determine the node to execute the job on.
+     * @param partitionId Partition identifier.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param options job execution options (priority, max retries).
+     * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Job execution object.
      */
-    default <R> JobExecution<R> wrapJobExecutionFuture(CompletableFuture<JobExecution<R>> fut) {
-        return new JobExecutionFutureWrapper<>(fut);
-    }
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> submitPartitionedInternal(
+            TableViewInternal table,
+            int partitionId,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    );
 
     /**
-     * Retrieves the current status of all jobs on all nodes in the cluster.
+     * Retrieves the current state of all jobs on all nodes in the cluster.
      *
-     * @return The collection of job statuses.
+     * @return The collection of job states.
      */
-    CompletableFuture<Collection<JobStatus>> statusesAsync();
+    CompletableFuture<Collection<JobState>> statesAsync();
 
     /**
-     * Gets job status by id.
+     * Gets job state by id.
      *
      * @param jobId Job id.
-     * @return Job status or {@code null} if there's no status registered for this id.
+     * @return Job state or {@code null} if there's no state registered for this id.
      */
-    CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId);
+    CompletableFuture<@Nullable JobState> stateAsync(UUID jobId);
 
     /**
      * Cancels compute job.

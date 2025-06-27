@@ -17,25 +17,24 @@
 
 package org.apache.ignite.internal.raft.configuration;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Raft configuration schema.
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "raft", type = ConfigurationType.LOCAL)
+@Config
 public class RaftConfigurationSchema {
     /**
-     * RPC Timeout for InstallSnapshot request (in milliseconds). This is the maximum allowed duration from sending
+     * Timeout for InstallSnapshot request (in milliseconds). This is the maximum allowed duration from sending
      * InstallSnapshot request and getting a response to it; during it, the snapshot must be fully transferred to
      * a recipient and installed.
      */
     @Value(hasDefault = true)
-    // TODO: IGNITE-18480 - is 5 minutes a good default?
-    public int rpcInstallSnapshotTimeout = 5 * 60 * 1000;
+    @PublicName(legacyNames = "installSnapshotTimeout")
+    public int installSnapshotTimeoutMillis = Integer.MAX_VALUE;
 
     /** Configuration for Raft groups corresponding to table partitions. */
     // TODO: IGNITE-16647 - Volatile RAFT configuration should be moved elsewhere
@@ -46,37 +45,49 @@ public class RaftConfigurationSchema {
      * Timeout value (in milliseconds) for which the Raft client will try to receive a successful response from a remote peer.
      */
     @Value(hasDefault = true)
-    public long retryTimeout = 10_000;
+    @PublicName(legacyNames = "retryTimeout")
+    public long retryTimeoutMillis = 10_000;
 
     /**
      * Delay (in milliseconds) used by the Raft client between re-sending a failed request.
      */
     @Value(hasDefault = true)
-    public long retryDelay = 200;
+    @PublicName(legacyNames = "retryDelay")
+    public long retryDelayMillis = 200;
 
     /**
      * Timeout value (in milliseconds) for which the Raft client will try to receive a response from a remote peer.
      */
     @Value(hasDefault = true)
-    public long responseTimeout = 3_000;
+    @PublicName(legacyNames = "responseTimeout")
+    public long responseTimeoutMillis = 3_000;
 
     /**
-     * Call fsync when need.
+     * Whether Raft log entries should be fsynced on table partition groups before reporting that the entries are replicated.
+     *
+     * <p>When this is {@code false}, the node might lose user data in case of an OS crash. Crash of just Ignite application
+     * does not cause user data loss even when this setting is {@code false}.
      */
     @Value(hasDefault = true)
-    public boolean fsync = true;
+    public boolean fsync = false;
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
+     *
+     * @see DisruptorConfigurationSchema#stripes
      */
+    @Deprecated
     @Value(hasDefault = true)
-    public int stripes = Runtime.getRuntime().availableProcessors();
+    public int stripes = DisruptorConfigurationSchema.DEFAULT_STRIPES_COUNT;
 
     /**
      * Amount of log manager Disruptors stripes.
+     *
+     * @see DisruptorConfigurationSchema#logManagerStripes
      */
+    @Deprecated
     @Value(hasDefault = true)
-    public int logStripesCount = 4;
+    public int logStripesCount = DisruptorConfigurationSchema.DEFAULT_LOG_MANAGER_STRIPES_COUNT;
 
     /**
      * Set true to use the non-blocking strategy in the log manager.
@@ -84,7 +95,14 @@ public class RaftConfigurationSchema {
     @Value(hasDefault = true)
     public boolean logYieldStrategy = false;
 
-    /** Directory where log is stored. By default "log" subfolder of data storage path is used. */
+    /**
+     * Value for max inflights overflow rate. It's used in partitions throttling context.
+     * {@code 1.0} is too strict, so we use {@code 1.3}, allows 30% overflow.
+     */
     @Value(hasDefault = true)
-    public String logPath = "";
+    public double maxInflightOverflowRate = 1.3;
+
+    /** Configuration for RAFT disruptor's. */
+    @ConfigValue
+    public DisruptorConfigurationSchema disruptor;
 }

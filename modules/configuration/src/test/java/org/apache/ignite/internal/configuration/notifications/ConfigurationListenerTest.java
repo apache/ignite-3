@@ -74,6 +74,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -191,7 +192,7 @@ public class ConfigurationListenerTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(), willCompleteSuccessfully());
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
         assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
 
         config = registry.getConfiguration(ParentConfiguration.KEY);
@@ -199,7 +200,7 @@ public class ConfigurationListenerTest {
 
     @AfterEach
     public void after() {
-        assertThat(registry.stopAsync(), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         generator.close();
     }
 
@@ -1587,22 +1588,6 @@ public class ConfigurationListenerTest {
     }
 
     @Test
-    void testNotifyCurrentConfigurationListeners() throws Exception {
-        AtomicBoolean invokeListener = new AtomicBoolean();
-
-        config.listen(configListener(ctx -> {
-            invokeListener.set(true);
-
-            assertNull(ctx.oldValue());
-            assertNotNull(ctx.newValue());
-        }));
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertTrue(invokeListener.get());
-    }
-
-    @Test
     void testIncreaseNotificationCount() throws Exception {
         long notificationCount = registry.notificationCount();
 
@@ -1611,10 +1596,6 @@ public class ConfigurationListenerTest {
         config.child().str().update(randomUuid()).get(1, SECONDS);
 
         assertEquals(notificationCount + 1, registry.notificationCount());
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertEquals(notificationCount + 2, registry.notificationCount());
     }
 
     @Test
@@ -1627,10 +1608,6 @@ public class ConfigurationListenerTest {
         config.child().str().update(currentValue).get(1, SECONDS);
 
         assertEquals(notificationCount + 1, registry.notificationCount());
-
-        registry.notifyCurrentConfigurationListeners().get(1, SECONDS);
-
-        assertEquals(notificationCount + 2, registry.notificationCount());
     }
 
     @Test

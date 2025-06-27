@@ -16,6 +16,16 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +58,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -64,15 +73,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.same;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -151,7 +151,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .prevLogTerm(1)
             .committedIndex(0);
         if (!isHeartbeat) {
-            rb.data(ByteString.EMPTY);
+            rb.data(EMPTY_BYTE_BUFFER);
         }
         return rb.build();
     }
@@ -212,7 +212,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .build();
         this.id.unlock();
 
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
+        r.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
             response, 0, 0, Utils.monotonicMs());
         assertEquals(Replicator.RunningState.BLOCKING, r.statInfo.runningState);
         assertNotNull(r.getBlockTimer());
@@ -233,7 +233,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .term(2)
             .build();
         r.getInflights().add(new Replicator.Inflight(RequestType.AppendEntries, r.getNextSendIndex(), 0, 0, 1, null));
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
+        r.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
             response, 1, 1, Utils.monotonicMs());
         assertEquals(Replicator.RunningState.BLOCKING, r.statInfo.runningState);
         assertNotNull(r.getBlockTimer());
@@ -242,7 +242,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
 
         Thread.sleep(r.getOpts().getDynamicHeartBeatTimeoutMs() * 2);
         r.getInflights().add(new Replicator.Inflight(RequestType.AppendEntries, r.getNextSendIndex(), 0, 0, 1, null));
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
+        r.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, new Status(-1, "test error"), request,
             response, 1, 2, Utils.monotonicMs());
         assertEquals(Replicator.RunningState.BLOCKING, r.statInfo.runningState);
         assertNotNull(r.getBlockTimer());
@@ -262,7 +262,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .build();
         this.id.unlock();
 
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
+        r.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
             Utils.monotonicMs());
         Mockito.verify(this.node).increaseTermTo(
             2,
@@ -294,14 +294,14 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .peerId(this.peerId.toString())
             .term(1)
             .prevLogIndex(9)
-            .data(ByteString.EMPTY)
+            .data(EMPTY_BYTE_BUFFER)
             .prevLogTerm(1)
             .committedIndex(0)
             .build();
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId), eq(newReq), eq(-1), Mockito.any()))
             .thenReturn(new CompletableFuture<>());
 
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
+        r.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
             Utils.monotonicMs());
 
         assertNotNull(r.getRpcInFly());
@@ -336,13 +336,13 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .term(1)
             .prevLogIndex(8)
             .prevLogTerm(1)
-            .data(ByteString.EMPTY)
+            .data(EMPTY_BYTE_BUFFER)
             .committedIndex(0)
             .build();
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId), eq(newReq), eq(-1), Mockito.any()))
             .thenReturn(new CompletableFuture<>());
 
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
+        r.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
             Utils.monotonicMs());
 
         assertNotNull(r.getRpcInFly());
@@ -377,7 +377,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             }
         }, node.getOptions().getCommonExecutor());
 
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
+        r.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
             Utils.monotonicMs());
 
         assertEquals(Replicator.RunningState.IDLE, r.statInfo.runningState);
@@ -464,7 +464,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
 
         rb.entriesList(entries);
 
-        rb.data(new ByteString(new byte[totalDataLen]));
+        rb.data(ByteBuffer.wrap(new byte[totalDataLen]));
 
         final RpcRequests.AppendEntriesRequest request = rb.build();
         Mockito.when(this.rpcService.appendEntries(eq(this.peerId), eq(request), eq(-1), Mockito.any()))
@@ -506,7 +506,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         this.id.unlock();
         final ScheduledFuture<?> timer = r.getHeartbeatTimer();
         assertNotNull(timer);
-        Replicator.onHeartbeatReturned(this.id, new Status(-1, "test"), createEmptyEntriesRequest(), null,
+        r.onHeartbeatReturned(this.id, new Status(-1, "test"), createEmptyEntriesRequest(), null,
             Utils.monotonicMs());
         assertNotNull(r.getHeartbeatTimer());
         assertNotSame(timer, r.getHeartbeatTimer());
@@ -524,8 +524,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .lastLogIndex(10)
             .term(1)
             .build();
-        Replicator
-            .onHeartbeatReturned(this.id, Status.OK(), createEmptyEntriesRequest(), response, Utils.monotonicMs());
+        r.onHeartbeatReturned(this.id, Status.OK(), createEmptyEntriesRequest(), response, Utils.monotonicMs());
         assertNotNull(r.getHeartbeatTimer());
         assertNotSame(timer, r.getHeartbeatTimer());
     }
@@ -542,7 +541,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .build();
         this.id.unlock();
 
-        Replicator.onHeartbeatReturned(this.id, Status.OK(), request, response, Utils.monotonicMs());
+        r.onHeartbeatReturned(this.id, Status.OK(), request, response, Utils.monotonicMs());
         Mockito.verify(this.node).increaseTermTo(
             2,
             new Status(RaftError.EHIGHERTERMRESPONSE, "Leader receives higher term heartbeat_response from peer:%s",
@@ -578,9 +577,8 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         assertEquals(0, r.getTimeoutNowIndex());
         assertNull(r.getTimeoutNowInFly());
 
-        final RpcRequests.TimeoutNowRequest request = createTimeoutnowRequest();
         Mockito.when(
-            this.rpcService.timeoutNow(eq(this.opts.getPeerId()), eq(request), eq(-1),
+            this.rpcService.timeoutNow(eq(this.opts.getPeerId()), Mockito.any(), eq(-1),
                 Mockito.any())).thenReturn(new CompletableFuture<>());
 
         assertTrue(Replicator.transferLeadership(this.id, 10));
@@ -625,8 +623,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         assertTrue(Replicator.sendTimeoutNowAndStop(this.id, 10));
         assertEquals(0, r.getTimeoutNowIndex());
         assertNull(r.getTimeoutNowInFly());
-        final RpcRequests.TimeoutNowRequest request = createTimeoutnowRequest();
-        Mockito.verify(this.rpcService).timeoutNow(eq(this.opts.getPeerId()), eq(request),
+        Mockito.verify(this.rpcService).timeoutNow(eq(this.opts.getPeerId()), Mockito.any(),
             eq(10), Mockito.any());
     }
 
@@ -637,6 +634,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .groupId(this.opts.getGroupId())
             .serverId(this.opts.getServerId().toString())
             .peerId(this.opts.getPeerId().toString())
+            .timestamp(this.node.getOptions().getClock().now())
             .build();
     }
 
@@ -740,7 +738,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .build();
         assertEquals(-1, r.getWaitId());
         Mockito.when(this.logManager.getTerm(11)).thenReturn(1L);
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.Snapshot, Status.OK(), request, response, 0, 0, -1);
+        r.onRpcReturned(this.id, Replicator.RequestType.Snapshot, Status.OK(), request, response, 0, 0, -1);
         assertNull(r.getBlockTimer());
         assertEquals(0, r.getWaitId());
     }
@@ -759,7 +757,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .build();
         assertEquals(-1, r.getWaitId());
         Mockito.lenient().when(this.logManager.getTerm(11)).thenReturn(1L);
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.Snapshot, new Status(-1, "test"), request, response,
+        r.onRpcReturned(this.id, Replicator.RequestType.Snapshot, new Status(-1, "test"), request, response,
             0, 0, -1);
         assertNotNull(r.getBlockTimer());
         assertEquals(-1, r.getWaitId());
@@ -779,7 +777,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .build();
         assertEquals(-1, r.getWaitId());
         Mockito.lenient().when(this.logManager.getTerm(11)).thenReturn(1L);
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.Snapshot, Status.OK(), request, response, 0, 0, -1);
+        r.onRpcReturned(this.id, Replicator.RequestType.Snapshot, Status.OK(), request, response, 0, 0, -1);
         assertNotNull(r.getBlockTimer());
         assertEquals(-1, r.getWaitId());
     }
@@ -800,10 +798,10 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         this.id.unlock();
 
         assertTrue(r.getPendingResponses().isEmpty());
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 1, 0,
+        r.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 1, 0,
             Utils.monotonicMs());
         assertEquals(1, r.getPendingResponses().size());
-        Replicator.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
+        r.onRpcReturned(this.id, Replicator.RequestType.AppendEntries, Status.OK(), request, response, 0, 0,
             Utils.monotonicMs());
         assertTrue(r.getPendingResponses().isEmpty());
         assertEquals(0, r.getWaitId());

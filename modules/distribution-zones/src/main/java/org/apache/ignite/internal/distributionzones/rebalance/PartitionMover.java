@@ -41,22 +41,22 @@ public class PartitionMover {
 
     private final IgniteSpinBusyLock busyLock;
 
-    private final Supplier<RaftGroupService> raftGroupServiceSupplier;
+    private final Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier;
 
     /**
      * Constructor.
      */
-    public PartitionMover(IgniteSpinBusyLock busyLock, Supplier<RaftGroupService> raftGroupServiceSupplier) {
+    public PartitionMover(IgniteSpinBusyLock busyLock, Supplier<CompletableFuture<RaftGroupService>> raftGroupServiceSupplier) {
         this.busyLock = busyLock;
         this.raftGroupServiceSupplier = raftGroupServiceSupplier;
     }
 
     /**
-     * Performs {@link RaftGroupService#changePeersAsync} on a provided raft group service of a partition, so nodes of the corresponding
-     * raft group can be reconfigured. Retry mechanism is applied to repeat {@link RaftGroupService#changePeersAsync} if previous one failed
-     * with some exception.
+     * Performs {@link RaftGroupService#changePeersAndLearnersAsync} on a provided raft group service of a partition, so nodes of the
+     * corresponding raft group can be reconfigured. Retry mechanism is applied to repeat
+     * {@link RaftGroupService#changePeersAndLearnersAsync} if previous one failed with some exception.
      *
-     * @return Function which performs {@link RaftGroupService#changePeersAsync}.
+     * @return Function which performs {@link RaftGroupService#changePeersAndLearnersAsync}.
      */
     public CompletableFuture<Void> movePartition(PeersAndLearners peersAndLearners, long term) {
         if (!busyLock.enterBusy()) {
@@ -64,8 +64,9 @@ public class PartitionMover {
         }
 
         try {
-            return raftGroupServiceSupplier.get()
-                    .changePeersAsync(peersAndLearners, term)
+            return raftGroupServiceSupplier
+                    .get()
+                    .thenCompose(raftGroupService -> raftGroupService.changePeersAndLearnersAsync(peersAndLearners, term))
                     .handle((resp, err) -> {
                         if (!busyLock.enterBusy()) {
                             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -74,12 +75,12 @@ public class PartitionMover {
                         try {
                             if (err != null) {
                                 if (recoverable(err)) {
-                                    LOG.debug("Recoverable error received during changePeersAsync invocation, retrying", err);
+                                    LOG.debug("Recoverable error received during changePeersAndLearnersAsync invocation, retrying", err);
                                 } else {
                                     // TODO: IGNITE-19087 Ideally, rebalance, which has initiated this invocation should be canceled,
                                     // TODO: Also it might be reasonable to delegate such exceptional case to a general failure handler.
                                     // TODO: At the moment, we repeat such intents as well.
-                                    LOG.debug("Unrecoverable error received during changePeersAsync invocation, retrying", err);
+                                    LOG.debug("Unrecoverable error received during changePeersAndLearnersAsync invocation, retrying", err);
                                 }
 
                                 return movePartition(peersAndLearners, term);

@@ -18,22 +18,27 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import java.util.Objects;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 
-class DropTableImpl extends AbstractCatalogQuery {
+class DropTableImpl extends AbstractCatalogQuery<Name> {
     private Name tableName;
 
     private boolean ifExists;
 
-    DropTableImpl(IgniteSql sql, Options options) {
-        super(sql, options);
+    DropTableImpl(IgniteSql sql) {
+        super(sql);
     }
 
-    DropTableImpl name(String... names) {
-        Objects.requireNonNull(names, "Table name must not be null");
+    @Override
+    protected Name result() {
+        return tableName;
+    }
 
-        this.tableName = new Name(names);
+    DropTableImpl name(QualifiedName name) {
+        Objects.requireNonNull(name, "Table name must not be null");
+
+        this.tableName = Name.qualified(name);
         return this;
     }
 

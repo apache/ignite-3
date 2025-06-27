@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.delete;
-import static java.nio.file.Files.exists;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
@@ -40,7 +39,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
@@ -109,7 +108,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     private final FilePageStoreFactory filePageStoreFactory;
 
     /** Failure processor. */
-    private final FailureProcessor failureProcessor;
+    private final FailureManager failureManager;
 
     /**
      * Constructor.
@@ -118,7 +117,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param storagePath Storage path.
      * @param filePageStoreFileIoFactory {@link FileIo} factory for file page store.
      * @param pageSize Page size in bytes.
-     * @param failureProcessor Failure processor that is used to handler critical errors.
+     * @param failureManager Failure processor that is used to handler critical errors.
      */
     public FilePageStoreManager(
             String igniteInstanceName,
@@ -126,10 +125,10 @@ public class FilePageStoreManager implements PageReadWriteManager {
             FileIoFactory filePageStoreFileIoFactory,
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
-            FailureProcessor failureProcessor
+            FailureManager failureManager
     ) {
         this.dbDir = storagePath.resolve("db");
-        this.failureProcessor = failureProcessor;
+        this.failureManager = failureManager;
 
         cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, LOG);
 
@@ -226,7 +225,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             pageStore.read(pageId, pageBuf, keepCrc);
         } catch (IgniteInternalCheckedException e) {
-            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+            failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
             throw e;
         }
@@ -236,17 +235,16 @@ public class FilePageStoreManager implements PageReadWriteManager {
     public PageStore write(
             int grpId,
             long pageId,
-            ByteBuffer pageBuf,
-            boolean calculateCrc
+            ByteBuffer pageBuf
     ) throws IgniteInternalCheckedException {
         try {
             FilePageStore pageStore = getStoreWithCheckExists(new GroupPartitionId(grpId, partitionId(pageId)));
 
-            pageStore.write(pageId, pageBuf, calculateCrc);
+            pageStore.write(pageId, pageBuf);
 
             return pageStore;
         } catch (IgniteInternalCheckedException e) {
-            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+            failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
             throw e;
         }
@@ -263,7 +261,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             return pageId(partId, flags, pageIdx);
         } catch (IgniteInternalCheckedException e) {
-            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+            failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
             throw e;
         }
@@ -493,9 +491,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
         Path groupDir = groupDir(groupId);
 
         try {
-            if (exists(groupDir)) {
-                deleteIfExistsThrowable(groupDir);
-            }
+            deleteIfExistsThrowable(groupDir);
         } catch (IOException e) {
             throw new IOException("Failed to delete group directory: " + groupDir, e);
         }

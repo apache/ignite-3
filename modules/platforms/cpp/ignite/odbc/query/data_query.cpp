@@ -82,19 +82,28 @@ conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const
         case ignite_type::DATETIME:
             return buffer.put_date_time(value.get<ignite_date_time>());
 
-        case ignite_type::BITMASK:
-            return buffer.put_bitmask(value.get<bit_array>());
-
         case ignite_type::BYTE_ARRAY:
             return buffer.put_binary_data(value.get<std::vector<std::byte>>());
 
         case ignite_type::PERIOD:
         case ignite_type::DURATION:
-        case ignite_type::NUMBER:
         default:
             // TODO: IGNITE-19969 implement support for period, duration and big_integer
             return conversion_result::AI_UNSUPPORTED_CONVERSION;
     }
+}
+
+std::vector<bytes_view> read_rows(protocol::reader &reader) {
+    auto size = reader.read_int32();
+
+    std::vector<bytes_view> rows;
+    rows.reserve(size);
+
+    for (std::int32_t row_idx = 0; row_idx < size; ++row_idx) {
+        rows.emplace_back(reader.read_binary());
+    }
+
+    return rows;
 }
 
 } // anonymous namespace
@@ -102,7 +111,7 @@ conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const
 namespace ignite {
 
 data_query::data_query(diagnosable_adapter &m_diag, sql_connection &m_connection, std::string sql,
-    const parameter_set &params, std::int32_t &timeout)
+    parameter_set &params, std::int32_t &timeout)
     : query(m_diag, query_type::DATA)
     , m_connection(m_connection)
     , m_query(std::move(sql))
@@ -138,7 +147,7 @@ const sql_parameter *data_query::get_sql_param(std::int16_t idx) {
     return nullptr;
 }
 
-sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
+sql_result data_query::fetch_next_row() {
     if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
@@ -166,6 +175,15 @@ sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
 
     if (!m_cursor->has_data())
         return sql_result::AI_NO_DATA;
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
+    auto res = fetch_next_row();
+    if (res != ignite::sql_result::AI_SUCCESS && res != ignite::sql_result::AI_SUCCESS_WITH_INFO) {
+        return res;
+    }
 
     auto row = m_cursor->get_row();
     assert(!row.empty());
@@ -251,6 +269,7 @@ sql_result data_query::next_result_set() {
 sql_result data_query::make_request_execute() {
     auto &schema = m_connection.get_schema();
 
+    bool single = m_params.get_param_set_size() <= 1;
     auto success = m_diag.catch_errors([&] {
         auto tx = m_connection.get_transaction_id();
         if (!tx && !m_connection.is_auto_commit()) {
@@ -261,10 +280,9 @@ sql_result data_query::make_request_execute() {
             assert(tx);
         }
 
-        bool single = m_params.get_param_set_size() <= 1;
         auto client_op = single ? protocol::client_operation::SQL_EXEC : protocol::client_operation::SQL_EXEC_BATCH;
 
-        auto response = m_connection.sync_request(client_op, [&](protocol::writer &writer) {
+        auto res = m_connection.sync_request_nothrow(client_op, [&](protocol::writer &writer) {
             if (tx)
                 writer.write(*tx);
             else
@@ -274,6 +292,13 @@ sql_result data_query::make_request_execute() {
             writer.write(m_connection.get_configuration().get_page_size().get_value());
             writer.write(std::int64_t(m_connection.get_timeout()) * 1000);
             writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
+
+            auto timezone = m_connection.get_configuration().get_timezone();
+            if (timezone.is_set()) {
+                writer.write(timezone.get_value());
+            } else {
+                writer.write_nil();
+            }
 
             // Properties are not used for now.
             writer.write(0);
@@ -294,59 +319,68 @@ sql_result data_query::make_request_execute() {
             writer.write(m_connection.get_observable_timestamp());
         });
 
+        // Check error
+        if (res.second) {
+            auto err = std::move(*res.second);
+            if (!single) {
+                auto affected_rows = err.get_cause()->get_extra<std::vector<std::int64_t>>(
+                    protocol::error_extensions::SQL_UPDATE_COUNTERS);
+                if (affected_rows) {
+                    process_affected_rows(*affected_rows);
+                }
+            }
+
+            throw odbc_error{std::move(err)};
+        }
+
         m_connection.mark_transaction_non_empty();
 
-        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
-        m_query_id = reader->read_object_nullable<std::int64_t>();
+        auto &response = res.first;
+        protocol::reader reader(response.get_bytes_view());
+        m_query_id = reader.read_object_nullable<std::int64_t>();
 
-        m_has_rowset = reader->read_bool();
-        m_has_more_pages = reader->read_bool();
-        m_was_applied = reader->read_bool();
+        m_has_rowset = reader.read_bool();
+        m_has_more_pages = reader.read_bool();
+        m_was_applied = reader.read_bool();
+
         if (single) {
-            m_rows_affected = reader->read_int64();
+            m_rows_affected = reader.read_int64();
 
             if (m_has_rowset) {
-                auto columns = read_result_set_meta(*reader);
+                auto columns = read_result_set_meta(reader);
                 set_resultset_meta(std::move(columns));
-                auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
+                auto rows = read_rows(reader);
+
+                auto page = std::make_unique<result_page>(std::move(response), std::move(rows));
                 m_cursor = std::make_unique<cursor>(std::move(page));
             }
 
             m_executed = true;
         } else {
-            auto affected_rows = reader->read_int64_array();
-            auto status_ptr = m_params.get_params_status_ptr();
-
-            m_rows_affected = 0;
-            for (auto &ar : affected_rows) {
-                m_rows_affected += ar;
-            }
-            m_params.set_params_processed(affected_rows.size());
-
-            if (status_ptr) {
-                for (auto i = 0; i < m_params.get_param_set_size(); i++) {
-                    status_ptr[i] = (std::size_t(i) < affected_rows.size()) ? SQL_PARAM_SUCCESS : SQL_PARAM_ERROR;
-                }
-            }
-
-            // Batch query, set attribute if it's set
-            if (auto affected = m_params.get_params_processed_ptr(); affected) {
-                *affected = m_rows_affected;
-            }
-
-            m_executed = true;
-
-            // Check error if this is a batch query
-            if (auto error_code = reader->read_int16_nullable(); error_code) {
-                auto error_message = reader->read_string();
-                throw odbc_error(error_code_to_sql_state(error::code(error_code.value())), error_message);
-            } else {
-                reader->skip(); // error message
-            }
+            auto affected_rows = reader.read_int64_array();
+            process_affected_rows(affected_rows);
         }
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
+}
+
+void data_query::process_affected_rows(const std::vector<std::int64_t> &affected_rows) {
+    auto status_ptr = m_params.get_params_status_ptr();
+
+    m_rows_affected = 0;
+    for (auto &ar : affected_rows) {
+        m_rows_affected += ar;
+    }
+    m_params.set_params_processed(m_rows_affected);
+
+    if (status_ptr) {
+        for (auto i = 0; i < m_params.get_param_set_size(); i++) {
+            status_ptr[i] = (size_t(i) < affected_rows.size()) ? SQL_PARAM_SUCCESS : SQL_PARAM_ERROR;
+        }
+    }
+
+    m_executed = true;
 }
 
 sql_result data_query::make_request_close() {
@@ -374,8 +408,11 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
         response = m_connection.sync_request(protocol::client_operation::SQL_CURSOR_NEXT_PAGE,
             [&](protocol::writer &writer) { writer.write(*m_query_id); });
 
-        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
-        page = std::make_unique<result_page>(std::move(response), std::move(reader));
+        protocol::reader reader(response.get_bytes_view());
+        auto rows = read_rows(reader);
+        m_has_more_pages = reader.read_bool();
+
+        page = std::make_unique<result_page>(std::move(response), std::move(rows));
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;

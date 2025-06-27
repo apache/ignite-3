@@ -17,21 +17,24 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,15 +42,14 @@ import org.jetbrains.annotations.Nullable;
  * Client binary tuple utils.
  */
 public class ClientBinaryTupleUtils {
-
     /**
      * Reads an object from binary tuple at the specified index.
      *
      * @param reader Binary tuple reader.
-     * @param index  Starting index in the binary tuple.
+     * @param index Starting index in the binary tuple.
      * @return Object.
      */
-    public static Object readObject(BinaryTupleReader reader, int index) {
+    public static @Nullable Object readObject(BinaryTupleReader reader, int index) {
         if (reader.hasNullValue(index)) {
             return null;
         }
@@ -87,9 +89,6 @@ public class ClientBinaryTupleUtils {
             case BYTE_ARRAY:
                 return reader.bytesValue(valIdx);
 
-            case BITMASK:
-                return reader.bitmaskValue(valIdx);
-
             case DATE:
                 return reader.dateValue(valIdx);
 
@@ -101,9 +100,6 @@ public class ClientBinaryTupleUtils {
 
             case TIMESTAMP:
                 return reader.timestampValue(valIdx);
-
-            case NUMBER:
-                return reader.numberValue(valIdx);
 
             case BOOLEAN:
                 return reader.byteValue(valIdx) != 0;
@@ -125,7 +121,7 @@ public class ClientBinaryTupleUtils {
      * @param builder Builder.
      * @param obj Object.
      */
-    public static void appendObject(BinaryTupleBuilder builder, Object obj) {
+    public static <T> void appendObject(BinaryTupleBuilder builder, @Nullable T obj) {
         if (obj == null) {
             builder.appendNull(); // Type.
             builder.appendNull(); // Scale.
@@ -164,9 +160,6 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof byte[]) {
             appendTypeAndScale(builder, ColumnType.BYTE_ARRAY);
             builder.appendBytes((byte[]) obj);
-        } else if (obj instanceof BitSet) {
-            appendTypeAndScale(builder, ColumnType.BITMASK);
-            builder.appendBitmask((BitSet) obj);
         } else if (obj instanceof LocalDate) {
             appendTypeAndScale(builder, ColumnType.DATE);
             builder.appendDate((LocalDate) obj);
@@ -179,9 +172,6 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof Instant) {
             appendTypeAndScale(builder, ColumnType.TIMESTAMP);
             builder.appendTimestamp((Instant) obj);
-        } else if (obj instanceof BigInteger) {
-            appendTypeAndScale(builder, ColumnType.NUMBER);
-            builder.appendNumber((BigInteger) obj);
         } else if (obj instanceof Duration) {
             appendTypeAndScale(builder, ColumnType.DURATION);
             builder.appendDuration((Duration) obj);
@@ -254,10 +244,6 @@ public class ClientBinaryTupleUtils {
                     builder.appendBytesNotNull((byte[]) v);
                     return;
 
-                case BITMASK:
-                    builder.appendBitmaskNotNull((BitSet) v);
-                    return;
-
                 case DATE:
                     builder.appendDateNotNull((LocalDate) v);
                     return;
@@ -274,22 +260,36 @@ public class ClientBinaryTupleUtils {
                     builder.appendTimestampNotNull((Instant) v);
                     return;
 
-                case NUMBER:
-                    builder.appendNumberNotNull((BigInteger) v);
-                    return;
-
                 default:
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
         } catch (ClassCastException e) {
+            NativeType nativeType = NativeTypes.fromObject(v);
+
+            if (nativeType == null) {
+                // Unsupported type (does not map to any Ignite type) - throw (same behavior as embedded).
+                throw new MarshallerException(
+                        UUID.randomUUID(),
+                        Marshalling.COMMON_ERR,
+                        String.format(
+                                "Invalid value type provided for column [name='%s', expected='%s', actual='%s']",
+                                name,
+                                type.javaClass().getName(),
+                                v.getClass().getName()),
+                        e);
+            }
+
+            ColumnType actualType = nativeType.spec();
+
             // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
-            throw new IgniteException(PROTOCOL_ERR, "Column's type mismatch ["
-                    + "column=" + name
-                    + ", expectedType=" + type
-                    + ", actualType=" + v.getClass() + ']', e);
+            String error = format(
+                    "Value type does not match [column='{}', expected={}, actual={}]",
+                    name, type.name(), actualType.name()
+            );
+
+            throw new IgniteException(PROTOCOL_ERR, error, e);
         }
     }
-
 
     private static void appendTypeAndScale(BinaryTupleBuilder builder, ColumnType type, int scale) {
         builder.appendInt(type.id());
@@ -301,11 +301,11 @@ public class ClientBinaryTupleUtils {
         builder.appendInt(0);
     }
 
-    private static IgniteException unsupportedTypeException(int dataType) {
+    static IgniteException unsupportedTypeException(int dataType) {
         return new IgniteException(PROTOCOL_ERR, "Unsupported type: " + dataType);
     }
 
-    private static IgniteException unsupportedTypeException(Class<?> cls) {
+    static IgniteException unsupportedTypeException(Class<?> cls) {
         return new IgniteException(PROTOCOL_ERR, "Unsupported type: " + cls);
     }
 }

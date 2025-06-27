@@ -19,13 +19,9 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static org.apache.calcite.rel.core.JoinRelType.ANTI;
 import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.INNER;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
-import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
-import static org.apache.calcite.rel.core.JoinRelType.SEMI;
-import static org.apache.ignite.internal.sql.engine.util.Commons.getFieldFromBiRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -35,26 +31,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
-import org.apache.calcite.rel.core.CorrelationId;
-import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * ExecutionTest.
@@ -87,8 +74,6 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
         IgniteTypeFactory tf = ctx.getTypeFactory();
 
-        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.INT32, NativeTypes.STRING));
         RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
                 NativeTypes.INT32, NativeTypes.STRING, NativeTypes.STRING));
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
@@ -96,7 +81,7 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
-        NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, INNER,
+        NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, identityProjection(), leftType, rightType, INNER,
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
         join.register(asList(persons, projects));
 
@@ -188,15 +173,13 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
         IgniteTypeFactory tf = ctx.getTypeFactory();
 
-        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.INT32, NativeTypes.STRING));
         RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
                 NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
-        NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, LEFT,
+        NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, identityProjection(), leftType, rightType, LEFT,
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
         join.register(asList(persons, deps));
 
@@ -223,64 +206,6 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
     }
 
     @Test
-    public void testRightJoin() {
-        //     select e.id, e.name, d.name as dep_name
-        //       from dep d
-        // right join emp e
-        //         on e.depno = d.depno
-
-        ExecutionContext<Object[]> ctx = executionContext(true);
-
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
-                new Object[]{0, "Igor", 1},
-                new Object[]{1, "Roman", 2},
-                new Object[]{2, "Ivan", null},
-                new Object[]{3, "Alexey", 1}
-        ));
-
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
-                new Object[]{1, "Core"},
-                new Object[]{2, "SQL"},
-                new Object[]{3, "QA"}
-        ));
-
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-
-        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
-        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-
-        RowHandler<Object[]> hnd = ctx.rowHandler();
-
-        NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, RIGHT,
-                (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
-        join.register(asList(deps, persons));
-
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[2], r[3], r[1]});
-        project.register(join);
-
-        RootNode<Object[]> node = new RootNode<>(ctx);
-        node.register(project);
-
-        assert node.hasNext();
-
-        ArrayList<Object[]> rows = new ArrayList<>();
-
-        while (node.hasNext()) {
-            rows.add(node.next());
-        }
-
-        assertEquals(4, rows.size());
-
-        assertArrayEquals(new Object[]{0, "Igor", "Core"}, rows.get(0));
-        assertArrayEquals(new Object[]{3, "Alexey", "Core"}, rows.get(1));
-        assertArrayEquals(new Object[]{1, "Roman", "SQL"}, rows.get(2));
-        assertArrayEquals(new Object[]{2, "Ivan", null}, rows.get(3));
-    }
-
-    @Test
     public void testFullOuterJoin() {
         //          select e.id, e.name, d.name as dep_name
         //            from emp e
@@ -304,15 +229,13 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
         IgniteTypeFactory tf = ctx.getTypeFactory();
 
-        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.INT32, NativeTypes.STRING));
         RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
                 NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
-        NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, FULL,
+        NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, identityProjection(), leftType, rightType, FULL,
                 (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
         join.register(asList(persons, deps));
 
@@ -340,183 +263,6 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
     }
 
     @Test
-    public void testSemiJoin() {
-        //    select d.name as dep_name
-        //      from dep d
-        // semi join emp e
-        //        on e.depno = d.depno
-
-        ExecutionContext<Object[]> ctx = executionContext(true);
-
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
-                new Object[]{0, "Igor", 1},
-                new Object[]{1, "Roman", 2},
-                new Object[]{2, "Ivan", null},
-                new Object[]{3, "Alexey", 1}
-        ));
-
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
-                new Object[]{1, "Core"},
-                new Object[]{2, "SQL"},
-                new Object[]{3, "QA"}
-        ));
-
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-
-        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
-
-        RowHandler<Object[]> hnd = ctx.rowHandler();
-
-        NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, SEMI,
-                (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
-        join.register(asList(deps, persons));
-
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[1]});
-        project.register(join);
-
-        RootNode<Object[]> node = new RootNode<>(ctx);
-        node.register(project);
-
-        assert node.hasNext();
-
-        ArrayList<Object[]> rows = new ArrayList<>();
-
-        while (node.hasNext()) {
-            rows.add(node.next());
-        }
-
-        assertEquals(2, rows.size());
-
-        assertArrayEquals(new Object[]{"Core"}, rows.get(0));
-        assertArrayEquals(new Object[]{"SQL"}, rows.get(1));
-    }
-
-    @Test
-    public void testAntiJoin() {
-        //    select d.name as dep_name
-        //      from dep d
-        // anti join emp e
-        //        on e.depno = d.depno
-
-        ExecutionContext<Object[]> ctx = executionContext(true);
-
-        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
-                new Object[]{0, "Igor", 1},
-                new Object[]{1, "Roman", 2},
-                new Object[]{2, "Ivan", null},
-                new Object[]{3, "Alexey", 1}
-        ));
-
-        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
-                new Object[]{1, "Core"},
-                new Object[]{2, "SQL"},
-                new Object[]{3, "QA"}
-        ));
-
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-
-        RelDataType outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
-
-        RowHandler<Object[]> hnd = ctx.rowHandler();
-
-        NestedLoopJoinNode<Object[]> join = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, ANTI,
-                (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2) == getFieldFromBiRows(hnd, 4, r1, r2));
-        join.register(asList(deps, persons));
-
-        ProjectNode<Object[]> project = new ProjectNode<>(ctx, r -> new Object[]{r[1]});
-        project.register(join);
-
-        RootNode<Object[]> node = new RootNode<>(ctx);
-        node.register(project);
-
-        assert node.hasNext();
-
-        ArrayList<Object[]> rows = new ArrayList<>();
-
-        while (node.hasNext()) {
-            rows.add(node.next());
-        }
-
-        assertEquals(1, rows.size());
-
-        assertArrayEquals(new Object[]{"QA"}, rows.get(0));
-    }
-
-    /**
-     * TestCorrelatedNestedLoopJoin.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @ParameterizedTest
-    @MethodSource("provideArgumentsForCnlJtest")
-    @DisabledOnOs(value = OS.WINDOWS, disabledReason =
-            "This test uses AbstractExecutionTest.IgniteTestStripedThreadPoolExecutor"
-                    + "which use LockSupport.parkNanos as way to sleep with nanotime to emulate different JVM pauses or another cases."
-                    + "Windows doesn't support park() with nanos argument,"
-                    + " see https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/19fb8f93c59dfd791f62d41f332db9e306bc1422/src/hotspot/os/windows/os_windows.cpp#L5228C59-L5228C59"
-                    + "So, as described above Windows OS doesn't support nanotime park "
-                    + "without additional manipulation (different hacks via JNI)."
-    )
-    public void testCorrelatedNestedLoopJoin(int leftSize, int rightSize, int rightBufSize, JoinRelType joinType) {
-        ExecutionContext<Object[]> ctx = executionContext(true);
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
-                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
-
-        ScanNode<Object[]> left = new ScanNode<>(ctx, new TestTable(leftSize, rowType));
-        ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(rightSize, rowType));
-
-        RowSchema joinRowType = RowSchema.builder()
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.INT32)
-                .build();
-
-        RowHandler<Object[]> hnd = ctx.rowHandler();
-
-        CorrelatedNestedLoopJoinNode<Object[]> join = new CorrelatedNestedLoopJoinNode<>(
-                ctx,
-                (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2).equals(getFieldFromBiRows(hnd, 3, r1, r2)),
-                Set.of(new CorrelationId(0)),
-                joinType,
-                hnd.factory(joinRowType)
-        );
-
-        IgniteTestUtils.setFieldValue(join, "rightInBufferSize", rightBufSize);
-
-        join.register(Arrays.asList(left, right));
-
-        FilterNode<Object[]> filter = new FilterNode<>(ctx, r -> true);
-        filter.register(join);
-
-        RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(filter);
-
-        int cnt = 0;
-        while (root.hasNext()) {
-            root.next();
-
-            cnt++;
-        }
-
-        assertEquals(
-                joinType == INNER ? min(leftSize, rightSize) : leftSize,
-                cnt,
-                "Invalid result size. [left=" + leftSize + ", right=" + rightSize + ", results=" + cnt
-        );
-    }
-
-    @Test
     public void testMergeJoin() {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
@@ -537,8 +283,8 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
                 MergeJoinNode<Object[]> join = MergeJoinNode.create(
                         ctx,
-                        null,
-                        null,
+                        rowType,
+                        rowType,
                         INNER,
                         (r1, r2) -> {
                             Object o1 = r1[0];
@@ -555,7 +301,8 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
                             }
 
                             return Integer.compare((Integer) o1, (Integer) o2);
-                        }
+                        },
+                        identityProjection()
                 );
 
                 join.register(Arrays.asList(left, right));
@@ -621,6 +368,7 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
      * Node that always throws {@link IllegalAccessError} except for {@link #close()} and {@link #onRegister(Downstream)} methods.
      */
     static class CorruptedNode<T> implements Node<T> {
+
         /** {@inheritDoc} */
         @Override
         public ExecutionContext<T> context() {
@@ -663,31 +411,21 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
             throw new IllegalAccessError();
         }
 
+        @Override
+        public void execute(RunnableX task) {
+            throw new IllegalAccessError();
+        }
+
         /** {@inheritDoc} */
         @Override
         public void close() {
-        }
-    }
 
-    private static Stream<Arguments> provideArgumentsForCnlJtest() {
-        List<Arguments> args = new ArrayList<>();
-
-        int[] leftSizes = {1, 99, 100, 101, 512, 513, 2000};
-        int[] rightSizes = {1, 99, 100, 101, 512, 513, 2000};
-        int[] rightBufSizes = {1, 100, 512};
-        JoinRelType[] joinTypes = {INNER, LEFT};
-
-        for (JoinRelType joinType : joinTypes) {
-            for (int rightBufSize : rightBufSizes) {
-                for (int leftSize : leftSizes) {
-                    for (int rightSize : rightSizes) {
-                        args.add(Arguments.of(leftSize, rightSize, rightBufSize, joinType));
-                    }
-                }
-            }
         }
 
-        return args.stream();
+        @Override
+        public void dumpState(IgniteStringBuilder writer, String indent) {
+            writer.app(indent).app("class=").app(getClass().getSimpleName()).nl();
+        }
     }
 
     @Override

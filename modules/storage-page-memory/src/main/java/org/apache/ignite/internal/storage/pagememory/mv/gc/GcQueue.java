@@ -24,7 +24,6 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcInnerIo;
@@ -44,11 +43,12 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
      * @param grpName Group name.
      * @param partId Partition id.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
-     * @param globalRmvId Global remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
-     * @param reuseList Reuse list.
-     * @param initNew {@code True} if new tree should be created.
+     * @param reuseList Reuse list, {@code null} if absent.
+     * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating it
+     *      for the first time), {@code false} if not necessary (for example, when restoring a tree).
      * @throws IgniteInternalCheckedException If failed.
      */
     public GcQueue(
@@ -56,19 +56,17 @@ public class GcQueue extends BplusTree<GcRowVersion, GcRowVersion> {
             String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super(
-                "GarbageCollectionTree_" + grpId,
+                "GarbageCollectionTree",
                 grpId,
                 grpName,
                 partId,
                 pageMem,
-                lockLsnr,
                 globalRmvId,
                 metaPageId,
                 reuseList

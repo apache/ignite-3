@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -24,6 +25,8 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
+import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 
 /**
  * Get all command for MetaStorageCommandListener that retrieves entries for given keys and the revision upper bound, if latter is present.
@@ -33,7 +36,8 @@ public interface GetAllCommand extends ReadCommand {
     /**
      * Returns the list of keys.
      */
-    List<byte[]> keys();
+    @IgniteStringifier(name = "keys.size", value = SizeOnlyStringifier.class)
+    List<ByteBuffer> keys();
 
     /**
      * Returns the upper bound for entry revisions or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.
@@ -48,10 +52,10 @@ public interface GetAllCommand extends ReadCommand {
      * @param revUpperBound The upper bound for entry revisions. Must be positive.
      */
     static GetAllCommand getAllCommand(MetaStorageCommandsFactory commandsFactory, Set<ByteArray> keys, long revUpperBound) {
-        List<byte[]> keysList = new ArrayList<>(keys.size());
+        var keysList = new ArrayList<ByteBuffer>(keys.size());
 
         for (ByteArray key : keys) {
-            keysList.add(key.bytes());
+            keysList.add(ByteBuffer.wrap(key.bytes()));
         }
 
         return commandsFactory.getAllCommand().keys(keysList).revision(revUpperBound).build();

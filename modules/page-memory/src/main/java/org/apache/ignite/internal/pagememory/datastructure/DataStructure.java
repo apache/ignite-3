@@ -33,13 +33,10 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,21 +51,17 @@ public abstract class DataStructure implements ManuallyCloseable {
     /** Structure name. */
     private final String name;
 
-    /** Page lock listener. */
-    private final PageLockListener lockLsnr;
-
     /** Group id. */
     protected final int grpId;
 
     /** Group name. */
-    protected final String grpName;
+    protected final @Nullable String grpName;
 
     /** Page memory. */
     protected final PageMemory pageMem;
 
     /** Reuse list. */
-    @Nullable
-    protected ReuseList reuseList;
+    protected @Nullable ReuseList reuseList;
 
     /** Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}. */
     protected final byte defaultPageFlag;
@@ -79,34 +72,31 @@ public abstract class DataStructure implements ManuallyCloseable {
     /**
      * Constructor.
      *
-     * @param name Structure name (for debugging purposes).
+     * @param structureNamePrefix Structure name prefix (for debugging purposes).
      * @param grpId Group ID.
      * @param grpName Group name.
      * @param partId Partition ID.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
      * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
      *      PageIdAllocator#FLAG_AUX}.
      */
     public DataStructure(
-            String name,
+            String structureNamePrefix,
             int grpId,
             @Nullable String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             byte defaultPageFlag
     ) {
-        assert !StringUtils.nullOrEmpty(name);
+        assert !StringUtils.nullOrEmpty(structureNamePrefix);
         assert pageMem != null;
         assert partId >= 0 && partId <= MAX_PARTITION_ID : partId;
 
-        this.name = name;
+        this.name = structureNamePrefix + "_" + grpId + "_" + partId;
         this.grpId = grpId;
         this.grpName = grpName;
         this.partId = partId;
         this.pageMem = pageMem;
-        this.lockLsnr = lockLsnr;
         this.defaultPageFlag = defaultPageFlag;
     }
 
@@ -155,32 +145,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @throws IgniteInternalCheckedException If failed.
      */
     protected final long allocatePage(@Nullable ReuseBag bag, boolean useRecycled) throws IgniteInternalCheckedException {
-        long pageId = 0;
-
-        if (useRecycled && reuseList != null) {
-            pageId = bag != null ? bag.pollFreePage() : 0;
-
-            if (pageId == 0) {
-                pageId = reuseList.takeRecycledPage();
-            }
-
-            // Recycled. "pollFreePage" result should be reinitialized to move rotatedId to itemId.
-            if (pageId != 0) {
-                pageId = reuseList.initRecycledPage(pageId, defaultPageFlag, null);
-            }
-        }
-
-        if (pageId == 0) {
-            pageId = allocatePageNoReuse();
-        }
-
-        assert pageId != 0;
-
-        assert partitionId(pageId) >= 0 && partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
-
-        assert flag(pageId) != FLAG_DATA || itemId(pageId) == 0 : toDetailString(pageId);
-
-        return pageId;
+        return pageMem.allocatePage(reuseList, bag, useRecycled, grpId, partId, defaultPageFlag);
     }
 
     /**
@@ -190,7 +155,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @throws IgniteInternalCheckedException If failed.
      */
     protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-        return pageMem.allocatePage(grpId, partId, defaultPageFlag);
+        return pageMem.allocatePageNoReuse(grpId, partId, defaultPageFlag);
     }
 
     /**
@@ -199,14 +164,13 @@ public abstract class DataStructure implements ManuallyCloseable {
      * <p>NOTE: Each page obtained with this method must be released by calling {@link #releasePage}.
      *
      * @param pageId Page ID.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Page pointer.
      * @throws IgniteInternalCheckedException If failed.
      */
-    protected final long acquirePage(long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    protected final long acquirePage(long pageId) throws IgniteInternalCheckedException {
         assert partitionId(pageId) >= 0 && partitionId(pageId) <= MAX_PARTITION_ID : toDetailString(pageId);
 
-        return pageMem.acquirePage(grpId, pageId, statHolder);
+        return pageMem.acquirePage(grpId, pageId);
     }
 
     /**
@@ -227,7 +191,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @return Page address or {@code 0} if failed to lock due to recycling.
      */
     protected final long tryWriteLock(long pageId, long page) {
-        return PageHandler.writeLock(pageMem, grpId, pageId, page, lockLsnr, true);
+        return pageMem.tryWriteLock(grpId, pageId, page);
     }
 
     /**
@@ -238,7 +202,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @return Page address.
      */
     protected final long writeLock(long pageId, long page) {
-        return PageHandler.writeLock(pageMem, grpId, pageId, page, lockLsnr, false);
+        return pageMem.writeLock(grpId, pageId, page);
     }
 
     /**
@@ -249,7 +213,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @return Page address.
      */
     protected final long readLock(long pageId, long page) {
-        return PageHandler.readLock(pageMem, grpId, pageId, page, lockLsnr);
+        return pageMem.readLock(grpId, pageId, page);
     }
 
     /**
@@ -260,7 +224,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @param pageAddr Page address.
      */
     protected final void readUnlock(long pageId, long page, long pageAddr) {
-        PageHandler.readUnlock(pageMem, grpId, pageId, page, pageAddr, lockLsnr);
+        pageMem.readUnlock(grpId, pageId, page);
     }
 
     /**
@@ -272,7 +236,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @param dirty Dirty flag.
      */
     protected final void writeUnlock(long pageId, long page, long pageAddr, boolean dirty) {
-        PageHandler.writeUnlock(pageMem, grpId, pageId, page, pageAddr, lockLsnr, dirty);
+        pageMem.writeUnlock(grpId, pageId, page, dirty);
     }
 
     /**
@@ -282,7 +246,6 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @param h Handler.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -290,10 +253,9 @@ public abstract class DataStructure implements ManuallyCloseable {
             long pageId,
             PageHandler<?, R> h,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
-        return PageHandler.writePage(pageMem, grpId, pageId, lockLsnr, h, null, null, intArg, lockFailed, statHolder);
+        return PageHandler.writePage(pageMem, grpId, pageId, h, null, null, intArg, lockFailed);
     }
 
     /**
@@ -304,7 +266,6 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -313,10 +274,9 @@ public abstract class DataStructure implements ManuallyCloseable {
             PageHandler<X, R> h,
             X arg,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
-        return PageHandler.writePage(pageMem, grpId, pageId, lockLsnr, h, null, arg, intArg, lockFailed, statHolder);
+        return PageHandler.writePage(pageMem, grpId, pageId, h, null, arg, intArg, lockFailed);
     }
 
     /**
@@ -328,7 +288,6 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -338,10 +297,9 @@ public abstract class DataStructure implements ManuallyCloseable {
             PageHandler<X, R> h,
             X arg,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
-        return PageHandler.writePage(pageMem, grpId, pageId, page, lockLsnr, h, null, arg, intArg, lockFailed, statHolder);
+        return PageHandler.writePage(pageMem, grpId, pageId, page, h, null, arg, intArg, lockFailed);
     }
 
     /**
@@ -353,7 +311,6 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -363,10 +320,9 @@ public abstract class DataStructure implements ManuallyCloseable {
             PageIo init,
             X arg,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
-        return PageHandler.writePage(pageMem, grpId, pageId, lockLsnr, h, init, arg, intArg, lockFailed, statHolder);
+        return PageHandler.writePage(pageMem, grpId, pageId, h, init, arg, intArg, lockFailed);
     }
 
     /**
@@ -377,7 +333,6 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -386,10 +341,9 @@ public abstract class DataStructure implements ManuallyCloseable {
             PageHandler<X, R> h,
             X arg,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
-        return PageHandler.readPage(pageMem, grpId, pageId, lockLsnr, h, arg, intArg, lockFailed, statHolder);
+        return PageHandler.readPage(pageMem, grpId, pageId, h, arg, intArg, lockFailed);
     }
 
     /**
@@ -401,7 +355,6 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @param arg Argument.
      * @param intArg Argument of type {@code int}.
      * @param lockFailed Result in case of lock failure due to page recycling.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -411,10 +364,9 @@ public abstract class DataStructure implements ManuallyCloseable {
             PageHandler<X, R> h,
             X arg,
             int intArg,
-            R lockFailed,
-            IoStatisticsHolder statHolder
+            R lockFailed
     ) throws IgniteInternalCheckedException {
-        return PageHandler.readPage(pageMem, grpId, pageId, page, lockLsnr, h, arg, intArg, lockFailed, statHolder);
+        return PageHandler.readPage(pageMem, grpId, pageId, page, h, arg, intArg, lockFailed);
     }
 
     /**
@@ -425,7 +377,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @throws IgniteInternalCheckedException if failed.
      */
     protected final void init(long pageId, PageIo init) throws IgniteInternalCheckedException {
-        PageHandler.initPage(pageMem, grpId, pageId, init, lockLsnr, IoStatisticsHolderNoOp.INSTANCE);
+        PageHandler.initPage(pageMem, grpId, pageId, init);
     }
 
     /**
@@ -436,7 +388,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @return Page ID with the incremented rotation ID.
      * @see FullPageId
      */
-    protected final long recyclePage(long pageId, long pageAddr) {
+    protected static long recyclePage(long pageId, long pageAddr) {
         long recycled = 0;
 
         if (flag(pageId) == FLAG_DATA) {
@@ -472,6 +424,6 @@ public abstract class DataStructure implements ManuallyCloseable {
      */
     @Override
     public void close() {
-        lockLsnr.close();
+        // No-op.
     }
 }

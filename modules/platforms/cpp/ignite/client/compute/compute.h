@@ -17,21 +17,19 @@
 
 #pragma once
 
-#include "ignite/client/compute/deployment_unit.h"
+#include "ignite/client/compute/broadcast_execution.h"
+#include "ignite/client/compute/broadcast_job_target.h"
+#include "ignite/client/compute/job_descriptor.h"
 #include "ignite/client/compute/job_execution.h"
-#include "ignite/client/compute/job_execution_options.h"
+#include "ignite/client/compute/job_target.h"
 #include "ignite/client/network/cluster_node.h"
-#include "ignite/client/table/ignite_tuple.h"
-#include "ignite/client/transaction/transaction.h"
-#include "ignite/common/config.h"
+#include "ignite/common/binary_object.h"
+#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
-#include "ignite/common/primitive.h"
 
-#include <map>
 #include <memory>
-#include <set>
 #include <utility>
-#include <vector>
+
 
 namespace ignite {
 
@@ -50,109 +48,64 @@ public:
     compute() = delete;
 
     /**
-     * Submits for execution a compute job represented by the given class for an execution on one of the specified
-     * nodes.
+     * Submits for execution a compute job represented by the given class for an execution on the specified target.
      *
-     * @param nodes Nodes to use for the job execution.
-     * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to submit.
-     * @param args Job arguments.
-     * @param options Job execution options.
+     * @param target Job target.
+     * @param descriptor Descriptor.
+     * @param arg Job argument.
      * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void submit_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-        std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options,
-        ignite_callback<job_execution> callback);
+    IGNITE_API void submit_async(std::shared_ptr<job_target> target, std::shared_ptr<job_descriptor> descriptor,
+        const binary_object &arg, ignite_callback<job_execution> callback);
 
     /**
-     * Submits for execution a compute job represented by the given class on one of the specified nodes.
+     * Submits for execution a compute job represented by the given class on the specified target.
      *
-     * @param nodes Nodes to use for the job execution.
-     * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to submit.
-     * @param args Job arguments.
-     * @param options Job execution options.
+     * @param target Job target.
+     * @param descriptor Descriptor.
+     * @param arg Job argument.
      * @return Job execution result.
      */
-    IGNITE_API job_execution submit(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-        std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options) {
+    IGNITE_API job_execution submit(std::shared_ptr<job_target> target, std::shared_ptr<job_descriptor> descriptor,
+        const binary_object &arg) {
         return sync<job_execution>([&](auto callback) mutable {
-            submit_async(nodes, units, job_class_name, args, options, std::move(callback));
+            submit_async(std::move(target), std::move(descriptor), arg, std::move(callback));
         });
     }
 
     /**
-     * Broadcast a compute job represented by the given class for an execution on all of the specified nodes.
+     * Broadcast a compute job represented by the given class for an execution on all the specified nodes.
      *
-     * @param nodes Nodes to use for the job execution.
-     * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to submit.
-     * @param args Job arguments.
-     * @param options Job execution options.
+     * @param target Job target.
+     * @param descriptor Descriptor.
+     * @param arg Job argument.
      * @param callback A callback called on operation completion with jobs execution result.
      */
-    IGNITE_API void submit_broadcast_async(const std::set<cluster_node> &nodes,
-        const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
-        const job_execution_options &options,
-        ignite_callback<std::map<cluster_node, ignite_result<job_execution>>> callback);
+    IGNITE_API void submit_broadcast_async(std::shared_ptr<broadcast_job_target> target,
+        std::shared_ptr<job_descriptor> descriptor, const binary_object &arg,
+        ignite_callback<broadcast_execution> callback);
 
     /**
-     * Broadcast a compute job represented by the given class on all of the specified nodes.
+     * Broadcast a compute job represented by the given class on all the specified nodes.
      *
-     * @param nodes Nodes to use for the job execution.
-     * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to submit.
-     * @param args Job arguments.
-     * @param options Job execution options.
+     * @param target Job target.
+     * @param descriptor Descriptor.
+     * @param arg Job argument.
      * @return Job execution result.
      */
-    IGNITE_API std::map<cluster_node, ignite_result<job_execution>> submit_broadcast(
-        const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units, std::string_view job_class_name,
-        const std::vector<primitive> &args, const job_execution_options &options) {
-        return sync<std::map<cluster_node, ignite_result<job_execution>>>([&](auto callback) mutable {
-            submit_broadcast_async(nodes, units, job_class_name, args, options, std::move(callback));
-        });
-    }
-
-    /**
-     * Asynchronously executes a job represented by the given class on one node where the given key is located.
-     *
-     * @param table_name Name of the table to be used with @c key to determine target node.
-     * @param key Table key to be used to determine the target node for job execution.
-     * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to submit.
-     * @param args Job arguments.
-     * @param options Job execution options.
-     * @param callback A callback called on operation completion with job execution result.
-     */
-    IGNITE_API void submit_colocated_async(std::string_view table_name, const ignite_tuple &key,
-        const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
-        const job_execution_options &options, ignite_callback<job_execution> callback);
-
-    /**
-     * Synchronously executes a job represented by the given class on one node where the given key is located.
-     *
-     * @param table_name Name of the table to be used with @c key to determine target node.
-     * @param key Table key to be used to determine the target node for job execution.
-     * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to submit.
-     * @param args Job arguments.
-     * @param options Job execution options.
-     * @return Job execution result.
-     */
-    IGNITE_API job_execution submit_colocated(std::string_view table_name, const ignite_tuple &key,
-        const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
-        const job_execution_options &options) {
-        return sync<job_execution>([&](auto callback) mutable {
-            submit_colocated_async(table_name, key, units, job_class_name, args, options, std::move(callback));
+    IGNITE_API broadcast_execution submit_broadcast(
+        std::shared_ptr<broadcast_job_target> target, std::shared_ptr<job_descriptor> descriptor,
+        const binary_object &arg) {
+        return sync<broadcast_execution>([&](auto callback) mutable {
+            submit_broadcast_async(std::move(target), std::move(descriptor), arg, std::move(callback));
         });
     }
 
 private:
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param impl Implementation
+     * @param impl Implementation.
      */
     explicit compute(std::shared_ptr<detail::compute_impl> impl)
         : m_impl(std::move(impl)) {}

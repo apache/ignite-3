@@ -36,22 +36,19 @@ import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexInputRef;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlUpdate;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.RelBuilder;
@@ -61,7 +58,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.jetbrains.annotations.Nullable;
 
 /** Converts a SQL parse tree into a relational algebra operators. */
-public class IgniteSqlToRelConvertor extends SqlToRelConverter {
+public class IgniteSqlToRelConvertor extends SqlToRelConverter implements InitializerContext {
     private final Deque<SqlCall> datasetStack = new ArrayDeque<>();
 
     private RelBuilder relBuilder;
@@ -87,30 +84,6 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         }
     }
 
-    @Override
-    protected RexNode convertExtendedExpression(
-            SqlNode expr,
-            Blackboard bb) {
-        SqlKind kind = expr.getKind();
-        if (kind == SqlKind.CAST) {
-            SqlCall call = (SqlCall) expr;
-            SqlNode op0 = call.operand(0);
-            SqlNode type = call.operand(1);
-            if (!(op0 instanceof SqlNumericLiteral) || !(type instanceof SqlDataTypeSpec)) {
-                return null;
-            }
-            SqlNumericLiteral literal = (SqlNumericLiteral) op0;
-            RelDataType derived = ((SqlDataTypeSpec) type).deriveType(validator);
-            // if BIGINT is present we need to preserve CAST from BIGINT to BIGINT for further overflow check possibility
-            // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
-            if (derived.getSqlTypeName() == SqlTypeName.BIGINT) {
-                RexLiteral lit = rexBuilder.makeLiteral(literal.toValue());
-                return rexBuilder.makeCast(derived, lit, false, false);
-            }
-        }
-        return null;
-    }
-
     @Override protected RelNode convertInsert(SqlInsert call) {
         datasetStack.push(call);
 
@@ -119,6 +92,11 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         datasetStack.pop();
 
         return rel;
+    }
+
+    @Override
+    public SqlNode validateExpression(RelDataType rowType, SqlNode expr) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     private static class DefaultChecker extends SqlShuttle {
@@ -265,14 +243,27 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
             // provided, in which case, the expression is the default value for
             // the column; or if the expressions directly map to the source
             // table
-            level1InsertExprs =
-                    ((LogicalProject) insertRel.getInput(0)).getProjects();
-            if (insertRel.getInput(0).getInput(0) instanceof LogicalProject) {
-                level2InsertExprs =
-                        ((LogicalProject) insertRel.getInput(0).getInput(0))
-                                .getProjects();
+            RelNode input = insertRel.getInput(0);
+
+            if (input instanceof LogicalProject) {
+                level1InsertExprs = ((LogicalProject) input).getProjects();
+            } else {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22293
+                // convertInsert() may return LogicalTableModify without projection in the input.
+                // As a workaround for this case, we additionally build required column expressions.
+                RelDataType rowType = input.getRowType();
+                level1InsertExprs = new ArrayList<>(rowType.getFieldCount());
+                int pos = 0;
+                for (RelDataTypeField type : rowType.getFieldList()) {
+                    level1InsertExprs.add(rexBuilder.makeInputRef(type.getType(), pos++));
+                }
             }
+
             numLevel1Exprs = level1InsertExprs.size();
+
+            if (!input.getInputs().isEmpty() && input.getInput(0) instanceof LogicalProject) {
+                level2InsertExprs = ((LogicalProject) input.getInput(0)).getProjects();
+            }
         }
 
         LogicalJoin join = (LogicalJoin) mergeSourceRel.getInput(0);
@@ -308,5 +299,10 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         return LogicalTableModify.create(targetTable, catalogReader,
                 relBuilder.build(), LogicalTableModify.Operation.MERGE,
                 targetColumnNameList, null, false);
+    }
+
+    @Override
+    public RelOptTable getTargetTable(SqlNode call) {
+        return super.getTargetTable(call);
     }
 }

@@ -19,6 +19,9 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,13 +45,14 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -59,18 +64,12 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     private static final String NUMERIC_FORMAT_ERROR = "neither a decimal digit number";
 
-    private static final Object EMPTY_PARAM = new Object();
-
     /**
      * Drops all created tables.
      */
     @AfterEach
     public void dropTables() {
-        var igniteTables = CLUSTER.aliveNode().tables();
-
-        for (var table : igniteTables.tables()) {
-            sql("DROP TABLE " + table.name());
-        }
+        dropAllTables();
     }
 
     /** Tests correctness with unicode. */
@@ -115,6 +114,100 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Test
+    public void exactWithApproxComparison() {
+        assertQuery("SELECT '1.1'::INTEGER > 2").returns(false).check();
+
+        assertQuery("SELECT 1.1::INTEGER > 2").returns(false).check();
+        assertQuery("SELECT 2 < 1.1::INTEGER").returns(false).check();
+
+        assertQuery("SELECT 1.1::BIGINT > 2").returns(false).check();
+        assertQuery("SELECT 2 < 1.1::BIGINT").returns(false).check();
+
+        assertQuery("SELECT 1.1::float > 2").returns(false).check();
+        assertQuery("SELECT '1.1'::float > 2").returns(false).check();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"FLOAT", "REAL", "DOUBLE"})
+    public void nonFiniteNumerics(String type) {
+        Number positiveInfinity;
+        Number negativeInfinity;
+        Number nan;
+
+        if ("DOUBLE".equals(type)) {
+            positiveInfinity = Double.POSITIVE_INFINITY;
+            negativeInfinity = Double.NEGATIVE_INFINITY;
+            nan = Double.NaN;
+        } else {
+            positiveInfinity = Float.POSITIVE_INFINITY;
+            negativeInfinity = Float.NEGATIVE_INFINITY;
+            nan = Float.NaN;
+        }
+
+        assertQuery(format("SELECT CAST('+Infinity' AS {})", type)).returns(positiveInfinity).check();
+        assertQuery(format("SELECT CAST('Infinity' AS {})", type)).returns(positiveInfinity).check();
+        assertQuery(format("SELECT CAST('-Infinity' AS {})", type)).returns(negativeInfinity).check();
+        assertQuery(format("SELECT CAST('NaN' AS {})", type)).returns(nan).check();
+
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('+Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k > CAST('-Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k <> CAST('NaN' AS {})", type)).returns(0).check();
+    }
+
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    @ParameterizedTest()
+    @MethodSource("exactDecimalTypes")
+    public void testFilterTypeWiderThanColumn(SqlTypeName typeName, Class<?> clazz, Number upper, String strUpper) {
+        sql(format("create table tbl(v {});", typeName));
+        sql(format("insert into tbl values({});", upper));
+
+        Number checkReturn = (Number) clazz.cast(upper);
+
+        BigDecimal moreThanUpperBoundApprox = new BigDecimal(strUpper).add(new BigDecimal(1.1));
+        BigDecimal lessUpper = new BigDecimal(strUpper).add(new BigDecimal(-1));
+
+        // -------------------------------------------------------- //
+
+        assertQuery(format("SELECT * FROM tbl WHERE v = {}", upper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE {} = v", upper)).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v != {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE {} != v", moreThanUpperBoundApprox)).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v < {}", moreThanUpperBoundApprox)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE {} > v", moreThanUpperBoundApprox)).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v < (SELECT {})", moreThanUpperBoundApprox)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v = (SELECT {})", strUpper)).returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ({} + 1)", lessUpper)).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ((SELECT v FROM tbl WHERE v = {}))", strUpper))
+                .returns(checkReturn).check();
+
+        assertQuery(format("SELECT * FROM tbl WHERE v IN ('{}'::{} + 1)", lessUpper, typeName)).returns(checkReturn).check();
+
+        assertQuery("SELECT * FROM tbl WHERE v IN (? + 1)").withParam(lessUpper).returns(checkReturn).check();
+        assertQuery(format("SELECT * FROM tbl WHERE v NOT IN ({} - 1)", strUpper)).returns(checkReturn).check();
+
+        BigDecimal moreThanUpperBoundExact = new BigDecimal(strUpper).add(new BigDecimal(1));
+        assertQuery(format("SELECT * FROM tbl WHERE v < {}::DECIMAL(19, 0)", moreThanUpperBoundExact)).returns(checkReturn).check();
+
+        assertQuery("SELECT * FROM tbl WHERE v > OCTET_LENGTH('TEST')").returns(checkReturn).check();
+        assertQuery(format("SELECT NULLIF((select {}), 100)", moreThanUpperBoundApprox))
+                .returns(moreThanUpperBoundApprox).check();
+    }
+
+    private static Stream<Arguments> exactDecimalTypes() {
+        return Stream.of(
+                arguments(SqlTypeName.BIGINT, Long.class, Long.MAX_VALUE, Long.toString(Long.MAX_VALUE)),
+                arguments(SqlTypeName.INTEGER, Integer.class, Integer.MAX_VALUE, Integer.toString(Integer.MAX_VALUE)),
+                arguments(SqlTypeName.SMALLINT, Short.class, Short.MAX_VALUE, Short.toString(Short.MAX_VALUE)),
+                arguments(SqlTypeName.TINYINT, Byte.class, Byte.MAX_VALUE, Byte.toString(Byte.MAX_VALUE))
+        );
+    }
+
     /** Tests NOT NULL and DEFAULT column constraints. */
     @Test
     public void testCheckDefaultsAndNullables() {
@@ -149,8 +242,17 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 + Integer.MAX_VALUE + ", " + Long.MAX_VALUE + ')');
 
         assertQuery("SELECT tiny FROM tbl").returns(Byte.MAX_VALUE).check();
+        assertQuery(format("SELECT tiny FROM tbl WHERE tiny < {}", 2 * Byte.MAX_VALUE)).returns(Byte.MAX_VALUE).check();
+        assertQuery(format("SELECT tiny FROM tbl WHERE tiny < '{}'::INTEGER", 2 * Byte.MAX_VALUE)).returns(Byte.MAX_VALUE).check();
+
         assertQuery("SELECT small FROM tbl").returns(Short.MAX_VALUE).check();
+        assertQuery(format("SELECT small FROM tbl WHERE small < {}", 2 * Short.MAX_VALUE)).returns(Short.MAX_VALUE).check();
+        assertQuery(format("SELECT small FROM tbl WHERE small < '{}'::INTEGER", 2 * Short.MAX_VALUE)).returns(Short.MAX_VALUE).check();
+
         assertQuery("SELECT i FROM tbl").returns(Integer.MAX_VALUE).check();
+        assertQuery(format("SELECT i FROM tbl WHERE i < {}", 2L * Integer.MAX_VALUE)).returns(Integer.MAX_VALUE).check();
+        assertQuery(format("SELECT i FROM tbl WHERE i < '{}'::BIGINT", 2L * Integer.MAX_VALUE)).returns(Integer.MAX_VALUE).check();
+
         assertQuery("SELECT big FROM tbl").returns(Long.MAX_VALUE).check();
 
         sql("DELETE from tbl");
@@ -159,13 +261,22 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 + Integer.MIN_VALUE + ", " + Long.MIN_VALUE + ')');
 
         assertQuery("SELECT tiny FROM tbl").returns(Byte.MIN_VALUE).check();
+        assertQuery(format("SELECT tiny FROM tbl WHERE tiny > {}", 2 * Byte.MIN_VALUE)).returns(Byte.MIN_VALUE).check();
+        assertQuery(format("SELECT tiny FROM tbl WHERE tiny > '{}'::INTEGER", 2 * Byte.MIN_VALUE)).returns(Byte.MIN_VALUE).check();
+
         assertQuery("SELECT small FROM tbl").returns(Short.MIN_VALUE).check();
+        assertQuery(format("SELECT small FROM tbl WHERE small > {}", 2 * Short.MIN_VALUE)).returns(Short.MIN_VALUE).check();
+        assertQuery(format("SELECT small FROM tbl WHERE small > '{}'::INTEGER", 2 * Short.MIN_VALUE)).returns(Short.MIN_VALUE).check();
+
         assertQuery("SELECT i FROM tbl").returns(Integer.MIN_VALUE).check();
+        assertQuery(format("SELECT i FROM tbl WHERE i > {}", 2L * Integer.MIN_VALUE)).returns(Integer.MIN_VALUE).check();
+        assertQuery(format("SELECT i FROM tbl WHERE i > '{}'::BIGINT", 2L * Integer.MIN_VALUE)).returns(Integer.MIN_VALUE).check();
+
         assertQuery("SELECT big FROM tbl").returns(Long.MIN_VALUE).check();
     }
 
     /**
-     * Tests numeric type convertation on equals.
+     * Tests numeric type conversion on equals.
      */
     @Test
     public void testNumericConvertingOnEquals() {
@@ -234,7 +345,9 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         LocalDateTime localDateTime = LocalDateTime.parse(isoStr);
         Instant instant = localDateTime.atZone(zoneId).toInstant();
 
-        assertQuery(format("INSERT INTO timestamps VALUES(1, '{}', '{}')", tsStr, tsStr))
+        assertQuery(format(
+                "INSERT INTO timestamps VALUES(1, TIMESTAMP '{}', TIMESTAMP WITH LOCAL TIME ZONE '{}')",
+                tsStr, tsStr))
                 .withTimeZoneId(zoneId)
                 .returns(1L)
                 .check();
@@ -324,6 +437,26 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    /** Tests conversions int to decimal as dynamic parameters for decode and coalesce functions. */
+    @Test
+    public void testFunctionArgsToNumericImplicitConversion() {
+        assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(0).returns(new BigDecimal("0.0")).check();
+        assertQuery("select decode(?, 0, 0, 1, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(1, 0, 0, ?, 1.0)").withParams(1).returns(new BigDecimal("1.0")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.0")).returns(new BigDecimal("1.000000")).check();
+        assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+        assertQuery("select decode(?, 0, 0, 1, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
+        assertQuery("select decode(1, 0, 0, ?, 1.000)").withParams(1).returns(new BigDecimal("1.000")).check();
+        assertQuery("select decode(1, 0, 0, 1, ?)").withParams(new BigDecimal("1.00")).returns(new BigDecimal("1.000000")).check();
+        assertQuery("select decode(?, 0, 0.0, 1, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+        assertQuery("select decode(?, 0, 0.000, 1, 1.0)").withParams(1).returns(new BigDecimal("1.000")).check();
+        assertQuery("select decode(?, 0, 1.0, 1, 1, 5)").withParams(3).returns(new BigDecimal("5.0")).check();
+        assertQuery("select decode(100, 0, 1, 1, 2)").returns((Object) null).check();
+
+        assertQuery("select coalesce(null, ?, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+        assertQuery("select coalesce(?, 1.000)").withParams(0).returns(new BigDecimal("0.000")).check();
+    }
+
     /**
      * Test cases for decimal literals.
      */
@@ -332,22 +465,19 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE tbl(id int PRIMARY KEY, val DECIMAL(32, 5))");
 
         assertQuery("SELECT DECIMAL '-123.0'").returns(new BigDecimal(("-123.0"))).check();
-        assertQuery("SELECT DECIMAL '10'").returns(new Integer(("10"))).check();
+        assertQuery("SELECT DECIMAL '10'").returns(Integer.valueOf("10")).check();
         assertQuery("SELECT DECIMAL '10.000'").returns(new BigDecimal(("10.000"))).check();
 
         assertQuery("SELECT DECIMAL '10.000' + DECIMAL '0.1'").returns(new BigDecimal(("10.100"))).check();
         assertQuery("SELECT DECIMAL '10.000' - DECIMAL '0.01'").returns(new BigDecimal(("9.990"))).check();
         assertQuery("SELECT DECIMAL '10.000' * DECIMAL '0.01'").returns(new BigDecimal(("0.10000"))).check();
-        assertQuery("SELECT DECIMAL '10.000' / DECIMAL '0.01'").returns(new BigDecimal(("1000.0"))).check();
-
-        assertQuery("SELECT DECIMAL '10.000' = '10.000'").returns(true).check();
-        assertQuery("SELECT DECIMAL '10.000' = '10.001'").returns(false).check();
+        assertQuery("SELECT DECIMAL '10.000' / DECIMAL '0.01'").returns(new BigDecimal(("1000.0000000"))).check();
 
         assertQuery("SELECT CASE WHEN true THEN DECIMAL '1.00' ELSE DECIMAL '0' END")
                 .returns(new BigDecimal("1.00")).check();
 
         assertQuery("SELECT CASE WHEN false THEN DECIMAL '1.00' ELSE DECIMAL '0.0' END")
-                .returns(new BigDecimal("0.0")).check();
+                .returns(new BigDecimal("0.00")).check();
 
         assertQuery(
                 "SELECT DECIMAL '0.09'  BETWEEN DECIMAL '0.06' AND DECIMAL '0.07'")
@@ -367,14 +497,11 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT id FROM tbl WHERE val = DECIMAL '10.20'").returns(1).check();
     }
 
-
     /** decimal casts - cast literal to decimal. */
     @ParameterizedTest(name = "{2}:{1} AS {3} = {4}")
     @MethodSource("decimalCastFromLiterals")
-    public void testDecimalCastsNumericLiterals(CaseStatus status, RelDataType inputType, Object input,
+    public void testDecimalCastsNumericLiterals(RelDataType inputType, Object input,
             RelDataType targetType, Result<BigDecimal> result) {
-
-        Assumptions.assumeTrue(status == CaseStatus.RUN);
 
         String literal = asLiteral(input, inputType);
         String query = format("SELECT CAST({} AS {})", literal, targetType);
@@ -391,31 +518,28 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         // TODO Align test datasets https://issues.apache.org/jira/browse/IGNITE-20130
         return Stream.of(
                 // String
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, varcharType, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
-                arguments(CaseStatus.RUN, varcharType, "lame", decimalType(5, 1), error(NUMERIC_FORMAT_ERROR)),
-                arguments(CaseStatus.RUN, varcharType, "12345", decimalType(5, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.RUN, varcharType, "1234", decimalType(5, 1), bigDecimalVal("1234.0")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, varcharType, "100.12", decimalType(1, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(varcharType, "100", decimalType(3), bigDecimalVal("100")),
+                arguments(varcharType, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
+                arguments(varcharType, "lame", decimalType(5, 1), error(NUMERIC_FORMAT_ERROR)),
+                arguments(varcharType, "12345", decimalType(5, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(varcharType, "1234", decimalType(5, 1), bigDecimalVal("1234.0")),
+                arguments(varcharType, "100.12", decimalType(1, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Numeric
-                arguments(CaseStatus.RUN, numeric, "100", decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, numeric, "100", decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, numeric, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
-                arguments(CaseStatus.SKIP, numeric, "100.12", decimalType(5, 0), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, numeric, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, numeric, "100.12", decimalType(5, 2), bigDecimalVal("100.12"))
+                arguments(numeric, "100", decimalType(3), bigDecimalVal("100")),
+                arguments(numeric, "100", decimalType(3, 0), bigDecimalVal("100")),
+                arguments(numeric, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
+                arguments(numeric, "100.12", decimalType(5, 0), bigDecimalVal("100")),
+                arguments(numeric, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(numeric, "100.12", decimalType(5, 2), bigDecimalVal("100.12"))
         );
     }
 
     /** decimal casts - cast dynamic param to decimal. */
     @ParameterizedTest(name = "{2}:?{1} AS {3} = {4}")
     @MethodSource("decimalCasts")
-    public void testDecimalCastsDynamicParams(CaseStatus ignore, RelDataType inputType, Object input,
+    public void testDecimalCastsDynamicParams(RelDataType inputType, Object input,
             RelDataType targetType, Result<BigDecimal> result) {
-        // We ignore status because every case should work for dynamic parameter.
 
         String query = format("SELECT CAST(? AS {})", targetType);
 
@@ -426,10 +550,8 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     /** decimals casts - cast numeric literal to specific type then cast the result to decimal. */
     @ParameterizedTest(name = "{1}: {2}::{1} AS {3} = {4}")
     @MethodSource("decimalCasts")
-    public void testDecimalCastsFromNumeric(CaseStatus status, RelDataType inputType, Object input,
+    public void testDecimalCastsFromNumeric(RelDataType inputType, Object input,
             RelDataType targetType, Result<BigDecimal> result) {
-
-        Assumptions.assumeTrue(status == CaseStatus.RUN);
 
         String literal = asLiteral(input, inputType);
         String query = format("SELECT CAST({}::{} AS {})", literal, inputType, targetType);
@@ -438,61 +560,11 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         expectResult(checker, result);
     }
 
-    @ParameterizedTest(name = "{1} {2}")
-    @MethodSource("decimalOverflows")
-    public void testCalcOpOverflow(SqlTypeName type, String expr, Object param) {
-        if (param == EMPTY_PARAM) {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr));
-        } else {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, type.getName() + " out of range", () -> sql(expr, param));
-        }
-    }
-
-    private static Stream<Arguments> decimalOverflows() {
-        return Stream.of(
-                // BIGINT
-                arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 + 1", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT 9223372036854775807 * 2", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -9223372036854775808 - 1", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -(-9223372036854775807 - 1)", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -CAST(-9223372036854775808 AS BIGINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.BIGINT, "SELECT -(?)", -9223372036854775808L),
-                arguments(SqlTypeName.BIGINT, "SELECT -9223372036854775808/-1", EMPTY_PARAM),
-
-                // INTEGER
-                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 + 1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT 2147483647 * 2", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -2147483648 - 1", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -(-2147483647 - 1)", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -CAST(-2147483648 AS INTEGER)", EMPTY_PARAM),
-                arguments(SqlTypeName.INTEGER, "SELECT -(?)", -2147483648),
-                arguments(SqlTypeName.INTEGER, "SELECT -2147483648/-1", EMPTY_PARAM),
-
-                // SMALLINT
-                arguments(SqlTypeName.SMALLINT, "SELECT 32000::SMALLINT + 1000::SMALLINT", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT 17000::SMALLINT * 2::SMALLINT", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -32000::SMALLINT - 1000::SMALLINT", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -(-32767::SMALLINT - 1::SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -CAST(-32768 AS SMALLINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.SMALLINT, "SELECT -CAST(? AS SMALLINT)", -32768),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST (-32768 AS SMALLINT)/-1::SMALLINT", EMPTY_PARAM),
-
-                // TINYINT
-                arguments(SqlTypeName.TINYINT, "SELECT 2::TINYINT + 127::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT 2::TINYINT * 127::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -2::TINYINT - 127::TINYINT", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -(-127::TINYINT - 1::TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -CAST(-128 AS TINYINT)", EMPTY_PARAM),
-                arguments(SqlTypeName.TINYINT, "SELECT -CAST(? AS TINYINT)", -128),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128 AS TINYINT)/-1::TINYINT", EMPTY_PARAM)
-        );
-    }
-
     @ParameterizedTest(name = "{1}")
     @MethodSource("decimalOverflowsValidation")
-    public void testCalcOpOverflowValidationCheck(SqlTypeName type, String expr, Boolean withException) {
+    public void testCastDecimalOverflows(SqlTypeName type, String expr, Boolean withException) {
         if (withException) {
-            assertThrowsSqlException(Sql.STMT_PARSE_ERR, "out of range", () -> sql(expr));
+            assertThrowsSqlException(RUNTIME_ERR, type + " out of range", () -> sql(expr));
         } else {
             sql(expr);
         }
@@ -502,39 +574,321 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         return Stream.of(
                 // BIGINT
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.1 AS BIGINT)", false),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 AS BIGINT)", true),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 - 1 AS BIGINT)", false),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775808.1 AS BIGINT)", false),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775807.5 AS BIGINT)", false),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808.1 AS BIGINT)", true),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(9223372036854775808 AS BIGINT)", true),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST('9223372036854775808' AS BIGINT)", true),
                 arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775809 AS BIGINT)", true),
-                arguments(SqlTypeName.BIGINT, "SELECT CAST(-9223372036854775808.1 AS BIGINT)", false),
+                arguments(SqlTypeName.BIGINT, "SELECT CAST(' -9223372036854775809' AS BIGINT)", true),
+
 
                 // INTEGER
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.1 AS INTEGER)", false),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 AS INTEGER)", false),
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647.5 - 1 AS INTEGER)", false),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648.1 AS INTEGER)", true),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648 AS INTEGER)", true),
-                arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483649 AS INTEGER)", true),
                 arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483648.1 AS INTEGER)", false),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483647 + 1 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648.1 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(CAST(2147483648.1 AS DOUBLE) AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(CAST(2147483648.1 AS FLOAT) AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(2147483648 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST('2147483648' AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(-2147483649 AS INTEGER)", true),
+                arguments(SqlTypeName.INTEGER, "SELECT CAST(' -2147483649' AS INTEGER)", true),
+
 
                 // SMALLINT
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.1 AS SMALLINT)", false),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 AS SMALLINT)", false),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767.5 - 1 AS SMALLINT)", false),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768.1 AS SMALLINT)", true),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768 AS SMALLINT)", true),
-                arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32769 AS SMALLINT)", true),
                 arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32768.1 AS SMALLINT)", false),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32767 + 1 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768.1 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(32768 AS DOUBLE) AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(CAST(32768 AS FLOAT) AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(32768 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST('32768' AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(-32769 AS SMALLINT)", true),
+                arguments(SqlTypeName.SMALLINT, "SELECT CAST(' -32769' AS SMALLINT)", true),
+
 
                 // TINYINT
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(127.1 AS TINYINT)", false),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.5 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(127.5 AS TINYINT)", false),
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(127.5 - 1 AS TINYINT)", false),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128.1 AS TINYINT)", false),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(127 + 1 AS TINYINT)", true),
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(128.1 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(128 AS DOUBLE) AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(CAST(128 AS FLOAT) AS TINYINT)", true),
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(128 AS TINYINT)", true),
+                arguments(SqlTypeName.TINYINT, "SELECT CAST('128' AS TINYINT)", true),
                 arguments(SqlTypeName.TINYINT, "SELECT CAST(-129 AS TINYINT)", true),
-                arguments(SqlTypeName.TINYINT, "SELECT CAST(-128.1 AS TINYINT)", false)
+                arguments(SqlTypeName.TINYINT, "SELECT CAST(' -129' AS TINYINT)", true)
+        );
+    }
+
+    @Test
+    public void testCharTypesWithTrailingSpacesAreTrimmed() {
+        sql("create table limitedChar (pk int primary key, f1 VARCHAR(3))");
+
+        try {
+            sql("insert into limitedChar values (1, 'a b     ')");
+
+            assertQuery("select length(f1) from limitedChar")
+                    .returns(3)
+                    .check();
+
+            sql("insert into limitedChar values (2, 'a ' || ?)", "b     ");
+
+            assertQuery("select length(f1) from limitedChar")
+                    .returns(3)
+                    .returns(3)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    public void insertCharLimitation() {
+        sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
+
+        try {
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, 'aaaa')"));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, ' aa')"));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar values (1, 'aaa ')"));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar values (1, '12'), (2, '123')"));
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void insertCharLimitationWithCoercion() {
+        try {
+            sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, 123::VARCHAR)"));
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void charLimitationMisc() {
+        try {
+            sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, '12' || OCTET_LENGTH('test')::VARCHAR)"));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, '12' || ?)", "dynamic param string"));
+
+            assertQuery("select * from (values (1, 'aaa'::char(2)))")
+                    .returns(1, "aa")
+                    .check();
+
+            assertQuery("select * from (values (1, 123::char(2)))")
+                    .returns(1, "12")
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    public void testCalciteUnionCharLiteralsBug() {
+        // See https://issues.apache.org/jira/browse/CALCITE-6350 the report states the issue was fixed by removing a cast in
+        // AbstractTypeCoercion::needToCast but that `fix` causes silent data truncation by introducing extra casts.
+        // The query works in AI w/o that `fix`.
+        assertQuery("SELECT * FROM (SELECT 'word' i UNION ALL SELECT 'w' i) t1 WHERE i='w'")
+                .returns("w")
+                .check();
+    }
+
+    /** Test correctness of char types limitation against merge and update operations. */
+    @Test
+    public void charLimitationWithMergeUpdateOp() {
+        try {
+            sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
+
+            sql("insert into limitedChar values (1, '我叫')");
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("UPDATE limitedChar SET f1='123' WHERE pk=1"));
+
+            sql("CREATE TABLE test1 (pk int primary key, f1 VARCHAR)");
+            sql("INSERT INTO test1 VALUES (1, '123'), (2, '234')");
+
+            String mergeSql1 = "MERGE INTO limitedChar dst USING test1 src ON dst.pk = src.pk "
+                    + "WHEN MATCHED THEN UPDATE SET f1 = src.f1 "
+                    + "WHEN NOT MATCHED THEN INSERT (pk, f1) VALUES (2, '23')";
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql(mergeSql1));
+
+            String mergeSql2 = "MERGE INTO limitedChar dst USING test1 src ON dst.pk = src.pk "
+                    + "WHEN MATCHED THEN UPDATE SET f1 = '12' "
+                    + "WHEN NOT MATCHED THEN INSERT (pk, f1) VALUES (src.pk, src.f1)";
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql(mergeSql2));
+
+            assertQuery("SELECT * FROM limitedChar ORDER BY pk")
+                    .returns(1, "我叫")
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    public void testErrorIfBinaryValueSizeGtThanTypePrecision() {
+        sql("CREATE TABLE t(id INT PRIMARY KEY, val5 VARBINARY(5), val6 VARBINARY(6))");
+
+        Object param = "1".repeat(6).getBytes(StandardCharsets.UTF_8);
+        Object value = "1".repeat(12);
+
+        sql(format("INSERT INTO t VALUES(1, DEFAULT, x'{}')", value));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql("INSERT INTO t VALUES(2, ?, DEFAULT)", param)
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql(format("INSERT INTO t VALUES(2, x'{}', DEFAULT)", value))
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql(format("UPDATE t SET val5=x'{}' WHERE id=1", value))
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql("INSERT INTO t SELECT id, val6, val6 FROM t")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type: VARBINARY(5)",
+                () -> sql(format("INSERT INTO t SELECT * FROM (VALUES(2, x'{}', x'{}')) as tk(k, v1, v2)", value, value))
+        );
+    }
+
+    @Test
+    public void zeroStringsAreNotAllowed() {
+        // Char
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "CHAR length 0 must be between 1 and 2147483647",
+                () -> sql("SELECT CAST(1 AS CHAR(0))")
+        );
+
+
+        // Varchar
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "VARCHAR length 0 must be between 1 and 2147483647",
+                () -> sql("SELECT CAST(1 AS VARCHAR(0))")
+        );
+
+        // Binary
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "BINARY length 0 must be between 1 and 2147483647",
+                () -> sql("SELECT CAST(x'0101' AS BINARY(0))")
+        );
+        // Varbinary
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "VARBINARY length 0 must be between 1 and 2147483647",
+                () -> sql("SELECT CAST(x'0101' AS VARBINARY(0))")
+        );
+    }
+
+    @Test
+    public void testInvalidTypeInCast() {
+        // Char
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(1 AS CHAR(2147483648))")
+        );
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(1 AS VARCHAR(2147483648))")
+        );
+
+        // Binary
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(x'01' AS VARBINARY(2147483648))")
+        );
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Literal '2147483648' can not be parsed to type",
+                () -> sql("SELECT CAST(x'01' AS BINARY(2147483648))")
+        );
+
+        // Decimal
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL precision 100000000 must be between 1 and 32767",
+                () -> sql("SELECT CAST(1 AS DECIMAL(100000000))")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL scale 100000000 must be between 0 and 32767",
+                () -> sql("SELECT CAST(1 AS DECIMAL(100, 100000000))")
+        );
+
+        // Time
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIME precision 100000000 must be between 0 and 9",
+                () -> sql("SELECT CAST('00:00:00' AS TIME(100000000))")
+        );
+
+        // Timestamp
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIMESTAMP precision 100000000 must be between 0 and 9",
+                () -> sql("SELECT CAST('2000-01-01 00:00:00' AS TIMESTAMP(100000000))")
         );
     }
 
@@ -545,20 +899,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         } else {
             return String.valueOf(value);
         }
-    }
-
-    /**
-     * Indicates whether a test case should run or should be skipped.
-     * We need this because the set of test cases is the same for both dynamic params
-     * and numeric values.
-     *
-     * <p>TODO Should be removed after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-     */
-    enum CaseStatus {
-        /** Case should run. */
-        RUN,
-        /** Case should be skipped. */
-        SKIP
     }
 
     private static Stream<Arguments> decimalCasts() {
@@ -572,75 +912,68 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         return Stream.of(
                 // String
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(3, 0), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, varcharType, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(varcharType, "100", decimalType(3), bigDecimalVal("100")),
+                arguments(varcharType, "100", decimalType(3), bigDecimalVal("100")),
+                arguments(varcharType, "100", decimalType(3, 0), bigDecimalVal("100")),
+                arguments(varcharType, "100", decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(varcharType, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Tinyint
-                arguments(CaseStatus.RUN, tinyIntType, (byte) 100, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, tinyIntType, (byte) 100, decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, tinyIntType, (byte) 100, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, tinyIntType, (byte) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(tinyIntType, (byte) 100, decimalType(3), bigDecimalVal("100")),
+                arguments(tinyIntType, (byte) 100, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(tinyIntType, (byte) 100, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(tinyIntType, (byte) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Smallint
-                arguments(CaseStatus.RUN, smallIntType, (short) 100, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, smallIntType, (short) 100, decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, smallIntType, (short) 100, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, smallIntType, (short) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(smallIntType, (short) 100, decimalType(3), bigDecimalVal("100")),
+                arguments(smallIntType, (short) 100, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(smallIntType, (short) 100, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(smallIntType, (short) 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Integer
-                arguments(CaseStatus.RUN, integerType, 100, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, integerType, 100, decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, integerType, 100, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, integerType, 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(integerType, 100, decimalType(3), bigDecimalVal("100")),
+                arguments(integerType, 100, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(integerType, 100, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(integerType, 100, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Bigint
-                arguments(CaseStatus.RUN, bigintType, 100L, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.RUN, bigintType, 100L, decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, bigintType, 100L, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, bigintType, 100L, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(bigintType, 100L, decimalType(3), bigDecimalVal("100")),
+                arguments(bigintType, 100L, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(bigintType, 100L, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(bigintType, 100L, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Real
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(3, 0), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, realType, 100.0f, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, realType, 100.0f, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, realType, 0.1f, decimalType(1, 1), bigDecimalVal("0.1")),
-                arguments(CaseStatus.SKIP, realType, 0.1f, decimalType(2, 2), bigDecimalVal("0.10")),
-                arguments(CaseStatus.RUN, realType, 10.12f, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.RUN, realType, 0.12f, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(realType, 100.0f, decimalType(3), bigDecimalVal("100")),
+                arguments(realType, 100.0f, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(realType, 100.0f, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(realType, 100.0f, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(realType, 0.1f, decimalType(1, 1), bigDecimalVal("0.1")),
+                arguments(realType, 0.1f, decimalType(2, 2), bigDecimalVal("0.10")),
+                arguments(realType, 10.12f, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(realType, 0.12f, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Double
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(3), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(3, 0), bigDecimalVal("100")),
-                arguments(CaseStatus.SKIP, doubleType, 100.0d, decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, doubleType, 100.0d, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, doubleType, 0.1d, decimalType(1, 1), bigDecimalVal("0.1")),
-                arguments(CaseStatus.SKIP, doubleType, 0.1d, decimalType(2, 2), bigDecimalVal("0.10")),
-                arguments(CaseStatus.RUN, doubleType, 10.12d, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.RUN, doubleType, 0.12d, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(doubleType, 100.0d, decimalType(3), bigDecimalVal("100")),
+                arguments(doubleType, 100.0d, decimalType(3, 0), bigDecimalVal("100")),
+                arguments(doubleType, 100.0d, decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(doubleType, 100.0d, decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(doubleType, 0.1d, decimalType(1, 1), bigDecimalVal("0.1")),
+                arguments(doubleType, 0.1d, decimalType(2, 2), bigDecimalVal("0.10")),
+                arguments(doubleType, 10.12d, decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(doubleType, 0.12d, decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
 
                 // Decimal
-                arguments(CaseStatus.RUN, decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1")),
-                arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(3), bigDecimalVal("100")),
+                arguments(decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1")),
+                arguments(decimalType(3), new BigDecimal("100"), decimalType(3), bigDecimalVal("100")),
                 // passed with runtime call and failed with parsing substitution
-                arguments(CaseStatus.SKIP, decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.2")),
-                arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(3, 0), bigDecimalVal("100")),
-                // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
-                arguments(CaseStatus.SKIP, decimalType(3), new BigDecimal("100"), decimalType(4, 1), bigDecimalVal("100.0")),
-                arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, decimalType(1, 1), new BigDecimal("0.1"), decimalType(2, 2), bigDecimalVal("0.10")),
-                arguments(CaseStatus.RUN, decimalType(4, 2), new BigDecimal("10.12"), decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.RUN, decimalType(2, 2), new BigDecimal("0.12"), decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
-                arguments(CaseStatus.SKIP, decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1"))
+                arguments(decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.1")),
+                arguments(decimalType(3), new BigDecimal("100"), decimalType(3, 0), bigDecimalVal("100")),
+                arguments(decimalType(3), new BigDecimal("100"), decimalType(4, 1), bigDecimalVal("100.0")),
+                arguments(decimalType(3), new BigDecimal("100"), decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(decimalType(1, 1), new BigDecimal("0.1"), decimalType(2, 2), bigDecimalVal("0.10")),
+                arguments(decimalType(4, 2), new BigDecimal("10.12"), decimalType(2, 1), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(decimalType(2, 2), new BigDecimal("0.12"), decimalType(1, 2), error(NUMERIC_OVERFLOW_ERROR)),
+                arguments(decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1"))
         );
     }
 

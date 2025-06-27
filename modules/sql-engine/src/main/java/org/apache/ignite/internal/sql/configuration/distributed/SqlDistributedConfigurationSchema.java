@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.sql.configuration.distributed;
 
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /** Configuration schema for distributed sql endpoint subtree. */
-@ConfigurationRoot(rootName = "sql", type = ConfigurationType.DISTRIBUTED)
+@Config
 public class SqlDistributedConfigurationSchema {
     /** Represent a configuration related to SQL planner. */
     @ConfigValue

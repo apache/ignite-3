@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,7 +51,7 @@ public abstract class TablePrimaryKey {
 
             boolean partOfPk = columns.contains(column.name());
             if (partOfPk && column.nullable()) {
-                throw new CatalogValidationException(format("Primary key cannot contain nullable column [col={}].", column.name()));
+                throw new CatalogValidationException("Primary key cannot contain nullable column [col={}].", column.name());
             }
         }
 
@@ -61,14 +59,13 @@ public abstract class TablePrimaryKey {
                 .filter(Predicate.not(allColumnNames::contains))
                 .collect(Collectors.toList());
         if (!columnsNotInTable.isEmpty()) {
-            throw new CatalogValidationException(
-                    format("Primary key constraint contains undefined columns: [cols={}].", columnsNotInTable));
+            throw new CatalogValidationException("Primary key constraint contains undefined columns: [cols={}].", columnsNotInTable);
         }
 
         Set<String> columnSet = new HashSet<>();
         for (String name : columns) {
             if (!columnSet.add(name)) {
-                throw new CatalogValidationException(format("PK column '{}' specified more that once.", name));
+                throw new CatalogValidationException("PK column '{}' specified more that once.", name);
             }
         }
     }

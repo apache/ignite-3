@@ -19,8 +19,6 @@ namespace Apache.Ignite
 {
     using System;
     using System.Diagnostics.CodeAnalysis;
-    using System.Runtime.Serialization;
-    using Internal.Common;
 
     /// <summary>
     /// Ignite exception.
@@ -47,18 +45,9 @@ namespace Apache.Ignite
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="IgniteException"/> class.
+        /// Gets the group error prefix.
         /// </summary>
-        /// <param name="serializationInfo">Serialization information.</param>
-        /// <param name="streamingContext">Streaming context.</param>
-        protected IgniteException(SerializationInfo serializationInfo, StreamingContext streamingContext)
-            : base(serializationInfo, streamingContext)
-        {
-            IgniteArgumentCheck.NotNull(serializationInfo);
-
-            TraceId = (Guid)serializationInfo.GetValue(nameof(TraceId), typeof(Guid))!;
-            Code = serializationInfo.GetInt32(nameof(Code));
-        }
+        public string ErrorPrefix => ErrorGroups.GetErrorPrefix(ErrorGroups.GetGroupCode(Code));
 
         /// <summary>
         /// Gets the group name.
@@ -81,17 +70,13 @@ namespace Apache.Ignite
         public short ErrorCode => ErrorGroups.GetErrorCode(Code);
 
         /// <summary>
+        /// Gets the group code.
+        /// </summary>
+        public short GroupCode => ErrorGroups.GetGroupCode(Code);
+
+        /// <summary>
         /// Gets the code as string.
         /// </summary>
-        public string CodeAsString => ErrorGroups.ErrPrefix + GroupName + '-' + ErrorCode;
-
-        /// <inheritdoc />
-        public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            base.GetObjectData(info, context);
-
-            info.AddValue(nameof(Code), Code);
-            info.AddValue(nameof(TraceId), TraceId);
-        }
+        public string CodeAsString => ErrorPrefix + '-' + GroupName + '-' + unchecked((ushort)ErrorCode);
     }
 }

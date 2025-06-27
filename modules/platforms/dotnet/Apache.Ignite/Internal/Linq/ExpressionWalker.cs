@@ -336,5 +336,5 @@ internal static class ExpressionWalker
     /// </summary>
     /// <param name="queryable">Queryable.</param>
     /// <returns>Table name with schema.</returns>
-    public static string GetTableNameWithSchema(IIgniteQueryableInternal queryable) => $"PUBLIC.{queryable.TableName}";
+    public static string GetTableNameWithSchema(IIgniteQueryableInternal queryable) => queryable.TableName.CanonicalName;
 }

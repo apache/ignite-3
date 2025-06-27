@@ -22,7 +22,9 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
 import org.apache.ignite.internal.util.subscription.ConcatenatedPublisher;
 import org.apache.ignite.internal.util.subscription.IterableToPublisherAdapter;
 import org.apache.ignite.internal.util.subscription.OrderedMergePublisher;
@@ -60,7 +62,7 @@ public class SubscriptionUtils {
      * @param comparator Rows comparator.
      * @param prefetch Prefetch size.
      * @param source Iterator of upstream publishers. Each of passed publishers should have guarantee to be sorted with the same
-     *      comparator.
+     *         comparator.
      * @return The publisher will combine all of the passed sources into a single one with sorting guaranties.
      */
     public static <T> Publisher<T> orderedMerge(Comparator<T> comparator, int prefetch, Iterator<Publisher<? extends T>> source) {
@@ -75,7 +77,8 @@ public class SubscriptionUtils {
      *
      * @param comparator Rows comparator.
      * @param prefetch Prefetch size.
-     * @param sources Array of upstream publishers. Each of passed publishers should have guarantee to be sorted with the same comparator.
+     * @param sources Array of upstream publishers. Each of passed publishers should have guarantee to be sorted with the same
+     *         comparator.
      * @return The publisher will combine all of the passed sources into a single one with sorting guaranties.
      */
     @SafeVarargs
@@ -96,6 +99,25 @@ public class SubscriptionUtils {
      * @return Publisher created from the given iterable.
      */
     public static <T> Publisher<T> fromIterable(Iterable<T> iterable) {
-        return new IterableToPublisherAdapter<>(iterable, Runnable::run, Integer.MAX_VALUE);
+        return new IterableToPublisherAdapter<>(CompletableFuture.completedFuture(iterable), Runnable::run, Integer.MAX_VALUE);
+    }
+
+    /**
+     * Creates a publisher from the given iterable.
+     *
+     * <p>A new iterator will be issued for every new subscription.
+     *
+     * <p>Created publisher will start to emit items when future enclosing iterable will be completed. If given future completes
+     * exceptionally, the exception will be propagated to {@link Subscriber#onError(Throwable)}.
+     *
+     * <p>This particular adapter will drain iterator on the same thread that requested the
+     * entries, so it's better to avoid using long or blocking operations inside provided iterable.
+     *
+     * @param iterableFuture An iterable enclosed to a future object.
+     * @param <T> Type of the entries this publisher will emit.
+     * @return Publisher created from the given iterable.
+     */
+    public static <T> Publisher<T> fromIterable(CompletableFuture<? extends Iterable<T>> iterableFuture) {
+        return new IterableToPublisherAdapter<>(iterableFuture, Runnable::run, Integer.MAX_VALUE);
     }
 }

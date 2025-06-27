@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
@@ -29,8 +27,6 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -42,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -87,9 +84,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         tester.setDependencies(t1Id, table1, update1);
         tester.setDependencies(t2Id, table2, update2);
 
-        CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 JOIN test2 ON test1.id = test2.id");
-
-        ResolvedDependencies deps = f.join();
+        ResolvedDependencies deps = tester.resolveDependencies("SELECT * FROM test1 JOIN test2 ON test1.id = test2.id");
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
 
@@ -109,8 +104,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         Tester tester = new Tester(createSchema(table));
         tester.setDependencies(t1Id, table1, update1);
 
-        CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 WHERE id=1");
-        tester.checkDependencies(f.join(), t1Id);
+        ResolvedDependencies deps = tester.resolveDependencies("SELECT * FROM test1 WHERE id=1");
+        tester.checkDependencies(deps, t1Id);
 
         verify(registry, times(1)).getTable(anyInt(), eq(t1Id));
     }
@@ -131,10 +126,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         tester.setDependencies(t1Id, table1, update1);
         tester.setDependencies(t2Id, table2, update2);
 
-        CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies(
+        ResolvedDependencies deps = tester.resolveDependencies(
                 "MERGE INTO test2 dst USING test1 src ON dst.id = src.id WHEN MATCHED THEN UPDATE SET val = src.val");
-
-        ResolvedDependencies deps = f.join();
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
 
@@ -155,9 +148,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
         tester.setDependencies(t1Id, table1, update1);
 
-        CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT (SELECT id FROM test1) FROM test1");
-
-        ResolvedDependencies deps = f.join();
+        ResolvedDependencies deps = tester.resolveDependencies("SELECT (SELECT id FROM test1) FROM test1");
         tester.checkDependencies(deps, t1Id);
 
         verify(registry, times(1)).getTable(anyInt(), anyInt());
@@ -177,9 +168,12 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         RuntimeException err = new RuntimeException("Broken");
         tester.setError(t1Id, err);
 
-        CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1");
-        CompletionException wrapped = assertThrows(CompletionException.class, f::join);
-        assertSame(err, wrapped.getCause());
+        //noinspection ThrowableNotThrown
+        IgniteTestUtils.assertThrows(
+                RuntimeException.class,
+                () -> tester.resolveDependencies("SELECT * FROM test1"),
+                err.getMessage()
+        );
     }
 
     private class Tester {
@@ -197,19 +191,14 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
             deps.put(tableId, executableTable);
 
-            CompletableFuture<ExecutableTable> f = CompletableFuture.completedFuture(executableTable);
-
-            when(registry.getTable(anyInt(), eq(tableId))).thenReturn(f);
+            when(registry.getTable(anyInt(), eq(tableId))).thenReturn(executableTable);
         }
 
         void setError(int tableId, Throwable err) {
-            CompletableFuture<ExecutableTable> f = new CompletableFuture<>();
-            f.completeExceptionally(err);
-
-            when(registry.getTable(anyInt(), eq(tableId))).thenReturn(f);
+            when(registry.getTable(anyInt(), eq(tableId))).thenThrow(err);
         }
 
-        CompletableFuture<ResolvedDependencies> resolveDependencies(String sql) {
+        ResolvedDependencies resolveDependencies(String sql) {
             ExecutionDependencyResolver resolver = new ExecutionDependencyResolverImpl(registry, null);
 
             IgniteRel rel;
@@ -219,7 +208,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
                 throw new IllegalStateException("Unable to plan: " + sql, e);
             }
 
-            return resolver.resolveDependencies(List.of(rel), igniteSchema.version());
+            return resolver.resolveDependencies(List.of(rel), igniteSchema.catalogVersion());
         }
 
         void checkDependencies(ResolvedDependencies dependencies, int tableId) {

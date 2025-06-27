@@ -43,12 +43,9 @@ public class ClusterUnitDeployCommand extends BaseCommand implements Callable<In
 
     @Override
     public Integer call() throws Exception {
-        return CallExecutionPipeline.asyncBuilder(callFactory::create)
+        return runPipeline(CallExecutionPipeline.asyncBuilder(callFactory::create)
                 .inputProvider(() -> options.toDeployUnitCallInput(clusterUrl.getClusterUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot deploy unit", "ignite cluster init"))
-                .build().runPipeline();
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot deploy unit"))
+        );
     }
 }

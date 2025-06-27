@@ -36,12 +36,11 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     /**
      * Check add a new column to table schema.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20628")
     @Test
     public void testDropColumn() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
@@ -51,7 +50,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
                 Tuple.create().set("valInt", 111).set("valStr", "str")
         );
 
-        dropColumn(grid, "valStr");
+        dropColumn("valStr");
 
         // Check old row conversion.
         final Tuple keyTuple = Tuple.create().set("key", 1L);
@@ -85,7 +84,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     public void testAddNewColumn() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
@@ -99,7 +98,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, "valStrNew VARCHAR DEFAULT 'default'");
+        addColumn("valStrNew VARCHAR DEFAULT 'default'");
 
         // Check old row conversion.
         Tuple keyTuple = Tuple.create().set("key", 1L);
@@ -128,7 +127,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     public void testRenameColumn() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
@@ -142,7 +141,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        renameColumn(grid, "valInt", "valRenamed");
+        renameColumn("valInt", "valRenamed");
 
         assertNull(kvView.get(null, Tuple.create().set("key", 2L)));
 
@@ -175,12 +174,11 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     /**
      * Check merge table schema changes.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20628")
     @Test
     public void testMergeChangesAddDropAdd() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
@@ -194,7 +192,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, "val VARCHAR DEFAULT 'default'");
+        addColumn("val VARCHAR DEFAULT 'default'");
 
         assertNull(kvView.get(null, Tuple.create().set("key", 2L)));
 
@@ -206,7 +204,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
 
         kvView.put(null, Tuple.create().set("key", 3L), Tuple.create().set("valInt", 333));
 
-        dropColumn(grid, "val");
+        dropColumn("val");
 
         kvView.put(
                 null,
@@ -222,7 +220,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
                 )
         );
 
-        addColumn(grid, "val VARCHAR DEFAULT 'default'");
+        addColumn("val VARCHAR DEFAULT 'default'");
 
         kvView.put(null, Tuple.create().set("key", 5L), Tuple.create().set("valInt", 555));
 
@@ -261,7 +259,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     public void testMergeChangesColumnDefault() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         KeyValueView<Tuple, Tuple> kvView = grid.get(0).tables().table(TABLE).keyValueView();
 
@@ -269,13 +267,13 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
 
         kvView.put(null, Tuple.create().set("key", 1L), Tuple.create().set("valInt", 111));
 
-        changeDefault(grid, colName, "newDefault");
-        addColumn(grid, "val VARCHAR DEFAULT 'newDefault'");
+        changeDefault(colName, "newDefault");
+        addColumn("val VARCHAR DEFAULT 'newDefault'");
 
         kvView.put(null, Tuple.create().set("key", 2L), Tuple.create().set("valInt", 222));
 
-        changeDefault(grid, colName, "brandNewDefault");
-        changeDefault(grid, "val", "brandNewDefault");
+        changeDefault(colName, "brandNewDefault");
+        changeDefault("val", "brandNewDefault");
 
         kvView.put(null, Tuple.create().set("key", 3L), Tuple.create().set("valInt", 333));
 
@@ -306,7 +304,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
     public void testInsertRowOfDifferentSchema() {
         List<Ignite> grid = startGrid();
 
-        createTable(grid);
+        createTable();
 
         KeyValueView<Tuple, Tuple> view = grid.get(0).tables().table(TABLE).keyValueView();
 

@@ -104,13 +104,13 @@ public:
     void rebuild();
 
 private:
-    /** Associative array of string m_parameters. */
+    /** Associative array of string parameters. */
     typedef std::map<info_type, std::string> string_info_map;
 
-    /** Associative array of unsigned integer m_parameters. */
+    /** Associative array of unsigned integer parameters. */
     typedef std::map<info_type, unsigned int> uint_info_map;
 
-    /** Associative array of unsigned short m_parameters. */
+    /** Associative array of unsigned short parameters. */
     typedef std::map<info_type, unsigned short> ushort_info_map;
 
     /** String m_parameters. */

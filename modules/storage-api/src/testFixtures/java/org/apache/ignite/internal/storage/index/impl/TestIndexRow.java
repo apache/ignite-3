@@ -161,6 +161,8 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     private static Comparator<Object> comparator(Class<?> type) {
         if (Comparable.class.isAssignableFrom(type)) {
             return comparingNull(Comparable.class::cast, Comparator.naturalOrder());
+        } else if (type.isAssignableFrom(byte[].class)) {
+            return comparingNull(Function.identity(), comparing(byte[].class::cast, Arrays::compareUnsigned));
         } else if (type.isArray()) {
             return comparingNull(Function.identity(), comparing(TestIndexRow::toBoxedArray, Arrays::compare));
         } else if (BitSet.class.isAssignableFrom(type)) {

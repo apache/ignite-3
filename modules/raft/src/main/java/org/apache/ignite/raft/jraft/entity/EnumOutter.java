@@ -19,6 +19,8 @@
 
 package org.apache.ignite.raft.jraft.entity;
 
+import org.jetbrains.annotations.Nullable;
+
 public final class EnumOutter {
     private EnumOutter() {
     }
@@ -45,6 +47,9 @@ public final class EnumOutter {
         ENTRY_TYPE_CONFIGURATION(3),
         ;
 
+        /** Cached array with all enum values. */
+        private static final EntryType[] VALUES = values();
+
         public final int getNumber() {
             return value;
         }
@@ -57,7 +62,7 @@ public final class EnumOutter {
             return forNumber(value);
         }
 
-        public static EntryType forNumber(int value) {
+        public static @Nullable EntryType forNumber(int value) {
             switch (value) {
                 case 0:
                     return ENTRY_TYPE_UNKNOWN;
@@ -70,6 +75,29 @@ public final class EnumOutter {
                 default:
                     return null;
             }
+        }
+
+        /**
+        * Returns the enumerated value from its id.
+        *
+        * @param id Id of enumeration constant.
+        * @throws IllegalArgumentException If no enumeration constant by id.
+        */
+        public static EntryType fromId(int id) throws IllegalArgumentException {
+            EntryType entryType = forNumber(id);
+            if (entryType == null) {
+                throw new IllegalArgumentException("No enum constant from id: " + id);
+            }
+            return entryType;
+        }
+
+        /**
+        * Returns the id of enumeration constant, used by serialization.
+        *
+        * @return id of enumeration constant, used by serialization.
+        */
+        public int id() {
+            return getNumber();
         }
 
         private final int value;
@@ -120,7 +148,7 @@ public final class EnumOutter {
             return forNumber(value);
         }
 
-        public static ErrorType forNumber(int value) {
+        public static @Nullable ErrorType forNumber(int value) {
             switch (value) {
                 case 0:
                     return ERROR_TYPE_NONE;
@@ -138,8 +166,6 @@ public final class EnumOutter {
                     return null;
             }
         }
-
-        private static final ErrorType[] VALUES = values();
 
         private final int value;
 

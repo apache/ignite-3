@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +29,7 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,9 +41,8 @@ import org.jetbrains.annotations.Nullable;
  * {@link FailSafeJobExecution} to the client we can update the original job execution object when it is restarted on another node but the
  * client will still be able to join the original future.
  *
- * @param <T> the type of the job result.
  */
-class FailSafeJobExecution<T> implements JobExecution<T> {
+class FailSafeJobExecution implements CancellableJobExecution<ComputeJobDataHolder> {
     private static final IgniteLogger LOG = Loggers.forClass(FailSafeJobExecution.class);
 
     /**
@@ -51,49 +53,49 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
     /**
      * The future that is returned as {@link JobExecution#resultAsync()} and will be resolved when the job is completed.
      */
-    private final CompletableFuture<T> resultFuture;
+    private final CompletableFuture<ComputeJobDataHolder> resultFuture;
 
     /**
-     * The status of the first job execution attempt. It is used to preserve the original job creation time.
+     * The state of the first job execution attempt. It is used to preserve the original job creation time.
      */
-    private final AtomicReference<JobStatus> capturedStatus;
+    private JobState capturedState;
+
+    /**
+     * Job id of the execution.
+     */
+    private final UUID jobId = UUID.randomUUID();
 
     /**
      * Link to the current job execution object. It can be updated when the job is restarted on another node.
      */
-    private final AtomicReference<JobExecution<T>> runningJobExecution;
+    private CancellableJobExecution<ComputeJobDataHolder> runningJobExecution;
 
-    FailSafeJobExecution(JobExecution<T> runningJobExecution) throws RuntimeException {
+    private CompletableFuture<ComputeJobDataHolder> completeHook;
+
+    FailSafeJobExecution(CancellableJobExecution<ComputeJobDataHolder> runningJobExecution) throws RuntimeException {
         this.resultFuture = new CompletableFuture<>();
-        this.runningJobExecution = new AtomicReference<>(runningJobExecution);
+        this.runningJobExecution = runningJobExecution;
 
-        this.capturedStatus = new AtomicReference<>(null);
-        captureStatus(runningJobExecution);
+        captureState(runningJobExecution);
 
         registerCompleteHook();
     }
 
-    private void captureStatus(JobExecution<T> runningJobExecution) {
-        runningJobExecution.statusAsync()
-                .completeOnTimeout(failedStatus(), 10, TimeUnit.SECONDS)
-                .whenComplete((status, e) -> {
-                    if (status != null) {
-                        this.capturedStatus.compareAndSet(null, status);
-                    } else {
-                        this.capturedStatus.compareAndSet(null, failedStatus());
-                    }
-                });
+    private void captureState(JobExecution<ComputeJobDataHolder> runningJobExecution) {
+        runningJobExecution.stateAsync()
+                .completeOnTimeout(failedState(), 10, TimeUnit.SECONDS)
+                .whenComplete((state, e) -> capturedState = state != null ? state : failedState());
     }
 
-    private static JobStatus failedStatus() {
-        return JobStatus.builder().id(UUID.randomUUID()).createTime(Instant.now()).state(JobState.FAILED).build();
+    private JobState failedState() {
+        return JobStateImpl.builder().id(jobId).createTime(Instant.now()).status(JobStatus.FAILED).build();
     }
 
     /**
      * Registers a hook for the future that is returned to the user. This future will be completed when the job is completed.
      */
     private void registerCompleteHook() {
-        runningJobExecution.get().resultAsync().whenComplete((res, err) -> {
+        completeHook = runningJobExecution.resultAsync().whenComplete((res, err) -> {
             if (err == null) {
                 resultFuture.complete(res);
             } else {
@@ -102,68 +104,86 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
         });
     }
 
-    void updateJobExecution(JobExecution<T> jobExecution) {
+    void updateJobExecution(CancellableJobExecution<ComputeJobDataHolder> jobExecution) {
         LOG.debug("Updating job execution: {}", jobExecution);
 
-        runningJobExecution.set(jobExecution);
+        CancellableJobExecution<ComputeJobDataHolder> previousRunningJobExecution = runningJobExecution;
+        CompletableFuture<ComputeJobDataHolder> previousCompleteHook = completeHook;
+
+        runningJobExecution = jobExecution;
         registerCompleteHook();
+
+        // Cancel the hook so that the cancelling the execution doesn't trigger it
+        previousCompleteHook.cancel(true);
+        cleanRunningJobExecution(previousRunningJobExecution);
     }
 
     /**
-     * Transforms the status by modifying the fields that should be always the same regardless of the job execution attempt. For example,
-     * the job creation time should be the same for all attempts.
+     * Transforms the state by modifying the fields that should be always the same regardless of the job execution attempt. The job creation
+     * time and job id should be the same for all attempts.
      *
-     * <p>Can update {@link #capturedStatus} as a side-effect if the one is null.
+     * <p>Can update {@link #capturedState} as a side-effect if the one is null.
      *
-     * @param jobStatus current job status.
-     * @return transformed job status.
+     * @param jobState current job state.
+     * @return transformed job state.
      */
-    private @Nullable JobStatus transformStatus(@Nullable JobStatus jobStatus) {
-        if (jobStatus == null) {
+    private @Nullable JobState transformState(@Nullable JobState jobState) {
+        if (jobState == null) {
             return null;
         }
 
-        if (capturedStatus.get() == null) {
-            capturedStatus.compareAndSet(null, jobStatus);
+        if (capturedState == null) {
+            capturedState = jobState;
         }
 
-        return jobStatus.toBuilder()
-                .createTime(capturedStatus.get().createTime())
-                .id(capturedStatus.get().id())
+        return JobStateImpl.toBuilder(jobState)
+                .createTime(capturedState.createTime())
+                .id(jobId)
                 .build();
     }
 
     @Override
-    public CompletableFuture<T> resultAsync() {
+    public CompletableFuture<ComputeJobDataHolder> resultAsync() {
         return resultFuture;
     }
 
     /**
-     * Returns the transformed status of the running job execution. The transformation is needed because we do not want to change some
-     * fields of the status (e.g. creation time) when the job is restarted.
+     * Returns the transformed state of the running job execution. The transformation is needed because we do not want to change some
+     * fields of the state (e.g. creation time) when the job is restarted.
      *
-     * @return the transformed status.
+     * @return the transformed state.
      */
     @Override
-    public CompletableFuture<@Nullable JobStatus> statusAsync() {
+    public CompletableFuture<@Nullable JobState> stateAsync() {
         if (exception.get() != null) {
-            return CompletableFuture.failedFuture(exception.get());
+            return failedFuture(exception.get());
         }
 
-        return runningJobExecution.get()
-                .statusAsync()
-                .thenApply(this::transformStatus);
+        return runningJobExecution.stateAsync()
+                .thenApply(this::transformState);
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        resultFuture.cancel(false);
-        return runningJobExecution.get().cancelAsync();
+        if (exception.get() != null) {
+            return failedFuture(exception.get());
+        }
+
+        return runningJobExecution.cancelAsync();
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return runningJobExecution.get().changePriorityAsync(newPriority);
+        if (exception.get() != null) {
+            return failedFuture(exception.get());
+        }
+
+        return runningJobExecution.changePriorityAsync(newPriority);
+    }
+
+    @Override
+    public ClusterNode node() {
+        return runningJobExecution.node();
     }
 
     /**
@@ -173,10 +193,17 @@ class FailSafeJobExecution<T> implements JobExecution<T> {
      */
     void completeExceptionally(Exception ex) {
         if (exception.compareAndSet(null, ex)) {
-            runningJobExecution.get().resultAsync().completeExceptionally(ex);
             resultFuture.completeExceptionally(ex);
+            cleanRunningJobExecution(runningJobExecution);
         } else {
             throw new IllegalStateException("Job is already completed exceptionally.");
         }
+    }
+
+    /**
+     * Cancels the running job result future, triggering the execution manager clean process.
+     */
+    private static void cleanRunningJobExecution(CancellableJobExecution<ComputeJobDataHolder> previousRunningJobExecution) {
+        previousRunningJobExecution.resultAsync().cancel(true);
     }
 }

@@ -313,13 +313,8 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds with wrong literal types. */
     @Test
     public void testBoundsTypeConversion() throws Exception {
-        // Implicit cast of all filter values to INTEGER.
-        assertBounds("SELECT * FROM TEST WHERE C1 IN ('1', '2', '3')",
-                multi(exact(1), exact(2), exact(3))
-        );
-
-        // Implicit cast of '1' to INTEGER.
-        assertBounds("SELECT * FROM TEST WHERE C1 IN ('1', 2, 3)",
+        // Explicit cast of '1' to INTEGER.
+        assertBounds("SELECT * FROM TEST WHERE C1 IN ('1'::INTEGER, 2, 3)",
                 multi(exact(1), exact(2), exact(3))
         );
 
@@ -330,19 +325,19 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
 
         // Casted to INTEGER type C2 column cannot be used as index bound.
-        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2, 3)",
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2::INTEGER IN (2, 3)",
                 exact(1),
                 empty()
         );
 
         // Casted to INTEGER type C2 column cannot be used as index bound.
-        assertBounds("SELECT * FROM TEST WHERE CAST(CAST(C1 AS VARCHAR) AS INTEGER) = 1 AND C2 IN (2, 3)",
+        assertBounds("SELECT * FROM TEST WHERE CAST(CAST(C1 AS VARCHAR) AS INTEGER) = 1 AND C2::INTEGER IN (2, 3)",
                 exact(1),
                 empty()
         );
 
         // Implicit cast of 2 to VARCHAR.
-        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2, '3')",
+        assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 IN (2::VARCHAR, '3')",
                 exact(1),
                 multi(exact("2"), exact("3"))
         );
@@ -425,7 +420,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(?::VARCHAR, 1, 2) || '3'", List.of("1"), publicSchema,
                 exact(1),
-                range("||(SUBSTRING(?0, 1, 2), _UTF-8'3')", "null", false, false)
+                range("||(SUBSTRING(CAST(?0):VARCHAR CHARACTER SET \"UTF-8\", 1, 2), _UTF-8'3')", "null", false, false)
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(C3::VARCHAR, 1, 2) || '3'",
@@ -568,8 +563,8 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
             arguments(sqlType(SqlTypeName.BIGINT), "CAST(42 AS INTEGER)", "42:BIGINT", sqlType(SqlTypeName.BIGINT)),
             arguments(sqlType(SqlTypeName.BIGINT), "CAST(42 AS BIGINT)", "42:BIGINT", sqlType(SqlTypeName.BIGINT)),
 
-            arguments(sqlType(SqlTypeName.REAL), "42", "42:REAL", sqlType(SqlTypeName.REAL)),
-            arguments(sqlType(SqlTypeName.DOUBLE), "42", "42:DOUBLE", sqlType(SqlTypeName.DOUBLE))
+            arguments(sqlType(SqlTypeName.REAL), "42", "42.0E0:REAL", sqlType(SqlTypeName.REAL)),
+            arguments(sqlType(SqlTypeName.DOUBLE), "42", "42.0E0:DOUBLE", sqlType(SqlTypeName.DOUBLE))
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19881 uncomment after this issue is fixed
         //  The optimizer selects TableScan instead of a IndexScan (Real/double columns)
@@ -666,8 +661,9 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     }
 
     private void assertBounds(String sql, Predicate<SearchBounds>... predicates) throws Exception {
-        assertPlan(sql, publicSchema, nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)
-                .and(scan -> matchBounds(scan.searchBounds(), predicates))), List.of());
+        assertPlan(sql, List.of(publicSchema), nodeOrAnyChild(isInstanceOf(IgniteIndexScan.class)
+                .and(scan -> matchBounds(scan.searchBounds(), predicates))), List.of(),
+                "LogicalTableScanConverterRule", "UnionConverterRule");
     }
 
     private void assertBounds(
@@ -682,6 +678,11 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     private static boolean matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
         for (int i = 0; i < predicates.length; i++) {
+            if (searchBounds == null) {
+                LOG.info("null bounds do not not match: {}", predicates[i]);
+                return false;
+            }
+
             if (!predicates[i].test(searchBounds.get(i))) {
                 LOG.info("{} bounds do not not match: {}", searchBounds.get(i), predicates[i]);
                 return false;

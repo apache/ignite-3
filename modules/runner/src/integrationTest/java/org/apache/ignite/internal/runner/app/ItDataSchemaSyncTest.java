@@ -17,10 +17,16 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
@@ -30,128 +36,45 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * There is a test of table schema synchronization.
  */
-@ExtendWith({WorkDirectoryExtension.class})
-public class ItDataSchemaSyncTest extends IgniteAbstractTest {
+public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
     public static final String TABLE_NAME = "tbl1";
-
-    /** Nodes bootstrap configuration. */
-    private static final Map<String, String> nodesBootstrapCfg = Map.of(
-            "node0", "{\n"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3344,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  rest.port: 10300\n"
-                    + "}",
-
-            "node1", "{\n"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3345,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  clientConnector: { port:10801 },\n"
-                    + "  rest.port: 10301\n"
-                    + "}",
-
-            "node2", "{\n"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3346,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                    + "    }\n"
-                    + "  },\n"
-                    + "  clientConnector: { port:10802 },\n"
-                    + "  rest.port: 10302\n"
-                    + "}"
-    );
-
-    private final List<Ignite> clusterNodes = new ArrayList<>();
-
-    /**
-     * Starts a cluster before every test started.
-     */
-    @BeforeEach
-    void beforeEach() {
-        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
-                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
-                .collect(toList());
-
-        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
-
-        InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNode)
-                .metaStorageNodeNames(List.of(metaStorageNode))
-                .clusterName("cluster")
-                .clusterConfiguration("{\n"
-                        + "  \"replication\": {\n"
-                        + "  \"rpcTimeout\": 3000\n"
-                        + "  }\n"
-                        + "}\n"
-                )
-                .build();
-
-        TestIgnitionManager.init(initParameters);
-
-        for (CompletableFuture<Ignite> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
-
-            clusterNodes.add(future.join());
-        }
-    }
-
-    /**
-     * Stops a cluster after every test finished.
-     */
-    @AfterEach
-    void afterEach() throws Exception {
-        List<AutoCloseable> closeables = nodesBootstrapCfg.keySet().stream()
-                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
-    }
 
     /**
      * Test correctness of schema updates on lagged node.
      */
     @Test
     public void checkSchemasCorrectUpdate() throws Exception {
-        Ignite ignite0 = clusterNodes.get(0);
-        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
-        IgniteImpl ignite2 = (IgniteImpl) clusterNodes.get(2);
+        Ignite ignite0 = cluster.node(0);
+        IgniteImpl ignite1 = unwrapIgniteImpl(cluster.node(1));
+        IgniteImpl ignite2 = unwrapIgniteImpl(cluster.node(2));
 
         createTable(ignite0, TABLE_NAME);
 
@@ -173,20 +96,13 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         // Should not receive the table because we are waiting for the synchronization of schemas.
         assertThat(ignite1.tables().tableAsync(TABLE_NAME), willTimeoutFast());
 
-        String nodeToStop = ignite1.name();
-
-        IgnitionManager.stop(nodeToStop);
+        cluster.stopNode(1);
 
         listenerInhibitor.stopInhibit();
 
-        CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
-                .filter(k -> k.getKey().equals(nodeToStop))
-                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
-                .findFirst().get();
+        cluster.startNode(1);
 
-        assertThat(ignite1Fut, willCompleteSuccessfully());
-
-        ignite1 = (IgniteImpl) ignite1Fut.join();
+        ignite1 = unwrapIgniteImpl(cluster.node(1));
 
         table = tableView(ignite1, TABLE_NAME);
 
@@ -198,9 +114,17 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * Check that sql query will wait until appropriate schema is not propagated into all nodes.
      */
     @Test
-    public void queryWaitAppropriateSchema() {
-        Ignite ignite0 = clusterNodes.get(0);
-        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
+    public void queryWaitAppropriateSchema() throws Exception {
+        Ignite ignite0 = cluster.node(0);
+        Ignite ignite1 = cluster.node(1);
+
+        if (colocationEnabled()) {
+            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+            setDefaultZoneAutoAdjustScaleUpToImmediate(ignite1);
+
+            waitForStableAssignments(ignite1, 0);
+        }
 
         createTable(ignite0, TABLE_NAME);
 
@@ -210,11 +134,16 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         node1Inhibitor.startInhibit();
         try {
+            // Have to wait for a small amount of time DEFAULT_DELAY_DURATION_MS
+            // to ensure that all operation timestamps will be greater than the safeTime of the meta storage
+            // and so the operations will require the schema sync.
+            Thread.sleep(DEFAULT_DELAY_DURATION_MS);
+
             createIndexFuture = runAsync(() -> sql(ignite0, "CREATE INDEX idx1 ON " + TABLE_NAME + "(valint)"));
 
             assertThat(
                     runAsync(() -> sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0")),
-                    willTimeoutIn(1, TimeUnit.SECONDS)
+                    willTimeoutIn(1, SECONDS)
             );
         } finally {
             node1Inhibitor.stopInhibit();
@@ -233,7 +162,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @Test
     public void checkSchemasCorrectlyRestore() {
-        Ignite ignite1 = clusterNodes.get(1);
+        Ignite ignite1 = cluster.node(1);
 
         sql(ignite1, "CREATE TABLE " + TABLE_NAME + "(key BIGINT PRIMARY KEY, valint1 INT, valint2 INT)");
 
@@ -247,18 +176,9 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint4 INT");
 
-        String nodeToStop = ignite1.name();
+        cluster.restartNode(1);
 
-        IgnitionManager.stop(nodeToStop);
-
-        CompletableFuture<Ignite> ignite1Fut = nodesBootstrapCfg.entrySet().stream()
-                .filter(k -> k.getKey().equals(nodeToStop))
-                .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
-                .findFirst().get();
-
-        assertThat(ignite1Fut, willCompleteSuccessfully());
-
-        ignite1 = ignite1Fut.join();
+        ignite1 = cluster.node(1);
 
         IgniteSql sql = ignite1.sql();
 
@@ -291,8 +211,20 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @Test
     public void testExpectReplicationTimeout() throws Exception {
-        Ignite ignite0 = clusterNodes.get(0);
-        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
+        Ignite ignite0 = cluster.node(0);
+
+        // Change replication timeout to 3s that will be a reason for ReplicationTimeoutException will be thrown.
+        assertThat(
+                unwrapIgniteImpl(ignite0)
+                        .clusterConfiguration()
+                        .getConfiguration(ReplicationExtensionConfiguration.KEY)
+                        .replication()
+                        .rpcTimeoutMillis()
+                        .update(3000L),
+                willCompleteSuccessfully()
+        );
+
+        Ignite ignite1 = cluster.node(1);
 
         createTable(ignite0, TABLE_NAME);
 
@@ -316,8 +248,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         alterTable(ignite0, TABLE_NAME);
 
-        for (Ignite node : clusterNodes) {
-            if (node == ignite1) {
+        for (Ignite node : cluster.runningNodes().collect(toList())) {
+            if (node.name().equals(ignite1.name())) {
                 continue;
             }
 
@@ -342,7 +274,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         assertThat(
                 insertFut,
-                willThrow(IgniteException.class, 30, TimeUnit.SECONDS, "Replication is timed out")
+                willThrow(IgniteException.class, 30, SECONDS, "Replication is timed out")
         );
     }
 
@@ -371,5 +303,57 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         assertThat(tableFuture, willCompleteSuccessfully());
 
         return unwrapTableViewInternal(tableFuture.join());
+    }
+
+    private static void setDefaultZoneAutoAdjustScaleUpToImmediate(Ignite ignite0) {
+        IgniteImpl node = unwrapIgniteImpl(ignite0);
+        CatalogManager catalogManager = node.catalogManager();
+        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
+
+        setZoneAutoAdjustScaleUpToImmediate(catalogManager, defaultZone.name());
+    }
+
+    private static void waitForStableAssignments(Ignite node, int zoneId) throws Exception {
+        IgniteImpl nodeImpl = unwrapIgniteImpl(node);
+
+        Catalog catalog = nodeImpl.catalogManager().catalog(nodeImpl.catalogManager().latestCatalogVersion());
+
+        int numberOfPartitions = catalog.zone(zoneId).partitions();
+
+        boolean res = waitForCondition(() -> {
+            var stableAssignmentsAreReady = new AtomicBoolean(true);
+
+            for (int partId = 0; partId < numberOfPartitions; ++partId) {
+                ByteArray key;
+
+                if (colocationEnabled()) {
+                    key = ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId, partId));
+                } else {
+                    key = RebalanceUtil.stablePartAssignmentsKey(new TablePartitionId(zoneId, partId));
+                }
+
+                try {
+                    nodeImpl
+                            .metaStorageManager()
+                            .get(key)
+                            .thenAccept(entry -> {
+                                if (entry != null && !entry.tombstone() && !entry.empty()) {
+                                    Assignments assignments = Assignments.fromBytes(entry.value());
+
+                                    if (assignments.nodes().isEmpty()) {
+                                        stableAssignmentsAreReady.set(false);
+                                    }
+                                }
+                            })
+                            .get(5, SECONDS);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to read stable assignments for the partition [partId=" + partId + ']', e);
+                }
+            }
+
+            return stableAssignmentsAreReady.get();
+        }, 15_000);
+
+        assertTrue(res, "Node should have stable assignments.");
     }
 }

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.cli.core.repl;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_SHORT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
@@ -54,7 +53,7 @@ class SessionDefaultValueProviderTest {
     }
 
     private static OptionSpec createJdbcUrlSpec() {
-        return OptionSpec.builder(JDBC_URL_OPTION, JDBC_URL_OPTION_SHORT)
+        return OptionSpec.builder(JDBC_URL_OPTION)
                 .required(true)
                 .descriptionKey(JDBC_URL_KEY)
                 .description(JDBC_URL_OPTION_DESC)

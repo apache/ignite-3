@@ -31,9 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
@@ -101,22 +99,22 @@ class RocksDbIndexes {
         }
     }
 
-    SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
+    void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         SortedIndex sortedIndex = sortedIndices.computeIfAbsent(
                 indexDescriptor.id(),
                 id -> SortedIndex.createNew(rocksDb, tableId, indexDescriptor, rocksDb.meta)
         );
 
-        return sortedIndex.getOrCreateStorage(partitionId);
+        sortedIndex.getOrCreateStorage(partitionId);
     }
 
-    HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
+    void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         HashIndex hashIndex = hashIndices.computeIfAbsent(
                 indexDescriptor.id(),
                 id -> new HashIndex(tableId, rocksDb.hashIndexCf(), indexDescriptor, rocksDb.meta)
         );
 
-        return hashIndex.getOrCreateStorage(partitionId);
+        hashIndex.getOrCreateStorage(partitionId);
     }
 
     @Nullable IndexStorage getIndex(int partitionId, int indexId) {

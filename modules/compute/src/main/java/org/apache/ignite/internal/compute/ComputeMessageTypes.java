@@ -26,10 +26,10 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityRequest;
 import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultRequest;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
-import org.apache.ignite.internal.compute.message.JobStatusRequest;
-import org.apache.ignite.internal.compute.message.JobStatusResponse;
-import org.apache.ignite.internal.compute.message.JobStatusesRequest;
-import org.apache.ignite.internal.compute.message.JobStatusesResponse;
+import org.apache.ignite.internal.compute.message.JobStateRequest;
+import org.apache.ignite.internal.compute.message.JobStateResponse;
+import org.apache.ignite.internal.compute.message.JobStatesRequest;
+import org.apache.ignite.internal.compute.message.JobStatesResponse;
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
@@ -58,11 +58,11 @@ public class ComputeMessageTypes {
     /** Type for {@link JobResultResponse}. */
     public static final short JOB_RESULT_RESPONSE = 4;
 
-    /** Type for {@link JobStatusRequest}. */
-    public static final short JOB_STATUS_REQUEST = 5;
+    /** Type for {@link JobStateRequest}. */
+    public static final short JOB_STATE_REQUEST = 5;
 
-    /** Type for {@link JobStatusResponse}. */
-    public static final short JOB_STATUS_RESPONSE = 6;
+    /** Type for {@link JobStateResponse}. */
+    public static final short JOB_STATE_RESPONSE = 6;
 
     /** Type for {@link JobCancelRequest}. */
     public static final short JOB_CANCEL_REQUEST = 7;
@@ -76,9 +76,9 @@ public class ComputeMessageTypes {
     /** Type for {@link JobChangePriorityResponse}. */
     public static final short JOB_CHANGE_PRIORITY_RESPONSE = 10;
 
-    /** Type for {@link JobStatusesRequest}. */
-    public static final short JOB_STATUSES_REQUEST = 11;
+    /** Type for {@link JobStatesRequest}. */
+    public static final short JOB_STATES_REQUEST = 11;
 
-    /** Type for {@link JobStatusesResponse}. */
-    public static final short JOB_STATUSES_RESPONSE = 12;
+    /** Type for {@link JobStatesResponse}. */
+    public static final short JOB_STATES_RESPONSE = 12;
 }

@@ -1,0 +1,29 @@
+# name: test/sql/join/inner/test_join_duplicates.test
+# description: Test join with > STANDARD_VECTOR_SIZE duplicates
+# group: [inner]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE test (a INTEGER, b INTEGER);
+
+statement ok
+INSERT INTO test VALUES (11, 1), (12, 2), (13, 3)
+
+statement ok
+CREATE TABLE test2(b INTEGER, c INTEGER);
+
+statement ok
+INSERT INTO test2 SELECT 1, 10 FROM table(system_range(1, 10*1024));
+
+query I
+SELECT COUNT(*) FROM test2;
+----
+10240
+
+query I
+SELECT COUNT(*) FROM test INNER JOIN test2 ON test.b=test2.b
+----
+10240
+

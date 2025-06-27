@@ -50,7 +50,7 @@ public interface Criteria {
      * <p>For example:
      * <pre>{@code
      *     columnValue("category", equalTo("toys"))
-     *     columnValue(IgniteNameUtils.quote("subCategory"), equalTo("puzzle"))
+     *     columnValue(IgniteNameUtils.quoteIfNeeded("subCategory"), equalTo("puzzle"))
      * }</pre>
      *
      * @param columnName Column name must use SQL-parser style notation; e.g., <br>

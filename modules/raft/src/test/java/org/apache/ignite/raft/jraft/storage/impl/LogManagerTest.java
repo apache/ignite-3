@@ -21,12 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -102,11 +104,13 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setLogStorage(this.logStorage);
         opts.setRaftOptions(raftOptions);
         opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("test", "TestLogManagerDisruptor",
-            1024,
-            () -> new LogManagerImpl.StableClosureEvent(),
-            1,
-            false,
-            false));
+                (stripeName, logger) -> NamedThreadFactory.create("test", stripeName, true, logger),
+                1024,
+                () -> new LogManagerImpl.StableClosureEvent(),
+                1,
+                false,
+                false,
+                null));
         assertTrue(this.logManager.init(opts));
     }
 
@@ -396,7 +400,7 @@ public class LogManagerTest extends BaseStorageTest {
             .lastIncludedTerm(2)
             .peersList(List.of("localhost:8081"))
             .build();
-        this.logManager.setSnapshot(meta);
+        this.logManager.setSnapshot(meta, false);
         //Still valid
         for (int i = 0; i < 10; i++) {
             assertEquals(entries.get(i), this.logManager.getEntry(i + 1));
@@ -406,7 +410,7 @@ public class LogManagerTest extends BaseStorageTest {
             .lastIncludedTerm(4)
             .peersList(List.of("localhost:8081"))
             .build();
-        this.logManager.setSnapshot(meta);
+        this.logManager.setSnapshot(meta, false);
 
         Thread.sleep(1000);
         for (int i = 0; i < 10; i++) {
@@ -453,4 +457,23 @@ public class LogManagerTest extends BaseStorageTest {
         assertEquals("localhost:8081,localhost:8082", lastEntry.getOldConf().toString());
     }
 
+    @Test
+    public void testLastLogIdWhenShutdown() throws Exception {
+        mockAddEntries();
+        assertEquals(1, this.logManager.getFirstLogIndex());
+        assertEquals(10, this.logManager.getLastLogIndex());
+        this.logManager.shutdown();
+        Exception e = assertThrows(IllegalStateException.class, () -> this.logManager.getLastLogId(true));
+        assertEquals("Node is shutting down", e.getMessage());
+    }
+
+    @Test
+    public void testLastLogIndexWhenShutdown() throws Exception {
+        mockAddEntries();
+        assertEquals(1, this.logManager.getFirstLogIndex());
+        assertEquals(10, this.logManager.getLastLogIndex());
+        this.logManager.shutdown();
+        Exception e = assertThrows(IllegalStateException.class, () -> this.logManager.getLastLogIndex(true));
+        assertEquals("Node is shutting down", e.getMessage());
+    }
 }

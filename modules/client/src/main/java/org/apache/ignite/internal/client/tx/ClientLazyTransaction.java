@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.client.tx;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.client.tx.ClientTransactions.USE_CONFIGURED_TIMEOUT_DEFAULT;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -30,13 +34,13 @@ import org.jetbrains.annotations.Nullable;
  * Lazy client transaction. Will be actually started on the first operation.
  */
 public class ClientLazyTransaction implements Transaction {
-    private final long observableTimestamp;
+    private final HybridTimestampTracker observableTimestamp;
 
     private final @Nullable TransactionOptions options;
 
     private volatile CompletableFuture<ClientTransaction> tx;
 
-    ClientLazyTransaction(long observableTimestamp, @Nullable TransactionOptions options) {
+    ClientLazyTransaction(HybridTimestampTracker observableTimestamp, @Nullable TransactionOptions options) {
         this.observableTimestamp = observableTimestamp;
         this.options = options;
     }
@@ -94,18 +98,22 @@ public class ClientLazyTransaction implements Transaction {
         return options != null && options.readOnly();
     }
 
+    public long timeout() {
+        return options == null ? USE_CONFIGURED_TIMEOUT_DEFAULT : options.timeoutMillis();
+    }
+
     /**
      * Gets the node name of the node where the transaction is started. If not started yet, returns {@code null}.
      *
      * @return Node name or {@code null}.
      */
-    public @Nullable String nodeName() {
+    public String nodeName() {
         var tx0 = tx;
 
+        assert tx0 != null;
+
         //noinspection resource
-        return tx0 != null
-                ? tx0.join().channel().protocolContext().clusterNode().name()
-                : null;
+        return tx0.join().nodeName();
     }
 
     /**
@@ -132,40 +140,58 @@ public class ClientLazyTransaction implements Transaction {
      *
      * @param tx Transaction.
      * @param ch Channel.
-     * @param preferredNodeName Preferred node name.
-     * @return Future that will be completed when the transaction is started.
+     *
+     * @return Future that will be completed when the transaction is started and first request flag.
      */
-    public static CompletableFuture<ClientTransaction> ensureStarted(
-            @Nullable Transaction tx,
-            ReliableChannel ch,
-            @Nullable String preferredNodeName) {
-        if (tx == null) {
-            return nullCompletedFuture();
-        }
+    public static IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> ensureStarted(
+            Transaction tx,
+            ReliableChannel ch
+    ) {
+        return ensureStarted(tx, ch, () -> ch.getChannelAsync(null));
+    }
 
+    /**
+     * Ensures that the underlying transaction is actually started on the server.
+     *
+     * @param tx Transaction.
+     * @param ch Channel.
+     * @param channelResolver Client channel resolver. {@code null} value means skipping explicit tx begin request.
+     *
+     * @return Future that will be completed when the transaction is started and first request flag.
+     */
+    public static IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> ensureStarted(
+            Transaction tx,
+            ReliableChannel ch,
+            @Nullable Supplier<CompletableFuture<ClientChannel>> channelResolver
+    ) {
         if (!(tx instanceof ClientLazyTransaction)) {
             throw ClientTransaction.unsupportedTxTypeException(tx);
         }
 
-        return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
+        return ((ClientLazyTransaction) tx).ensureStarted(ch, channelResolver);
     }
 
-    private synchronized CompletableFuture<ClientTransaction> ensureStarted(
+    private synchronized IgniteBiTuple<CompletableFuture<ClientTransaction>, Boolean> ensureStarted(
             ReliableChannel ch,
-            @Nullable String preferredNodeName) {
+            @Nullable Supplier<CompletableFuture<ClientChannel>> channelResolver
+    ) {
         var tx0 = tx;
 
         if (tx0 != null) {
-            return tx0;
+            return new IgniteBiTuple<>(tx0, false);
         }
 
-        tx0 = ClientTransactions.beginAsync(ch, preferredNodeName, options, observableTimestamp);
+        tx0 = channelResolver != null ? ClientTransactions.beginAsync(ch, options, observableTimestamp, channelResolver)
+                : new CompletableFuture<>();
         tx = tx0;
 
-        return tx0;
+        return new IgniteBiTuple<>(tx0, channelResolver == null);
     }
 
-    ClientTransaction startedTx() {
+    /**
+     * Returns actual {@link ClientTransaction} started by this transaction.
+     */
+    public ClientTransaction startedTx() {
         var tx0 = tx;
 
         assert tx0 != null : "Transaction is not started";

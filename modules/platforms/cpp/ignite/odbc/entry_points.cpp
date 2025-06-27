@@ -18,7 +18,7 @@
 #include "log.h"
 #include "odbc.h"
 
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 
 #ifdef __JETBRAINS_IDE__
 # pragma clang diagnostic push

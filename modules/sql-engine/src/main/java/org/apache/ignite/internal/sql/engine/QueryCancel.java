@@ -17,78 +17,90 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.util.Cancellable;
 
 /**
  * Holds query cancel state.
  */
 public class QueryCancel {
-    private final List<Cancellable> cancelActions = new ArrayList<>(3);
-
-    private boolean canceled;
+    private final CompletableFuture<Reason> state = new CompletableFuture<>();
 
     /**
-     * Adds a cancel action.
+     * Adds a cancel action. If operation has already been canceled, throws a {@link QueryCancelledException}.
      *
-     * @param clo Add cancel action.
+     * <p>NOTE: If the operation is cancelled, this method will immediately invoke the given action
+     * and then throw a {@link QueryCancelledException}.
+     *
+     * @param clo Cancel action.
+     * @throws QueryCancelledException If operation has been already cancelled.
      */
-    public synchronized void add(Cancellable clo) throws QueryCancelledException {
+    public void add(Cancellable clo) throws QueryCancelledException {
         assert clo != null;
 
-        if (canceled) {
-            throw new QueryCancelledException();
-        }
+        state.thenAccept(reason -> clo.cancel(reason == Reason.TIMEOUT));
 
-        cancelActions.add(clo);
+        throwIfCancelled();
+    }
+
+    /**
+     * Attach child cancellation to the current one. If this has already been canceled, throws a {@link QueryCancelledException}.
+     *
+     * <p>NOTE: If the operation is cancelled, this method will immediately trigger cancellation of a given the given cancellation
+     * and then throw a {@link QueryCancelledException}.
+     *
+     * @param another Another cancellation.
+     * @throws QueryCancelledException If operation has been already cancelled.
+     */
+    public void attach(QueryCancel another) throws QueryCancelledException {
+        state.thenAccept(another.state::complete);
+
+        throwIfCancelled();
+    }
+
+    /**
+     * Schedules a timeout after {@code timeoutMillis} milliseconds.
+     * Call be called only once.
+     *
+     * @param scheduler Scheduler to trigger an action.
+     * @param timeoutMillis Timeout in milliseconds.
+     */
+    public void setTimeout(ScheduledExecutorService scheduler, long timeoutMillis) {
+        scheduler.schedule(() -> state.complete(Reason.TIMEOUT), timeoutMillis, MILLISECONDS);
     }
 
     /**
      * Executes cancel closure.
      */
-    public synchronized void cancel() {
-        if (canceled) {
+    public void cancel() {
+        state.complete(Reason.CANCEL);
+    }
+
+    /** Returns {@code true} if the cancellation procedure has already been started. */
+    public boolean isCancelled() {
+        return state.isDone();
+    }
+
+    /** Throws {@link QueryCancelledException} If operation has been already cancelled.*/
+    public void throwIfCancelled() throws QueryCancelledException {
+        if (!state.isDone()) {
             return;
         }
 
-        canceled = true;
+        Reason reason = state.join();
 
-        IgniteInternalException ex = null;
-
-        // Run actions in the reverse order.
-        for (int i = cancelActions.size() - 1; i >= 0; i--) {
-            try {
-                Cancellable act = cancelActions.get(i);
-
-                act.cancel();
-            } catch (Exception e) {
-                if (ex == null) {
-                    ex = new IgniteInternalException(INTERNAL_ERR, e);
-                } else {
-                    ex.addSuppressed(e);
-                }
-            }
-        }
-
-        if (ex != null) {
-            throw ex;
-        }
+        throw new QueryCancelledException(
+                reason == Reason.TIMEOUT
+                        ? QueryCancelledException.TIMEOUT_MSG
+                        : QueryCancelledException.CANCEL_MSG
+        );
     }
 
-    /**
-     * Stops query execution if a user requested cancel.
-     */
-    public synchronized void checkCancelled() throws QueryCancelledException {
-        if (canceled) {
-            throw new QueryCancelledException();
-        }
-    }
-
-    public synchronized boolean isCanceled() {
-        return canceled;
+    enum Reason {
+        CANCEL,
+        TIMEOUT
     }
 }

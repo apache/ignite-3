@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
 /**
  * Global partition state schema class.
@@ -28,6 +29,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "Information about global partition state.")
 public class GlobalPartitionStateResponse {
     private final int partitionId;
+    private final String zoneName;
+    @Schema(requiredMode = RequiredMode.NOT_REQUIRED)
+    private final int tableId;
+    @Schema(requiredMode = RequiredMode.NOT_REQUIRED)
+    private final String schemaName;
+    @Schema(requiredMode = RequiredMode.NOT_REQUIRED)
     private final String tableName;
     private final String state;
 
@@ -36,12 +43,18 @@ public class GlobalPartitionStateResponse {
      */
     @JsonCreator
     public GlobalPartitionStateResponse(
-            @JsonProperty("partitionId") int partitionId,
+            @JsonProperty("zoneName") String zoneName,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableId") int tableId,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("partitionId") int partitionId,
             @JsonProperty("state") String state
     ) {
         this.partitionId = partitionId;
+        this.tableId = tableId;
+        this.schemaName = schemaName;
         this.tableName = tableName;
+        this.zoneName = zoneName;
         this.state = state;
     }
 
@@ -50,9 +63,24 @@ public class GlobalPartitionStateResponse {
         return partitionId;
     }
 
+    @JsonGetter("tableId")
+    public int tableId() {
+        return tableId;
+    }
+
+    @JsonGetter("schemaName")
+    public String schemaName() {
+        return schemaName;
+    }
+
     @JsonGetter("tableName")
     public String tableName() {
         return tableName;
+    }
+
+    @JsonGetter("zoneName")
+    public String zoneName() {
+        return zoneName;
     }
 
     @JsonGetter("state")

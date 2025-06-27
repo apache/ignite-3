@@ -19,11 +19,14 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
@@ -34,9 +37,15 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
+import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleHelper;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Tuple marshaller implementation.
@@ -46,6 +55,9 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     private final SchemaDescriptor schema;
 
+    private final int keyOnlyFixedLengthColumnSize;
+    private final int valueOnlyFixedLengthColumnSize;
+
     /**
      * Creates marshaller for given schema.
      *
@@ -53,6 +65,18 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     public TupleMarshallerImpl(SchemaDescriptor schema) {
         this.schema = schema;
+
+        keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
+                .map(Column::type)
+                .filter(NativeType::fixedLength)
+                .mapToInt(NativeType::sizeInBytes)
+                .sum();
+
+        valueOnlyFixedLengthColumnSize = schema.valueColumns().stream()
+                .map(Column::type)
+                .filter(NativeType::fixedLength)
+                .mapToInt(NativeType::sizeInBytes)
+                .sum();
     }
 
     @Override
@@ -62,7 +86,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(Tuple tuple) throws TupleMarshallerException {
+    public Row marshal(Tuple tuple) throws MarshallerException {
         try {
             if (tuple instanceof SchemaAware && tuple instanceof BinaryTupleContainer) {
                 SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
@@ -83,9 +107,10 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 }
             }
 
+            TuplePart part = TuplePart.KEY_VALUE;
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(schema.columns(), tuple, valuesWithStatistics);
+            gatherStatistics(part, tuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns != tuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -93,19 +118,19 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                                 schema.version(), extraColumnNames(tuple, schema)));
             }
 
-            return buildRow(false, valuesWithStatistics);
+            return buildRow(part, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new TupleMarshallerException("Failed to marshal tuple.", ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
+    public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws MarshallerException {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
+            gatherStatistics(TuplePart.KEY, keyTuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns != keyTuple.columnCount()) {
                 throw new SchemaMismatchException(
@@ -115,7 +140,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             boolean keyOnly = valTuple == null;
             if (!keyOnly) {
-                gatherStatistics(schema.valueColumns(), valTuple, valuesWithStatistics);
+                gatherStatistics(TuplePart.VALUE, valTuple, valuesWithStatistics);
 
                 if ((valuesWithStatistics.knownColumns - keyTuple.columnCount()) != valTuple.columnCount()) {
                     throw new SchemaMismatchException(
@@ -124,57 +149,58 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 }
             }
 
-            return buildRow(keyOnly, valuesWithStatistics);
+            return buildRow(keyOnly ? TuplePart.KEY : TuplePart.KEY_VALUE, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new TupleMarshallerException("Failed to marshal tuple.", ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshalKey(Tuple keyTuple) throws TupleMarshallerException {
+    public Row marshalKey(Tuple keyTuple) throws MarshallerException {
         try {
             ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
+            TuplePart part = TuplePart.KEY;
 
-            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
+            gatherStatistics(part, keyTuple, valuesWithStatistics);
 
             if (valuesWithStatistics.knownColumns < keyTuple.columnCount()) {
                 throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
             }
 
-            return buildRow(true, valuesWithStatistics);
+            return buildRow(part, valuesWithStatistics);
         } catch (Exception ex) {
-            throw new TupleMarshallerException("Failed to marshal tuple.", ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
     private Row buildRow(
-            boolean keyOnly,
+            TuplePart part,
             ValuesWithStatistics values
     ) throws SchemaMismatchException {
-        List<Column> columns = keyOnly ? schema.keyColumns() : schema.columns();
-        RowAssembler rowBuilder = new RowAssembler(schema.version(), columns, values.estimatedValueSize);
+        List<Column> columns = part.deriveColumnList(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema.version(), columns, values.estimatedValueSize, false);
 
         for (Column col : columns) {
             rowBuilder.appendValue(values.value(col.name()));
         }
 
-        return keyOnly
+        return part == TuplePart.KEY
                 ? Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build())
                 : Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
-    private void gatherStatistics(
-            List<Column> columns,
+    void gatherStatistics(
+            TuplePart part,
             Tuple tuple,
             ValuesWithStatistics targetTuple
     ) throws SchemaMismatchException {
-        int estimatedValueSize = 0;
+        int estimatedValueSize = part.fixedSizeColumnsSize(keyOnlyFixedLengthColumnSize, valueOnlyFixedLengthColumnSize);
         int knownColumns = 0;
-        for (Column col : columns) {
+        for (Column col : part.deriveColumnList(schema)) {
             NativeType colType = col.type();
 
-            Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
+            Object val = TupleHelper.valueOrDefault(tuple, col.name(), POISON_OBJECT);
 
             if (val == POISON_OBJECT && col.positionInKey() != -1) {
                 throw new SchemaMismatchException("Missed key column: " + col.name());
@@ -187,19 +213,49 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
 
             col.validate(val);
-            targetTuple.values.put(col.name(), val);
 
             if (val != null) {
-                if (colType.spec().fixedLength()) {
-                    estimatedValueSize += colType.sizeInBytes();
-                } else {
-                    estimatedValueSize += getValueSize(val, colType);
+                if (!colType.fixedLength()) {
+                    try {
+                        val = shrinkValue(val, col.type());
+
+                        estimatedValueSize += getValueSize(val, colType);
+                    } catch (ClassCastException e) {
+                        throw new MarshallerException(
+                                UUID.randomUUID(),
+                                Marshalling.COMMON_ERR,
+                                String.format(
+                                        "Invalid value type provided for column [name='%s', expected='%s', actual='%s']",
+                                        col.name(),
+                                        col.type().spec().javaClass().getName(),
+                                        val.getClass().getName()),
+                                e);
+                    }
                 }
             }
+
+            targetTuple.values.put(col.name(), val);
         }
 
         targetTuple.estimatedValueSize += estimatedValueSize;
         targetTuple.knownColumns += knownColumns;
+    }
+
+    /**
+     * Converts the passed value to a more compact form, if possible.
+     *
+     * @param value Field value.
+     * @param type Mapped type.
+     * @return Value in a more compact form, or the original value if it cannot be compacted.
+     */
+    private static <T> T shrinkValue(T value, NativeType type) {
+        if (type.spec() == ColumnType.DECIMAL) {
+            assert type instanceof DecimalNativeType;
+
+            return (T) BinaryTupleCommon.shrinkDecimal((BigDecimal) value, ((DecimalNativeType) type).scale());
+        }
+
+        return value;
     }
 
     /**
@@ -277,7 +333,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * Container to keep columns values and related statistics which help
      * to build row with {@link RowAssembler}.
      */
-    private static class ValuesWithStatistics {
+    static class ValuesWithStatistics {
         private final Map<String, Object> values = new HashMap<>();
 
         private int estimatedValueSize;
@@ -286,5 +342,52 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         @Nullable Object value(String columnName) {
             return values.get(columnName);
         }
+
+        @TestOnly
+        int estimatedValueSize() {
+            return estimatedValueSize;
+        }
+    }
+
+    enum TuplePart {
+        KEY {
+            @Override
+            int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize) {
+                return keyOnlySize;
+            }
+
+            @Override
+            List<Column> deriveColumnList(SchemaDescriptor schema) {
+                return schema.keyColumns();
+            }
+        },
+
+        VALUE {
+            @Override
+            int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize) {
+                return valueOnlySize;
+            }
+
+            @Override
+            List<Column> deriveColumnList(SchemaDescriptor schema) {
+                return schema.valueColumns();
+            }
+        },
+
+        KEY_VALUE {
+            @Override
+            int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize) {
+                return keyOnlySize + valueOnlySize;
+            }
+
+            @Override
+            List<Column> deriveColumnList(SchemaDescriptor schema) {
+                return schema.columns();
+            }
+        };
+
+        abstract int fixedSizeColumnsSize(int keyOnlySize, int valueOnlySize);
+
+        abstract List<Column> deriveColumnList(SchemaDescriptor schema);
     }
 }

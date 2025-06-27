@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.metric.Metric;
 import org.apache.ignite.internal.rest.api.metric.MetricSet;
 import org.apache.ignite.internal.rest.api.metric.MetricSource;
@@ -31,8 +32,8 @@ import org.apache.ignite.internal.rest.metrics.exception.MetricNotFoundException
 
 /** Node metric controller. */
 @Controller("/management/v1/metric/node")
-public class NodeMetricController implements NodeMetricApi {
-    private final MetricManager metricManager;
+public class NodeMetricController implements NodeMetricApi, ResourceHolder {
+    private MetricManager metricManager;
 
     public NodeMetricController(MetricManager metricManager) {
         this.metricManager = metricManager;
@@ -73,5 +74,10 @@ public class NodeMetricController implements NodeMetricApi {
                     return new MetricSet(metricSet.name(), metricDtos);
                 })
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void cleanResources() {
+        metricManager = null;
     }
 }

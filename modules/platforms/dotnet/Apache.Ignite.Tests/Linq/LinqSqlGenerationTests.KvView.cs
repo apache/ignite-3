@@ -33,22 +33,22 @@ public partial class LinqSqlGenerationTests
 {
     [Test]
     public void TestSelectPrimitiveKeyColumnKv() =>
-        AssertSqlKv("select _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value.Val).ToList());
+        AssertSqlKv("select _T0.VAL from PUBLIC.TBL1 as _T0", q => q.Select(x => x.Value.Val).ToList());
 
     [Test]
     public void TestSelectPocoValColumnKv() =>
-        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value).ToList());
+        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0", q => q.Select(x => x.Value).ToList());
 
     [Test]
     public void TestSelectTwoColumnsKv() =>
         AssertSqlKv(
-            "select (_T0.KEY + ?) as KEY, _T0.VAL from PUBLIC.tbl1 as _T0",
+            "select (_T0.KEY + ?) as KEY, _T0.VAL from PUBLIC.TBL1 as _T0",
             q => q.Select(x => new { Key = x.Key.Key + 1, x.Value.Val }).ToList());
 
     [Test]
     public void TestSelectAllColumnsCustomNamesKv() =>
         AssertSql(
-            "select _T0.\"KEY\", _T0.\"VAL\" from PUBLIC.tbl1 as _T0",
+            "select _T0.\"KEY\", _T0.\"VAL\" from PUBLIC.TBL1 as _T0",
             tbl => tbl.GetKeyValueView<PocoCustomNames, PocoCustomNames>().AsQueryable().ToList());
 
     [Test]
@@ -57,21 +57,21 @@ public partial class LinqSqlGenerationTests
         // We avoid selecting same column twice if it is included in both Key and Value parts,
         // but if the user requests it explicitly, we keep it.
         AssertSqlKv(
-            "select _T0.KEY, _T0.KEY from PUBLIC.tbl1 as _T0",
+            "select _T0.KEY, _T0.KEY from PUBLIC.TBL1 as _T0",
             q => q.Select(x => new { Key1 = x.Key.Key, Key2 = x.Value.Key }).ToList());
     }
 
     [Test]
     public void TestSelectEntirePairKv() =>
-        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0 where (_T0.KEY > ?)", q => q.Where(x => x.Key.Key > 1).ToList());
+        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0 where (_T0.KEY > ?)", q => q.Where(x => x.Key.Key > 1).ToList());
 
     [Test]
     public void TestSelectPairKeyKv() =>
-        AssertSqlKv("select _T0.KEY from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Key).ToList());
+        AssertSqlKv("select _T0.KEY from PUBLIC.TBL1 as _T0", q => q.Select(x => x.Key).ToList());
 
     [Test]
     public void TestSelectPairValKv() =>
-        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0", q => q.Select(x => x.Value).ToList());
+        AssertSqlKv("select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0", q => q.Select(x => x.Value).ToList());
 
     [Test]
     public void TestPrimitiveTypeMappingNotSupportedKv()

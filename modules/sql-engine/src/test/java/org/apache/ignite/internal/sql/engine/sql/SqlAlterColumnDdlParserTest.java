@@ -17,24 +17,25 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite to verify parsing of the {@code ALTER TABLE ... ALTER COLUMN} DDL commands.
  */
-public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
+public class SqlAlterColumnDdlParserTest extends AbstractParserTest {
 
     /**
      * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET/DROP NOT NULL} statement.
@@ -64,7 +65,8 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
      *     <li>Command {@code DROP DEFAULT} must be equivalent to {@code SET DEFAULT NULL}, and {@link IgniteSqlAlterColumn#expression()}
      *         in this case must contain SQL literal with type NULL.</li>
      *     <li>For {@code SET DEFAULT &lt;LITERAL&gt;} {@link IgniteSqlAlterColumn#expression()} must contain expected SQL literal.</li>
-     *     <li>For {@code SET DEFAULT &lt;ID&gt;} parser should throw an exception.</li>
+     *     <li>For {@code SET DEFAULT &lt;ID&gt;} {@link IgniteSqlAlterColumn#expression()} must contain expected Simple Id.</li>
+     *     <li>For {@code SET DEFAULT &lt;EXPR&gt;} {@link IgniteSqlAlterColumn#expression()} must contain expected expression.</li>
      * </ul>
      */
     @Test
@@ -83,10 +85,35 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         assertThat(((SqlLiteral) dflt).getValueAs(Integer.class), equalTo(10));
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT 10");
 
-        assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"FUNC\"",
-                () -> parse("ALTER TABLE t ALTER COLUMN a SET DEFAULT FUNC"));
+        // Identifier
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT FUNC");
+        checkDefaultExpr(alterColumn.expression(), SqlIdentifier.class, "\"FUNC\"");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT \"FUNC\"");
+
+        // Expression
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT 1+2");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "1 + 2");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT 1 + 2");
+
+        // Expression
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT (1+2)");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "1 + 2");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT 1 + 2");
+
+        // Expression 2
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT c = 100");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"C\" = 100");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT \"C\" = 100");
+
+        // Function call
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT LENGTH('abcd')");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"LENGTH\"('abcd')");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT \"LENGTH\"('abcd')");
+
+        // Function call with expression
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT LENGTH(CAST(1234 AS VARCHAR))");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"LENGTH\"(CAST(1234 AS VARCHAR))");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT \"LENGTH\"(CAST(1234 AS VARCHAR))");
     }
 
     /**
@@ -129,10 +156,35 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         expectDataType(alterColumn, "INTEGER", false, null);
         expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"C\" SET DATA TYPE INTEGER NULL DEFAULT NULL");
 
-        assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"FUNC\"",
-                () -> parse("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT FUNC"));
+        // Identifier
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DEFAULT FUNC");
+        checkDefaultExpr(alterColumn.expression(), SqlIdentifier.class, "\"FUNC\"");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DEFAULT \"FUNC\"");
+
+        // Expression
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT 1 + 2");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "1 + 2");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE INTEGER DEFAULT 1 + 2");
+
+        // Expression
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT (1 + 2)");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "1 + 2");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE INTEGER DEFAULT 1 + 2");
+
+        // Expression 2
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE BOOLEAN DEFAULT c = 100");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"C\" = 100");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE BOOLEAN DEFAULT \"C\" = 100");
+
+        // Function call
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT \"LENGTH\"('abcd')");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"LENGTH\"('abcd')");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE INTEGER DEFAULT \"LENGTH\"('abcd')");
+
+        // Function call with expression
+        alterColumn = parseAlterColumn("ALTER TABLE t ALTER COLUMN a SET DATA TYPE INTEGER DEFAULT LENGTH(CAST(1234 AS VARCHAR))");
+        checkDefaultExpr(alterColumn.expression(), SqlBasicCall.class, "\"LENGTH\"(CAST(1234 AS VARCHAR))");
+        expectUnparsed(alterColumn, "ALTER TABLE \"T\" ALTER COLUMN \"A\" SET DATA TYPE INTEGER DEFAULT \"LENGTH\"(CAST(1234 AS VARCHAR))");
     }
 
     private void expectDataType(IgniteSqlAlterColumn alterColumn,
@@ -156,6 +208,12 @@ public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
         assertNotNull(dflt);
         assertThat(dflt, instanceOf(SqlLiteral.class));
         assertThat(((SqlLiteral) dflt).getTypeName(), equalTo(SqlTypeName.NULL));
+    }
+
+    private <T extends SqlNode> void checkDefaultExpr(@Nullable SqlNode dflt, Class<T> type, String stringRepr) {
+        assertNotNull(dflt);
+        assertThat(dflt, instanceOf(type));
+        assertEquals(stringRepr, unparse(dflt));
     }
 
     private IgniteSqlAlterColumn parseAlterColumn(String querySuffix) {

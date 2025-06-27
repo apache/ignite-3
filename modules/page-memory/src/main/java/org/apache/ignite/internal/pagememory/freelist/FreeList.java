@@ -21,30 +21,27 @@ import java.util.Collection;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 
 /**
  * Free list.
  */
-public interface FreeList<T extends Storable> {
+public interface FreeList {
     /**
      * Inserts a row.
      *
      * @param row Row.
-     * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      */
-    void insertDataRow(T row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
+    void insertDataRow(Storable row) throws IgniteInternalCheckedException;
 
     /**
      * Inserts rows.
      *
      * @param rows Rows.
-     * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      */
-    void insertDataRows(Collection<T> rows, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
+    void insertDataRows(Collection<? extends Storable> rows) throws IgniteInternalCheckedException;
 
     /**
      * Updates a row by link.
@@ -54,25 +51,22 @@ public interface FreeList<T extends Storable> {
      * @param arg Handler argument.
      * @param <S> Argument type.
      * @param <R> Result type.
-     * @param statHolder Statistics holder to track IO operations.
      * @return Result.
      * @throws IgniteInternalCheckedException If failed.
      */
     <S, R> R updateDataRow(
             long link,
             PageHandler<S, R> pageHnd,
-            S arg,
-            IoStatisticsHolder statHolder
+            S arg
     ) throws IgniteInternalCheckedException;
 
     /**
      * Removes a row by link.
      *
      * @param link Row link.
-     * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      */
-    void removeDataRowByLink(long link, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
+    void removeDataRowByLink(long link) throws IgniteInternalCheckedException;
 
     /**
      * Dump statistics to log.
@@ -80,4 +74,7 @@ public interface FreeList<T extends Storable> {
      * @param log Logger.
      */
     void dumpStatistics(IgniteLogger log);
+
+    /** Save metadata without exclusive lock on it. */
+    void saveMetadata() throws IgniteInternalCheckedException;
 }

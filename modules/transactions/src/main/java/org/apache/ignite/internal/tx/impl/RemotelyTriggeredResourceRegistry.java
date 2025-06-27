@@ -46,7 +46,7 @@ public class RemotelyTriggeredResourceRegistry {
 
     // TODO IGNITE-21633 We may get rid of this map.
     /** Remote host inconsistent ids mapped to resources created by them. */
-    private final Map<String, Set<FullyQualifiedResourceId>> remoteHostsToResources = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<FullyQualifiedResourceId>> remoteHostsToResources = new ConcurrentHashMap<>();
 
     /**
      * Register a resource.
@@ -58,7 +58,7 @@ public class RemotelyTriggeredResourceRegistry {
      */
     public <T extends ManuallyCloseable> T register(
             FullyQualifiedResourceId resourceId,
-            String remoteHostId,
+            UUID remoteHostId,
             Supplier<ManuallyCloseable> resourceProvider
     ) {
         T r = (T) resources.computeIfAbsent(resourceId, k -> new RemotelyTriggeredResource(resourceProvider.get(), remoteHostId)).resource;
@@ -82,7 +82,7 @@ public class RemotelyTriggeredResourceRegistry {
 
                 resources.remove(resourceId);
 
-                remoteRemoteHostResource(remotelyTriggeredResource.remoteHostId(), resourceId);
+                removeRemoteHostResource(remotelyTriggeredResource.remoteHostId(), resourceId);
             } catch (Exception e) {
                 throw new ResourceCloseException(resourceId, remotelyTriggeredResource.remoteHostId(), e);
             }
@@ -102,7 +102,7 @@ public class RemotelyTriggeredResourceRegistry {
         Set<FullyQualifiedResourceId> closedResources = new HashSet<>();
 
         // We assume that the resources of the same context are triggered by the same remote host.
-        String remoteHostId = null;
+        UUID remoteHostId = null;
 
         for (Entry<FullyQualifiedResourceId, RemotelyTriggeredResource> entry : resourcesWithContext.entrySet()) {
             try {
@@ -131,7 +131,7 @@ public class RemotelyTriggeredResourceRegistry {
             for (FullyQualifiedResourceId resourceId : closedResources) {
                 resourcesWithContext.remove(resourceId);
 
-                remoteRemoteHostResource(remoteHostId, resourceId);
+                removeRemoteHostResource(remoteHostId, resourceId);
             }
         }
 
@@ -145,7 +145,7 @@ public class RemotelyTriggeredResourceRegistry {
      *
      * @param remoteHostId Remote host inconsistent id.
      */
-    public void close(String remoteHostId) {
+    public void closeByRemoteHostId(UUID remoteHostId) {
         Set<FullyQualifiedResourceId> resourceIds = remoteHostsToResources.get(remoteHostId);
 
         for (FullyQualifiedResourceId resourceId : resourceIds) {
@@ -157,7 +157,7 @@ public class RemotelyTriggeredResourceRegistry {
         }
     }
 
-    private void addRemoteHostResource(String remoteHostId, FullyQualifiedResourceId resourceId) {
+    private void addRemoteHostResource(UUID remoteHostId, FullyQualifiedResourceId resourceId) {
         remoteHostsToResources.compute(remoteHostId, (k, v) -> {
             if (v == null) {
                 v = ConcurrentHashMap.newKeySet();
@@ -169,7 +169,7 @@ public class RemotelyTriggeredResourceRegistry {
         });
     }
 
-    private void remoteRemoteHostResource(String remoteHostId, FullyQualifiedResourceId resourceId) {
+    private void removeRemoteHostResource(UUID remoteHostId, FullyQualifiedResourceId resourceId) {
         remoteHostsToResources.computeIfPresent(remoteHostId, (k, v) -> {
             v.remove(resourceId);
 
@@ -199,7 +199,7 @@ public class RemotelyTriggeredResourceRegistry {
      *
      * @return Remote host inconsistent ids.
      */
-    Set<String> registeredRemoteHosts() {
+    Set<UUID> registeredRemoteHosts() {
         return unmodifiableSet(remoteHostsToResources.keySet());
     }
 
@@ -209,9 +209,9 @@ public class RemotelyTriggeredResourceRegistry {
     public static class RemotelyTriggeredResource {
         private final ManuallyCloseable resource;
 
-        private final String remoteHostId;
+        private final UUID remoteHostId;
 
-        public RemotelyTriggeredResource(ManuallyCloseable resource, String remoteHostId) {
+        public RemotelyTriggeredResource(ManuallyCloseable resource, UUID remoteHostId) {
             this.resource = resource;
             this.remoteHostId = remoteHostId;
         }
@@ -230,7 +230,7 @@ public class RemotelyTriggeredResourceRegistry {
          *
          * @return Node id of the creator of the resource.
          */
-        public String remoteHostId() {
+        public UUID remoteHostId() {
             return remoteHostId;
         }
     }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller.asm;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.defaultValue;
@@ -50,7 +51,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
-import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -62,6 +62,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
 
@@ -192,8 +193,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
         final MethodDefinition methodDef = classDef.declareMethod(
                 EnumSet.of(Access.PUBLIC),
                 "schemaVersion",
-                ParameterizedType.type(int.class)
-        ).addException(MarshallerException.class);
+                ParameterizedType.type(int.class));
 
         methodDef.declareAnnotation(Override.class);
 
@@ -286,13 +286,14 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
 
         List<Column> columns = schema.keyColumns();
         Variable value = scope.createTempVariable(Object.class);
-
+        boolean exactSizeEstimate = true;
         for (int i = 0; i < columns.size(); i++) {
             body.append(keyMarsh.getValue(classDef.getType(), scope.getVariable("key"), i)).putVariable(value);
             NativeType type = columns.get(i).type();
-            BytecodeExpression valueSize = type.spec().fixedLength()
+            BytecodeExpression valueSize = type.fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(keyCols, i));
+            exactSizeEstimate = exactSizeEstimate && type.fixedLength();
             body.append(new IfStatement().condition(isNull(value)).ifFalse(plusEquals(estimatedValueSize, valueSize)));
         }
 
@@ -301,13 +302,14 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
         for (int i = 0; i < columns.size(); i++) {
             body.append(valMarsh.getValue(classDef.getType(), scope.getVariable("val"), i)).putVariable(value);
             NativeType type = columns.get(i).type();
-            BytecodeExpression valueSize = type.spec().fixedLength()
+            BytecodeExpression valueSize = type.fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(valCols, i));
+            exactSizeEstimate = exactSizeEstimate && type.fixedLength();
             body.append(new IfStatement().condition(isNull(value)).ifFalse(plusEquals(estimatedValueSize, valueSize)));
         }
 
-        body.append(newInstance(RowAssembler.class, schemaField, estimatedValueSize));
+        body.append(newInstance(RowAssembler.class, schemaField, estimatedValueSize, constantBoolean(exactSizeEstimate)));
 
         body.retObject();
     }
@@ -386,11 +388,12 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
                 .retObject();
 
         final Variable ex = methodDef.getScope().createTempVariable(Throwable.class);
+        BytecodeExpression message = ex.invoke("getMessage", String.class);
         methodDef.getBody().append(new TryCatch(
                 block,
                 new BytecodeBlock()
                         .putVariable(ex)
-                        .append(newInstance(MarshallerException.class, ex))
+                        .append(newInstance(MarshallerException.class, message, ex))
                         .throwObject(),
                 ParameterizedType.type(Throwable.class)
         ));

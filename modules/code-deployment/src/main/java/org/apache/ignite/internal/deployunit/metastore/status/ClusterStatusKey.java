@@ -19,7 +19,7 @@ package org.apache.ignite.internal.deployunit.metastore.status;
 
 import static org.apache.ignite.internal.deployunit.metastore.status.UnitKey.DEPLOY_UNIT_PREFIX;
 
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.lang.ByteArray;
 
 /**

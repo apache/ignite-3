@@ -21,22 +21,32 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.lang.Debuggable;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Abstract node of execution tree.
  */
 public abstract class AbstractNode<RowT> implements Node<RowT> {
+    /** Special value to highlight that all row were received and we do not expect more. */
+    static final int NOT_WAITING = -1;
+
+    /** Batch size for DML operations. */
     public static final int MODIFY_BATCH_SIZE = 100;
 
-    protected static final int IO_BATCH_SIZE = Commons.IO_BATCH_SIZE;
+    /** Batch size for network operations. */
+    static final int IO_BATCH_SIZE = Commons.IO_BATCH_SIZE;
 
-    protected static final int IO_BATCH_CNT = Commons.IO_BATCH_COUNT;
+    /** Max count for parallel network requests. */
+    static final int IO_BATCH_CNT = Commons.IO_BATCH_COUNT;
 
-    protected final int inBufSize = Commons.IN_BUFFER_SIZE;
+    /** Execution node buffer size. */
+    protected final int inBufSize;
 
     private final ExecutionContext<RowT> ctx;
 
@@ -57,6 +67,7 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
      */
     protected AbstractNode(ExecutionContext<RowT> ctx) {
         this.ctx = ctx;
+        this.inBufSize = ctx.bufferSize();
     }
 
     /** {@inheritDoc} */
@@ -107,6 +118,25 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
     /** {@inheritDoc} */
     @Override
+    public void execute(RunnableX task) {
+        if (this.isClosed()) {
+            return;
+        }
+
+        context().execute(() -> {
+            // If the node is closed, the task must be ignored.
+            if (this.isClosed()) {
+                return;
+            }
+
+            checkState();
+
+            task.run();
+        }, this::onError);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void onRegister(Downstream<RowT> downstream) {
         this.downstream = downstream;
     }
@@ -141,19 +171,21 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
         return closed;
     }
 
-    protected void checkState() throws Exception {
-        if (context().isCancelled() || Thread.interrupted()) {
-            throw new QueryCancelledException();
-        }
+    void checkState() {
         if (!IgniteUtils.assertionsEnabled()) {
             return;
         }
-        if (thread == null) {
-            thread = Thread.currentThread();
-        } else {
-            assert thread == Thread.currentThread() : format("expThread={}, actThread={}, "
-                            + "qryId={}, fragmentId={}", thread.getName(), Thread.currentThread().getName(),
-                    context().queryId(), context().fragmentId());
+
+        Thread currentedThread = Thread.currentThread();
+
+        synchronized (this) {
+            if (thread == null) {
+                thread = currentedThread;
+            } else {
+                assert thread == currentedThread : format("expThread={}, actThread={}, "
+                                + "executionId={}, fragmentId={}", thread.getName(), currentedThread.getName(),
+                        context().executionId(), context().fragmentId());
+            }
         }
     }
 
@@ -162,5 +194,22 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     @Override
     public Downstream<RowT> downstream() {
         return downstream;
+    }
+
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName());
+    }
+
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        writer.app(indent);
+        dumpDebugInfo0(writer);
+        writer.nl();
+
+        if (sources != null) {
+            writer.app(indent).app("Sources: ").nl();
+            Debuggable.dumpState(writer, Debuggable.childIndentation(indent), sources);
+        }
     }
 }

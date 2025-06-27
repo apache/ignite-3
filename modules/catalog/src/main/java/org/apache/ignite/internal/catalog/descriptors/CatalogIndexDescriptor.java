@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /** Index descriptor base class. */
-public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
+public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor implements MarshallableEntry {
     /** Table ID. */
     private final int tableId;
 
@@ -31,22 +33,37 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index status. */
     private final CatalogIndexStatus status;
 
-    /**
-     * Catalog version used in special index status updates to wait for RW transactions, started before this version, to finish.
-     */
-    private final int txWaitCatalogVersion;
-
     /** Index descriptor type. */
     private final CatalogIndexDescriptorType indexType;
 
-    CatalogIndexDescriptor(CatalogIndexDescriptorType indexType, int id, String name, int tableId, boolean unique,
-            CatalogIndexStatus status, int txWaitCatalogVersion, long causalityToken) {
-        super(id, Type.INDEX, name, causalityToken);
+    /**
+     * Flag indicating that this index has been created at the same time as its table.
+     *
+     * <p>This flag is used by the underlying index storage to determine whether the index should be built in the background (in case
+     * this flag {@code false}) or it will be filled with data alongside its table (in case this flag is {@code true}).
+     *
+     * <p>Unlike the {@code status} field, which may change during index lifecycle, the value of this field is constant, which allows to
+     * handle a case when an AVAILABLE index is being rebalanced to a new node and the new storage can decide if it needs to be built
+     * or not.
+     */
+    private final boolean createdWithTable;
+
+    CatalogIndexDescriptor(
+            CatalogIndexDescriptorType indexType,
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            CatalogIndexStatus status,
+            HybridTimestamp timestamp,
+            boolean createdWithTable
+    ) {
+        super(id, Type.INDEX, name, timestamp);
         this.indexType = indexType;
         this.tableId = tableId;
         this.unique = unique;
         this.status = Objects.requireNonNull(status, "status");
-        this.txWaitCatalogVersion = txWaitCatalogVersion;
+        this.createdWithTable = createdWithTable;
     }
 
     /** Gets table ID. */
@@ -64,17 +81,14 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return status;
     }
 
-    /**
-     * Returns the Catalog version used in special index status updates to wait for RW transactions, started before
-     * this version, to finish.
-     */
-    public int txWaitCatalogVersion() {
-        return txWaitCatalogVersion;
-    }
-
     /** Returns catalog index descriptor type. */
     public CatalogIndexDescriptorType indexType() {
         return indexType;
+    }
+
+    /** Returns a flag indicating that this index has been created at the same time as its table. */
+    public boolean isCreatedWithTable() {
+        return createdWithTable;
     }
 
     @Override
@@ -99,12 +113,13 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
 
         /** Returns catalog index descriptor type by identifier. */
         public static CatalogIndexDescriptorType forId(int id) {
-            assert id == HASH.typeId || id == SORTED.typeId : "Unknown index descriptor type ID: " + id;
-
-            if (id == HASH.typeId) {
-                return HASH;
-            } else {
-                return SORTED;
+            switch (id) {
+                case 0:
+                    return HASH;
+                case 1:
+                    return SORTED;
+                default:
+                    throw new IllegalArgumentException("Unknown index descriptor type id: " + id);
             }
         }
     }

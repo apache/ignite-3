@@ -21,14 +21,16 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.compute.ComputeException;
+import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
-import org.apache.ignite.internal.compute.state.IllegalJobStateTransition;
+import org.apache.ignite.internal.compute.state.IllegalJobStatusTransition;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
@@ -42,7 +44,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     private static final IgniteLogger LOG = Loggers.forClass(QueueExecutionImpl.class);
 
     private final UUID jobId;
-    private final Callable<R> job;
+    private final Callable<CompletableFuture<R>> job;
     private final ComputeThreadPoolExecutor executor;
     private final ComputeStateMachine stateMachine;
 
@@ -67,7 +69,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
      */
     QueueExecutionImpl(
             UUID jobId,
-            Callable<R> job,
+            Callable<CompletableFuture<R>> job,
             int priority,
             ComputeThreadPoolExecutor executor,
             ComputeStateMachine stateMachine) {
@@ -84,12 +86,13 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
     }
 
     @Override
-    public @Nullable JobStatus status() {
-        return stateMachine.currentStatus(jobId);
+    public @Nullable JobState state() {
+        return stateMachine.currentState(jobId);
     }
 
     @Override
     public boolean cancel() {
+        executionLock.lock();
         try {
             stateMachine.cancelingJob(jobId);
 
@@ -98,22 +101,19 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                 cancel(queueEntry);
                 return true;
             }
-        } catch (IllegalJobStateTransition e) {
+        } catch (IllegalJobStatusTransition e) {
             LOG.info("Cannot cancel the job", e);
+        } finally {
+            executionLock.unlock();
         }
         return false;
     }
 
     private void cancel(QueueEntry<R> queueEntry) {
-        executionLock.lock();
-        try {
-            if (executor.remove(queueEntry)) {
-                result.cancel(true);
-            } else {
-                queueEntry.interrupt();
-            }
-        } finally {
-            executionLock.unlock();
+        if (executor.remove(queueEntry)) {
+            result.cancel(true);
+        } else {
+            queueEntry.interrupt();
         }
     }
 
@@ -126,13 +126,13 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
         try {
             QueueEntry<R> queueEntry = this.queueEntry;
 
-            if (executor.removeFromQueue(queueEntry)) {
+            if (queueEntry != null && executor.removeFromQueue(queueEntry)) {
                 this.priority = newPriority;
                 this.queueEntry = null;
                 run();
                 return true;
             }
-            LOG.info("Cannot change job priority, job already processing. [job id = {}]", job);
+            LOG.info("Cannot change job priority, job already processing. [job id = {}]", jobId);
         } finally {
             executionLock.unlock();
         }
@@ -151,7 +151,20 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
     private void run() {
         QueueEntry<R> queueEntry = new QueueEntry<>(() -> {
-            stateMachine.executeJob(jobId);
+            executionLock.lock();
+            try {
+                // If status is CANCELED here, then the job was in the QUEUED state when cancel was called, but executor already removed it
+                // from the queue. This could happen because the executor takes an entry without using the executionLock.
+                // Don't transition to EXECUTING state and don't run the job, throw an exception here so that we can later check it and
+                // cancel the result.
+                if (isCanceled()) {
+                    throw new QueueEntryCanceledException();
+                }
+                stateMachine.executeJob(jobId);
+            } finally {
+                executionLock.unlock();
+            }
+
             return job.call();
         }, priority);
 
@@ -171,25 +184,37 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
         queueEntry.toFuture().whenComplete((r, throwable) -> {
             if (throwable != null) {
-                if (retries.decrementAndGet() >= 0) {
+                if (throwable instanceof QueueEntryCanceledException) {
+                    result.completeExceptionally(new CancellationException());
+                } else if (queueEntry.isInterrupted()) {
+                    stateMachine.cancelJob(jobId);
+                    result.completeExceptionally(throwable);
+                } else if (retries.decrementAndGet() >= 0) {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
-                    if (queueEntry.isInterrupted()) {
-                        stateMachine.cancelJob(jobId);
-                    } else {
-                        stateMachine.failJob(jobId);
-                    }
+                    stateMachine.failJob(jobId);
                     result.completeExceptionally(throwable);
                 }
             } else {
                 if (queueEntry.isInterrupted()) {
                     stateMachine.cancelJob(jobId);
+                    result.completeExceptionally(new CancellationException());
                 } else {
                     stateMachine.completeJob(jobId);
+                    result.complete(r);
                 }
-                result.complete(r);
             }
         });
+    }
+
+    /**
+     * Checks if the current job state is {@link JobStatus#CANCELED}.
+     *
+     * @return {@code true} if job is in the {@link JobStatus#CANCELED} state.
+     */
+    private boolean isCanceled() {
+        JobState state = stateMachine.currentState(jobId);
+        return state != null && state.status() == JobStatus.CANCELED;
     }
 }

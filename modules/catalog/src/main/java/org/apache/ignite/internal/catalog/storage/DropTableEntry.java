@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.io.IOException;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
+
 import java.util.Arrays;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -27,31 +29,23 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes deletion of a table.
  */
 public class DropTableEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<DropTableEntry> SERIALIZER = new DropTableEntrySerializer();
-
     private final int tableId;
-
-    private final String schemaName;
 
     /**
      * Constructs the object.
      *
      * @param tableId An id of a table to drop.
-     * @param schemaName A schema name.
      */
-    public DropTableEntry(int tableId, String schemaName) {
+    public DropTableEntry(int tableId) {
         this.tableId = tableId;
-        this.schemaName = schemaName;
     }
 
     /** Returns an id of a table to drop. */
@@ -75,8 +69,9 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
+        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
         return new Catalog(
                 catalog.version(),
@@ -89,33 +84,14 @@ public class DropTableEntry implements UpdateEntry, Fireable {
                         Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(CatalogTableDescriptor[]::new),
                         schema.indexes(),
                         schema.systemViews(),
-                        causalityToken
+                        timestamp
                 ), catalog.schemas()),
-                catalog.defaultZone().id()
+                defaultZoneIdOpt(catalog)
         );
     }
 
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link DropTableEntry}.
-     */
-    private static class DropTableEntrySerializer implements CatalogObjectSerializer<DropTableEntry> {
-        @Override
-        public DropTableEntry readFrom(IgniteDataInput input) throws IOException {
-            int tableId = input.readInt();
-            String schemaName = input.readUTF();
-
-            return new DropTableEntry(tableId, schemaName);
-        }
-
-        @Override
-        public void writeTo(DropTableEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeInt(entry.tableId());
-            out.writeUTF(entry.schemaName);
-        }
     }
 }

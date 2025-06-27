@@ -40,7 +40,7 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
 
     /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgsAndFile;
 
     @Inject
     ClusterConfigUpdateCall call;
@@ -48,22 +48,16 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler(
-                        "Cannot update cluster config", "ignite cluster init"
-                ))
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot update cluster config"))
+        );
     }
 
     private ClusterConfigUpdateCallInput buildCallInput() {
         return ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(clusterUrl.getClusterUrl())
-                .config(config.toString())
+                .config(configFromArgsAndFile.formUpdateConfig())
                 .build();
     }
 }

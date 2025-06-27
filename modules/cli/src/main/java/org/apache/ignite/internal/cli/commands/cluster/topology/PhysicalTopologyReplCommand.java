@@ -53,10 +53,10 @@ public class PhysicalTopologyReplCommand extends BaseCommand implements Runnable
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
                 .print(new TopologyDecorator(plain))
-                .start();
+        );
     }
 }

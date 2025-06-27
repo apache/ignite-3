@@ -41,19 +41,22 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageProfile;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -66,27 +69,39 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 
 /** Contains tests for {@link SharedRocksDbInstance}. */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     private RocksDbStorageEngine engine;
 
-    private RocksDbDataRegion dataRegion;
+    private RocksDbStorageProfile storageProfile;
 
     private SharedRocksDbInstance rocksDb;
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
+            // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
+            @InjectConfiguration("mock.profiles.default {engine = rocksdb, sizeBytes = 16777216, writeBufferSizeBytes = 67108864}")
             StorageConfiguration storageConfiguration,
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig) throws Exception {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
+            @InjectExecutorService
+            ScheduledExecutorService scheduledExecutor
+    ) throws Exception {
+        engine = new RocksDbStorageEngine(
+                "test",
+                storageConfiguration,
+                workDir,
+                mock(LogSyncer.class),
+                scheduledExecutor,
+                mock(FailureProcessor.class)
+        );
 
         engine.start();
 
-        dataRegion = new RocksDbDataRegion(
-                (RocksDbProfileView) storageConfiguration.profiles().get("default").value());
+        var profileConfig = (RocksDbProfileView) storageConfiguration.profiles().get("default").value();
 
-        dataRegion.start();
+        storageProfile = new RocksDbStorageProfile(profileConfig);
+
+        storageProfile.start();
 
         rocksDb = createDb();
     }
@@ -95,31 +110,31 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     void tearDown() throws Exception {
         IgniteUtils.closeAllManually(
                 rocksDb == null ? null : rocksDb::stop,
-                dataRegion == null ? null : dataRegion::stop,
+                storageProfile == null ? null : storageProfile::stop,
                 engine == null ? null : engine::stop
         );
     }
 
     private SharedRocksDbInstance createDb() throws Exception {
-        return new SharedRocksDbInstanceCreator().create(engine, dataRegion, workDir);
+        return new SharedRocksDbInstanceCreator(mock(FailureProcessor.class)).create(engine, storageProfile, workDir);
     }
 
     @Test
     void testSortedIndexCfCaching() {
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         byte[] barName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true)
+                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true, false)
         ));
 
         byte[] bazName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true, false)
         ));
 
         byte[] quuxName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true, false)
         ));
 
         ColumnFamily foo = rocksDb.getOrCreateSortedIndexCf(fooName, 1, 0);
@@ -158,19 +173,19 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     @Test
     void testSortedIndexRecovery() throws Exception {
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         byte[] barName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true)
+                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true, false)
         ));
 
         byte[] bazName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true, false)
         ));
 
         byte[] quuxName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true, false)
         ));
 
         ColumnFamily foo = rocksDb.getOrCreateSortedIndexCf(fooName, 1, 0);
@@ -255,7 +270,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     @RepeatedTest(10)
     void testConcurrentSortedIndexReadAndCreate() {
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         rocksDb.getOrCreateSortedIndexCf(fooName, 0, 0);
@@ -296,7 +311,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
         int indexId = 0;
 
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         ColumnFamily cf = rocksDb.getOrCreateSortedIndexCf(fooName, indexId, tableId);
@@ -311,7 +326,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
         int tableId = 0;
 
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true, false)
         ));
 
         rocksDb.getOrCreateSortedIndexCf(fooName, 0, tableId);

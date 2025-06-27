@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
-import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,16 +40,25 @@ public class TxStateMeta implements TransactionMeta {
 
     private final TxState txState;
 
-    private final String txCoordinatorId;
+    private final @Nullable UUID txCoordinatorId;
 
-    /** Identifier of the replication group that manages a transaction state. */
-    private final TablePartitionId commitPartitionId;
+    /** ID of the replication group that manages a transaction state. */
+    private final @Nullable ReplicationGroupId commitPartitionId;
 
-    private final HybridTimestamp commitTimestamp;
+    private final @Nullable HybridTimestamp commitTimestamp;
 
-    private final Long initialVacuumObservationTimestamp;
+    private final @Nullable Long initialVacuumObservationTimestamp;
 
-    private final Long cleanupCompletionTimestamp;
+    private final @Nullable Long cleanupCompletionTimestamp;
+
+    private final @Nullable Boolean isFinishedDueToTimeout;
+
+    /**
+     * The ignite transaction object is associated with this state. This field can be initialized only on the transaction coordinator,
+     * {@code null} in other nodes.
+     */
+    @IgniteToStringExclude
+    private final @Nullable InternalTransaction tx;
 
     /**
      * Constructor.
@@ -52,32 +67,18 @@ public class TxStateMeta implements TransactionMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
+     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
+     * @param isFinishedDueToTimeout {@code true} if the transaction is finished due to timeout.
      */
     public TxStateMeta(
             TxState txState,
-            @Nullable String txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
-            @Nullable HybridTimestamp commitTimestamp
-    ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, null, null);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param txState Transaction state.
-     * @param txCoordinatorId Transaction coordinator id.
-     * @param commitPartitionId Commit partition replication group id.
-     * @param commitTimestamp Commit timestamp.
-     */
-    public TxStateMeta(
-            TxState txState,
-            @Nullable String txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
+            @Nullable UUID txCoordinatorId,
+            @Nullable ReplicationGroupId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
-            @Nullable Long initialVacuumObservationTimestamp
+            @Nullable InternalTransaction tx,
+            @Nullable Boolean isFinishedDueToTimeout
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, initialVacuumObservationTimestamp, null);
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, null, isFinishedDueToTimeout);
     }
 
     /**
@@ -87,23 +88,75 @@ public class TxStateMeta implements TransactionMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
+     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
+     * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
+     * @param isFinishedDueToTimeout {@code true} if the transaction is finished due to timeout.
+     */
+    public TxStateMeta(
+            TxState txState,
+            @Nullable UUID txCoordinatorId,
+            @Nullable ReplicationGroupId commitPartitionId,
+            @Nullable HybridTimestamp commitTimestamp,
+            @Nullable InternalTransaction tx,
+            @Nullable Long initialVacuumObservationTimestamp,
+            @Nullable Boolean isFinishedDueToTimeout
+    ) {
+        this(
+                txState,
+                txCoordinatorId,
+                commitPartitionId,
+                commitTimestamp,
+                tx,
+                initialVacuumObservationTimestamp,
+                null,
+                isFinishedDueToTimeout
+        );
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param txState Transaction state.
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param commitPartitionId Commit partition replication group id.
+     * @param commitTimestamp Commit timestamp.
+     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
      * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
      * @param cleanupCompletionTimestamp Cleanup completion timestamp.
+     * @param isFinishedDueToTimeout {@code true} if the transaction is finished due to timeout.
      */
     public TxStateMeta(
             TxState txState,
-            @Nullable String txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
+            @Nullable UUID txCoordinatorId,
+            @Nullable ReplicationGroupId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
+            @Nullable InternalTransaction tx,
             @Nullable Long initialVacuumObservationTimestamp,
-            @Nullable Long cleanupCompletionTimestamp
+            @Nullable Long cleanupCompletionTimestamp,
+            @Nullable Boolean isFinishedDueToTimeout
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
-        this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
+        this.tx = tx;
         this.cleanupCompletionTimestamp = cleanupCompletionTimestamp;
+        this.isFinishedDueToTimeout = isFinishedDueToTimeout;
+
+        if (initialVacuumObservationTimestamp != null) {
+            this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
+        } else {
+            this.initialVacuumObservationTimestamp = TxState.isFinalState(txState) ? coarseCurrentTimeMillis() : null;
+        }
+    }
+
+    /**
+     * Gets a transaction object or {@code null} it the current node is not a coordinator for this transaction.
+     *
+     * @return Transaction object.
+     */
+    public @Nullable InternalTransaction tx() {
+        return tx;
     }
 
     /**
@@ -122,8 +175,8 @@ public class TxStateMeta implements TransactionMeta {
      *
      * @return Transaction state meta.
      */
-    public TxStateMetaFinishing finishing() {
-        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId);
+    public TxStateMetaFinishing finishing(boolean isFinishedDueToTimeoutFlag) {
+        return new TxStateMetaFinishing(txCoordinatorId, commitPartitionId, isFinishedDueToTimeoutFlag);
     }
 
     @Override
@@ -131,11 +184,11 @@ public class TxStateMeta implements TransactionMeta {
         return txState;
     }
 
-    public @Nullable String txCoordinatorId() {
+    public @Nullable UUID txCoordinatorId() {
         return txCoordinatorId;
     }
 
-    public @Nullable TablePartitionId commitPartitionId() {
+    public @Nullable ReplicationGroupId commitPartitionId() {
         return commitPartitionId;
     }
 
@@ -152,48 +205,26 @@ public class TxStateMeta implements TransactionMeta {
         return cleanupCompletionTimestamp;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        TxStateMeta that = (TxStateMeta) o;
-
-        if (txState != that.txState) {
-            return false;
-        }
-
-        if (txCoordinatorId != null ? !txCoordinatorId.equals(that.txCoordinatorId) : that.txCoordinatorId != null) {
-            return false;
-        }
-
-        if (commitPartitionId != null ? !commitPartitionId.equals(that.commitPartitionId) : that.commitPartitionId != null) {
-            return false;
-        }
-
-        if (commitTimestamp != null ? !commitTimestamp.equals(that.commitTimestamp) : that.commitTimestamp != null) {
-            return false;
-        }
-
-        if (initialVacuumObservationTimestamp != null
-                ? !initialVacuumObservationTimestamp.equals(that.initialVacuumObservationTimestamp)
-                : that.initialVacuumObservationTimestamp != null
-        ) {
-            return false;
-        }
-
-        return cleanupCompletionTimestamp != null
-                ? cleanupCompletionTimestamp.equals(that.cleanupCompletionTimestamp)
-                : that.cleanupCompletionTimestamp == null;
+    public @Nullable Boolean isFinishedDueToTimeout() {
+        return isFinishedDueToTimeout;
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp, initialVacuumObservationTimestamp,
-                cleanupCompletionTimestamp);
+    public TxStateMetaMessage toTransactionMetaMessage(
+            ReplicaMessagesFactory replicaMessagesFactory,
+            TxMessagesFactory txMessagesFactory
+    ) {
+        return txMessagesFactory.txStateMetaMessage()
+                .txState(txState)
+                .txCoordinatorId(txCoordinatorId)
+                .commitPartitionId(
+                        commitPartitionId == null ? null : toReplicationGroupIdMessage(replicaMessagesFactory, commitPartitionId)
+                )
+                .commitTimestamp(commitTimestamp)
+                .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp)
+                .cleanupCompletionTimestamp(cleanupCompletionTimestamp)
+                .isFinishedDueToTimeout(isFinishedDueToTimeout)
+                .build();
     }
 
     @Override

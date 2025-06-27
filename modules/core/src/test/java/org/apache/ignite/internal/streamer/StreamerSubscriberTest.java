@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -84,12 +86,12 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
     private static class Options implements StreamerOptions {
         private final int batchSize;
         private final int perPartitionParallelOperations;
-        private final int autoFlushFrequency;
+        private final int autoFlushInterval;
 
-        Options(int batchSize, int perPartitionParallelOperations, int autoFlushFrequency) {
+        Options(int batchSize, int perPartitionParallelOperations, int autoFlushInterval) {
             this.batchSize = batchSize;
             this.perPartitionParallelOperations = perPartitionParallelOperations;
-            this.autoFlushFrequency = autoFlushFrequency;
+            this.autoFlushInterval = autoFlushInterval;
         }
 
         @Override
@@ -103,8 +105,8 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public int autoFlushFrequency() {
-            return autoFlushFrequency;
+        public int autoFlushInterval() {
+            return autoFlushInterval;
         }
     }
 
@@ -156,9 +158,11 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
 
         var metrics = new Metrics();
 
-        var options = new Options(2, 1, 1000);
+        var options = new Options(2, 3, 1000);
 
-        long expectedBatches = itemsCount / options.batchSize;
+        long expectedActiveBatches = Math.min(options.perPartitionParallelOperations, itemsCount / options.batchSize);
+
+        long expectedItemsQueued = Math.min(itemsCount, expectedActiveBatches * options.batchSize);
 
         var partitionProvider = new StreamerPartitionAwarenessProvider<Long, String>() {
             @Override
@@ -172,10 +176,14 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var sendFuture = new CompletableFuture<Void>();
+        var sendFuture = new CompletableFuture<Collection<Object>>();
 
-        var subscriber = new StreamerSubscriber<>(
+        StreamerSubscriber<Long, DataStreamerItem<Long>, Long, Object, String> subscriber = new StreamerSubscriber<>(
                 (part, batch, deleted) -> sendFuture,
+                null,
+                DataStreamerItem::get,
+                DataStreamerItem::get,
+                x -> x.operationType() == DataStreamerOperationType.REMOVE,
                 partitionProvider,
                 options,
                 flushExecutor,
@@ -183,13 +191,13 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
                 metrics
         );
 
-        var publisher = new LimitedPublisher<>(itemsCount, i -> i);
+        LimitedPublisher<Long> publisher = new LimitedPublisher<>(itemsCount, i -> i);
 
         publisher.subscribe(subscriber);
 
-        assertThat(metrics.batchesActive.longValue(), is(expectedBatches));
+        assertThat(metrics.batchesActive.longValue(), is(expectedActiveBatches));
         assertThat(metrics.batchesSent.longValue(), is(0L));
-        assertThat(metrics.itemsQueued.longValue(), is(itemsCount));
+        assertThat(metrics.itemsQueued.longValue(), is(expectedItemsQueued));
         assertThat(metrics.itemsSent.longValue(), is(0L));
 
         sendFuture.complete(null);
@@ -197,7 +205,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
         assertThat(subscriber.completionFuture(), willCompleteSuccessfully());
 
         assertThat(metrics.batchesActive.longValue(), is(0L));
-        assertThat(metrics.batchesSent.longValue(), is(expectedBatches));
+        assertThat(metrics.batchesSent.longValue(), is(itemsCount / options.batchSize));
         assertThat(metrics.itemsQueued.longValue(), is(0L));
         assertThat(metrics.itemsSent.longValue(), is(itemsCount));
     }

@@ -9,9 +9,9 @@ CREATE TABLE customer (
     c_name       varchar(25)    NOT NULL,
     c_address    varchar(40)    NOT NULL,
     c_nationkey  integer        NOT NULL,
-    c_phone      char(15)       NOT NULL,
+    c_phone      varchar(15)    NOT NULL,
     c_acctbal    decimal(15, 2) NOT NULL,
-    c_mktsegment char(10)       NOT NULL,
+    c_mktsegment varchar(10)    NOT NULL,
     c_comment    varchar(117)   NOT NULL,
     PRIMARY KEY (c_custkey)
 );

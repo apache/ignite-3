@@ -39,13 +39,22 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
-import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
 import org.apache.ignite.internal.rest.configuration.PresentationsFactory;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
+import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
+import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
@@ -67,27 +76,43 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
     private HttpClient client;
 
+    @InjectConfiguration
+    private SecurityConfiguration securityConfiguration;
+
     @BeforeEach
     public void setup() {
 
-        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(RestConfiguration.KEY, NetworkConfiguration.KEY);
+        ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
+                List.of(NodeConfiguration.KEY),
+                List.of(RestExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
+                List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
+        );
         ConfigurationManager configurationManager = new ConfigurationManager(
-                List.of(RestConfiguration.KEY, NetworkConfiguration.KEY),
+                List.of(NodeConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
                 new TestConfigurationValidator()
         );
-        assertThat(configurationManager.startAsync(), willCompleteSuccessfully());
+        assertThat(configurationManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ConfigurationRegistry configurationRegistry = configurationManager.configurationRegistry();
-        RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestConfiguration.KEY);
-        SecurityConfiguration securityConfiguration = configurationRegistry.getConfiguration(SecurityConfiguration.KEY);
+        RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestExtensionConfiguration.KEY).rest();
 
         ClusterManagementGroupManager cmg = mock(ClusterManagementGroupManager.class);
 
         Mockito.when(cmg.clusterState()).then(invocation -> CompletableFuture.completedFuture(state));
 
-        AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
+        AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration, new EventLog() {
+            @Override
+            public void log(Event event) {
+
+            }
+
+            @Override
+            public void log(String type, Supplier<Event> eventProvider) {
+
+            }
+        });
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> restPresentationFactory = () -> new PresentationsFactory(
                 configurationManager,
@@ -105,14 +130,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 restConfiguration
         );
 
-        assertThat(restComponent.startAsync(), willCompleteSuccessfully());
+        assertThat(restComponent.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         client = new DefaultHttpClient(URI.create("http://localhost:" + restConfiguration.port().value() + "/management/v1/"));
     }
 
     @AfterEach
     public void cleanup() {
-        assertThat(restComponent.stopAsync(), willCompleteSuccessfully());
+        assertThat(restComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

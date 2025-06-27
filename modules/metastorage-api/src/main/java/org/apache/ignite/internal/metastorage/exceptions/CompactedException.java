@@ -17,18 +17,36 @@
 
 package org.apache.ignite.internal.metastorage.exceptions;
 
-import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTED_ERR;
 
 /**
- * Thrown when a requested operation on meta storage could not be performed because target revisions were removed from storage due to a
- * compaction procedure. In such case the operation should be retried with actual revision.
+ * Thrown when a requested read operation on meta storage could not be performed because target revisions were removed from storage due to
+ * a compaction procedure. In such case the operation should be retried with actual revision.
  */
 public class CompactedException extends MetaStorageException {
+    private static final long serialVersionUID = -6849399873850280288L;
+
     /**
      * Constructs an exception.
      */
     public CompactedException() {
-        super(COMPACTION_ERR);
+        super(COMPACTED_ERR);
+    }
+
+    /**
+     * Constructs an exception with a given message.
+     *
+     * @param requestedRevision Requested revision.
+     * @param latestCompactedRevision Latest compacted revision.
+     */
+    public CompactedException(long requestedRevision, long latestCompactedRevision) {
+        super(
+                COMPACTED_ERR,
+                String.format(
+                        "Requested revision has already been compacted: [requested=%s, lastCompacted=%s]",
+                        requestedRevision, latestCompactedRevision
+                )
+        );
     }
 
     /**
@@ -37,7 +55,7 @@ public class CompactedException extends MetaStorageException {
      * @param message Detail message.
      */
     public CompactedException(String message) {
-        super(COMPACTION_ERR, message);
+        super(COMPACTED_ERR, message);
     }
 
     /**
@@ -47,7 +65,7 @@ public class CompactedException extends MetaStorageException {
      * @param cause   Cause.
      */
     public CompactedException(String message, Throwable cause) {
-        super(COMPACTION_ERR, message, cause);
+        super(COMPACTED_ERR, message, cause);
     }
 
     /**
@@ -56,6 +74,13 @@ public class CompactedException extends MetaStorageException {
      * @param cause Cause.
      */
     public CompactedException(Throwable cause) {
-        super(COMPACTION_ERR, cause);
+        super(COMPACTED_ERR, cause);
+    }
+
+    /** Throws {@link CompactedException} if the requested revision is less than or equal to the last compacted one. */
+    public static void throwIfRequestedRevisionLessThanOrEqualToCompacted(long requestedRevision, long compactedRevision) {
+        if (requestedRevision <= compactedRevision) {
+            throw new CompactedException(requestedRevision, compactedRevision);
+        }
     }
 }

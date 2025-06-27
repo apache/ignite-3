@@ -22,12 +22,14 @@ import java.util.List;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 
 /**
  * Wrapper for the column family that encapsulates {@link ColumnFamilyHandle} and RocksDB's operations with it.
@@ -45,31 +47,38 @@ public class ColumnFamily {
     /** Column family handle. */
     private final ColumnFamilyHandle cfHandle;
 
+    /** Private ColumnFamilyOptions owned exclusively by this CF, if any. */
+    @Nullable
+    private final ColumnFamilyOptions privateCfOptions;
+
     /**
      * Constructor.
      *
      * @param db Db.
      * @param handle Column family handle.
      */
-    private ColumnFamily(RocksDB db, ColumnFamilyHandle handle) throws RocksDBException {
+    private ColumnFamily(RocksDB db, ColumnFamilyHandle handle, @Nullable ColumnFamilyOptions privateCfOptions) throws RocksDBException {
         this.db = db;
         this.cfHandle = handle;
         cfNameBytes = cfHandle.getName();
         this.cfName = new String(cfNameBytes, StandardCharsets.UTF_8);
+        this.privateCfOptions = privateCfOptions;
     }
 
     /**
      * Creates a new Column Family in the provided RocksDB instance.
+     * <b>Warning!!</b> This method assumes that the ColumnFamilyOptions in the descriptor are exclusive to this ColumnFamily, as such,
+     * {@link #destroy()} will close them.
      *
      * @param db RocksDB instance.
      * @param descriptor Column Family descriptor.
      * @return new Column Family.
      * @throws RocksDBException If an error has occurred during creation.
      */
-    public static ColumnFamily create(RocksDB db, ColumnFamilyDescriptor descriptor) throws RocksDBException {
+    public static ColumnFamily withPrivateOptions(RocksDB db, ColumnFamilyDescriptor descriptor) throws RocksDBException {
         ColumnFamilyHandle cfHandle = db.createColumnFamily(descriptor);
 
-        return new ColumnFamily(db, cfHandle);
+        return new ColumnFamily(db, cfHandle, descriptor.getOptions());
     }
 
     /**
@@ -81,7 +90,7 @@ public class ColumnFamily {
      * @throws RocksDBException If an error has occurred during creation.
      */
     public static ColumnFamily wrap(RocksDB db, ColumnFamilyHandle handle) throws RocksDBException {
-        return new ColumnFamily(db, handle);
+        return new ColumnFamily(db, handle, null);
     }
 
     /**
@@ -93,6 +102,11 @@ public class ColumnFamily {
         db.dropColumnFamily(cfHandle);
 
         db.destroyColumnFamilyHandle(cfHandle);
+
+        // If we are tracking the options then we also close them.
+        if (this.privateCfOptions != null) {
+            privateCfOptions.close();
+        }
     }
 
     /**
@@ -117,6 +131,19 @@ public class ColumnFamily {
      */
     public void put(byte[] key, byte[] value) throws RocksDBException {
         db.put(cfHandle, key, value);
+    }
+
+    /**
+     * Puts a key-value pair into this column family with the given {@link WriteOptions}.
+     *
+     * @param writeOptions Write options to use.
+     * @param key Key.
+     * @param value Value.
+     * @throws RocksDBException If failed.
+     * @see RocksDB#put(ColumnFamilyHandle, byte[], byte[])
+     */
+    public void put(WriteOptions writeOptions, byte[] key, byte[] value) throws RocksDBException {
+        db.put(cfHandle, writeOptions, key, value);
     }
 
     /**
@@ -206,6 +233,16 @@ public class ColumnFamily {
      */
     public ColumnFamilyHandle handle() {
         return cfHandle;
+    }
+
+    /**
+     * Returns the private column family options, if any.
+     *
+     * @return The ColumnFamilyOptions, if they are exclusive to this column family.
+     */
+    @Nullable
+    public ColumnFamilyOptions privateOptions() {
+        return privateCfOptions;
     }
 
     /**

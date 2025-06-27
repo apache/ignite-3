@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.getByteArrayFieldName;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
+import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.checkPropertyNames;
+import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.propertyName;
 
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -30,13 +32,17 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
+import org.apache.ignite.internal.network.processor.ProcessingException;
+import org.apache.ignite.internal.network.processor.TypeUtils;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
 import org.apache.ignite.internal.network.serialization.MessageMappingException;
 import org.apache.ignite.internal.network.serialization.MessageReader;
@@ -45,23 +51,25 @@ import org.apache.ignite.internal.network.serialization.MessageReader;
  * Class for generating {@link MessageDeserializer} classes.
  */
 public class MessageDeserializerGenerator {
+    private static final String FROM_ID_METHOD_NAME = "fromId";
+
     /** Processing environment. */
     private final ProcessingEnvironment processingEnv;
 
-    /**
-     * Message Types declarations for the current module.
-     */
+    /** Message group. */
     private final MessageGroupWrapper messageGroup;
 
-    /**
-     * Constructor.
-     *
-     * @param processingEnv Processing environment.
-     * @param messageGroup  Message group.
-     */
+    private final TypeUtils typeUtils;
+
+    private final MessageReaderMethodResolver methodResolver;
+
+    /** Constructor. */
     public MessageDeserializerGenerator(ProcessingEnvironment processingEnv, MessageGroupWrapper messageGroup) {
         this.processingEnv = processingEnv;
         this.messageGroup = messageGroup;
+
+        typeUtils = new TypeUtils(processingEnv);
+        methodResolver = new MessageReaderMethodResolver(processingEnv);
     }
 
     /**
@@ -131,20 +139,33 @@ public class MessageDeserializerGenerator {
                 .addCode("\n");
 
         if (!getters.isEmpty()) {
+            checkPropertyNames(getters);
+
             method.beginControlFlow("switch (reader.state())");
 
             for (int i = 0; i < getters.size(); ++i) {
                 ExecutableElement getter = getters.get(i);
 
-                String name = getter.getSimpleName().toString();
+                String getterName = getter.getSimpleName().toString();
+                String propertyName = propertyName(getter);
 
                 if (getter.getAnnotation(Marshallable.class) != null) {
-                    name = getByteArrayFieldName(name);
+                    getterName = addByteArrayPostfix(getterName);
+                }
+
+                method.beginControlFlow("case $L:", i);
+
+                if (typeUtils.isEnum(getter.getReturnType())) {
+                    checkFromIdMethodExists(getter.getReturnType());
+
+                    // At the beginning we read the shifted ID, shifted by +1 to efficiently transfer null (since we use "var int").
+                    // If we read garbage then we should not convert to an enumeration, the check below does this.
+                    method.addStatement("int shiftedId = reader.readInt($S)", propertyName);
+                } else {
+                    method.addStatement(readMessageCodeBlock(getter));
                 }
 
                 method
-                        .beginControlFlow("case $L:", i)
-                        .addStatement(readMessageCodeBlock(getter))
                         .addCode("\n")
                         .addCode(CodeBlock.builder()
                                 .beginControlFlow("if (!reader.isLastRead())")
@@ -152,8 +173,21 @@ public class MessageDeserializerGenerator {
                                 .endControlFlow()
                                 .build()
                         )
-                        .addCode("\n")
-                        .addStatement("$N.$N(tmp)", msgField, name)
+                        .addCode("\n");
+
+                if (typeUtils.isEnum(getter.getReturnType())) {
+                    TypeName varType = TypeName.get(getter.getReturnType());
+
+                    method
+                            .addStatement(
+                                    "$T tmp = shiftedId == 0 ? null : $T.$L(shiftedId - 1)",
+                                    varType, varType, FROM_ID_METHOD_NAME
+                            )
+                            .addCode("\n");
+                }
+
+                method
+                        .addStatement("$N.$N(tmp)", msgField, getterName)
                         .addStatement("reader.incrementState()")
                         .endControlFlow()
                         .addComment("Falls through");
@@ -171,8 +205,6 @@ public class MessageDeserializerGenerator {
      * Helper method for resolving a {@link MessageReader} "read*" call based on the message field type.
      */
     private CodeBlock readMessageCodeBlock(ExecutableElement getter) {
-        var methodResolver = new MessageReaderMethodResolver(processingEnv);
-
         TypeName varType;
 
         if (getter.getAnnotation(Marshallable.class) != null) {
@@ -185,5 +217,19 @@ public class MessageDeserializerGenerator {
                 .add("$T tmp = reader.", varType)
                 .add(methodResolver.resolveReadMethod(getter))
                 .build();
+    }
+
+    private void checkFromIdMethodExists(TypeMirror enumType) {
+        assert typeUtils.isEnum(enumType) : enumType;
+
+        typeUtils.types().asElement(enumType).getEnclosedElements().stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD)
+                .filter(element -> element.getSimpleName().toString().equals(FROM_ID_METHOD_NAME))
+                .filter(element -> element.getModifiers().contains(Modifier.PUBLIC))
+                .filter(element -> element.getModifiers().contains(Modifier.STATIC))
+                .findAny()
+                .orElseThrow(() -> new ProcessingException(
+                        String.format("Missing public static method \"%s\" for enum %s", FROM_ID_METHOD_NAME, enumType)
+                ));
     }
 }

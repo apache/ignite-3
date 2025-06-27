@@ -17,140 +17,229 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
-import org.apache.ignite.jdbc.util.JdbcTestUtils;
-import org.junit.jupiter.api.Disabled;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Statement cancel test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16205")
-public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTest {
-    /**
-     * Trying to cancel stament without query. In given case cancel is noop, so no exception expected.
-     */
-    @Test
-    public void testCancelingStmtWithoutQuery() {
-        try {
-            stmt.cancel();
-        } catch (Exception e) {
-            log.error("Unexpected exception.", e);
+@SuppressWarnings({"ThrowableNotThrown", "JDBCResourceOpenedButNotSafelyClosed"})
+public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
+    @AfterEach
+    void reset() throws SQLException {
+        if (!stmt.isClosed()) {
+            stmt.setFetchSize(1024);
+        }
 
-            fail("Unexpected exception");
+        dropAllTables();
+    }
+
+    @Test
+    void cancelIsNoopWhenThereIsNoRunningQuery() throws SQLException {
+        stmt.cancel();
+    }
+
+    @Test
+    void cancellationOfLongRunningQuery() throws Exception {
+        CompletableFuture<?> result = runAsync(() ->
+                stmt.executeQuery("SELECT count(*) FROM system_range(0, 10000000000)")
+        );
+
+        assertTrue(
+                waitForCondition(() -> sql("SELECT * FROM system.sql_queries").size() == 2, 5_000),
+                "Query didn't appear in running queries view or disappeared too soon"
+        );
+
+        stmt.cancel();
+
+        // second cancellation should not throw any error
+        stmt.cancel();
+
+        assertThrowsSqlException(
+                QueryCancelledException.CANCEL_MSG,
+                () -> await(result)
+        );
+    }
+
+    @Test
+    void cancellationOfMultiStatementQuery() throws Exception {
+        stmt.executeUpdate("CREATE TABLE dummy (id INT PRIMARY KEY, val INT)");
+        stmt.setFetchSize(1);
+
+        stmt.execute("START TRANSACTION;"
+                + "SELECT x FROM system_range(0, 100000) ORDER BY x;" // result should be big enough, so it doesn't fit into a single page
+                + "COMMIT;" // script processing is expected to hung on COMMIT until all cursors have been closed
+                + "INSERT INTO dummy VALUES (1, 1);");
+
+        stmt.getMoreResults(); // move to SELECT
+
+        ResultSet rs = stmt.getResultSet();
+
+        assertNotNull(rs);
+
+        assertTrue(rs.next());
+        assertEquals(0, rs.getInt(1));
+        assertTrue(rs.next());
+        assertEquals(1, rs.getInt(1));
+
+        stmt.cancel();
+
+        assertThrowsSqlException(
+                QueryCancelledException.CANCEL_MSG,
+                stmt::getMoreResults
+        );
+    }
+
+    @Test
+    void cancelOfClosedStatementThrows() throws Exception {
+        stmt.close();
+
+        assertThrowsSqlException("Statement is closed.", stmt::cancel);
+    }
+
+    @Test
+    void fetchingNextPageAfterCancelingShouldThrow() throws Exception {
+        stmt.setFetchSize(50);
+
+        {
+            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 75)");
+
+            assertTrue(rs.next());
+
+            stmt.cancel();
+
+            assertThrowsSqlException(
+                    QueryCancelledException.CANCEL_MSG,
+                    () -> {
+                        //noinspection StatementWithEmptyBody
+                        while (rs.next()) {
+                        }
+                    }
+            );
+        }
+
+        {
+            // but new execute should work
+            ResultSet rs = stmt.executeQuery("SELECT * FROM system_range(0, 75)");
+
+            //noinspection StatementWithEmptyBody
+            while (rs.next()) { }
         }
     }
 
-    /**
-     * Trying to retrieve result set of a canceled query.
-     * SQLException with message "The query was cancelled while executing." expected.
-     *
-     * @throws Exception If failed.
-     */
     @Test
-    public void testResultSetRetrievalInCanceledStatement() throws Exception {
-        stmt.execute("SELECT 1; SELECT 2; SELECT 3;");
-
-        assertNotNull(stmt.getResultSet());
-
-        stmt.cancel();
-
-        JdbcTestUtils.assertThrowsSqlException("The query was cancelled while executing.", stmt::getResultSet);
-    }
-
-    /**
-     * Trying to cancel already cancelled query.
-     * No exceptions exceped.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testCancelCanceledQuery() throws Exception {
-        stmt.execute("SELECT 1;");
-
-        assertNotNull(stmt.getResultSet());
-
-        stmt.cancel();
-
-        stmt.cancel();
-
-        JdbcTestUtils.assertThrowsSqlException("The query was cancelled while executing.", stmt::getResultSet);
-    }
-
-    /**
-     * Trying to cancel closed query.
-     * SQLException with message "Statement is closed." expected.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testCancelClosedStmt() throws Exception {
-        stmt.close();
-
-        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", stmt::cancel);
-    }
-
-    /**
-     * Trying to call <code>resultSet.next()</code> on a canceled query.
-     * SQLException with message "The query was cancelled while executing." expected.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testResultSetNextAfterCanceling() throws Exception {
-        stmt.setFetchSize(10);
-
-        ResultSet rs = stmt.executeQuery("select * from PUBLIC.PERSON");
-
-        assertTrue(rs.next());
-
-        stmt.cancel();
-
-        JdbcTestUtils.assertThrowsSqlException("The query was cancelled while executing.", rs::next);
-    }
-
-    /**
-     * Ensure that it's possible to execute new query on cancelled statement.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testCancelAnotherStmt() throws Exception {
-        stmt.setFetchSize(10);
-
-        ResultSet rs = stmt.executeQuery("select * from PUBLIC.PERSON");
-
-        assertTrue(rs.next());
-
-        stmt.cancel();
-
-        ResultSet rs2 = stmt.executeQuery("select * from PUBLIC.PERSON order by ID asc");
-
-        assertTrue(rs2.next(), "The other cursor mustn't be closed");
-    }
-
-    /**
-     * Ensure that stament cancel doesn't affect another statement workflow, created by the same connection.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testCancelAnotherStmtResultSet() throws Exception {
+    public void cancellationOfOneStatementShouldNotAffectAnother() throws Exception {
+        stmt.setFetchSize(50);
         try (Statement anotherStmt = conn.createStatement()) {
-            ResultSet rs1 = stmt.executeQuery("select * from PUBLIC.PERSON WHERE ID % 2 = 0");
+            anotherStmt.setFetchSize(50);
 
-            ResultSet rs2 = anotherStmt.executeQuery("select * from PUBLIC.PERSON  WHERE ID % 2 <> 0");
+            ResultSet rs1 = stmt.executeQuery("SELECT * FROM system_range(0, 75)");
+
+            ResultSet rs2 = anotherStmt.executeQuery("SELECT * FROM system_range(0, 75)");
 
             stmt.cancel();
 
-            JdbcTestUtils.assertThrowsSqlException("The query was cancelled while executing.", rs1::next);
+            assertThrowsSqlException(
+                    QueryCancelledException.CANCEL_MSG, () -> {
+                        //noinspection StatementWithEmptyBody
+                        while (rs1.next()) {
+                        }
+                    }
+            );
 
-            assertTrue(rs2.next(), "The other cursor mustn't be closed");
+            //noinspection StatementWithEmptyBody
+            while (rs2.next()) { }
+        }
+    }
+
+    @Test
+    void cancellationOfPreparedStatement() throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT count(*) FROM system_range(0, ?)")) {
+            CompletableFuture<?> result = runAsync(() -> {
+                ps.setLong(1, 10000000000L);
+
+                ps.executeQuery();
+            });
+
+            assertTrue(
+                    waitForCondition(() -> sql("SELECT * FROM system.sql_queries").size() == 2, 5_000),
+                    "Query didn't appear in running queries view or disappeared too soon"
+            );
+
+            ps.cancel();
+
+            assertThrowsSqlException(
+                    QueryCancelledException.CANCEL_MSG,
+                    () -> await(result)
+            );
+        }
+    }
+
+    @Test
+    void cancellationOfBatch() throws Exception {
+        stmt.executeUpdate("CREATE TABLE dummy (id INT PRIMARY KEY, val INT)");
+        stmt.addBatch("INSERT INTO dummy SELECT x, x FROM system_range(1, 1)");
+        stmt.addBatch("INSERT INTO dummy SELECT x, x FROM system_range(2, 2)");
+        stmt.addBatch("INSERT INTO dummy SELECT x, x FROM system_range(3, 1000000)");
+
+        CompletableFuture<?> result = runAsync(stmt::executeBatch);
+
+        assertTrue(
+                waitForCondition(() -> sql("SELECT * FROM system.sql_queries").size() >= 2, 5_000),
+                "Query didn't appear in running queries view or disappeared too soon"
+        );
+
+        stmt.cancel();
+
+        assertThrowsSqlException(
+                QueryCancelledException.CANCEL_MSG,
+                () -> await(result)
+        );
+    }
+
+    @Test
+    void cancellationOfPreparedBatch() throws Exception {
+        stmt.executeUpdate("CREATE TABLE dummy (id INT PRIMARY KEY, val INT)");
+        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dummy SELECT x, x FROM system_range(?, ?)")) {
+            ps.setInt(1, 1);
+            ps.setInt(2, 1);
+            ps.addBatch();
+
+            ps.setInt(1, 2);
+            ps.setInt(2, 2);
+            ps.addBatch();
+
+            ps.setInt(1, 3);
+            ps.setInt(2, 1000000);
+            ps.addBatch();
+
+            CompletableFuture<?> result = runAsync(ps::executeBatch);
+
+            assertTrue(
+                    waitForCondition(() -> sql("SELECT * FROM system.sql_queries").size() >= 2, 5_000),
+                    "Query didn't appear in running queries view or disappeared too soon"
+            );
+
+            ps.cancel();
+
+            assertThrowsSqlException(
+                    QueryCancelledException.CANCEL_MSG,
+                    () -> await(result)
+            );
         }
     }
 }

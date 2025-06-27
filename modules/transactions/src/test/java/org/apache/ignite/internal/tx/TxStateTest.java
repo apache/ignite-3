@@ -19,17 +19,21 @@ package org.apache.ignite.internal.tx;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayContaining;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.stream.Stream;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Check {@link TxState} correctly validates transaction state changes.
- */
+/** For {@link TxState} testing. */
 public class TxStateTest {
-
     @Test
     void testStates() {
         assertThat(TxState.values(),
@@ -122,5 +126,37 @@ public class TxStateTest {
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABORTED));
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.COMMITTED));
         assertTrue(TxState.checkTransitionCorrectness(TxState.ABANDONED, TxState.ABANDONED));
+    }
+
+
+    private static Stream<Arguments> txStateIds() {
+        return Stream.of(
+                arguments(TxState.PENDING, 0),
+                arguments(TxState.FINISHING, 1),
+                arguments(TxState.ABORTED, 2),
+                arguments(TxState.COMMITTED, 3),
+                arguments(TxState.ABANDONED, 4)
+        );
+    }
+
+
+    @ParameterizedTest
+    @MethodSource("txStateIds")
+    void testId(TxState txState, int expectedId) {
+        assertEquals(expectedId, txState.id());
+    }
+
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @ParameterizedTest
+    @MethodSource("txStateIds")
+    void testFromId(TxState expectedEnumEntry, int id) {
+        assertEquals(expectedEnumEntry, TxState.fromId(id));
+
+    }
+
+    @Test
+    void testFromIdThrows() {
+        assertThrows(IllegalArgumentException.class, () -> TxState.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> TxState.fromId(5));
     }
 }

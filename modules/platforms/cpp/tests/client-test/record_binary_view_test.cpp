@@ -863,10 +863,7 @@ TEST_F(record_binary_view_test, remove_all_nonexisting_keys_return_all) {
     EXPECT_EQ(res.size(), 2);
 
     EXPECT_EQ(1, res[0].column_count());
-    EXPECT_EQ(1, res[0].get<int64_t>("key"));
-
     EXPECT_EQ(1, res[1].column_count());
-    EXPECT_EQ(2, res[1].get<int64_t>("key"));
 }
 
 TEST_F(record_binary_view_test, remove_all_only_existing) {
@@ -897,10 +894,7 @@ TEST_F(record_binary_view_test, remove_all_overlapped) {
     EXPECT_EQ(res.size(), 2);
 
     EXPECT_EQ(1, res[0].column_count());
-    EXPECT_EQ(11, res[0].get<int64_t>("key"));
-
     EXPECT_EQ(1, res[1].column_count());
-    EXPECT_EQ(12, res[1].get<int64_t>("key"));
 }
 
 TEST_F(record_binary_view_test, remove_all_empty) {
@@ -914,12 +908,7 @@ TEST_F(record_binary_view_test, remove_all_exact_nonexisting) {
     ASSERT_EQ(2, res.size());
 
     EXPECT_EQ(2, res[0].column_count());
-    EXPECT_EQ(1, res[0].get<int64_t>("key"));
-    EXPECT_EQ("foo", res[0].get<std::string>("val"));
-
     EXPECT_EQ(2, res[1].column_count());
-    EXPECT_EQ(2, res[1].get<int64_t>("key"));
-    EXPECT_EQ("bar", res[1].get<std::string>("val"));
 }
 
 TEST_F(record_binary_view_test, remove_all_exact_overlapped) {
@@ -980,7 +969,6 @@ TEST_F(record_binary_view_test, types_test) {
         {"double", .6},
         {"uuid", uuid(0x123e4567e89b12d3, 0x7456426614174000)},
         {"date", ignite_date(2023, 2, 7)},
-        {"bitmask", bit_array(16, true)},
         {"time", ignite_time(17, 4, 12, 3543634)},
         {"time2", ignite_time(17, 4, 12, 3543634)},
         {"datetime", ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879})},

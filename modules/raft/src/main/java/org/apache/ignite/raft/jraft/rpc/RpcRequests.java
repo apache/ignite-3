@@ -17,19 +17,19 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
+import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.EntryMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.impl.SMThrowable;
-import org.apache.ignite.raft.jraft.util.ByteString;
 import org.jetbrains.annotations.Nullable;
 
 public final class RpcRequests {
@@ -71,6 +71,14 @@ public final class RpcRequests {
          */
         @Nullable
         String leaderId();
+
+         /**
+          * Violated maxObservableSafeTime if safe time reordering was detected, null otherwise.
+          *
+          * @return maxObservableSafeTime if safe time reordering was detected, null otherwise.
+          */
+        @Nullable
+        Long maxObservableSafeTimeViolatedValue();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.SM_ERROR_RESPONSE)
@@ -113,6 +121,8 @@ public final class RpcRequests {
         String peerId();
 
         long term();
+
+        HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.TIMEOUT_NOW_RESPONSE)
@@ -158,7 +168,7 @@ public final class RpcRequests {
         boolean granted();
     }
 
-    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_REQUEST)
+    @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_REQUEST)
     public interface AppendEntriesRequest extends Message {
         String groupId();
 
@@ -177,15 +187,9 @@ public final class RpcRequests {
 
         long committedIndex();
 
-        @Nullable
-        @Marshallable
-        ByteString data();
+        @Nullable ByteBuffer data();
 
-        long timestampLong();
-
-        default HybridTimestamp timestamp() {
-            return hybridTimestamp(timestampLong());
-        }
+        @Nullable HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_RESPONSE)
@@ -196,11 +200,7 @@ public final class RpcRequests {
 
         long lastLogIndex();
 
-        long timestampLong();
-
-        default @Nullable HybridTimestamp timestamp() {
-            return nullableHybridTimestamp(timestampLong());
-        }
+        @Nullable HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.GET_FILE_REQUEST)
@@ -216,26 +216,24 @@ public final class RpcRequests {
         boolean readPartly();
     }
 
-    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.GET_FILE_RESPONSE)
+    @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.GET_FILE_RESPONSE)
     public interface GetFileResponse extends Message {
         boolean eof();
 
         long readSize();
 
-        @Marshallable
-        ByteString data();
+        ByteBuffer data();
     }
 
-    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.READ_INDEX_REQUEST)
+    @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.READ_INDEX_REQUEST)
     public interface ReadIndexRequest extends Message {
         String groupId();
 
         @Nullable
         String serverId();
 
-        @Nullable
-        @Marshallable
-        List<ByteString> entriesList();
+        @IgniteStringifier(name = "entriesList.size", value = SizeOnlyStringifier.class)
+        @Nullable List<ByteBuffer> entriesList();
 
         @Nullable
         String peerId();
@@ -246,5 +244,15 @@ public final class RpcRequests {
         long index();
 
         boolean success();
+    }
+
+    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.COALESCED_HEARTBEAT_REQUEST)
+    public interface CoalescedHeartbeatRequest extends Message {
+        Collection<AppendEntriesRequest> messages();
+    }
+
+    @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.COALESCED_HEARTBEAT_RESPONSE)
+    public interface CoalescedHeartbeatResponse extends Message {
+        Collection<Message> messages();
     }
 }

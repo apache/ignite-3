@@ -30,8 +30,13 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -41,9 +46,12 @@ import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.LockByRowId;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,6 +61,9 @@ import org.jetbrains.annotations.Nullable;
 public class TestMvPartitionStorage implements MvPartitionStorage {
     /** Preserved {@link LocalLocker} instance to allow nested calls of {@link #runConsistently(WriteClosure)}. */
     private static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
+
+    private static final AtomicLongFieldUpdater<TestMvPartitionStorage> ESTIMATED_SIZE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(TestMvPartitionStorage.class, "estimatedSize");
 
     private final ConcurrentNavigableMap<RowId, VersionChain> map = new ConcurrentSkipListMap<>();
 
@@ -65,13 +76,17 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long lastAppliedTerm;
 
-    private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
+    @Nullable
+    private volatile LeaseInfo leaseInfo;
+
+    private volatile long estimatedSize;
 
     private volatile byte @Nullable [] groupConfig;
 
     final int partitionId;
 
     private volatile boolean closed;
+
     private volatile boolean destroyed;
 
     private volatile boolean rebalance;
@@ -92,12 +107,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     private static class VersionChain implements GcEntry {
-        final RowId rowId;
-        final @Nullable BinaryRow row;
-        final @Nullable HybridTimestamp ts;
-        final @Nullable UUID txId;
-        final @Nullable Integer commitTableId;
-        final int commitPartitionId;
+        private final RowId rowId;
+        private final @Nullable BinaryRow row;
+        private final @Nullable HybridTimestamp ts;
+        private final @Nullable UUID txId;
+        private final @Nullable Integer commitTableId;
+        private final int commitPartitionId;
         volatile @Nullable VersionChain next;
 
         VersionChain(
@@ -143,6 +158,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             return ts;
         }
+
+        @Override
+        public String toString() {
+            return S.toString(VersionChain.class, this);
+        }
     }
 
     @Override
@@ -169,7 +189,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
+    public CompletableFuture<Void> flush(boolean trigger) {
         checkStorageClosed();
 
         return nullCompletedFuture();
@@ -213,84 +233,134 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable BinaryRow addWrite(
+    public synchronized AddWriteResult addWrite(
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableId,
+            int commitTableOrZoneId,
             int commitPartitionId
-    ) throws TxIdMismatchException {
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
+                + ", commitTableOrZoneId=" + commitTableOrZoneId + ", commitPartitionId=" + commitPartitionId;
+
         checkStorageClosed();
 
-        BinaryRow[] res = {null};
+        AddWriteResult[] addWriteResult = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.ts == null) {
                 if (!txId.equals(versionChain.txId)) {
-                    throw new TxIdMismatchException(txId, versionChain.txId);
+                    addWriteResult[0] = AddWriteResult.txMismatch(versionChain.txId, latestCommitTimestamp(versionChain));
+
+                    return versionChain;
                 }
 
-                res[0] = versionChain.row;
+                addWriteResult[0] = AddWriteResult.success(versionChain.row);
 
-                return VersionChain.forWriteIntent(rowId, row, txId, commitTableId, commitPartitionId, versionChain.next);
+                return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain.next);
             }
 
-            return VersionChain.forWriteIntent(rowId, row, txId, commitTableId, commitPartitionId, versionChain);
+            addWriteResult[0] = AddWriteResult.success(null);
+
+            return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain);
         });
 
-        return res[0];
+        AddWriteResult res = addWriteResult[0];
+
+        assert res != null : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
+                + ", commitTableOrZoneId=" + commitTableOrZoneId + ", commitPartitionId=" + commitPartitionId;
+
+        return res;
     }
 
     @Override
-    public synchronized @Nullable BinaryRow abortWrite(RowId rowId) {
+    public synchronized AbortResult abortWrite(RowId rowId, UUID txId) {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", txId=" + txId;
+
         checkStorageClosedOrInProcessOfRebalance();
 
-        BinaryRow[] res = {null};
+        AbortResult[] abortResult = {null};
 
-        map.computeIfPresent(rowId, (ignored, versionChain) -> {
-            if (!versionChain.isWriteIntent()) {
+        map.compute(rowId, (ignored, versionChain) -> {
+            if (versionChain == null || !versionChain.isWriteIntent()) {
+                abortResult[0] = AbortResult.noWriteIntent();
+
+                return versionChain;
+            } else if (!txId.equals(versionChain.txId)) {
+                abortResult[0] = AbortResult.txMismatch(versionChain.txId);
+
                 return versionChain;
             }
 
-            assert versionChain.ts == null;
+            assert versionChain.ts == null : "rowId=" + rowId + ", txId=" + txId + ", ts=" + versionChain.ts;
 
-            res[0] = versionChain.row;
+            abortResult[0] = AbortResult.success(versionChain.row);
 
             return versionChain.next;
         });
 
-        return res[0];
+        AbortResult res = abortResult[0];
+
+        assert res != null : "rowId=" + rowId + ", txId=" + txId;
+
+        return res;
     }
 
     @Override
-    public synchronized void commitWrite(RowId rowId, HybridTimestamp timestamp) {
+    public synchronized CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
+
         checkStorageClosed();
 
-        map.compute(rowId, (ignored, versionChain) -> {
-            if (versionChain != null) {
-                if (!versionChain.isWriteIntent()) {
-                    return versionChain;
-                }
+        CommitResult[] commitResult = {null};
 
-                return resolveCommittedVersionChain(VersionChain.forCommitted(rowId, timestamp, versionChain));
+        map.compute(rowId, (ignored, versionChain) -> {
+            if (versionChain == null || !versionChain.isWriteIntent()) {
+                commitResult[0] = CommitResult.noWriteIntent();
+
+                return versionChain;
+            } else if (!txId.equals(versionChain.txId)) {
+                commitResult[0] = CommitResult.txMismatch(versionChain.txId);
+
+                return versionChain;
             }
 
-            return null;
+            commitResult[0] = CommitResult.success();
+
+            return resolveCommittedVersionChain(VersionChain.forCommitted(rowId, timestamp, versionChain));
         });
+
+        CommitResult res = commitResult[0];
+
+        assert res != null : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
+
+        return res;
     }
 
     @Override
-    public synchronized void addWriteCommitted(
+    public synchronized AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", rowIsTombstone=" + (row == null)
+                + ", commitTimestamp=" + commitTimestamp;
+
         checkStorageClosed();
+
+        AddWriteCommittedResult[] addWriteCommittedResult = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.isWriteIntent()) {
-                throw new StorageException("Write intent exists for " + rowId);
+                addWriteCommittedResult[0] = AddWriteCommittedResult.writeIntentExists(
+                        versionChain.txId,
+                        latestCommitTimestamp(versionChain)
+                );
+
+                return versionChain;
             }
+
+            addWriteCommittedResult[0] = AddWriteCommittedResult.success();
 
             return resolveCommittedVersionChain(new VersionChain(
                     rowId,
@@ -302,32 +372,50 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     versionChain
             ));
         });
+
+        AddWriteCommittedResult res = addWriteCommittedResult[0];
+
+        assert res != null : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", commitTimestamp=" + commitTimestamp;
+
+        return res;
     }
 
     private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {
         VersionChain nextChain = committedVersionChain.next;
 
+        boolean isNewValueTombstone = committedVersionChain.row == null;
+
         if (nextChain != null) {
-            // Avoid creating tombstones for tombstones.
-            if (committedVersionChain.row == null && nextChain.row == null) {
-                return nextChain;
+            boolean isOldValueTombstone = nextChain.row == null;
+
+            if (isOldValueTombstone) {
+                if (isNewValueTombstone) {
+                    // Avoid creating tombstones for tombstones.
+                    return nextChain;
+                }
+
+                ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
+            } else if (isNewValueTombstone) {
+                ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
             }
 
             // Calling it from the compute is fine. Concurrent writes of the same row are impossible, and if we call the compute closure
             // several times, the same tuple will be inserted into the GC queue (timestamp and rowId don't change in this case).
             gcQueue.add(committedVersionChain);
         } else {
-            if (committedVersionChain.row == null) {
+            if (isNewValueTombstone) {
                 // If there is only one version, and it is a tombstone, then remove the chain.
                 return null;
             }
+
+            ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
         }
 
         return committedVersionChain;
     }
 
     @Override
-    public ReadResult read(RowId rowId, @Nullable HybridTimestamp timestamp) {
+    public ReadResult read(RowId rowId, HybridTimestamp timestamp) {
         checkStorageClosedOrInProcessOfRebalance();
 
         if (rowId.partitionId() != partitionId) {
@@ -483,14 +571,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     throw new IllegalStateException();
                 }
 
-                // We don't check if row conforms the key filter here, because we've already checked it.
-                ReadResult read = read(currentChain, timestamp, null);
-
-                if (read.transactionId() == null) {
-                    return read.binaryRow();
-                }
-
-                return null;
+                return read(currentChain, timestamp, null).binaryRow();
             }
 
             @Override
@@ -615,32 +696,38 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public long rowsCount() {
-        checkStorageClosedOrInProcessOfRebalance();
-
-        return map.size();
-    }
-
-    @Override
-    public void updateLease(long leaseStartTime) {
+    public synchronized void updateLease(LeaseInfo leaseInfo) {
         checkStorageClosed();
 
-        if (leaseStartTime <= this.leaseStartTime) {
+        LeaseInfo thisLeaseInfo = this.leaseInfo;
+
+        if (thisLeaseInfo != null && leaseInfo.leaseStartTime() <= thisLeaseInfo.leaseStartTime()) {
             return;
         }
 
-        this.leaseStartTime = leaseStartTime;
+        this.leaseInfo = leaseInfo;
     }
 
     @Override
-    public long leaseStartTime() {
+    public @Nullable LeaseInfo leaseInfo() {
         checkStorageClosed();
 
-        return leaseStartTime;
+        return leaseInfo;
+    }
+
+    @Override
+    public long estimatedSize() {
+        checkStorageClosed();
+
+        return estimatedSize;
     }
 
     @Override
     public void close() {
+        if (rebalance) {
+            throw new StorageRebalanceException();
+        }
+
         closed = true;
 
         clear0();
@@ -669,9 +756,9 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
+        estimatedSize = 0;
         groupConfig = null;
-
-        leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
+        leaseInfo = null;
     }
 
     private void checkStorageClosed() {
@@ -709,8 +796,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndex = REBALANCE_IN_PROGRESS;
         lastAppliedTerm = REBALANCE_IN_PROGRESS;
-
-        groupConfig = null;
     }
 
     void abortRebalance() {
@@ -723,23 +808,19 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         rebalance = false;
 
         clear0();
-
-        lastAppliedIndex = 0;
-        lastAppliedTerm = 0;
-
-        groupConfig = null;
     }
 
-    void finishRebalance(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
+    void finishRebalance(MvPartitionMeta partitionMeta) {
         checkStorageClosedForRebalance();
 
         assert rebalance;
 
         rebalance = false;
 
-        this.lastAppliedIndex = lastAppliedIndex;
-        this.lastAppliedTerm = lastAppliedTerm;
-        this.groupConfig = Arrays.copyOf(groupConfig, groupConfig.length);
+        this.lastAppliedIndex = partitionMeta.lastAppliedIndex();
+        this.lastAppliedTerm = partitionMeta.lastAppliedTerm();
+        this.groupConfig = Arrays.copyOf(partitionMeta.groupConfig(), partitionMeta.groupConfig().length);
+        this.leaseInfo = partitionMeta.leaseInfo();
     }
 
     private class ScanVersionsCursor implements Cursor<ReadResult> {
@@ -791,5 +872,20 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             hasNext = versionChain != null;
         }
+    }
+
+    /**
+     * Checks if current thread holds a lock on passed row ID.
+     */
+    static boolean rowIsLocked(RowId rowId) {
+        LocalLocker locker = THREAD_LOCAL_LOCKER.get();
+
+        return locker != null && locker.isLocked(rowId);
+    }
+
+    private static @Nullable HybridTimestamp latestCommitTimestamp(VersionChain chain) {
+        VersionChain next = chain.next;
+
+        return next == null ? null : next.ts;
     }
 }

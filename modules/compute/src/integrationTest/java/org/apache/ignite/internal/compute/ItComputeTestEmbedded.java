@@ -17,56 +17,50 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicException;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
+import static org.apache.ignite.compute.JobStatus.EXECUTING;
+import static org.apache.ignite.compute.JobStatus.QUEUED;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicCheckedException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicException;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeException;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.JobState;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -75,134 +69,37 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration tests for Compute functionality in embedded Ignite mode.
  */
-@SuppressWarnings("resource")
+@SuppressWarnings("NewClassNamingConvention")
 class ItComputeTestEmbedded extends ItComputeBaseTest {
-
     @Override
     protected List<DeploymentUnit> units() {
         return List.of();
     }
 
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassLocally(String jobClassName, int errorCode, String msg) {
-        IgniteImpl entryNode = node(0);
-
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), jobClassName));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassLocallyAsync(String jobClassName, int errorCode, String msg) {
-        IgniteImpl entryNode = node(0);
-
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), jobClassName)
-                .get(1, TimeUnit.SECONDS));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassOnRemoteNodes(String jobClassName, int errorCode, String msg) {
-        Ignite entryNode = node(0);
-
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), jobClassName));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, int errorCode, String msg) {
-        Ignite entryNode = node(0);
-
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(node(1).node(), node(2).node()), units(), jobClassName)
-                .get(1, TimeUnit.SECONDS));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
-    }
-
-    @Test
-    void cancelsJobLocally() {
-        IgniteImpl entryNode = node(0);
-
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
-
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
-
-        assertThat(execution.cancelAsync(), willBe(true));
-
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
-    }
-
-    @Test
-    void cancelsJobRemotely() {
-        IgniteImpl entryNode = node(0);
-
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(node(1).node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
-
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
-
-        assertThat(execution.cancelAsync(), willBe(true));
-
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.CANCELED)));
-    }
-
-    @Test
-    void changeExecutingJobPriorityLocally() {
-        IgniteImpl entryNode = node(0);
-
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
-
-        assertThat(execution.changePriorityAsync(2), willBe(false));
-        assertThat(execution.cancelAsync(), willBe(true));
-    }
-
-    @Test
-    void changeExecutingJobPriorityRemotely() {
-        IgniteImpl entryNode = node(0);
-
-        JobExecution<String> execution = entryNode.compute()
-                .submit(Set.of(node(1).node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
-        await().until(execution::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
-
-        assertThat(execution.changePriorityAsync(2), willBe(false));
-        assertThat(execution.cancelAsync(), willBe(true));
-    }
-
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @Test
     void changeJobPriorityLocally() {
-        IgniteImpl entryNode = node(0);
+        JobTarget jobTarget = JobTarget.node(clusterNode(0));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
+        WaitLatchJob.latches = new CountDownLatch[]{countDownLatch, new CountDownLatch(1)};
+
+        JobDescriptor<Integer, Void> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        JobExecution<Void> execution1 = submit(jobTarget, job, 0);
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
-        await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecution<Void> execution2 = submit(jobTarget, job, cancelHandle.token(), 1);
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task
-        JobExecution<String> execution3 = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
-        await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+        JobExecution<Void> execution3 = submit(jobTarget, job, 0);
+        await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
-        // Task 1 and 2 are not competed, in queue state
+        // Task 2 and 3 are not completed, in queued state
         assertThat(execution2.resultAsync().isDone(), is(false));
         assertThat(execution3.resultAsync().isDone(), is(false));
 
@@ -220,31 +117,42 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertThat(execution2.resultAsync().isDone(), is(false));
 
         // Finish task 2
-        assertThat(execution2.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @Test
     void executesJobLocallyWithOptions() {
-        IgniteImpl entryNode = node(0);
+        JobTarget jobTarget = JobTarget.node(clusterNode(0));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
+        WaitLatchJob.latches = new CountDownLatch[]{countDownLatch, new CountDownLatch(1)};
+
+        JobDescriptor<Integer, Void> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), countDownLatch);
-        await().until(execution1::statusAsync, willBe(jobStatusWithState(JobState.EXECUTING)));
+        JobExecution<Void> execution1 = submit(jobTarget, job, 0);
+
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), WaitLatchJob.class.getName(), new CountDownLatch(1));
-        await().until(execution2::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecution<Void> execution2 = submit(jobTarget, job, cancelHandle.token(), 1);
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
-        JobExecution<String> execution3 = entryNode.compute()
-                .submit(Set.of(entryNode.node()), units(), WaitLatchThrowExceptionOnFirstExecutionJob.class.getName(),
-                        options, countDownLatch);
-        await().until(execution3::statusAsync, willBe(jobStatusWithState(JobState.QUEUED)));
+        WaitLatchThrowExceptionOnFirstExecutionJob.latch = countDownLatch;
+
+        JobExecution<Void> execution3 = submit(
+                jobTarget,
+                JobDescriptor.builder(WaitLatchThrowExceptionOnFirstExecutionJob.class)
+                        .units(units())
+                        .options(options)
+                        .build(),
+                null
+        );
+        await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Task 1 and 2 are not competed, in queue state
         assertThat(execution2.resultAsync().isDone(), is(false));
@@ -267,31 +175,39 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertThat(execution2.resultAsync().isDone(), is(false));
 
         // Cancel task2
-        assertThat(execution2.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @Test
     void shouldNotConvertIgniteException() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         IgniteException exception = new IgniteException(INTERNAL_ERR, "Test exception");
+        CustomFailingJob.th = exception;
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), CustomFailingJob.class.getName(), exception));
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
+                JobTarget.node(clusterNode(entryNode)),
+                JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
+                null));
 
-        assertPublicException(ex, exception.code(), exception.getMessage());
+        assertThat(ex, is(publicException(exception.code(), exception.getMessage())));
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @Test
     void shouldNotConvertIgniteCheckedException() {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
         IgniteCheckedException exception = new IgniteCheckedException(INTERNAL_ERR, "Test exception");
+        CustomFailingJob.th = exception;
 
-        IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), CustomFailingJob.class.getName(), exception));
+        IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, () -> entryNode.compute().execute(
+                JobTarget.node(clusterNode(entryNode)),
+                JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
+                null));
 
-        assertPublicCheckedException(ex, exception.code(), exception.getMessage());
+        assertThat(ex, is(publicCheckedException(exception.code(), exception.getMessage())));
     }
 
     private static Stream<Arguments> privateExceptions() {
@@ -303,15 +219,20 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         );
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @ParameterizedTest
     @MethodSource("privateExceptions")
     void shouldConvertToComputeException(Throwable throwable) {
-        IgniteImpl entryNode = node(0);
+        Ignite entryNode = node(0);
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), CustomFailingJob.class.getName(), throwable));
+        CustomFailingJob.th = throwable;
 
-        assertComputeException(ex, throwable);
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
+                JobTarget.node(clusterNode(entryNode)),
+                JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
+                null));
+
+        assertThat(ex, is(computeJobFailedException(throwable.getClass().getName(), throwable.getMessage())));
     }
 
     @ParameterizedTest
@@ -321,106 +242,73 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         int entryNodeIndex = 0;
 
-        IgniteImpl entryNode = node(entryNodeIndex);
-        IgniteImpl targetNode = node(targetNodeIndex);
+        Ignite entryNode = node(entryNodeIndex);
+        Ignite targetNode = node(targetNodeIndex);
 
-        assertDoesNotThrow(() -> entryNode.compute().execute(Set.of(targetNode.node()), List.of(), PerformSyncKvGetPutJob.class.getName()));
+        assertDoesNotThrow(() -> entryNode.compute().execute(
+                JobTarget.node(clusterNode(targetNode)),
+                JobDescriptor.builder(PerformSyncKvGetPutJob.class).build(), null));
     }
 
     @Test
     void executesNullReturningJobViaSyncBroadcast() {
-        int entryNodeIndex = 0;
+        Ignite entryNode = node(0);
 
-        IgniteImpl entryNode = node(entryNodeIndex);
+        Collection<Object> results = entryNode.compute().execute(
+                BroadcastJobTarget.nodes(entryNode.cluster().nodes()),
+                JobDescriptor.builder(NullReturningJob.class).build(),
+                null);
 
-        Map<ClusterNode, Object> results = entryNode.compute()
-                .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), List.of(), NullReturningJob.class.getName());
-
-        assertThat(results.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
-        assertThat(new HashSet<>(results.values()), contains(nullValue()));
+        assertThat(results, everyItem(nullValue()));
     }
 
     @Test
     void executesNullReturningJobViaAsyncBroadcast() {
-        int entryNodeIndex = 0;
+        Ignite entryNode = node(0);
 
-        IgniteImpl entryNode = node(entryNodeIndex);
-
-        CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute()
-                .executeBroadcastAsync(new HashSet<>(entryNode.clusterNodes()), List.of(), NullReturningJob.class.getName());
-        assertThat(resultsFuture, willCompleteSuccessfully());
-        Map<ClusterNode, Object> results = resultsFuture.join();
-
-        assertThat(results.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
-        assertThat(new HashSet<>(results.values()), contains(nullValue()));
+        CompletableFuture<Collection<Object>> resultsFuture = entryNode.compute().executeAsync(
+                BroadcastJobTarget.nodes(entryNode.cluster().nodes()),
+                JobDescriptor.builder(NullReturningJob.class).build(),
+                null
+        );
+        assertThat(resultsFuture, will(everyItem(nullValue())));
     }
 
     @Test
     void executesNullReturningJobViaSubmitBroadcast() {
-        int entryNodeIndex = 0;
+        Ignite entryNode = node(0);
 
-        IgniteImpl entryNode = node(entryNodeIndex);
+        CompletableFuture<BroadcastExecution<Object>> executionFut = entryNode.compute().submitAsync(
+                BroadcastJobTarget.nodes(entryNode.cluster().nodes()),
+                JobDescriptor.builder(NullReturningJob.class).build(),
+                null
+        );
+        assertThat(executionFut, willCompleteSuccessfully());
+        BroadcastExecution<Object> execution = executionFut.join();
 
-        Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute()
-                .submitBroadcast(new HashSet<>(entryNode.clusterNodes()), List.of(), NullReturningJob.class.getName());
-        assertThat(executionsMap.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
-
-        List<JobExecution<Object>> executions = new ArrayList<>(executionsMap.values());
-        List<CompletableFuture<Object>> futures = executions.stream()
-                .map(JobExecution::resultAsync)
-                .collect(toList());
-        assertThat(allOf(futures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
-
-        assertThat(futures.stream().map(CompletableFuture::join).collect(toSet()), contains(nullValue()));
+        assertThat(execution.resultsAsync(), will(everyItem(nullValue())));
     }
 
     private Stream<Arguments> targetNodeIndexes() {
         return IntStream.range(0, initialNodes()).mapToObj(Arguments::of);
     }
 
+    private static class CustomFailingJob implements ComputeJob<Void, Void> {
+        static Throwable th;
 
-    private static class CustomFailingJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            throw ExceptionUtils.sneakyThrow((Throwable) args[0]);
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void arg) {
+            throw ExceptionUtils.sneakyThrow(th);
         }
     }
 
+    private static class WaitLatchJob implements ComputeJob<Integer, Void> {
+        private static CountDownLatch[] latches;
 
-
-    private static List<Arguments> wrongJobClassArguments() {
-        return List.of(
-                Arguments.of("org.example.NonExistentJob", CLASS_INITIALIZATION_ERR, "Cannot load job class by name"),
-                Arguments.of(NonComputeJob.class.getName(), CLASS_INITIALIZATION_ERR, "does not implement ComputeJob interface"),
-                Arguments.of(NonEmptyConstructorJob.class.getName(), CLASS_INITIALIZATION_ERR, "Cannot instantiate job")
-        );
-    }
-
-    private static class NonComputeJob {
-        public String execute(JobExecutionContext context, Object... args) {
-            return "";
-        }
-    }
-
-    private static class NonEmptyConstructorJob implements ComputeJob<String> {
-        private NonEmptyConstructorJob(String s) {
-        }
-
-        /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return "";
-        }
-    }
-
-    private static class WaitLatchJob implements ComputeJob<String> {
-
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Integer latchId) {
             try {
-                ((CountDownLatch) args[0]).await();
+                latches[latchId].await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -428,15 +316,14 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<String> {
-
+    private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<Void, Void> {
+        private static CountDownLatch latch;
         static final AtomicInteger counter = new AtomicInteger(0);
 
-        /** {@inheritDoc} */
         @Override
-        public String execute(JobExecutionContext context, Object... args) {
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Void arg) {
             try {
-                ((CountDownLatch) args[0]).await();
+                latch.await();
                 if (counter.incrementAndGet() == 1) {
                     throw new RuntimeException();
                 }
@@ -447,9 +334,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class PerformSyncKvGetPutJob implements ComputeJob<Void> {
+    private static class PerformSyncKvGetPutJob implements ComputeJob<Void, Void> {
         @Override
-        public Void execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
             Table table = context.ignite().tables().table("test");
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
 
@@ -460,9 +347,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class NullReturningJob implements ComputeJob<Void> {
+    private static class NullReturningJob implements ComputeJob<Object, Object> {
         @Override
-        public Void execute(JobExecutionContext context, Object... args) {
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object input) {
             return null;
         }
     }

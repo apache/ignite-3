@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.engine;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -26,6 +27,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.atLeastOnce;
@@ -157,11 +159,15 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
      */
     @Test
     void testIndexRecoveryForMultipleTables(@Mock StorageIndexDescriptorSupplier indexDescriptorSupplier) {
+        assumeFalse(storageEngine.isVolatile());
+
         int partitionId = 0;
 
         int numTables = 2;
 
-        var sortedIndexColumnDescriptor = new StorageSortedIndexColumnDescriptor("foo", NativeTypes.INT64, true, true);
+        var sortedIndexColumnDescriptor = new StorageSortedIndexColumnDescriptor(
+                "foo", NativeTypes.INT64, true, true, false
+        );
 
         var hashIndexColumnDescriptor = new StorageHashIndexColumnDescriptor("foo", NativeTypes.INT64, true);
 
@@ -211,13 +217,15 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
 
                     int indexId = numTables + i * 2;
 
-                    SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(
-                            partitionId, (StorageSortedIndexDescriptor) indexDescriptorMap.get(indexId)
+                    StorageIndexDescriptor sortedIndexDescriptor = indexDescriptorMap.get(indexId);
+                    tableStorage.createSortedIndex(partitionId, (StorageSortedIndexDescriptor) sortedIndexDescriptor);
+                    SortedIndexStorage sortedIndexStorage = (SortedIndexStorage) tableStorage.getIndex(
+                            partitionId, sortedIndexDescriptor.id()
                     );
 
-                    HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(
-                            partitionId, (StorageHashIndexDescriptor) indexDescriptorMap.get(indexId + 1)
-                    );
+                    StorageIndexDescriptor hashIndexDescriptor = indexDescriptorMap.get(indexId + 1);
+                    tableStorage.createHashIndex(partitionId, (StorageHashIndexDescriptor) hashIndexDescriptor);
+                    HashIndexStorage hashIndexStorage = (HashIndexStorage) tableStorage.getIndex(partitionId, hashIndexDescriptor.id());
 
                     partitionStorage.runConsistently(locker -> {
                         sortedIndexStorage.put(indexRow);
@@ -284,6 +292,48 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
                 } else {
                     assertThat(indexStorage, is(nullValue()));
                 }
+            }
+        }
+    }
+
+    /**
+     * Ensures that {@code flush(false)} does not trigger a flush explicitly, but only subscribes to the next scheduled one.
+     */
+    @Test
+    void testSubscribeToFlush() throws Exception {
+        assumeFalse(storageEngine.isVolatile());
+
+        int tableId = 1;
+        int lastAppliedIndex = 10;
+        int lastAppliedTerm = 20;
+
+        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_STORAGE_PROFILE);
+        StorageIndexDescriptorSupplier indexSupplier = mock(StorageIndexDescriptorSupplier.class);
+
+        MvTableStorage mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
+
+        try (AutoCloseable ignored0 = mvTableStorage::close) {
+            CompletableFuture<MvPartitionStorage> mvPartitionStorageFuture = mvTableStorage.createMvPartition(0);
+
+            assertThat(mvPartitionStorageFuture, willCompleteSuccessfully());
+            MvPartitionStorage mvPartitionStorage = mvPartitionStorageFuture.join();
+
+            try (AutoCloseable ignored1 = mvPartitionStorage::close) {
+                assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
+
+                mvPartitionStorage.runConsistently(locker -> {
+                    mvPartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
+
+                    return null;
+                });
+
+                CompletableFuture<Void> subscribeFuture = mvPartitionStorage.flush(false);
+                assertThat(subscribeFuture, willTimeoutFast());
+
+                CompletableFuture<Void> flushFuture = mvPartitionStorage.flush();
+                assertSame(subscribeFuture, flushFuture);
+
+                assertThat(flushFuture, willCompleteSuccessfully());
             }
         }
     }

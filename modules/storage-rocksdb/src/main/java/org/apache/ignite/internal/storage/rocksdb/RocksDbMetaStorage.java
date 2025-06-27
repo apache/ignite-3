@@ -22,13 +22,11 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.getRowIdUuid;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.putRowIdUuid;
-import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageException;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractWriteBatch;
 import org.rocksdb.RocksDBException;
@@ -59,6 +57,13 @@ public class RocksDbMetaStorage {
      */
     public static final byte[] LEASE_PREFIX = {3};
 
+    /**
+     * Prefix to store the estimated size of a partition.
+     *
+     * @see MvPartitionStorage#estimatedSize
+     */
+    public static final byte[] ESTIMATED_SIZE_PREFIX = {4};
+
     private final ColumnFamily metaColumnFamily;
 
     public RocksDbMetaStorage(ColumnFamily metaColumnFamily) {
@@ -77,26 +82,19 @@ public class RocksDbMetaStorage {
      *
      * @param indexId Index ID.
      * @param partitionId Partition ID.
-     * @param pk Primary index flag.
      */
-    public @Nullable RowId getNextRowIdToBuild(int tableId, int indexId, int partitionId, boolean pk) {
+    public @Nullable RowId getNextRowIdToBuild(int tableId, int indexId, int partitionId) {
         try {
             byte[] lastBuiltRowIdBytes = metaColumnFamily.get(createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId));
 
             if (lastBuiltRowIdBytes == null) {
-                return pk ? null : initialRowIdToBuild(partitionId);
-            }
-
-            if (lastBuiltRowIdBytes.length == 0) {
                 return null;
             }
 
             return new RowId(partitionId, getRowIdUuid(ByteBuffer.wrap(lastBuiltRowIdBytes), 0));
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    "Failed to read next row ID to build: [partitionId={}, indexId={}]",
-                    e,
-                    partitionId, indexId
+            throw new IgniteRocksDbException(
+                    String.format("Failed to read next row ID to build: [partitionId=%d, indexId=%d]", partitionId, indexId), e
             );
         }
     }
@@ -113,12 +111,14 @@ public class RocksDbMetaStorage {
         try {
             byte[] key = createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId);
 
-            writeBatch.put(metaColumnFamily.handle(), key, indexLastBuildRowId(rowId));
+            if (rowId == null) {
+                writeBatch.delete(metaColumnFamily.handle(), key);
+            } else {
+                writeBatch.put(metaColumnFamily.handle(), key, indexLastBuildRowId(rowId));
+            }
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    "Failed to save next row ID to build: [partitionId={}, indexId={}, rowId={}]",
-                    e,
-                    partitionId, indexId, rowId
+            throw new IgniteRocksDbException(
+                    String.format("Failed to save next row ID to build: [partitionId=%d, indexId=%d]", partitionId, indexId), e
             );
         }
     }
@@ -130,19 +130,13 @@ public class RocksDbMetaStorage {
         try {
             writeBatch.delete(metaColumnFamily.handle(), createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId));
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    "Failed to remove next row ID to build: [partitionId={}, indexId={}]",
-                    e,
-                    partitionId, indexId
+            throw new IgniteRocksDbException(
+                    String.format("Failed to remove next row ID to build: [partitionId=%d, indexId=%d]", partitionId, indexId), e
             );
         }
     }
 
-    private static byte[] indexLastBuildRowId(@Nullable RowId rowId) {
-        if (rowId == null) {
-            return BYTE_EMPTY_ARRAY;
-        }
-
+    private static byte[] indexLastBuildRowId(RowId rowId) {
         ByteBuffer buffer = ByteBuffer.allocate(ROW_ID_SIZE).order(KEY_BYTE_ORDER);
 
         putRowIdUuid(buffer, rowId.uuid());

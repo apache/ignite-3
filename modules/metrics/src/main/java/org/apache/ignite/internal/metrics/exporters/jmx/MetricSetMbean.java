@@ -28,13 +28,16 @@ import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanException;
 import javax.management.MBeanInfo;
 import javax.management.ReflectionException;
+import org.apache.ignite.internal.metrics.CompositeMetric;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.IntMetric;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.StringGauge;
+import org.apache.ignite.internal.metrics.UuidGauge;
 
 /**
  * MBean implementation, which produce JMX API representation for {@link MetricSet}.
@@ -60,7 +63,7 @@ public class MetricSetMbean implements DynamicMBean {
      */
     @Override
     public Object getAttribute(String attribute) throws AttributeNotFoundException {
-        if (attribute.equals("MBeanInfo")) {
+        if ("MBeanInfo".equals(attribute)) {
             return getMBeanInfo();
         }
 
@@ -74,6 +77,13 @@ public class MetricSetMbean implements DynamicMBean {
             return ((LongMetric) metric).value();
         } else if (metric instanceof DistributionMetric) {
             return ((DistributionMetric) metric).value();
+        } else if (metric instanceof CompositeMetric) {
+            String value = metric.getValueAsString();
+            return value == null ? "" : value;
+        } else if (metric instanceof StringGauge) {
+            return ((StringGauge) metric).value();
+        } else if (metric instanceof UuidGauge) {
+            return ((UuidGauge) metric).value();
         }
 
         throw new AttributeNotFoundException("Unknown metric class " + metric.getClass());
@@ -135,7 +145,7 @@ public class MetricSetMbean implements DynamicMBean {
         });
 
         return new MBeanInfo(
-                MetricManager.class.getName(),
+                MetricManagerImpl.class.getName(),
                 metricSet.name(),
                 attrs.toArray(new MBeanAttributeInfo[0]),
                 null,
@@ -174,6 +184,12 @@ public class MetricSetMbean implements DynamicMBean {
             return Long.class.getName();
         } else if (metric instanceof DistributionMetric) {
             return long[].class.getName();
+        } else if (metric instanceof CompositeMetric) {
+            return String.class.getName();
+        } else if (metric instanceof StringGauge) {
+            return String.class.getName();
+        } else if (metric instanceof UuidGauge) {
+            return UuidGauge.class.getName();
         }
 
         throw new IllegalArgumentException("Unknown metric class " + metric.getClass());

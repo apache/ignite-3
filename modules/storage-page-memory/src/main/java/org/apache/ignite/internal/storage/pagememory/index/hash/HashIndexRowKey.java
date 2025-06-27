@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 import org.apache.ignite.internal.storage.pagememory.index.common.IndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Key to search for a {@link HashIndexRow} in the {@link HashIndexTree}.
@@ -50,5 +51,10 @@ public class HashIndexRowKey implements IndexRowKey {
     @Override
     public IndexColumns indexColumns() {
         return indexColumns;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(HashIndexRowKey.class, this);
     }
 }

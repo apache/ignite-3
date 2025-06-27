@@ -25,14 +25,13 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.schema.FullTableSchema;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.DefaultValueProvider.FunctionalValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
-import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
@@ -92,7 +91,6 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
             case INT64:
             case FLOAT:
             case DOUBLE:
-            case NUMBER:
             case DATE:
             case UUID:
             case BOOLEAN:
@@ -107,17 +105,11 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
                 length = 0;
                 break;
             case STRING:
-            case BYTES:
+            case BYTE_ARRAY:
                 VarlenNativeType varlenNativeType = (VarlenNativeType) nativeType;
                 precision = 0;
                 scale = 0;
                 length = varlenNativeType.length();
-                break;
-            case BITMASK:
-                BitmaskNativeType bitmaskNativeType = (BitmaskNativeType) nativeType;
-                precision = 0;
-                scale = 0;
-                length = bitmaskNativeType.bits();
                 break;
             case TIME:
             case DATETIME:
@@ -133,7 +125,7 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
 
         return new CatalogTableColumnDescriptor(
                 column.name(),
-                nativeType.spec().asColumnType(),
+                nativeType.spec(),
                 column.nullable(),
                 precision,
                 scale,

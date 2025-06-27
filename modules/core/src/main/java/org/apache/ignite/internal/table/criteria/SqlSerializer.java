@@ -18,19 +18,18 @@
 package org.apache.ignite.internal.table.criteria;
 
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalOrSimpleName;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.criteria.Column;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaVisitor;
@@ -165,7 +164,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
      */
     public static class Builder  {
         @Nullable
-        private String tableName;
+        private QualifiedName tableName;
 
         @Nullable
         private Collection<String> columnNames;
@@ -177,12 +176,12 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
         private Criteria where;
 
         /**
-         * Sets the table name. Must be unquoted name or name is cast to upper case.
+         * Sets the table name.
          *
          * @param tableName Table name.
          * @return This builder instance.
          */
-        public SqlSerializer.Builder tableName(String tableName) {
+        public SqlSerializer.Builder tableName(QualifiedName tableName) {
             this.tableName = tableName;
 
             return this;
@@ -228,7 +227,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
          * @return SQL query text and arguments.
          */
         public SqlSerializer build() {
-            if (nullOrBlank(tableName)) {
+            if (tableName == null) {
                 throw new IllegalArgumentException("Table name can't be null or blank");
             }
 
@@ -236,15 +235,12 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
                     .append("SELECT");
 
             if (!nullOrBlank(indexName)) {
-                if (!canonicalOrSimpleName(indexName)) {
-                    throw new IllegalArgumentException("Index name must be alphanumeric with underscore and start with letter. Was: "
-                            + indexName);
-                }
+                String normalizedIndexName = IgniteNameUtils.parseIdentifier(indexName);
 
-                ser.append(" /*+ FORCE_INDEX(").append(normalizeIndexName(indexName)).append(") */");
+                ser.append(" /*+ FORCE_INDEX(").append(quoteIfNeeded(normalizedIndexName)).append(") */");
             }
 
-            ser.append(" * FROM ").append(quoteIfNeeded(tableName));
+            ser.append(" * FROM ").append(tableName.toCanonicalForm());
 
             if (where != null) {
                 if (CollectionUtils.nullOrEmpty(columnNames)) {
@@ -258,10 +254,6 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
             }
 
             return ser;
-        }
-
-        private static String normalizeIndexName(String name) {
-            return quote(name.toUpperCase(Locale.ROOT));
         }
     }
 }

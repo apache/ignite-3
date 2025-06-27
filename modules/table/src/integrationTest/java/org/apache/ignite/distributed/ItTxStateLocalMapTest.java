@@ -29,17 +29,17 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
@@ -69,8 +69,8 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
-    @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -102,12 +102,12 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfig,
                 txConfiguration,
-                storageUpdateConfiguration,
+                systemDistributedConfiguration,
                 workDir,
                 NODES,
                 NODES,
                 false,
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 replicationConfiguration
         );
 
@@ -141,17 +141,17 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
     private void testTransaction(Consumer<Transaction> touchOp, boolean checkAfterTouch, boolean commit) {
         ClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
-        String coordinatorId = coord.id();
+        UUID coordinatorId = coord.id();
 
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
 
-        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, tx.commitPartition(), null), List.of(0));
+        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, tx.commitPartition(), null, null, null), List.of(0));
         checkLocalTxStateOnNodes(tx.id(), null, IntStream.range(1, NODES).boxed().collect(toList()));
 
         touchOp.accept(tx);
 
         if (checkAfterTouch) {
-            checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, tx.commitPartition(), null));
+            checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, tx.commitPartition(), null, null, null));
         }
 
         if (commit) {
@@ -166,7 +166,9 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                         commit ? COMMITTED : ABORTED,
                         coordinatorId,
                         tx.commitPartition(),
-                        commit ? testCluster.clockServices.get(coord.name()).now() : null
+                        commit ? testCluster.clockServices.get(coord.name()).now() : null,
+                        null,
+                        null
                 )
         );
     }

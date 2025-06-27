@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static java.util.UUID.randomUUID;
+import static org.apache.calcite.rel.core.JoinRelType.ANTI;
+import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import java.time.Clock;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,31 +40,39 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlJoinProjection;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -72,10 +84,13 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
     private QueryTaskExecutorImpl taskExecutor;
 
+    private final List<ExecutionContext<?>> contexts = new ArrayList<>();
+
     @BeforeEach
     public void beforeTest() {
-        var failureProcessor = new FailureProcessor("no_node", new StopNodeFailureHandler());
-        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor);
+        var failureProcessor = new FailureManager(new NoOpFailureHandler());
+        var metricManager = new NoOpMetricManager();
+        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor, metricManager);
         taskExecutor.start();
     }
 
@@ -84,16 +99,26 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
      */
     @AfterEach
     public void afterTest() {
+        contexts.forEach(ExecutionContext::cancel);
+        contexts.clear();
         taskExecutor.stop();
     }
 
     protected abstract RowHandler<T> rowHandler();
 
     protected ExecutionContext<T> executionContext() {
-        return executionContext(false);
+        return executionContext(-1, false);
+    }
+
+    protected ExecutionContext<T> executionContext(int bufferSize) {
+        return executionContext(bufferSize, false);
     }
 
     protected ExecutionContext<T> executionContext(boolean withDelays) {
+        return executionContext(-1, withDelays);
+    }
+
+    protected ExecutionContext<T> executionContext(int bufferSize, boolean withDelays) {
         if (withDelays) {
             StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
                     NamedThreadFactory.create("fake-test-node", "sqlTestExec", log),
@@ -116,17 +141,28 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         FragmentDescription fragmentDesc = getFragmentDescription();
 
-        return new ExecutionContext<>(
+        ClusterNode node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
+        ExecutionContext<T> executionContext = new ExecutionContext<>(
+                new ExpressionFactoryImpl<>(
+                        Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
+                ),
                 taskExecutor,
-                UUID.randomUUID(),
-                new ClusterNodeImpl("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
-                "fake-test-node",
+                new ExecutionId(randomUUID(), 0),
+                node,
+                node.name(),
+                node.id(),
                 fragmentDesc,
                 rowHandler(),
                 Map.of(),
-                TxAttributes.fromTx(new NoOpTransaction("fake-test-node")),
-                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
+                TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
+                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
+                bufferSize,
+                Clock.systemUTC()
         );
+
+        contexts.add(executionContext);
+
+        return executionContext;
     }
 
     protected FragmentDescription getFragmentDescription() {
@@ -337,35 +373,6 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
         }
     }
 
-    static RowHandler.RowFactory<Object[]> rowFactory() {
-        return new RowHandler.RowFactory<>() {
-            @Override
-            public RowHandler<Object[]> handler() {
-                return ArrayRowHandler.INSTANCE;
-            }
-
-            @Override
-            public RowBuilder<Object[]> rowBuilder() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Object[] create() {
-                throw new AssertionError();
-            }
-
-            @Override
-            public Object[] create(Object... fields) {
-                return fields;
-            }
-
-            @Override
-            public Object[] create(InternalTuple tuple) {
-                throw new UnsupportedOperationException();
-            }
-        };
-    }
-
     static TupleFactory tupleFactoryFromSchema(BinaryTupleSchema schema) {
         return new BinaryTupleFactory(schema);
     }
@@ -398,5 +405,31 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
             return new BinaryTuple(schema.elementCount(), builder.build());
         }
+    }
+
+    static SqlJoinProjection<Object[]> identityProjection() {
+        return (c, r1, r2) -> ArrayUtils.concat(r1, r2);
+    }
+
+    static @Nullable SqlJoinProjection<Object[]> createIdentityProjectionIfNeeded(JoinRelType type) {
+        if (type == SEMI || type == ANTI) {
+            return null;
+        }
+
+        return identityProjection();
+    }
+
+    /**
+     * Gets appropriate field from two rows by offset.
+     *
+     * @param hnd RowHandler impl.
+     * @param offset Current offset.
+     * @param row1 row1.
+     * @param row2 row2.
+     * @return Returns field by offset.
+     */
+    static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
+        return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
+                hnd.get(offset - hnd.columnCount(row1), row2);
     }
 }

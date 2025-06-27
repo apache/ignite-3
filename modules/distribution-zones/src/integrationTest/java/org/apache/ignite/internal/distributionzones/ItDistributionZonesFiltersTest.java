@@ -20,38 +20,44 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestRebalanceUtil.partitionReplicationGroupId;
+import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignmentsKey;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deserializeLatestDataNodesHistoryEntry;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.TestRebalanceUtil;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Integration test for data nodes' filters functionality.
@@ -61,14 +67,15 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     private static final String TABLE_NAME = "table1";
 
-    @Language("JSON")
-    private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+    @Language("HOCON")
+    private static final String NODE_ATTRIBUTES = "{region = US, storage = SSD}";
 
-    private static final String STORAGE_PROFILES = String.format("'%s, %s'", DEFAULT_ROCKSDB_PROFILE_NAME, DEFAULT_AIPERSIST_PROFILE_NAME);
+    private static final String STORAGE_PROFILES =
+            String.format("'%s', '%s'", DEFAULT_ROCKSDB_PROFILE_NAME, DEFAULT_AIPERSIST_PROFILE_NAME);
 
-    @Language("JSON")
+    @Language("HOCON")
     private static final String STORAGE_PROFILES_CONFIGS = String.format(
-            "{%s:{engine:\"rocksDb\"}, %s:{engine:\"aipersist\"}}",
+            "{%s.engine = rocksdb, %s.engine = aipersist}",
             DEFAULT_ROCKSDB_PROFILE_NAME,
             DEFAULT_AIPERSIST_PROFILE_NAME
     );
@@ -79,23 +86,18 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
     private static final int TIMEOUT_MILLIS = 10_000;
 
-    @Language("JSON")
-    private static String createStartConfig(@Language("JSON") String nodeAttributes, @Language("JSON") String storageProfiles) {
-        return "{\n"
+    @Language("HOCON")
+    private static String createStartConfig(@Language("HOCON") String nodeAttributes, @Language("HOCON") String storageProfiles) {
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
-                + "    nodeFinder: {\n"
-                + "      netClusterNodes: [ {} ]\n"
-                + "    }\n"
+                + "    nodeFinder.netClusterNodes: [ {} ]\n"
                 + "  },"
-                + "  nodeAttributes: {\n"
-                + "    nodeAttributes: " + nodeAttributes
-                + "  },\n"
-                + "  storage: {\n"
-                + "    profiles: " + storageProfiles
-                + "  },\n"
-                + "  clientConnector: { port:{} },\n"
-                + "  rest.port: {}\n"
+                + "  nodeAttributes.nodeAttributes: " + nodeAttributes + ",\n"
+                + "  storage.profiles: " + storageProfiles + ",\n"
+                + "  clientConnector.port: {},\n"
+                + "  rest.port: {},\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 
@@ -115,41 +117,43 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      * @throws Exception If failed.
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21387")
-    void testFilteredDataNodesPropagatedToStable() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testFilteredDataNodesPropagatedToStable(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
         // This node do not pass the filter
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: EU, storage: SSD}";
 
-        IgniteImpl node = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
+        IgniteImpl node = unwrapIgniteImpl(startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS)));
 
-        node.sql().execute(null, createZoneSql(2, 3, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES));
+        node.sql().execute(
+                null,
+                createZoneSql(2, 3, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
         node.sql().execute(null, createTableSql());
 
-        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
-                .getFieldValue(node, IgniteImpl.class, "metaStorageMgr");
+        MetaStorageManager metaStorageManager = node.metaStorageManager();
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "distributedTblMgr");
+        TableViewInternal table = unwrapTableImpl(node.distributedTableManager().table(TABLE_NAME));
 
-        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
-
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                stablePartitionAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().size(),
                 1,
                 TIMEOUT_MILLIS
         );
 
-        @Language("JSON") String secondNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String secondNodeAttributes = "{region: US, storage: SSD}";
 
         // This node pass the filter but storage profiles of a node do not match zone's storage profiles.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21387 recovery of this node is failing,
         // TODO: because there are no appropriate storage profile on the node
-        @Language("JSON") String notMatchingProfiles = "{dummy:{engine:\"dummy\"},another_dummy:{engine:\"dummy\"}}";
+        @Language("HOCON") String notMatchingProfiles = "{dummy:{engine:\"dummy\"},another_dummy:{engine:\"dummy\"}}";
         startNode(2, createStartConfig(secondNodeAttributes, notMatchingProfiles));
 
         // This node pass the filter and storage profiles of a node match zone's storage profiles.
@@ -159,20 +163,20 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(zoneId),
-                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
+                zoneDataNodesHistoryKey(zoneId),
+                DataNodesHistorySerializer::deserialize,
                 4,
                 TIMEOUT_MILLIS
         );
 
-        Entry dataNodesEntry1 = metaStorageManager.get(zoneDataNodesKey(zoneId)).get(5_000, MILLISECONDS);
+        Entry dataNodesEntry1 = metaStorageManager.get(zoneDataNodesHistoryKey(zoneId)).get(5_000, MILLISECONDS);
 
         assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= dataNodesEntry1.revision(), TIMEOUT_MILLIS));
 
         // We check that two nodes that pass the filter and storage profiles are presented in the stable key.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                stablePartitionAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(3).name()),
@@ -186,35 +190,36 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      *
      * @throws Exception If failed.
      */
-    @Test
-    void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testAlteringFiltersPropagatedDataNodesToStableImmediately(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
-        IgniteImpl node0 = node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
-        node0.sql().execute(null, createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES));
+        node0.sql().execute(
+                null,
+                createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
         node0.sql().execute(null, createTableSql());
 
-        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
-                .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
+        MetaStorageManager metaStorageManager = node0.metaStorageManager();
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
+        TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
 
-        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
-
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                stablePartitionAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
         );
 
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: US, storage: SSD}";
 
         // This node pass the filter
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
@@ -227,7 +232,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // We check that all nodes that pass the filter are presented in the stable key because altering filter triggers immediate scale up.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                stablePartitionAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(1).name()),
@@ -241,35 +246,36 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      *
      * @throws Exception If failed.
      */
-    @Test
-    void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
-        IgniteImpl node0 = node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
-        node0.sql().execute(null, createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES));
+        node0.sql().execute(
+                null,
+                createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
         node0.sql().execute(null, createTableSql());
 
-        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
-                .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
+        MetaStorageManager metaStorageManager = node0.metaStorageManager();
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
+        TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
 
-        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
-
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                stablePartitionAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
                 TIMEOUT_MILLIS
         );
 
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: US, storage: SSD}";
 
         // This node pass the filter
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
@@ -284,11 +290,11 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         node0.sql().execute(null, alterZoneSql(newFilter));
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 2, zoneId);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 0, zoneId);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                stablePartitionAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
@@ -302,21 +308,25 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      *
      * @throws Exception If failed.
      */
-    @Test
-    void testFilteredEmptyDataNodesDoNotTriggerRebalance() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testFilteredEmptyDataNodesDoNotTriggerRebalance(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
 
         // This node do not pass the filter.
-        IgniteImpl node0 = node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
         // This node passes the filter
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: EU, storage: HDD}";
 
-        IgniteImpl node1 = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
+        Ignite node1 = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
-        node1.sql().execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES));
+        node1.sql().execute(
+                null,
+                createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
-        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils.getFieldValue(
+        MetaStorageManager metaStorageManager = IgniteTestUtils.getFieldValue(
                 node0,
                 IgniteImpl.class,
                 "metaStorageMgr"
@@ -324,70 +334,70 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         int zoneId = getZoneId(node0);
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 2, zoneId);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
 
         node1.sql().execute(null, createTableSql());
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
+        TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
 
-        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
-
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
-        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
+        assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
 
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 0, zoneId);
 
         // Check that pending are null, so there wasn't any rebalance.
-        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
+        assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
     }
 
-    @Test
-    void testFilteredEmptyDataNodesDoNotTriggerRebalanceOnReplicaUpdate() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testFilteredEmptyDataNodesDoNotTriggerRebalanceOnReplicaUpdate(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
 
         // This node do not pass the filter.
-        IgniteImpl node0 = node(0);
+        IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
         // This node passes the filter
-        @Language("JSON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: EU, storage: HDD}";
 
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
-        node0.sql().execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES));
+        node0.sql().execute(
+                null,
+                createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
-        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils.getFieldValue(
-                node0,
+        MetaStorageManager metaStorageManager = IgniteTestUtils.getFieldValue(
+                unwrapIgniteImpl(node0),
                 IgniteImpl.class,
                 "metaStorageMgr"
         );
 
         int zoneId = getZoneId(node0);
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 2, zoneId);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
 
         node0.sql().execute(null, createTableSql());
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
+        TableViewInternal table = unwrapTableViewInternal(node0.distributedTableManager().table(TABLE_NAME));
 
-        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
-
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
-        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
+        assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
 
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 0, zoneId);
 
         // Check that stable and pending are null, so there wasn't any rebalance.
-        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
+        assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
 
         node0.sql().execute(null, alterZoneSql(2));
 
@@ -396,7 +406,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // We need to be sure, that the first asynchronous catalog change of replica was handled,
         // so we create a listener with a latch, and change replica again and wait for latch, so we can be sure that the first
         // replica was handled.
-        node0.catalogManager().listen(CatalogEvent.ZONE_ALTER, parameters -> {
+        unwrapIgniteImpl(node0).catalogManager().listen(CatalogEvent.ZONE_ALTER, parameters -> {
             latch.countDown();
 
             return falseCompletedFuture();
@@ -407,7 +417,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertTrue(latch.await(10_000, MILLISECONDS));
 
         // Check that stable and pending are null, so there wasn't any rebalance.
-        assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
+        assertPendingAssignmentsNeverExisted(metaStorageManager, partId);
     }
 
     private static void waitDataNodeAndListenersAreHandled(
@@ -417,8 +427,8 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     ) throws Exception {
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(zoneId),
-                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
+                zoneDataNodesHistoryKey(zoneId),
+                (v) -> deserializeLatestDataNodesHistoryEntry(v).size(),
                 expectedDataNodesSize,
                 TIMEOUT_MILLIS
         );
@@ -434,48 +444,58 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(zoneId),
-                (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
+                zoneDataNodesHistoryKey(zoneId),
+                (v) -> deserializeLatestDataNodesHistoryEntry(v).size(),
                 expectedDataNodesSize,
                 TIMEOUT_MILLIS
         );
     }
 
-    private static void assertPendingAssignmentsWereNeverExist(
+    private static void assertPendingAssignmentsNeverExisted(
             MetaStorageManager metaStorageManager,
-            TablePartitionId partId
+            PartitionGroupId partId
     ) throws InterruptedException, ExecutionException {
-        assertTrue(metaStorageManager.get(pendingPartAssignmentsKey(partId)).get().empty());
+        assertTrue(metaStorageManager.get(TestRebalanceUtil.pendingPartitionAssignmentsKey(partId)).get().empty());
     }
 
-    private static String createZoneSql(int partitions, int replicas, int scaleUp, int scaleDown, String filter, String storageProfiles) {
-        String sqlFormat = "CREATE ZONE \"%s\" WITH "
-                + "\"REPLICAS\" = %s, "
-                + "\"PARTITIONS\" = %s, "
-                + "\"DATA_NODES_FILTER\" = '%s', "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %s, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %s, "
-                + "\"STORAGE_PROFILES\" = %s";
+    private static String createZoneSql(
+            int partitions,
+            int replicas,
+            int scaleUp,
+            int scaleDown,
+            String filter,
+            String storageProfiles,
+            ConsistencyMode consistencyMode
+    ) {
+        String sqlFormat = "CREATE ZONE %s ("
+                + "REPLICAS %s, "
+                + "PARTITIONS %s, "
+                + "NODES FILTER '%s', "
+                + "AUTO SCALE UP %s, "
+                + "AUTO SCALE DOWN %s, "
+                + "CONSISTENCY MODE '%s') "
+                + "STORAGE PROFILES [%s]";
 
-        return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown, storageProfiles);
+        return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown, consistencyMode, storageProfiles);
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET (NODES FILTER '%s')", ZONE_NAME, filter);
     }
 
     private static String alterZoneSql(int replicas) {
-        return String.format("ALTER ZONE \"%s\" SET \"REPLICAS\" = %s", ZONE_NAME, replicas);
+        return String.format("ALTER ZONE \"%s\" SET (REPLICAS %s)", ZONE_NAME, replicas);
     }
 
     private static String createTableSql() {
         return String.format(
-                "CREATE TABLE %s(%s INT PRIMARY KEY, %s VARCHAR) WITH STORAGE_PROFILE='%s',PRIMARY_ZONE='%s'",
-                TABLE_NAME, COLUMN_KEY, COLUMN_VAL, DEFAULT_AIPERSIST_PROFILE_NAME, ZONE_NAME
+                "CREATE TABLE %s(%s INT PRIMARY KEY, %s VARCHAR) ZONE %s STORAGE PROFILE '%s'",
+                TABLE_NAME, COLUMN_KEY, COLUMN_VAL, ZONE_NAME, DEFAULT_AIPERSIST_PROFILE_NAME
         );
     }
 
-    private static int getZoneId(IgniteImpl node) {
-        return DistributionZonesTestUtil.getZoneIdStrict(node.catalogManager(), ZONE_NAME, node.clock().nowLong());
+    private static int getZoneId(Ignite node) {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
+        return DistributionZonesTestUtil.getZoneIdStrict(igniteImpl.catalogManager(), ZONE_NAME, igniteImpl.clock().nowLong());
     }
 }

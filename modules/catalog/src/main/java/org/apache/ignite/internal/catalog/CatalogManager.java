@@ -19,6 +19,9 @@ package org.apache.ignite.internal.catalog;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
@@ -26,19 +29,33 @@ import org.apache.ignite.internal.manager.IgniteComponent;
  */
 public interface CatalogManager extends IgniteComponent, CatalogService {
     /**
+     * Initial update timestamp for a catalog descriptor, this token is valid only before the first call of
+     * {@link UpdateEntry#applyUpdate(Catalog, HybridTimestamp)}.
+     *
+     * <p>After that {@link CatalogObjectDescriptor#updateTimestamp()} will be initialised with a timestamp from
+     * {@link UpdateEntry#applyUpdate(Catalog, HybridTimestamp)}
+     */
+    HybridTimestamp INITIAL_TIMESTAMP = HybridTimestamp.MIN_VALUE;
+
+    /**
      * Executes given command.
      *
      * @param command Command to execute.
-     * @return Future representing result of execution (it will be completed with the created catalog version).
+     * @return Future representing result of execution with the created catalog version.
      */
-    CompletableFuture<Integer> execute(CatalogCommand command);
+    CompletableFuture<CatalogApplyResult> execute(CatalogCommand command);
 
     /**
      * Executes given list of commands atomically. That is, either all commands will be applied at once
      * or neither of them. The whole bulk will increment catalog's version by a single point.
      *
      * @param commands Commands to execute.
-     * @return Future representing result of execution (it will be completed with the created catalog version).
+     * @return Future representing result of execution with the created catalog version.
      */
-    CompletableFuture<Integer> execute(List<CatalogCommand> commands);
+    CompletableFuture<CatalogApplyResult> execute(List<CatalogCommand> commands);
+
+    /**
+     * Returns a future, which completes when empty catalog is initialised. Otherwise this future completes upon startup.
+     */
+    CompletableFuture<Void> catalogInitializationFuture();
 }

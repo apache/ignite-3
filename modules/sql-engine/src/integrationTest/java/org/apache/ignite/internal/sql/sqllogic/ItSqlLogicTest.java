@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.sqllogic;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -33,29 +33,38 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.sql.sqllogic.SqlLogicTestEnvironment.RestartMode;
 import org.apache.ignite.internal.sql.sqllogic.SqlScriptRunner.RunnerRuntime;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -64,6 +73,7 @@ import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -136,11 +146,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
  *
  * @see <a href="https://www.sqlite.org/sqllogictest/doc/trunk/about.wiki">Extended format documentation.</a>
  */
-@Tag(value = "sqllogic")
-@ExtendWith(SystemPropertiesExtension.class)
+@Tag("sqllogic")
+@ExtendWith({SystemPropertiesExtension.class, WorkDirectoryExtension.class, FailureManagerExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql")
-public class ItSqlLogicTest extends IgniteIntegrationTest {
+// The following is to make sure we unlock LWM on data nodes promptly so that dropped tables are destroyed fast.
+@WithSystemProperty(key = ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "1000")
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql/group1")
+// TODO: https://issues.apache.org/jira/browse/IGNITE-25191 - remove FailureManager logging mute.
+@MuteFailureManagerLogging
+public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
 
     private static final String NODE_NAME_PREFIX = "sqllogic";
@@ -159,7 +173,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static final int BASE_REST_PORT = 10300;
 
     /** Nodes bootstrap configuration pattern. */
-    private static final String NODE_BOOTSTRAP_CFG = "{\n"
+    private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
             + "  \"network\": {\n"
             + "    \"port\":{},\n"
             + "    \"nodeFinder\":{\n"
@@ -169,6 +183,18 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
             + "  clientConnector.port: {},\n"
             + "  rest.port: {}\n"
             + "}";
+
+    /**
+     * Interval between idle Safe Time synchronizations for the Metastorage.
+     *
+     * <p>This value is chosen empirically (it allows to run the suite as fast as possible at the TC).
+     */
+    private static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 10;
+
+    private static final long TX_RW_TIMEOUT = TimeUnit.SECONDS.toMillis(40);
+
+    /** Embedded nodes. */
+    private static final List<IgniteServer> NODES = new ArrayList<>();
 
     /** Cluster nodes. */
     private static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
@@ -181,7 +207,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static Path SCRIPTS_ROOT;
 
     /** Count of the nodes in the test cluster. */
-    private static int NODES;
+    private static int NODES_COUNT;
 
     /** Test timeout. */
     private static long TIMEOUT;
@@ -195,9 +221,12 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     /** Flag to include '*.test_slow' scripts to tests run. */
     private static boolean INCLUDE_SLOW;
 
+    /** Metrics sources that should be enabled. For debug purposes. */
+    private static final Set<String> enabledMetrics = Set.of(); // Set.of("jvm", "os", "metastorage");
+
     @BeforeAll
-    static void init() {
-        config();
+    static void init(TestInfo info) {
+        config(info.getTestClass());
 
         startNodes();
     }
@@ -283,22 +312,24 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
 
     private void beforeTest() {
         if (RESTART_CLUSTER != RestartMode.TEST) {
-            for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
-                try (ResultSet rs = CLUSTER_NODES.get(0).sql().execute(null, "DROP TABLE " + t.name())) {
-                    assertTrue(rs.wasApplied());
-                }
+            List<Table> tables = CLUSTER_NODES.get(0).tables().tables();
+            if (!tables.isEmpty()) {
+                String script = tables.stream().map(t -> "DROP TABLE " + t.name())
+                        .collect(Collectors.joining(";"));
+
+                CLUSTER_NODES.get(0).sql().executeScript(script);
             }
         }
     }
 
-    private static void config() {
-        SqlLogicTestEnvironment env = ItSqlLogicTest.class.getAnnotation(SqlLogicTestEnvironment.class);
+    private static void config(Optional<Class<?>> testClass) {
+        SqlLogicTestEnvironment env = testClass.orElse(ItSqlLogicTest.class).getAnnotation(SqlLogicTestEnvironment.class);
 
         assert env != null;
         assert !Strings.isNullOrEmpty(env.scriptsRoot());
 
         SCRIPTS_ROOT = FS.getPath(env.scriptsRoot());
-        NODES = env.nodes();
+        NODES_COUNT = env.nodes();
         TEST_REGEX = Strings.isNullOrEmpty(env.regex()) ? null : Pattern.compile(env.regex());
         RESTART_CLUSTER = env.restart();
         TIMEOUT = env.timeout();
@@ -318,7 +349,7 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     private static void startNodes() {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
-        List<CompletableFuture<Ignite>> futures = IntStream.range(0, NODES)
+        List<IgniteServer> nodes = IntStream.range(0, NODES_COUNT)
                 .mapToObj(i -> {
                     String nodeName = NODE_NAME_PREFIX + i;
 
@@ -330,23 +361,42 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                 })
                 .collect(toList());
 
-        String metaStorageNodeName = NODE_NAME_PREFIX + "0";
-
         InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(metaStorageNodeName)
-                .metaStorageNodeNames(List.of(metaStorageNodeName))
+                .metaStorageNodes(nodes.get(0))
                 .clusterName("cluster")
-                .clusterConfiguration("{"
-                        + "gc.lowWatermark.dataAvailabilityTime: 1010,\n"
-                        + "gc.lowWatermark.updateFrequency: 3000\n"
+                .clusterConfiguration("ignite {"
+                        + "transaction.readWriteTimeoutMillis: " + TX_RW_TIMEOUT + ",\n"
+                        + "system.idleSafeTimeSyncIntervalMillis: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
+                        // TODO: Set dataAvailabilityTimeMillis to 5000 after IGNITE-24002 is fixed.
+                        + "gc.lowWatermark.dataAvailabilityTimeMillis: 30000,\n"
+                        + "gc.lowWatermark.updateIntervalMillis: 1000,\n"
+                        + "metrics.exporters.logPush.exporterName: logPush,\n"
+                        + "metrics.exporters.logPush.periodMillis: 5000\n"
                         + "}")
                 .build();
-        TestIgnitionManager.init(initParameters);
+        TestIgnitionManager.init(nodes.get(0), initParameters);
 
-        for (CompletableFuture<Ignite> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
+        for (IgniteServer node : nodes) {
+            assertThat(node.waitForInitAsync(), willCompleteSuccessfully());
+            NODES.add(node);
 
-            CLUSTER_NODES.add(await(future));
+            IgniteImpl ignite = unwrapIgniteImpl(node.api());
+            CLUSTER_NODES.add(ignite);
+
+            enableMetrics(ignite, enabledMetrics);
+        }
+    }
+
+    /** Disables all metrics except provided ones. */
+    private static void enableMetrics(IgniteImpl ignite, Set<String> metricsNames) {
+        MetricManager metricManager = ignite.metricManager();
+
+        for (MetricSource src : metricManager.metricSources()) {
+            if (metricsNames.contains(src.name())) {
+                metricManager.enable(src);
+            } else {
+                metricManager.disable(src);
+            }
         }
     }
 
@@ -354,18 +404,12 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
         LOG.info(">>> Stopping cluster...");
 
         CLUSTER_NODES.clear();
-
-        List<AutoCloseable> closeables = IntStream.range(0, NODES)
-                .mapToObj(i -> NODE_NAME_PREFIX + i)
-                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
-                .collect(toList());
-
-        IgniteUtils.closeAll(closeables);
+        IgniteUtils.closeAll(NODES.stream().map(node -> node::shutdown));
 
         LOG.info(">>> Cluster is stopped.");
     }
 
-    private static final class TestRunnerRuntime implements RunnerRuntime {
+    static final class TestRunnerRuntime implements RunnerRuntime {
 
         /**
          * {@inheritDoc}

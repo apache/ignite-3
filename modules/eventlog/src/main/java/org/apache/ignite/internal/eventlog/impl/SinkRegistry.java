@@ -19,9 +19,27 @@ package org.apache.ignite.internal.eventlog.impl;
 
 import java.util.Set;
 import org.apache.ignite.internal.eventlog.api.Sink;
+import org.jetbrains.annotations.Nullable;
 
+/**
+ * Sink registry. Follows the same principles as {@link ChannelRegistry}.
+ */
 interface SinkRegistry {
-    Sink getByName(String name);
+    /**
+     * Get sink by name.
+     *
+     * @param name Sink name.
+     * @return Sink instance.
+     */
+    @Nullable
+    Sink<?> getByName(String name);
 
-    Set<Sink> findAllByChannel(String channel);
+    /**
+     * Get all sinks that can handle the given channel.
+     *
+     * @param channel Channel name.
+     * @return Set of sinks or {@code null} if there are no sinks for the given channel.
+     */
+    @Nullable
+    Set<Sink<?>> findAllByChannel(String channel);
 }

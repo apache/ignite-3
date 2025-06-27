@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands.treesitter.parser;
 
+import org.treesitter.TSLanguage;
 import org.treesitter.TSParser;
 import org.treesitter.TSTree;
+import org.treesitter.TreeSitterHocon;
 import org.treesitter.TreeSitterJson;
 import org.treesitter.TreeSitterSql;
 
@@ -36,9 +38,7 @@ public final class Parser {
      * @return The abstract syntax tree.
      */
     public static TSTree parseSql(String text) {
-        var parser = new TSParser();
-        parser.setLanguage(new TreeSitterSql());
-        return parser.parseString(null, text);
+        return parseLanguage(text, new TreeSitterSql());
     }
 
     /**
@@ -48,8 +48,29 @@ public final class Parser {
      * @return The abstract syntax tree.
      */
     public static TSTree parseJson(String text) {
-        var parser = new TSParser();
-        parser.setLanguage(new TreeSitterJson());
+        return parseLanguage(text, new TreeSitterJson());
+    }
+
+    /**
+     * Parses the input text as HOCON.
+     *
+     * @param text The input text.
+     * @return The abstract syntax tree.
+     */
+    public static TSTree parseHocon(String text) {
+        return parseLanguage(text, new TreeSitterHocon());
+    }
+
+    /**
+     * Parses the input text.
+     *
+     * @param text The input text.
+     * @param language The language to parse the text with.
+     * @return The abstract syntax tree.
+     */
+    private static TSTree parseLanguage(String text, TSLanguage language) {
+        TSParser parser = new TSParser();
+        parser.setLanguage(language);
         return parser.parseString(null, text);
     }
 }

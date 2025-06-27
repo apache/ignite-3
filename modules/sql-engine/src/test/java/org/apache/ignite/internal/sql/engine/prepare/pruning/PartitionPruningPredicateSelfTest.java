@@ -17,33 +17,22 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
+import static java.util.UUID.randomUUID;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateLiteral;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneOffset;
-import java.util.Arrays;
+import it.unimi.dsi.fastutil.longs.LongList;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.util.DateString;
-import org.apache.calcite.util.TimeString;
-import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
@@ -56,16 +45,15 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Assumptions;
@@ -86,29 +74,67 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         log.info("Seed is {}", seed);
     }
 
-    private static List<ColumnType> columnTypes() {
-        return Arrays.stream(ColumnType.values())
-                .filter(t -> t != ColumnType.NULL
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-18431 BitSet is not supported.
-                        && t != ColumnType.BITMASK
-                        && t != ColumnType.NUMBER
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-15200 Include interval types after this issue is resolved
-                        && t != ColumnType.DURATION
-                        && t != ColumnType.PERIOD
-                )
-                .collect(Collectors.toList());
+    private static List<NativeType> nativeTypes() {
+        List<NativeType> nativeTypes = new ArrayList<>();
+        nativeTypes.add(NativeTypes.BOOLEAN);
+        nativeTypes.add(NativeTypes.INT8);
+        nativeTypes.add(NativeTypes.INT16);
+        nativeTypes.add(NativeTypes.INT32);
+        nativeTypes.add(NativeTypes.INT64);
+        nativeTypes.add(NativeTypes.FLOAT);
+        nativeTypes.add(NativeTypes.DOUBLE);
+
+        nativeTypes.add(NativeTypes.decimalOf(2, 0));
+        nativeTypes.add(NativeTypes.decimalOf(6, 0));
+        nativeTypes.add(NativeTypes.decimalOf(12, 12));
+        nativeTypes.add(NativeTypes.decimalOf(16, 8));
+        nativeTypes.add(NativeTypes.decimalOf(42, 37));
+
+        nativeTypes.add(NativeTypes.stringOf(16));
+        nativeTypes.add(NativeTypes.blobOf(16));
+
+        nativeTypes.add(NativeTypes.DATE);
+
+        nativeTypes.add(NativeTypes.time(0));
+        nativeTypes.add(NativeTypes.time(3));
+        nativeTypes.add(NativeTypes.time(5));
+        nativeTypes.add(NativeTypes.time(6));
+        nativeTypes.add(NativeTypes.time(8));
+        nativeTypes.add(NativeTypes.time(9));
+
+        nativeTypes.add(NativeTypes.timestamp(0));
+        nativeTypes.add(NativeTypes.timestamp(3));
+        nativeTypes.add(NativeTypes.timestamp(5));
+        nativeTypes.add(NativeTypes.timestamp(6));
+        nativeTypes.add(NativeTypes.timestamp(8));
+        nativeTypes.add(NativeTypes.timestamp(9));
+
+        nativeTypes.add(NativeTypes.datetime(0));
+        nativeTypes.add(NativeTypes.datetime(3));
+        nativeTypes.add(NativeTypes.datetime(5));
+        nativeTypes.add(NativeTypes.datetime(6));
+        nativeTypes.add(NativeTypes.datetime(8));
+        nativeTypes.add(NativeTypes.datetime(9));
+
+        nativeTypes.add(NativeTypes.UUID);
+
+        return nativeTypes;
     }
 
     @ParameterizedTest
-    @MethodSource("columnTypes")
-    public void testLiteralValue(ColumnType columnType) {
+    @MethodSource("nativeTypes")
+    public void testLiteralValue(NativeType nativeType) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
         //  because it allows to support CAST('uuid-str' AS UUID) expressions.
-        Assumptions.assumeFalse(columnType == ColumnType.UUID);
+        Assumptions.assumeFalse(nativeType.spec() == ColumnType.UUID);
 
-        IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
+        if (nativeType instanceof TemporalNativeType) {
+            TemporalNativeType temporalNativeType = (TemporalNativeType) nativeType;
+            Assumptions.assumeFalse(temporalNativeType.precision() > 3);
+        }
 
-        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 4, 2, 4);
+        IgniteDistribution distribution = TestBuilders.affinity(List.of(0), 1, 1);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -119,24 +145,22 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                 .build();
 
         int fieldIndex = 0;
-        Object val = generateFieldValue(table, fieldIndex);
-        RexNode expr = generateLiteralOrValueExpr(columnType, val);
+        Object val = generateFieldValue(table, fieldIndex, nativeType);
+        RexNode expr = generateLiteral(nativeType.spec(), val);
 
         PartitionPruningColumns columns = new PartitionPruningColumns(List.of(Int2ObjectMaps.singleton(fieldIndex, expr)));
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
         Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
-        ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
+        ColocationGroup group = new ColocationGroup(LongList.of(0L), nodeNames, assignments);
 
         expectPartitionsPruned(table, columns, new Object[0], group, val);
     }
 
     @ParameterizedTest
-    @MethodSource("columnTypes")
-    public void testDynamicParam(ColumnType columnType) {
-        IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
-
-        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 4, 2, 4);
+    @MethodSource("nativeTypes")
+    public void testDynamicParam(NativeType nativeType) {
+        IgniteDistribution distribution = TestBuilders.affinity(List.of(0), 1, 1);
 
         IgniteTable table = TestBuilders.table()
                 .name("T")
@@ -147,7 +171,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
                 .build();
 
         int fieldIndex = 0;
-        Object val = generateFieldValue(table, fieldIndex);
+        Object val = generateFieldValue(table, fieldIndex, nativeType);
         RexNode expr = newDynamicParam(table.descriptor(), 0);
         Object[] dynamicParameters = {val};
 
@@ -155,9 +179,29 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
         Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
-        ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
+        ColocationGroup group = new ColocationGroup(LongList.of(0L), nodeNames, assignments);
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
+        if (nativeType instanceof TemporalNativeType) {
+            TemporalNativeType temporalNativeType = (TemporalNativeType) nativeType;
+            if (temporalNativeType.precision() > 3) {
+                expectPartitionsNotPruned(table, columns, dynamicParameters, group);
+                return;
+            }
+        }
 
         expectPartitionsPruned(table, columns, dynamicParameters, group, val);
+    }
+
+    private static void expectPartitionsNotPruned(
+            IgniteTable table,
+            PartitionPruningColumns pruningColumns,
+            Object[] dynamicParameters, 
+            ColocationGroup group
+    ) {
+
+        ColocationGroup newGroup = PartitionPruningPredicate.prunePartitions(table, pruningColumns, dynamicParameters, group);
+        assertSame(newGroup, group, "Partitions should not have been pruned");
     }
 
     private static void expectPartitionsPruned(
@@ -199,15 +243,15 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         for (String nodeName : group.nodeNames()) {
             ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
-                    .queryId(UUID.randomUUID())
-                    .localNode(new ClusterNodeImpl(nodeName, nodeName, new NetworkAddress("localhost", 123)))
+                    .queryId(randomUUID())
+                    .localNode(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 123)))
                     .executor(Mockito.mock(QueryTaskExecutor.class))
                     .dynamicParameters(dynamicParameters)
                     .build();
             ExpressionFactory<Object[]> expressionFactory = ctx.expressionFactory();
 
             List<PartitionWithConsistencyToken> result = PartitionPruningPredicate.prunePartitions(
-                    pruningColumns, table, expressionFactory, assignments, nodeName
+                    ctx, pruningColumns, table, expressionFactory, assignments, nodeName
             );
             dynamicActual.put(nodeName, result);
         }
@@ -244,81 +288,32 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         return assignments;
     }
 
-    private Object generateFieldValue(IgniteTable table, int index) {
-        ColumnType columnType = table.descriptor().columnDescriptor(index).physicalType().spec().asColumnType();
+    private Object generateFieldValue(IgniteTable table, int index, NativeType nativeType) {
+        NativeType type = table.descriptor().columnDescriptor(index).physicalType();
 
-        Random current = new Random();
-        current.setSeed(seed);
+        int precision;
+        int scale;
 
-        Object val = SqlTestUtils.generateValueByType(current.nextInt(100), columnType);
+        if (nativeType instanceof VarlenNativeType) {
+            precision = ((VarlenNativeType) nativeType).length();
+            scale = precision;
+        } else if (nativeType instanceof TemporalNativeType) {
+            precision = ((TemporalNativeType) nativeType).precision();
+            scale = precision;
+        } else if (nativeType instanceof DecimalNativeType) {
+            precision = ((DecimalNativeType) nativeType).precision();
+            scale = ((DecimalNativeType) nativeType).scale();
+        } else {
+            precision = 0;
+            scale = precision;
+        }
+
+        Object val = SqlTestUtils.generateValueByType(type.spec(), precision, scale);
         assert val != null;
 
+        log.info("Generated value for type {}: {}", nativeType, val);
+
         return val;
-    }
-
-    private static RexNode generateLiteralOrValueExpr(ColumnType type, Object value) {
-        RexBuilder rexBuilder = Commons.rexBuilder();
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
-        switch (type) {
-            case NULL:
-                return rexBuilder.makeNullLiteral(typeFactory.createSqlType(SqlTypeName.NULL));
-            case BOOLEAN:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.BOOLEAN));
-            case INT8:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.TINYINT));
-            case INT16:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.SMALLINT));
-            case INT32:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.INTEGER));
-            case INT64:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.BIGINT));
-            case FLOAT:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.REAL));
-            case DOUBLE:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DOUBLE));
-            case DECIMAL:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.DECIMAL));
-            case DATE:
-                LocalDate localDate = (LocalDate) value;
-                int epochDay = (int) localDate.toEpochDay();
-
-                return rexBuilder.makeDateLiteral(DateString.fromDaysSinceEpoch(epochDay));
-            case TIME:
-                LocalTime time = (LocalTime) value;
-                int millisOfDay = (int) TimeUnit.NANOSECONDS.toMillis(time.toNanoOfDay());
-
-                return rexBuilder.makeTimeLiteral(TimeString.fromMillisOfDay(millisOfDay), 6);
-            case DATETIME:
-                LocalDateTime localDateTime = (LocalDateTime) value;
-                Instant instant1 = localDateTime.toInstant(ZoneOffset.UTC);
-                TimestampString timestampString = TimestampString.fromMillisSinceEpoch(instant1.toEpochMilli());
-
-                return rexBuilder.makeTimestampWithLocalTimeZoneLiteral(timestampString, 6);
-            case TIMESTAMP:
-                Instant instant = (Instant) value;
-
-                return rexBuilder.makeTimestampLiteral(TimestampString.fromMillisSinceEpoch(instant.toEpochMilli()), 6);
-            case UUID:
-                RexLiteral uuidStr = rexBuilder.makeLiteral(value.toString(), typeFactory.createSqlType(SqlTypeName.VARCHAR));
-                IgniteCustomType uuidType = typeFactory.createCustomType(UuidType.NAME);
-
-                return rexBuilder.makeCast(uuidType, uuidStr);
-            case BITMASK:
-                throw new IllegalArgumentException("Not supported: " + type);
-            case STRING:
-                return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.VARCHAR));
-            case BYTE_ARRAY:
-                byte[] bytes = (byte[]) value;
-                ByteString byteStr = new ByteString(bytes);
-                return rexBuilder.makeLiteral(byteStr, typeFactory.createSqlType(SqlTypeName.VARBINARY));
-            case PERIOD:
-            case DURATION:
-            case NUMBER:
-                throw new IllegalArgumentException("Not supported: " + type);
-            default:
-                throw new IllegalArgumentException("Unexpected type: " + type);
-        }
     }
 
     private static RexNode newDynamicParam(TableDescriptor descriptor, int paramIndex) {

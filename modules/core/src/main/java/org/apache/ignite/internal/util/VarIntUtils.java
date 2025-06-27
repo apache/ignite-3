@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.util;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
@@ -35,22 +38,47 @@ import java.nio.ByteBuffer;
  */
 public class VarIntUtils {
     /**
-     * Returns number of bytes that are needed to represent the given integer as a varint.
+     * Returns number of bytes that are needed to represent the given long as a varint.
      *
      * @param val Int value.
      */
-    public static int varIntLength(int val) {
+    public static int varIntLength(long val) {
         val++;
 
         int len = 0;
 
-        while ((val & 0xFFFF_FF80) != 0) {
+        while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
             len++;
 
             val >>>= 7;
         }
 
         return len + 1;
+    }
+
+    /**
+     * Writes a primitive {@code long} value as a varint to the provided output.
+     *
+     * @param val Value.
+     * @return Number of bytes written.
+     */
+    public static int writeVarInt(long val, DataOutput out) throws IOException {
+        val++;
+
+        int written = 0;
+
+        while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
+            byte b = (byte) (val | 0x80);
+
+            out.writeByte(b);
+
+            val >>>= 7;
+            written++;
+        }
+
+        out.writeByte((byte) val);
+
+        return written + 1;
     }
 
     /**
@@ -61,12 +89,12 @@ public class VarIntUtils {
      * @param off Offset in the target array to write result to.
      * @return Number of bytes overwritten in {@code bytes} array.
      */
-    public static int putVarIntToBytes(int val, byte[] bytes, int off) {
+    public static int putVarIntToBytes(long val, byte[] bytes, int off) {
         val++;
 
         int pos = off;
 
-        while ((val & 0xFFFF_FF80) != 0) {
+        while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
             byte b = (byte) (val | 0x80);
 
             bytes[pos++] = b;
@@ -83,15 +111,61 @@ public class VarIntUtils {
      * Reads a varint from a buffer.
      *
      * @param buf Buffer from which to read.
-     * @return Integer value that was encoded as a varint.
+     * @return Long value that was encoded as a varint.
      */
-    public static int readVarInt(ByteBuffer buf) {
-        int res = 0;
+    public static long readVarInt(ByteBuffer buf) {
+        long res = 0;
 
         for (int shift = 0; ; shift += 7) {
             byte b = buf.get();
 
-            res |= (b & 0x7F) << shift;
+            res |= ((long) b & 0x7F) << shift;
+
+            if (b >= 0) {
+                break;
+            }
+        }
+
+        return res - 1;
+    }
+
+    /**
+     * Reads a varint from a byte buffer.
+     *
+     * @param bytes Array from which to read.
+     * @param off Offset to start reading from.
+     * @return Long value that was encoded as a varint.
+     */
+    public static long readVarInt(byte[] bytes, int off) {
+        long res = 0;
+
+        int index = off;
+        for (int shift = 0; ; shift += 7) {
+            byte b = bytes[index++];
+
+            res |= ((long) b & 0x7F) << shift;
+
+            if (b >= 0) {
+                break;
+            }
+        }
+
+        return res - 1;
+    }
+
+    /**
+     * Reads a varint from an input.
+     *
+     * @param in Input from which to read.
+     * @return Long value that was encoded as a varint.
+     */
+    public static long readVarInt(DataInput in) throws IOException {
+        long res = 0;
+
+        for (int shift = 0; ; shift += 7) {
+            byte b = in.readByte();
+
+            res |= ((long) b & 0x7F) << shift;
 
             if (b >= 0) {
                 break;

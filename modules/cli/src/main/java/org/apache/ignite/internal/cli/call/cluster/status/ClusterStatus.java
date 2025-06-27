@@ -49,8 +49,8 @@ public class ClusterStatus {
         this.metadataStorageNodes = metadataStorageNodes;
     }
 
-    public int getNodeCount() {
-        return nodeCount;
+    public String nodeCount() {
+        return nodeCount < 0 ? "N/A" : String.valueOf(nodeCount);
     }
 
     public boolean isInitialized() {

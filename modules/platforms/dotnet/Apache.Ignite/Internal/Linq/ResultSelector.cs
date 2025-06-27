@@ -365,9 +365,10 @@ internal static class ResultSelector
         }
 
         var colType = col.Type.ToClrType(col.Nullable);
-        il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
+        var readMethod = BinaryTupleMethods.GetReadMethod(colType, targetType);
+        il.Emit(OpCodes.Call, readMethod);
 
-        il.EmitConv(colType, targetType, col.Name);
+        il.EmitConv(readMethod.ReturnType, targetType, col.Name);
         il.MarkLabel(endParamLabel);
     }
 
@@ -405,9 +406,10 @@ internal static class ResultSelector
         }
 
         var colType = col.Type.ToClrType(col.Nullable);
-        il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
+        var readMethod = BinaryTupleMethods.GetReadMethod(colType, columnInfo.Field.FieldType);
+        il.Emit(OpCodes.Call, readMethod);
 
-        il.EmitConv(colType, columnInfo.Field.FieldType, col.Name);
+        il.EmitConv(readMethod.ReturnType, columnInfo.Field.FieldType, col.Name);
         il.Emit(OpCodes.Stfld, columnInfo.Field); // res.field = value
 
         il.MarkLabel(endFieldLabel);

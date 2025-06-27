@@ -17,16 +17,22 @@
 
 package org.apache.ignite.internal.type;
 
+import java.util.Arrays;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.TestOnly;
 
 /**
- * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
+ * A thin wrapper over {@link ColumnType} to instantiate parameterized constrained types.
  */
 public class NativeType implements Comparable<NativeType> {
-    private final NativeTypeSpec typeSpec;
+    private final ColumnType typeSpec;
 
     /** Type size in bytes. */
     private final int size;
+
+    /** Flag indicating whether this type specifies a fixed-length type. */
+    private final boolean fixedSize;
 
     /**
      * Constructor for fixed-length types.
@@ -34,8 +40,10 @@ public class NativeType implements Comparable<NativeType> {
      * @param typeSpec Type spec.
      * @param size     Type size in bytes.
      */
-    protected NativeType(NativeTypeSpec typeSpec, int size) {
-        if (!typeSpec.fixedLength()) {
+    protected NativeType(ColumnType typeSpec, int size) {
+        this.fixedSize = !((typeSpec.precisionAllowed() && typeSpec.scaleAllowed()) || typeSpec.lengthAllowed());
+
+        if (!this.fixedSize) {
             throw new IllegalArgumentException("Size must be provided only for fixed-length types: " + typeSpec);
         }
 
@@ -52,8 +60,10 @@ public class NativeType implements Comparable<NativeType> {
      *
      * @param typeSpec Type spec.
      */
-    protected NativeType(NativeTypeSpec typeSpec) {
-        if (typeSpec.fixedLength()) {
+    protected NativeType(ColumnType typeSpec) {
+        this.fixedSize = !((typeSpec.precisionAllowed() && typeSpec.scaleAllowed()) || typeSpec.lengthAllowed());
+
+        if (this.fixedSize) {
             throw new IllegalArgumentException("Fixed-length types must be created by the "
                     + "length-aware constructor: " + typeSpec);
         }
@@ -63,10 +73,15 @@ public class NativeType implements Comparable<NativeType> {
     }
 
     /**
+     * Get fixed length flag: {@code true} for fixed-length types, {@code false} otherwise.
+     */
+    public boolean fixedLength() {
+        return fixedSize;
+    }
+
+    /**
      * Get size in bytes of the type if it is a fixlen type. For varlen types the return value is undefined, so the user
-     * should explicitly check {@code spec().fixedLength()} before using this method.
-     *
-     * @see NativeTypeSpec#fixedLength()
+     * should explicitly check {@code fixedLength()} before using this method.
      */
     public int sizeInBytes() {
         return size;
@@ -75,7 +90,7 @@ public class NativeType implements Comparable<NativeType> {
     /**
      * Get type specification enum.
      */
-    public NativeTypeSpec spec() {
+    public ColumnType spec() {
         return typeSpec;
     }
 
@@ -87,6 +102,15 @@ public class NativeType implements Comparable<NativeType> {
      */
     public boolean mismatch(NativeType type) {
         return this != type && typeSpec != type.typeSpec;
+    }
+
+    /**
+     * Return human readable name of this type.
+     *
+     * @return Human readable name of this type.
+     */
+    public String displayName() {
+        return typeSpec.name();
     }
 
     /** {@inheritDoc} */
@@ -143,6 +167,14 @@ public class NativeType implements Comparable<NativeType> {
         return S.toString(NativeType.class.getSimpleName(),
                 "name", typeSpec.name(),
                 "sizeInBytes", size,
-                "fixed", typeSpec.fixedLength());
+                "fixed", fixedLength());
+    }
+
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-17373 Remove filter after this issue is resolved
+    @TestOnly
+    public static ColumnType[] nativeTypes() {
+        return Arrays.stream(ColumnType.values()).filter(v -> v != ColumnType.NULL && v != ColumnType.DURATION
+                && v != ColumnType.PERIOD).toArray(ColumnType[]::new);
     }
 }

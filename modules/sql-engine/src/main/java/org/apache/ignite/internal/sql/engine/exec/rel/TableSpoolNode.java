@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -95,30 +96,31 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
-        checkState();
-
         requested += rowsCnt;
 
-        if ((waiting == -1 || rowIdx < rows.size()) && !inLoop) {
-            context().execute(this::doPush, this::onError);
+        if ((waiting == NOT_WAITING || rowIdx < rows.size()) && !inLoop) {
+            this.execute(this::doPush);
         } else if (waiting == 0) {
             source().request(waiting = inBufSize);
         }
     }
 
     private void doPush() throws Exception {
-        if (isClosed()) {
-            return;
-        }
-
-        if (!lazyRead && waiting != -1) {
+        if (!lazyRead && waiting != NOT_WAITING) {
             return;
         }
 
         int processed = 0;
         inLoop = true;
         try {
-            while (requested > 0 && rowIdx < rows.size() && processed++ < inBufSize) {
+            while (requested > 0 && rowIdx < rows.size()) {
+                if (processed++ >= inBufSize) {
+                    // Allow others to do their job
+                    this.execute(this::doPush);
+
+                    return;
+                }
+
                 downstream().push(rows.get(rowIdx));
 
                 rowIdx++;
@@ -128,11 +130,9 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
             inLoop = false;
         }
 
-        if (rowIdx >= rows.size() && waiting == -1 && requested > 0) {
+        if (rowIdx >= rows.size() && waiting == NOT_WAITING && requested > 0) {
             requested = 0;
             downstream().end();
-        } else if (requested > 0 && processed >= inBufSize) {
-            context().execute(this::doPush, this::onError);
         }
     }
 
@@ -141,8 +141,6 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -163,10 +161,15 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
+        waiting = NOT_WAITING;
 
-        waiting = -1;
+        this.execute(this::doPush);
+    }
 
-        context().execute(this::doPush, this::onError);
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
     }
 }

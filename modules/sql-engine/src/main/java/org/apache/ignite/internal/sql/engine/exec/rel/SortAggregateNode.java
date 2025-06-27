@@ -20,18 +20,23 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.ArrayDeque;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Supplier;
+import java.util.Set;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsState;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 
@@ -42,9 +47,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final AggregateType type;
 
-    /** May be {@code null} when there are not accumulators (DISTINCT aggregate node). */
-    private final Supplier<List<AccumulatorWrapper<RowT>>> accFactory;
-
     private final RowFactory<RowT> rowFactory;
 
     private final ImmutableBitSet grpSet;
@@ -52,6 +54,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private final Comparator<RowT> comp;
 
     private final Deque<RowT> outBuf = new ArrayDeque<>(inBufSize);
+
+    private final List<AccumulatorWrapper<RowT>> accs;
 
     private RowT prevRow;
 
@@ -63,13 +67,15 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     private int cmpRes;
 
+    private boolean inLoop;
+
     /**
      * Constructor.
      *
      * @param ctx Execution context.
      * @param type Aggregation operation (phase) type.
      * @param grpSet Bit set of grouping fields.
-     * @param accFactory Accumulators.
+     * @param accumulators Accumulators.
      * @param rowFactory Row factory.
      * @param comp Comparator.
      */
@@ -77,7 +83,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             ExecutionContext<RowT> ctx,
             AggregateType type,
             ImmutableBitSet grpSet,
-            Supplier<List<AccumulatorWrapper<RowT>>> accFactory,
+            List<AccumulatorWrapper<RowT>> accumulators,
             RowFactory<RowT> rowFactory,
             Comparator<RowT> comp
     ) {
@@ -85,10 +91,10 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert Objects.nonNull(comp);
 
         this.type = type;
-        this.accFactory = accFactory;
         this.rowFactory = rowFactory;
         this.grpSet = grpSet;
         this.comp = comp;
+        this.accs = accumulators;
 
         init();
     }
@@ -99,20 +105,12 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0 && requested == 0;
 
-        checkState();
-
         requested = rowsCnt;
 
-        if (!outBuf.isEmpty()) {
-            doPush();
-        }
-
         if (waiting == 0) {
-            waiting = inBufSize;
-
-            source().request(inBufSize);
-        } else if (waiting < 0 && requested > 0) {
-            downstream().end();
+            source().request(waiting = inBufSize);
+        } else if (!inLoop) {
+            execute(this::doFlush);
         }
     }
 
@@ -121,8 +119,6 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-
-        checkState();
 
         waiting--;
 
@@ -142,7 +138,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
                 grp = newGroup(row);
 
-                doPush();
+                flush();
             }
         } else {
             grp = newGroup(row);
@@ -153,7 +149,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         if (waiting == 0 && requested > 0) {
             waiting = inBufSize;
 
-            context().execute(() -> source().request(inBufSize), this::onError);
+            source().request(inBufSize);
         }
     }
 
@@ -163,22 +159,13 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         assert downstream() != null;
         assert waiting > 0;
 
-        checkState();
-
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         if (grp != null) {
             outBuf.add(grp.row());
-
-            doPush();
         }
 
-        if (requested > 0) {
-            downstream().end();
-        }
-
-        grp = null;
-        prevRow = null;
+        flush();
     }
 
     /** {@inheritDoc} */
@@ -210,32 +197,48 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
-    private boolean hasAccumulators() {
-        return accFactory != null;
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
     }
 
     private Group newGroup(RowT r) {
-        final Object[] grpKeys = new Object[grpSet.cardinality()];
-        List<Integer> fldIdxs = grpSet.asList();
+        RowHandler<RowT> rowHandler = rowFactory.handler();
+        ObjectArrayList<Object> grpKeys = new ObjectArrayList<>(grpSet.cardinality());
 
-        final RowHandler<RowT> rowHandler = rowFactory.handler();
+        grpSet.forEachInt(fldIdx -> grpKeys.add(rowHandler.get(fldIdx, r)));
 
-        for (int i = 0; i < grpKeys.length; ++i) {
-            grpKeys[i] = rowHandler.get(fldIdxs.get(i), r);
-        }
-
-        Group grp = new Group(grpKeys);
+        Group grp = new Group(grpKeys.elements());
 
         grp.add(r);
 
         return grp;
     }
 
-    private void doPush() throws Exception {
-        while (requested > 0 && !outBuf.isEmpty()) {
-            requested--;
+    private void doFlush() throws Exception {
+        flush();
+    }
 
-            downstream().push(outBuf.poll());
+    private void flush() throws Exception {
+        inLoop = true;
+        try {
+            while (requested > 0 && !outBuf.isEmpty()) {
+                requested--;
+
+                downstream().push(outBuf.poll());
+            }
+        } finally {
+            inLoop = false;
+        }
+
+        if (requested > 0 && waiting == NOT_WAITING && outBuf.isEmpty()) {
+            requested = 0;
+            downstream().end();
+
+            grp = null;
+            prevRow = null;
         }
     }
 
@@ -248,16 +251,25 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         private Group(Object[] grpKeys) {
             this.grpKeys = grpKeys;
 
-            List<AccumulatorWrapper<RowT>> wrappers = hasAccumulators() ? accFactory.get() : Collections.emptyList();
-            aggRow = new AggregateRow<>(wrappers, type);
+            AccumulatorsState state = new AccumulatorsState(accs.size());
+
+            Int2ObjectMap<Set<Object>> distinctSets = new Int2ObjectArrayMap<>();
+            for (int i = 0; i < accs.size(); i++) {
+                AccumulatorWrapper<RowT> acc = accs.get(i);
+                if (acc.isDistinct()) {
+                    distinctSets.put(i, new HashSet<>());
+                }
+            }
+
+            aggRow = new AggregateRow<>(state, distinctSets);
         }
 
         private void add(RowT row) {
-            aggRow.update(grpSet, context().rowHandler(), row);
+            aggRow.update(accs, grpSet, context().rowHandler(), row);
         }
 
         private RowT row() {
-            Object[] fields = aggRow.createOutput(grpSet, AggregateRow.NO_GROUP_ID);
+            Object[] fields = aggRow.createOutput(type, accs, grpSet, AggregateRow.NO_GROUP_ID);
 
             int i = 0;
 
@@ -265,7 +277,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 fields[i++] = grpKey;
             }
 
-            aggRow.writeTo(fields, grpSet, AggregateRow.NO_GROUP_ID);
+            aggRow.writeTo(type, accs, fields, grpSet, AggregateRow.NO_GROUP_ID);
 
             return rowFactory.create(fields);
         }

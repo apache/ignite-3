@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.repl;
 
+import java.util.Objects;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,6 +58,29 @@ public class SessionInfo implements CallInput {
 
     public static SessionInfoBuilder builder() {
         return new SessionInfoBuilder();
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        SessionInfo that = (SessionInfo) o;
+        return Objects.equals(nodeUrl, that.nodeUrl) && Objects.equals(nodeName, that.nodeName) && Objects.equals(
+                jdbcUrl, that.jdbcUrl) && Objects.equals(username, that.username);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hashCode(nodeUrl);
+        result = 31 * result + Objects.hashCode(nodeName);
+        result = 31 * result + Objects.hashCode(jdbcUrl);
+        result = 31 * result + Objects.hashCode(username);
+        return result;
     }
 
     /**

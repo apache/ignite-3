@@ -17,10 +17,8 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroups.extractGroupCode;
 import static org.apache.ignite.lang.util.TraceIdUtils.getOrCreateTraceId;
@@ -34,6 +32,9 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteException extends RuntimeException implements TraceableException {
     /** Serial version UID. */
     private static final long serialVersionUID = 0L;
+
+    /** Prefix for error message. */
+    private final String errorPrefix;
 
     /** Name of the error group. */
     private final String groupName;
@@ -49,47 +50,13 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      */
     private final int code;
 
-    /** Unique identifier of the exception that helps locate the error message in a log file. */
+    /**
+     * Unique identifier of the exception that helps locate the error message in a log file.
+     *
+     * <p>Not {@code final} because it gets accessed via reflection when creating a copy.
+     */
+    @SuppressWarnings({"NonFinalFieldOfException", "FieldMayBeFinal"})
     private UUID traceId;
-
-    /**
-     * Creates an empty exception.
-     */
-    @Deprecated
-    public IgniteException() {
-        this(INTERNAL_ERR);
-    }
-
-    /**
-     * Creates an exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    @Deprecated
-    public IgniteException(String msg) {
-        this(INTERNAL_ERR, msg);
-    }
-
-    /**
-     * Creates a grid exception with the given throwable as a cause and source of the error message.
-     *
-     * @param cause Non-null throwable cause.
-     */
-    @Deprecated
-    public IgniteException(Throwable cause) {
-        this(INTERNAL_ERR, cause);
-    }
-
-    /**
-     * Creates an exception with the given error message and optional nested exception.
-     *
-     * @param msg Error message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    @Deprecated
-    public IgniteException(String msg, @Nullable Throwable cause) {
-        this(INTERNAL_ERR, msg, cause);
-    }
 
     /**
      * Creates an exception with the given error code.
@@ -108,7 +75,9 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      */
     public IgniteException(UUID traceId, int code) {
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -123,6 +92,17 @@ public class IgniteException extends RuntimeException implements TraceableExcept
     }
 
     /**
+     * Creates an exception with the given error code and detailed message with the ability to skip filling in the stacktrace.
+     *
+     * @param code Full error code.
+     * @param message Detailed message.
+     * @param writableStackTrace Whether or not the stack trace should be writable.
+     */
+    public IgniteException(int code, String message, boolean writableStackTrace) {
+        this(UUID.randomUUID(), code, message, null, true, writableStackTrace);
+    }
+
+    /**
      * Creates an exception with the given trace ID, error code, and detailed message.
      *
      * @param traceId Unique identifier of this exception.
@@ -130,11 +110,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @param message Detailed message.
      */
     public IgniteException(UUID traceId, int code, String message) {
-        super(message);
-
-        this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
-        this.code = code;
+        this(traceId, code, message, null);
     }
 
     /**
@@ -143,7 +119,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteException(int code, Throwable cause) {
+    public IgniteException(int code, @Nullable Throwable cause) {
         this(getOrCreateTraceId(cause), code, cause);
     }
 
@@ -154,11 +130,13 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteException(UUID traceId, int code, Throwable cause) {
+    public IgniteException(UUID traceId, int code, @Nullable Throwable cause) {
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -182,10 +160,33 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @param cause Optional nested exception (can be {@code null}).
      */
     public IgniteException(UUID traceId, int code, String message, @Nullable Throwable cause) {
-        super(message, cause);
+        this(traceId, code, message, cause, true, true);
+    }
+
+    /**
+     * Creates an exception with the given trace ID, error code, and detailed message.
+     *
+     * @param traceId Unique identifier of this exception.
+     * @param code Full error code.
+     * @param message Detailed message.
+     * @param cause Optional nested exception (can be {@code null}).
+     * @param enableSuppression Whether or not suppression is enabled or disabled.
+     * @param writableStackTrace Whether or not the stack trace should be writable.
+     */
+    public IgniteException(
+            UUID traceId,
+            int code,
+            String message,
+            @Nullable Throwable cause,
+            boolean enableSuppression,
+            boolean writableStackTrace
+    ) {
+        super(message, cause, enableSuppression, writableStackTrace);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -218,7 +219,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @return Full error code in a human-readable format.
      */
     public String codeAsString() {
-        return ERR_PREFIX + groupName() + '-' + errorCode();
+        return errorPrefix + "-" + groupName() + '-' + Short.toUnsignedInt(errorCode());
     }
 
     /**
@@ -257,6 +258,6 @@ public class IgniteException extends RuntimeException implements TraceableExcept
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return getClass().getName() + ": " + errorMessage(traceId, groupName, code, getLocalizedMessage());
+        return getClass().getName() + ": " + errorMessage(errorPrefix, traceId, groupName, code, getLocalizedMessage());
     }
 }

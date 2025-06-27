@@ -17,6 +17,8 @@
 
 package org.apache.ignite.raft.jraft.storage.logit.storage.file;
 
+import static org.apache.ignite.raft.jraft.storage.logit.storage.file.AbstractFile.LOGIT_BYTE_ORDER;
+
 import java.nio.ByteBuffer;
 
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -52,7 +54,7 @@ public class FileHeader {
     }
 
     public ByteBuffer encode() {
-        ByteBuffer buffer = ByteBuffer.allocate(HEADER_SIZE);
+        ByteBuffer buffer = ByteBuffer.allocate(HEADER_SIZE).order(LOGIT_BYTE_ORDER);
         buffer.put(MAGIC);
         buffer.put(MAGIC);
         buffer.putLong(this.FirstLogIndex);
@@ -67,6 +69,7 @@ public class FileHeader {
             LOG.error("Fail to decode file header, invalid buffer length: {}", buffer == null ? 0 : buffer.remaining());
             return false;
         }
+        assert buffer.order() == LOGIT_BYTE_ORDER;
         if (buffer.get() != MAGIC) {
             return false;
         }

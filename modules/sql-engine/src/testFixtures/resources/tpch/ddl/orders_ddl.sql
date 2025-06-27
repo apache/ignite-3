@@ -7,11 +7,11 @@ DROP TABLE IF EXISTS orders;
 CREATE TABLE orders (
     o_orderkey      integer        NOT NULL,
     o_custkey       integer        NOT NULL,
-    o_orderstatus   char(1)        NOT NULL,
+    o_orderstatus   varchar(1)     NOT NULL,
     o_totalprice    decimal(15, 2) NOT NULL,
     o_orderdate     date           NOT NULL,
-    o_orderpriority char(15)       NOT NULL,
-    o_clerk         char(15)       NOT NULL,
+    o_orderpriority varchar(15)    NOT NULL,
+    o_clerk         varchar(15)    NOT NULL,
     o_shippriority  integer        NOT NULL,
     o_comment       varchar(79)    NOT NULL,
     PRIMARY KEY (o_orderkey)

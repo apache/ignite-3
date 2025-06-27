@@ -22,11 +22,10 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_NAM
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_NAME_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.URL_OPTION_SHORT;
 
 import jakarta.inject.Inject;
 import java.net.URL;
-import org.apache.ignite.internal.cli.core.converters.UrlConverter;
+import org.apache.ignite.internal.cli.core.converters.RestEndpointUrlConverter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.jetbrains.annotations.Nullable;
@@ -49,7 +48,7 @@ public class NodeUrlMixin {
         /**
          * Node URL option.
          */
-        @Option(names = {URL_OPTION_SHORT, NODE_URL_OPTION}, description = NODE_URL_OPTION_DESC, converter = UrlConverter.class)
+        @Option(names = NODE_URL_OPTION, description = NODE_URL_OPTION_DESC, converter = RestEndpointUrlConverter.class)
         private URL nodeUrl;
 
         /**

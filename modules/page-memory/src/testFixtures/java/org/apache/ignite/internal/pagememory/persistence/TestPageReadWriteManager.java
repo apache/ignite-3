@@ -40,7 +40,7 @@ public class TestPageReadWriteManager implements PageReadWriteManager {
 
     /** {@inheritDoc} */
     @Override
-    public PageStore write(int grpId, long pageId, ByteBuffer pageBuf, boolean calculateCrc) {
+    public PageStore write(int grpId, long pageId, ByteBuffer pageBuf) {
         return null;
     }
 

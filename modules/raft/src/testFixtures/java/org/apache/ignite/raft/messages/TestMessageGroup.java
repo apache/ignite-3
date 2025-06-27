@@ -18,17 +18,10 @@
 package org.apache.ignite.raft.messages;
 
 import org.apache.ignite.internal.network.annotations.MessageGroup;
-import org.apache.ignite.raft.server.counter.GetValueCommand;
-import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
 
 /**
  * Message group for tests.
  */
 @MessageGroup(groupType = 444, groupName = "TestRaftMessages")
 public interface TestMessageGroup {
-    /** Message type for {@link GetValueCommand}. */
-    short GET_VALUE_COMMAND = 1000;
-
-    /** Message type for {@link IncrementAndGetCommand}. */
-    short INCREMENT_AND_GET_COMMAND = 1001;
 }

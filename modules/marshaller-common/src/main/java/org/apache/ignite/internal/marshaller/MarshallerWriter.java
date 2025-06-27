@@ -18,14 +18,11 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Binary writer.
@@ -114,20 +111,6 @@ public interface MarshallerWriter {
     void writeBytes(byte[] val);
 
     /**
-     * Writes bit set.
-     *
-     * @param val Value.
-     */
-    void writeBitSet(BitSet val);
-
-    /**
-     * Writes big integer.
-     *
-     * @param val Value.
-     */
-    void writeBigInt(BigInteger val);
-
-    /**
      * Writes big decimal.
      *
      * @param val Value.
@@ -161,108 +144,4 @@ public interface MarshallerWriter {
      * @param val Value.
      */
     void writeDateTime(LocalDateTime val);
-
-    /**
-     * Writes an object value.
-     *
-     * @param col Column.
-     * @param val Value.
-     */
-    default void writeValue(MarshallerColumn col, Object val) {
-        if (val == null) {
-            writeNull();
-
-            return;
-        }
-
-        switch (col.type()) {
-            case BOOLEAN: {
-                writeBoolean((boolean) val);
-
-                break;
-            }
-            case BYTE: {
-                writeByte((byte) val);
-
-                break;
-            }
-            case SHORT: {
-                writeShort((short) val);
-
-                break;
-            }
-            case INT: {
-                writeInt((int) val);
-
-                break;
-            }
-            case LONG: {
-                writeLong((long) val);
-
-                break;
-            }
-            case FLOAT: {
-                writeFloat((float) val);
-
-                break;
-            }
-            case DOUBLE: {
-                writeDouble((double) val);
-
-                break;
-            }
-            case UUID: {
-                writeUuid((UUID) val);
-
-                break;
-            }
-            case TIME: {
-                writeTime((LocalTime) val);
-
-                break;
-            }
-            case DATE: {
-                writeDate((LocalDate) val);
-
-                break;
-            }
-            case DATETIME: {
-                writeDateTime((LocalDateTime) val);
-
-                break;
-            }
-            case TIMESTAMP: {
-                writeTimestamp((Instant) val);
-
-                break;
-            }
-            case STRING: {
-                writeString((String) val);
-
-                break;
-            }
-            case BYTE_ARR: {
-                writeBytes((byte[]) val);
-
-                break;
-            }
-            case BITSET: {
-                writeBitSet((BitSet) val);
-
-                break;
-            }
-            case NUMBER: {
-                writeBigInt((BigInteger) val);
-
-                break;
-            }
-            case DECIMAL: {
-                writeBigDecimal((BigDecimal) val, col.scale());
-
-                break;
-            }
-            default:
-                throw new IgniteException("Unexpected value: " + col.type());
-        }
-    }
 }

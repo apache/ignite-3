@@ -27,19 +27,21 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -51,9 +53,10 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryMvPartitionStorage.class);
-
     private static final Predicate<HybridTimestamp> NEVER_LOAD_VALUE = ts -> false;
+
+    private static final AtomicLongFieldUpdater<VolatilePageMemoryMvPartitionStorage> ESTIMATED_SIZE_UPDATER =
+            AtomicLongFieldUpdater.newUpdater(VolatilePageMemoryMvPartitionStorage.class, "estimatedSize");
 
     /** Last applied index value. */
     private volatile long lastAppliedIndex;
@@ -61,11 +64,13 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     /** Last applied term value. */
     private volatile long lastAppliedTerm;
 
-    /** Lease start time. */
-    private volatile long leaseStartTime;
+    @Nullable
+    private volatile LeaseInfo leaseInfo;
 
     /** Last group configuration. */
     private volatile byte @Nullable [] groupConfig;
+
+    private volatile long estimatedSize;
 
     /**
      * Constructor.
@@ -76,6 +81,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param destructionExecutor Executor used to destruct partitions.
      * @param gcQueue Garbage collection queue.
+     * @param failureProcessor Failure processor.
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
@@ -83,7 +89,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         super(
                 partitionId,
@@ -92,12 +99,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                         tableStorage,
                         partitionId,
                         versionChainTree,
-                        tableStorage.dataRegion().rowVersionFreeList(),
-                        tableStorage.dataRegion().indexColumnsFreeList(),
+                        tableStorage.dataRegion().freeList(),
                         indexMetaTree,
                         gcQueue
                 ),
-                destructionExecutor
+                destructionExecutor,
+                failureProcessor
         );
     }
 
@@ -132,7 +139,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
+    public CompletableFuture<Void> flush(boolean trigger) {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
@@ -192,26 +199,28 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
+    public void updateLease(LeaseInfo leaseInfo) {
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            if (leaseStartTime <= this.leaseStartTime) {
+            LeaseInfo thisLeaseInfo = this.leaseInfo;
+
+            if (thisLeaseInfo != null && leaseInfo.leaseStartTime() <= thisLeaseInfo.leaseStartTime()) {
                 return null;
             }
 
-            this.leaseStartTime = leaseStartTime;
+            this.leaseInfo = leaseInfo;
 
             return null;
         });
     }
 
     @Override
-    public long leaseStartTime() {
+    public @Nullable LeaseInfo leaseInfo() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            return leaseStartTime;
+            return leaseInfo;
         });
     }
 
@@ -239,7 +248,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
         groupConfig = null;
-        leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
+        leaseInfo = null;
 
         return destroyFuture;
     }
@@ -248,11 +257,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return destroyTree(renewableState.versionChainTree(), chainKey -> destroyVersionChain((VersionChain) chainKey, renewableState))
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        LOG.error(
-                                "Version chains destruction failed: [tableId={}, partitionId={}]",
-                                e,
-                                tableStorage.getTableId(), partitionId
+                        String errorMessage = String.format(
+                                "Version chains destruction failed: [tableId=%s, partitionId=%s]",
+                                tableStorage.getTableId(),
+                                partitionId
                         );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
                     }
                 });
     }
@@ -272,7 +282,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         while (rowVersionLink != PageIdUtils.NULL_LINK) {
             RowVersion rowVersion = readRowVersion(rowVersionLink, NEVER_LOAD_VALUE);
 
-            renewableState.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
+            renewableState.freeList().removeDataRowByLink(rowVersion.link());
 
             rowVersionLink = rowVersion.nextLink();
         }
@@ -282,11 +292,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return destroyTree(renewableState.indexMetaTree(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        LOG.error(
-                                "Index meta tree destruction failed: [tableId={}, partitionId={}]",
-                                e,
-                                tableStorage.getTableId(), partitionId
+                        String errorMessage = String.format(
+                                "Index meta tree destruction failed: [tableId=%s, partitionId=%s]",
+                                tableStorage.getTableId(),
+                                partitionId
                         );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
                     }
                 });
     }
@@ -295,11 +306,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return destroyTree(renewableState.gcQueue(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        LOG.error(
-                                "Garbage collection tree destruction failed: [tableId={}, partitionId={}]",
-                                e,
-                                tableStorage.getTableId(), partitionId
+                        String errorMessage = String.format(
+                                "Garbage collection tree destruction failed: [tableId=%s, partitionId=%s]",
+                                tableStorage.getTableId(),
+                                partitionId
                         );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
                     }
                 });
     }
@@ -340,11 +352,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
         updateRenewableState(
                 versionChainTree,
-                prevState.rowVersionFreeList(),
-                prevState.indexFreeList(),
+                prevState.freeList(),
                 indexMetaTree,
                 gcQueue
         );
+
+        estimatedSize = 0;
     }
 
     @Override
@@ -352,5 +365,27 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.groupConfig = config;
+    }
+
+    @Override
+    public void updateLeaseOnRebalance(LeaseInfo leaseInfo) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        this.leaseInfo = leaseInfo;
+    }
+
+    @Override
+    public long estimatedSize() {
+        return estimatedSize;
+    }
+
+    @Override
+    public void incrementEstimatedSize() {
+        ESTIMATED_SIZE_UPDATER.incrementAndGet(this);
+    }
+
+    @Override
+    public void decrementEstimatedSize() {
+        ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
     }
 }

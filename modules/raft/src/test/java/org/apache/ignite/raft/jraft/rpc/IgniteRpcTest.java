@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.network.ClusterNode;
@@ -77,18 +78,19 @@ public class IgniteRpcTest extends AbstractRpcTest {
         );
 
         NodeOptions nodeOptions = new NodeOptions();
+        nodeOptions.setNodeManager(new NodeManager(service));
 
         requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 
-        var server = new TestIgniteRpcServer(service, new NodeManager(), nodeOptions, requestExecutor) {
+        var server = new TestIgniteRpcServer(service, nodeOptions, requestExecutor) {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(service.stopAsync(), willCompleteSuccessfully());
+                assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         };
 
-        assertThat(service.startAsync(), willCompleteSuccessfully());
+        assertThat(service.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return server;
     }
@@ -107,11 +109,11 @@ public class IgniteRpcTest extends AbstractRpcTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(service.stopAsync(), willCompleteSuccessfully());
+                assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         };
 
-        assertThat(service.startAsync(), willCompleteSuccessfully());
+        assertThat(service.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         waitForTopology(client, 1 + i, 5_000);
 

@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -35,7 +34,17 @@ import org.junit.jupiter.api.Test;
 /**
  * Test LimitNode execution.
  */
+@SuppressWarnings({"ThrowableNotThrown", "ResultOfObjectAllocationIgnored", "resource"})
 public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
+    @Test
+    void offsetOnlyCaseIsNotSupportedBySortNode() {
+        assertThrowsWithCause(
+                () -> new SortNode<>(executionContext(), LimitExecutionTest::compareArrays, 10, -1),
+                AssertionError.class,
+                "Offset-only case is not supported by Sort node"
+        );
+    }
+
     /** Tests correct results fetched with Limit node. */
     @Test
     public void testLimit() {
@@ -59,17 +68,14 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
 
     /** Tests Sort node can limit its output when fetch param is set. */
     @Test
-    public void testSortLimit() throws Exception {
+    public void testSortLimit() {
         int bufSize = IN_BUFFER_SIZE;
 
         checkLimitSort(0, 1);
-        checkLimitSort(1, 0);
         checkLimitSort(1, 1);
         checkLimitSort(0, bufSize);
-        checkLimitSort(bufSize, 0);
         checkLimitSort(bufSize, bufSize);
         checkLimitSort(bufSize - 1, 1);
-        checkLimitSort(2000, 0);
         checkLimitSort(0, 3000);
         checkLimitSort(2000, 3000);
     }
@@ -88,8 +94,8 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
 
         RootNode<Object[]> rootNode = new RootNode<>(ctx);
 
-        SortNode<Object[]> sortNode = new SortNode<>(ctx, LimitExecutionTest::compareArrays, () -> offset,
-                fetch == 0 ? null : () -> fetch);
+        SortNode<Object[]> sortNode = new SortNode<>(ctx, LimitExecutionTest::compareArrays, offset,
+                fetch == 0 ? -1 : fetch);
 
         List<Object[]> data = IntStream.range(0, IN_BUFFER_SIZE + fetch + offset).boxed()
                 .map(i -> new Object[] {i}).collect(Collectors.toList());
@@ -101,7 +107,7 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
 
         sortNode.register(srcNode);
 
-        for (int i = 0; i < offset + fetch; i++) {
+        for (int i = offset; i < offset + fetch; i++) {
             assertTrue(rootNode.hasNext());
             assertEquals(i, rootNode.next()[0]);
         }
@@ -119,25 +125,21 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
         ExecutionContext<Object[]> ctx = executionContext(true);
 
         RootNode<Object[]> rootNode = new RootNode<>(ctx);
-        LimitNode<Object[]> limitNode = new LimitNode<>(ctx, () -> offset, fetch == 0 ? null : () -> fetch);
-        SourceNode srcNode = new SourceNode(ctx);
+        LimitNode<Object[]> limitNode = new LimitNode<>(ctx, offset, fetch == 0 ? -1 : fetch);
+        List<Object[]> data = IntStream.range(0, IN_BUFFER_SIZE + fetch + offset).boxed()
+                .map(i -> new Object[] {i}).collect(Collectors.toList());
+
+        ScanNode<Object[]> srcNode = new ScanNode<>(ctx, data);
 
         rootNode.register(limitNode);
         limitNode.register(srcNode);
 
-        if (fetch > 0) {
-            for (int i = offset; i < offset + fetch; i++) {
-                assertTrue(rootNode.hasNext());
-                assertEquals(i, rootNode.next()[0]);
-            }
-
-            assertFalse(rootNode.hasNext());
-            assertEquals(srcNode.requested.get(), offset + fetch);
-        } else {
+        for (int i = offset; i < offset + fetch; i++) {
             assertTrue(rootNode.hasNext());
-            assertEquals(offset, rootNode.next()[0]);
-            assertTrue(srcNode.requested.get() > offset);
+            assertEquals(i, rootNode.next()[0]);
         }
+
+        assertEquals(fetch == 0, rootNode.hasNext());
     }
 
     /**
@@ -146,7 +148,7 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
      * @param val Value to check.
      * @return {@code True} if not null and array.
      */
-    public static boolean isArray(Object val) {
+    private static boolean isArray(Object val) {
         return val != null && val.getClass().isArray();
     }
 
@@ -157,7 +159,7 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
      * @param a2 Value 2.
      * @return a negative integer, zero, or a positive integer as the first argument is less than, equal to, or greater than the second.
      */
-    public static int compareArrays(Object[] a1, Object[] a2) {
+    private static int compareArrays(Object[] a1, Object[] a2) {
         if (a1 == a2) {
             return 0;
         }
@@ -185,36 +187,6 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
         }
 
         return Integer.compare(a1.length, a2.length);
-    }
-
-    private static class SourceNode extends AbstractNode<Object[]> {
-        AtomicInteger requested = new AtomicInteger();
-
-        public SourceNode(ExecutionContext<Object[]> ctx) {
-            super(ctx);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        protected void rewindInternal() {
-            // No-op.
-        }
-
-        /** {@inheritDoc} */
-        @Override protected Downstream<Object[]> requestDownstream(int idx) {
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override public void request(int rowsCnt) {
-            int r = requested.getAndAdd(rowsCnt);
-
-            context().execute(() -> {
-                for (int i = 0; i < rowsCnt; i++) {
-                    downstream().push(new Object[]{r + i});
-                }
-            }, this::onError);
-        }
     }
 
     @Override

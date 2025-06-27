@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Marshaller interface, for instances that convert objects to {@code byte[]} and back.
@@ -50,4 +51,12 @@ public interface Marshaller {
     default <T> T unmarshall(byte[] bytes) {
         return unmarshall(ByteBuffer.wrap(bytes));
     }
+
+    /**
+     * Applies binary patch.
+     *
+     * @param raw The raw data.
+     * @param safeTs Safe timestamp.
+     */
+    default void patch(ByteBuffer raw, HybridTimestamp safeTs) {}
 }

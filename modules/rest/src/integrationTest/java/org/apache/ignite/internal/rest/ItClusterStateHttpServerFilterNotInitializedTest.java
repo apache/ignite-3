@@ -20,24 +20,19 @@ package org.apache.ignite.internal.rest;
 import static io.micronaut.http.HttpRequest.GET;
 import static io.micronaut.http.HttpRequest.PATCH;
 import static io.micronaut.http.HttpStatus.CONFLICT;
-import static org.apache.ignite.internal.rest.problem.ProblemJsonMediaType.APPLICATION_JSON_PROBLEM_TYPE;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.rest.api.Problem;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -47,7 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Tests that before cluster is initialized, only a subset of endpoints are available. */
 @MicronautTest(rebuildContext = true)
 public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPerClassIntegrationTest {
-    private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
+    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -69,7 +64,7 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
         return Stream.of(
                 Arguments.of("node/state"),
                 Arguments.of("configuration/node"),
-                Arguments.of("configuration/node/rest"),
+                Arguments.of("configuration/node/ignite.rest"),
                 Arguments.of("cluster/topology/physical")
         );
     }
@@ -78,7 +73,7 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
     public void setup(TestInfo testInfo) {
         // Given non-initialized cluster.
         for (int i = 0; i < super.initialNodes(); i++) {
-            CLUSTER.startNodeAsync(i);
+            CLUSTER.startEmbeddedNode(i);
         }
     }
 
@@ -92,24 +87,14 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
 
     @ParameterizedTest
     @MethodSource("disabledEndpoints")
-    void clusterEndpointsDisabledWhenNotInitialized(HttpRequest<String> request) throws JsonProcessingException {
-        HttpClientResponseException ex = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(request)
+    void clusterEndpointsDisabledWhenNotInitialized(HttpRequest<String> request) {
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(request),
+                CONFLICT,
+                isProblem()
+                        .withTitle("Cluster is not initialized")
+                        .withDetail("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")
         );
-
-        assertThat(ex.getStatus(), is(CONFLICT));
-
-        assertThat(ex.getResponse().getContentType().orElseThrow().getName(), is(APPLICATION_JSON_PROBLEM_TYPE.getName()));
-        Problem problem = readProblem(ex);
-
-        assertThat(problem.status(), is(CONFLICT.getCode()));
-        assertThat(problem.title(), is("Cluster is not initialized"));
-        assertThat(problem.detail(), is("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster."));
-    }
-
-    private Problem readProblem(HttpClientResponseException ex) throws JsonProcessingException {
-        return mapper.readValue(ex.getResponse().getBody(String.class).get(), Problem.class);
     }
 
     @ParameterizedTest
@@ -117,7 +102,7 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
     void nodeConfigAndClusterInitAreEnabled(String path) {
         // But node config and cluster init endpoints are enabled
         assertDoesNotThrow(
-                () -> client.toBlocking().retrieve(HttpRequest.GET(path))
+                () -> client.toBlocking().retrieve(GET(path))
         );
     }
 }

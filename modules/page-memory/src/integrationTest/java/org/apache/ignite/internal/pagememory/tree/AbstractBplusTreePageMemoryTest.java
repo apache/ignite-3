@@ -35,9 +35,9 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.Constants.GiB;
-import static org.apache.ignite.internal.util.StringUtils.hexLong;
+import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -78,6 +78,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -93,12 +94,13 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
+import org.apache.ignite.internal.pagememory.util.ListeningOffheapReadWriteLock;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteRandom;
 import org.apache.ignite.internal.util.IgniteStripedLock;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -108,6 +110,8 @@ import org.junit.jupiter.api.Test;
  * An abstract class for testing {@link BplusTree} using different implementations of {@link PageMemory}.
  */
 public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstractTest {
+    protected static final String BPLUS_TREE_TEST_SEED = "BPLUS_TREE_TEST_SEED";
+
     private static final short LONG_INNER_IO = 30000;
 
     private static final short LONG_LEAF_IO = 30001;
@@ -128,12 +132,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     protected static final int PAGE_SIZE = 512;
 
-    protected static final long MAX_MEMORY_SIZE = GiB;
+    protected static final long MAX_MEMORY_SIZE = 64 * MiB;
 
-    /** Forces printing lock/unlock events on the test tree. */
-    private static boolean PRINT_LOCKS = false;
+    protected static final Collection<Long> rmvdIds = ConcurrentHashMap.newKeySet();
 
-    private static final Collection<Long> rmvdIds = ConcurrentHashMap.newKeySet();
+    /** The offset of the lock withing a page. This value might be different for different engines. */
+    protected static long lockOffset;
 
     @Nullable
     protected PageMemory pageMem;
@@ -154,7 +158,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     protected void beforeEach() throws Exception {
         stop.set(false);
 
-        long seed = System.nanoTime();
+        long seed = IgniteSystemProperties.getLong(BPLUS_TREE_TEST_SEED, System.nanoTime());
 
         println("Test seed: " + seed + "L; // ");
 
@@ -207,6 +211,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             RMV_INC = -1;
             CNT = 10;
         }
+
+        TestPageLockListener.clearStaticResources();
+        rmvdIds.clear();
     }
 
     /**
@@ -2504,6 +2511,68 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         assertNull(tree.findOne(0L));
     }
 
+    /**
+     * Test checks the not very obvious case of error "Maximum number of retries 1000 reached...", which can occur after restoring a
+     * {@code BplusTree} with an inner replace and then attempting to read from such a tree.
+     *
+     * <p>This error can occur due to incorrect restoration of the {@code BplusTree#globalRmvId}, which should always be equal or greater
+     * than the tree had previously.</p>
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testRecoverGlobalRmvId() throws Exception {
+        int keyCount = 100;
+        boolean canGetRow = true;
+
+        var globalRmvId = new AtomicLong();
+
+        TestTree tree = createTestTree(canGetRow, globalRmvId);
+
+        for (long i = 0; i < keyCount; i++) {
+            tree.put(i);
+        }
+
+        // Let's remove the rightmost element that is present in the leaf and the root inner (which has level 0), it is important that this
+        // should not be the rightmost element of the entire tree. This allows us to reproduce inner replace with increment
+        // BplusTree#globalRmvId. This element was chosen with eyes when printing the tree (BplusTree#printTree).
+        tree.remove(57L);
+
+        assertEquals(1, globalRmvId.get());
+
+        // Let's check that after the inner replace the readings are not broken.
+        assertDoesNotThrow(() -> findNextForKeys(tree, keyCount));
+
+        // Let's "recover" a tree with an incorrectly globalRmvId, less than what was in the base tree.
+        var newRestoredTreeWithWrongGlobalRmvId = reCreateTestTree(tree, 0L);
+
+        assertThrows(
+                IgniteInternalCheckedException.class,
+                () -> findNextForKeys(newRestoredTreeWithWrongGlobalRmvId, keyCount),
+                "Maximum number of retries 1000 reached"
+        );
+
+        // Let's "recover" a tree with a correct globalRmvId, equal to the base tree.
+        var newRestoredTreeWithCorrectGlobalRmvId0 = reCreateTestTree(tree, globalRmvId.get());
+
+        assertDoesNotThrow(() -> findNextForKeys(newRestoredTreeWithCorrectGlobalRmvId0, keyCount));
+
+        // Let's "recover" a tree with a correct globalRmvId, more than the base tree.
+        var newRestoredTreeWithCorrectGlobalRmvId1 = reCreateTestTree(tree, globalRmvId.get() + 1);
+
+        assertDoesNotThrow(() -> findNextForKeys(newRestoredTreeWithCorrectGlobalRmvId1, keyCount));
+    }
+
+    private static void findNextForKeys(TestTree tree, long keyCount) throws Exception {
+        for (long key = 0; key < keyCount; key++) {
+            tree.findNext(key, true);
+        }
+    }
+
+    private TestTree reCreateTestTree(TestTree tree, long globalRmvId) throws Exception {
+        return new TestTree(tree.metaFullPageId(), reuseList, tree.canGetRow, pageMem, new AtomicLong(globalRmvId), false);
+    }
+
     private void doTestRandomPutRemoveMultithreaded(boolean canGetRow) throws Exception {
         final TestTree tree = createTestTree(canGetRow);
 
@@ -2694,17 +2763,8 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         return cnt;
     }
 
-    protected static void checkPageId(long pageId, long pageAddr) {
-        long actual = getPageId(pageAddr);
-
-        // Page ID must be 0L for newly allocated page, for reused page effective ID must remain the same.
-        if (actual != 0L && pageId != actual) {
-            throw new IllegalStateException("Page ID: " + hexLong(actual));
-        }
-    }
-
-    protected TestTree createTestTree(boolean canGetRow) throws Exception {
-        TestTree tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, pageMem);
+    private TestTree createTestTree(boolean canGetRow, AtomicLong globalRmvId) throws Exception {
+        var tree = new TestTree(allocateMetaPage(), reuseList, canGetRow, pageMem, globalRmvId, true);
 
         assertEquals(0, tree.size());
         assertEquals(0, tree.rootLevel());
@@ -2712,40 +2772,49 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         return tree;
     }
 
-    private FullPageId allocateMetaPage() throws Exception {
-        return new FullPageId(pageMem.allocatePage(GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+    protected TestTree createTestTree(boolean canGetRow) throws Exception {
+        return createTestTree(canGetRow, new AtomicLong());
     }
 
-    /**
-     * Test tree.
-     */
+    private FullPageId allocateMetaPage() throws Exception {
+        return new FullPageId(pageMem.allocatePage(reuseList, GROUP_ID, 0, FLAG_AUX), GROUP_ID);
+    }
+
+    /** Test tree. */
     protected static class TestTree extends BplusTree<Long, Long> {
         /** Number of retries. */
         private int numRetries = super.getLockRetries();
+
+        private final boolean canGetRow;
 
         /**
          * Constructor.
          *
          * @param metaPageId Meta page ID.
-         * @param reuseList Reuse list.
+         * @param reuseList Reuse list, {@code null} if absent.
          * @param canGetRow Can get row from inner page.
          * @param pageMem Page memory.
+         * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+         *      must be greater than or equal to the previous value.
+         * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating it
+         *      for the first time), {@code false} if not necessary (for example, when restoring a tree).
          * @throws Exception If failed.
          */
-        public TestTree(
+        TestTree(
                 FullPageId metaPageId,
                 @Nullable ReuseList reuseList,
                 boolean canGetRow,
-                PageMemory pageMem
+                PageMemory pageMem,
+                AtomicLong globalRmvId,
+                boolean initNew
         ) throws Exception {
             super(
-                    "test",
+                    "TestTree",
                     metaPageId.groupId(),
                     null,
                     partitionId(metaPageId.pageId()),
                     pageMem,
-                    new TestPageLockListener(PageLockListenerNoOp.INSTANCE),
-                    new AtomicLong(),
+                    globalRmvId,
                     metaPageId.pageId(),
                     reuseList,
                     new IoVersions<>(new LongInnerIo(canGetRow)),
@@ -2753,14 +2822,19 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                     new IoVersions<>(new LongMetaIo())
             );
 
-            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongInnerIo(canGetRow)));
-            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongLeafIo()));
-            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongMetaIo()));
+            this.canGetRow = canGetRow;
 
-            initTree(true);
+            TestPageIoRegistry ioRegistry = (TestPageIoRegistry) pageMem.ioRegistry();
+
+            ioRegistry.load(
+                    new IoVersions<>(new LongInnerIo(canGetRow)),
+                    new IoVersions<>(new LongLeafIo()),
+                    new IoVersions<>(new LongMetaIo())
+            );
+
+            initTree(initNew);
         }
 
-        /** {@inheritDoc} */
         @Override
         protected int compare(BplusIo<Long> io, long pageAddr, int idx, Long n2) throws IgniteInternalCheckedException {
             Long n1 = io.getLookupRow(this, pageAddr, idx);
@@ -2768,7 +2842,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return Long.compare(n1, n2);
         }
 
-        /** {@inheritDoc} */
         @Override
         public Long getRow(BplusIo<Long> io, long pageAddr, int idx, Object ignore) throws IgniteInternalCheckedException {
             assert io.canGetRow() : io;
@@ -2825,10 +2898,13 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             return b.toString();
         }
 
-        /** {@inheritDoc} */
         @Override
         protected int getLockRetries() {
             return numRetries;
+        }
+
+        private FullPageId metaFullPageId() {
+            return new FullPageId(metaPageId, grpId);
         }
     }
 
@@ -3008,6 +3084,10 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
     }
 
+    protected OffheapReadWriteLock wrapLock(OffheapReadWriteLock delegate) {
+        return new ListeningOffheapReadWriteLock(delegate, new TestPageLockListener());
+    }
+
     /**
      * {@link PageLockListener} implementation for the test.
      */
@@ -3020,119 +3100,78 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
         static ConcurrentMap<Object, Map<Long, Long>> writeLocks = new ConcurrentHashMap<>();
 
-        private final PageLockListener delegate;
+        static void clearStaticResources() {
+            beforeReadLock.clear();
+            readLocks.clear();
 
-        /**
-         * Constructor.
-         *
-         * @param delegate Real implementation of page lock listener.
-         */
-        private TestPageLockListener(PageLockListener delegate) {
-            this.delegate = delegate;
+            beforeWriteLock.clear();
+            writeLocks.clear();
+        }
+
+        private static long resolvePageId(long lockAddress) {
+            return getPageId(lockAddress - lockOffset);
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onBeforeReadLock(int cacheId, long pageId, long page) {
-            delegate.onBeforeReadLock(cacheId, pageId, page);
-
-            if (PRINT_LOCKS) {
-                println("  onBeforeReadLock: " + hexLong(pageId));
-            }
-
-            assertNull(beforeReadLock.put(threadId(), pageId));
+        public void onBeforeReadLock(long lockAddress) {
+            assertNull(beforeReadLock.put(threadId(), lockAddress));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onReadLock(int cacheId, long pageId, long page, long pageAddr) {
-            delegate.onReadLock(cacheId, pageId, page, pageAddr);
+        public void onReadLock(long lockAddress, boolean locked) {
+            if (locked) {
+                long actual = resolvePageId(lockAddress);
 
-            if (PRINT_LOCKS) {
-                println("  onReadLock: " + hexLong(pageId));
+                assertNull(locks(true).put(lockAddress, actual));
             }
 
-            if (pageAddr != 0L) {
-                long actual = getPageId(pageAddr);
-
-                checkPageId(pageId, pageAddr);
-
-                assertNull(locks(true).put(pageId, actual));
-            }
-
-            assertEquals(Long.valueOf(pageId), beforeReadLock.remove(threadId()));
+            assertEquals(Long.valueOf(lockAddress), beforeReadLock.remove(threadId()));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onReadUnlock(int cacheId, long pageId, long page, long pageAddr) {
-            delegate.onReadUnlock(cacheId, pageId, page, pageAddr);
+        public void onReadUnlock(long lockAddress) {
+            long actual = resolvePageId(lockAddress);
 
-            if (PRINT_LOCKS) {
-                println("  onReadUnlock: " + hexLong(pageId));
-            }
-
-            checkPageId(pageId, pageAddr);
-
-            long actual = getPageId(pageAddr);
-
-            assertEquals(Long.valueOf(actual), locks(true).remove(pageId));
+            assertEquals(Long.valueOf(actual), locks(true).remove(lockAddress));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onBeforeWriteLock(int cacheId, long pageId, long page) {
-            delegate.onBeforeWriteLock(cacheId, pageId, page);
-
-            if (PRINT_LOCKS) {
-                println("  onBeforeWriteLock: " + hexLong(pageId));
-            }
-
-            assertNull(beforeWriteLock.put(threadId(), pageId));
+        public void onBeforeWriteLock(long lockAddress) {
+            assertNull(beforeWriteLock.put(threadId(), lockAddress));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onWriteLock(int cacheId, long pageId, long page, long pageAddr) {
-            delegate.onWriteLock(cacheId, pageId, page, pageAddr);
+        public void onWriteLock(long lockAddress, boolean locked) {
+            if (locked) {
+                long actual = resolvePageId(lockAddress);
 
-            if (PRINT_LOCKS) {
-                println("  onWriteLock: " + hexLong(pageId));
+                // 0L for newly allocated page.
+                assertNull(locks(false).put(lockAddress, actual));
             }
 
-            if (pageAddr != 0L) {
-                checkPageId(pageId, pageAddr);
-
-                long actual = getPageId(pageAddr);
-
-                if (actual == 0L) {
-                    actual = pageId; // It is a newly allocated page.
-                }
-
-                assertNull(locks(false).put(pageId, actual));
-            }
-
-            assertEquals(Long.valueOf(pageId), beforeWriteLock.remove(threadId()));
+            assertEquals(Long.valueOf(lockAddress), beforeWriteLock.remove(threadId()));
         }
 
         /** {@inheritDoc} */
         @Override
-        public void onWriteUnlock(int cacheId, long pageId, long page, long pageAddr) {
-            delegate.onWriteUnlock(cacheId, pageId, page, pageAddr);
+        public void onWriteUnlock(long lockAddress) {
+            long actual = resolvePageId(lockAddress);
 
-            if (PRINT_LOCKS) {
-                println("  onWriteUnlock: " + hexLong(pageId));
+            long prevValue = locks(false).remove(lockAddress);
+
+            if (prevValue != 0L) {
+                assertEquals(actual, prevValue);
             }
-
-            assertEquals(effectivePageId(pageId), effectivePageId(getPageId(pageAddr)));
-
-            assertEquals(Long.valueOf(pageId), locks(false).remove(pageId));
         }
 
         /** {@inheritDoc} */
         @Override
         public void close() {
-            delegate.close();
         }
 
         private static Map<Long, Long> locks(boolean readLock) {
@@ -3169,15 +3208,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
      */
     protected static void println(@Nullable String msg) {
         System.out.println(msg);
-    }
-
-    /**
-     * Alias for {@code System.out.print}.
-     *
-     * @param msg String to print.
-     */
-    protected static void print(@Nullable String msg) {
-        System.out.print(msg);
     }
 
     /**

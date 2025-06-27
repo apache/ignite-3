@@ -52,6 +52,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -60,11 +61,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -74,6 +79,7 @@ import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
@@ -82,14 +88,17 @@ import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.ConnectorKey;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.OutgoingAcknowledgementSilencer;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
+import org.apache.ignite.internal.network.recovery.RecoveryAcceptorHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.logging.log4j.core.LogEvent;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -107,6 +116,8 @@ import reactor.core.publisher.Mono;
 class ItScaleCubeNetworkMessagingTest {
     /** Message sent to establish a connection. */
     private static final String TRAILBLAZER = "trailblazer";
+
+    private static final int INITIAL_PORT = 3344;
 
     /**
      * Test cluster.
@@ -291,7 +302,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService member0 = testCluster.members.get(0);
         ClusterService member1 = testCluster.members.get(1);
 
-        assertThat(member0.stopAsync(), willCompleteSuccessfully());
+        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
@@ -342,7 +353,7 @@ class ItScaleCubeNetworkMessagingTest {
                 1000
         );
 
-        assertThat(member0.stopAsync(), willCompleteSuccessfully());
+        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -389,7 +400,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         assertTrue(receivedTestMessages.await(10, SECONDS), "Did not receive invocations on the receiver in time");
 
-        assertThat(member0.stopAsync(), willCompleteSuccessfully());
+        assertThat(member0.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -632,7 +643,7 @@ class ItScaleCubeNetworkMessagingTest {
         // Block work on the channel's event loop until we put close command and send commands on the loop.
         // As a result, after we unblock the loop, the sends will fail with ClosedChannelException in Netty.
         // We'll then observe whether this is handled transparently by opening a new channel and re-sending via new channel.
-        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver);
 
         CountDownLatch proceedToClosing = new CountDownLatch(1);
         blockEventLoopWith(proceedToClosing, defaultChannelSender);
@@ -651,10 +662,11 @@ class ItScaleCubeNetworkMessagingTest {
             assertThat(invokeViaOldChannel, willSucceedIn(3, SECONDS));
 
             List<String> expectedPayloads = List.of("trailblazer", "first", "second");
+            // No assertion here on purpose.
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
-            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
             assertThatHasNoUnacknowledgedMessages(nettySender);
         } finally {
             proceedToClosing.countDown();
@@ -709,9 +721,10 @@ class ItScaleCubeNetworkMessagingTest {
         assertThat(unackedMessagesFuture, willBe(empty()));
     }
 
-    private static NettySender nettySenderForDefaultChannel(ClusterService sender, String receiverConsistentId) {
+    private static NettySender nettySenderForDefaultChannel(ClusterService sender, ClusterService receiver) {
+        UUID receiverId = receiver.topologyService().localMember().id();
         return connectionManager(sender).channels()
-                .get(new ConnectorKey<>(receiverConsistentId, ChannelType.DEFAULT));
+                .get(new ConnectorKey<>(receiverId, ChannelType.DEFAULT));
     }
 
     private static ConnectionManager connectionManager(ClusterService clusterService) {
@@ -747,7 +760,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         establishConnection(sender, receiver);
 
-        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver);
 
         // Now close the sender completely.
         assertThat(defaultChannelSender.closeAsync(), willCompleteSuccessfully());
@@ -767,17 +780,18 @@ class ItScaleCubeNetworkMessagingTest {
         assertThat(sendViaNewChannel, willSucceedIn(3, SECONDS));
 
         List<String> expectedPayloads = List.of("trailblazer", "first", "second");
+        // No assertion here on purpose.
         waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
         assertThat(receivedPayloads, equalTo(expectedPayloads));
 
-        NettySender nettySender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+        NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
         assertThatHasNoUnacknowledgedMessages(nettySender);
     }
 
     private static void establishConnectionWithoutSendingMessages(ClusterService sender, ClusterService receiver) {
         NetworkAddress receiverAddress = receiver.topologyService().localMember().address();
         CompletableFuture<NettySender> newSenderFuture = connectionManager(sender).channel(
-                receiver.nodeName(),
+                receiver.topologyService().localMember().id(),
                 ChannelType.DEFAULT,
                 new InetSocketAddress(receiverAddress.host(), receiverAddress.port())
         ).toCompletableFuture();
@@ -812,7 +826,7 @@ class ItScaleCubeNetworkMessagingTest {
         // Block work on the channel's event loop until we put close command and send commands on the loop.
         // As a result, after we unblock the loop, the sends will fail with ClosedChannelException in Netty.
         // We'll then observe whether this is handled transparently by opening a new channel and re-sending via new channel.
-        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+        NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver);
 
         CountDownLatch proceedToClosing = new CountDownLatch(1);
         blockEventLoopWith(proceedToClosing, defaultChannelSender);
@@ -847,10 +861,11 @@ class ItScaleCubeNetworkMessagingTest {
             assertThat(invokeViaNewChannel, willCompleteSuccessfully());
 
             List<String> expectedPayloads = List.of("trailblazer", "first", "second", "third", "fourth");
+            // No assertion here on purpose.
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
-            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver.nodeName());
+            NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
             assertThatHasNoUnacknowledgedMessages(nettySender);
         } finally {
             proceedToClosing.countDown();
@@ -1060,9 +1075,82 @@ class ItScaleCubeNetworkMessagingTest {
                 receiver.topologyService().localMember()
         );
 
-        assertThat(sender.stopAsync(), willCompleteSuccessfully());
+        assertThat(sender.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(sendFuture, willThrow(NodeStoppingException.class));
+    }
+
+    @Test
+    public void nodesWithDifferentClusterIdsCannotCommunicate() throws Exception {
+        Map<NetworkAddress, ClusterIdSupplier> clusterIdSupplierMap = new ConcurrentHashMap<>();
+
+        testCluster = new Cluster(2, testInfo, addr -> clusterIdSupplierMap.computeIfAbsent(addr, k -> new SameRandomClusterIdSupplier()));
+
+        assertThat(startAsync(new ComponentContext(), testCluster.members), willCompleteSuccessfully());
+
+        assertFalse(
+                waitForCondition(testCluster::anyMembersSeeEachOther, SECONDS.toMillis(1)),
+                "Nodes with different clusterIDs are able to communicate"
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void nodeWithNonNullClusterIdCanCommunicateNodeWithNullClusterId(boolean nullFirst) throws Exception {
+        Map<NetworkAddress, ClusterIdSupplier> clusterIdSupplierMap = new ConcurrentHashMap<>();
+
+        testCluster = new Cluster(2, testInfo, addr -> clusterIdSupplierMap.computeIfAbsent(addr, k -> {
+            if (nullFirst ^ (k.port() == INITIAL_PORT)) {
+                return ConstantClusterIdSupplier.withoutClusterId();
+            } else {
+                return new SameRandomClusterIdSupplier();
+            }
+        }));
+
+        assertThat(startAsync(new ComponentContext(), testCluster.members), willCompleteSuccessfully());
+
+        assertTrue(
+                waitForCondition(testCluster::allMembersSeeEachOther, SECONDS.toMillis(10)),
+                "Nodes are not able to communicate"
+        );
+    }
+
+    @Test
+    public void nodesWithDifferentProductNamesCannotCommunicate() throws Exception {
+        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, IgniteProductVersionSource>();
+        Function<NetworkAddress, IgniteProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
+                addr,
+                k -> new ArbitraryIgniteProductVersionSource("product-" + k, IgniteProductVersion.CURRENT_VERSION)
+        );
+        testCluster = new Cluster(2, testInfo, Cluster.normalClusterIdSupplierFactory, versionSourceFactory);
+
+        assertThat(startAsync(new ComponentContext(), testCluster.members), willCompleteSuccessfully());
+
+        assertFalse(
+                waitForCondition(testCluster::anyMembersSeeEachOther, SECONDS.toMillis(1)),
+                "Nodes with different product names are able to communicate"
+        );
+    }
+
+    @Test
+    public void nodesWithDifferentVersionsCannotCommunicate() throws Exception {
+        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, IgniteProductVersionSource>();
+        var addressCounter = new AtomicInteger();
+        Function<NetworkAddress, IgniteProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
+                addr,
+                k -> {
+                    IgniteProductVersion version = IgniteProductVersion.fromString("1.0." + addressCounter.getAndIncrement());
+                    return new ArbitraryIgniteProductVersionSource(IgniteProductVersion.CURRENT_PRODUCT, version);
+                }
+        );
+        testCluster = new Cluster(2, testInfo, Cluster.normalClusterIdSupplierFactory, versionSourceFactory);
+
+        assertThat(startAsync(new ComponentContext(), testCluster.members), willCompleteSuccessfully());
+
+        assertFalse(
+                waitForCondition(testCluster::anyMembersSeeEachOther, SECONDS.toMillis(1)),
+                "Nodes with different versions are able to communicate"
+        );
     }
 
     private void knockOutNode(String outcastName, boolean closeConnectionsForcibly) throws InterruptedException {
@@ -1122,12 +1210,12 @@ class ItScaleCubeNetworkMessagingTest {
         Predicate<LogEvent> matcher = evt -> evt.getMessage().getFormattedMessage().startsWith("Handshake rejected by ");
 
         logInspectors.add(new LogInspector(
-                RecoveryClientHandshakeManager.class.getName(),
+                RecoveryInitiatorHandshakeManager.class.getName(),
                 matcher,
                 ready::countDown));
 
         logInspectors.add(new LogInspector(
-                RecoveryServerHandshakeManager.class.getName(),
+                RecoveryAcceptorHandshakeManager.class.getName(),
                 matcher,
                 ready::countDown));
 
@@ -1176,7 +1264,7 @@ class ItScaleCubeNetworkMessagingTest {
         if (forceful) {
             stopForcefully(alice);
         } else {
-            assertThat(alice.stopAsync(), willCompleteSuccessfully());
+            assertThat(alice.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, SECONDS);
@@ -1218,6 +1306,9 @@ class ItScaleCubeNetworkMessagingTest {
      * Wrapper for a cluster.
      */
     private static final class Cluster {
+        private static final ClusterIdSupplier normalClusterIdSupplier = new SameRandomClusterIdSupplier();
+        private static final Function<NetworkAddress, ClusterIdSupplier> normalClusterIdSupplierFactory = addr -> normalClusterIdSupplier;
+
         /** Members of the cluster. */
         final List<ClusterService> members;
 
@@ -1231,14 +1322,41 @@ class ItScaleCubeNetworkMessagingTest {
          * @param testInfo   Test info.
          */
         Cluster(int numOfNodes, TestInfo testInfo) {
-            int initialPort = 3344;
+            this(numOfNodes, testInfo, normalClusterIdSupplierFactory);
+        }
+
+        /**
+         * Creates a test cluster with the given amount of members.
+         *
+         * @param numOfNodes Amount of cluster members.
+         * @param testInfo   Test info.
+         * @param clusterIdSupplierFactory Allows to obtain a Supplier for cluster ID by node address.
+         */
+        Cluster(int numOfNodes, TestInfo testInfo, Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory) {
+            this(numOfNodes, testInfo, clusterIdSupplierFactory, addr -> new DefaultIgniteProductVersionSource());
+        }
+
+        /**
+         * Creates a test cluster with the given amount of members.
+         *
+         * @param numOfNodes Amount of cluster members.
+         * @param testInfo   Test info.
+         * @param clusterIdSupplierFactory Allows to obtain a Supplier for cluster ID by node address.
+         */
+        Cluster(
+                int numOfNodes,
+                TestInfo testInfo,
+                Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory,
+                Function<NetworkAddress, IgniteProductVersionSource> productVersionSourceFactory
+        ) {
+            int initialPort = INITIAL_PORT;
 
             List<NetworkAddress> addresses = findLocalAddresses(initialPort, initialPort + numOfNodes);
 
             this.nodeFinder = new StaticNodeFinder(addresses);
 
             members = addresses.stream()
-                    .map(addr -> startNode(testInfo, addr))
+                    .map(addr -> startNode(testInfo, addr, clusterIdSupplierFactory, productVersionSourceFactory))
                     .collect(toUnmodifiableList());
         }
 
@@ -1246,11 +1364,28 @@ class ItScaleCubeNetworkMessagingTest {
          * Start cluster node.
          *
          * @param testInfo Test info.
-         * @param addr     Node address.
+         * @param addr Node address.
+         * @param clusterIdSupplierFactory Factory of cluster ID suppliers.
+         * @param productVersionSourceFactory Factory of product version sources.
          * @return Started cluster node.
          */
-        private ClusterService startNode(TestInfo testInfo, NetworkAddress addr) {
-            return ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
+        private ClusterService startNode(
+                TestInfo testInfo,
+                NetworkAddress addr,
+                Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory,
+                Function<NetworkAddress, IgniteProductVersionSource> productVersionSourceFactory
+        ) {
+            ClusterIdSupplier clusterIdSupplier = clusterIdSupplierFactory.apply(addr);
+            IgniteProductVersionSource productVersionSource = productVersionSourceFactory.apply(addr);
+
+            return ClusterServiceTestUtils.clusterService(
+                    testInfo,
+                    addr.port(),
+                    nodeFinder,
+                    new InMemoryStaleIds(),
+                    clusterIdSupplier,
+                    productVersionSource
+            );
         }
 
         /**
@@ -1260,11 +1395,9 @@ class ItScaleCubeNetworkMessagingTest {
          * @throws AssertionError       If the cluster was unable to start in 3 seconds.
          */
         void startAwait() throws InterruptedException {
-            assertThat(startAsync(members), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), members), willCompleteSuccessfully());
 
-            if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
-                throw new AssertionError();
-            }
+            assertTrue(waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3)));
         }
 
         private boolean allMembersSeeEachOther() {
@@ -1274,11 +1407,18 @@ class ItScaleCubeNetworkMessagingTest {
             return totalMembersSeen == members.size() * members.size();
         }
 
+        private boolean anyMembersSeeEachOther() {
+            int totalMembersSeen = members.stream()
+                    .mapToInt(m -> m.topologyService().allMembers().size())
+                    .sum();
+            return totalMembersSeen > members.size();
+        }
+
         /**
          * Stops the cluster.
          */
         void shutdown() {
-            assertThat(stopAsync(members), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), members), willCompleteSuccessfully());
         }
     }
 
@@ -1297,5 +1437,14 @@ class ItScaleCubeNetworkMessagingTest {
         };
 
         abstract CompletableFuture<Void> send(MessagingService messagingService, NetworkMessage message, ClusterNode recipient);
+    }
+
+    private static class SameRandomClusterIdSupplier implements ClusterIdSupplier {
+        private final UUID clusterId = UUID.randomUUID();
+
+        @Override
+        public @Nullable UUID clusterId() {
+            return clusterId;
+        }
     }
 }

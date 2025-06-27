@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.raft.TestThrottlingContextHolder.throttlingContextHolder;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -31,21 +32,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -90,6 +95,11 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
 
+    /** Cluster service. */
+    private ClusterService service;
+
+    private LogStorageFactory partitionsLogStorageFactory;
+
     /**
      * Before each.
      */
@@ -97,16 +107,20 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     void before() throws Exception {
         var addr = new NetworkAddress("localhost", PORT);
 
-        ClusterService service = clusterService(PORT, List.of(addr), true);
+        service = clusterService(PORT, List.of(addr), true);
 
-        server = new JraftServerImpl(service, workDir, raftConfiguration) {
-            @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
-            }
-        };
+        ComponentWorkingDir workingDir = new ComponentWorkingDir(workDir);
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                service.nodeName(),
+                workingDir.raftLogPath()
+        );
+
+        assertThat(partitionsLogStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        server = TestJraftServerFactory.create(service);
+
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         String serverNodeName = server.clusterService().topologyService().localMember().name();
 
@@ -119,6 +133,9 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         RaftGroupOptions grpOptions = defaults().commandsMarshaller(cmdMarshaller);
 
+        grpOptions.setLogStorageFactory(partitionsLogStorageFactory);
+        grpOptions.serverDataPath(workingDir.metaPath());
+
         assertTrue(
                 server.startRaftNode(new RaftNodeId(COUNTER_GROUP_ID_0, serverPeer), memberConfiguration, new CounterListener(), grpOptions)
         );
@@ -130,15 +147,31 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
 
-        client1 = RaftGroupServiceImpl
-                .start(COUNTER_GROUP_ID_0, clientNode1, FACTORY, raftConfiguration, memberConfiguration, false, executor, cmdMarshaller)
-                .get(3, TimeUnit.SECONDS);
+        ThrottlingContextHolder throttlingContextHolder = throttlingContextHolder();
+
+        client1 = RaftGroupServiceImpl.start(
+                COUNTER_GROUP_ID_0,
+                clientNode1,
+                FACTORY,
+                raftConfiguration,
+                memberConfiguration,
+                executor,
+                cmdMarshaller,
+                throttlingContextHolder
+        );
 
         ClusterService clientNode2 = clusterService(PORT + 2, List.of(addr), true);
 
-        client2 = RaftGroupServiceImpl
-                .start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, raftConfiguration, memberConfiguration, false, executor, cmdMarshaller)
-                .get(3, TimeUnit.SECONDS);
+        client2 = RaftGroupServiceImpl.start(
+                COUNTER_GROUP_ID_1,
+                clientNode2,
+                FACTORY,
+                raftConfiguration,
+                memberConfiguration,
+                executor,
+                cmdMarshaller,
+                throttlingContextHolder
+        );
 
         assertTrue(waitForTopology(service, 3, 10_000));
         assertTrue(waitForTopology(clientNode1, 3, 10_000));
@@ -151,10 +184,13 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     @AfterEach
     @Override
     public void after() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
         closeAll(
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
-                () -> assertThat(server.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(server.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(service.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(partitionsLogStorageFactory.stopAsync(componentContext), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

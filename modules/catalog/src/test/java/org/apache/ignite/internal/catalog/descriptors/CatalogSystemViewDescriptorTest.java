@@ -30,6 +30,7 @@ class CatalogSystemViewDescriptorTest {
     void toStringContainsTypeAndFields() {
         var descriptor = new CatalogSystemViewDescriptor(
                 1,
+                2,
                 "view1",
                 List.of(),
                 SystemViewType.NODE
@@ -39,6 +40,7 @@ class CatalogSystemViewDescriptorTest {
 
         assertThat(toString, startsWith("CatalogSystemViewDescriptor ["));
         assertThat(toString, containsString("id=1"));
+        assertThat(toString, containsString("schemaId=2"));
         assertThat(toString, containsString("name=view1"));
         assertThat(toString, containsString("systemViewType=NODE"));
     }

@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.repl.executor;
 
-import static java.util.stream.Collectors.flatMapping;
-import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.ClusterPerTestIntegrationTest.FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -37,15 +34,10 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
@@ -55,7 +47,6 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOp
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
-import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.assertj.core.util.Files;
 import org.jline.reader.Candidate;
 import org.jline.reader.LineReader;
@@ -76,22 +67,31 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
 
     private static final String DEFAULT_REST_URL = "http://localhost:10300";
 
-    private static final List<String> DISTRIBUTED_CONFIGURATION_KEYS;
+    private static final String[] DISTRIBUTED_CONFIGURATION_KEYS = {
+            "ignite.eventlog",
+            "ignite.gc",
+            "ignite.metrics",
+            "ignite.replication",
+            "ignite.schemaSync",
+            "ignite.security",
+            "ignite.sql",
+            "ignite.transaction",
+            "ignite.system"
+    };
 
-    private static final List<String> LOCAL_CONFIGURATION_KEYS;
-
-    static {
-        Map<ConfigurationType, List<String>> configKeysByType = new ServiceLoaderModulesProvider()
-                .modules(ItIgnitePicocliCommandsTest.class.getClassLoader())
-                .stream()
-                .collect(groupingBy(
-                        ConfigurationModule::type,
-                        flatMapping(module -> module.rootKeys().stream().map(RootKey::key), toUnmodifiableList())
-                ));
-
-        DISTRIBUTED_CONFIGURATION_KEYS = configKeysByType.get(ConfigurationType.DISTRIBUTED);
-        LOCAL_CONFIGURATION_KEYS = configKeysByType.get(ConfigurationType.LOCAL);
-    }
+    private static final String[] LOCAL_CONFIGURATION_KEYS = {
+            "ignite.rest",
+            "ignite.raft",
+            "ignite.clientConnector",
+            "ignite.compute",
+            "ignite.network",
+            "ignite.deployment",
+            "ignite.nodeAttributes",
+            "ignite.storage",
+            "ignite.sql",
+            "ignite.failureHandler",
+            "ignite.system"
+    };
 
     @Inject
     DynamicCompleterRegistry dynamicCompleterRegistry;
@@ -103,14 +103,11 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     DynamicCompleterFilter dynamicCompleterFilter;
 
     @Inject
-    Session session;
-
-    @Inject
     EventPublisher eventPublisher;
 
-    SystemCompleter completer;
+    private SystemCompleter completer;
 
-    LineReader lineReader;
+    private LineReader lineReader;
 
     @Override
     protected Class<?> getCommandClass() {
@@ -151,8 +148,8 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                 words("node", "config", ""),
                 words("node", "config", "show"),
                 words("node", "config", "show", ""),
-                words("node", "config", "show", "--node-name", "name"),
-                words("node", "config", "show", "--node-name", "name", "")
+                words("node", "config", "show", "--node", "name"),
+                words("node", "config", "show", "--node", "name", "")
         ).map(this::named).map(Arguments::of);
     }
 
@@ -177,7 +174,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                 words("node", "config", "show", "--"),
                 words("node", "status", "-"),
                 words("node", "status", "--"),
-                words("node", "config", "show", "--node-name", "name", "-")
+                words("node", "config", "show", "--node", "name", "-")
         ).map(this::named).map(Arguments::of);
     }
 
@@ -224,7 +221,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private Stream<Arguments> nodeConfigShowSuggestedSource() {
         return Stream.of(
                 words("node", "config", "show", ""),
-                words("node", "config", "show", " --node-name", "nodeName", ""),
+                words("node", "config", "show", " --node", "nodeName", ""),
                 words("node", "config", "show", " --verbose", ""),
                 words("node", "config", "show", " -v", "")
         ).map(this::named).map(Arguments::of);
@@ -240,7 +237,30 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder(LOCAL_CONFIGURATION_KEYS.toArray(String[]::new))
+                contains("ignite")
+        );
+    }
+
+    private Stream<Arguments> nodeConfigShowSuggestedAfterDotSource() {
+        return Stream.of(
+                words("node", "config", "show", "ignite."),
+                words("node", "config", "show", " --node", "nodeName", "ignite."),
+                words("node", "config", "show", " --verbose", "ignite."),
+                words("node", "config", "show", " -v", "ignite.")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("nodeConfigShowSuggestedAfterDotSource")
+    @DisplayName("node config show selector parameters suggested after initial root key")
+    void nodeConfigShowSuggestedAfterDotSource(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
+        // wait for lazy init of node config completer
+        await("For given parsed words: " + givenParsedLine.words()).until(
+                () -> complete(givenParsedLine),
+                containsInAnyOrder(LOCAL_CONFIGURATION_KEYS)
         );
     }
 
@@ -251,7 +271,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private Stream<Arguments> nodeConfigUpdateSuggestedSource() {
         return Stream.of(
                 words("node", "config", "update", ""),
-                words("node", "config", "update", " --node-name", "nodeName", ""),
+                words("node", "config", "update", " --node", "nodeName", ""),
                 words("node", "config", "update", " --verbose", ""),
                 words("node", "config", "update", " -v", "")
         ).map(this::named).map(Arguments::of);
@@ -267,16 +287,40 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         // wait for lazy init of node config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
+                contains("ignite")
+        );
+    }
+
+    private Stream<Arguments> nodeConfigUpdateSuggestedAfterDotSource() {
+        return Stream.of(
+                words("node", "config", "update", "ignite."),
+                words("node", "config", "update", " --node", "nodeName", "ignite."),
+                words("node", "config", "update", " --verbose", "ignite."),
+                words("node", "config", "update", " -v", "ignite.")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("nodeConfigUpdateSuggestedAfterDotSource")
+    @DisplayName("node config update selector parameters suggested after initial root key")
+    void nodeConfigUpdateSuggestedAfterDot(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
+        // wait for lazy init of node config completer
+        await("For given parsed words: " + givenParsedLine.words()).until(
+                () -> complete(givenParsedLine),
+                // Compute and raft keys are excluded
                 containsInAnyOrder(
-                        "rest",
-                        "clientConnector",
-                        "network",
-                        "cluster",
-                        "deployment",
-                        "nodeAttributes",
-                        "storage",
-                        "criticalWorkers",
-                        "sql"
+                        "ignite.rest",
+                        "ignite.clientConnector",
+                        "ignite.network",
+                        "ignite.deployment",
+                        "ignite.nodeAttributes",
+                        "ignite.storage",
+                        "ignite.sql",
+                        "ignite.failureHandler",
+                        "ignite.system"
                 )
         );
     }
@@ -284,7 +328,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private Stream<Arguments> clusterConfigShowSuggestedSource() {
         return Stream.of(
                 words("cluster", "config", "show", ""),
-                words("cluster", "config", "show", " --node-name", "nodeName", ""),
+                words("cluster", "config", "show", " --node", "nodeName", ""),
                 words("cluster", "config", "show", " --verbose", ""),
                 words("cluster", "config", "show", " -v", "")
         ).map(this::named).map(Arguments::of);
@@ -300,14 +344,37 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS.toArray(String[]::new))
+                containsInAnyOrder("ignite")
+        );
+    }
+
+    private Stream<Arguments> clusterConfigShowSuggestedAfterDotSource() {
+        return Stream.of(
+                words("cluster", "config", "show", "ignite."),
+                words("cluster", "config", "show", " --node", "nodeName", "ignite."),
+                words("cluster", "config", "show", " --verbose", "ignite."),
+                words("cluster", "config", "show", " -v", "ignite.")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("clusterConfigShowSuggestedAfterDotSource")
+    @DisplayName("cluster config selector parameters suggested")
+    void clusterConfigShowSuggestedAfterDot(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
+        // wait for lazy init of cluster config completer
+        await("For given parsed words: " + givenParsedLine.words()).until(
+                () -> complete(givenParsedLine),
+                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS)
         );
     }
 
     private Stream<Arguments> clusterConfigUpdateSuggestedSource() {
         return Stream.of(
                 words("cluster", "config", "update", ""),
-                words("cluster", "config", "update", " --node-name", "nodeName", ""),
+                words("cluster", "config", "update", " --node", "nodeName", ""),
                 words("cluster", "config", "update", " --verbose", ""),
                 words("cluster", "config", "update", " -v", "")
         ).map(this::named).map(Arguments::of);
@@ -323,31 +390,54 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         // wait for lazy init of cluster config completer
         await("For given parsed words: " + givenParsedLine.words()).until(
                 () -> complete(givenParsedLine),
-                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS.toArray(String[]::new))
+                contains("ignite")
+        );
+    }
+
+    private Stream<Arguments> clusterConfigUpdateSuggestedAfterDotSource() {
+        return Stream.of(
+                words("cluster", "config", "update", "ignite."),
+                words("cluster", "config", "update", " --node", "nodeName", "ignite."),
+                words("cluster", "config", "update", " --verbose", "ignite."),
+                words("cluster", "config", "update", " -v", "ignite.")
+        ).map(this::named).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("clusterConfigUpdateSuggestedAfterDotSource")
+    @DisplayName("cluster config selector parameters suggested")
+    void clusterConfigUpdateSuggestedAfterDot(ParsedLine givenParsedLine) {
+        // Given
+        connected();
+
+        // wait for lazy init of cluster config completer
+        await("For given parsed words: " + givenParsedLine.words()).until(
+                () -> complete(givenParsedLine),
+                containsInAnyOrder(DISTRIBUTED_CONFIGURATION_KEYS)
         );
     }
 
 
     private Stream<Arguments> nodeNamesSource() {
         return Stream.of(
-                words("cluster", "config", "show", "--node-name", ""),
-                words("cluster", "config", "update", "--node-name", ""),
-                words("cluster", "status", "--node-name", ""),
-                words("cluster", "init", "--node-name", ""),
-                words("cluster", "init", "--cmg-node", ""),
-                words("cluster", "init", "--meta-storage-node", ""),
-                words("node", "config", "show", "--node-name", ""),
-                words("node", "config", "show", "--verbose", "--node-name", ""),
-                words("node", "config", "update", "--node-name", ""),
-                words("node", "status", "--node-name", ""),
-                words("node", "version", "--node-name", ""),
-                words("node", "metric", "list", "--node-name", "")
+                words("cluster", "config", "show", "--node", ""),
+                words("cluster", "config", "update", "--node", ""),
+                words("cluster", "status", "--node", ""),
+                words("cluster", "init", "--node", ""),
+                words("cluster", "init", "--cluster-management-group", ""),
+                words("cluster", "init", "--metastorage-group", ""),
+                words("node", "config", "show", "--node", ""),
+                words("node", "config", "show", "--verbose", "--node", ""),
+                words("node", "config", "update", "--node", ""),
+                words("node", "status", "--node", ""),
+                words("node", "version", "--node", ""),
+                words("node", "metric", "list", "--node", "")
         ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
     @MethodSource("nodeNamesSource")
-    @DisplayName("node names suggested after --node-name option")
+    @DisplayName("node names suggested after --node option")
     void nodeNameSuggested(ParsedLine givenParsedLine) {
         // Given
         connected();
@@ -363,13 +453,13 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     }
 
     @Test
-    @DisplayName("start/stop node affects --node-name suggestions")
+    @DisplayName("start/stop node affects --node suggestions")
     void startStopNodeWhenCompleteNodeName() {
         // Given
         int nodeIndex = 1;
         var igniteNodeName = allNodeNames().get(nodeIndex);
         // And
-        var givenParsedLine = words("node", "status", "--node-name", "");
+        var givenParsedLine = words("node", "status", "--node", "");
         // And
         assertThat(nodeNameRegistry.names(), empty());
 
@@ -399,7 +489,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     }
 
     private static List<String> allNodeNames() {
-        return CLUSTER.runningNodes().map(IgniteImpl::name).collect(toList());
+        return CLUSTER.runningNodes().map(Ignite::name).collect(toList());
     }
 
     @Test
@@ -417,16 +507,16 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
 
     private Stream<Arguments> clusterUrlSource() {
         return Stream.of(
-                words("cluster", "config", "show", "--cluster-endpoint-url", ""),
-                words("cluster", "config", "update", "--cluster-endpoint-url", ""),
-                words("cluster", "status", "--cluster-endpoint-url", ""),
-                words("cluster", "init", "--cluster-endpoint-url", "")
+                words("cluster", "config", "show", "--url", ""),
+                words("cluster", "config", "update", "--url", ""),
+                words("cluster", "status", "--url", ""),
+                words("cluster", "init", "--url", "")
         ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
     @MethodSource("clusterUrlSource")
-    @DisplayName("cluster url suggested after --cluster-endpoint-url option")
+    @DisplayName("cluster url suggested after --url option")
     void suggestedClusterUrl(ParsedLine parsedLine) {
         // Given
         connected();
@@ -462,17 +552,17 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         String someFile = scriptsFolder.getPath() + File.separator + "someFile.sql";
         Files.newFile(someFile).deleteOnExit();
 
-        // When complete --script-file with folder typed
-        List<String> completions1 = complete(words("sql", "--script-file", rootFolder.getPath()));
+        // When complete --file with folder typed
+        List<String> completions1 = complete(words("sql", "--file", rootFolder.getPath()));
         // Then completions contain emptyFolder and scriptsFolder
         assertThat(completions1, containsInAnyOrder(emptyFolder.getPath(), scriptsFolder.getPath()));
 
-        List<String> completions2 = complete(words("sql", "--script-file", scriptsFolder.getPath()));
+        List<String> completions2 = complete(words("sql", "--file", scriptsFolder.getPath()));
         // Then completions contain all given files
         assertThat(completions2, containsInAnyOrder(script1, script2, someFile));
 
-        // When complete --script-file with partial path to script
-        List<String> completions3 = complete(words("sql", "--script-file", scriptsFolder.getPath() + File.separator + "script"));
+        // When complete --file with partial path to script
+        List<String> completions3 = complete(words("sql", "--file", scriptsFolder.getPath() + File.separator + "script"));
         // Then completions contain script1 and script2 files
         assertThat(completions3, containsInAnyOrder(script1, script2));
     }

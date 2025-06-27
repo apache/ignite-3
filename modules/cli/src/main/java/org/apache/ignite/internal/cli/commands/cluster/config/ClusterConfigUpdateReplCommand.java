@@ -40,7 +40,7 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
 
     /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgsAndFile;
 
     @Inject
     ClusterConfigUpdateCall call;
@@ -51,18 +51,17 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(this::configUpdateCallInput)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot update cluster config", "cluster init"))
-                .verbose(verbose)
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot update cluster config"))
                 .print()
-                .start();
+        );
     }
 
     private ClusterConfigUpdateCallInput configUpdateCallInput(String clusterUrl) {
         return ClusterConfigUpdateCallInput.builder()
-                .config(config.toString())
+                .config(configFromArgsAndFile.formUpdateConfig())
                 .clusterUrl(clusterUrl)
                 .build();
     }

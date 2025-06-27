@@ -50,7 +50,6 @@ import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeCoercionRule;
 import org.apache.calcite.sql.type.SqlTypeMappingRule;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -108,7 +107,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
         ALL_BESIDES_BINARY_NAMES.addAll(YM_INTERVAL);
         ALL_BESIDES_BINARY_NAMES.addAll(DAY_INTERVAL);
         ALL_BESIDES_BINARY_NAMES.add("NUMERIC");
-        ALL_BESIDES_BINARY_NAMES.add(UuidType.NAME);
+        ALL_BESIDES_BINARY_NAMES.add(SqlTypeName.UUID.getName());
 
         CHAR_NUMERIC_AND_INTERVAL_NAMES.addAll(NUMERIC_NAMES);
         CHAR_NUMERIC_AND_INTERVAL_NAMES.addAll(CHAR_NAMES);
@@ -152,7 +151,9 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
             for (String toType : toTypes) {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21555
-                if (toType.equals(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE.getName())) {
+                if (toType.equals(SqlTypeName.TIME_WITH_LOCAL_TIME_ZONE.getName())
+                        || toType.equals(SqlTypeName.TIME_TZ.getName())
+                        || toType.equals(SqlTypeName.TIMESTAMP_TZ.getName())) {
                     continue;
                 }
 
@@ -331,7 +332,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         NUMERIC("NUMERIC", CHAR_NUMERIC_AND_INTERVAL_NAMES),
 
-        UUID(UuidType.NAME, new HashSet<>(CHAR_NAMES)),
+        UUID(SqlTypeName.UUID.getName(), new HashSet<>(CHAR_NAMES)),
 
         VARCHAR(SqlTypeName.VARCHAR.getName(), ALL_BESIDES_BINARY_NAMES),
 

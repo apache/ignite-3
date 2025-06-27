@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -107,7 +108,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         lock.lock();
         try {
-            if (waiting != -1 || !outBuff.isEmpty()) {
+            if (waiting != NOT_WAITING || !outBuff.isEmpty()) {
                 ex.compareAndSet(null, new QueryCancelledException());
             }
 
@@ -130,7 +131,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     /** {@inheritDoc} */
     @Override
     public void closeInternal() {
-        context().execute(() -> sources().forEach(Commons::closeQuiet), this::onError);
+        this.execute(() -> sources().forEach(Commons::closeQuiet));
     }
 
     /** {@inheritDoc} */
@@ -139,8 +140,6 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         lock.lock();
         try {
             assert waiting > 0;
-
-            checkState();
 
             waiting--;
 
@@ -161,9 +160,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         lock.lock();
         try {
-            checkState();
-
-            waiting = -1;
+            waiting = NOT_WAITING;
 
             cond.signalAll();
         } finally {
@@ -237,6 +234,12 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", waiting=").app(waiting);
+    }
+
     private void exchangeBuffers() {
         assert !nullOrEmpty(sources()) && sources().size() == 1;
 
@@ -245,20 +248,20 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             while (ex.get() == null) {
                 assert outBuff.isEmpty();
 
-                if (inBuff.size() == inBufSize || waiting == -1) {
+                if (inBuff.size() == inBufSize || waiting == NOT_WAITING) {
                     Deque<RowT> tmp = inBuff;
                     inBuff = outBuff;
                     outBuff = tmp;
                 }
 
-                if (waiting == -1 && outBuff.isEmpty()) {
+                if (waiting == NOT_WAITING && outBuff.isEmpty()) {
                     close();
                 } else if (inBuff.isEmpty() && waiting == 0) {
                     int req = waiting = inBufSize;
-                    context().execute(() -> source().request(req), this::onError);
+                    this.execute(() -> source().request(req));
                 }
 
-                if (!outBuff.isEmpty() || waiting == -1) {
+                if (!outBuff.isEmpty() || waiting == NOT_WAITING) {
                     break;
                 }
 

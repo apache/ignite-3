@@ -21,11 +21,13 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.netty.util.ResourceLeakDetector;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -33,6 +35,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -40,7 +44,12 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.streamer.SimplePublisher;
@@ -48,7 +57,10 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -76,7 +88,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static TestServer testServer2;
 
-    private static Ignite server2;
+    private static FakeIgnite server2;
 
     private static IgniteClient client2;
 
@@ -91,8 +103,6 @@ public class PartitionAwarenessTest extends AbstractClientTest {
      */
     @BeforeAll
     public static void startServer2() {
-        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
-
         server2 = new FakeIgnite("server-2");
         testServer2 = new TestServer(0, server2, null, null, "server-2", clusterId, null, null);
 
@@ -177,7 +187,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testClientReceivesPartitionAssignmentUpdates(boolean useHeartbeat) throws InterruptedException {
-        ReliableChannel ch = IgniteTestUtils.getFieldValue(client2, "ch");
+        ReliableChannel ch = ((TcpIgniteClient) client2).channel();
 
         // Check default assignment.
         RecordView<Tuple> recordView = defaultTable().recordView();
@@ -213,8 +223,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testCustomColocationKey() {
         RecordView<Tuple> recordView = table(FakeIgniteTables.TABLE_COLOCATION_KEY).recordView();
 
-        assertOpOnNode("server-2", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 4L)));
-        assertOpOnNode("server-1", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 8L)));
+        assertOpOnNode("server-2", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO1", "0").set("COLO2", 4L)));
+        assertOpOnNode("server-1", "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0).set("COLO1", "0").set("COLO2", 8L)));
     }
 
     @Test
@@ -444,101 +454,122 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertThat(compute().executeColocatedAsync(table.name(), t1, List.of(), "job"), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), t2, List.of(), "job"), willBe(nodeKey2));
+        JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
+
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), t1), job, null), willBe(nodeKey1));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), t2), job, null), willBe(nodeKey2));
     }
 
     @Test
     public void testExecuteColocatedObjectKeyRoutesRequestToPrimaryNode() {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
+        JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job"), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job"), willBe(nodeKey2));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), 1L, mapper), job, null), willBe(nodeKey1));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), 2L, mapper), job, null), willBe(nodeKey2));
     }
 
-    @Test
-    public void testDataStreamerRecordBinaryView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testDataStreamerRecordBinaryView(boolean withReceiver) {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
             try (SimplePublisher<Tuple> publisher = new SimplePublisher<>()) {
-                fut = recordView.streamData(publisher, null);
+                fut = withReceiver
+                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
+                        : recordView.streamData(publisher, null);
+
                 publisher.submit(t);
             }
 
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 3L)));
+        String expectedOp = withReceiver ? "upsert" : "updateAll";
+        assertOpOnNode(nodeKey0, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
-    @Test
-    public void testDataStreamerRecordView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testDataStreamerRecordView(boolean withReceiver) {
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         Consumer<PersonPojo> stream = t -> {
             CompletableFuture<Void> fut;
 
             try (SimplePublisher<PersonPojo> publisher = new SimplePublisher<>()) {
-                fut = pojoView.streamData(publisher, null);
+                fut = withReceiver
+                        ? pojoView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
+                        : pojoView.streamData(publisher, null);
+
                 publisher.submit(t);
             }
 
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "updateAll", tx -> stream.accept(new PersonPojo(0L)));
-        assertOpOnNode(nodeKey1, "updateAll", tx -> stream.accept(new PersonPojo(1L)));
-        assertOpOnNode(nodeKey2, "updateAll", tx -> stream.accept(new PersonPojo(2L)));
-        assertOpOnNode(nodeKey3, "updateAll", tx -> stream.accept(new PersonPojo(3L)));
+        String expectedOp = withReceiver ? "upsert" : "updateAll";
+        assertOpOnNode(nodeKey0, expectedOp, tx -> stream.accept(new PersonPojo(0L)));
+        assertOpOnNode(nodeKey1, expectedOp, tx -> stream.accept(new PersonPojo(1L)));
+        assertOpOnNode(nodeKey2, expectedOp, tx -> stream.accept(new PersonPojo(2L)));
+        assertOpOnNode(nodeKey3, expectedOp, tx -> stream.accept(new PersonPojo(3L)));
     }
 
-    @Test
-    public void testDataStreamerKeyValueBinaryView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testDataStreamerKeyValueBinaryView(boolean withReceiver) {
         KeyValueView<Tuple, Tuple> recordView = defaultTable().keyValueView();
 
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
             try (SimplePublisher<Entry<Tuple, Tuple>> publisher = new SimplePublisher<>()) {
-                fut = recordView.streamData(publisher, null);
+                fut = withReceiver
+                        ? recordView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
+                        : recordView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, Tuple.create()));
             }
 
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 3L)));
+        String expectedOp = withReceiver ? "upsert" : "updateAll";
+        assertOpOnNode(nodeKey0, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
-    @Test
-    public void testDataStreamerKeyValueView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true})
+    public void testDataStreamerKeyValueView(boolean withReceiver) {
         KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         Consumer<Long> stream = t -> {
             CompletableFuture<Void> fut;
 
             try (SimplePublisher<Entry<Long, String>> publisher = new SimplePublisher<>()) {
-                fut = kvView.streamData(publisher, null);
+                fut = withReceiver
+                        ? kvView.streamData(publisher, DataStreamerItem::get, x -> 0, receiver(), null, null, null)
+                        : kvView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, t.toString()));
             }
 
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "updateAll", tx -> stream.accept(0L));
-        assertOpOnNode(nodeKey1, "updateAll", tx -> stream.accept(1L));
-        assertOpOnNode(nodeKey2, "updateAll", tx -> stream.accept(2L));
-        assertOpOnNode(nodeKey3, "updateAll", tx -> stream.accept(3L));
+        String expectedOp = withReceiver ? "upsert" : "updateAll";
+        assertOpOnNode(nodeKey0, expectedOp, tx -> stream.accept(0L));
+        assertOpOnNode(nodeKey1, expectedOp, tx -> stream.accept(1L));
+        assertOpOnNode(nodeKey2, expectedOp, tx -> stream.accept(2L));
+        assertOpOnNode(nodeKey3, expectedOp, tx -> stream.accept(3L));
     }
 
     @Test
@@ -546,7 +577,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .pageSize(1)
                 .perPartitionParallelOperations(1)
-                .autoFlushFrequency(50)
+                .autoFlushInterval(50)
                 .build();
 
         CompletableFuture<Void> fut;
@@ -582,6 +613,42 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         }
 
         fut.join();
+    }
+
+    @Test
+    public void testAssignmentUnavailablePutGet() {
+        initPrimaryReplicas(nullReplicas());
+
+        RecordView<Tuple> recordView = defaultTable().recordView();
+
+        recordView.upsert(null, Tuple.create().set("ID", 123L));
+        Tuple res = recordView.get(null, Tuple.create().set("ID", 123L));
+
+        assertNotNull(res);
+    }
+
+    @Test
+    public void testAssignmentUnavailableStreamer() {
+        initPrimaryReplicas(nullReplicas());
+
+        DataStreamerOptions options = DataStreamerOptions.builder()
+                .pageSize(1)
+                .perPartitionParallelOperations(1)
+                .autoFlushInterval(50)
+                .build();
+
+        CompletableFuture<Void> fut;
+
+        RecordView<Tuple> recordView = defaultTable().recordView();
+        try (SubmissionPublisher<DataStreamerItem<Tuple>> publisher = new SubmissionPublisher<>()) {
+            fut = recordView.streamData(publisher, options);
+
+            for (long i = 0; i < 100; i++) {
+                publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", i)));
+            }
+        }
+
+        assertDoesNotThrow(fut::join);
     }
 
     private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Transaction> op) {
@@ -651,7 +718,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             replicas = defaultReplicas();
         }
 
-        placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
+        int currentTableId = nextTableId.get() - 1;
+
+        placementDriver.returnError(false);
+        placementDriver.setReplicas(replicas, currentTableId, zoneId(currentTableId), leaseStartTime);
+    }
+
+    private static int zoneId(int tableId) {
+        Catalog catalog = testServer.catalogService().activeCatalog(Long.MAX_VALUE);
+        assertThat(catalog, is(notNullValue()));
+
+        CatalogTableDescriptor table = catalog.table(tableId);
+        assertThat(table, is(notNullValue()));
+
+        return table.zoneId();
     }
 
     private static List<String> defaultReplicas() {
@@ -660,5 +740,22 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static List<String> reversedReplicas() {
         return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
+    }
+
+    private static List<String> nullReplicas() {
+        return IntStream.range(0, 4).mapToObj(i -> (String) null).collect(Collectors.toList());
+    }
+
+    private static <A> ReceiverDescriptor<A> receiver() {
+        return (ReceiverDescriptor<A>) ReceiverDescriptor.builder(TestReceiver.class).build();
+    }
+
+    private static class TestReceiver implements DataStreamerReceiver<Object, Object, Object> {
+        @SuppressWarnings("resource")
+        @Override
+        public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
+            ctx.ignite().tables().table(DEFAULT_TABLE).recordView().upsert(null, Tuple.create().set("ID", 0L));
+            return CompletableFuture.completedFuture(null);
+        }
     }
 }

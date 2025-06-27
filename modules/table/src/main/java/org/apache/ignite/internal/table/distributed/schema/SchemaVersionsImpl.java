@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.lang.TableNotFoundException;
 
 /**
@@ -59,20 +60,29 @@ public class SchemaVersionsImpl implements SchemaVersions {
     private CompletableFuture<CatalogTableDescriptor> tableDescriptor(int tableId, HybridTimestamp timestamp) {
         return schemaSyncService.waitForMetadataCompleteness(timestamp)
                 .thenApply(unused -> {
-                    CatalogTableDescriptor table = catalogService.table(tableId, timestamp.longValue());
+                    CatalogTableDescriptor table = catalogService.activeCatalog(timestamp.longValue()).table(tableId);
 
                     if (table == null) {
-                        String message = "Table does not exist or was dropped concurrently: " + tableId;
-
-                        throw new TableNotFoundException(UUID.randomUUID(), TABLE_NOT_FOUND_ERR, message, null);
+                        throw tableNotFoundException(tableId);
                     }
 
                     return table;
                 });
     }
 
+    /**
+     * Builds a {@link TableNotFoundException} for table ID.
+     *
+     * @param tableId Table ID.
+     */
+    public static TableNotFoundException tableNotFoundException(int tableId) {
+        String message = "Table does not exist or was dropped concurrently: " + tableId;
+
+        return new TableNotFoundException(UUID.randomUUID(), TABLE_NOT_FOUND_ERR, message, null);
+    }
+
     @Override
-    public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
-        return schemaVersionAt(clockService.now(), tableId);
+    public CompletableFuture<Integer> schemaVersionAtCurrentTime(int tableId) {
+        return schemaVersionAt(clockService.current(), tableId);
     }
 }

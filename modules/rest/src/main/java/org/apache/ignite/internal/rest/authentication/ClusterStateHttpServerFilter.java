@@ -23,6 +23,7 @@ import io.micronaut.http.MutableHttpResponse;
 import io.micronaut.http.annotation.Filter;
 import io.micronaut.http.filter.HttpServerFilter;
 import io.micronaut.http.filter.ServerFilterChain;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.RestManager;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
@@ -35,8 +36,8 @@ import reactor.core.publisher.Mono;
  * */
 @Filter(Filter.MATCH_ALL_PATTERN)
 @Requires(property = "ignite.endpoints.filter-non-initialized", value = "true", defaultValue = "true")
-public class ClusterStateHttpServerFilter implements HttpServerFilter {
-    private final RestManager restManager;
+public class ClusterStateHttpServerFilter implements HttpServerFilter, ResourceHolder {
+    private RestManager restManager;
 
     public ClusterStateHttpServerFilter(RestManager restManager) {
         this.restManager = restManager;
@@ -54,6 +55,11 @@ public class ClusterStateHttpServerFilter implements HttpServerFilter {
             }
             return Mono.empty();
         }).switchIfEmpty(Mono.from(chain.proceed(request)));
+    }
+
+    @Override
+    public void cleanResources() {
+        restManager = null;
     }
 }
 

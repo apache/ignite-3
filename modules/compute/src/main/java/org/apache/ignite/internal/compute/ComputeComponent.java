@@ -21,10 +21,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -38,109 +40,93 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
-     * @param <R> Job result type.
-     * @return Future execution result.
+     * @param arg Job argument.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
-    <R> JobExecution<R> executeLocally(
+    CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
-
-    /**
-     * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions#DEFAULT}.
-     *
-     * @param units Deployment units which will be loaded for execution.
-     * @param jobClassName Name of the job class.
-     * @param args Job args.
-     * @param <R> Job result type.
-     * @return Future execution result.
-     */
-    default <R> JobExecution<R> executeLocally(
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, args);
-    }
 
     /**
      * Executes a job of the given class on a remote node.
      *
      * @param options Job execution options.
-     * @param remoteNode Name of the job class.
+     * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
-     * @param <R> Job result type.
-     * @return Future execution result.
+     * @param arg Job argument.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
-    <R> JobExecution<R> executeRemotely(
+    CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
-
-    /**
-     * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions#DEFAULT}.
-     *
-     * @param remoteNode Name of the job class.
-     * @param units Deployment units which will be loaded for execution.
-     * @param jobClassName Name of the job class.
-     * @param args Job args.
-     * @param <R> Job result type.
-     * @return Future execution result.
-     */
-    default <R> JobExecution<R> executeRemotely(
-            ClusterNode remoteNode,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            Object... args
-    ) {
-        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, args);
-    }
 
     /**
      * Executes a job of the given class on a remote node. If the node leaves the cluster, it will be restarted on the node given by the
      * {@code nextWorkerSelector}.
      *
-     * @param remoteNode Name of the job class.
+     * @param remoteNode Remote node name.
      * @param nextWorkerSelector The selector that returns the next worker to execute job on.
-     * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
-     * @param args Job args.
-     * @param <R> Job result type.
-     * @return Future execution result.
+     * @param options Job execution options.
+     * @param arg Job argument.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
-    <R> JobExecution<R> executeRemotelyWithFailover(
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            Object... args
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
-     * Retrieves the current status of all jobs on all nodes in the cluster.
+     * Executes a task of the given class.
      *
-     * @return The collection of job statuses.
+     * @param jobSubmitter Function which submits a job with specified parameters for the execution.
+     * @param units Deployment units which will be loaded for execution.
+     * @param taskClassName Name of the task class.
+     * @param arg Task args.
+     * @param <R> Task result type.
+     * @return Task execution object.
      */
-    CompletableFuture<Collection<JobStatus>> statusesAsync();
+    <I, M, T, R> CancellableTaskExecution<R> executeTask(
+            JobSubmitter<M, T> jobSubmitter,
+            List<DeploymentUnit> units,
+            String taskClassName,
+            I arg
+    );
 
     /**
-     * Retrieves the current status of the job on any node in the cluster. The job status may be deleted and thus return {@code null} if the
-     * time for retaining job status has been exceeded.
+     * Retrieves the current state of all jobs on all nodes in the cluster.
+     *
+     * @return The collection of job states.
+     */
+    CompletableFuture<Collection<JobState>> statesAsync();
+
+    /**
+     * Retrieves the current state of the job on any node in the cluster. The job state may be deleted and thus return {@code null} if the
+     * time for retaining job state has been exceeded.
      *
      * @param jobId Job id.
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     * @return The current state of the job, or {@code null} if the job state no longer exists due to exceeding the retention time limit.
      */
-    CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId);
+    CompletableFuture<@Nullable JobState> stateAsync(UUID jobId);
 
     /**
      * Cancels the job running on any node in the cluster.

@@ -23,7 +23,6 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
-import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainInnerIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainLeafIo;
@@ -41,11 +40,12 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
      * @param grpName Group name.
      * @param partId Partition id.
      * @param pageMem Page memory.
-     * @param lockLsnr Page lock listener.
-     * @param globalRmvId Global remove ID.
+     * @param globalRmvId Global remove ID, for a tree that was created for the first time it can be {@code 0}, for restored ones it
+     *      must be greater than or equal to the previous value.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
-     * @param initNew {@code True} if new tree should be created.
+     * @param initNew {@code True} if need to create and fill in special pages for working with a tree (for example, when creating it
+     *      for the first time), {@code false} if not necessary (for example, when restoring a tree).
      * @throws IgniteInternalCheckedException If failed.
      */
     public VersionChainTree(
@@ -53,19 +53,17 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
             String grpName,
             int partId,
             PageMemory pageMem,
-            PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
             boolean initNew
     ) throws IgniteInternalCheckedException {
         super(
-                "VersionChainTree_" + grpId,
+                "VersionChainTree",
                 grpId,
                 grpName,
                 partId,
                 pageMem,
-                lockLsnr,
                 globalRmvId,
                 metaPageId,
                 reuseList
@@ -76,7 +74,6 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
         initTree(initNew);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected int compare(BplusIo<VersionChainKey> io, long pageAddr, int idx, VersionChainKey row) {
         VersionChainIo versionChainIo = (VersionChainIo) io;
@@ -84,7 +81,6 @@ public class VersionChainTree extends BplusTree<VersionChainKey, VersionChain> {
         return versionChainIo.compare(pageAddr, idx, row);
     }
 
-    /** {@inheritDoc} */
     @Override
     public VersionChain getRow(BplusIo<VersionChainKey> io, long pageAddr, int idx, Object x) {
         VersionChainIo versionChainIo = (VersionChainIo) io;

@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.BaseMatcher;
@@ -46,10 +47,11 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
      * and returned instance follows the contract.
      */
     @Test
-    void testManagerWorksAsExpected() throws Exception {
+    void testManagerWorksAsExpected() {
         CatalogManager manager = createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
 
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+        assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
 
         CreateTableCommandBuilder createTableTemplate = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
@@ -69,18 +71,18 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
 
         int version2 = manager.latestCatalogVersion();
 
-        Collection<CatalogTableDescriptor> tablesOfVersion1 = manager.tables(version1);
+        Collection<CatalogTableDescriptor> tablesOfVersion1 = manager.catalog(version1).tables();
 
         assertThat(tablesOfVersion1, hasSize(1));
         assertThat(tablesOfVersion1, hasItem(descriptorWithName("T1")));
 
-        Collection<CatalogTableDescriptor> tablesOfVersion2 = manager.tables(version2);
+        Collection<CatalogTableDescriptor> tablesOfVersion2 = manager.catalog(version2).tables();
 
         assertThat(tablesOfVersion2, hasSize(2));
         assertThat(tablesOfVersion2, hasItem(descriptorWithName("T1")));
         assertThat(tablesOfVersion2, hasItem(descriptorWithName("T2")));
 
-        assertThat(manager.stopAsync(), willCompleteSuccessfully());
+        assertThat(manager.stopAsync(componentContext), willCompleteSuccessfully());
     }
 
     private static Matcher<CatalogTableDescriptor> descriptorWithName(String name) {

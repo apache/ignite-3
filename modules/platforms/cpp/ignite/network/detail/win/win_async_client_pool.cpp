@@ -153,7 +153,7 @@ void win_async_client_pool::handle_message_sent(uint64_t id) {
 
 bool win_async_client_pool::send(uint64_t id, std::vector<std::byte> &&data) {
     if (m_stopping)
-        throw ignite_error("Client is stopped");
+        throw ignite_error(error::code::CONNECTION, "Network connection pool is stopped");
 
     auto client = find_client(id);
     if (!client)

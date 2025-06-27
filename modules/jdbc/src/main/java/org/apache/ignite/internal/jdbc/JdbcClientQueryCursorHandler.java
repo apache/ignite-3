@@ -22,11 +22,9 @@ import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 
 /**
@@ -74,18 +72,6 @@ public class JdbcClientQueryCursorHandler implements JdbcQueryCursorHandler {
     public CompletableFuture<JdbcQueryCloseResult> closeAsync(JdbcQueryCloseRequest req) {
         return channel.serviceAsync(ClientOp.JDBC_CURSOR_CLOSE, w -> req.writeBinary(w.out()), r -> {
             JdbcQueryCloseResult res = new JdbcQueryCloseResult();
-
-            res.readBinary(r.in());
-
-            return res;
-        });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
-        return channel.serviceAsync(ClientOp.JDBC_QUERY_META, w -> req.writeBinary(w.out()), r -> {
-            JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
             res.readBinary(r.in());
 

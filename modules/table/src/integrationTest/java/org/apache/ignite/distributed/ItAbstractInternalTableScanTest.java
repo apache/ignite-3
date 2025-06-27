@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
@@ -42,14 +43,20 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -63,6 +70,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,7 +94,10 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     /** Mock partition storage. */
     @Mock
@@ -95,13 +106,47 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     /** Internal table to test. */
     DummyInternalTableImpl internalTbl;
 
+    protected final int zoneId = DummyInternalTableImpl.ZONE_ID;
+
+    private PlacementDriver placementDriver;
+
+    protected ClusterNodeResolver clusterNodeResolver;
+
     /**
      * Prepare test environment using DummyInternalTableImpl and Mocked storage.
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        internalTbl = new DummyInternalTableImpl(mock(ReplicaService.class), mockStorage, ROW_SCHEMA, txConfiguration,
-                storageUpdateConfiguration);
+        clusterNodeResolver = new ClusterNodeResolver() {
+
+            private final ClusterNode singleNode = DummyInternalTableImpl.LOCAL_NODE;
+
+            @Override
+            public @Nullable ClusterNode getByConsistentId(String consistentId) {
+                return singleNode.name().equals(consistentId)
+                        ? singleNode
+                        : null;
+            }
+
+            @Override
+            public @Nullable ClusterNode getById(UUID id) {
+                return singleNode.id().equals(id)
+                        ? singleNode
+                        : null;
+            }
+        };
+
+        placementDriver = new TestPlacementDriver(DummyInternalTableImpl.LOCAL_NODE);
+
+        internalTbl = new DummyInternalTableImpl(
+                mock(ReplicaService.class),
+                placementDriver,
+                mockStorage,
+                ROW_SCHEMA,
+                txConfiguration,
+                systemDistributedConfiguration,
+                replicationConfiguration
+        );
     }
 
     /**
@@ -513,6 +558,24 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
                     throw gotException.get();
                 }
         );
+    }
+
+    /**
+     * Resolves primary replica node for given replication group.
+     *
+     * @param replicationGroupId Desired replication group ID.
+     * @return Primary replica {@link ClusterNode} for the group.
+     */
+    protected ClusterNode getPrimaryReplica(ReplicationGroupId replicationGroupId) {
+        return placementDriver.awaitPrimaryReplica(
+                        replicationGroupId,
+                        DummyInternalTableImpl.CLOCK.now(),
+                        DummyInternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                        TimeUnit.SECONDS
+                )
+                .thenApply(ReplicaMeta::getLeaseholder)
+                .thenApply(clusterNodeResolver::getByConsistentId)
+                .join();
     }
 
     /**

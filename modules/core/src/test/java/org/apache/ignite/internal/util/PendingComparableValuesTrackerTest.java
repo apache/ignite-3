@@ -40,6 +40,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -256,7 +258,8 @@ public class PendingComparableValuesTrackerTest {
 
         CompletableFuture<Void> future0 = tracker.waitFor(2);
 
-        tracker.close();
+        // Close is called from dedicated stop worker.
+        IgniteTestUtils.runAsync((RunnableX) tracker::close).join();
 
         assertThrows(TrackerClosedException.class, tracker::current);
         assertThrows(TrackerClosedException.class, () -> tracker.update(2, null));

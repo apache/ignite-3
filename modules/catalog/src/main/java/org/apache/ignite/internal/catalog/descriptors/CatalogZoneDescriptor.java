@@ -17,25 +17,26 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static java.lang.Math.min;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 
-import java.io.IOException;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Distribution zone descriptor base class.
  */
-public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
-    public static final CatalogObjectSerializer<CatalogZoneDescriptor> SERIALIZER = new ZoneDescriptorSerializer();
-
+public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements MarshallableEntry {
     /** Amount of zone partitions. */
     private final int partitions;
 
     /** Amount of zone replicas. */
     private final int replicas;
+
+    /** Quorum size. */
+    private final int quorumSize;
 
     /** Data nodes auto adjust timeout. */
     private final int dataNodesAutoAdjust;
@@ -53,31 +54,56 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     private final CatalogStorageProfilesDescriptor storageProfiles;
 
     /**
+     * Specifies the consistency mode of the zone, determining how the system balances data consistency and availability.
+     */
+    private final ConsistencyMode consistencyMode;
+
+    /**
+     * Returns {@code true} if zone upgrade will lead to assignments recalculation.
+     */
+    public static boolean updateRequiresAssignmentsRecalculation(CatalogZoneDescriptor oldDescriptor, CatalogZoneDescriptor newDescriptor) {
+        if (oldDescriptor.updateTimestamp().equals(newDescriptor.updateTimestamp())) {
+            return false;
+        }
+
+        return oldDescriptor.partitions != newDescriptor.partitions
+                || oldDescriptor.replicas != newDescriptor.replicas
+                || oldDescriptor.quorumSize != newDescriptor.quorumSize
+                || !oldDescriptor.filter.equals(newDescriptor.filter)
+                || !oldDescriptor.storageProfiles.profiles().equals(newDescriptor.storageProfiles.profiles())
+                || oldDescriptor.consistencyMode != newDescriptor.consistencyMode;
+    }
+
+    /**
      * Constructs a distribution zone descriptor.
      *
      * @param id Id of the distribution zone.
      * @param name Name of the zone.
      * @param partitions Count of partitions in distributions zone.
      * @param replicas Count of partition replicas.
+     * @param quorumSize Quorum size.
      * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
      * @param storageProfiles Storage profiles descriptor.
+     * @param consistencyMode Consistency mode of the zone.
      */
     public CatalogZoneDescriptor(
             int id,
             String name,
             int partitions,
             int replicas,
+            int quorumSize,
             int dataNodesAutoAdjust,
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
             String filter,
-            CatalogStorageProfilesDescriptor storageProfiles
+            CatalogStorageProfilesDescriptor storageProfiles,
+            ConsistencyMode consistencyMode
     ) {
-        this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
-                filter, storageProfiles, INITIAL_CAUSALITY_TOKEN);
+        this(id, name, partitions, replicas, quorumSize, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
+                filter, storageProfiles, INITIAL_TIMESTAMP, consistencyMode);
     }
 
     /**
@@ -91,29 +117,33 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
-     * @param causalityToken Token of the update of the descriptor.
+     * @param timestamp Timestamp of the update of the descriptor.
      */
-    private CatalogZoneDescriptor(
+    CatalogZoneDescriptor(
             int id,
             String name,
             int partitions,
             int replicas,
+            int quorumSize,
             int dataNodesAutoAdjust,
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
             String filter,
             CatalogStorageProfilesDescriptor storageProfiles,
-            long causalityToken
+            HybridTimestamp timestamp,
+            ConsistencyMode consistencyMode
     ) {
-        super(id, Type.ZONE, name, causalityToken);
+        super(id, Type.ZONE, name, timestamp);
 
         this.partitions = partitions;
         this.replicas = replicas;
+        this.quorumSize = quorumSize;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
         this.storageProfiles = storageProfiles;
+        this.consistencyMode = consistencyMode;
     }
 
     /**
@@ -128,6 +158,22 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      */
     public int replicas() {
         return replicas;
+    }
+
+    /**
+     * Return quorum size. Quorum is the minimal subset of replicas in the consensus group that is required for it to be fully operational
+     * and maintain the data consistency, in the case of Raft it is the majority of voting members.
+     */
+    public int quorumSize() {
+        return quorumSize;
+    }
+
+    /**
+     * Return consensus group size. Consensus group is a subset of replicas of a partition that maintains the data consistency in the
+     * replication group, in the case of Raft it is the set of voting members. Derived from the quorum size.
+     */
+    public int consensusGroupSize() {
+        return min(quorumSize * 2 - 1, replicas);
     }
 
     /**
@@ -165,6 +211,13 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
+     * Specifies the consistency mode of the zone, determining how the system balances data consistency and availability.
+     */
+    public ConsistencyMode consistencyMode() {
+        return consistencyMode;
+    }
+
+    /**
      * Returns the storage profiles descriptor.
      */
     public CatalogStorageProfilesDescriptor storageProfiles() {
@@ -172,57 +225,12 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     }
 
     @Override
-    public String toString() {
-        return S.toString(CatalogZoneDescriptor.class, this, super.toString());
+    public int typeId() {
+        return MarshallableEntryType.DESCRIPTOR_ZONE.id();
     }
 
-    /**
-     * Serializer for {@link CatalogZoneDescriptor}.
-     */
-    private static class ZoneDescriptorSerializer implements CatalogObjectSerializer<CatalogZoneDescriptor> {
-        @Override
-        public CatalogZoneDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readInt();
-            String name = input.readUTF();
-            long updateToken = input.readLong();
-
-            CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = CatalogStorageProfilesDescriptor.SERIALIZER.readFrom(input);
-
-            int partitions = input.readInt();
-            int replicas = input.readInt();
-            int dataNodesAutoAdjust = input.readInt();
-            int dataNodesAutoAdjustScaleUp = input.readInt();
-            int dataNodesAutoAdjustScaleDown = input.readInt();
-            String filter = input.readUTF();
-
-            return new CatalogZoneDescriptor(
-                    id,
-                    name,
-                    partitions,
-                    replicas,
-                    dataNodesAutoAdjust,
-                    dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown,
-                    filter,
-                    catalogStorageProfilesDescriptor,
-                    updateToken
-            );
-        }
-
-        @Override
-        public void writeTo(CatalogZoneDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeInt(descriptor.id());
-            output.writeUTF(descriptor.name());
-            output.writeLong(descriptor.updateToken());
-
-            CatalogStorageProfilesDescriptor.SERIALIZER.writeTo(descriptor.storageProfiles(), output);
-
-            output.writeInt(descriptor.partitions());
-            output.writeInt(descriptor.replicas());
-            output.writeInt(descriptor.dataNodesAutoAdjust());
-            output.writeInt(descriptor.dataNodesAutoAdjustScaleUp());
-            output.writeInt(descriptor.dataNodesAutoAdjustScaleDown());
-            output.writeUTF(descriptor.filter());
-        }
+    @Override
+    public String toString() {
+        return S.toString(CatalogZoneDescriptor.class, this, super.toString());
     }
 }

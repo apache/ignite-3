@@ -49,14 +49,10 @@ public class NodeMetricSourceListCommand extends BaseCommand implements Callable
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> new UrlCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
                 .decorator(new MetricSourceListDecorator(plain))
-                .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list metrics", "ignite cluster init"))
-                .build()
-                .runPipeline();
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list metric sources"))
+        );
     }
 }

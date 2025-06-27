@@ -22,9 +22,8 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,19 +32,16 @@ import org.jetbrains.annotations.Nullable;
 public class DataPageReader {
     private final PageMemory pageMemory;
     private final int groupId;
-    private final IoStatisticsHolder statisticsHolder;
 
     /**
      * Constructs a new instance.
      *
-     * @param pageMemory       Page memory that will be used to lock and access memory.
-     * @param groupId          ID of the cache group with which the reader works (all pages must belong to this group)
-     * @param statisticsHolder used to track statistics about operations
+     * @param pageMemory Page memory that will be used to lock and access memory.
+     * @param groupId ID of the cache group with which the reader works (all pages must belong to this group)
      */
-    public DataPageReader(PageMemory pageMemory, int groupId, IoStatisticsHolder statisticsHolder) {
+    public DataPageReader(PageMemory pageMemory, int groupId) {
         this.pageMemory = pageMemory;
         this.groupId = groupId;
-        this.statisticsHolder = statisticsHolder;
     }
 
     /**
@@ -70,14 +66,14 @@ public class DataPageReader {
 
         do {
             final long pageId = pageId(currentLink);
-            final long page = pageMemory.acquirePage(groupId, pageId, statisticsHolder);
+            final long page = pageMemory.acquirePage(groupId, pageId);
 
             try {
                 long pageAddr = pageMemory.readLock(groupId, pageId, page);
                 assert pageAddr != 0L : currentLink;
 
                 try {
-                    AbstractDataPageIo<?> dataIo = pageMemory.ioRegistry().resolve(pageAddr);
+                    DataPageIo dataIo = pageMemory.ioRegistry().resolve(pageAddr);
 
                     int itemId = itemId(currentLink);
 

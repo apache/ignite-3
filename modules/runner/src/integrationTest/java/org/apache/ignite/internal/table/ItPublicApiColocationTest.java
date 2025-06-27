@@ -18,81 +18,78 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.table.Table;
+import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 
 /**
  * Tests for the data colocation.
  */
+// TODO https://issues.apache.org/jira/browse/IGNITE-22522
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     /** Rows count ot test. */
     private static final int ROWS = 10;
 
-    /**
-     * Excluded native types.
-     */
-    private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
-            NativeTypeSpec.BITMASK,
-            NativeTypeSpec.NUMBER)
-            .collect(Collectors.toSet());
-
     @AfterEach
     public void dropTables() {
-        for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name());
-        }
+        dropAllTables();
     }
 
     /**
      * Check colocation by one column PK and explicit colocation key for all types.
      */
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
-    @MethodSource("oneColumnParameters")
-    public void colocationOneColumn(NativeTypeSpec type) throws Exception {
-        sql(String.format("create table test0(id %s primary key, v INTEGER)", sqlTypeName(type)));
-        sql(String.format("create table test1(id0 integer, id1 %s, v INTEGER, primary key(id0, id1)) colocate by(id1)", sqlTypeName(type)));
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    public void colocationOneColumn(ColumnType type) {
+        String sqlType = SqlTestUtils.toSqlType(type);
+        String createTableScript = String.join(";",
+                String.format("create table test0(id %s primary key, v INTEGER)", sqlType),
+                String.format("create table test1(id0 integer, id1 %s, v INTEGER, primary key(id0, id1)) colocate by(id1)", sqlType)
+        );
 
-        int rowsCnt = type == NativeTypeSpec.BOOLEAN ? 2 : ROWS;
+        sqlScript(createTableScript);
 
+        int rowsCnt = type == ColumnType.BOOLEAN ? 2 : ROWS;
+
+        BatchedArguments batch1 = BatchedArguments.create();
+        BatchedArguments batch2 = BatchedArguments.create();
         for (int i = 0; i < rowsCnt; ++i) {
-            sql("insert into test0 values(?, ?)", generateValueByType(i, type), 0);
-            sql("insert into test1 values(?, ?, ?)", i, generateValueByType(i, type), 0);
+            Object val = SqlTestUtils.generateStableValueByType(i, type);
+            batch1.add(val, 0);
+            batch2.add(i, val, 0);
         }
+        dmlBatch("insert into test0 values(?, ?)", batch1);
+        dmlBatch("insert into test1 values(?, ?, ?)", batch2);
 
         TableViewInternal tableViewInternal = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
         int parts = tableViewInternal.internalTable().partitions();
@@ -106,7 +103,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             List<Tuple> r1 = getAllBypassingThreadAssertions(tbl1, i);
 
             // because the byte array is not comparable, we need to check the type separately
-            if (type == NativeTypeSpec.BYTES) {
+            if (type == ColumnType.BYTE_ARRAY) {
                 r1.forEach(t -> {
                     byte[] k = t.value("id1");
                     ids0.stream().filter(v -> Arrays.equals((byte[]) v, k)).findAny().ifPresent(ids0::remove);
@@ -122,22 +119,37 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     /**
      * Check colocation by one column for all types.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17557")
-    @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
-    @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) {
-        sql(String.format("create table test0(id0 %s, id1 %s, v INTEGER, primary key(id0, id1))", sqlTypeName(t0), sqlTypeName(t1)));
+    @CartesianTest
+    public void colocationTwoColumns(
+            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t0,
+            @Enum(names = {"NULL", "PERIOD", "DURATION"}, mode = Enum.Mode.EXCLUDE) ColumnType t1
+    ) {
+        String sqlType0 = SqlTestUtils.toSqlType(t0);
+        String sqlType1 = SqlTestUtils.toSqlType(t1);
 
-        sql(String.format(
-                "create table test1(id integer, id0 %s, id1 %s, v INTEGER, primary key(id, id0, id1)) colocate by(id0, id1)",
-                sqlTypeName(t0),
-                sqlTypeName(t1)
-        ));
+        String createTableScript = String.join(";",
+                String.format("create table test0(id0 %s, id1 %s, v INTEGER, primary key(id0, id1))", sqlType0, sqlType1),
+                String.format(
+                        "create table test1(id integer, id0 %s, id1 %s, v INTEGER, primary key(id, id0, id1)) colocate by(id0, id1)",
+                        sqlType0,
+                        sqlType1)
+        );
+        sqlScript(createTableScript);
 
-        for (int i = 0; i < ROWS; ++i) {
-            sql("insert into test0 values(?, ?, ?)", generateValueByType(i, t0), generateValueByType(i, t1), 0);
-            sql("insert into test1 values(?, ?, ?, ?)", i, generateValueByType(i, t0), generateValueByType(i, t1), 0);
+        int rowsCnt = (t0 == ColumnType.BOOLEAN || t1 == ColumnType.BOOLEAN) ? 2 : ROWS;
+
+        BatchedArguments batch1 = BatchedArguments.create();
+        BatchedArguments batch2 = BatchedArguments.create();
+        for (int i = 0; i < rowsCnt; ++i) {
+            Object val1 = SqlTestUtils.generateStableValueByType(i, t0);
+            Object val2 = SqlTestUtils.generateStableValueByType(i, t1);
+
+            batch1.add(val1, val2, 0);
+            batch2.add(i, val1, val2, 0);
         }
+
+        dmlBatch("insert into test0 values(?, ?, ?)", batch1);
+        dmlBatch("insert into test1 values(?, ?, ?, ?)", batch2);
 
         int parts = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
         TableViewInternal tbl0 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
@@ -161,32 +173,6 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
             assertTrue(ids0.isEmpty());
         }
-    }
-
-    private static Stream<Arguments> twoColumnsParameters() {
-        List<Arguments> args = new ArrayList<>();
-
-        for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
-            for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
-                if (!EXCLUDED_TYPES.contains(t0) && !EXCLUDED_TYPES.contains(t1)) {
-                    args.add(Arguments.of(t0, t1));
-                }
-            }
-        }
-
-        return args.stream();
-    }
-
-    private static Stream<Arguments> oneColumnParameters() {
-        List<Arguments> args = new ArrayList<>();
-
-        for (NativeTypeSpec t : NativeTypeSpec.values()) {
-            if (!EXCLUDED_TYPES.contains(t)) {
-                args.add(Arguments.of(t));
-            }
-        }
-
-        return args.stream();
     }
 
     private static List<Tuple> getAllBypassingThreadAssertions(TableViewInternal tbl, int part) {
@@ -234,90 +220,5 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         f.get();
 
         return res;
-    }
-
-    static Object generateValueByType(int i, NativeTypeSpec type) {
-        switch (type) {
-            case BOOLEAN:
-                return i % 2 == 0;
-            case INT8:
-                return (byte) i;
-            case INT16:
-                return (short) i;
-            case INT32:
-                return i;
-            case INT64:
-                return (long) i;
-            case FLOAT:
-                return i + ((float) i / 1000);
-            case DOUBLE:
-                return i + ((double) i / 1000);
-            case DECIMAL:
-                return BigDecimal.valueOf((double) i + ((double) i / 1000));
-            case UUID:
-                return new UUID(i, i);
-            case STRING:
-                return "str_" + i;
-            case BYTES:
-                return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
-            case BITMASK:
-                return BitSet.valueOf(new byte[]{(byte) i});
-            case NUMBER:
-                return BigInteger.valueOf(i);
-            case DATE:
-                return LocalDate.of(2022, 01, 01).plusDays(i);
-            case TIME:
-                return LocalTime.of(0, 00, 00).plusSeconds(i).plusNanos(i * 101L);
-            case DATETIME:
-                return LocalDateTime.of(
-                        (LocalDate) generateValueByType(i, NativeTypeSpec.DATE),
-                        (LocalTime) generateValueByType(i, NativeTypeSpec.TIME)
-                );
-            case TIMESTAMP:
-                return Instant.ofEpochSecond(i * 201L, i * 101L);
-            default:
-                throw new IllegalStateException("Unexpected type: " + type);
-        }
-    }
-
-    private static String sqlTypeName(NativeTypeSpec type) {
-        switch (type) {
-            case BOOLEAN:
-                return "boolean";
-            case INT8:
-                return "tinyint";
-            case INT16:
-                return "smallint";
-            case INT32:
-                return "integer";
-            case INT64:
-                return "bigint";
-            case FLOAT:
-                return "real";
-            case DOUBLE:
-                return "double";
-            case DECIMAL:
-                return "decimal";
-            case UUID:
-                return "uuid";
-            case STRING:
-                return "varchar";
-            case BYTES:
-                return "varbinary";
-            case BITMASK:
-                return "bitmap";
-            case NUMBER:
-                return "number";
-            case DATE:
-                return "date";
-            case TIME:
-                return "time";
-            case DATETIME:
-                return "timestamp";
-            case TIMESTAMP:
-                return "timestamp with local time zone";
-            default:
-                throw new IllegalStateException("Unexpected type: " + type);
-        }
     }
 }

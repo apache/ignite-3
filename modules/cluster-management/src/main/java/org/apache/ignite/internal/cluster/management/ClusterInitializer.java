@@ -19,10 +19,14 @@ package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -35,6 +39,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMes
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.configuration.validation.ConfigurationDuplicatesValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -90,14 +95,28 @@ public class ClusterInitializer {
     }
 
     /**
-     * Initializes the cluster that this node is present in.
+     * Initializes the cluster for this node.
      *
-     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage. Cannot be empty.
-     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
-     * metaStorageNodeNames} will be used instead.
-     * @param clusterName Human-readable name of the cluster.
-     * @param clusterConfiguration Cluster configuration.
-     * @return Future that represents the state of the operation.
+     * <p>Node selection rules:
+     * <ul>
+     *     <li>If {@code cmgNodeNames} is empty, it defaults to {@code metaStorageNodeNames}.</li>
+     *     <li>If {@code metaStorageNodeNames} is empty, it defaults to {@code cmgNodeNames}.</li>
+     *     <li>If both are empty, nodes are auto-selected.</li>
+     * </ul>
+     *
+     * <p>Auto-selection rules based on cluster size:
+     * <ul>
+     *     <li>For up to 3 nodes, select all available.</li>
+     *     <li>For exactly 4 nodes, select 3 to maintain an odd count.</li>
+     *     <li>For 5 or more nodes, select 5.</li>
+     * </ul>
+     * Nodes are chosen in alphabetical order.
+     *
+     * @param metaStorageNodeNames Nodes for Meta Storage.
+     * @param cmgNodeNames Nodes for the Cluster Management Group.
+     * @param clusterName Cluster name.
+     * @param clusterConfiguration Optional cluster configuration.
+     * @return Future representing the operation status.
      */
     public CompletableFuture<Void> initCluster(
             Collection<String> metaStorageNodeNames,
@@ -105,16 +124,45 @@ public class ClusterInitializer {
             String clusterName,
             @Nullable String clusterConfiguration
     ) {
-        if (metaStorageNodeNames.isEmpty()) {
-            throw new IllegalArgumentException("Meta Storage node names list must not be empty");
-        }
-
         if (metaStorageNodeNames.stream().anyMatch(StringUtils::nullOrBlank)) {
             throw new IllegalArgumentException("Meta Storage node names must not contain blank strings: " + metaStorageNodeNames);
         }
 
-        if (!cmgNodeNames.isEmpty() && cmgNodeNames.stream().anyMatch(StringUtils::nullOrBlank)) {
+        Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
+        if (msNodeNameSet.size() != metaStorageNodeNames.size()) {
+            throw new IllegalArgumentException("Meta Storage node names must not contain duplicates: " + metaStorageNodeNames);
+        }
+
+        if (cmgNodeNames.stream().anyMatch(StringUtils::nullOrBlank)) {
             throw new IllegalArgumentException("CMG node names must not contain blank strings: " + cmgNodeNames);
+        }
+
+        Set<String> cmgNodeNameSet = cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
+        if (cmgNodeNameSet.size() != cmgNodeNames.size()) {
+            throw new IllegalArgumentException("CMG node names must not contain duplicates: " + metaStorageNodeNames);
+        }
+
+        // See Javadoc for the explanation of how the nodes are chosen.
+        if (msNodeNameSet.isEmpty() && cmgNodeNameSet.isEmpty()) {
+            Collection<ClusterNode> clusterNodes = clusterService.topologyService().allMembers();
+            int topologySize = clusterNodes.size();
+
+            // For efficiency, we limit the number of MS and CMG nodes chosen by default.
+            // If the cluster has 3 or less nodes, use up to 3 MS/CMG nodes.
+            // If the cluster has 5 or more nodes, use 5 MS/CMG nodes.
+            // If the cluster has 4 nodes, use 3 MS/CMG nodes to maintain an odd number.
+            int msNodesLimit = topologySize < 5 ? 3 : 5;
+            Set<String> chosenNodes = clusterNodes.stream()
+                    .map(ClusterNode::name)
+                    .sorted()
+                    .limit(msNodesLimit)
+                    .collect(Collectors.toSet());
+            msNodeNameSet = chosenNodes;
+            cmgNodeNameSet = chosenNodes;
+        } else if (msNodeNameSet.isEmpty()) {
+            msNodeNameSet = cmgNodeNameSet;
+        } else if (cmgNodeNames.isEmpty()) {
+            cmgNodeNameSet = msNodeNameSet;
         }
 
         if (clusterName.isBlank()) {
@@ -122,29 +170,27 @@ public class ClusterInitializer {
         }
 
         try {
-            Set<String> msNodeNameSet = metaStorageNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
-
-            Set<String> cmgNodeNameSet = cmgNodeNames.isEmpty()
-                    ? msNodeNameSet
-                    : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableSet());
+            Map<String, ClusterNode> nodesByConsistentId = getValidTopologySnapshot();
 
             // check that provided Meta Storage nodes are present in the topology
-            List<ClusterNode> msNodes = resolveNodes(clusterService, msNodeNameSet);
+            List<ClusterNode> msNodes = resolveNodes(nodesByConsistentId, msNodeNameSet);
 
             LOG.info("Resolved MetaStorage nodes[nodes={}]", msNodes);
 
-            List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNameSet);
+            List<ClusterNode> cmgNodes = resolveNodes(nodesByConsistentId, cmgNodeNameSet);
 
             LOG.info("Resolved CMG nodes[nodes={}]", cmgNodes);
 
-            String initialClusterConfiguration = patchClusterConfigurationWithDynamicDefaults(clusterConfiguration);
-            validateConfiguration(initialClusterConfiguration);
+            String patchedClusterConfiguration = patchClusterConfigurationWithDynamicDefaults(clusterConfiguration);
+
+            validateConfiguration(patchedClusterConfiguration, clusterConfiguration);
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
                     .metaStorageNodes(msNodeNameSet)
                     .cmgNodes(cmgNodeNameSet)
                     .clusterName(clusterName)
-                    .initialClusterConfiguration(initialClusterConfiguration)
+                    .clusterId(UUID.randomUUID())
+                    .initialClusterConfiguration(patchedClusterConfiguration)
                     .build();
 
             return invokeMessage(cmgNodes, initMessage)
@@ -178,6 +224,23 @@ public class ClusterInitializer {
         } catch (Exception e) {
             return failedFuture(e);
         }
+    }
+
+    /**
+     * Validates physical topology before initialization for duplicate consistent ids. Throws {@link InternalInitException} if such
+     * duplicate is found.
+     *
+     * @return A map from consistent id to node.
+     */
+    private Map<String, ClusterNode> getValidTopologySnapshot() {
+        Map<String, ClusterNode> result = new HashMap<>();
+        clusterService.topologyService().allMembers().forEach(node -> {
+            if (result.put(node.name(), node) != null) {
+                LOG.error("Initialization failed, node \"{}\" has duplicate in the physical topology", node.name());
+                throw new InternalInitException(format("Duplicate node name \"{}\"", node.name()), true);
+            }
+        });
+        return result;
     }
 
     private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, Throwable e) {
@@ -238,10 +301,10 @@ public class ClusterInitializer {
         return CompletableFuture.allOf(futures);
     }
 
-    private static List<ClusterNode> resolveNodes(ClusterService clusterService, Collection<String> consistentIds) {
+    private static List<ClusterNode> resolveNodes(Map<String, ClusterNode> nodesByConsistentId, Collection<String> consistentIds) {
         return consistentIds.stream()
                 .map(consistentId -> {
-                    ClusterNode node = clusterService.topologyService().getByConsistentId(consistentId);
+                    ClusterNode node = nodesByConsistentId.get(consistentId);
 
                     if (node == null) {
                         throw new IllegalArgumentException(String.format(
@@ -259,12 +322,15 @@ public class ClusterInitializer {
         return configurationDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon == null ? "" : hocon);
     }
 
-    private void validateConfiguration(String hocon) {
-        if (hocon != null) {
-            List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(hocon);
-            if (!issues.isEmpty()) {
-                throw new ConfigurationValidationException(issues);
-            }
+    private void validateConfiguration(String patchedHocon, @Nullable String initialHocon) {
+        List<ValidationIssue> issues = clusterConfigurationValidator.validateHocon(patchedHocon);
+
+        if (initialHocon != null) {
+            issues.addAll(ConfigurationDuplicatesValidator.validate(initialHocon));
+        }
+
+        if (!issues.isEmpty()) {
+            throw new ConfigurationValidationException(issues);
         }
     }
 }

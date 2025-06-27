@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Buffers
 {
     using System;
+    using System.Buffers;
     using System.Buffers.Binary;
     using System.Diagnostics;
     using System.IO;
@@ -26,7 +27,7 @@ namespace Apache.Ignite.Internal.Buffers
     /// <summary>
     /// Pooled buffer with additional logic to prepend messages with size and other data (opcode, request id).
     /// </summary>
-    internal sealed class PooledArrayBuffer : IDisposable
+    internal sealed class PooledArrayBuffer : IDisposable, IBufferWriter<byte>
     {
         /** Prefix size. */
         private readonly int _prefixSize;
@@ -116,15 +117,18 @@ namespace Apache.Ignite.Internal.Buffers
             Offset = 0;
         }
 
-        /// <summary>
-        /// Gets a span for writing.
-        /// </summary>
-        /// <param name="size">Size.</param>
-        /// <returns>Span for writing.</returns>
-        public Span<byte> GetSpan(int size)
+        /// <inheritdoc/>
+        public Memory<byte> GetMemory(int sizeHint = 0)
         {
-            CheckAndResizeBuffer(size);
-            return _buffer.AsSpan(_index, size);
+            CheckAndResizeBuffer(sizeHint);
+            return _buffer.AsMemory(_index);
+        }
+
+        /// <inheritdoc/>
+        public Span<byte> GetSpan(int sizeHint)
+        {
+            CheckAndResizeBuffer(sizeHint);
+            return _buffer.AsSpan(_index);
         }
 
         /// <summary>
@@ -228,6 +232,14 @@ namespace Apache.Ignite.Internal.Buffers
             BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan(_index), val);
             _index += 8;
         }
+
+        /// <summary>
+        /// Writes a long at specified position.
+        /// </summary>
+        /// <param name="val">Value.</param>
+        /// <param name="pos">Position.</param>
+        public void WriteLongBigEndian(long val, int pos) =>
+            BinaryPrimitives.WriteInt64BigEndian(_buffer.AsSpan(pos + _prefixSize), val);
 
         /// <summary>
         /// Reads a short at specified position.

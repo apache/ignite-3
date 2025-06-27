@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.compute.queue;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,13 +36,13 @@ public interface QueueExecution<R> {
     CompletableFuture<R> resultAsync();
 
     /**
-     * Returns the current status of the job. The job status may be deleted and thus return {@code null} if the time for retaining job
-     * status has been exceeded.
+     * Returns the current state of the job. The job state may be deleted and thus return {@code null} if the time for retaining job
+     * state has been exceeded.
      *
-     * @return The current status of the job, or {@code null} if the job status no longer exists due to exceeding the retention time limit.
+     * @return The current state of the job, or {@code null} if the job state no longer exists due to exceeding the retention time limit.
      */
     @Nullable
-    JobStatus status();
+    JobState state();
 
     /**
      * Cancels the job.

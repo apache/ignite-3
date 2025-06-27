@@ -17,17 +17,13 @@
 
 package org.apache.ignite.internal.network.configuration;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 
 /** Node finder configuration. */
-@Config
+@PolymorphicConfig
 public class NodeFinderConfigurationSchema {
     /** Node finder type. */
-    @Value(hasDefault = true)
-    public final String type = NodeFinderType.STATIC.name();
-
-    /** Addresses of nodes in the cluster in a host:port format. This is a part of StaticNodeFinder configuration. */
-    @Value(hasDefault = true)
-    public final String[] netClusterNodes = new String[0];
+    @PolymorphicId(hasDefault = true)
+    public final String type = StaticNodeFinderConfigurationSchema.TYPE;
 }

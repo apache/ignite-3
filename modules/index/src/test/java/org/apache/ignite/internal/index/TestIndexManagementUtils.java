@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -30,6 +29,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -43,12 +43,14 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -57,7 +59,7 @@ import org.apache.ignite.network.NetworkAddress;
 class TestIndexManagementUtils {
     static final String NODE_NAME = "test-node";
 
-    static final String NODE_ID = "test-node-id";
+    static final UUID NODE_ID = new UUID(1, 2);
 
     static final String TABLE_NAME = "test-table";
 
@@ -74,7 +76,7 @@ class TestIndexManagementUtils {
     static void createTable(CatalogManager catalogManager, String tableName, String columnName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 null,
                 tableName,
                 List.of(ColumnParams.builder().name(columnName).type(INT32).build()),
@@ -83,11 +85,11 @@ class TestIndexManagementUtils {
     }
 
     static void createIndex(CatalogManager catalogManager, String tableName, String indexName, String columnName) {
-        TableTestUtils.createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(columnName), false);
+        TableTestUtils.createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(columnName), false);
     }
 
     static void dropIndex(CatalogManager catalogManager, String indexName) {
-        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     static int indexId(CatalogService catalogService, String indexName, HybridClock clock) {
@@ -109,12 +111,12 @@ class TestIndexManagementUtils {
     static void awaitTillGlobalMetastoreRevisionIsApplied(MetaStorageManagerImpl metaStorageManager) throws Exception {
         assertTrue(
                 waitForCondition(() -> {
-                    CompletableFuture<Long> currentRevisionFuture = metaStorageManager.metaStorageService()
-                            .thenCompose(MetaStorageService::currentRevision);
+                    CompletableFuture<RevisionsInfo> currentRevisionsFuture = metaStorageManager.metaStorageService()
+                            .thenCompose(MetaStorageService::currentRevisions);
 
-                    assertThat(currentRevisionFuture, willCompleteSuccessfully());
+                    assertThat(currentRevisionsFuture, willCompleteSuccessfully());
 
-                    return currentRevisionFuture.join() == metaStorageManager.appliedRevision();
+                    return currentRevisionsFuture.join().revision() == metaStorageManager.appliedRevision();
                 }, 1_000)
         );
     }
@@ -129,7 +131,7 @@ class TestIndexManagementUtils {
 
     static ReplicaMeta newPrimaryReplicaMeta(
             ClusterNode clusterNode,
-            TablePartitionId replicaGroupId,
+            ReplicationGroupId replicaGroupId,
             HybridTimestamp startTime,
             HybridTimestamp expirationTime
     ) {

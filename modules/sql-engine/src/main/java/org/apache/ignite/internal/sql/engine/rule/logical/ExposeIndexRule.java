@@ -80,12 +80,13 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
         RelOptTable optTable = scan.getTable();
         IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
+        List<String> names = scan.fieldNames();
         List<RexNode> proj = scan.projects();
         RexNode condition = scan.condition();
         ImmutableBitSet requiredCols = scan.requiredColumns();
 
         List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().values().stream()
-                .map(idx -> idx.toRel(cluster, optTable, proj, condition, requiredCols))
+                .map(idx -> idx.toRel(cluster, optTable, names, proj, condition, requiredCols))
                 .filter(idx -> filter(igniteTable, idx.indexName(), idx.searchBounds()))
                 .collect(Collectors.toList());
 

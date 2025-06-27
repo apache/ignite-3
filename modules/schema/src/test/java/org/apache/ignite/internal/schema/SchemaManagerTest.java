@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
@@ -32,15 +33,14 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -48,10 +48,12 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.causality.TestRevisionListenerRegistry;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
@@ -72,20 +74,16 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     private static final long CAUSALITY_TOKEN_1 = 0;
     private static final long CAUSALITY_TOKEN_2 = 45;
+    private static final long CAUSALITY_TOKEN_3 = 56;
 
     private static final int CATALOG_VERSION_1 = 10;
     private static final int CATALOG_VERSION_2 = 11;
 
-    private final AtomicReference<LongFunction<CompletableFuture<?>>> onMetastoreRevisionCompleteHolder = new AtomicReference<>();
-
-    private final Consumer<LongFunction<CompletableFuture<?>>> registry = onMetastoreRevisionCompleteHolder::set;
-
+    private final TestRevisionListenerRegistry registry = new TestRevisionListenerRegistry();
     @Mock
     private CatalogService catalogService;
 
     private MetaStorageManager metaStorageManager;
-
-    private final SimpleInMemoryKeyValueStorage metaStorageKvStorage = new SimpleInMemoryKeyValueStorage("test");
 
     private SchemaManager schemaManager;
 
@@ -95,8 +93,8 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        metaStorageManager = spy(StandaloneMetaStorageManager.create("test"));
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         tableCreatedListener = ArgumentCaptor.forClass(EventListener.class);
         tableAlteredListener = ArgumentCaptor.forClass(EventListener.class);
@@ -105,15 +103,17 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_CREATE), tableCreatedListener.capture());
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
 
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
         schemaManager = new SchemaManager(registry, catalogService);
-        assertThat(schemaManager.startAsync(), willCompleteSuccessfully());
+        assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(schemaManager, metaStorageManager), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), schemaManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     private void createSomeTable() {
@@ -125,6 +125,12 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
                 TABLE_ID, -1, -1, TABLE_NAME, 0, columns, List.of("k1", "k2"), null, DEFAULT_STORAGE_PROFILE
         );
+
+
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(CATALOG_VERSION_1)).thenReturn(catalog);
+        when(catalogService.latestCatalogVersion()).thenReturn(CATALOG_VERSION_1);
+        when(catalog.table(TABLE_ID)).thenReturn(tableDescriptor);
 
         CompletableFuture<Boolean> future = tableCreatedListener()
                 .notify(new CreateTableEventParameters(CAUSALITY_TOKEN_1, CATALOG_VERSION_1, tableDescriptor));
@@ -168,13 +174,13 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 TABLE_NAME,
                 INITIAL_TABLE_VERSION + 1,
                 columns,
-                INITIAL_CAUSALITY_TOKEN,
+                INITIAL_TIMESTAMP,
                 DEFAULT_STORAGE_PROFILE
         );
     }
 
     private void completeCausalityToken(long causalityToken) {
-        assertThat(onMetastoreRevisionCompleteHolder.get().apply(causalityToken), willCompleteSuccessfully());
+        assertThat(registry.updateRevision(causalityToken), willCompleteSuccessfully());
     }
 
     @Test
@@ -236,7 +242,10 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void addSomeColumn() {
-        when(catalogService.table(TABLE_ID, CATALOG_VERSION_2)).thenReturn(tableDescriptorAfterColumnAddition());
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(CATALOG_VERSION_2)).thenReturn(catalog);
+        when(catalogService.latestCatalogVersion()).thenReturn(CATALOG_VERSION_2);
+        when(catalog.table(TABLE_ID)).thenReturn(tableDescriptorAfterColumnAddition());
 
         AddColumnEventParameters event = new AddColumnEventParameters(
                 CAUSALITY_TOKEN_2,
@@ -256,7 +265,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void destroyTableMakesRegistryUnavailable() {
         createSomeTable();
 
-        assertThat(schemaManager.dropRegistryAsync(TABLE_ID), willCompleteSuccessfully());
+        schemaManager.dropRegistry(TABLE_ID);
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 
@@ -269,16 +278,18 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void loadingPreExistingSchemasWorks() {
         create2TableVersions();
 
-        assertThat(schemaManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(schemaManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
         when(catalogService.latestCatalogVersion()).thenReturn(2);
-        when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
-        doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
+        when(catalog.tables()).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
+        doReturn(completedFuture(new Revisions(CAUSALITY_TOKEN_2, -1))).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);
-        assertThat(schemaManager.startAsync(), willCompleteSuccessfully());
+        assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        completeCausalityToken(CAUSALITY_TOKEN_2);
+        completeCausalityToken(CAUSALITY_TOKEN_3);
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
@@ -286,5 +297,19 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaDescriptor schemaDescriptor = schemaRegistry.schema(prevSchemaVersionNotYetTouched);
         assertThat(schemaDescriptor.version(), is(prevSchemaVersionNotYetTouched));
+    }
+
+    @Test
+    void schemaAsyncFutureCompletesEventually() {
+        createSomeTable();
+
+        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
+
+        CompletableFuture<SchemaDescriptor> version2Future = schemaRegistry.schemaAsync(2);
+        assertThat(version2Future, willTimeoutFast());
+
+        addSomeColumn();
+
+        assertThat(version2Future, willCompleteSuccessfully());
     }
 }

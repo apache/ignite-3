@@ -19,12 +19,14 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
@@ -55,7 +57,7 @@ class PageMemoryIndexesTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp(@Mock Locker locker) {
-        indexes = new PageMemoryIndexes(taskExecutor, closure -> closure.execute(locker));
+        indexes = new PageMemoryIndexes(taskExecutor, mock(FailureProcessor.class), closure -> closure.execute(locker));
     }
 
     @AfterEach
@@ -92,8 +94,8 @@ class PageMemoryIndexesTest extends BaseIgniteAbstractTest {
                         new IndexMeta(hashIndexId, IndexType.HASH, 0, null)
                 )));
 
-        indexes.getOrCreateSortedIndex(sortedIndexDescriptor, indexStorageFactory);
-        indexes.getOrCreateHashIndex(hashIndexDescriptor, indexStorageFactory);
+        indexes.createSortedIndex(sortedIndexDescriptor, indexStorageFactory);
+        indexes.createHashIndex(hashIndexDescriptor, indexStorageFactory);
 
         indexes.performRecovery(indexMetaTree, indexStorageFactory, indexId -> null);
 

@@ -50,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -91,7 +92,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     final void tearDown() throws Exception {
         closeAll(
                 server == null ? null : () -> server.stop().join(),
-                bootstrapFactory == null ? null : () -> assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully())
+                bootstrapFactory == null ? null :
+                        () -> assertThat(bootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
 
@@ -155,7 +157,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     @Test
     public void testBindWithAddress() {
         String host = "127.0.0.7";
-        assertThat(serverCfg.listenAddress().update(host), willCompleteSuccessfully());
+        assertThat(serverCfg.listenAddresses().update(new String[]{host}), willCompleteSuccessfully());
 
         assertDoesNotThrow(() -> getServer(true));
 
@@ -179,7 +181,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     @Test
     public void testBindUnknownAddressFailed() {
         String address = "unknown-address";
-        assertThat(serverCfg.listenAddress().update(address), willCompleteSuccessfully());
+        assertThat(serverCfg.listenAddresses().update(new String[]{address}), willCompleteSuccessfully());
 
         AssertionFailedError e = assertThrows(AssertionFailedError.class, () -> getServer(true));
 
@@ -200,19 +202,16 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
 
         when(registry.createDeserializer(anyShort(), anyShort()))
                 .thenReturn(new MessageDeserializer<>() {
-                    /** {@inheritDoc} */
                     @Override
                     public boolean readMessage(MessageReader reader) throws MessageMappingException {
                         return true;
                     }
 
-                    /** {@inheritDoc} */
                     @Override
                     public Class<NetworkMessage> klass() {
                         return NetworkMessage.class;
                     }
 
-                    /** {@inheritDoc} */
                     @Override
                     public NetworkMessage getMessage() {
                         return mock(NetworkMessage.class);
@@ -220,14 +219,15 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 });
 
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         server = new NettyServer(
                 serverCfg.value(),
                 () -> handshakeManager,
                 (message) -> {},
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
-                bootstrapFactory
+                bootstrapFactory,
+                null
         );
 
         server.start().get(3, TimeUnit.SECONDS);
@@ -293,7 +293,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     private NettyServer getServer(boolean shouldStart) {
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 
@@ -302,7 +302,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 this::mockHandshakeManager,
                 (message) -> {},
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
-                bootstrapFactory
+                bootstrapFactory,
+                null
         );
 
         try {

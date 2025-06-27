@@ -18,24 +18,20 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 
-import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
-import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.io.IgniteDataInput;
-import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Describes deletion of a zone.
  */
 public class DropZoneEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<DropZoneEntry> SERIALIZER = new DropZoneEntrySerializer();
-
     private final int zoneId;
 
     /**
@@ -68,36 +64,19 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones().stream().filter(z -> z.id() != zoneId).collect(toList()),
                 catalog.schemas(),
-                catalog.defaultZone().id()
+                defaultZoneIdOpt(catalog)
         );
     }
 
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Serializer for {@link DropZoneEntry}.
-     */
-    private static class DropZoneEntrySerializer implements CatalogObjectSerializer<DropZoneEntry> {
-        @Override
-        public DropZoneEntry readFrom(IgniteDataInput input) throws IOException {
-            int zoneId = input.readInt();
-
-            return new DropZoneEntry(zoneId);
-        }
-
-        @Override
-        public void writeTo(DropZoneEntry entry, IgniteDataOutput output) throws IOException {
-            output.writeInt(entry.zoneId());
-        }
     }
 }

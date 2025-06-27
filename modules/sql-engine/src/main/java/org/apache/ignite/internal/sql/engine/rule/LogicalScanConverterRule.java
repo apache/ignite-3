@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
@@ -31,6 +30,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
@@ -45,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Converts a logical scan operator into its implementation.
@@ -72,8 +73,9 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                     IgniteIndex index = table.indexes().get(rel.indexName());
 
                     RelDistribution distribution = table.distribution();
-                    RelCollation collation = index.collation();
-                    RelCollation outputCollation = index.type() == Type.HASH ? RelCollations.EMPTY : collation;
+                    RelCollation collation = index.type() == Type.HASH 
+                            ? RelCollations.EMPTY 
+                            : index.collation();
 
                     if (rel.projects() != null || rel.requiredColumns() != null) {
                         Mappings.TargetMapping mapping = createMapping(
@@ -83,12 +85,12 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         );
 
                         distribution = distribution.apply(mapping);
-                        outputCollation = outputCollation.apply(mapping);
+                        collation = collation.apply(mapping);
                     }
 
                     RelTraitSet traits = rel.getCluster().traitSetOf(IgniteConvention.INSTANCE)
                             .replace(distribution)
-                            .replace(outputCollation);
+                            .replace(collation);
 
                     return new IgniteIndexScan(
                             cluster,
@@ -97,6 +99,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                             rel.indexName(),
                             index.type(),
                             collation,
+                            rel.fieldNames(),
                             rel.projects(),
                             rel.condition(),
                             rel.searchBounds(),
@@ -132,7 +135,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                             .replace(distribution);
 
                     return new IgniteTableScan(rel.getCluster(), traits, rel.getTable(), rel.getHints(),
-                        rel.projects(), rel.condition(), rel.requiredColumns());
+                            rel.fieldNames(), rel.projects(), rel.condition(), rel.requiredColumns());
                 }
             };
 
@@ -163,7 +166,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                             .replace(distribution);
 
                     return new IgniteSystemViewScan(rel.getCluster(), traits,  rel.getHints(), rel.getTable(),
-                            rel.projects(), rel.condition(), rel.requiredColumns());
+                            rel.fieldNames(), rel.projects(), rel.condition(), rel.requiredColumns());
                 }
             };
 
@@ -173,7 +176,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
     /** Creates column mapping regarding the projection. */
     public static Mappings.TargetMapping createMapping(
-            List<RexNode> projects,
+            @Nullable List<RexNode> projects,
             ImmutableBitSet requiredColumns,
             int tableRowSize
     ) {
@@ -182,8 +185,8 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                     ? Mappings.invert(Mappings.source(requiredColumns.asList(), tableRowSize))
                     : Mappings.createIdentity(tableRowSize);
 
-            Map<Integer, Integer> mappingMap = new HashMap<>();
 
+            List<IntPair> pairs = new ArrayList<>(projects.size());
             for (int i = 0; i < projects.size(); i++) {
                 RexNode rex = projects.get(i);
                 if (!(rex instanceof RexLocalRef)) {
@@ -192,11 +195,11 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
                 RexLocalRef ref = (RexLocalRef) rex;
 
-                mappingMap.put(trimmingMapping.getSource(ref.getIndex()), i);
+                pairs.add(IntPair.of(trimmingMapping.getSource(ref.getIndex()), i));
             }
 
             return Mappings.target(
-                mappingMap,
+                pairs,
                 tableRowSize,
                 projects.size()
             );

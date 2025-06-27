@@ -18,10 +18,10 @@
 package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 
 import java.util.UUID;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Exception is thrown when the indicated column is not found.
@@ -33,20 +33,20 @@ public class ColumnNotFoundException extends IgniteException {
      * @param columnName Column name.
      */
     public ColumnNotFoundException(String columnName) {
-        super(COLUMN_NOT_FOUND_ERR, "Column does not exist [name=" + quote(columnName) + ']');
+        super(COLUMN_NOT_FOUND_ERR, "Column does not exist [name=" + quoteIfNeeded(columnName) + ']');
     }
 
     /**
      * Creates an exception with a given column name.
      *
-     * @param schemaName Name of the schema the table belongs to.
-     * @param columnName Column name.
      * @param tableName Table name.
+     * @param columnName Column name.
      */
-    public ColumnNotFoundException(String schemaName, String tableName, String columnName) {
+    public ColumnNotFoundException(QualifiedName tableName, String columnName) {
         super(
                 COLUMN_NOT_FOUND_ERR,
-                "Column does not exist [tableName=" + canonicalName(schemaName, tableName) + ", columnName=" + quote(columnName) + ']');
+                "Column does not exist [tableName=" + tableName.toCanonicalForm() + ", columnName=" + quoteIfNeeded(columnName) + ']'
+        );
     }
 
     /**

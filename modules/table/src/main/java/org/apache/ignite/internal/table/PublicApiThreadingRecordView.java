@@ -82,6 +82,16 @@ public class PublicApiThreadingRecordView<R> extends PublicApiThreadingViewBase<
     }
 
     @Override
+    public boolean containsAll(@Nullable Transaction tx, Collection<R> keys) {
+        return executeSyncOp(() -> view.containsAll(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> containsAllAsync(@Nullable Transaction tx, Collection<R> keys) {
+        return executeAsyncOp(() -> view.containsAllAsync(tx, keys));
+    }
+
+    @Override
     public void upsert(@Nullable Transaction tx, R rec) {
         executeSyncOp(() -> view.upsert(tx, rec));
     }
@@ -197,8 +207,18 @@ public class PublicApiThreadingRecordView<R> extends PublicApiThreadingViewBase<
     }
 
     @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        executeSyncOp(() -> view.deleteAll(tx));
+    }
+
+    @Override
     public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         return executeAsyncOp(() -> view.deleteAllAsync(tx, keyRecs));
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        return executeSyncOp(() -> view.deleteAllAsync(tx));
     }
 
     @Override

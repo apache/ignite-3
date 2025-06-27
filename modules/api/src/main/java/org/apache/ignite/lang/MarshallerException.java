@@ -18,7 +18,7 @@
 package org.apache.ignite.lang;
 
 import java.util.UUID;
-import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -29,10 +29,11 @@ public class MarshallerException extends IgniteException {
     /**
      * Creates a new exception with the given error message.
      *
+     * @param msg Error message.
      * @param cause Non-null throwable cause.
      */
-    public MarshallerException(Throwable cause) {
-        super(Common.INTERNAL_ERR, cause);
+    public MarshallerException(String msg, @Nullable Throwable cause) {
+        super(Marshalling.COMMON_ERR, msg, cause);
     }
 
     /**

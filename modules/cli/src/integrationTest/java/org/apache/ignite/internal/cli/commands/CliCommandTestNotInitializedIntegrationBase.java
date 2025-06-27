@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.commands;
 
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -27,13 +28,24 @@ import org.junit.jupiter.api.TestInfo;
  * won't be initialized. If you want to use initialized cluster use {@link CliIntegrationTest} directly.
  */
 public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationTest {
+
+    protected static String CLUSTER_NOT_INITIALIZED_ERROR_MESSAGE = "Probably, you have not initialized the cluster, "
+            + "try to run ignite cluster init command";
+
+    protected static String CLUSTER_NOT_INITIALIZED_REPL_ERROR_MESSAGE = "Probably, you have not initialized the cluster, "
+            + "try to run cluster init command";
+
     @BeforeAll
     @Override
-    protected void beforeAll(TestInfo testInfo) {
-        CLUSTER = new Cluster(testInfo, WORK_DIR, getNodeBootstrapConfigTemplate());
+    protected void startCluster(TestInfo testInfo) {
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR)
+                .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate())
+                .build();
+
+        CLUSTER = new Cluster(clusterConfiguration);
 
         for (int i = 0; i < initialNodes(); i++) {
-            CLUSTER.startNodeAsync(i);
+            CLUSTER.startEmbeddedNode(i);
         }
     }
 }

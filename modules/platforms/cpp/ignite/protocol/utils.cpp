@@ -30,13 +30,6 @@
 
 namespace ignite::protocol {
 
-/**
- * Error data extensions. When the server returns an error response, it may contain additional data in a map.
- * Keys are defined here.
- */
-namespace error_extensions {
-const std::string EXPECTED_SCHEMA_VERSION{"expected-schema-ver"};
-}
 
 /**
  * Check if int value fits in @c T.
@@ -176,8 +169,8 @@ uuid unpack_object(const msgpack_object &object) {
 
     auto data = reinterpret_cast<const std::byte *>(object.via.ext.ptr);
 
-    auto msb = bytes::load<endian::LITTLE, int64_t>(data);
-    auto lsb = bytes::load<endian::LITTLE, int64_t>(data + 8);
+    auto msb = detail::bytes::load<detail::endian::LITTLE, int64_t>(data);
+    auto lsb = detail::bytes::load<detail::endian::LITTLE, int64_t>(data + 8);
 
     return {msb, lsb};
 }
@@ -197,18 +190,6 @@ bytes_view unpack_binary(const msgpack_object &object) {
     return {reinterpret_cast<const std::byte *>(object.via.bin.ptr), object.via.bin.size};
 }
 
-uuid make_random_uuid() {
-    static std::mutex randomMutex;
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-
-    std::uniform_int_distribution<int64_t> distrib;
-
-    std::lock_guard<std::mutex> lock(randomMutex);
-
-    return {distrib(gen), distrib(gen)};
-}
-
 std::optional<ignite_error> try_read_error(reader &reader) {
     if (reader.try_read_nil())
         return std::nullopt;
@@ -217,35 +198,38 @@ std::optional<ignite_error> try_read_error(reader &reader) {
 }
 
 ignite_error read_error(reader &reader) {
-    auto trace_id = reader.try_read_nil() ? make_random_uuid() : reader.read_uuid();
+    auto trace_id = reader.try_read_nil() ? uuid::random() : reader.read_uuid();
     auto code = reader.read_object_or_default<std::int32_t>(65537);
     auto class_name = reader.read_string();
     auto message = reader.read_string_nullable();
     auto java_stack_trace = reader.read_string_nullable();
-    UNUSED_VALUE java_stack_trace;
 
     std::stringstream err_msg_builder;
 
     err_msg_builder << class_name;
     if (message)
         err_msg_builder << ": " << *message;
-    err_msg_builder << " (" << code << ", " << trace_id << ")";
 
-    std::optional<std::int32_t> ver{};
+    ignite_error res{error::code(code), err_msg_builder.str(), trace_id, std::move(java_stack_trace)};
+
     if (!reader.try_read_nil()) {
         // Reading extensions
         auto num = reader.read_int32();
         for (std::int32_t i = 0; i < num; ++i) {
             auto key = reader.read_string();
             if (key == error_extensions::EXPECTED_SCHEMA_VERSION) {
-                ver = reader.read_int32();
+                auto ver = reader.read_int32();
+                res.add_extra<std::int32_t>(std::move(key), ver);
+            } else if (key == error_extensions::SQL_UPDATE_COUNTERS) {
+                auto affected_rows = reader.read_int64_array();
+                res.add_extra<std::vector<std::int64_t>>(std::move(key), std::move(affected_rows));
             } else {
                 reader.skip();
             }
         }
     }
 
-    return ignite_error{error::code(code), err_msg_builder.str(), ver};
+    return res;
 }
 
 void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {
@@ -314,11 +298,6 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
             builder.claim_number(dec_value);
             break;
         }
-        case ignite_type::NUMBER: {
-            claim_type_and_scale(builder, ignite_type::NUMBER);
-            builder.claim_number(value.get<big_integer>());
-            break;
-        }
         case ignite_type::DATE: {
             claim_type_and_scale(builder, ignite_type::DATE);
             builder.claim_date(value.get<ignite_date>());
@@ -347,11 +326,6 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
         case ignite_type::DURATION: {
             claim_type_and_scale(builder, ignite_type::DURATION);
             builder.claim_duration(value.get<ignite_duration>());
-            break;
-        }
-        case ignite_type::BITMASK: {
-            claim_type_and_scale(builder, ignite_type::BITMASK);
-            builder.claim_varlen(value.get<bit_array>().get_raw());
             break;
         }
         default:
@@ -425,11 +399,6 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
             builder.append_number(dec_value);
             break;
         }
-        case ignite_type::NUMBER: {
-            append_type_and_scale(builder, ignite_type::NUMBER);
-            builder.append_number(value.get<big_integer>());
-            break;
-        }
         case ignite_type::DATE: {
             append_type_and_scale(builder, ignite_type::DATE);
             builder.append_date(value.get<ignite_date>());
@@ -458,11 +427,6 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
         case ignite_type::DURATION: {
             append_type_and_scale(builder, ignite_type::DURATION);
             builder.append_duration(value.get<ignite_duration>());
-            break;
-        }
-        case ignite_type::BITMASK: {
-            append_type_and_scale(builder, ignite_type::BITMASK);
-            builder.append_varlen(value.get<bit_array>().get_raw());
             break;
         }
         default:
@@ -498,8 +462,6 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::in
             return std::vector<std::byte>(binary_tuple_parser::get_varlen(val));
         case ignite_type::DECIMAL:
             return binary_tuple_parser::get_decimal(val, scale);
-        case ignite_type::NUMBER:
-            return binary_tuple_parser::get_number(val);
         case ignite_type::DATE:
             return binary_tuple_parser::get_date(val);
         case ignite_type::TIME:
@@ -512,8 +474,6 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::in
             return binary_tuple_parser::get_period(val);
         case ignite_type::DURATION:
             return binary_tuple_parser::get_duration(val);
-        case ignite_type::BITMASK:
-            return bit_array(binary_tuple_parser::get_varlen(val));
         default:
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }

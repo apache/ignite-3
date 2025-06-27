@@ -17,16 +17,13 @@
 
 package org.apache.ignite.client;
 
-import org.apache.ignite.internal.client.SslConfigurationBuilder;
+import org.apache.ignite.internal.client.SslConfigurationImpl;
 import org.jetbrains.annotations.Nullable;
 
 /** Client SSL configuration. */
 public interface SslConfiguration {
     /** If set to {@code true} then the SSL connection will be used to interact with Ignite 3 node. */
     boolean enabled();
-
-    /** Client authentication configuration. */
-    ClientAuthenticationMode clientAuthenticationMode();
 
     /** List of ciphers that will be used to setup the SSL connection. */
     @Nullable Iterable<String> ciphers();
@@ -44,7 +41,68 @@ public interface SslConfiguration {
     @Nullable String trustStorePassword();
 
     /** SSL configuration builder. */
-    static SslConfigurationBuilder builder() {
-        return new SslConfigurationBuilder();
+    static Builder builder() {
+        return new Builder();
+    }
+
+    /** SSL configuration builder. */
+    @SuppressWarnings("PublicInnerClass")
+    class Builder {
+        private boolean enabled = false;
+
+        private @Nullable Iterable<String> ciphers;
+
+        private @Nullable String keyStorePath;
+
+        private @Nullable String keyStorePassword;
+
+        private @Nullable String trustStorePath;
+
+        private @Nullable String trustStorePassword;
+
+        /** Enabled/disabled setter. */
+        public Builder enabled(boolean enabled) {
+            this.enabled = enabled;
+            return this;
+        }
+
+        /** Ciphers setter. */
+        public Builder ciphers(@Nullable Iterable<String> ciphers) {
+            this.ciphers = ciphers;
+            return this;
+        }
+
+        /** Keystore path setter. */
+        public Builder keyStorePath(@Nullable String keyStorePath) {
+            this.keyStorePath = keyStorePath;
+            return this;
+        }
+
+        /** Keystore password setter. */
+        public Builder keyStorePassword(@Nullable String keyStorePassword) {
+            this.keyStorePassword = keyStorePassword;
+            return this;
+        }
+
+        /** Truststore path setter. */
+        public Builder trustStorePath(@Nullable String trustStorePath) {
+            this.trustStorePath = trustStorePath;
+            return this;
+        }
+
+        /** Truststore password setter. */
+        public Builder trustStorePassword(@Nullable String trustStorePassword) {
+            this.trustStorePassword = trustStorePassword;
+            return this;
+        }
+
+        /** Build SslConfiguration instance. */
+        public SslConfiguration build() {
+            return new SslConfigurationImpl(
+                    enabled, ciphers,
+                    keyStorePath, keyStorePassword,
+                    trustStorePath, trustStorePassword
+            );
+        }
     }
 }

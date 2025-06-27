@@ -27,9 +27,10 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> Item type.
  * @param <P> Partition type.
+ * @param <R> Result type.
  */
 @FunctionalInterface
-public interface StreamerBatchSender<T, P> {
+public interface StreamerBatchSender<T, P, R> {
     /**
      * Sends batch of items asynchronously.
      *
@@ -38,5 +39,5 @@ public interface StreamerBatchSender<T, P> {
      * @param deleted Deleted items (one bit per row in the batch).
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> sendAsync(P partition, Collection<T> batch, @Nullable BitSet deleted);
+    CompletableFuture<Collection<R>> sendAsync(P partition, Collection<T> batch, @Nullable BitSet deleted);
 }

@@ -34,20 +34,18 @@ import java.lang.annotation.Target;
  * <li>View - immutable object to view config tree</li>
  * </ul>
  * Here is how to create a configuration schema part:
- * <pre><code>
- * {@literal @}Config
+ * <pre><code> {@literal @}Config
  * public class SubConfigurationSchema {
  *
- *      {@literal @}Value
+ *     {@literal @}Value
  *      public String foo;
  *
- *      {@literal @}Value
+ *     {@literal @}Value
  *      public boolean bar;
  *
- *      {@literal @}ConfigValue
+ *     {@literal @}ConfigValue
  *      public SomeOtherConfiguration someOther;
- * }
- * </code></pre>
+ * }</code></pre>
  *
  * <p>The main difference between @{@link ConfigurationRoot} and @{@link Config} is that the former marks schema root,
  * while the latter is for marking non-root parts of the schema.

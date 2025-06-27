@@ -17,28 +17,34 @@
 
 package org.apache.ignite.internal.replicator;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents replica execution result.
  */
 public class ReplicaResult {
+    /** Default replication outcome result. */
+    private static final CommandApplicationResult DEFAULT_RESULT = new CommandApplicationResult(null, null);
+
     /** The result. */
     private final Object res;
 
     /** The replication future. */
-    private final CompletableFuture<?> repFut;
+    private final CommandApplicationResult commandApplicationResult;
+
+    /** Delayed ack processor. */
+    public @Nullable BiConsumer<Object, Throwable> delayedAckProcessor;
 
     /**
      * Construct a replica result.
      *
      * @param res The result.
-     * @param repFut The replication future.
+     * @param commandApplicationResult The replication result.
      */
-    public ReplicaResult(@Nullable Object res, @Nullable CompletableFuture<?> repFut) {
+    public ReplicaResult(@Nullable Object res, @Nullable CommandApplicationResult commandApplicationResult) {
         this.res = res;
-        this.repFut = repFut;
+        this.commandApplicationResult = commandApplicationResult == null ? DEFAULT_RESULT : commandApplicationResult;
     }
 
     /**
@@ -55,7 +61,7 @@ public class ReplicaResult {
      *
      * @return The replication future.
      */
-    public @Nullable CompletableFuture<?> replicationFuture() {
-        return repFut;
+    public CommandApplicationResult applyResult() {
+        return commandApplicationResult;
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.client;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,12 +40,15 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.ExceptionFactory;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.ThrottlingContextHolder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -183,30 +187,49 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param factory Message factory.
      * @param raftConfiguration RAFT configuration.
      * @param configuration Group configuration.
-     * @param getLeader True to get the group's leader upon service creation.
      * @param executor RPC executor.
      * @param logicalTopologyService Logical topology service.
      * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it, even
      *         if the leader did not change in that moment (see {@link #subscribeLeader}).
      * @param cmdMarshaller Marshaller that should be used to serialize/deserialize commands.
-     * @return Future to create a raft client.
+     * @param stoppingExceptionFactory Exception factory used to create exceptions thrown to indicate that the object is being stopped.
+     * @param throttlingContextHolder Holder of throttling context.
+     * @return New Raft client.
      */
-    public static CompletableFuture<TopologyAwareRaftGroupService> start(
+    public static TopologyAwareRaftGroupService start(
             ReplicationGroupId groupId,
             ClusterService cluster,
             RaftMessagesFactory factory,
             RaftConfiguration raftConfiguration,
             PeersAndLearners configuration,
-            boolean getLeader,
             ScheduledExecutorService executor,
             LogicalTopologyService logicalTopologyService,
             RaftGroupEventsClientListener eventsClientListener,
             boolean notifyOnSubscription,
-            Marshaller cmdMarshaller
+            Marshaller cmdMarshaller,
+            ExceptionFactory stoppingExceptionFactory,
+            ThrottlingContextHolder throttlingContextHolder
     ) {
-        return RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, getLeader, executor, cmdMarshaller)
-                .thenApply(raftGroupService -> new TopologyAwareRaftGroupService(cluster, factory, executor, raftConfiguration,
-                        raftGroupService, logicalTopologyService, eventsClientListener, notifyOnSubscription));
+        return new TopologyAwareRaftGroupService(
+                cluster,
+                factory,
+                executor,
+                raftConfiguration,
+                RaftGroupServiceImpl.start(
+                        groupId,
+                        cluster,
+                        factory,
+                        raftConfiguration,
+                        configuration,
+                        executor,
+                        cmdMarshaller,
+                        stoppingExceptionFactory,
+                        throttlingContextHolder
+                ),
+                logicalTopologyService,
+                eventsClientListener,
+                notifyOnSubscription
+        );
     }
 
     /**
@@ -233,8 +256,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      *         get a cluster.
      */
     private void sendWithRetry(ClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
-        clusterService.messagingService().invoke(node, msg, raftConfiguration.responseTimeout().value()).whenCompleteAsync((unused, th) -> {
-            if (th == null) {
+        Long responseTimeout = raftConfiguration.responseTimeoutMillis().value();
+
+        clusterService.messagingService().invoke(node, msg, responseTimeout).whenCompleteAsync((unused, invokeThrowable) -> {
+            if (invokeThrowable == null) {
                 msgSendFut.complete(true);
 
                 return;
@@ -242,20 +267,19 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
             if (!msg.subscribe()) {
                 // We don't want to propagate exceptions when unsubscribing (if it's not an Error!).
-
-                if (th instanceof Error) {
-                    msgSendFut.completeExceptionally(th);
+                if (unwrapCause(invokeThrowable) instanceof Error) {
+                    msgSendFut.completeExceptionally(invokeThrowable);
                 } else {
-                    LOG.debug("An exception while trying to unsubscribe", th);
+                    LOG.debug("An exception while trying to unsubscribe", invokeThrowable);
 
                     msgSendFut.complete(false);
                 }
-            } else if (recoverable(th)) {
-                logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetIssue) -> {
-                    if (topologyGetIssue != null) {
-                        LOG.error("Actual logical topology snapshot was not got.", topologyGetIssue);
+            } else if (recoverable(invokeThrowable)) {
+                logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetThrowable) -> {
+                    if (topologyGetThrowable != null) {
+                        LOG.error("Actual logical topology snapshot was not got.", topologyGetThrowable);
 
-                        msgSendFut.completeExceptionally(topologyGetIssue);
+                        msgSendFut.completeExceptionally(topologyGetThrowable);
 
                         return;
                     }
@@ -264,17 +288,17 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         sendWithRetry(node, msg, msgSendFut);
                     } else {
                         LOG.info("Could not subscribe to leader update from a specific node, because the node had left from the"
-                                + " cluster [node={}]", node);
+                                + " cluster: [node={}]", node);
 
                         msgSendFut.complete(false);
                     }
                 }, executor);
             } else {
-                if (!(th instanceof NodeStoppingException)) {
-                    LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
+                if (!(unwrapCause(invokeThrowable) instanceof NodeStoppingException)) {
+                    LOG.error("Could not send the subscribe message to the node: [node={}, msg={}]", invokeThrowable, node, msg);
                 }
 
-                msgSendFut.completeExceptionally(th);
+                msgSendFut.completeExceptionally(invokeThrowable);
             }
         }, executor);
     }
@@ -290,7 +314,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             t = t.getCause();
         }
 
-        return t instanceof TimeoutException || t instanceof IOException;
+        return t instanceof TimeoutException || t instanceof IOException || t instanceof RecipientLeftException;
     }
 
     /**
@@ -300,13 +324,19 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @return Future that is completed when all subscription messages to peers are sent.
      */
     public CompletableFuture<Void> subscribeLeader(LeaderElectionListener callback) {
-        assert !serverEventHandler.isSubscribed() : "The node already subscribed";
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-23863 do the refactoring to make the code more consistent.
+        if (serverEventHandler.isSubscribed()) {
+            ServerEventHandler wrappedEventHandler = new ServerEventHandler();
+            wrappedEventHandler.setOnLeaderElectedCallback(callback);
+
+            eventsClientListener.addLeaderElectionListener(groupId(), wrappedEventHandler);
+        } else {
+            serverEventHandler.setOnLeaderElectedCallback(callback);
+        }
 
         int peers = peers().size();
 
         var futs = new CompletableFuture[peers];
-
-        serverEventHandler.setOnLeaderElectedCallback(callback);
 
         for (int i = 0; i < peers; i++) {
             Peer peer = peers().get(i);
@@ -332,10 +362,17 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
                     if (!leaderWithTerm.isEmpty()) {
-                        serverEventHandler.onLeaderElected(
-                                clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
-                                leaderWithTerm.term()
-                        );
+                        ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
+
+                        if (leaderHost != null) {
+                            eventsClientListener.onLeaderElected(
+                                    groupId(),
+                                    leaderHost,
+                                    leaderWithTerm.term()
+                            );
+                        } else {
+                            LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
+                        }
                     }
                 }, executor);
             }, executor);
@@ -353,6 +390,19 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         serverEventHandler.setOnLeaderElectedCallback(null);
         serverEventHandler.resetLeader();
 
+        return sendUnsubscribeLeaderMessageAndClearSubscribersMap();
+    }
+
+    /**
+     * Removes the given local callback on RAFT leader elected event from handling list.
+     *
+     * @param callback The callback that should be removed.
+     */
+    public void unsubscribeLeader(LeaderElectionListener callback) {
+        eventsClientListener.removeLeaderElectionListener(groupId(), callback);
+    }
+
+    private CompletableFuture<Void> sendUnsubscribeLeaderMessageAndClearSubscribersMap() {
         var peers = peers();
         List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 
@@ -419,13 +469,13 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> changePeers(Collection<Peer> peers) {
-        return raftClient.changePeers(peers);
+    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term) {
+        return raftClient.changePeersAndLearners(peersAndLearners, term);
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAsync(PeersAndLearners peersAndLearners, long term) {
-        return raftClient.changePeersAsync(peersAndLearners, term);
+    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term) {
+        return raftClient.changePeersAndLearnersAsync(peersAndLearners, term);
     }
 
     @Override
@@ -444,8 +494,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> snapshot(Peer peer) {
-        return raftClient.snapshot(peer);
+    public CompletableFuture<Void> snapshot(Peer peer, boolean forced) {
+        return raftClient.snapshot(peer, forced);
     }
 
     @Override
@@ -456,6 +506,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     @Override
     public <R> CompletableFuture<R> run(Command cmd) {
         return raftClient.run(cmd);
+    }
+
+    @Override
+    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
+        return raftClient.run(cmd, timeoutMillis);
     }
 
     @Override
@@ -567,11 +622,15 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         allOf(futures.toArray(CompletableFuture[]::new)).thenAcceptAsync(unused -> {
             if (notifyOnSubscription) {
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
-                    if (!leaderWithTerm.isEmpty()) {
+                    ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
+
+                    if (leaderHost != null) {
                         serverEventHandler.onLeaderElected(
-                                clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
+                                leaderHost,
                                 leaderWithTerm.term()
                         );
+                    } else {
+                        LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
                     }
                 }, executor);
             }

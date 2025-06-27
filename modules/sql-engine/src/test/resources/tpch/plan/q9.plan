@@ -1,0 +1,75 @@
+Sort
+    collation: [NATION ASC, O_YEAR DESC]
+    est: (rows=540109)
+  ColocatedHashAggregate
+      fieldNames: [NATION, O_YEAR, SUM_PROFIT]
+      group: [NATION, O_YEAR]
+      aggregation: [SUM(AMOUNT)]
+      est: (rows=540109)
+    Project
+        fieldNames: [NATION, O_YEAR, AMOUNT]
+        projection: [N_NAME, EXTRACT(FLAG(YEAR), O_ORDERDATE), -(*(L_EXTENDEDPRICE, -(1, L_DISCOUNT)), *(PS_SUPPLYCOST, L_QUANTITY))]
+        est: (rows=1500304)
+      HashJoin
+          predicate: AND(=(PS_SUPPKEY, L_SUPPKEY), =(PS_PARTKEY, L_PARTKEY))
+          type: inner
+          est: (rows=1500304)
+        HashJoin
+            predicate: =(O_ORDERKEY, L_ORDERKEY)
+            type: inner
+            est: (rows=1500304)
+          HashJoin
+              predicate: =(S_SUPPKEY, L_SUPPKEY)
+              type: inner
+              est: (rows=1500304)
+            HashJoin
+                predicate: =(P_PARTKEY, L_PARTKEY)
+                type: inner
+                est: (rows=1500304)
+              Exchange
+                  distribution: single
+                  est: (rows=6001215)
+                TableScan
+                    table: PUBLIC.LINEITEM
+                    fieldNames: [L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_QUANTITY, L_EXTENDEDPRICE, L_DISCOUNT]
+                    est: (rows=6001215)
+              Exchange
+                  distribution: single
+                  est: (rows=50000)
+                TableScan
+                    table: PUBLIC.PART
+                    predicate: LIKE(P_NAME, _UTF-8'%green%')
+                    fieldNames: [P_PARTKEY, P_NAME]
+                    est: (rows=50000)
+            HashJoin
+                predicate: =(S_NATIONKEY, N_NATIONKEY)
+                type: inner
+                est: (rows=10000)
+              Exchange
+                  distribution: single
+                  est: (rows=10000)
+                TableScan
+                    table: PUBLIC.SUPPLIER
+                    fieldNames: [S_SUPPKEY, S_NATIONKEY]
+                    est: (rows=10000)
+              Exchange
+                  distribution: single
+                  est: (rows=25)
+                TableScan
+                    table: PUBLIC.NATION
+                    fieldNames: [N_NATIONKEY, N_NAME]
+                    est: (rows=25)
+          Exchange
+              distribution: single
+              est: (rows=1500000)
+            TableScan
+                table: PUBLIC.ORDERS
+                fieldNames: [O_ORDERKEY, O_ORDERDATE]
+                est: (rows=1500000)
+        Exchange
+            distribution: single
+            est: (rows=800000)
+          TableScan
+              table: PUBLIC.PARTSUPP
+              fieldNames: [PS_PARTKEY, PS_SUPPKEY, PS_SUPPLYCOST]
+              est: (rows=800000)

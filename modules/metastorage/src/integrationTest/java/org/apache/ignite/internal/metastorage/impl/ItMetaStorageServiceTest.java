@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -31,9 +32,11 @@ import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTe
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToValue;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CursorUtils.emptyCursor;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
@@ -41,12 +44,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -55,7 +55,6 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -69,18 +68,22 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.ComponentWorkingDir;
+import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.OperationType;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.AbstractCompoundCondition;
@@ -98,14 +101,17 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
-import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -137,7 +143,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             new byte[]{1},
             new byte[]{2},
             10,
-            2
+            ANY_TIMESTAMP
     );
 
     /**
@@ -146,7 +152,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     private static final NavigableMap<ByteArray, Entry> EXPECTED_RESULT_MAP;
 
     /** Expected server result collection. */
-    private static final Collection<Entry> EXPECTED_SRV_RESULT_COLL;
+    private static final List<Entry> EXPECTED_SRV_RESULT_COLL;
 
     static {
         EXPECTED_RESULT_MAP = new TreeMap<>();
@@ -155,7 +161,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                 new byte[]{1},
                 new byte[]{2},
                 10,
-                2
+                ANY_TIMESTAMP
         );
 
         EXPECTED_RESULT_MAP.put(new ByteArray(entry1.key()), entry1);
@@ -164,7 +170,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                 new byte[]{3},
                 new byte[]{4},
                 10,
-                3
+                ANY_TIMESTAMP
         );
 
         EXPECTED_RESULT_MAP.put(new ByteArray(entry2.key()), entry2);
@@ -179,43 +185,61 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private final KeyValueStorage mockStorage;
 
+        private final HybridClock clock;
+
         private final ClusterTimeImpl clusterTime;
 
         private RaftGroupService metaStorageRaftService;
 
         private MetaStorageService metaStorageService;
 
+        private final LogStorageFactory partitionsLogStorageFactory;
+
+        private final RaftGroupOptionsConfigurer partitionsRaftConfigurer;
+
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
 
-            HybridClock clock = new HybridClockImpl();
+            clock = new HybridClockImpl();
 
-            this.raftManager = new Loza(
-                    clusterService,
-                    raftConfiguration,
-                    dataPath.resolve(name()),
-                    clock
+            ComponentWorkingDir workingDir = new ComponentWorkingDir(dataPath.resolve(name()));
+
+            partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                    clusterService.nodeName(),
+                    workingDir.raftLogPath()
             );
 
+            partitionsRaftConfigurer =
+                    RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath());
+
+            this.raftManager = TestLozaFactory.create(
+                    clusterService,
+                    raftConfiguration,
+                    clock
+            );
             this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), new IgniteSpinBusyLock(), clock);
 
             this.mockStorage = mock(KeyValueStorage.class);
         }
 
         void start(PeersAndLearners configuration) {
-            CompletableFuture<RaftGroupService> raftService =
-                    startAsync(clusterService, raftManager)
-                            .thenCompose(unused -> startRaftService(configuration));
+            CompletableFuture<Void> startFuture = startAsync(
+                    new ComponentContext(),
+                    clusterService,
+                    partitionsLogStorageFactory,
+                    raftManager
+            );
 
-            assertThat(raftService, willCompleteSuccessfully());
+            assertThat(startFuture, willCompleteSuccessfully());
 
-            metaStorageRaftService = raftService.join();
+            metaStorageRaftService = startRaftService(configuration);
 
             metaStorageService = new MetaStorageServiceImpl(
                     clusterService.nodeName(),
                     metaStorageRaftService,
                     new IgniteSpinBusyLock(),
-                    clusterTime
+                    clock,
+                    clusterService.topologyService().localMember().id()
             );
         }
 
@@ -223,7 +247,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             return clusterService.nodeName();
         }
 
-        private CompletableFuture<RaftGroupService> startRaftService(PeersAndLearners configuration) {
+        private RaftGroupService startRaftService(PeersAndLearners configuration) {
             String name = name();
 
             boolean isLearner = configuration.peer(name) == null;
@@ -232,13 +256,18 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             assert peer != null;
 
-            var listener = new MetaStorageListener(mockStorage, clusterTime);
+            var listener = new MetaStorageListener(mockStorage, clock, clusterTime);
 
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 
             try {
-                return raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
-                        raftNodeId, configuration, listener, RaftGroupEventsListener.noopLsnr
+                return raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
+                        raftNodeId,
+                        configuration,
+                        listener,
+                        RaftGroupEventsListener.noopLsnr,
+                        null,
+                        partitionsRaftConfigurer
                 );
             } catch (NodeStoppingException e) {
                 throw new IllegalStateException(e);
@@ -254,7 +283,10 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             Stream<AutoCloseable> beforeNodeStop = Stream.of(raftManager, clusterService).map(c -> c::beforeNodeStop);
 
             Stream<AutoCloseable> nodeStop = Stream.of(
-                    () -> assertThat(stopAsync(raftManager, clusterService), willCompleteSuccessfully())
+                    () -> assertThat(
+                            stopAsync(new ComponentContext(), raftManager, partitionsLogStorageFactory, clusterService),
+                            willCompleteSuccessfully()
+                    )
             );
 
             IgniteUtils.closeAll(Stream.of(raftStop, beforeNodeStop, nodeStop).flatMap(Function.identity()));
@@ -276,7 +308,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         this.testInfo = testInfo;
     }
 
-    private List<Node> startNodes(int amount) {
+    /** Allocates nodes for test. Doesn't start them. */
+    private List<Node> prepareNodes(int amount) {
         List<NetworkAddress> localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + amount);
 
         var nodeFinder = new StaticNodeFinder(localAddresses);
@@ -285,14 +318,20 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
                 .forEach(clusterService -> nodes.add(new Node(clusterService, raftConfiguration, workDir)));
 
+        return nodes;
+    }
+
+    /**
+     * Starts nodes. It is important that this method is called after all mocks are configured, otherwise we will have races between raft
+     * server and mockito.
+     */
+    private void startNodes() {
         PeersAndLearners metaStorageConfiguration = PeersAndLearners.fromConsistentIds(
                 Set.of(nodes.get(0).name()),
                 nodes.stream().skip(1).map(Node::name).collect(toUnmodifiableSet())
         );
 
         nodes.parallelStream().forEach(node -> node.start(metaStorageConfiguration));
-
-        return nodes;
     }
 
     /**
@@ -308,99 +347,102 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     /**
      * Tests {@link MetaStorageService#get(ByteArray)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testGet() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testGet() {
+        Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenReturn(EXPECTED_RESULT_ENTRY);
 
-        assertEquals(EXPECTED_RESULT_ENTRY, node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
+        startNodes();
+
+        assertThat(node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())), willBe(EXPECTED_RESULT_ENTRY));
     }
 
     /**
      * Tests {@link MetaStorageService#get(ByteArray, long)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testGetWithUpperBoundRevision() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testGetWithUpperBoundRevision() {
+        Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key(), EXPECTED_RESULT_ENTRY.revision())).thenReturn(EXPECTED_RESULT_ENTRY);
 
-        assertEquals(
-                EXPECTED_RESULT_ENTRY,
-                node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), EXPECTED_RESULT_ENTRY.revision()).get()
+        startNodes();
+
+        assertThat(
+                node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), EXPECTED_RESULT_ENTRY.revision()),
+                willBe(EXPECTED_RESULT_ENTRY)
         );
     }
 
     /**
      * Tests {@link MetaStorageService#getAll(Set)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testGetAll() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testGetAll() {
+        Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.getAll(anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
 
-        assertEquals(EXPECTED_RESULT_MAP, node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet()).get());
+        startNodes();
+
+        assertThat(node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet()), willBe(EXPECTED_RESULT_MAP));
     }
 
     /**
      * Tests {@link MetaStorageService#getAll(Set, long)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testGetAllWithUpperBoundRevision() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testGetAllWithUpperBoundRevision() {
+        Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.getAll(anyList(), eq(10L))).thenReturn(EXPECTED_SRV_RESULT_COLL);
 
-        assertEquals(
-                EXPECTED_RESULT_MAP,
-                node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet(), 10).get()
-        );
+        startNodes();
+
+        assertThat(node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet(), 10), willBe(EXPECTED_RESULT_MAP));
     }
 
     /**
      * Tests {@link MetaStorageService#put(ByteArray, byte[])}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testPut() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testPut() {
+        Node node = prepareNodes(1).get(0);
 
         ByteArray expKey = new ByteArray(new byte[]{1});
 
         byte[] expVal = {2};
 
-        doNothing().when(node.mockStorage).put(eq(expKey.bytes()), eq(expVal), any());
+        startNodes();
 
-        node.metaStorageService.put(expKey, expVal).get();
+        assertThat(node.metaStorageService.put(expKey, expVal), willCompleteSuccessfully());
+
+        verify(node.mockStorage).put(eq(expKey.bytes()), eq(expVal), any());
     }
 
     /**
      * Tests {@link MetaStorageService#putAll(Map)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testPutAll() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testPutAll() {
+        Node node = prepareNodes(1).get(0);
 
-        node.metaStorageService.putAll(
-                EXPECTED_RESULT_MAP.entrySet().stream()
-                        .collect(Collectors.toMap(
-                                Map.Entry::getKey,
-                                e -> e.getValue().value())
-                        )
-        ).get();
+        startNodes();
+
+        Map<ByteArray, byte[]> values = EXPECTED_RESULT_MAP.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().value()
+                ));
+
+        assertThat(node.metaStorageService.putAll(values), willCompleteSuccessfully());
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<byte[]>> valuesCaptor = ArgumentCaptor.forClass(List.class);
@@ -408,7 +450,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         verify(node.mockStorage).putAll(keysCaptor.capture(), valuesCaptor.capture(), any());
 
         // Assert keys equality.
-        assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
+        assertEquals(EXPECTED_RESULT_MAP.size(), keysCaptor.getValue().size());
 
         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream()
                 .map(ByteArray::bytes).collect(toList());
@@ -418,7 +460,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         }
 
         // Assert values equality.
-        assertEquals(EXPECTED_RESULT_MAP.values().size(), valuesCaptor.getValue().size());
+        assertEquals(EXPECTED_RESULT_MAP.size(), valuesCaptor.getValue().size());
 
         List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream()
                 .map(Entry::value).collect(toList());
@@ -431,29 +473,31 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     /**
      * Tests {@link MetaStorageService#remove(ByteArray)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testRemove() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testRemove() {
+        Node node = prepareNodes(1).get(0);
 
         ByteArray expKey = new ByteArray(new byte[]{1});
 
-        doNothing().when(node.mockStorage).remove(eq(expKey.bytes()), any());
+        startNodes();
 
-        node.metaStorageService.remove(expKey).get();
+        assertThat(node.metaStorageService.remove(expKey), willCompleteSuccessfully());
+
+        verify(node.mockStorage).remove(eq(expKey.bytes()), any());
     }
 
     /**
      * Tests {@link MetaStorageService#removeAll(Set)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testRemoveAll() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testRemoveAll() {
+        Node node = prepareNodes(1).get(0);
 
-        node.metaStorageService.removeAll(EXPECTED_RESULT_MAP.keySet()).get();
+        startNodes();
+
+        assertThat(node.metaStorageService.removeAll(EXPECTED_RESULT_MAP.keySet()), willCompleteSuccessfully());
 
         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream()
                 .map(ByteArray::bytes).collect(toList());
@@ -462,7 +506,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         verify(node.mockStorage).removeAll(keysCaptor.capture(), any());
 
-        assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
+        assertEquals(EXPECTED_RESULT_MAP.size(), keysCaptor.getValue().size());
 
         for (int i = 0; i < expKeys.size(); i++) {
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
@@ -470,11 +514,28 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     /**
+     * Tests {@link MetaStorageService#removeByPrefix(ByteArray)}.
+     *
+     */
+    @Test
+    public void testRemoveByPrefix() {
+        Node node = prepareNodes(1).get(0);
+
+        startNodes();
+
+        ByteArray prefix = new ByteArray(new byte[]{1});
+
+        assertThat(node.metaStorageService.removeByPrefix(prefix), willCompleteSuccessfully());
+
+        verify(node.mockStorage).removeByPrefix(eq(prefix.bytes()), any());
+    }
+
+    /**
      * Tests {@link MetaStorageService#range(ByteArray, ByteArray, long)}} with not null keyTo and explicit revUpperBound.
      */
     @Test
     public void testRangeWithKeyToAndUpperBound() {
-        Node node = startNodes(1).get(0);
+        Node node = prepareNodes(1).get(0);
 
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
@@ -483,6 +544,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         long expRevUpperBound = 10;
 
         when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes(), expRevUpperBound)).thenReturn(emptyCursor());
+
+        startNodes();
 
         node.metaStorageService.range(expKeyFrom, expKeyTo, expRevUpperBound).subscribe(singleElementSubscriber());
 
@@ -495,13 +558,15 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testRangeWithKeyTo() {
-        Node node = startNodes(1).get(0);
+        Node node = prepareNodes(1).get(0);
 
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         ByteArray expKeyTo = new ByteArray(new byte[]{3});
 
         when(node.mockStorage.range(expKeyFrom.bytes(), expKeyTo.bytes())).thenReturn(emptyCursor());
+
+        startNodes();
 
         node.metaStorageService.range(expKeyFrom, expKeyTo, false).subscribe(singleElementSubscriber());
 
@@ -514,11 +579,13 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testRangeWithNullAsKeyTo() {
-        Node node = startNodes(1).get(0);
+        Node node = prepareNodes(1).get(0);
 
         ByteArray expKeyFrom = new ByteArray(new byte[]{1});
 
         when(node.mockStorage.range(expKeyFrom.bytes(), null)).thenReturn(emptyCursor());
+
+        startNodes();
 
         node.metaStorageService.range(expKeyFrom, null, false).subscribe(singleElementSubscriber());
 
@@ -530,10 +597,12 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testRangeNext() {
-        Node node = startNodes(1).get(0);
+        Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null))
                 .thenReturn(Cursor.fromIterable(List.of(EXPECTED_RESULT_ENTRY)));
+
+        startNodes();
 
         CompletableFuture<Entry> expectedEntriesFuture =
                 subscribeToValue(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
@@ -546,7 +615,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testRangeNextNoSuchElementException() {
-        Node node = startNodes(1).get(0);
+        Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.range(EXPECTED_RESULT_ENTRY.key(), null)).thenAnswer(invocation -> {
             var it = mock(Iterator.class);
@@ -557,6 +626,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             return Cursor.fromBareIterator(it);
         });
 
+        startNodes();
+
         CompletableFuture<List<Entry>> future =
                 subscribeToList(node.metaStorageService.range(new ByteArray(EXPECTED_RESULT_ENTRY.key()), null));
 
@@ -564,8 +635,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testMultiInvoke() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testMultiInvoke() {
+        Node node = prepareNodes(1).get(0);
 
         ByteArray key1 = new ByteArray(new byte[]{1});
         ByteArray key2 = new ByteArray(new byte[]{2});
@@ -604,11 +675,13 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         var ifCaptor = ArgumentCaptor.forClass(If.class);
 
-        when(node.mockStorage.invoke(any(), any())).thenReturn(ops().yield(true).result());
+        when(node.mockStorage.invoke(any(), any(), any())).thenReturn(ops().yield(true).result(), null, null);
 
-        assertTrue(node.metaStorageService.invoke(iif).get().getAsBoolean());
+        startNodes();
 
-        verify(node.mockStorage).invoke(ifCaptor.capture(), any());
+        assertThat(node.metaStorageService.invoke(iif).thenApply(StatementResult::getAsBoolean), willBe(true));
+
+        verify(node.mockStorage).invoke(ifCaptor.capture(), any(), any());
 
         var resultIf = ifCaptor.getValue();
 
@@ -646,37 +719,39 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testInvoke() throws Exception {
-        Node node = startNodes(1).get(0);
+    public void testInvoke() {
+        Node node = prepareNodes(1).get(0);
 
         ByteArray expKey = new ByteArray(new byte[]{1});
 
         byte[] expVal = {2};
 
-        when(node.mockStorage.invoke(any(), any(), any(), any())).thenReturn(true);
+        when(node.mockStorage.invoke(any(), any(), any(), any(), any())).thenReturn(true);
+
+        startNodes();
 
         Condition condition = Conditions.notExists(expKey);
 
-        Operation success = Operations.put(expKey, expVal);
+        Operation success = put(expKey, expVal);
 
         Operation failure = Operations.noop();
 
-        assertTrue(node.metaStorageService.invoke(condition, success, failure).get());
+        assertThat(node.metaStorageService.invoke(condition, success, failure), willBe(true));
 
         var conditionCaptor = ArgumentCaptor.forClass(AbstractSimpleCondition.class);
 
-        ArgumentCaptor<Collection<Operation>> successCaptor = ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor<List<Operation>> successCaptor = ArgumentCaptor.forClass(List.class);
 
-        ArgumentCaptor<Collection<Operation>> failureCaptor = ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor<List<Operation>> failureCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture(), any());
+        verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture(), any(), any());
 
         assertArrayEquals(expKey.bytes(), conditionCaptor.getValue().key());
 
-        assertArrayEquals(expKey.bytes(), successCaptor.getValue().iterator().next().key());
-        assertArrayEquals(expVal, successCaptor.getValue().iterator().next().value());
+        assertArrayEquals(expKey.bytes(), toByteArray(successCaptor.getValue().get(0).key()));
+        assertArrayEquals(expVal, toByteArray(successCaptor.getValue().get(0).value()));
 
-        assertEquals(OperationType.NO_OP, failureCaptor.getValue().iterator().next().type());
+        assertEquals(OperationType.NO_OP, failureCaptor.getValue().get(0).type());
     }
 
     // TODO: IGNITE-14693 Add tests for exception handling logic: onError,
@@ -688,11 +763,13 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     @Disabled("IGNITE-14693 Add tests for exception handling logic.")
     @Test
     public void testGetThatThrowsCompactedException() {
-        Node node = startNodes(1).get(0);
+        Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenThrow(new CompactedException());
 
-        assertThrows(CompactedException.class, () -> node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
+        startNodes();
+
+        assertThat(node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())), willThrow(CompactedException.class));
     }
 
     /**
@@ -701,11 +778,13 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     @Disabled("IGNITE-14693 Add tests for exception handling logic.")
     @Test
     public void testGetThatThrowsOperationTimeoutException() {
-        Node node = startNodes(1).get(0);
+        Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenThrow(new OperationTimeoutException());
 
-        assertThrows(OperationTimeoutException.class, () -> node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
+        startNodes();
+
+        assertThat(node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())), willThrow(OperationTimeoutException.class));
     }
 
     private static Subscriber<Entry> singleElementSubscriber() {

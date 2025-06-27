@@ -25,39 +25,49 @@ dependencies {
     api project(':ignite-metastorage-api')
 
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-system')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-raft-api')
+    implementation project(':ignite-raft')
     implementation project(':ignite-replicator')
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-failure-handler')
+    implementation project(':ignite-metrics')
+    implementation project(':ignite-system-disaster-recovery-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.auto.service.annotations
 
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-replicator'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
+    testImplementation testFixtures(project(':ignite-metrics'))
+    testImplementation testFixtures(project(':ignite-configuration-system'))
 
-    integrationTestImplementation libs.jetbrains.annotations
-    integrationTestImplementation project(":ignite-cluster-management")
+    integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-raft')
-    integrationTestImplementation project(":ignite-raft-api")
+    integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-rocksdb')
-    integrationTestImplementation project(":ignite-vault")
-    integrationTestImplementation project(":ignite-security")
+    integrationTestImplementation project(':ignite-vault')
+    integrationTestImplementation project(':ignite-security')
+    integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-system-disaster-recovery')
+    integrationTestImplementation project(':ignite-configuration-system')
+    integrationTestImplementation project(':ignite-configuration-root')
+    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-network'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
@@ -66,18 +76,21 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-metastorage'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-runner:'))
 
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-configuration-system')
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-replicator')
     testFixturesImplementation project(':ignite-rocksdb-common')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-failure-handler')
+    testFixturesImplementation project(':ignite-system-disaster-recovery-api')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation testFixtures(project(':ignite-metrics'))
 }
 
 description = 'ignite-metastorage'

@@ -69,9 +69,6 @@ enum class ignite_type {
     /** 128-bit UUID. */
     UUID = 13,
 
-    /** Bit mask. */
-    BITMASK = 14,
-
     /** String. */
     STRING = 15,
 
@@ -83,9 +80,6 @@ enum class ignite_type {
 
     /** Time interval. */
     DURATION = 18,
-
-    /** Number. */
-    NUMBER = 19,
 
     /** Undefined. */
     UNDEFINED

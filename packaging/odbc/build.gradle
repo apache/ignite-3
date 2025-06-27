@@ -23,6 +23,7 @@ plugins {
     id 'signing'
     alias(libs.plugins.nebula)
     alias(libs.plugins.checksum)
+    alias(libs.plugins.setupbuilder)
 }
 
 java {
@@ -39,21 +40,38 @@ dependencies {
 }
 
 def tokens = [
-        VERSION : version,
-        LIB_DIR : "/usr/lib",
-        TMP_DIR : "/tmp/ignite3-odbc"
+        USERNAME    : 'root',
+        VERSION     : projectVersion,
+        LIB_DIR     : "/usr/lib",
+        TMP_DIR     : "/tmp/ignite3-odbc"
 ]
 
-task replacePackageScriptVars(type: Copy) {
+File odbcDll = configurations.odbc.files.find { it.name == "ignite3-odbc.dll" }
+def tokensWin = [
+        DLL_SRC : odbcDll != null ? odbcDll.path : ''
+]
+
+def replacePackageScriptVars = tasks.register('replacePackageScriptVars', Copy) {
     onlyIf {
         project.hasProperty('platforms.enable')
     }
 
-    from "$rootDir/packaging/odbc/ignite3-odbc.ini"
+    from 'ignite3-odbc.ini'
 
-    from "$rootDir/packaging/odbc/scripts"
+    from 'scripts'
 
     filter(ReplaceTokens, tokens: tokens)
+    into "$buildDir/scripts/"
+}
+
+def replacePackageScriptVarsWin = tasks.register('replacePackageScriptVarsWin', Copy) {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+
+    from 'template.wxs'
+
+    filter(ReplaceTokens, tokens: tokensWin)
     into "$buildDir/scripts/"
 }
 
@@ -120,6 +138,7 @@ ospackage {
     packageName "ignite3-odbc"
     packageGroup "Library"
     url "https://ignite.apache.org"
+    user tokens.USERNAME
     packageDescription "This package will install Apache Ignite 3 ODBC driver"
     os LINUX
 
@@ -127,7 +146,30 @@ ospackage {
         from configurations.odbc
     }
 
-    into("${tokens.TMP_DIR}/${project.version}") {
+    into("${tokens.TMP_DIR}/${projectVersion}") {
         from "$buildDir/scripts/ignite3-odbc.ini"
+    }
+}
+
+setupBuilder {
+    vendor = "Apache Software Foundation"
+    application = "Apache Ignite ODBC driver"
+    description = "Apache Ignite is a distributed database for high-performance computing with in-memory speed"
+    appIdentifier = "ignite3-odbc"
+
+    // '-SNAPSHOT' is not valid in Windows versions
+    version = projectVersion.toString().replace("-SNAPSHOT", "")
+
+    licenseFile = "$rootDir/LICENSE"
+
+    msi {
+        dependsOn replacePackageScriptVarsWin
+
+        languages = ["en-US"]
+        wxsTemplate = "$buildDir/scripts/template.wxs"
+    }
+
+    into('bin') {
+        from configurations.odbc
     }
 }

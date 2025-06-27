@@ -43,19 +43,18 @@ public:
      * Constructor.
      *
      * @param data Page data.
-     * @param reader Page reader.
+     * @param rows Result rows.
      */
-    result_page(network::data_buffer_owning &&data, std::unique_ptr<protocol::reader> &&reader)
+    result_page(network::data_buffer_owning &&data, std::vector<bytes_view> &&rows)
         : m_data(std::move(data))
-        , m_reader(std::move(reader)) {
-        m_size = m_reader->read_int32();
-    }
+        , m_rows(std::move(rows)) {}
 
     /**
      * Get page size.
+     *
      * @return Page size.
      */
-    [[nodiscard]] std::uint32_t get_size() const { return m_size; }
+    [[nodiscard]] std::size_t get_size() const { return m_rows.size(); }
 
     /**
      * Get page data.
@@ -65,25 +64,21 @@ public:
     network::data_buffer_owning &get_data() { return m_data; }
 
     /**
-     * Get row.
+     * Get the row.
+     *
      * @param idx Row index.
      * @return Row data.
      */
-    bytes_view get_row(std::uint32_t idx) {
-        assert(idx < m_size);
-
-        return m_reader->read_binary();
+    [[nodiscard]] bytes_view get_row(std::uint32_t idx) const {
+        return m_rows.at(idx);
     }
 
 private:
-    /** Page size in rows. */
-    std::uint32_t m_size{0};
-
     /** Memory that contains current row page data. */
     network::data_buffer_owning m_data;
 
-    /** Reader that reads current memory. */
-    std::unique_ptr<protocol::reader> m_reader;
+    /** Rows data. */
+    std::vector<bytes_view> m_rows;
 };
 
 } // namespace ignite

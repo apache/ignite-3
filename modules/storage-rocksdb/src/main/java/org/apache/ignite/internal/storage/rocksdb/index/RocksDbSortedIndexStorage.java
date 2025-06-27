@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.rocksdb.IgniteRocksDbException;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -65,8 +66,6 @@ import org.rocksdb.WriteBatchWithIndex;
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
 public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage implements SortedIndexStorage {
-    private final StorageSortedIndexDescriptor descriptor;
-
     private final ColumnFamily indexCf;
     private final byte[] partitionStartPrefix;
     private final byte[] partitionEndPrefix;
@@ -87,15 +86,14 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
             ColumnFamily indexCf,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        super(tableId, descriptor.id(), partitionId, indexMetaStorage, descriptor.isPk());
+        super(descriptor, tableId, partitionId, indexMetaStorage);
 
-        this.descriptor = descriptor;
         this.indexCf = indexCf;
 
         this.partitionStartPrefix = ByteBuffer.allocate(PREFIX_WITH_IDS_LENGTH)
                 .order(KEY_BYTE_ORDER)
                 .putInt(tableId)
-                .putInt(indexId)
+                .putInt(descriptor.id())
                 .putShort((short) partitionId)
                 .array();
 
@@ -104,7 +102,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
     @Override
     public StorageSortedIndexDescriptor indexDescriptor() {
-        return descriptor;
+        return (StorageSortedIndexDescriptor) descriptor;
     }
 
     @Override
@@ -130,7 +128,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Unable to insert data into sorted index. Index ID: " + descriptor.id(), e);
+                throw new IgniteRocksDbException("Unable to insert data into sorted index. Index ID: " + descriptor.id(), e);
             }
         });
     }
@@ -147,7 +145,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException("Unable to remove data from sorted index. Index ID: " + descriptor.id(), e);
+                throw new IgniteRocksDbException("Unable to remove data from sorted index. Index ID: " + descriptor.id(), e);
             }
         });
     }
@@ -281,7 +279,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     private IndexRow decodeRow(ByteBuffer bytes) {
         assert bytes.getShort(PREFIX_WITH_IDS_LENGTH - PARTITION_ID_SIZE) == partitionId;
 
-        var tuple = new BinaryTuple(descriptor.binaryTupleSchema().elementCount(), binaryTupleSlice(bytes));
+        var tuple = new BinaryTuple(indexDescriptor().binaryTupleSchema().elementCount(), binaryTupleSlice(bytes));
 
         return new IndexRowImpl(tuple, decodeRowId(bytes));
     }

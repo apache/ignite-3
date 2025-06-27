@@ -25,14 +25,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  */
 public interface ClusterTime {
     /**
-     * Returns current cluster time.
+     * Returns current safe time.
      */
-    HybridTimestamp now();
-
-    /**
-     * Returns current cluster time.
-     */
-    long nowLong();
+    HybridTimestamp currentSafeTime();
 
     /**
      * Provides the future that is completed when cluster time reaches given one. If the time is greater or equal

@@ -31,7 +31,6 @@ import org.apache.ignite.lang.IgniteException;
  * Implementation of {@link ClassLoader} that loads classes from specified component directories.
  */
 public class JobClassLoader extends URLClassLoader {
-
     /**
      * Pattern to match system packages.
      */
@@ -52,7 +51,7 @@ public class JobClassLoader extends URLClassLoader {
      * @param parent Parent class loader.
      */
     public JobClassLoader(List<DisposableDeploymentUnit> units, URL[] urls, ClassLoader parent) {
-        super(urls, parent);
+        super("compute-job", urls, parent);
         this.units = units;
         this.parent = parent;
     }

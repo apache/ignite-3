@@ -48,17 +48,14 @@ public class NodeUnitListCommand extends BaseCommand implements Callable<Integer
     private boolean plain;
 
     @Inject
-    private NodeListUnitCall listUnitCall;
+    private NodeListUnitCall call;
 
     @Override
     public Integer call() throws Exception {
-        return CallExecutionPipeline.builder(listUnitCall)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> listOptions.toListUnitCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
                 .decorator(new UnitListDecorator(plain))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot list units", "ignite cluster init"))
-                .build().runPipeline();
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot list units"))
+        );
     }
 }

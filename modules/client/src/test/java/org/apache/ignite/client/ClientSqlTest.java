@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -25,20 +27,21 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
-import java.util.BitSet;
+import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.client.sql.ClientPartitionAwarenessMetadata;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
@@ -47,7 +50,10 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * SQL tests.
@@ -84,6 +90,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .defaultSchema("SCHEMA2")
                 .queryTimeout(124, TimeUnit.SECONDS)
                 .pageSize(235)
+                .timeZoneId(ZoneId.of("Europe/London"))
                 .build();
 
         AsyncResultSet<SqlRow> resultSet = client.sql().executeAsync(null, statement).join();
@@ -94,6 +101,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals("SCHEMA2", props.get("schema"));
         assertEquals("124000", props.get("timeout"));
         assertEquals("235", props.get("pageSize"));
+        assertEquals("Europe/London", props.get("timeZoneId"));
     }
 
     @Test
@@ -137,7 +145,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(1.4d, row.doubleValue(6));
         assertEquals(ColumnType.DOUBLE, meta.columns().get(6).type());
 
-        assertEquals(BigDecimal.valueOf(145).setScale(2, RoundingMode.HALF_UP), row.value(7));
+        assertDecimalEqual(BigDecimal.valueOf(145), row.decimalValue(7));
         ColumnMetadata decimalCol = meta.columns().get(7);
         assertEquals(ColumnType.DECIMAL, decimalCol.type());
         assertEquals(1, decimalCol.precision());
@@ -163,20 +171,14 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(new UUID(0, 0), row.uuidValue(12));
         assertEquals(ColumnType.UUID, meta.columns().get(12).type());
 
-        assertEquals(BitSet.valueOf(new byte[0]), row.bitmaskValue(13));
-        assertEquals(ColumnType.BITMASK, meta.columns().get(13).type());
+        assertEquals(0, ((byte[]) row.value(13))[0]);
+        assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(13).type());
 
-        assertEquals(0, ((byte[]) row.value(14))[0]);
-        assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(14).type());
+        assertEquals(Period.of(10, 9, 8), row.value(14));
+        assertEquals(ColumnType.PERIOD, meta.columns().get(14).type());
 
-        assertEquals(Period.of(10, 9, 8), row.value(15));
-        assertEquals(ColumnType.PERIOD, meta.columns().get(15).type());
-
-        assertEquals(Duration.ofDays(11), row.value(16));
-        assertEquals(ColumnType.DURATION, meta.columns().get(16).type());
-
-        assertEquals(BigInteger.valueOf(42), row.value(17));
-        assertEquals(ColumnType.NUMBER, meta.columns().get(17).type());
+        assertEquals(Duration.ofDays(11), row.value(15));
+        assertEquals(ColumnType.DURATION, meta.columns().get(15).type());
     }
 
     @Test
@@ -189,7 +191,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "foo, arguments: [], defaultSchema=<not set>, defaultQueryTimeout=0",
+                "foo, arguments: [], defaultSchema=PUBLIC, defaultQueryTimeout=0",
                 row.value(0));
     }
 
@@ -203,7 +205,63 @@ public class ClientSqlTest extends AbstractClientTableTest {
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=<not set>, defaultQueryTimeout=0",
+                "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=PUBLIC, defaultQueryTimeout=0",
                 row.value(0));
+    }
+
+    @Test
+    void partitionAwarenessMetas() {
+        IgniteSql sql = client.sql();
+
+        Statement statement1 = sql.statementBuilder()
+                .query("SELECT PA")
+                .defaultSchema("SCHEMA_1")
+                .build();
+        Statement statement2 = sql.statementBuilder()
+                .query("SELECT PA")
+                .defaultSchema("SCHEMA_2")
+                .build();
+
+        sql.execute(null, statement1);
+        sql.execute(null, statement2);
+
+        List<ClientPartitionAwarenessMetadata> metas = ((ClientSql) sql).partitionAwarenessCachedMetas();
+        assertThat(metas.size(), CoreMatchers.is(2));
+
+        for (ClientPartitionAwarenessMetadata meta : metas) {
+            assertThat(meta.tableId(), CoreMatchers.is(1));
+            assertThat(meta.indexes(), CoreMatchers.is(new int[] {0, -1, -2, 2}));
+            assertThat(meta.hash(), CoreMatchers.is(new int[] {100, 500}));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 8, 16})
+    void partitionAwarenessMetadataCacheOverflow(int size) throws InterruptedException {
+        try (IgniteClient client = createClientWithPaCacheOfSize(size)) {
+            IgniteSql sql = client.sql();
+
+            // use (size + 1) to account for size=0 case
+            for (int i = 0; i < 2 * (size + 1); i++) {
+                Statement statement1 = sql.statementBuilder()
+                        .query("SELECT PA")
+                        .defaultSchema("SCHEMA_" + i)
+                        .build();
+
+                sql.execute(null, statement1);
+            }
+
+            assertTrue(waitForCondition(
+                    () -> ((ClientSql) sql).partitionAwarenessCachedMetas().size() <= size, 5_000
+            ));
+        }
+    }
+
+    private static IgniteClient createClientWithPaCacheOfSize(int cacheSize) {
+        var builder = IgniteClient.builder()
+                .addresses(new String[]{"127.0.0.1:" + serverPort})
+                .sqlPartitionAwarenessMetadataCacheSize(cacheSize);
+
+        return builder.build();
     }
 }

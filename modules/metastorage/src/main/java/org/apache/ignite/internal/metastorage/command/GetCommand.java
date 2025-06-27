@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -29,7 +30,7 @@ public interface GetCommand extends ReadCommand {
     /**
      * Returns key. Couldn't be {@code null}.
      */
-    byte[] key();
+    ByteBuffer key();
 
     /**
      * Returns the upper bound for entry revisions or {@link MetaStorageManager#LATEST_REVISION} for no revision bound.

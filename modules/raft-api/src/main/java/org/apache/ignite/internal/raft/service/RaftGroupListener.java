@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.service;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 
@@ -27,6 +28,14 @@ import org.apache.ignite.internal.raft.WriteCommand;
  * A listener for replication group events.
  */
 public interface RaftGroupListener {
+    /**
+     * Exception type that should be used by {@link #onRead(Iterator)} and {@link #onWrite(Iterator)} to complete their closures, in cases
+     * when these methods have been invoked on a listener that's already shut down.
+     */
+    class ShutdownException extends RuntimeException {
+        private static final long serialVersionUID = 5354137682604995519L;
+    }
+
     /**
      * The callback to apply read commands.
      *
@@ -53,8 +62,14 @@ public interface RaftGroupListener {
      * Called when a configuration is committed (that is, written to a majority of the group).
      *
      * @param config Configuration that was committed.
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
      */
-    default void onConfigurationCommitted(CommittedConfiguration config) {
+    default void onConfigurationCommitted(
+            RaftGroupConfiguration config,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
         // No-op
     }
 
@@ -86,6 +101,13 @@ public interface RaftGroupListener {
      * Invoked when the belonging node becomes the leader of the group.
      */
     default void onLeaderStart() {
+        // No-op.
+    }
+
+    /**
+     * Invoked when the belonging node stops being the leader of the group.
+     */
+    default void onLeaderStop() {
         // No-op.
     }
 }

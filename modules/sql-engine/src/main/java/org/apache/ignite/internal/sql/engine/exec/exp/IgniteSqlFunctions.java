@@ -17,46 +17,35 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.MathContext;
 import java.math.RoundingMode;
+import java.sql.Date;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.ResolverStyle;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.time.zone.ZoneRules;
+import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
-import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
-import org.apache.calcite.avatica.util.DateTimeUtils;
-import org.apache.calcite.config.CalciteConnectionConfig;
-import org.apache.calcite.linq4j.AbstractEnumerable;
-import org.apache.calcite.linq4j.Enumerable;
-import org.apache.calcite.linq4j.Enumerator;
-import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.function.NonDeterministic;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.runtime.SqlFunctions;
-import org.apache.calcite.schema.ScannableTable;
-import org.apache.calcite.schema.Schema;
-import org.apache.calcite.schema.Statistic;
-import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.format.SqlDateTimeParser;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,51 +53,22 @@ import org.jetbrains.annotations.Nullable;
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
-    private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
-    private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
+    public static final long TIMESTAMP_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MIN, ColumnType.DATETIME);
+    public static final long TIMESTAMP_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MAX, ColumnType.DATETIME);
 
-    private static final BigDecimal MAX_INT = new BigDecimal(Integer.MAX_VALUE);
-    private static final BigDecimal MIN_INT = new BigDecimal(Integer.MIN_VALUE);
+    private static final long TIMESTAMP_LTZ_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MIN, ColumnType.TIMESTAMP);
+    private static final long TIMESTAMP_LTZ_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MAX, ColumnType.TIMESTAMP);
 
-    static {
-        ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
-                .parseCaseInsensitive()
-                .append(ISO_LOCAL_DATE)
-                .appendLiteral(' ')
-                .append(ISO_LOCAL_TIME)
-                .toFormatter();
-    }
+    private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, ColumnType.DATE);
+    private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, ColumnType.DATE);
+    /** java.sql.Time is stored as the number of milliseconds since 1970/01/01 */
+    private static final LocalDate JAVA_SQL_TIME_DATE = LocalDate.of(1970, 1, 1);
 
     /**
      * Default constructor.
      */
     private IgniteSqlFunctions() {
         // No-op.
-    }
-
-    /** SQL SYSTEM_RANGE(start, end) table function. */
-    public static ScannableTable systemRange(Object rangeStart, Object rangeEnd) {
-        return new RangeTable(rangeStart, rangeEnd, 1L);
-    }
-
-    /** SQL SYSTEM_RANGE(start, end, increment) table function. */
-    public static ScannableTable systemRange(Object rangeStart, Object rangeEnd, Object increment) {
-        return new RangeTable(rangeStart, rangeEnd, increment);
-    }
-
-    /** Just a stub. Validates Date\Time literal, still use calcite implementation for numeric representation.
-     * Otherwise need to fix {@code DateTimeUtils#unixTimestampToString} usage additionally.
-     */
-    public static long timestampStringToNumeric(String dtStr) {
-        dtStr = dtStr.trim();
-        // "YYYY-MM-dd HH:mm:ss.ninenanos"
-        if (dtStr.length() > 29) {
-            dtStr = dtStr.substring(0, 29);
-        }
-
-        LocalDateTime.parse(dtStr, ISO_LOCAL_DATE_TIME_EX.withResolverStyle(ResolverStyle.STRICT));
-
-        return DateTimeUtils.timestampStringToUnixDate(dtStr);
     }
 
     /** CAST(DECIMAL AS VARCHAR). */
@@ -227,70 +187,6 @@ public class IgniteSqlFunctions {
         BigDecimal roundedValue = b0.setScale(b1, RoundingMode.HALF_UP);
         // Pad with zeros to match the original scale
         return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
-    }
-
-    /** Returns {@link Integer} bounded value. */
-    private static int normalizeRegardingInt(BigDecimal num) {
-        int res;
-
-        if (num.compareTo(MAX_INT) >= 0) {
-            res = Integer.MAX_VALUE;
-        } else if (num.compareTo(MIN_INT) <= 0) {
-            res = Integer.MIN_VALUE;
-        } else {
-            res = num.intValue();
-        }
-
-        return res;
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, int s) {
-        if (s <= 1) {
-            return c;
-        }
-
-        return SqlFunctions.substring(c, s);
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, BigDecimal s) {
-        if (s.compareTo(BigDecimal.ONE) <= 0) {
-            return c;
-        }
-
-        int s0 = normalizeRegardingInt(s);
-        return SqlFunctions.substring(c, s0);
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, int s, int l) {
-        return SqlFunctions.substring(c, s, l);
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, int s, BigDecimal l) {
-        if (s < 0) {
-            if (l.signum() > 0) {
-                l = l.add(BigDecimal.valueOf(s));
-                return substring(c, 0, l);
-            }
-        }
-        int l0 = normalizeRegardingInt(l);
-        return SqlFunctions.substring(c, s, l0);
-    }
-
-    /** SQL SUBSTRING(string FROM ...) function. */
-    public static String substring(String c, BigDecimal s, BigDecimal l) {
-        if (s.signum() < 0) {
-            if (l.signum() > 0) {
-                l = l.add(s);
-                return substring(c, 0, l);
-            }
-        }
-        int s0 = normalizeRegardingInt(s);
-        int l0 = normalizeRegardingInt(l);
-        return SqlFunctions.substring(c, s0, l0);
     }
 
     // TRUNCATE function
@@ -459,16 +355,6 @@ public class IgniteSqlFunctions {
             return null;
         }
 
-        int defaultPrecision = IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL);
-
-        if (precision == defaultPrecision) {
-            BigDecimal dec = convertToBigDecimal(value);
-            // This branch covers at least one known case: access to dynamic parameter from context.
-            // In this scenario precision = DefaultTypePrecision, because types for dynamic params
-            // are created by toSql(createType(param.class)).
-            return dec;
-        }
-
         if (value.longValue() == 0) {
             return processFractionData(value, precision, scale);
         } else {
@@ -476,29 +362,120 @@ public class IgniteSqlFunctions {
         }
     }
 
-    /**
-     * Division function for REDUCE phase of AVG aggregate. Precision and scale is only used by type inference
-     * (see {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}, their values are ignored at runtime.
-     */
-    public static BigDecimal decimalDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
-        return sum.divide(cnt, MathContext.DECIMAL64);
+    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
+    public static Integer toDateExact(Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Integer : object.getClass();
+
+        return toDateExact((int) object);
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
+    public static Integer toDateExact(long longDate) {
+        return toDateExact(Math.toIntExact(longDate));
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
+    public static Integer toDateExact(int intDate) {
+        if (intDate < DATE_MIN_INTERNAL || intDate > DATE_MAX_INTERNAL) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.DATE + " out of range");
+        }
+
+        return intDate;
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static Long toTimestampExact(Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampExact((long) object);
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static long toTimestampExact(long ts) {
+        if (ts < TIMESTAMP_MIN_INTERNAL || ts > TIMESTAMP_MAX_INTERNAL) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.TIMESTAMP + " out of range");
+        }
+
+        return ts;
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static Long toTimestampLtzExact(Object object) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampLtzExact((long) object);
+    }
+
+    /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static long toTimestampLtzExact(long ts) {
+        if (ts < TIMESTAMP_LTZ_MIN_INTERNAL || ts > TIMESTAMP_LTZ_MAX_INTERNAL) {
+            throw new SqlException(RUNTIME_ERR, SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE + " out of range");
+        }
+
+        return ts;
+    }
+
+    // LN, LOG, LOG10, LOG2
+
+    /** SQL {@code LOG(number, number2)} function applied to double values. */
+    public static double log(double d0, double d1) {
+        return Math.log(d0) / Math.log(d1);
+    }
+
+    /** SQL {@code LOG(number, number2)} function applied to
+     * double and BigDecimal values. */
+    public static double log(double d0, BigDecimal d1) {
+        return Math.log(d0) / Math.log(d1.doubleValue());
+    }
+
+    /** SQL {@code LOG(number, number2)} function applied to
+     * BigDecimal and double values. */
+    public static double log(BigDecimal d0, double d1) {
+        return Math.log(d0.doubleValue()) / Math.log(d1);
+    }
+
+    /** SQL {@code LOG(number, number2)} function applied to double values. */
+    public static double log(BigDecimal d0, BigDecimal d1) {
+        return Math.log(d0.doubleValue()) / Math.log(d1.doubleValue());
+    }
+
+    /** SQL {@code LOG10(number)} function applied to double values. */
+    public static double log10(double d0) {
+        return Math.log10(d0);
+    }
+
+    /** SQL {@code LOG10(number)} function applied to BigDecimal values. */
+    public static double log10(BigDecimal d0) {
+        return Math.log10(d0.doubleValue());
     }
 
     private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
         BigDecimal dec = convertToBigDecimal(value);
 
         if (scale > precision) {
-            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+            throw numericOverflowError(precision, scale);
         } else {
             int currentSignificantDigits = dec.precision() - dec.scale();
             int expectedSignificantDigits = precision - scale;
 
             if (currentSignificantDigits > expectedSignificantDigits) {
-                throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+                throw numericOverflowError(precision, scale);
             }
         }
 
-        return dec.setScale(scale, roundingMode);
+        return dec.setScale(scale, IgniteMath.ROUNDING_MODE);
     }
 
     private static BigDecimal processFractionData(Number value, int precision, int scale) {
@@ -514,10 +491,10 @@ public class IgniteSqlFunctions {
         int numPrecision = Math.min(num0.precision(), scale);
 
         if (numPrecision > precision) {
-            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+            throw numericOverflowError(precision, scale);
         }
 
-        return num.setScale(scale, roundingMode);
+        return num.setScale(scale, IgniteMath.ROUNDING_MODE);
     }
 
     private static BigDecimal convertToBigDecimal(Number value) {
@@ -537,13 +514,25 @@ public class IgniteSqlFunctions {
         return dec;
     }
 
+    private static SqlException numericOverflowError(int precision, int scale) {
+        String maxVal;
+
+        if (precision == scale) {
+            maxVal = "1";
+        } else {
+            maxVal = format("10^{}", precision - scale);
+        }
+
+        String detail = format("A field with precision {}, scale {} must round to an absolute value less than {}.",
+                precision, scale, maxVal
+        );
+
+        throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR + ". " + detail);
+    }
+
     /** CAST(VARCHAR AS VARBINARY). */
     public static ByteString toByteString(String s) {
         return s == null ? null : new ByteString(s.getBytes(Commons.typeFactory().getDefaultCharset()));
-    }
-
-    public static int currentTime(DataContext ctx) {
-        return (int) TypeUtils.toInternal(LocalTime.now(), LocalTime.class);
     }
 
     /** LEAST2. */
@@ -556,10 +545,10 @@ public class IgniteSqlFunctions {
         return leastOrGreatest(false, arg0, arg1);
     }
 
-    /** Generates a random UUID and converts it to string. **/
+    /** Generates a random UUID. **/
     @NonDeterministic
-    public static String genRandomUuid() {
-        return UUID.randomUUID().toString();
+    public static UUID randUuid() {
+        return UUID.randomUUID();
     }
 
     /** Returns the second argument and ignores the first. */
@@ -567,81 +556,59 @@ public class IgniteSqlFunctions {
         return args1;
     }
 
-    /** Returns the timestamp value minus the offset of the specified timezone. */
-    public static Long subtractTimeZoneOffset(long timestamp, TimeZone timeZone) {
-        // A second offset calculation is required to handle DST transition period correctly.
-        int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
-
-        return timestamp - offset;
-    }
-
-    /**
-     * Helper for CAST({timestamp} AS VARCHAR(n)).
-     *
-     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
-     *          with the only difference being that it does not add trailing zeros.
-     */
-    public static String unixTimestampToString(long timestamp, int precision) {
-        IgniteStringBuilder buf = new IgniteStringBuilder(17);
-        int date = (int) (timestamp / DateTimeUtils.MILLIS_PER_DAY);
-        int time = (int) (timestamp % DateTimeUtils.MILLIS_PER_DAY);
-
-        if (time < 0) {
-            --date;
-
-            time += (int) DateTimeUtils.MILLIS_PER_DAY;
+    /** Converts timestamp string into a timestamp with local time zone. */
+    public static @Nullable Long toTimestampWithLocalTimeZone(@Nullable String v, String format, TimeZone timeZone) {
+        if (v == null) {
+            return null;
         }
 
-        buf.app(DateTimeUtils.unixDateToString(date)).app(' ');
+        Objects.requireNonNull(format, "format");
+        Objects.requireNonNull(timeZone, "timeZone");
 
-        unixTimeToString(buf, time, precision);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalDateTime dateTime = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(v);
+        Instant instant = dateTime.toInstant(ZoneOffset.UTC);
 
-        return buf.toString();
+        // Adjust instant millis
+        ZoneRules rules = timeZone.toZoneId().getRules();
+        ZoneOffset offset = rules.getOffset(instant);
+        Instant adjusted = instant.minus(offset.getTotalSeconds(), ChronoUnit.SECONDS);
+        return adjusted.toEpochMilli();
     }
 
-    /**
-     * Helper for CAST({time} AS VARCHAR(n)).
-     *
-     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
-     *          with the only difference being that it does not add trailing zeros.
-     */
-    public static String unixTimeToString(int time, int precision) {
-        IgniteStringBuilder buf = new IgniteStringBuilder(8 + (precision > 0 ? 1 + precision : 0));
-
-        unixTimeToString(buf, time, precision);
-
-        return buf.toString();
-    }
-
-    private static void unixTimeToString(IgniteStringBuilder buf, int time, int precision) {
-        int h = time / 3600000;
-        int time2 = time % 3600000;
-        int m = time2 / 60000;
-        int time3 = time2 % 60000;
-        int s = time3 / 1000;
-        int ms = time3 % 1000;
-
-        buf.app((char) ('0' + (h / 10) % 10))
-                .app((char) ('0' + h % 10))
-                .app(':')
-                .app((char) ('0' + (m / 10) % 10))
-                .app((char) ('0' + m % 10))
-                .app(':')
-                .app((char) ('0' + (s / 10) % 10))
-                .app((char) ('0' + s % 10));
-
-        if (precision == 0 || ms == 0) {
-            return;
+    /** Converts a date string into a date value. */
+    public static @Nullable Integer toDate(@Nullable String v, String format) {
+        if (v == null) {
+            return null;
         }
 
-        buf.app('.');
-        do {
-            buf.app((char) ('0' + (ms / 100)));
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalDate date = SqlDateTimeParser.dateFormatter(format).parseDate(v);
+        return SqlFunctions.toInt(Date.valueOf(date));
+    }
 
-            ms = ms % 100;
-            ms = ms * 10;
-            --precision;
-        } while (ms > 0 && precision > 0);
+    /** Converts a time string into a time value. */
+    public static @Nullable Integer toTime(@Nullable String v, String format) {
+        if (v == null) {
+            return null;
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalTime time = SqlDateTimeParser.timeFormatter(format).parseTime(v);
+        Instant instant = time.atDate(JAVA_SQL_TIME_DATE).toInstant(ZoneOffset.UTC);
+        return (int) instant.toEpochMilli();
+    }
+
+    /** Converts a timestamp string into a timestamp value. */
+    public static @Nullable Long toTimestamp(@Nullable String v, String format) {
+        if (v == null) {
+            return null;
+        }
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        LocalDateTime ts = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(v);
+        Instant instant = ts.toInstant(ZoneOffset.UTC);
+        return instant.toEpochMilli();
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {
@@ -656,120 +623,6 @@ public class IgniteSqlFunctions {
             return least ? arg0 : arg1;
         } else {
             return least ? arg1 : arg0;
-        }
-    }
-
-    /**
-     * Dummy table to implement the SYSTEM_RANGE function.
-     */
-    private static class RangeTable implements ScannableTable {
-        /** Start of the range. */
-        private final Object rangeStart;
-
-        /** End of the range. */
-        private final Object rangeEnd;
-
-        /** Increment. */
-        private final Object increment;
-
-        /**
-         * Note: {@code Object} arguments required here due to: 1. {@code NULL} arguments need to be supported, so we
-         * can't use {@code long} arguments type. 2. {@code Integer} and other numeric classes can be converted to
-         * {@code long} type by java, but can't be converted to {@code Long} type, so we can't use {@code Long}
-         * arguments type either. Instead, we accept {@code Object} arguments type and try to convert valid types to
-         * {@code long}.
-         */
-        RangeTable(Object rangeStart, Object rangeEnd, Object increment) {
-            this.rangeStart = rangeStart;
-            this.rangeEnd = rangeEnd;
-            this.increment = increment;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-            return typeFactory.builder().add("X", SqlTypeName.BIGINT).build();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Enumerable<@Nullable Object[]> scan(DataContext root) {
-            if (rangeStart == null || rangeEnd == null || increment == null) {
-                return Linq4j.emptyEnumerable();
-            }
-
-            long rangeStart = convertToLongArg(this.rangeStart, "rangeStart");
-            long rangeEnd = convertToLongArg(this.rangeEnd, "rangeEnd");
-            long increment = convertToLongArg(this.increment, "increment");
-
-            if (increment == 0L) {
-                throw new IllegalArgumentException("Increment can't be 0");
-            }
-
-            return new AbstractEnumerable<>() {
-                @Override
-                public Enumerator<@Nullable Object[]> enumerator() {
-                    return new Enumerator<>() {
-                        long cur = rangeStart - increment;
-
-                        @Override
-                        public Object[] current() {
-                            return new Object[]{cur};
-                        }
-
-                        @Override
-                        public boolean moveNext() {
-                            cur += increment;
-
-                            return increment > 0L ? cur <= rangeEnd : cur >= rangeEnd;
-                        }
-
-                        @Override
-                        public void reset() {
-                            cur = rangeStart - increment;
-                        }
-
-                        @Override
-                        public void close() {
-                            // No-op.
-                        }
-                    };
-                }
-            };
-        }
-
-        private long convertToLongArg(Object val, String name) {
-            if (val instanceof Byte || val instanceof Short || val instanceof Integer || val instanceof Long) {
-                return ((Number) val).longValue();
-            }
-
-            throw new IllegalArgumentException("Unsupported argument type [arg=" + name
-                    + ", type=" + val.getClass().getSimpleName() + ']');
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Statistic getStatistic() {
-            throw new UnsupportedOperationException();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Schema.TableType getJdbcTableType() {
-            return Schema.TableType.TABLE;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean isRolledUp(String column) {
-            return false;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean rolledUpColumnValidInsideAgg(String column, SqlCall call,
-                SqlNode parent, CalciteConnectionConfig cfg) {
-            return true;
         }
     }
 

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNonSystemSchemaUsed;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -34,18 +34,30 @@ public abstract class AbstractTableCommand implements CatalogCommand {
 
     protected final String tableName;
 
-    AbstractTableCommand(String schemaName, String tableName) throws CatalogValidationException {
+    protected final boolean ifTableExists;
+
+    AbstractTableCommand(
+            String schemaName,
+            String tableName,
+            boolean ifTableExists,
+            boolean validateSystemSchemas) throws CatalogValidationException {
         this.schemaName = schemaName;
         this.tableName = tableName;
+        this.ifTableExists = ifTableExists;
 
-        validate();
+        validate(validateSystemSchemas);
     }
 
-    private void validate() {
-        if (schemaName != null && CatalogUtils.isSystemSchema(schemaName)) {
-            throw new CatalogValidationException(format("Operations with reserved schemas are not allowed, schema: {}", schemaName));
-        }
+    public boolean ifTableExists() {
+        return ifTableExists;
+    }
+
+    private void validate(boolean validateSystemSchemas) {
         validateIdentifier(schemaName, "Name of the schema");
         validateIdentifier(tableName, "Name of the table");
+
+        if (validateSystemSchemas) {
+            ensureNonSystemSchemaUsed(schemaName);
+        }
     }
 }

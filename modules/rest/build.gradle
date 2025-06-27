@@ -18,7 +18,6 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-rest'
@@ -30,17 +29,23 @@ dependencies {
 
     implementation project(':ignite-api')
     implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-root')
     implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-rest-api')
     implementation project(':ignite-core')
     implementation project(':ignite-network')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-cluster-metrics')
     implementation project(':ignite-table')
     implementation project(':ignite-code-deployment')
     implementation project(':ignite-security-api')
     implementation project(':ignite-compute')
     implementation project(':ignite-eventlog')
+    implementation project(':ignite-sql-engine-api')
+    implementation project(':ignite-system-view-api')
+    implementation project(':ignite-partition-replicator')
+    implementation project(':ignite-system-disaster-recovery')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
@@ -63,26 +68,28 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestAnnotationProcessor testFixtures(project(':ignite-core'))
 
-    integrationTestImplementation project(':ignite-rest-api')
-    integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-catalog')
-    integrationTestImplementation project(':ignite-security')
     integrationTestImplementation project(':ignite-code-deployment')
+    integrationTestImplementation project(':ignite-compute')
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-rest-api')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-security')
+    integrationTestImplementation project(':ignite-system-view')
+    integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(":ignite-api"))
-    integrationTestImplementation testFixtures(project(":ignite-rest"))
+    integrationTestImplementation testFixtures(project(":ignite-rest-api"))
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
@@ -95,9 +102,4 @@ dependencies {
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
     }
-
-    testFixturesImplementation(project(":ignite-rest-api"))
-    testFixturesImplementation testFixtures(project(":ignite-core"))
-    testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.micronaut.http.core
 }

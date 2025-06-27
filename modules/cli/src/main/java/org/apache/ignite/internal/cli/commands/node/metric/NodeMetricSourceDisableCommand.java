@@ -44,13 +44,9 @@ public class NodeMetricSourceDisableCommand extends BaseCommand implements Calla
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(() -> metricSource.buildDisableCallInput(nodeUrl.getNodeUrl()))
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot disable metrics", "ignite cluster init"))
-                .build()
-                .runPipeline();
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createHandler("Cannot disable metrics"))
+        );
     }
 }

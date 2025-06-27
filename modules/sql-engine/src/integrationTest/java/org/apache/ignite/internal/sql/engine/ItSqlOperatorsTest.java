@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
@@ -102,7 +104,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     public void testAggregates() {
         assertExpression("COUNT(*)").returns(1L).check();
         assertExpression("SUM(val)").returns(1L).check();
-        assertExpression("AVG(val)").returns(1).check();
+        assertExpression("AVG(val)").returns(BigDecimal.ONE.setScale(16, RoundingMode.UNNECESSARY)).check();
         assertExpression("MIN(val)").returns(1).check();
         assertExpression("MAX(val)").returns(1).check();
         assertExpression("ANY_VALUE(val)").returns(1).check();
@@ -186,7 +188,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("EXP(2)").returns(Math.exp(2)).check();
         assertExpression("POWER(2, 2)").returns(Math.pow(2, 2)).check();
         assertExpression("LN(2)").returns(Math.log(2)).check();
-        assertExpression("LOG10(2) ").returns(Math.log(2) / Math.log(10)).check();
+        assertExpression("LOG10(0.1) ").returns(-1.0).check();
         assertExpression("ABS(-1)").returns(Math.abs(-1)).check();
         assertExpression("RAND()").check();
         assertExpression("RAND_INTEGER(10)").check();
@@ -216,6 +218,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     public void testDateAndTime() {
         assertExpression("DATE '2021-01-01' + interval (1) days").returns(LocalDate.parse("2021-01-02")).check();
         assertExpression("(DATE '2021-03-01' - DATE '2021-01-01') months").returns(Period.ofMonths(2)).check();
+        assertExpression("(DATE '2021-03-02' - DATE '2021-03-01') hours").returns(Duration.ofHours(24)).check();
         assertExpression("EXTRACT(DAY FROM DATE '2021-01-15')").returns(15L).check();
         assertExpression("FLOOR(DATE '2021-01-15' TO MONTH)").returns(LocalDate.parse("2021-01-01")).check();
         assertExpression("CEIL(DATE '2021-01-15' TO MONTH)").returns(LocalDate.parse("2021-02-01")).check();
@@ -279,7 +282,6 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("'1'::INT").returns(1).check();
         assertExpression("COALESCE(null, 'a', 'A')").returns("a").check();
         assertExpression("NVL(null, 'a')").returns("a").check();
-        assertExpression("NULLIF(1, 2)").returns(1).check();
         assertExpression("CASE WHEN 1=1 THEN 1 ELSE 2 END").returns(1).check();
         assertExpression("DECODE(1, 1, 1, 2)").returns(1).check();
         assertExpression("LEAST('a', 'b')").returns("a").check();
@@ -338,15 +340,26 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void testNullIf() {
+        assertExpression("NULLIF(1, 2)").returns(1).check();
+        assertExpression("NULLIF(1, 1)").returns(null).check();
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Cannot apply '=' to arguments of type '<DECIMAL(3, 1)> = <CHAR(1)>'",
+                () -> sql("SELECT NULLIF(12.2, 'b')")
+        );
+    }
+
+    @Test
     public void testFormatJson() {
         // TODO https://issues.apache.org/jira/browse/IGNITE-20163 Convert these tests to ones that do not expect errors
         //  this issue is resolved
         String error = "Expression is not supported: FORMAT JSON";
 
-        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error, 
+        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error,
                 () -> sql("SELECT '{\"a\":1}' FORMAT JSON"));
 
-        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error, 
+        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error,
                 () -> sql("SELECT JSON_VALUE('{\"a\":1}' FORMAT JSON, '$.a')"));
 
         assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error,
@@ -381,7 +394,6 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     @Test
     public void testCurrentTimeFunctions() {
         // Don't check returned value, only ability to use these functions.
-        assertExpression("CURRENT_TIME").check();
         assertExpression("CURRENT_TIMESTAMP").check();
         assertExpression("CURRENT_DATE").check();
         assertExpression("LOCALTIME").check();

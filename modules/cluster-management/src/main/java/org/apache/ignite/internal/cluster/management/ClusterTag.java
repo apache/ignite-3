@@ -23,6 +23,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Cluster tag that is used to uniquely identify a cluster.
@@ -45,10 +46,26 @@ public interface ClusterTag extends NetworkMessage, Serializable {
      * @param name Cluster name.
      * @return Cluster tag instance.
      */
-    static ClusterTag clusterTag(CmgMessagesFactory msgFactory, String name) {
+    @TestOnly
+    static ClusterTag randomClusterTag(CmgMessagesFactory msgFactory, String name) {
         return msgFactory.clusterTag()
                 .clusterName(name)
                 .clusterId(UUID.randomUUID())
+                .build();
+    }
+
+    /**
+     * Creates a new cluster tag instance. Acts like a constructor replacement.
+     *
+     * @param msgFactory Message factory to instantiate builder.
+     * @param name Cluster name.
+     * @param clusterId Cluster ID.
+     * @return Cluster tag instance.
+     */
+    static ClusterTag clusterTag(CmgMessagesFactory msgFactory, String name, UUID clusterId) {
+        return msgFactory.clusterTag()
+                .clusterName(name)
+                .clusterId(clusterId)
                 .build();
     }
 }

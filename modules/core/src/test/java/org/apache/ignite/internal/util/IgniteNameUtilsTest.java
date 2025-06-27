@@ -24,10 +24,12 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.List;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -35,37 +37,132 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public class IgniteNameUtilsTest {
     @ParameterizedTest
-    @CsvSource({
-            "foo, FOO", "fOo, FOO", "FOO, FOO", "\"FOO\", FOO", "1o0, 1O0", "@#$, @#$",
-            "\"foo\", foo", "\"fOo\", fOo", "\"f.f\", f.f", "\"f\"\"f\", f\"f",
-    })
-    public void validSimpleNames(String source, String expected) {
-        assertThat(IgniteNameUtils.parseSimpleName(source), equalTo(expected));
+    @MethodSource("validUnqoutedIdentifiers")
+    @MethodSource("validQoutedIdentifiers")
+    public void validIdentifiers(String source, String expected) {
+        String parsed = IgniteNameUtils.parseIdentifier(source);
+
+        assertThat(parsed, equalTo(expected));
+
+        assertThat(IgniteNameUtils.parseIdentifier(IgniteNameUtils.quoteIfNeeded(parsed)), equalTo(parsed));
     }
 
-    @Test
-    public void parseSequenceOfSpaces() {
-        assertThat(IgniteNameUtils.parseSimpleName("\"   \""), equalTo("   "));
+    @ParameterizedTest
+    @MethodSource("validUnqoutedIdentifiers")
+    public void validNormalizedIdentifiers(String source, String expected) {
+        assertThat(IgniteNameUtils.isValidNormalizedIdentifier(source), is(true));
+    }
+
+    private static Arguments[] validUnqoutedIdentifiers() {
+        return new Arguments[] {
+                Arguments.of("foo", "FOO"),
+                Arguments.of("fOo", "FOO"),
+                Arguments.of("FOO", "FOO"),
+                Arguments.of("fo_o", "FO_O"),
+                Arguments.of("_foo", "_FOO"),
+        };
+    }
+
+    private static Arguments[] validQoutedIdentifiers() {
+        return new Arguments[] {
+                Arguments.of("\"FOO\"", "FOO"),
+                Arguments.of("\"foo\"", "foo"),
+                Arguments.of("\"fOo\"", "fOo"),
+                Arguments.of("\"$fOo\"", "$fOo"),
+                Arguments.of("\"f.f\"", "f.f"),
+                Arguments.of("\"f\"\"f\"", "f\"f"),
+                Arguments.of("\" \"", " "),
+                Arguments.of("\"   \"", "   "),
+                Arguments.of("\",\"", ","),
+                Arguments.of("\"😅\"", "😅"),
+                Arguments.of("\"f😅\"", "f😅")
+        };
     }
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o"
+            " ", "foo-1", "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o\"", "1o0", "@#$", "😅", "f😅", "$foo", "foo$"
     })
-    public void malformedSimpleNames(String source) {
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> IgniteNameUtils.parseSimpleName(source));
+    public void malformedIdentifiers(String source) {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> IgniteNameUtils.parseIdentifier(source));
 
         assertThat(ex.getMessage(), is(anyOf(
                 equalTo("Fully qualified name is not expected [name=" + source + "]"),
-                containsString("Malformed name [name=" + source))));
+                containsString("Malformed identifier [identifier=" + source))));
+
+        assertThat(IgniteNameUtils.isValidNormalizedIdentifier(source), is(false));
     }
 
     @ParameterizedTest
-    @CsvSource({
-            "foo, \"foo\"", "fOo, \"fOo\"", "FOO, FOO", "\"FOO\", \"FOO\"", "1o0, \"1o0\"", "@#$, @#$",
-            "\"foo\", \"foo\"", "\"fOo\", \"fOo\"", "\"f.f\", \"f.f\""
-    })
+    @MethodSource("quoteIfNeededData")
     public void quoteIfNeeded(String source, String expected) {
+        String quoted = IgniteNameUtils.quoteIfNeeded(source);
+
         assertThat(IgniteNameUtils.quoteIfNeeded(source), equalTo(expected));
+        assertThat(IgniteNameUtils.quoteIfNeeded(IgniteNameUtils.parseIdentifier(quoted)), equalTo(expected));
+    }
+
+    private static Arguments[] quoteIfNeededData() {
+        return new Arguments[]{
+                Arguments.of("foo", "\"foo\""),
+                Arguments.of("fOo", "\"fOo\""),
+                Arguments.of("FOO", "FOO"),
+                Arguments.of("1o0", "\"1o0\""),
+                Arguments.of("@#$", "\"@#$\""),
+                Arguments.of("f16", "\"f16\""),
+                Arguments.of("F16", "F16"),
+                Arguments.of("Ff16", "\"Ff16\""),
+                Arguments.of("FF16", "FF16"),
+                Arguments.of("_FF16", "_FF16"),
+                Arguments.of("FF_16", "FF_16"),
+                Arguments.of(" ", "\" \""),
+                Arguments.of(" F", "\" F\""),
+                Arguments.of(" ,", "\" ,\""),
+                Arguments.of("😅", "\"😅\""),
+                Arguments.of("\"foo\"", "\"\"\"foo\"\"\""),
+                Arguments.of("\"fOo\"", "\"\"\"fOo\"\"\""),
+                Arguments.of("\"f.f\"", "\"\"\"f.f\"\"\""),
+                Arguments.of("foo\"bar\"", "\"foo\"\"bar\"\"\""),
+                Arguments.of("foo\"bar", "\"foo\"\"bar\"")
+        };
+    }
+
+    @ParameterizedTest
+    @MethodSource("parseNameData")
+    public void parseName(String source, List<String> expected) {
+        assertThat(IgniteNameUtils.parseName(source), equalTo(expected));
+    }
+
+    private static List<Arguments> parseNameData() {
+        return List.of(
+                Arguments.of("foo", List.of("FOO")),
+                Arguments.of("foo.", List.of("FOO", "")),
+                Arguments.of(
+                        "\"  \".foo.Bar.BAZ.\"qUx\".\"qu\"\"ux\"",
+                        List.of("  ", "FOO", "BAR", "BAZ", "qUx", "qu\"ux")
+                )
+        );
+    }
+
+    @Test
+    public void parseNameNullArgument() {
+        NullPointerException ex = assertThrows(NullPointerException.class, () -> IgniteNameUtils.parseName(null));
+        assertThat(ex.getMessage(), equalTo("name"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("parseNameIllegalArguments")
+    public void parseNameIllegalArgument(String name, String expectedError) {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> IgniteNameUtils.parseName(name));
+        assertThat(ex.getMessage(), equalTo(expectedError));
+    }
+
+    private static List<Arguments> parseNameIllegalArguments() {
+        return List.of(
+                Arguments.of("", "Argument \"name\" can't be empty."),
+                Arguments.of(" ", "Malformed identifier [identifier= , pos=0]"),
+                Arguments.of(".", "Malformed identifier [identifier=., pos=0]"),
+                Arguments.of("foo..", "Malformed identifier [identifier=foo.., pos=4]")
+        );
     }
 }

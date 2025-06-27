@@ -427,7 +427,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             type = type.UnwrapEnum();
 
-            if (type != columnType)
+            if (type != columnType && type != column.Type.ToClrTypeAlternative())
             {
                 var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
                               $"to column '{column.Name}' of type '{columnType}' - types do not match.";
@@ -455,7 +455,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 type = nullableType;
             }
 
-            if (type != columnType)
+            if (type != columnType && type != column.Type.ToClrTypeAlternative())
             {
                 var message = $"Can't map '{type}' to column '{column.Name}' of type '{columnType}' - types do not match.";
 

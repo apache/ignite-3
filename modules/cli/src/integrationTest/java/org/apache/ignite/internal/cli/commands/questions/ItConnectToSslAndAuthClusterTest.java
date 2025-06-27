@@ -18,6 +18,15 @@
 package org.apache.ignite.internal.cli.commands.questions;
 
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.readClusterConfigurationWithEnabledAuth;
+import static org.apache.ignite.internal.cli.commands.questions.ItConnectToSslClusterTest.KEY_STORE_QUESTION;
+import static org.apache.ignite.internal.cli.commands.questions.ItConnectToSslClusterTest.RECONNECT_SSL_QUESTION;
+import static org.apache.ignite.internal.cli.commands.questions.ItConnectToSslClusterTest.SSL_ERROR_QUESTION;
+import static org.apache.ignite.internal.cli.commands.questions.ItConnectToSslClusterTest.TRUST_STORE_PASSWORD_QUESTION;
+import static org.apache.ignite.internal.cli.commands.questions.ItConnectToSslClusterTest.TRUST_STORE_PATH_QUESTION;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -28,7 +37,6 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.TestStateConfigHelper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,7 +56,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth")
     void connectOnStartAskSslAfterAskAuth() throws IOException {
         // Given prompt before connect
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
@@ -61,7 +69,6 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and answer to key store configuration is "n",
         // answer to auth configuration is "y", username and password is provided and answer to save authentication is "y"
-        // TODO: check question as well IGNITE-20324
         bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When asked the question
@@ -70,21 +77,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to https://localhost:10400")
-        );
-        // And prompt is changed to connect
-        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
-
-        assertAll(
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
-
-                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
-                        .isEqualTo("admin"),
-                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
-                        .isEqualTo("password")
+                () -> assertOutputContains("Connected to https://localhost:10400"),
+                () -> assertPromptIs("[admin:" + nodeName() + "]> "),
+                () -> assertTerminalOutputIs(RECONNECT_SSL_QUESTION
+                        + SSL_ERROR_QUESTION + TRUST_STORE_PATH_QUESTION + TRUST_STORE_PASSWORD_QUESTION + KEY_STORE_QUESTION
+                        + AUTH_ERROR_QUESTION + USERNAME_QUESTION + PASSWORD_QUESTION + REMEMBER_CREDENTIALS_QUESTION),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PATH)).isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PASSWORD)).isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
+                () -> assertThat(getConfigProperty(BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin"),
+                () -> assertThat(getConfigProperty(BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password")
         );
     }
 
@@ -92,7 +93,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     @DisplayName("Should ask for SSL configuration, connect to last connected cluster HTTPS url, provide wrong password")
     void connectOnStartAskSslWrongTrustPassword() throws IOException {
         // Given prompt before connect
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
@@ -104,8 +105,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
 
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and key store is not configured
-        // TODO: check question as well IGNITE-20324
-        bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, "wrong_password", "n", "y", "admin", "password");
+        bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, "wrong_password", "n");
 
         // When asked the question
         question.askQuestionOnReplStart();
@@ -113,16 +113,14 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 () -> assertErrOutputContains("Unexpected error" + System.lineSeparator()
-                        + "Trust-store password was incorrect")
-        );
-        // And prompt is disconnected
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
-
-        assertAll(
-                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH)),
-                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD)),
-                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)),
-                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
+                        + "Trust-store password was incorrect"),
+                () -> assertPromptIs("[disconnected]> "),
+                () -> assertTerminalOutputIs(RECONNECT_SSL_QUESTION
+                        + SSL_ERROR_QUESTION + TRUST_STORE_PATH_QUESTION + TRUST_STORE_PASSWORD_QUESTION + KEY_STORE_QUESTION),
+                () -> assertNull(getConfigProperty(REST_TRUST_STORE_PATH)),
+                () -> assertNull(getConfigProperty(REST_TRUST_STORE_PASSWORD)),
+                () -> assertNull(getConfigProperty(BASIC_AUTHENTICATION_USERNAME)),
+                () -> assertNull(getConfigProperty(BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -130,7 +128,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     @DisplayName("Should ask for SSL configuration, connect to last connected cluster HTTPS url, provide wrong path")
     void connectOnStartAskSslWrongPath() throws IOException {
         // Given prompt before connect
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
@@ -143,8 +141,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and key store is not configured
         String wrongPath = "wrong-path";
-        // TODO: check question as well IGNITE-20324
-        bindAnswers("y", "y", wrongPath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+        bindAnswers("y", "y", wrongPath, NodeConfig.trustStorePassword, "n");
 
         // When asked the question
         question.askQuestionOnReplStart();
@@ -152,16 +149,14 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 () -> assertErrOutputContains("Unexpected error" + System.lineSeparator()
-                        + "File does not exist or it does not refer to a normal file: " + wrongPath)
-        );
-        // And prompt is disconnected
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
-
-        assertAll(
-                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH)),
-                () -> assertNull(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD)),
-                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)),
-                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
+                        + "File does not exist or it does not refer to a normal file: " + wrongPath),
+                () -> assertPromptIs("[disconnected]> "),
+                () -> assertTerminalOutputIs(RECONNECT_SSL_QUESTION
+                        + SSL_ERROR_QUESTION + TRUST_STORE_PATH_QUESTION + TRUST_STORE_PASSWORD_QUESTION + KEY_STORE_QUESTION),
+                () -> assertNull(getConfigProperty(REST_TRUST_STORE_PATH)),
+                () -> assertNull(getConfigProperty(REST_TRUST_STORE_PASSWORD)),
+                () -> assertNull(getConfigProperty(BASIC_AUTHENTICATION_USERNAME)),
+                () -> assertNull(getConfigProperty(BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -169,7 +164,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth, type wrong name")
     void connectOnStartAskSslAfterAskAuthWrongName() throws IOException {
         // Given prompt before connect
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
@@ -191,19 +186,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
                 () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
                         + "Could not connect to node with URL https://localhost:10400. "
                         + "Check authentication configuration or provided username/password"
-                        + System.lineSeparator())
-        );
-        // And prompt is disconnected
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
-
-        assertAll(
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
-
-                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME)),
-                () -> assertNull(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
+                        + System.lineSeparator()),
+                () -> assertPromptIs("[disconnected]> "),
+                () -> assertTerminalOutputIs(RECONNECT_SSL_QUESTION
+                        + SSL_ERROR_QUESTION + TRUST_STORE_PATH_QUESTION + TRUST_STORE_PASSWORD_QUESTION + KEY_STORE_QUESTION
+                        + AUTH_ERROR_QUESTION + USERNAME_QUESTION + PASSWORD_QUESTION),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PATH)).isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PASSWORD)).isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
+                () -> assertNull(getConfigProperty(BASIC_AUTHENTICATION_USERNAME)),
+                () -> assertNull(getConfigProperty(BASIC_AUTHENTICATION_PASSWORD))
         );
     }
 
@@ -211,7 +202,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url")
     void connectWithCredentialsFailAskSsl() throws IOException {
         // Given prompt before connect
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
@@ -223,7 +214,8 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
 
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and key store is not configured
-        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+        // and answer to save authentication is "y"
+        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y");
 
         // When connect with auth parameters
         execute("connect", "--username", "admin", "--password", "password");
@@ -231,21 +223,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to https://localhost:10400")
-        );
-        // And prompt is changed to connect
-        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
-
-        assertAll(
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
-
-                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
-                        .isEqualTo("admin"),
-                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
-                        .isEqualTo("password")
+                () -> assertOutputContains("Connected to https://localhost:10400"),
+                () -> assertPromptIs("[admin:" + nodeName() + "]> "),
+                () -> assertTerminalOutputIs(
+                        SSL_ERROR_QUESTION + TRUST_STORE_PATH_QUESTION + TRUST_STORE_PASSWORD_QUESTION + KEY_STORE_QUESTION
+                        + REMEMBER_CREDENTIALS_QUESTION),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PATH)).isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PASSWORD)).isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
+                () -> assertThat(getConfigProperty(BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin"),
+                () -> assertThat(getConfigProperty(BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password")
         );
     }
 
@@ -253,7 +239,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth")
     void connectWithWrongCredentialsFailAskSsl() throws IOException {
         // Given prompt before connect
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
@@ -274,21 +260,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to https://localhost:10400")
-        );
-        // And prompt is changed to connect
-        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
-
-        assertAll(
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
-
-                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
-                        .isEqualTo("admin"),
-                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
-                        .isEqualTo("password")
+                () -> assertOutputContains("Connected to https://localhost:10400"),
+                () -> assertPromptIs("[admin:" + nodeName() + "]> "),
+                () -> assertTerminalOutputIs(
+                        SSL_ERROR_QUESTION + TRUST_STORE_PATH_QUESTION + TRUST_STORE_PASSWORD_QUESTION + KEY_STORE_QUESTION
+                        + AUTH_ERROR_QUESTION + USERNAME_QUESTION + PASSWORD_QUESTION + REMEMBER_CREDENTIALS_QUESTION),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PATH)).isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PASSWORD)).isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
+                () -> assertThat(getConfigProperty(BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin"),
+                () -> assertThat(getConfigProperty(BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password")
         );
     }
 
@@ -296,7 +276,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth on plain connect command")
     void connectWithoutCredentialsFailAskSslAfterAskAuth() throws IOException {
         // Given prompt before connect
-        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+        assertPromptIs("[disconnected]> ");
 
         // And default URL is HTTPS
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
@@ -309,7 +289,6 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And answer to the SSL configuration question is "y", trust store path and password are provided
         // and answer to key store configuration is "n", answer to auth configuration is "y", username and password is provided
         // and answer to save authentication is "y"
-        // TODO: check question as well IGNITE-20324
         bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When connect with auth parameters
@@ -318,21 +297,15 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // Then
         assertAll(
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to https://localhost:10400")
-        );
-        // And prompt is changed to connect
-        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
-
-        assertAll(
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PATH))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
-                () -> assertThat(getConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD))
-                        .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
-
-                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME))
-                        .isEqualTo("admin"),
-                () -> assertThat(getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD))
-                        .isEqualTo("password")
+                () -> assertOutputContains("Connected to https://localhost:10400"),
+                () -> assertPromptIs("[admin:" + nodeName() + "]> "),
+                () -> assertTerminalOutputIs(
+                        SSL_ERROR_QUESTION + TRUST_STORE_PATH_QUESTION + TRUST_STORE_PASSWORD_QUESTION + KEY_STORE_QUESTION
+                        + AUTH_ERROR_QUESTION + USERNAME_QUESTION + PASSWORD_QUESTION + REMEMBER_CREDENTIALS_QUESTION),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PATH)).isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
+                () -> assertThat(getConfigProperty(REST_TRUST_STORE_PASSWORD)).isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
+                () -> assertThat(getConfigProperty(BASIC_AUTHENTICATION_USERNAME)).isEqualTo("admin"),
+                () -> assertThat(getConfigProperty(BASIC_AUTHENTICATION_PASSWORD)).isEqualTo("password")
         );
     }
 }

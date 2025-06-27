@@ -20,13 +20,11 @@ package org.apache.ignite.internal.sql.engine.framework;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
@@ -38,9 +36,7 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,24 +57,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
     @Override
     public boolean isNull(int field, Object[] row) {
         return row[field] == null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Object[] concat(Object[] left, Object[] right) {
-        return ArrayUtils.concat(left, right);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Object[] map(Object[] row, int[] mapping) {
-        Object[] newRow = new Object[mapping.length];
-
-        for (int i = 0; i < mapping.length; i++) {
-            newRow[i] = row[mapping[i]];
-        }
-
-        return newRow;
     }
 
     /** {@inheritDoc} */
@@ -154,6 +132,24 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
                 return row;
             }
+
+            /** {@inheritDoc} */
+            @Override
+            public RowSchema rowSchema() {
+                return rowSchema;
+            }
+
+            @Override
+            public Object[] map(Object[] row, int[] mapping) {
+                assert mapping.length == rowSchema.fields().size();
+                Object[] newRow = new Object[mapping.length];
+
+                for (int i = 0; i < mapping.length; i++) {
+                    newRow[i] = row[mapping[i]];
+                }
+
+                return newRow;
+            }
         };
     }
 
@@ -168,7 +164,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
         assert nativeType != null;
 
-        value = TypeUtils.fromInternal(value, NativeTypeSpec.toClass(nativeType.spec(), true));
+        value = TypeUtils.fromInternal(value, nativeType.spec());
 
         assert value != null : nativeType;
 
@@ -201,10 +197,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                 builder.appendDouble((double) value);
                 break;
 
-            case NUMBER:
-                builder.appendNumberNotNull((BigInteger) value);
-                break;
-
             case DECIMAL:
                 builder.appendDecimalNotNull((BigDecimal) value, ((DecimalNativeType) nativeType).scale());
                 break;
@@ -213,16 +205,12 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                 builder.appendUuidNotNull((UUID) value);
                 break;
 
-            case BYTES:
+            case BYTE_ARRAY:
                 builder.appendBytesNotNull((byte[]) value);
                 break;
 
             case STRING:
                 builder.appendStringNotNull((String) value);
-                break;
-
-            case BITMASK:
-                builder.appendBitmaskNotNull((BitSet) value);
                 break;
 
             case DATE:
@@ -258,9 +246,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
             case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
             case UUID: return tuple.uuidValue(fieldIndex);
             case STRING: return tuple.stringValue(fieldIndex);
-            case BYTES: return tuple.bytesValue(fieldIndex);
-            case BITMASK: return tuple.bitmaskValue(fieldIndex);
-            case NUMBER: return tuple.numberValue(fieldIndex);
+            case BYTE_ARRAY: return tuple.bytesValue(fieldIndex);
             case DATE: return tuple.dateValue(fieldIndex);
             case TIME: return tuple.timeValue(fieldIndex);
             case DATETIME: return tuple.dateTimeValue(fieldIndex);

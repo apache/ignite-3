@@ -22,11 +22,37 @@ package org.apache.ignite.internal.metastorage.dsl;
  */
 public enum OperationType {
     /** No-op operation. */
-    NO_OP,
+    NO_OP(0),
 
     /** Put (insert/replace) operation. */
-    PUT,
+    PUT(1),
 
     /** Remove operation. */
-    REMOVE
+    REMOVE(2);
+
+    private final int id;
+
+    OperationType(int id) {
+        this.id = id;
+    }
+
+    /**
+     * Returns the enumerated value from its id.
+     *
+     * @param id Id of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by id.
+     */
+    public static OperationType fromId(int id) throws IllegalArgumentException {
+        switch (id) {
+            case 0: return NO_OP;
+            case 1: return PUT;
+            case 2: return REMOVE;
+            default:
+                throw new IllegalArgumentException("No enum constant from id: " + id);
+        }
+    }
+
+    public int id() {
+        return id;
+    }
 }

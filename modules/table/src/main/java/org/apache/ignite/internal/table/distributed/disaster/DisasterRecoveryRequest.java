@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import java.io.Serializable;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * General interface for disaster recovery requests.
  */
-interface DisasterRecoveryRequest extends Serializable {
+interface DisasterRecoveryRequest {
     /**
      * Returns an ID of the operation, associated with request.
      */
@@ -35,17 +35,16 @@ interface DisasterRecoveryRequest extends Serializable {
      */
     int zoneId();
 
+    /** Returns request type. */
+    DisasterRecoveryRequestType type();
+
     /**
      * The recovery operation itself.
      *
      * @param disasterRecoveryManager Disaster recovery manager.
      * @param revision Revision of the {@link DisasterRecoveryManager#RECOVERY_TRIGGER_KEY} update.
-     * @param operationFuture Operation future.
+     * @param timestamp Timestamp of {@link DisasterRecoveryManager#RECOVERY_TRIGGER_KEY} update operation.
      * @return New operation future, that completes when operation is completed.
      */
-    CompletableFuture<Void> handle(
-            DisasterRecoveryManager disasterRecoveryManager,
-            long revision,
-            CompletableFuture<Void> operationFuture
-    );
+    CompletableFuture<Void> handle(DisasterRecoveryManager disasterRecoveryManager, long revision, HybridTimestamp timestamp);
 }

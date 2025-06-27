@@ -17,75 +17,134 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 
+import java.nio.ByteBuffer;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.PageStoreWriter;
+import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * View of pages which should be stored during current checkpoint.
+ * Class contains dirty pages of the segment that will need to be written at a checkpoint or page replacement. It also contains helper
+ * methods before writing pages.
+ *
+ * <p>For correct parallel operation of the checkpoint writer and page replacement, external synchronization must be used.</p>
+ *
+ * @see PersistentPageMemory#checkpointWritePage(FullPageId, ByteBuffer, PageStoreWriter, CheckpointMetricsTracker)
+ * @see PersistentPageMemory.Segment#tryToRemovePage(FullPageId, long)
  */
 public class CheckpointPages {
-    private final Set<FullPageId> segmentPages;
+    private final Set<FullPageId> pageIds;
 
-    private final CompletableFuture<?> allowToReplace;
+    private final CheckpointProgressImpl checkpointProgress;
 
     /**
      * Constructor.
      *
-     * @param pages Pages which would be stored to disk in current checkpoint, does not copy the set.
-     * @param replaceFuture The sign which allows replacing pages from a checkpoint by page replacer.
+     * @param pageIds Dirty page IDs in the segment that should be written at a checkpoint or page replacement.
+     * @param checkpointProgress Progress of the current checkpoint at which the object was created.
      */
-    public CheckpointPages(Set<FullPageId> pages, CompletableFuture<?> replaceFuture) {
-        segmentPages = pages;
-        allowToReplace = replaceFuture;
+    public CheckpointPages(Set<FullPageId> pageIds, CheckpointProgress checkpointProgress) {
+        this.pageIds = pageIds;
+        this.checkpointProgress = (CheckpointProgressImpl) checkpointProgress;
     }
 
     /**
-     * Returns {@code true} If fullPageId is allowable to store to disk.
+     * Removes a page ID that would be written at page replacement. Must be invoked before writing a page to disk.
      *
-     * @param fullPageId Page id for checking.
-     * @throws IgniteInternalCheckedException If the waiting sign which allows replacing pages from a checkpoint by page replacer fails.
+     * <p>Page will be removed only if the dirty page sorting phase at the checkpoint has completed or will synchronously wait for it to
+     * complete.</p>
+     *
+     * <p>To keep the data consistent, we need to use {@link #blockFsyncOnPageReplacement} and {@link #unblockFsyncOnPageReplacement} after
+     * calling the current method to prevent the fsync checkpoint phase from starting.</p>
+     *
+     * @param pageId Page ID to remove.
+     * @return {@code True} if the page was removed by the current method invoke, {@code false} if the page was already removed by another
+     *      removes or did not exist.
+     * @throws IgniteInternalCheckedException If any error occurred while waiting for the dirty page sorting phase to complete at a
+     *         checkpoint.
+     * @see #removeOnCheckpoint(FullPageId)
+     * @see #blockFsyncOnPageReplacement(FullPageId)
+     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
      */
-    public boolean allowToSave(FullPageId fullPageId) throws IgniteInternalCheckedException {
+    public boolean removeOnPageReplacement(FullPageId pageId) throws IgniteInternalCheckedException {
         try {
             // Uninterruptibly is important because otherwise in case of interrupt of client thread node would be stopped.
-            getUninterruptibly(allowToReplace);
+            getUninterruptibly(checkpointProgress.futureFor(PAGES_SORTED));
         } catch (ExecutionException e) {
             throw new IgniteInternalCheckedException(e.getCause());
         } catch (CancellationException e) {
             throw new IgniteInternalCheckedException(e);
         }
 
-        return segmentPages.contains(fullPageId);
+        return pageIds.remove(pageId);
     }
 
     /**
-     * Returns {@code true} If fullPageId is candidate to stored to disk by current checkpoint.
+     * Removes a page ID that would be written at checkpoint. Must be invoked before writing a page to disk.
      *
-     * @param fullPageId Page id for checking.
-     */
-    public boolean contains(FullPageId fullPageId) {
-        return segmentPages.contains(fullPageId);
-    }
-
-    /**
-     * Returns {@code true} if it is marking was successful.
+     * <p>We don't need to block the fsync phase of the checkpoint, since it won't start until all dirty pages have been written at the
+     * checkpoint, except those for which page replacement has occurred.</p>
      *
-     * @param fullPageId Page id which should be marked as saved to disk.
+     * @param pageId Page ID to remove.
+     * @return {@code True} if the page was removed by the current method invoke, {@code false} if the page was already removed by another
+     *      removes or did not exist.
+     * @see #removeOnPageReplacement(FullPageId)
      */
-    public boolean markAsSaved(FullPageId fullPageId) {
-        return segmentPages.remove(fullPageId);
+    public boolean removeOnCheckpoint(FullPageId pageId) {
+        return pageIds.remove(pageId);
     }
 
     /**
-     * Returns size of all pages in current checkpoint.
+     * Returns {@code true} if the page has not yet been written by a checkpoint or page replacement.
+     *
+     * @param pageId Page ID for checking.
      */
+    public boolean contains(FullPageId pageId) {
+        return pageIds.contains(pageId);
+    }
+
+    /** Returns the current size of all pages that will be written at a checkpoint or page replacement. */
     public int size() {
-        return segmentPages.size();
+        return pageIds.size();
+    }
+
+    /**
+     * Block the start of the fsync phase at a checkpoint before replacing the page.
+     *
+     * <p>It is expected that the method will be invoked once and after that the {@link #unblockFsyncOnPageReplacement} will be invoked on
+     * the same page.</p>
+     *
+     * @param pageId Page ID for which page replacement will begin.
+     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     * @see #removeOnPageReplacement(FullPageId)
+     */
+    public void blockFsyncOnPageReplacement(FullPageId pageId) {
+        checkpointProgress.blockFsyncOnPageReplacement(pageId);
+    }
+
+    /**
+     * Unblocks the start of the fsync phase at a checkpoint after the page replacement is completed.
+     *
+     * <p>It is expected that the method will be invoked once and after the {@link #blockFsyncOnPageReplacement} for same page ID.</p>
+     *
+     * <p>The fsync phase will only be started after page replacement has been completed for all pages for which
+     * {@link #blockFsyncOnPageReplacement} was invoked or no page replacement occurred at all.</p>
+     *
+     * <p>The method must be invoked even if any error occurred, so as not to hang a checkpoint.</p>
+     *
+     * @param pageId Page ID for which the page replacement has ended.
+     * @param error Error on page replacement, {@code null} if missing.
+     * @see #blockFsyncOnPageReplacement(FullPageId)
+     * @see #removeOnPageReplacement(FullPageId)
+     */
+    public void unblockFsyncOnPageReplacement(FullPageId pageId, @Nullable Throwable error) {
+        checkpointProgress.unblockFsyncOnPageReplacement(pageId, error);
     }
 }

@@ -32,4 +32,9 @@ public interface QueryCloseMessage extends NetworkMessage, Serializable {
      * Get query ID.
      */
     UUID queryId();
+
+    /**
+     * Get execution token.
+     */
+    int executionToken();
 }

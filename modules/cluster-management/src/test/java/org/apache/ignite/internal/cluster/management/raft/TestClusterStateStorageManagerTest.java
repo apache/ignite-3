@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 /**
- * Tests for {@link RaftStorageManager} based on {@link TestClusterStateStorage}.
+ * Tests for {@link ClusterStateStorageManager} based on {@link TestClusterStateStorage}.
  */
 public class TestClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
     @Override

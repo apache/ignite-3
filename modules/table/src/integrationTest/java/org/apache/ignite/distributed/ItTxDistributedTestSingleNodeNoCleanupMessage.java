@@ -24,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Map;
@@ -33,26 +34,33 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
-import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -63,12 +71,11 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
@@ -84,6 +91,12 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     /**
      * The constructor.
@@ -101,7 +114,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
-                storageUpdateConfiguration,
+                systemDistributedConfiguration,
                 workDir,
                 nodes(),
                 replicas(),
@@ -123,9 +136,10 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
+                        systemDistributedConfiguration,
                         clusterService,
                         replicaSvc,
-                        new HeapLockManager(),
+                        new HeapLockManager(systemLocalConfiguration),
                         clockService,
                         generator,
                         placementDriver,
@@ -133,7 +147,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
                         transactionInflights,
-                        lowWatermark
+                        lowWatermark,
+                        commonExecutor
                 ) {
                     @Override
                     public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
@@ -152,14 +167,14 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     RaftGroupService raftClient,
                     TxManager txManager,
                     Executor scanRequestExecutor,
-                    int partId,
+                    PartitionGroupId replicationGroupId,
                     int tableId,
                     Supplier<Map<Integer, IndexLocker>> indexesLockers,
                     Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
                     Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
                     ClockService clockService,
                     PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-                    TxStateStorage txStateStorage,
+                    TxStatePartitionStorage txStatePartitionStorage,
                     TransactionStateResolver transactionStateResolver,
                     StorageUpdateHandler storageUpdateHandler,
                     ValidationSchemasSource validationSchemasSource,
@@ -177,14 +192,14 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         txManager,
                         txManager.lockManager(),
                         Runnable::run,
-                        partId,
+                        replicationGroupId,
                         tableId,
                         indexesLockers,
                         pkIndexStorage,
                         secondaryIndexStorages,
                         clockService,
                         safeTime,
-                        txStateStorage,
+                        txStatePartitionStorage,
                         transactionStateResolver,
                         storageUpdateHandler,
                         validationSchemasSource,
@@ -194,10 +209,14 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         placementDriver,
                         clusterNodeResolver,
                         resourcesRegistry,
-                        schemaRegistry
+                        schemaRegistry,
+                        mock(IndexMetaStorage.class),
+                        lowWatermark,
+                        mock(FailureProcessor.class),
+                        new SystemPropertiesNodeProperties()
                 ) {
                     @Override
-                    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
                         if (request instanceof WriteIntentSwitchReplicaRequest) {
                             logger().info("Dropping cleanup request: {}", request);
 

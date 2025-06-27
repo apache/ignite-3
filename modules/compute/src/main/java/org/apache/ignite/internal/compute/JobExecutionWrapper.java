@@ -22,7 +22,9 @@ import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertT
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.JobState;
+import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-class JobExecutionWrapper<R> implements JobExecution<R> {
+public class JobExecutionWrapper<R> implements JobExecution<R>, MarshallerProvider<R> {
     private final JobExecution<R> delegate;
 
     JobExecutionWrapper(JobExecution<R> delegate) {
@@ -43,17 +45,31 @@ class JobExecutionWrapper<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable JobStatus> statusAsync() {
-        return convertToPublicFuture(delegate.statusAsync());
-    }
-
-    @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return convertToPublicFuture(delegate.cancelAsync());
+    public CompletableFuture<@Nullable JobState> stateAsync() {
+        return convertToPublicFuture(delegate.stateAsync());
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
+    }
+
+    @Override
+    public ClusterNode node() {
+        return delegate.node();
+    }
+
+    @Override
+    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
+        if (delegate instanceof MarshallerProvider) {
+            return ((MarshallerProvider<R>) delegate).resultMarshaller();
+        }
+
+        return null;
+    }
+
+    @Override
+    public boolean marshalResult() {
+        return delegate instanceof MarshallerProvider && ((MarshallerProvider<R>) delegate).marshalResult();
     }
 }

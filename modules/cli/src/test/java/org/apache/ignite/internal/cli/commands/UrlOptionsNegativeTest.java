@@ -91,8 +91,7 @@ import picocli.CommandLine;
 public class UrlOptionsNegativeTest {
     private static final String NODE_URL = "http://localhost:10300";
 
-    private static final String CLUSTER_URL_OPTION = "--cluster-endpoint-url=";
-    private static final String NODE_URL_OPTION = "--node-url=";
+    private static final String NODE_URL_OPTION = "--url=";
 
     @Inject
     private ApplicationContext context;
@@ -145,21 +144,21 @@ public class UrlOptionsNegativeTest {
                 arguments(NodeConfigShowCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeConfigUpdateCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
                 arguments(NodeStatusCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterConfigShowCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(ClusterConfigUpdateCommand.class, CLUSTER_URL_OPTION, List.of("{key: value}")),
-                arguments(ClusterStatusCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterConfigShowCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(ClusterConfigUpdateCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
+                arguments(ClusterStatusCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeMetricSourceEnableCommand.class, NODE_URL_OPTION, List.of("srcName")),
                 arguments(NodeMetricSourceDisableCommand.class, NODE_URL_OPTION, List.of("srcName")),
                 arguments(NodeMetricSourceListCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeMetricSetListCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(LogicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(PhysicalTopologyCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(ClusterUnitDeployCommand.class, CLUSTER_URL_OPTION,
+                arguments(LogicalTopologyCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(PhysicalTopologyCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(ClusterUnitDeployCommand.class, NODE_URL_OPTION,
                         List.of("--path=" + TEMP_FILE_PATH, "id", "--version=1.0.0")),
-                arguments(ClusterUnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
-                arguments(ClusterUnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterUnitUndeployCommand.class, NODE_URL_OPTION, List.of("id", "--version=1.0.0")),
+                arguments(ClusterUnitListCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeUnitListCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
+                arguments(ClusterInitCommand.class, NODE_URL_OPTION, List.of("--name=cluster", "--metastorage-group=test")),
                 arguments(ConnectCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-18378
         //                Arguments.arguments(ClusterShowCommand.class, CLUSTER_URL_OPTION, List.of()),
@@ -171,21 +170,21 @@ public class UrlOptionsNegativeTest {
                 arguments(NodeConfigShowReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeConfigUpdateReplCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
                 arguments(NodeStatusReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterConfigShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(ClusterConfigUpdateReplCommand.class, CLUSTER_URL_OPTION, List.of("{key: value}")),
-                arguments(ClusterStatusReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterConfigShowReplCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(ClusterConfigUpdateReplCommand.class, NODE_URL_OPTION, List.of("{key: value}")),
+                arguments(ClusterStatusReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeMetricSourceEnableReplCommand.class, NODE_URL_OPTION, List.of("srcName")),
                 arguments(NodeMetricSourceDisableReplCommand.class, NODE_URL_OPTION, List.of("srcName")),
                 arguments(NodeMetricSourceListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeMetricSetListReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(LogicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(PhysicalTopologyReplCommand.class, CLUSTER_URL_OPTION, List.of()),
-                arguments(ClusterUnitDeployReplCommand.class, CLUSTER_URL_OPTION,
+                arguments(LogicalTopologyReplCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(PhysicalTopologyReplCommand.class, NODE_URL_OPTION, List.of()),
+                arguments(ClusterUnitDeployReplCommand.class, NODE_URL_OPTION,
                         List.of("--path=" + TEMP_FILE_PATH, "id", "--version=1.0.0")),
-                arguments(ClusterUnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
-                arguments(ClusterUnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
+                arguments(ClusterUnitUndeployReplCommand.class, NODE_URL_OPTION, List.of("id", "--version=1.0.0")),
+                arguments(ClusterUnitListReplCommand.class, NODE_URL_OPTION, List.of()),
                 arguments(NodeUnitListReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
+                arguments(ClusterInitReplCommand.class, NODE_URL_OPTION, List.of("--name=cluster", "--metastorage-group=test")),
                 arguments(ConnectReplCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-18378
         //                Arguments.arguments(ClusterShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),

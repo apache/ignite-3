@@ -26,9 +26,15 @@ fi
 
 LOGGING_JAVA_OPTS="-Djava.util.logging.config.file=@CONF_DIR@/ignite.java.util.logging.properties"
 
+JAVA_MEMORY_OPTIONS="-Xmx${JVM_MAX_MEM} -Xms${JVM_MIN_MEM}"
+
+JAVA_GC_OPTIONS="-XX:+Use${JVM_GC} -XX:G1HeapRegionSize=${JVM_G1HeapRegionSize}"
+
 CMD="${JAVACMD} \
   ${COMMON_JAVA_OPTS} \
   ${LOGGING_JAVA_OPTS} \
+  ${JAVA_MEMORY_OPTIONS} \
+  ${JAVA_GC_OPTIONS} \
   ${IGNITE3_EXTRA_JVM_ARGS} \
   ${CLASSPATH}"
 

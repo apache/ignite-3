@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.type;
 
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.BYTES;
 import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
 import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
 import static org.apache.ignite.internal.type.NativeTypes.INT16;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
@@ -26,13 +28,18 @@ import static org.apache.ignite.internal.type.NativeTypes.INT64;
 import static org.apache.ignite.internal.type.NativeTypes.INT8;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
 import static org.apache.ignite.internal.type.NativeTypes.UUID;
+import static org.apache.ignite.internal.type.NativeTypes.blobOf;
 import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.decimalOf;
+import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 import static org.apache.ignite.internal.type.NativeTypes.time;
 import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -142,15 +149,76 @@ public class NativeTypeTest {
         assertTrue(BYTES.compareTo(STRING) < 0);
     }
 
-    /**
-     * Validate data size of bitmap type.
-     */
     @Test
-    public void bitmaskSizeTest() {
-        assertEquals(1, new BitmaskNativeType(0).sizeInBytes());
+    public void basicTypeEquality() {
+        assertEquals(BOOLEAN, new NativeType(ColumnType.BOOLEAN, 1));
 
-        assertEquals(1, new BitmaskNativeType(8).sizeInBytes());
+        assertEquals(INT8, new NativeType(ColumnType.INT8, 1));
+        assertEquals(INT16, new NativeType(ColumnType.INT16, 2));
+        assertEquals(INT32, new NativeType(ColumnType.INT32, 4));
+        assertEquals(INT64, new NativeType(ColumnType.INT64, 8));
 
-        assertEquals(2, new BitmaskNativeType(9).sizeInBytes());
+        assertEquals(FLOAT, new NativeType(ColumnType.FLOAT, 4));
+        assertEquals(DOUBLE, new NativeType(ColumnType.DOUBLE, 8));
+
+        assertEquals(DATE, new NativeType(ColumnType.DATE, 3));
+        assertEquals(UUID, new NativeType(ColumnType.UUID, 16));
+    }
+
+    @Test
+    public void temporalTypeEquality() {
+        assertEquals(time(0), time(0));
+        assertNotEquals(time(1), time(0));
+        assertNotEquals(time(0), time(1));
+
+        assertEquals(timestamp(1), timestamp(1));
+        assertEquals(timestamp(0), timestamp(0));
+        assertNotEquals(timestamp(1), timestamp(0));
+        assertNotEquals(timestamp(0), timestamp(1));
+
+        assertEquals(datetime(1), datetime(1));
+        assertEquals(datetime(0), datetime(0));
+        assertNotEquals(datetime(1), datetime(0));
+        assertNotEquals(datetime(0), datetime(1));
+    }
+
+    @Test
+    public void decimalTypeEquality() {
+        assertEquals(decimalOf(10, 2), decimalOf(10, 2));
+        assertNotEquals(decimalOf(10, 2), decimalOf(10, 3));
+    }
+
+    @Test
+    public void stringTypeEquality() {
+        assertEquals(stringOf(10), stringOf(10));
+        assertEquals(stringOf(2), stringOf(2));
+
+        assertNotEquals(stringOf(10), stringOf(5));
+        assertNotEquals(stringOf(5), stringOf(10));
+        assertNotEquals(STRING, stringOf(10));
+        assertNotEquals(stringOf(10), STRING);
+    }
+
+    @Test
+    public void blobTypeEquality() {
+        assertEquals(blobOf(10), blobOf(10));
+        assertEquals(blobOf(2), blobOf(2));
+
+        assertNotEquals(blobOf(10), blobOf(5));
+        assertNotEquals(blobOf(5), blobOf(10));
+        assertNotEquals(BYTES, blobOf(10));
+        assertNotEquals(blobOf(10), BYTES);
+    }
+
+    @Test
+    public void stringTypeDefaultLength() {
+        VarlenNativeType nativeType = (VarlenNativeType) STRING;
+        assertEquals(65536, nativeType.length());
+    }
+
+    @Test
+    public void blobTypeDefaultLength() {
+        VarlenNativeType nativeType = (VarlenNativeType) BYTES;
+        assertEquals(65536, nativeType.length());
     }
 }

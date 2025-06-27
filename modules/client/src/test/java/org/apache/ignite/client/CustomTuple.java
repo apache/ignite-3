@@ -17,11 +17,11 @@
 
 package org.apache.ignite.client;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.UUID;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -79,7 +79,7 @@ public class CustomTuple implements Tuple {
     /** {@inheritDoc} */
     @Override
     public int columnIndex(String columnName) {
-        switch (IgniteNameUtils.parseSimpleName(columnName)) {
+        switch (IgniteNameUtils.parseIdentifier(columnName)) {
             case "ID":
                 return 0;
             case "NAME":
@@ -94,7 +94,7 @@ public class CustomTuple implements Tuple {
     /** {@inheritDoc} */
     @Override
     public <T> T valueOrDefault(String columnName, T def) {
-        switch (IgniteNameUtils.parseSimpleName(columnName)) {
+        switch (IgniteNameUtils.parseIdentifier(columnName)) {
             case "ID":
                 return (T) id;
             case "NAME":
@@ -219,6 +219,18 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
+    public BigDecimal decimalValue(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public String stringValue(String columnName) {
         throw new UnsupportedOperationException();
     }
@@ -231,6 +243,18 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         throw new UnsupportedOperationException();
     }
@@ -238,18 +262,6 @@ public class CustomTuple implements Tuple {
     /** {@inheritDoc} */
     @Override
     public UUID uuidValue(int columnIndex) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(String columnName) {
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BitSet bitmaskValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 

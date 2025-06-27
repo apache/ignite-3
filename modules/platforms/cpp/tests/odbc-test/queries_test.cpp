@@ -185,7 +185,7 @@ TEST_F(queries_test, two_rows_string) {
 
     const SQLSMALLINT columns_cnt = 13;
 
-    SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE];
+    static SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE] = {};
 
     SQLRETURN ret;
     // Binding columns.
@@ -223,7 +223,7 @@ TEST_F(queries_test, two_rows_string) {
     EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[9])), "2001-02-02");
     EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[10])), "01:01:01");
     EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[11])), "2002-03-03 01:01:01");
-    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[12])), "-1");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[12])), "-1.000");
 
     SQLLEN column_lens[columns_cnt];
 
@@ -251,7 +251,7 @@ TEST_F(queries_test, two_rows_string) {
     EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[9])), "2002-03-03");
     EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[10])), "02:02:02");
     EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[11])), "2003-04-04 02:02:02");
-    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[12])), "2");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[12])), "2.000");
 
     EXPECT_EQ(column_lens[0], 1);
     EXPECT_EQ(column_lens[1], 1);
@@ -265,7 +265,7 @@ TEST_F(queries_test, two_rows_string) {
     EXPECT_EQ(column_lens[9], 11);
     EXPECT_EQ(column_lens[10], 9);
     EXPECT_EQ(column_lens[11], 20);
-    EXPECT_EQ(column_lens[12], 1);
+    EXPECT_EQ(column_lens[12], 5);
 
     ret = SQLFetch(m_statement);
     EXPECT_TRUE(ret == SQL_NO_DATA);
@@ -313,7 +313,7 @@ TEST_F(queries_test, one_row_string_len) {
     EXPECT_EQ(column_lens[9], 11);
     EXPECT_EQ(column_lens[10], 9);
     EXPECT_EQ(column_lens[11], 20);
-    EXPECT_EQ(column_lens[12], 2);
+    EXPECT_EQ(column_lens[12], 6);
 
     ret = SQLFetch(m_statement);
     EXPECT_TRUE(ret == SQL_NO_DATA);
@@ -327,8 +327,8 @@ TEST_F(queries_test, data_at_execution) {
 
     const SQLSMALLINT columns_cnt = 13;
 
-    SQLLEN column_lens[columns_cnt];
-    SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE];
+    static SQLLEN column_lens[columns_cnt] = {};
+    static SQLCHAR columns[columns_cnt][ODBC_BUFFER_SIZE]{};
 
     SQLRETURN ret;
     // Binding columns.
@@ -421,7 +421,7 @@ TEST_F(queries_test, data_at_execution) {
     EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[9])), "2001-02-02");
     EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[10])), "01:01:01");
     EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[11])), "2002-03-03 01:01:01");
-    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[12])), "-1");
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(columns[12])), "-1.000");
 
     EXPECT_EQ(column_lens[0], 1);
     EXPECT_EQ(column_lens[1], 1);
@@ -435,7 +435,7 @@ TEST_F(queries_test, data_at_execution) {
     EXPECT_EQ(column_lens[9], 11);
     EXPECT_EQ(column_lens[10], 9);
     EXPECT_EQ(column_lens[11], 20);
-    EXPECT_EQ(column_lens[12], 2);
+    EXPECT_EQ(column_lens[12], 6);
 
     ret = SQLFetch(m_statement);
     EXPECT_TRUE(ret == SQL_NO_DATA);

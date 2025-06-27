@@ -18,25 +18,18 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.TransactionOptions;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -58,86 +51,54 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         TestHybridClock clock = new TestHybridClock(currentServerTimestamp::get);
 
         ignite = new FakeIgnite("server-2");
-        testServer = new TestServer(0, ignite, null, null, "server-2", UUID.randomUUID(), null, null, clock);
+        testServer = new TestServer(0, ignite, null, null, "server-2", UUID.randomUUID(), null, null, clock, true, null);
 
         client = IgniteClient.builder().addresses("127.0.0.1:" + testServer.port()).build();
     }
 
     @AfterAll
     public static void stopServer2() throws Exception {
-        closeAll(client, testServer, ignite);
+        closeAll(client, testServer);
     }
 
     @Test
-    @SuppressWarnings("resource")
     public void testClientPropagatesLatestKnownHybridTimestamp() {
-        ReliableChannel ch = IgniteTestUtils.getFieldValue(client, "ch");
+        ReliableChannel ch = ((TcpIgniteClient) client).channel();
         TransactionOptions roOpts = new TransactionOptions().readOnly(true);
 
-        assertNull(lastObservableTimestamp());
+        // +1 because logical time is incremented on every call to nowLong - on client handler start.
+        assertEquals(
+                (currentServerTimestamp.get() << LOGICAL_TIME_BITS_SIZE) + 1,
+                ch.observableTimestamp().get().longValue(),
+                "Handshake should initialize observable timestamp");
 
         // RW TX does not propagate timestamp.
         var rwTx = client.transactions().begin();
-        ClientLazyTransaction.ensureStarted(rwTx, ch, null).join();
-        assertNull(lastObservableTimestamp());
+        ClientLazyTransaction.ensureStarted(rwTx, ch).get1().join();
 
         // RO TX propagates timestamp.
         var roTx = client.transactions().begin(roOpts);
-        ClientLazyTransaction.ensureStarted(roTx, ch, null).join();
-        assertEquals(1, lastObservableTimestamp());
+        ClientLazyTransaction.ensureStarted(roTx, ch).get1().join();
+        assertEquals(1, lastObservableTimestamp(ch));
 
         // Increase timestamp on server - client does not know about it initially.
         currentServerTimestamp.set(11);
-        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
-        assertEquals(1, lastObservableTimestamp());
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch).get1().join();
+        assertEquals(1, lastObservableTimestamp(ch));
 
         // Subsequent RO TX propagates latest known timestamp.
         client.tables().tables();
-        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
-        assertEquals(11, lastObservableTimestamp());
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch).get1().join();
+        assertEquals(11, lastObservableTimestamp(ch));
 
         // Smaller timestamp from server is ignored by client.
         currentServerTimestamp.set(9);
-        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
-        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
-        assertEquals(11, lastObservableTimestamp());
-
-        Statement statement = client.sql().statementBuilder()
-                .query("SELECT 1")
-                .build();
-
-        // Execution of a SQL query should propagate observable time, not the current time of the clock.
-        currentServerTimestamp.set(20);
-        updateObservableTimestamp(14);
-        AsyncResultSet<?> rs = await(client.sql().executeAsync(null, statement));
-        assertEquals(14, lastObservableTimestamp());
-
-        assertNotNull(rs);
-
-        // Every fetch should propagate observable time, not the current time of the clock.
-        currentServerTimestamp.set(20);
-        updateObservableTimestamp(18);
-        await(rs.fetchNextPage());
-        assertEquals(18, lastObservableTimestamp());
-
-        currentServerTimestamp.set(24);
-        updateObservableTimestamp(20);
-        await(rs.fetchNextPage());
-        assertEquals(20, lastObservableTimestamp());
-
-        // Closing a result set should propagate observable time as well.
-        updateObservableTimestamp(22);
-        await(rs.closeAsync());
-        assertEquals(22, lastObservableTimestamp());
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch).get1().join();
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch).get1().join();
+        assertEquals(11, lastObservableTimestamp(ch));
     }
 
-    private static @Nullable Long lastObservableTimestamp() {
-        HybridTimestamp ts = ignite.timestampTracker().get();
-
-        return ts == null ? null : ts.longValue() >> LOGICAL_TIME_BITS_SIZE;
-    }
-
-    private static void updateObservableTimestamp(long newTime) {
-        ignite.timestampTracker().update(HybridTimestamp.hybridTimestamp(newTime << LOGICAL_TIME_BITS_SIZE));
+    private static Long lastObservableTimestamp(ReliableChannel ch) {
+        return ch.observableTimestamp().get().longValue() >> LOGICAL_TIME_BITS_SIZE;
     }
 }

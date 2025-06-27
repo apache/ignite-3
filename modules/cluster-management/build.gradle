@@ -25,7 +25,7 @@ description = 'ignite-cluster-management'
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
-    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.micronaut.inject.annotation.processor
     annotationProcessor libs.auto.service
 
@@ -33,46 +33,60 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-configuration-presentation')
+    implementation project(':ignite-failure-handler')
     implementation project(':ignite-network')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-storage-api')
     implementation project(':ignite-security')
+    implementation project(':ignite-configuration-root')
+    implementation project(':ignite-system-disaster-recovery-api')
+    implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
 
-    testImplementation project(':ignite-configuration')
-    testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation project(':ignite-core')
+    testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-network')
+    testImplementation project(':ignite-system-disaster-recovery')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
-    testImplementation project(':ignite-network')
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-network'))
+    testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
 
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-storage-api')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-security')
+    testFixturesImplementation project(':ignite-system-disaster-recovery-api')
+    testFixturesImplementation project(':ignite-system-disaster-recovery')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-configuration'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
-    testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation testFixtures(project(':ignite-metrics'))
+    testFixturesImplementation testFixtures(project(':ignite-raft'))
+    testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-system-disaster-recovery')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-network'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-raft'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation libs.awaitility
-    integrationTestImplementation libs.jetbrains.annotations
 }

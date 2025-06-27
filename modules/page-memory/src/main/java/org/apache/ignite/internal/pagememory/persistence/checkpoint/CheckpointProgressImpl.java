@@ -28,8 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,6 +51,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
     private volatile String reason;
 
     /** Number of dirty pages in current checkpoint at the beginning of checkpoint. */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24878 This field is initialized twice.
     private volatile int currCheckpointPagesCnt;
 
     /** Cause of fail, which has happened during the checkpoint or {@code null} if checkpoint was successful. */
@@ -70,8 +70,14 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /** Sorted dirty pages to be written on the checkpoint. */
     private volatile @Nullable CheckpointDirtyPages pageToWrite;
 
-    /** Partitions currently being processed, for example, writing dirty pages or doing fsync. */
-    private final PartitionProcessingCounterMap processedPartitionMap = new PartitionProcessingCounterMap();
+    /** Assistant for synchronizing page replacement and fsync phase. */
+    private final CheckpointPageReplacement checkpointPageReplacement = new CheckpointPageReplacement();
+
+    /** Time it took from the start of checkpoint to the moment when all pages have been written. */
+    private long pagesWriteTimeMillis;
+
+    /** Time it took to sync all updated pages. */
+    private long fsyncTimeMillis;
 
     /**
      * Constructor.
@@ -138,18 +144,37 @@ class CheckpointProgressImpl implements CheckpointProgress {
         return writtenPagesCntr;
     }
 
-    /**
-     * Returns counter for fsynced checkpoint pages.
-     */
+    @Override
+    public int writtenPages() {
+        return writtenPagesCntr.get();
+    }
+
+    @Override
     public AtomicInteger syncedPagesCounter() {
         return syncedPagesCntr;
     }
 
-    /**
-     * Returns Counter for evicted pages during current checkpoint.
-     */
+    @Override
     public AtomicInteger evictedPagesCounter() {
         return evictedPagesCntr;
+    }
+
+    @Override
+    public long getPagesWriteTimeMillis() {
+        return pagesWriteTimeMillis;
+    }
+
+    void setPagesWriteTimeMillis(long pagesWriteTimeMillis) {
+        this.pagesWriteTimeMillis = pagesWriteTimeMillis;
+    }
+
+    @Override
+    public long getFsyncTimeMillis() {
+        return fsyncTimeMillis;
+    }
+
+    void setFsyncTimeMillis(long fsyncTimeMillis) {
+        this.fsyncTimeMillis = fsyncTimeMillis;
     }
 
     /**
@@ -273,35 +298,56 @@ class CheckpointProgressImpl implements CheckpointProgress {
     }
 
     /**
-     * Callback at the beginning of checkpoint processing of a partition, for example, when writing dirty pages or executing a fsync.
+     * Block the start of the fsync phase at a checkpoint before replacing the page.
      *
-     * @param groupPartitionId Pair of group ID with partition ID.
+     * <p>It is expected that the method will be invoked once and after that the {@link #unblockFsyncOnPageReplacement} will be invoked on
+     * the same page.</p>
+     *
+     * <p>It is expected that the method will not be invoked after {@link #getUnblockFsyncOnPageReplacementFuture}, since by the start of
+     * the fsync phase, write dirty pages at the checkpoint should be complete and no new page replacements should be started.</p>
+     *
+     * @param pageId Page ID for which page replacement is expected to begin.
+     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
+     * @see #getUnblockFsyncOnPageReplacementFuture()
      */
-    public void onStartPartitionProcessing(GroupPartitionId groupPartitionId) {
-        processedPartitionMap.incrementPartitionProcessingCounter(groupPartitionId);
+    void blockFsyncOnPageReplacement(FullPageId pageId) {
+        checkpointPageReplacement.block(pageId);
     }
 
     /**
-     * Callback on completion of partition processing, for example, when writing dirty pages or executing a fsync.
+     * Unblocks the start of the fsync phase at a checkpoint after the page replacement is completed.
      *
-     * @param groupPartitionId Pair of group ID with partition ID.
+     * <p>It is expected that the method will be invoked once and after the {@link #blockFsyncOnPageReplacement} for same page ID.</p>
+     *
+     * <p>The fsync phase will only be started after page replacement has been completed for all pages for which
+     * {@link #blockFsyncOnPageReplacement} was invoked before {@link #getUnblockFsyncOnPageReplacementFuture} was invoked, or no page
+     * replacement occurred at all.</p>
+     *
+     * <p>If an error occurs on any page replacement during one checkpoint, the future from {@link #getUnblockFsyncOnPageReplacementFuture}
+     * will complete with the first error.</p>
+     *
+     * <p>The method must be invoked even if any error occurred, so as not to hang a checkpoint.</p>
+     *
+     * @param pageId Page ID for which the page replacement has ended.
+     * @param error Error on page replacement, {@code null} if missing.
+     * @see #blockFsyncOnPageReplacement(FullPageId)
+     * @see #getUnblockFsyncOnPageReplacementFuture()
      */
-    public void onFinishPartitionProcessing(GroupPartitionId groupPartitionId) {
-        processedPartitionMap.decrementPartitionProcessingCounter(groupPartitionId);
+    void unblockFsyncOnPageReplacement(FullPageId pageId, @Nullable Throwable error) {
+        checkpointPageReplacement.unblock(pageId, error);
     }
 
     /**
-     * Returns the future if the partition according to the given parameters is currently being processed, for example, dirty pages are
-     * being written or fsync is being done, {@code null} if the partition is not currently being processed.
+     * Return future that will be completed successfully if all {@link #blockFsyncOnPageReplacement} are completed, either if there were
+     * none, or with an error from the first {@link #unblockFsyncOnPageReplacement}.
      *
-     * <p>Future will be added on {@link #onStartPartitionProcessing(GroupPartitionId)} call and completed on
-     * {@link #onFinishPartitionProcessing(GroupPartitionId)} call (equal to the number of
-     * {@link #onFinishPartitionProcessing(GroupPartitionId)} calls).
+     * <p>Must be invoked before the start of the fsync phase at the checkpoint and wait for the future to complete in order to safely
+     * perform the phase.</p>
      *
-     * @param groupPartitionId Pair of group ID with partition ID.
+     * @see #blockFsyncOnPageReplacement(FullPageId)
+     * @see #unblockFsyncOnPageReplacement(FullPageId, Throwable)
      */
-    @Nullable
-    public CompletableFuture<Void> getProcessedPartitionFuture(GroupPartitionId groupPartitionId) {
-        return processedPartitionMap.getProcessedPartitionFuture(groupPartitionId);
+    CompletableFuture<Void> getUnblockFsyncOnPageReplacementFuture() {
+        return checkpointPageReplacement.stopBlocking();
     }
 }

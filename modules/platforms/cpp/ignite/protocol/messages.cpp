@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-#include "ignite/protocol/messages.h"
+#include "ignite/protocol/bitmask_feature.h"
 #include "ignite/protocol/buffer_adapter.h"
+#include "ignite/protocol/messages.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/utils.h"
 #include "ignite/protocol/writer.h"
@@ -36,8 +37,8 @@ std::vector<std::byte> make_handshake_request(
 
         writer.write(client_type);
 
-        // Features.
-        writer.write_binary_empty();
+        auto features = all_supported_bitmask_features();
+        writer.write_binary(features);
 
         // Extensions.
         writer.write_map(extensions);
@@ -49,25 +50,38 @@ std::vector<std::byte> make_handshake_request(
 handshake_response parse_handshake_response(bytes_view message) {
     handshake_response res{};
 
-    protocol::reader reader(message);
+    reader reader(message);
 
     auto ver_major = reader.read_int16();
     auto ver_minor = reader.read_int16();
     auto ver_patch = reader.read_int16();
 
-    protocol::protocol_version ver(ver_major, ver_minor, ver_patch);
+    protocol_version ver(ver_major, ver_minor, ver_patch);
     res.context.set_version(ver);
-    res.error = protocol::try_read_error(reader);
+    res.error = try_read_error(reader);
 
     if (res.error)
         return res;
 
-    UNUSED_VALUE reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
-    UNUSED_VALUE reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
+    res.idle_timeout_ms = reader.read_int64();
+    reader.skip(); // Cluster node ID. Needed for partition-aware compute.
     UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
 
-    res.context.set_cluster_id(reader.read_uuid());
+    auto cluster_ids_len = reader.read_int32();
+    if (cluster_ids_len <= 0) {
+        throw ignite_error("Unexpected cluster ids count: " + std::to_string(cluster_ids_len));
+    }
+
+    std::vector<uuid> cluster_ids;
+    cluster_ids.reserve(cluster_ids_len);
+    for (std::int32_t i = 0; i < cluster_ids_len; ++i) {
+        cluster_ids.push_back(reader.read_uuid());
+    }
+
+    res.context.set_cluster_ids(std::move(cluster_ids));
     res.context.set_cluster_name(reader.read_string());
+
+    res.observable_timestamp = reader.read_int64();
 
     auto dbms_ver_major = reader.read_uint8();
     auto dbms_ver_minor = reader.read_uint8();
@@ -78,7 +92,9 @@ handshake_response parse_handshake_response(bytes_view message) {
     res.context.set_server_version(
         {dbms_ver_major, dbms_ver_minor, dbms_ver_maintenance, dbms_ver_patch, dbms_ver_pre_release});
 
-    reader.skip(); // Features.
+    auto features = reader.read_binary();
+    res.context.set_features({features.begin(), features.end()});
+
     reader.skip(); // Extensions.
 
     return res;

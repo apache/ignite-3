@@ -24,6 +24,7 @@ import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
 import org.apache.ignite.internal.configuration.util.NodeValue;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Converter of configuration subtree into a user-defined representation.
@@ -35,17 +36,18 @@ public final class ConfigurationConverter {
     /**
      * Converts configuration subtree into a user-defined representation.
      *
-     * @param superRoot Super root of the configuration.
-     * @param path    Path to configuration subtree. Can be empty, can't be {@code null}.
+     * @param root Root of a configuration subtree.
+     * @param path Path to configuration subtree. Can be empty, can't be {@code null}.
      * @param visitor Visitor that will be applied to the subtree and build the representation.
-     * @param <T>     Type of the representation.
+     * @param <T> Type of the representation.
      * @return User-defined representation constructed by {@code visitor}.
      * @throws IllegalArgumentException If {@code path} is not found in current configuration.
      */
-    public static <T> T convert(SuperRoot superRoot, List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
+    public static <T> @Nullable T convert(TraversableTreeNode root, List<String> path, ConfigurationVisitor<T> visitor)
+            throws IllegalArgumentException {
         NodeValue<?> node;
         try {
-            node = ConfigurationUtil.find(path, superRoot, false);
+            node = ConfigurationUtil.find(path, root, false);
         } catch (KeyNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage());
         }

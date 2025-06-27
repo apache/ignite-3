@@ -1,0 +1,711 @@
+=== String Functions
+
+UPPER(<character>)
+#9965cbef3eac2aa06c2c308cde3306a10cc4708c
+
+LOWER(<character>)
+#f53246b5467a2990e7ae390080a97688780ac01d
+
+INITCAP(<character>)
+#3923c4e36530879fb3cb7c86063f457d1206bda4
+
+TO_BASE64(<string>)
+TO_BASE64(<binary>)
+#9b8ad332597f15f16996ed51265c4b8f9c27dd2c
+
+FROM_BASE64(<string>)
+#7cedbde3812de934f20cc03fc1727aa5e58c4580
+
+MD5(<string>)
+MD5(<binary>)
+#c30aa309bd67a407e50ad42789d6bd9196ca55f3
+
+SHA1(<string>)
+SHA1(<binary>)
+#8c9019321337e6a8db7f534fbfc5e3a089a30dca
+
+SUBSTRING(<char> FROM <integer>)
+SUBSTRING(<char> FROM <integer> FOR <integer>)
+SUBSTRING(<varchar> FROM <integer>)
+SUBSTRING(<varchar> FROM <integer> FOR <integer>)
+SUBSTRING(<binary> FROM <integer>)
+SUBSTRING(<binary> FROM <integer> FOR <integer>)
+SUBSTRING(<varbinary> FROM <integer>)
+SUBSTRING(<varbinary> FROM <integer> FOR <integer>)
+#6a239800b4612d21b464be0486d211bf3e33062b
+
+LEFT(<string>, <integer>)
+LEFT(<binary>, <integer>)
+#3c0e9d41a3688c458661620123e4af0da58ef000
+
+RIGHT(<string>, <integer>)
+RIGHT(<binary>, <integer>)
+#1b06f6cd3e91f637e4dafd8f4f888b12809c4094
+
+REPLACE(<string>, <string>, <string>)
+#efdb024f3144bf05085158a32dc36c2162a62dc5
+
+TRANSLATE3(<string>, <string>, <string>)
+#7d95d4a63a97fbcf8d4c5ba189f0b5dda8b42c93
+
+CHR(<integer>)
+#e58f004886b184a9c5276851764e73b1d6f2685b
+
+CHAR_LENGTH(<character>)
+#7652cd84f32db99fecafc7af33ffec2c646ee875
+
+CHARACTER_LENGTH(<character>)
+#10185e6642eb58334815d26b83df4f323ff3192a
+
+||(<string>, <string>, ... ***
+#bdec9fef3f8c1927e224d1aae0aba623e33f5a5e
+
+CONCAT(<string>)
+#d3879de10e0ef0b0b2b164bd8b925c48e03c357e
+
+OVERLAY(<string> PLACING <string> FROM <integer>)
+OVERLAY(<string> PLACING <string> FROM <integer> FOR <integer>)
+#cab69b41e0fd0f1dee69df00f6a68f99b5136ba6
+
+POSITION(<string> IN <string>)
+POSITION(<string> IN <string> FROM <integer>)
+POSITIONINSTR(<string>, <string>, <integer>, <integer>)
+#cc624511ec052b74c240aa3d9b9c55f4ccbb73d2
+
+ASCII(<character>)
+#ac06d05870d3d429551195b9de8d481c91f96b6e
+
+REPEAT(<string>, <integer>)
+#3e9a907402f5a3a7fe13d20b3e431e3053935534
+
+SPACE(<integer>)
+#46cb7470e44e52910513de4ab13592464f17fab2
+
+STRCMP(<string>, <string>)
+#1d6f7f5e49c09ba35dd7c52ede8df46e998fb195
+
+SOUNDEX(<character>)
+#9404006d8c9c5e0f77943d1d534a847f5682dc9a
+
+DIFFERENCE(<string>, <string>)
+#c669e44fdba8ed77b603d05f732a4e495ba9d5fa
+
+REVERSE(<character>)
+#b930f4d31bd636153cb00f617ab85a1af6bb276c
+
+TRIM([BOTH|LEADING|TRAILING] <any> FROM <string>)
+#617d06e21a00df81bf46ab0a8105fc29566eabc8
+
+LTRIM(<string>)
+#1fc9911f5d56b6a977aeab6ab3db3afb77acc0f0
+
+RTRIM(<string>)
+#6f6da6f4ee4c4c144fa4e100e9b9be063531f469
+
+SUBSTR(<string>, <integer>)
+SUBSTR(<string>, <integer>, <integer>)
+#354f9745fc48ec99e84addb6dcd0b210e4c70722
+
+LENGTH(<character>)
+LENGTH(<binary>)
+#1817179bf02ba7181678a35a59580513e2a7635f
+
+OCTET_LENGTH(<character>)
+OCTET_LENGTH(<binary>)
+#f01708d42209f8026c0590c2bf4e662aedf627e4
+
+LIKE(<string>, <string>, <string>)
+#f9618e61dc6e1f47563b2f34babb93222e268195
+
+[internal]
+NOT LIKE(<string>, <string>, <string>)
+#98a3a61de0c758cd62599fae6293068ac9f8fbf1
+
+SIMILAR TO(<string>, <string>, <string>)
+#5b59aa4a2ad6c123016ec3e78d11d440caedf1d8
+
+[internal]
+NOT SIMILAR TO(<string>, <string>, <string>)
+#4ea1dd2d99dd0ab4b4238969282571665897bb32
+
+
+=== Numeric Functions
+
+MOD(<exact_numeric>, <exact_numeric>)
+#aba0003fb00b9e43eb24424eaf5c85a854b2a2e1
+
+EXP(<numeric>)
+#8a79a26006764a33dc590b6c628b0aa142d0a2ae
+
+POWER(<numeric>, <numeric>)
+#7e0a6fe4d6ff7b7e36c3e854a90acd627374e272
+
+LN(<numeric>)
+#63c5cbcdacff64b235d3c01ed71f7bb6d2b046b6
+
+LOG10(<numeric>)
+#e4eddf1e750f842761b497d23a0bf9d03eb91736
+
+ABS(<numeric>)
+ABS(<datetime_interval>)
+#9e502d4b4609fbb699a01aabebea2e8e43f9c4cb
+
+RAND()
+RAND(<numeric>)
+#73686a8255e539d8b8b8f92832fcaa27cea61bcc
+
+RAND_INTEGER(<numeric>)
+RAND_INTEGER(<numeric>, <numeric>)
+#4775cc357178fea27b6becdc05df2d736c2bba23
+
+ACOS(<numeric>)
+#680b1cb63da746f9ae73522e179db7b9c38c3d9c
+
+ASIN(<numeric>)
+#eabcfde87516431fb77ea93c0e2a301407899d80
+
+ATAN(<numeric>)
+#c77e02d06b466927530c490b93263442f536b503
+
+ATAN2(<numeric>, <numeric>)
+#7a385648cbd00a0bf8156a13337bb5d397dc6b4b
+
+SQRT(<numeric>)
+#b2d9db431676b6c062fc2c7a244f8fa622a38c26
+
+CBRT(<numeric>)
+#426c8824727d6c104c77fbfa440ccfa676fc72c5
+
+COS(<numeric>)
+#a4c6094e6f572e90158215e02785cc38ec80f67f
+
+COSH(<numeric>)
+#76816c0a69f02f4a36d1b36083df5690d4bdf94d
+
+COT(<numeric>)
+#904aa5293684f22c492753b56c29499d8cbd51e7
+
+DEGREES(<numeric>)
+#68b0a8cb054ce1384fde8b6999d478f36622b764
+
+RADIANS(<numeric>)
+#2f99d48ab779bcf15dad0161ba1fa92d24fa0162
+
+ROUND(<numeric>)
+ROUND(<numeric>, <integer>)
+#a92bed3987231f81459de0de4aed66b6f04dc032
+
+SIGN(<numeric>)
+#0c41b5e91f5ed43fdbd41f263ab64d90a9e974c9
+
+SIN(<numeric>)
+#0e40a684c403456fe2f98b57d7449afd738818a8
+
+SINH(<numeric>)
+#f34057b3faf6514968980e8884a893fba47d7efd
+
+TAN(<numeric>)
+#2301fb49f3e5b9888baa5b5b808b52f44e0fb121
+
+TANH(<numeric>)
+#e9366c724144704ac20c7596c8754d0733d81cdd
+
+TRUNCATE(<numeric>)
+TRUNCATE(<numeric>, <integer>)
+#87e27c45e666c2cb0b783ee2fa03509d1eee54aa
+
+PI()
+#530ef2ad5c026f404c4c565d1c9b7b3acc943952
+
+
+=== Date/time Functions
+
+[internal]
++(<datetime>, <datetime>, <datetime_interval>)
+#5dcfb49a7f0aeb5c97045bfe841015075c50108f
+
+[internal]
+-(<datetime>, <datetime>, <datetime_interval>)
+#df54f7f0a3dd9bee9173ef4839b2a564d08dc798
+
+EXTRACT(<datetime_interval> FROM <datetime_interval>)
+EXTRACT(<datetime_interval> FROM <datetime>)
+EXTRACT(<interval_day_time> FROM <interval_year_month>)
+#63e623f48be1be04786946166bc839c344ff911d
+
+FLOOR(<numeric>)
+FLOOR(<datetime_interval>)
+FLOOR(<date> TO <time_unit>)
+FLOOR(<time> TO <time_unit>)
+FLOOR(<timestamp> TO <time_unit>)
+#8820a99a673aecfe4a6e15ada9774926cb468c6c
+
+CEIL(<numeric>)
+CEIL(<datetime_interval>)
+CEIL(<date> TO <time_unit>)
+CEIL(<time> TO <time_unit>)
+CEIL(<timestamp> TO <time_unit>)
+#f313f7c5bebefb9133821b18bbdfa9d41401cd6a
+
+TIMESTAMPADD(<any>, <integer>, <datetime>)
+#667b25bc256b3a548553a6e21e64eb3150a4921a
+
+TIMESTAMPDIFF(<any>, <datetime>, <datetime>)
+#7ddd0e736a74330b58034438d16e2bacadb3f479
+
+LAST_DAY(<datetime>)
+#44dfe6a9da1cb8e9f3977a62d179dbba74c63705
+
+DAYNAME(<datetime>)
+#f7c40d3482a34ca1560cbc8ab6831a46a8c58bec
+
+MONTHNAME(<datetime>)
+#1df3b8c434c0d67b99bb2b9b08cc56e5c4a591de
+
+DAYOFMONTH(<datetime>)
+#7b1882c160de6c0affb9f843a97b9c525847033e
+
+DAYOFWEEK(<datetime>)
+#86aa04100c62e3c47be4e351e6e4af3aaa050708
+
+DAYOFYEAR(<datetime>)
+#76fac35d0d9026e38a5e23afca3afc9c0bb7869f
+
+YEAR(<datetime>)
+#7a9ddcfd555244db359c446d5297af4da87ec3d1
+
+QUARTER(<datetime>)
+#0d5fc32753746baebca635edc698a840fc3d97d4
+
+MONTH(<datetime>)
+#3035f5db9a954325c8ade0bf666672ac9692f2e1
+
+WEEK(<datetime>)
+#08bbea47b8511734c4ee06d8a800f8eace1b056d
+
+HOUR(<datetime>)
+#12d5b4f562d2ea3c9a4a617ffb830d3927afb094
+
+MINUTE(<datetime>)
+#d82bfa0ca19a55b322b05db500b98c426d3e47a8
+
+SECOND(<datetime>)
+#e874431ca83e00884bc8a1295348eea4ed56248b
+
+TIMESTAMP_SECONDS(<integer>)
+#4d9df132714457375acc76956c9104c9d7cfc957
+
+TIMESTAMP_MILLIS(<integer>)
+#cf981cb8c34d39200990def4a3e625e650f5aee5
+
+TIMESTAMP_MICROS(<integer>)
+#5a5642847c388e73fe824f0291c5de516839482e
+
+UNIX_SECONDS(<timestamp>)
+#e489eabafd0f9c1a8700dc043ed483aa7585ff08
+
+UNIX_MILLIS(<timestamp>)
+#582c4b9a6f9810a77e91e735e85da04410e3d4a7
+
+UNIX_MICROS(<timestamp>)
+#03079b83be46af15e3145fd027afa73a0794ba0a
+
+UNIX_DATE(<date>)
+#0804feef25194c787c19b2cb8b358cd7433d796e
+
+DATE_FROM_UNIX_DATE(<integer>)
+#61eb9c77809c57328d03057949db0d0fd5ea8df4
+
+DATE(<string>) ***
+DATE(<integer>, <integer>, <integer>) ***
+DATE(<timestamp>) ***
+DATE(<timestamp with local time zone>) ***
+DATE(<timestamp with local time zone>, <string>) ***
+#12a077f0ee4d24aaebf5d047d833d5cfd8f70b22
+
+CURRENT_TIMESTAMP
+#5c99b1be6d38a4133eb93b31f2d96552e0367780
+
+CURRENT_DATE
+#370dae438f70d3dcfb51b6e4edc99d4f4c85cec5
+
+LOCALTIME
+#8948e2bad09fba65092d1c165379c78aaf216f9b
+
+LOCALTIMESTAMP
+#71aa6fab0eeb77d88a492f48b30a08af59a4400f
+
+
+=== Aggregate Functions
+
+COUNT(*) ***
+COUNT(<any>) ***
+#6428a77e0f67d0385cefd8cf74a38a5258f50bc5
+
+SUM(<numeric>)
+#efd1f3668044875465914ad0b3280393a5dfcd30
+
+SUM0(<numeric>)
+#58120e3b049b859a24ada58f9bff2e2a32169007
+
+AVG(<numeric>)
+#dd7d36f6dd878180a7da740ba184928e4a7c5eee
+
+[internal]
+DECIMAL_DIVIDE(<numeric>, <numeric>)
+DECIMAL_DIVIDE(<datetime_interval>, <numeric>)
+#af80542a8aef07ba882479721da1ce4fc4307c21
+
+MIN(<comparable_type>)
+#71a98a5ab23c326060a8464b16f583266dbc9311
+
+MAX(<comparable_type>)
+#1a69ff7232a5faf133d19cc426094ead38fc884e
+
+ANY_VALUE(<any>)
+#7b0b8497c4f218c4268b95cf94b47481fe093958
+
+SINGLE_VALUE(<any>)
+#b454f7ac12dead652d1d09ed92cbb7e4c08761fd
+
+[internal]
+<any> FILTER <any>
+#b9102e525855e461ba8259fd7b7458d9699b513e
+
+EVERY(<boolean>)
+#41e6e59a37a487810a5f1dd045fc2eb7487937b2
+
+SOME(<boolean>)
+#014b53be23fc2009080420e94b78d52bf2b09dbd
+
+[internal]
+LITERAL_AGG()
+#6d021f1dd7329dc18c22767552769bc90f27b7ac
+
+
+=== Other Functions
+
+GREATEST(<equivalent_type>, <equivalent_type>)
+#eeb4ddc42ce93e1846138c0d9cd3cd75bef8a346
+
+LEAST(<equivalent_type>, <equivalent_type>)
+#b31238bde19843e513c899fc5b16eb81f00f477c
+
+CAST(<any> AS <type>) ***
+#77b6ca9302e03be11b2f841e86ed09cc8bf7372a
+
+::<any>::<type> ***
+#e4d5f3a78fed386a0bcb69bce11aa2ac07a1a681
+
+COALESCE(<equivalent_type>, <equivalent_type>, <...>)
+#1c7571cb858d2d7f9cf274dc69b3f2010ed5ac06
+
+NVL(<equivalent_type>, <equivalent_type>)
+#8a1861d474560165352c9eabe8581d3ccf305202
+
+NULLIF(<comparable_type>, <comparable_type>)
+#2453f1757e141385a1d8fb6852fff44ccdcb9b5c
+
+CASE(...) ***
+#f2c296a2d50563ce943603d832c8988c6c979642
+
+DECODE(...)
+#831832ff682eb07a1d3434faba909aa6d3fc0dc6
+
+LEAST(<equivalent_type>, <equivalent_type>, <...>)
+#db412c9e953bb629115588b098acc39c76d444e3
+
+GREATEST(<equivalent_type>, <equivalent_type>, <...>)
+#3de295eb8730d4a7a883fa8c2996df5f0a6c078a
+
+COMPRESS(<string>)
+#94758a84173af269b9e6121bda73e756fba6d38f
+
+[internal]
+DEFAULT()
+#75d3abefc3e2cc2b8de49022c0cede0cd95ac68d
+
+[internal]
+Reinterpret(<t1>) ***
+Reinterpret(<t1, t2>) ***
+#5edf91932ba5769cf9ab8a78968992c4591e8be1
+
+[internal]
+EXISTS <any>
+#c2a2db37f8a10aa29d84af9f2fdd53545b7ffdb7
+
+[internal]
+<any> NULLS FIRST
+#b3d64c31d107718583e6b1b8acf7ad6334accf6a
+
+[internal]
+<any> NULLS LAST
+#9c15430f544d7c72ea0fc7938884e1b786854efb
+
+[internal]
+<any> DESC
+#cd2aa6863ed54bd03d844b08664115655e7ae2e4
+
+TYPEOF(<any>)
+#85771dfef877b07351286b9f792f2ae2cd4a234d
+
+RAND_UUID()
+#65cdf1f80dfbcae58187ae522892dc36db31348b
+
+SYSTEM_RANGE(<numeric>, <numeric>)
+SYSTEM_RANGE(<numeric>, <numeric>, <numeric>)
+#492a2e07a2e03f3005595383e152f680245abd1a
+
+
+=== Regular Expression Functions
+
+<string> ~* <string>
+#afcadeb08a9ffdc7f8938de131c4a6637e0c2438
+
+<string> ~ <string>
+#5c11885edb9ee9a83966e9f7eceb5d92b5750d0f
+
+[internal]
+<string> NEGATED POSIX REGEX CASE INSENSITIVE <string>
+#c70064eb71c5c542447873f77d2515855b9f36e7
+
+[internal]
+<string> NEGATED POSIX REGEX CASE SENSITIVE <string>
+#18b256ec269fc21c7cdfb7a5faf22feea6a4b66d
+
+REGEXP_REPLACE(<string>, <string>)
+#88f28d4b1d0ff594ef97fe5d785416512cd2b98a
+
+REGEXP_REPLACE(<string>, <string>, <string>)
+#52f7e335b7ef72836136c6fbfebacbe687e69476
+
+REGEXP_REPLACE(<string>, <string>, <string>, <integer>)
+#ae8c7d822a831171e71f7dc5be5554c285dfc4b6
+
+REGEXP_REPLACE(<string>, <string>, <string>, <integer>, <integer>)
+REGEXP_REPLACE(<string>, <string>, <string>, <integer>, <string>)
+#9135fdd3e76b297ccbf1fe3eb7e81dddac827fa9
+
+REGEXP_REPLACE(<string>, <string>, <string>, <integer>, <integer>, <string>)
+#8e74cd8e83b06298708d5a0a439853e102bd49ed
+
+
+=== JSON Functions
+
+JSON_TYPE(<character>)
+#1beb46707838fa3f60f6a2547d3016570322b1ec
+
+<character> FORMAT JSON
+#80d1acc73023369bd0bff29eb273c5d2a931da91
+
+JSON_VALUE(json_doc, path [RETURNING type] [{NULL | ERROR | DEFAULT value} ON EMPTY] [{NULL | ERROR | DEFAULT value} ON ERROR])
+#93bd442e87a5f53e52fc9227291c7e3a97d3782b
+
+JSON_QUERY(<any> <character> RETURNING <any> <any> WRAPPER <any> ON EMPTY <any> ON ERROR)
+#31185ae83391a4700666220253cca898d2e33836
+
+JSON_TYPE(<any>)
+#8daf3ac25da544b79650f8876580b1254d9f158a
+
+JSON_EXISTS(json_doc, path [{TRUE | FALSE| UNKNOWN | ERROR} ON ERROR])
+#5d70fc4806439d5a6f659dc655f9b1474c275f0c
+
+JSON_DEPTH(<any>)
+#d86e9eb44144358bf5f7cd244c40adff47bf1ebf
+
+JSON_KEYS(<any>)
+JSON_KEYS(<any>, <character>)
+#0368edf948d8f301260685c2906e5f25c3d753db
+
+JSON_PRETTY(<any>)
+#3f53f2396d3c619a22b098a218a88d733bbbc4dc
+
+JSON_LENGTH(<any>)
+JSON_LENGTH(<any>, <character>)
+#cec6c4b633bc4f9c6bf711fab25b636e859a3308
+
+JSON_REMOVE(<any>, <character>, <character>...)
+#03e7f07eb24a97187bbfff26f4a1772d43fe2f03
+
+JSON_STORAGE_SIZE(<any>)
+#a1f51e3b229aea872e1d36e5bf72f8d680da1c6f
+
+JSON_OBJECT(<character> : <any>, ...) ***
+JSON_OBJECT(KEY <character>, VALUE <any>, ...) ***
+#47d8e1c30af6865d8c39e1e8f03d8ab98ad0cf44
+
+JSON_ARRAY(...)
+#10d454c03c303858b24b0f85c328654d4c26f038
+
+<character> IS JSON VALUE
+#429449564ac2d23e05474abd10f8fedf68f8257d
+
+<character> IS JSON OBJECT
+#41de3a63cf16008f881f2dadbff48b56310ba7bc
+
+<character> IS JSON ARRAY
+#ad6d316122d228411e2ff1a0baf354519d2fcb86
+
+<character> IS JSON SCALAR
+#7422f5ae4031167d0cf179c1816c1ccdc5d7e42a
+
+[internal]
+<character> IS NOT JSON VALUE
+#d4057b7a18da95722a17ab11b4b86caa681df63b
+
+[internal]
+<character> IS NOT JSON OBJECT
+#22b07102150277f40676ca24a11f385df3b44a88
+
+[internal]
+<character> IS NOT JSON ARRAY
+#428e9e7904234c9d78b72d0786398122fd4e1575
+
+[internal]
+<character> IS NOT JSON SCALAR
+#f8502818b4a9746a40e73f64eeb3a27f2ae51b46
+
+
+=== XML Functions
+
+EXTRACTVALUE(<string>, <string>)
+#db3797fd68661d2b574c763b0c81eb85f8fdeecb
+
+XMLTRANSFORM(<string>, <string>)
+#cea0989d0e701f8f200f34006b0bc3269dac556f
+
+EXTRACT(<string>, <string>, <string>)
+#8e2004af04aa75a7e8a260ddbc095f2de2540bc3
+
+EXISTSNODE(<string>, <string>, <string>)
+#fc8c57d6fe872dafbe6e49ab284f8fb1d146d4ee
+
+
+=== Collection Functions
+
+ROW(...)
+#b25caf95375750e2988f59f1d4aa95a3ad4bab22
+
+MAP(...)
+#6138fe1341443c9697831db0b65aee024ee79eb9
+
+ARRAY(...)
+#2764fbb90ebc0086c5f21a9d5002ea938c4f071d
+
+array[<integer>] ***
+map[<character>] ***
+struct[<integer> | <character>] ***
+#05dc76969524f84acdb6a082b50be9f7bbeeaf66
+
+CARDINALITY(<multiset>)
+CARDINALITY(<array>)
+CARDINALITY(<map>)
+#7a620f546b3f9f9f6c4091d16bc5a078565de917
+
+<multiset> IS EMPTY
+<array> IS EMPTY
+<map> IS EMPTY
+#c5bb1c286999803586ebddaeec36b606047f6f4b
+
+[internal]
+<multiset> IS NOT EMPTY
+<array> IS NOT EMPTY
+<map> IS NOT EMPTY
+#15498eeb5ac9759934107b5f22044e202618f661
+
+
+=== Logical Operators
+
+<boolean> AND <boolean>
+#5a169a211bd578118d54c3e38d595e7d460d9100
+
+<boolean> OR <boolean>
+#a1f8e63a37fcdf60efb5a240f7dbb8b1f9fb1ca6
+
+NOT <boolean>
+#e47a5c93eca6ccfd34418ec569f99e32456b1d0a
+
+<comparable_type> < <comparable_type>
+#45e427f8a3a9eb52c3160b06a747a9ac6dfe888f
+
+<comparable_type> <= <comparable_type>
+#8120fdbfab491a0dea77087cd01978042a51b582
+
+<comparable_type> > <comparable_type>
+#7d355e5456a4b8fa188742575d071a7c7d3f4ae8
+
+<comparable_type> >= <comparable_type>
+#143a9f874b3e9aac2ce48adbd3f65b579d707c47
+
+<comparable_type> = <comparable_type>
+#48013a1d6b676b3d1d75661d85e0d73193df3f39
+
+<comparable_type> <> <comparable_type>
+#57da1ed3112aaf29752b6a86fbce274da0dab963
+
+BETWEEN <comparable_type> AND <comparable_type> ***
+#7280938274e912f70ec2bcac365f69e0ec98d6d1
+
+[internal]
+NOT BETWEEN <comparable_type> AND <comparable_type> ***
+#7228a33372495c589d32efb7e851e0f984f8bb57
+
+<numeric> + <numeric>
+<datetime_interval> + <datetime_interval>
+<datetime> + <datetime_interval>
+<datetime_interval> + <datetime>
+#5cbf02ad6524061e6fc5f6eccdf19470c378ae53
+
+<numeric> - <numeric>
+<datetime_interval> - <datetime_interval>
+<datetime> - <datetime_interval>
+#cc97d9a6dfad77a428d6734943414685e8aa7fc9
+
+<numeric> * <numeric>
+<datetime_interval> * <numeric>
+<numeric> * <datetime_interval>
+#198e67fb8340698310ae7a427ea4669f92c4eaf5
+
+<numeric> / <numeric>
+<datetime_interval> / <numeric>
+#3c153a5785d7bb4d1c669e5d404febdb71394a86
+
+[internal]
+<numeric> /INT <numeric>
+<datetime_interval> /INT <numeric>
+#165d343af27079bf273224b828c4640ea67c8fcc
+
+<exact_numeric> % <exact_numeric>
+#c1021948f005aa37149800f690a4f6dca3088bb0
+
+- <numeric>
+- <datetime_interval>
+#7004dce4e24ff3db2cde54a43950f4bfa8459f77
+
++ <numeric>
++ <datetime_interval>
+#832cc5ca2ccff909e00990586094725cf9166fe6
+
+<any> IS NULL
+#188e12d5a065c6027f59e0a56638a06550ca09ad
+
+<any> IS NOT NULL
+#211a8725dca171f42d723765e25aebb6971ff78a
+
+<boolean> IS TRUE
+#44a4350079b74a9e7bea61a87c11424d657ef1b5
+
+<boolean> IS NOT TRUE
+#b5efd7a32bca576b0dba63fe566cd783632dd1ab
+
+<boolean> IS FALSE
+#0191ed297b54f37c95bc8d58718fb3b898bcf6ce
+
+<boolean> IS NOT FALSE
+#39fa03822b1ec4dbd7581ed296dbfed814a10924
+
+<comparable_type> IS DISTINCT FROM <comparable_type>
+#d34c3c44e2e46532abe0291326ecd4a9295bd004
+
+<comparable_type> IS NOT DISTINCT FROM <comparable_type>
+#1bde145ae83ee670d8d4fd00bc87c6d0c8002263

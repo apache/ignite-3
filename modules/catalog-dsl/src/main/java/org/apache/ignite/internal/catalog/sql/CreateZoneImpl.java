@@ -22,29 +22,33 @@ import static org.apache.ignite.internal.catalog.sql.QueryPartCollection.partsLi
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.sql.IgniteSql;
 
-class CreateZoneImpl extends AbstractCatalogQuery {
+class CreateZoneImpl extends AbstractCatalogQuery<Name> {
     private Name zoneName;
 
     private boolean ifNotExists;
 
-    private final List<WithOption> withOptions = new ArrayList<>();
+    private final List<Option> withOptions = new ArrayList<>();
 
     /**
      * Constructor for internal usage.
      *
      * @see CreateFromAnnotationsImpl
      */
-    CreateZoneImpl(IgniteSql sql, Options options) {
-        super(sql, options);
+    CreateZoneImpl(IgniteSql sql) {
+        super(sql);
     }
 
-    CreateZoneImpl name(String... names) {
-        Objects.requireNonNull(names, "Zone name must not be null.");
+    @Override
+    protected Name result() {
+        return zoneName;
+    }
 
-        this.zoneName = new Name(names);
+    CreateZoneImpl name(String name) {
+        Objects.requireNonNull(name, "Zone name must not be null.");
+
+        this.zoneName = Name.simple(name);
         return this;
     }
 
@@ -56,21 +60,28 @@ class CreateZoneImpl extends AbstractCatalogQuery {
     CreateZoneImpl replicas(Integer n) {
         Objects.requireNonNull(n, "Replicas count must not be null.");
 
-        withOptions.add(WithOption.replicas(n));
+        withOptions.add(Option.replicas(n));
+        return this;
+    }
+
+    CreateZoneImpl quorumSize(Integer n) {
+        Objects.requireNonNull(n, "Quorum size must not be null.");
+
+        withOptions.add(Option.quorumSize(n));
         return this;
     }
 
     CreateZoneImpl partitions(Integer n) {
         Objects.requireNonNull(n, "Partitions must not be null.");
 
-        withOptions.add(WithOption.partitions(n));
+        withOptions.add(Option.partitions(n));
         return this;
     }
 
-    CreateZoneImpl affinity(String affinity) {
-        Objects.requireNonNull(affinity, "Affinity function must not be null.");
+    CreateZoneImpl distributionAlgorithm(String distributionAlgorithm) {
+        Objects.requireNonNull(distributionAlgorithm, "Partition distribution algorithm must not be null.");
 
-        withOptions.add(WithOption.affinity(affinity));
+        withOptions.add(Option.distributionAlgorithm(distributionAlgorithm));
         return this;
     }
 
@@ -80,36 +91,51 @@ class CreateZoneImpl extends AbstractCatalogQuery {
                 "Timeout between node added or node left topology event itself and data nodes switch must not be null."
         );
 
-        withOptions.add(WithOption.dataNodesAutoAdjust(adjust));
+        withOptions.add(Option.dataNodesAutoAdjust(adjust));
         return this;
     }
 
     CreateZoneImpl dataNodesAutoAdjustScaleUp(Integer adjust) {
         Objects.requireNonNull(adjust, "Timeout between node added topology event itself and data nodes switch must not be null.");
 
-        withOptions.add(WithOption.dataNodesAutoAdjustScaleUp(adjust));
+        withOptions.add(Option.dataNodesAutoAdjustScaleUp(adjust));
         return this;
     }
 
     CreateZoneImpl dataNodesAutoAdjustScaleDown(Integer adjust) {
         Objects.requireNonNull(adjust, "Timeout between node left topology event itself and data nodes switch must not be null.");
 
-        withOptions.add(WithOption.dataNodesAutoAdjustScaleDown(adjust));
+        withOptions.add(Option.dataNodesAutoAdjustScaleDown(adjust));
         return this;
     }
 
     CreateZoneImpl filter(String filter) {
         Objects.requireNonNull(filter, "Filter must not be null.");
 
-        withOptions.add(WithOption.filter(filter));
+        withOptions.add(Option.filter(filter));
         return this;
     }
 
     CreateZoneImpl storageProfiles(String storageProfiles) {
         Objects.requireNonNull(storageProfiles, "Storage profiles must not be null");
 
-        withOptions.add(WithOption.storageProfiles(storageProfiles));
+        withOptions.add(Option.storageProfiles(storageProfiles));
         return this;
+    }
+
+    CreateZoneImpl consistencyMode(String consistencyMode) {
+        Objects.requireNonNull(consistencyMode, "Consistency mode must not be null");
+
+        if (!isValidConsistencyMode(consistencyMode)) {
+            throw new IllegalArgumentException("Invalid consistency mode: " + consistencyMode);
+        }
+
+        withOptions.add(Option.consistencyMode(consistencyMode));
+        return this;
+    }
+
+    private static boolean isValidConsistencyMode(String consistencyMode) {
+        return "HIGH_AVAILABILITY".equals(consistencyMode) || "STRONG_CONSISTENCY".equals(consistencyMode);
     }
 
     @Override
@@ -121,8 +147,8 @@ class CreateZoneImpl extends AbstractCatalogQuery {
         ctx.visit(zoneName);
 
         if (!withOptions.isEmpty()) {
-            ctx.sql(" ").formatSeparator().sql("WITH ");
-            ctx.visit(partsList(withOptions).formatSeparator());
+            ctx.sql(" ").sql("WITH ");
+            ctx.visit(partsList(withOptions));
         }
 
         ctx.sql(";");

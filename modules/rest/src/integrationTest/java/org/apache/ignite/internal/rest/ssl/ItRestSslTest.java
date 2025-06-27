@@ -41,22 +41,19 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
-import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.rest.RestNode;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for the REST SSL configuration. */
-public class ItRestSslTest extends IgniteIntegrationTest {
-
-    /** HTTP port of the test node. */
-    private static final int httpPort = 10300;
-
-    /** HTTPS port of the test node. */
-    private static final int httpsPort = 10400;
+@ExtendWith(WorkDirectoryExtension.class)
+public class ItRestSslTest extends BaseIgniteAbstractTest {
 
     /** Trust store path. */
     private static final String trustStorePath = "ssl/truststore.jks";

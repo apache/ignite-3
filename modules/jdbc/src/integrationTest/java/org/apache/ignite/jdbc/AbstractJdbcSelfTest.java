@@ -17,57 +17,35 @@
 
 package org.apache.ignite.jdbc;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
 
 /**
  * Abstract jdbc self test.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
-    private static final int TEST_PORT = 47500;
-
+public class AbstractJdbcSelfTest extends ClusterPerClassIntegrationTest {
     /** URL. */
     protected static final String URL = "jdbc:ignite:thin://127.0.0.1:10800";
-
-    /** Work directory. */
-    @WorkDirectory
-    private static Path WORK_DIR;
-
-    /** Cluster nodes. */
-    protected static final List<Ignite> clusterNodes = new ArrayList<>();
+    /** Default schema. */
+    protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
     /** Connection. */
     protected static Connection conn;
@@ -75,53 +53,38 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     /** Statement. */
     protected Statement stmt;
 
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
     /**
-     * Creates a cluster of three nodes.
+     * Opens the connection.
 
      * @param testInfo Test info.
      */
     @BeforeAll
     public static void beforeAllBase(TestInfo testInfo) throws Exception {
-        String nodeName = testNodeName(testInfo, TEST_PORT);
-
-        CompletableFuture<Ignite> future = TestIgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
-
-        InitParameters initParameters = InitParameters.builder()
-                .destinationNodeName(nodeName)
-                .metaStorageNodeNames(List.of(nodeName))
-                .clusterName("cluster")
-                .build();
-
-        TestIgnitionManager.init(initParameters);
-
-        assertThat(future, willCompleteSuccessfully());
-
-        clusterNodes.add(future.join());
-
         conn = DriverManager.getConnection(URL);
 
-        conn.setSchema("PUBLIC");
+        conn.setSchema(DEFAULT_SCHEMA);
     }
 
     /**
-     * Close all cluster nodes.
+     * Closes the connection.
      *
      * @throws Exception if failed.
      */
     @AfterAll
     public static void afterAllBase(TestInfo testInfo) throws Exception {
-        closeAll(
-                conn != null && !conn.isClosed() ? conn : null,
-                () -> IgnitionManager.stop(testNodeName(testInfo, TEST_PORT))
-        );
-
+        conn.close();
         conn = null;
-        clusterNodes.clear();
     }
 
     @BeforeEach
     protected void setUpBase() throws Exception {
         conn.setAutoCommit(true);
+        conn.setSchema(DEFAULT_SCHEMA);
 
         stmt = conn.createStatement();
 
@@ -176,7 +139,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
 
     /** Return a size of stored resources. Reflection based implementation, need to be refactored. */
     int openResources() {
-        IgniteImpl ignite = (IgniteImpl) clusterNodes.get(0);
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
         IgniteComponent cliHnd = IgniteTestUtils.getFieldValue(ignite, "clientHandlerModule");
         Object clientInboundHandler = IgniteTestUtils.getFieldValue(cliHnd, "handler");
         Object rsrc = IgniteTestUtils.getFieldValue(clientInboundHandler, "resources");
@@ -186,7 +149,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
 
     /** Returns a size of opened cursors. */
     int openCursors() {
-        IgniteImpl ignite = (IgniteImpl) clusterNodes.get(0);
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
         SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
         return queryProcessor.openedCursors();
     }

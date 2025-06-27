@@ -17,11 +17,19 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.BaseLogStorageTest;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /** Shared log storage test. */
 public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
@@ -33,8 +41,7 @@ public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
     @Override
     public void setup() throws Exception {
         logStorageProvider = new DefaultLogStorageFactory(this.path);
-
-        logStorageProvider.start();
+        assertThat(logStorageProvider.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.setup();
     }
@@ -45,12 +52,31 @@ public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
     public void teardown() {
         super.teardown();
 
-        logStorageProvider.close();
+        assertThat(logStorageProvider.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /** {@inheritDoc} */
     @Override
     protected LogStorage newLogStorage() {
-        return logStorageProvider.createLogStorage("test", new RaftOptions());
+        return logStorageProvider.createLogStorage(uri(), new RaftOptions());
+    }
+
+    private static String uri() {
+        return "test";
+    }
+
+    @Test
+    public void destroysData() {
+        logStorage.appendEntries(TestUtils.mockEntries(15));
+        logStorage.shutdown();
+
+        logStorageProvider.destroyLogStorage(uri());
+
+        logStorage = newLogStorage();
+        logStorage.init(newLogStorageOptions());
+
+        assertThat(logStorage.getFirstLogIndex(), is(1L));
+        assertThat(logStorage.getLastLogIndex(), is(0L));
+        assertThat(logStorage.getEntry(1), is(nullValue()));
     }
 }

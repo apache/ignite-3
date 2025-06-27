@@ -20,11 +20,10 @@ package org.apache.ignite.internal.cli.commands.sql;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
@@ -46,17 +45,22 @@ import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
+import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
-import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.Repl;
+import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
 import org.apache.ignite.internal.util.StringUtils;
+import org.apache.ignite.rest.client.api.ClusterManagementApi;
+import org.apache.ignite.rest.client.invoker.ApiException;
 import org.jline.reader.EOFError;
 import org.jline.reader.Highlighter;
 import org.jline.reader.LineReader;
@@ -77,8 +81,7 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlReplCommand extends BaseCommand implements Runnable {
-    @Option(names = {JDBC_URL_OPTION, JDBC_URL_OPTION_SHORT}, required = true,
-            descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
+    @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
@@ -91,8 +94,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
         @Parameters(index = "0", description = "SQL query to execute", defaultValue = Option.NULL_VALUE)
         private String command;
 
-        @Option(names = {SCRIPT_FILE_OPTION, SCRIPT_FILE_OPTION_SHORT}, description = SCRIPT_FILE_OPTION_SHORT,
-                defaultValue = Option.NULL_VALUE)
+        @Option(names = SCRIPT_FILE_OPTION, description = SCRIPT_FILE_OPTION_DESC, defaultValue = Option.NULL_VALUE)
         private File file;
     }
 
@@ -100,10 +102,13 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     private ReplExecutorProvider replExecutorProvider;
 
     @Inject
-    private EventListeningActivationPoint eventListeningActivationPoint;
+    private ConfigManagerProvider configManagerProvider;
 
     @Inject
-    private ConfigManagerProvider configManagerProvider;
+    private Session session;
+
+    @Inject
+    private ApiClientFactory clientFactory;
 
     private static String extract(File file) {
         try {
@@ -135,17 +140,26 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                         .withHistoryFileName("sqlhistory")
                         .withAutosuggestionsWidgets()
                         .withHighlighter(highlightingEnabled() ? new HighlighterImpl() : new DefaultHighlighter())
-                        .withEventSubscriber(eventListeningActivationPoint)
                         .withParser(multilineSupported() ? new MultilineParser() : new DefaultParser())
                         .build());
             } else {
                 String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
-                if (executeCommand != null) {
-                    createSqlExecPipeline(sqlManager, executeCommand).runPipeline();
-                }
+                createSqlExecPipeline(sqlManager, executeCommand).runPipeline();
             }
         } catch (SQLException e) {
-            new SqlExceptionHandler().handle(ExceptionWriter.fromPrintWriter(spec.commandLine().getErr()), e);
+            String url = session.info() == null ? null : session.info().nodeUrl();
+
+            ExceptionWriter exceptionWriter = ExceptionWriter.fromPrintWriter(spec.commandLine().getErr());
+            try {
+                if (url != null) {
+                    new ClusterManagementApi(clientFactory.getClient(url)).clusterState();
+                }
+
+                SqlExceptionHandler.INSTANCE.handle(exceptionWriter, e);
+            } catch (ApiException apiE) {
+                new ClusterNotInitializedExceptionHandler("Failed to start sql repl mode", "cluster init")
+                        .handle(exceptionWriter, new IgniteCliApiException(apiE, url));
+            }
         }
     }
 
@@ -160,21 +174,19 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     /**
      * Multiline parser, expects ";" at the end of the line.
      */
-    static final class MultilineParser implements Parser {
+    private static final class MultilineParser implements Parser {
 
         private static final Parser DEFAULT_PARSER = new DefaultParser();
 
         @Override
         public ParsedLine parse(String line, int cursor, Parser.ParseContext context) throws SyntaxError {
-            if ((Parser.ParseContext.UNSPECIFIED.equals(context) || Parser.ParseContext.ACCEPT_LINE.equals(context))
+            if ((ParseContext.UNSPECIFIED == context || ParseContext.ACCEPT_LINE == context)
                     && !line.trim().endsWith(";")) {
                 throw new EOFError(-1, cursor, "Missing semicolon (;)");
             }
 
             return DEFAULT_PARSER.parse(line, cursor, context);
         }
-
-        MultilineParser() {}
     }
 
     private static class HighlighterImpl implements Highlighter {
@@ -186,12 +198,10 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
 
         @Override
         public void setErrorPattern(Pattern pattern) {
-
         }
 
         @Override
         public void setErrorIndex(int i) {
-
         }
     }
 
@@ -208,6 +218,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                 .errOutput(spec.commandLine().getErr())
                 .decorator(new SqlQueryResultDecorator(plain))
                 .verbose(verbose)
+                .exceptionHandler(SqlExceptionHandler.INSTANCE)
                 .build();
     }
 

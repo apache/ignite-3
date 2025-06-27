@@ -22,11 +22,9 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.FirstConfiguration.KEY;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -278,7 +276,7 @@ public class ConfigurationChangerTest {
 
         CompletableFuture<Map<String, ? extends Serializable>> dataFuture = storage.readDataOnRecovery().thenApply(Data::values);
 
-        assertThat(dataFuture, willBe(anEmptyMap()));
+        assertThat(dataFuture, willCompleteSuccessfully());
 
         FirstView newRoot = (FirstView) changer.getRootNode(KEY);
         assertNotNull(newRoot.child());
@@ -506,8 +504,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
-
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("test0"))).get(1, SECONDS);
@@ -559,8 +555,6 @@ public class ConfigurationChangerTest {
 
         changer.start();
 
-        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
-
         assertEquals(1, storage.lastRevision().get(1, SECONDS));
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> {})).get(1, SECONDS);
@@ -590,7 +584,7 @@ public class ConfigurationChangerTest {
         assertArrayEquals(new String[]{"bar"}, root.child().arr());
     }
 
-    private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {
+    private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET, CHANGET> rootKey, Consumer<CHANGET> changer) {
         return new ConfigurationSource() {
             @Override
             public void descend(ConstructableTreeNode node) {
@@ -606,8 +600,7 @@ public class ConfigurationChangerTest {
         };
     }
 
-    private ConfigurationChanger createChanger(RootKey<?, ?> rootKey) {
-
+    private ConfigurationChanger createChanger(RootKey<?, ?, ?> rootKey) {
         return new TestConfigurationChanger(
                 List.of(rootKey),
                 storage,

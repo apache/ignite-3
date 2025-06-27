@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -25,6 +25,8 @@ import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -133,6 +135,16 @@ public interface MetaStorageService extends ManuallyCloseable {
     CompletableFuture<Void> removeAll(Set<ByteArray> keys);
 
     /**
+     * Removes entries by given prefix.
+     *
+     * @param prefix Prefix to remove keys by. Couldn't be {@code null}.
+     * @return Future that completes successfully when keys with given prefix are deleted or with {@link OperationTimeoutException}.
+     * @see ByteArray
+     * @see Entry
+     */
+    CompletableFuture<Void> removeByPrefix(ByteArray prefix);
+
+    /**
      * Updates an entry for the given key conditionally.
      *
      * <p>Conditional update could be treated as <i>if(condition)-then(success)-else(failure)</i> expression.</p>
@@ -164,7 +176,7 @@ public interface MetaStorageService extends ManuallyCloseable {
      * @see Condition
      * @see Operation
      */
-    CompletableFuture<Boolean> invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
+    CompletableFuture<Boolean> invoke(Condition condition, List<Operation> success, List<Operation> failure);
 
     /**
      * Invoke, which supports nested conditional statements. For detailed docs about construction of new if statement, look at {@link Iif}
@@ -248,16 +260,13 @@ public interface MetaStorageService extends ManuallyCloseable {
      */
     Publisher<Entry> prefix(ByteArray prefix, long revUpperBound);
 
-    /**
-     * Compacts meta storage (removes all tombstone entries and old entries except of entries with latest revision).
-     *
-     * @return Completed future. Couldn't be {@code null}.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     */
-    CompletableFuture<Void> compact();
+    /** Returns a future which will hold {@link RevisionsInfo current revisions} of the metastorage leader. */
+    CompletableFuture<RevisionsInfo> currentRevisions();
 
     /**
-     * Returns a future which will hold current revision of the metastorage leader.
+     * Returns information about a revision checksum on the leader.
+     *
+     * @param revision Revision of interest.
      */
-    CompletableFuture<Long> currentRevision();
+    CompletableFuture<ChecksumInfo> checksum(long revision);
 }

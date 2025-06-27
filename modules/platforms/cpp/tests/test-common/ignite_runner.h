@@ -20,6 +20,8 @@
 #include "cmd_process.h"
 #include "test_utils.h"
 
+#include "ignite/common/detail/utils.h"
+
 #include <chrono>
 #include <string_view>
 
@@ -28,13 +30,15 @@ namespace ignite {
 /**
  * Represents ignite_runner process.
  *
- * ignite_runner is started from command line. It is recommended to re-use
+ * ignite_runner is started from the command line. It is recommended to re-use
  * the same ignite_runner as much as possible to make tests as quick as possible.
  */
 class ignite_runner {
 public:
-    static inline std::vector<std::string> SINGLE_NODE_ADDR = {"127.0.0.1:10942"};
-    static inline std::vector<std::string> NODE_ADDRS = {"127.0.0.1:10942", "127.0.0.1:10943"};
+    static std::vector<std::string> SINGLE_NODE_ADDR;
+    static std::vector<std::string> NODE_ADDRS;
+    static std::vector<std::string> SSL_NODE_ADDRS;
+    static std::vector<std::string> SSL_NODE_CA_ADDRS;
 
     /**
      * Destructor.
@@ -52,7 +56,7 @@ public:
     void stop();
 
     /**
-     * Join node process.
+     * Join a node process.
      *
      * @param timeout Timeout.
      */
@@ -63,7 +67,7 @@ public:
      *
      * @return @c true if tests run in single node mode.
      */
-    static bool single_node_mode() { return ignite::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value(); }
+    static bool single_node_mode() { return ignite::detail::get_env("IGNITE_CPP_TESTS_USE_SINGLE_NODE").has_value(); }
 
     /**
      * Get node addresses to use for tests.
@@ -76,6 +80,20 @@ public:
 
         return NODE_ADDRS;
     }
+
+    /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::vector<std::string> get_ssl_node_addrs() { return SSL_NODE_ADDRS; }
+
+    /**
+     * Get node addresses to use for tests.
+     *
+     * @return Addresses.
+     */
+    static std::vector<std::string> get_ssl_node_ca_addrs() { return SSL_NODE_CA_ADDRS; }
 
 private:
     /** Underlying process. */

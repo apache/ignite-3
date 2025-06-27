@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.binarytuple;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
@@ -99,5 +101,26 @@ public class BinaryTupleCommon {
         }
 
         throw new IgniteInternalException("Too big binary tuple size");
+    }
+
+    /**
+     * Converts specified {@link BigDecimal} value to a more compact form, if possible.
+     *
+     * @param value Field value.
+     * @param scale Maximum scale.
+     * @return Decimal with a scale reduced to the specified scale and trimmed trailing zeros.
+     */
+    public static BigDecimal shrinkDecimal(BigDecimal value, int scale) {
+        if (value.scale() > scale) {
+            value = value.setScale(scale, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal noZeros = value.stripTrailingZeros();
+        if (noZeros.scale() <= Short.MAX_VALUE && noZeros.scale() >= Short.MIN_VALUE) {
+            // Use more compact representation if possible.
+            return noZeros;
+        }
+
+        return value;
     }
 }

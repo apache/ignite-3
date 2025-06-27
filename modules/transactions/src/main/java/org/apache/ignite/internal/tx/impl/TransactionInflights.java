@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.util.CompletableFutures.allOf;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
@@ -35,12 +35,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
+import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionResult;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -121,43 +121,43 @@ public class TransactionInflights {
         txCtxMap.keySet().removeAll(txIds);
     }
 
-    void cancelWaitingInflights(TablePartitionId groupId) {
+    void cancelWaitingInflights(ReplicationGroupId groupId) {
         for (Map.Entry<UUID, TxContext> ctxEntry : txCtxMap.entrySet()) {
             if (ctxEntry.getValue() instanceof ReadWriteTxContext) {
                 ReadWriteTxContext txContext = (ReadWriteTxContext) ctxEntry.getValue();
 
                 if (txContext.isTxFinishing()) {
-                    IgniteBiTuple<ClusterNode, Long> nodeAndToken = txContext.enlistedGroups.get(groupId);
+                    PendingTxPartitionEnlistment enlistment = txContext.enlistedGroups.get(groupId);
 
-                    if (nodeAndToken != null) {
-                        txContext.cancelWaitingInflights(groupId, nodeAndToken.get2());
+                    if (enlistment != null) {
+                        txContext.cancelWaitingInflights(groupId, enlistment.consistencyToken());
                     }
                 }
             }
         }
     }
 
-    void markReadOnlyTxFinished(UUID txId) {
+    void markReadOnlyTxFinished(UUID txId, boolean timeoutExceeded) {
         txCtxMap.compute(txId, (k, ctx) -> {
             if (ctx == null) {
-                ctx = new ReadOnlyTxContext();
+                ctx = new ReadOnlyTxContext(timeoutExceeded);
             }
 
-            ctx.finishTx(null);
+            ctx.finishTx(null, timeoutExceeded);
 
             return ctx;
         });
     }
 
-    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+    ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
-                tuple0 = new ReadWriteTxContext(placementDriver, clockService); // No writes enlisted.
+                tuple0 = new ReadWriteTxContext(placementDriver, clockService, false); // No writes enlisted.
             }
 
             assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
 
-            tuple0.finishTx(enlistedGroups);
+            tuple0.finishTx(enlistedGroups, false);
 
             return tuple0;
         });
@@ -185,15 +185,33 @@ public class TransactionInflights {
 
         abstract void onInflightsRemoved();
 
-        abstract void finishTx(@Nullable Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups);
+        abstract void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded);
 
         abstract boolean isTxFinishing();
 
         abstract boolean isReadyToFinish();
+
+        abstract boolean isTimeoutExceeded();
     }
 
+    /**
+     * Transaction inflights for read-only transactions are needed because of different finishing protocol which doesn't directly close
+     * transaction resources (cursors, etc.). The finish of read-only transaction is a local operation, which is followed by the resources
+     * vacuum that is made in background, see {@link FinishedReadOnlyTransactionTracker}. Before sending
+     * {@link FinishedTransactionsBatchMessage}, the trackers needs to be sure that all operations (i.e. inflights) of the corresponding
+     * transaction are finished.
+     */
     private static class ReadOnlyTxContext extends TxContext {
         private volatile boolean markedFinished;
+        private volatile boolean timeoutExceeded;
+
+        ReadOnlyTxContext() {
+            // No-op.
+        }
+
+        ReadOnlyTxContext(boolean timeoutExceeded) {
+            this.timeoutExceeded = timeoutExceeded;
+        }
 
         @Override
         public void onInflightsRemoved() {
@@ -201,7 +219,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(@Nullable Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        public void finishTx(@Nullable Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded) {
             markedFinished = true;
         }
 
@@ -216,6 +234,11 @@ public class TransactionInflights {
         }
 
         @Override
+        boolean isTimeoutExceeded() {
+            return timeoutExceeded;
+        }
+
+        @Override
         public String toString() {
             return "ReadOnlyTxContext [inflights=" + inflights + ']';
         }
@@ -225,12 +248,18 @@ public class TransactionInflights {
         private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
         private final PlacementDriver placementDriver;
         private volatile CompletableFuture<Void> finishInProgressFuture = null;
-        private volatile Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
-        private ClockService clockService;
+        private volatile Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups;
+        private final ClockService clockService;
+        private volatile boolean timeoutExceeded;
 
         private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService) {
+            this(placementDriver, clockService, false);
+        }
+
+        private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService, boolean timeoutExceeded) {
             this.placementDriver = placementDriver;
             this.clockService = clockService;
+            this.timeoutExceeded = timeoutExceeded;
         }
 
         CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
@@ -258,7 +287,7 @@ public class TransactionInflights {
                 Throwable unwrappedReadyToFinishException = unwrapCause(readyToFinishException);
 
                 if (commit && unwrappedReadyToFinishException instanceof PrimaryReplicaExpiredException) {
-                    finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeException(
+                    finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeInternalException(
                             TX_PRIMARY_REPLICA_EXPIRED_ERR,
                             "Failed to commit the transaction.",
                             new TransactionResult(ABORTED, null),
@@ -278,12 +307,12 @@ public class TransactionInflights {
 
                 int cntr = 0;
 
-                for (Map.Entry<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> e : enlistedGroups.entrySet()) {
+                for (Map.Entry<ReplicationGroupId, PendingTxPartitionEnlistment> e : enlistedGroups.entrySet()) {
                     futures[cntr++] = placementDriver.getPrimaryReplica(e.getKey(), now)
                             .thenApply(replicaMeta -> {
-                                Long enlistmentConsistencyToken = e.getValue().get2();
+                                long enlistmentConsistencyToken = e.getValue().consistencyToken();
 
-                                if (replicaMeta == null || !enlistmentConsistencyToken.equals(replicaMeta.getStartTime().longValue())) {
+                                if (replicaMeta == null || enlistmentConsistencyToken != replicaMeta.getStartTime().longValue()) {
                                     return failedFuture(new PrimaryReplicaExpiredException(e.getKey(), enlistmentConsistencyToken, null,
                                             replicaMeta));
                                 }
@@ -292,7 +321,7 @@ public class TransactionInflights {
                             });
                 }
 
-                return allOf(futures)
+                return allOfToList(futures)
                         .thenCompose(unused -> waitNoInflights());
             } else {
                 return nullCompletedFuture();
@@ -306,7 +335,7 @@ public class TransactionInflights {
             return waitRepFut;
         }
 
-        void cancelWaitingInflights(TablePartitionId groupId, Long enlistmentConsistencyToken) {
+        void cancelWaitingInflights(ReplicationGroupId groupId, long enlistmentConsistencyToken) {
             waitRepFut.completeExceptionally(new PrimaryReplicaExpiredException(groupId, enlistmentConsistencyToken, null, null));
         }
 
@@ -318,8 +347,9 @@ public class TransactionInflights {
         }
 
         @Override
-        public void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        public void finishTx(Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups, boolean timeoutExceeded) {
             this.enlistedGroups = enlistedGroups;
+            this.timeoutExceeded = timeoutExceeded;
             finishInProgressFuture = new CompletableFuture<>();
         }
 
@@ -331,6 +361,11 @@ public class TransactionInflights {
         @Override
         public boolean isReadyToFinish() {
             return waitRepFut.isDone();
+        }
+
+        @Override
+        boolean isTimeoutExceeded() {
+            return timeoutExceeded;
         }
 
         @Override

@@ -82,7 +82,7 @@ the same configuration change more than once since only one update will be appli
 ## Reliable watch processing
 All cluster state is written and maintained in the metastorage. Nodes may update some state in the metastorage, which
 may require a recomputation of some other metastorage properties (for example, when cluster baseline changes, Ignite
-needs to recalculate table affinity assignments). In other words, some properties in the metastore are dependent on each
+needs to recalculate table partition assignments). In other words, some properties in the metastore are dependent on each
 other and we may need to reliably update one property in response to an update to another.
 
 To facilitate this pattern, Ignite uses the metastorage ability to replay metastorage changes from a certain revision
@@ -106,64 +106,6 @@ reliable watch processing:
 
 In a case of a crash, each watch is restared from the revision stored in the corresponding ``applied revision`` variable
 of the watch, and not processed events are replayed.
-
-### Example: `CREATE TABLE` flow
-We require that each Ignite table is assigned a globally unique ID (the ID must not repeat even after the table is 
-dropped, so we use the metastorage key revision to assign table IDs).
-
-To create a table, a user makes a change in the configuration tree by introducing the corresponding configuration 
-object. This can be done either via public [configuration API](TODO link to configuration API) or via the ``ignite`` 
-[configuration command](TODO link to CLI readme). Configuration validator checks that a table with the same name does
-not exist (and performs other necessary checks) and writes the change to the metastorage. If the update succeeds, Ignite
-considers the table created and completes user call.
-
-After the configuration change is applied, the table manager receives configuration change notification (essentially, 
-a transformed watch) on metastorage group nodes. Table manager uses configuration keys update counters (not revision)
-as table IDs and attempts to create the following keys (updating the ``internal.configuration.applied`` key as was 
-described above): 
-
-```
-internal.tables.<ID>=<name>
-```  
-
-In order to process affinity calculations and assignments, the affinity manager creates a reliable watch for the 
-following keys on metastorage group members:
-
-```
-internal.tables.*
-internal.baseline
-``` 
-
-Whenever a watch is fired, the affinity manager checks which key was updated. If the watch is triggered for 
-``internal.tables.<ID>`` key, it calculates a new affinity for the table with the given ID. If the watch is triggered 
-for ``internal.baseline`` key, the manager recalculates affinity for all tables exsiting at the watch revision 
-(this can be done using the metastorage ``range(keys, upperBound)`` method providing the watch event revision as the 
-upper bound). The calculated affinity is written to the ``internal.tables.affinity.<ID>`` key.
-
-> Note that ideally the watch should only be processed on metastorage group leader, thus eliminating unnecessary network
-> trips. Theoretically, we could have embedded this logic to the state machine, but this would enormously complicate 
-> the cluster updates and put metastorage consistency at risk. 
-
-To handle partition assignments, partition manager creates a reliable watch for the affinity assignment key on all 
-nodes:
-
-```
-internal.tables.affinity.<ID>
-```
-
-Whenever a watch is fired, the node checks whether there exist new partitions assigned to the local node, and if there 
-are, the node bootstraps corresponding Raft partition servers (i.e. allocates paths to Raft logs and storage files). 
-The allocation information is written to projected vault keys:
-
-```
-local.tables.partition.<ID>.<PARTITION_ID>.logpath=/path/to/raft/log
-local.tables.partition.<ID>.<PARTITION_ID>.storagepath=/path/to/storage/file
-``` 
-
-Once the projected keys are synced to the vault, the partition manager can create partition Raft servers (initialize 
-the log and storage, write hard state, register message handlers, etc). Upon startup, the node checks the existing 
-projected keys (finishing the raft log and storage initialization in case it crashed in the midst) and starts the Raft
-servers.
 
 ### Stop node flow.
 It's possible to stop node both when node was already started or during the startup process, in that case

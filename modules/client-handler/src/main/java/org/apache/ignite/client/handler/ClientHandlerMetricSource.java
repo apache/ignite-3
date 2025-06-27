@@ -17,12 +17,10 @@
 
 package org.apache.ignite.client.handler;
 
-import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricSetBuilder;
 
 /**
  * Server-side client handler metrics.
@@ -326,13 +324,6 @@ public class ClientHandlerMetricSource extends AbstractMetricSource<ClientHandle
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    protected void init(MetricSetBuilder bldr, Holder holder) {
-        holder.register(bldr);
-    }
-
-    /** {@inheritDoc} */
     @Override
     protected Holder createHolder() {
         return new Holder();
@@ -374,7 +365,7 @@ public class ClientHandlerMetricSource extends AbstractMetricSource<ClientHandle
 
         private final AtomicLongMetric cursorsActive = new AtomicLongMetric("CursorsActive", "Active cursors");
 
-        final List<Metric> metrics = Arrays.asList(
+        final List<Metric> metrics = List.of(
                 connectionsInitiated,
                 sessionsAccepted,
                 sessionsActive,
@@ -390,10 +381,9 @@ public class ClientHandlerMetricSource extends AbstractMetricSource<ClientHandle
                 cursorsActive
         );
 
-        void register(MetricSetBuilder bldr) {
-            for (var metric : metrics) {
-                bldr.register(metric);
-            }
+        @Override
+        public Iterable<Metric> metrics() {
+            return metrics;
         }
     }
 }

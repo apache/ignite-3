@@ -91,6 +91,7 @@ public partial class LinqTests
     }
 
     [Test]
+    [SuppressMessage("Globalization", "CA1311:Specify a culture or use an invariant version", Justification = "SQL")]
     public void TestStringFunctions()
     {
         TestOpString(x => x.Val + "_", "v-9_", "select concat(_T0.VAL, ?) from");
@@ -294,7 +295,16 @@ public partial class LinqTests
 
         Assert.Multiple(() =>
         {
-            Assert.AreEqual(expectedRes, res);
+            if (expectedRes is double expectedDoubleRes)
+            {
+                // Double-precision results can be a bit different depending on OS and hardware.
+                Assert.AreEqual(expectedDoubleRes, (double)(object)res!, 1e-15);
+            }
+            else
+            {
+                Assert.AreEqual(expectedRes, res);
+            }
+
             StringAssert.Contains(expectedQuery, sql);
         });
     }

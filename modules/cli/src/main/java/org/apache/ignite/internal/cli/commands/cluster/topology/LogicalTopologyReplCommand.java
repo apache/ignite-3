@@ -54,11 +54,11 @@ public class LogicalTopologyReplCommand extends BaseCommand implements Runnable 
     /** {@inheritDoc} */
     @Override
     public void run() {
-        question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
+        runFlow(question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
                 .map(UrlCallInput::new)
                 .then(Flows.fromCall(call))
-                .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show logical topology", "cluster init"))
+                .exceptionHandler(ClusterNotInitializedExceptionHandler.createReplHandler("Cannot show logical topology"))
                 .print(new TopologyDecorator(plain))
-                .start();
+        );
     }
 }

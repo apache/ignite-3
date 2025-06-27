@@ -1,0 +1,64 @@
+# name: test/sql/cast/test_cast_uuid.test
+# description: CAST UUID
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+query T
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS UUID);
+----
+c4a0327c-44be-416d-ae90-75c05079789f
+
+query T
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::VARCHAR AS UUID);
+----
+c4a0327c-44be-416d-ae90-75c05079789f
+
+query T
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::CHAR(36) AS UUID);
+----
+c4a0327c-44be-416d-ae90-75c05079789f
+
+statement error: Cast function cannot convert value of type BOOLEAN to type UUID
+SELECT CAST(TRUE AS UUID);
+
+statement error: Cast function cannot convert value of type TINYINT to type UUID
+SELECT CAST(1::TINYINT AS UUID);
+
+statement error: Cast function cannot convert value of type SMALLINT to type UUID
+SELECT CAST(1::SMALLINT AS UUID);
+
+statement error: Cast function cannot convert value of type INTEGER to type UUID
+SELECT CAST(1::INT AS UUID);
+
+statement error: Cast function cannot convert value of type BIGINT to type UUID
+SELECT CAST(1::BIGINT AS UUID);
+
+statement error: Cast function cannot convert value of type REAL to type UUID
+SELECT CAST(1::REAL AS UUID);
+
+statement error: Cast function cannot convert value of type FLOAT to type UUID
+SELECT CAST(1::FLOAT AS UUID);
+
+statement error: Cast function cannot convert value of type DOUBLE to type UUID
+SELECT CAST(1::DOUBLE AS UUID);
+
+statement error: Cast function cannot convert value of type DECIMAL(5, 0) to type UUID
+SELECT CAST(1::DECIMAL(5) AS UUID);
+
+statement error: Cast function cannot convert value of type DECIMAL(5, 2) to type UUID
+SELECT CAST(1::DECIMAL(5, 2) AS UUID);
+
+statement error: Cast function cannot convert value of type DATE to type UUID
+SELECT CAST('2001-01-02'::DATE AS UUID);
+
+statement error: Cast function cannot convert value of type TIME(0) to type UUID
+SELECT CAST('10:11:12'::TIME AS UUID);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type UUID
+SELECT CAST('2001-01-02 10:11:12'::TIMESTAMP AS UUID);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type UUID
+SELECT CAST(x'00'::BINARY AS UUID);
+
+statement error: Cast function cannot convert value of type VARBINARY to type UUID
+SELECT CAST(x'00'::VARBINARY AS UUID);

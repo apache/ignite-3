@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode.NOT_WAITING;
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 
 import java.util.ArrayDeque;
@@ -98,7 +99,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     public void end() throws Exception {
         assert waiting > 0 : waiting;
 
-        waiting = -1;
+        waiting = NOT_WAITING;
 
         completePrefetchFuture(null);
 
@@ -124,15 +125,15 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     public CompletableFuture<BatchedResult<OutRowT>> requestNextAsync(int rows) {
         CompletableFuture<BatchedResult<OutRowT>> next = new CompletableFuture<>();
 
-        Throwable t = ex.get();
-
-        if (t != null) {
-            next.completeExceptionally(t);
-
-            return next;
-        }
-
         synchronized (lock) {
+            Throwable t = ex.get();
+
+            if (t != null) {
+                next.completeExceptionally(t);
+
+                return next;
+            }
+
             if (closed) {
                 next.completeExceptionally(new CursorClosedException());
 
@@ -200,6 +201,9 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
         if (waiting == 0) {
             try {
+                source.checkState();
+
+                //noinspection NestedAssignment
                 source.request(waiting = IN_BUFFER_SIZE);
             } catch (Exception ex) {
                 onError(ex);
@@ -214,33 +218,51 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     }
 
     private void flush() throws Exception {
-        // flush may be triggered by prefetching, so let's do nothing in this case
-        if (pendingRequests.isEmpty()) {
-            return;
-        }
-
         PendingRequest<OutRowT> currentReq = pendingRequests.peek();
 
-        assert currentReq != null;
-
-        taskScheduled.set(false);
+        // There may be no pending requests in two cases:
+        //   1) flush has been triggered by prefetch
+        //   2) concurrent cancellation already cleared the queue
+        // In both cases we should just return immediately.
+        if (currentReq == null) {
+            return;
+        }
 
         while (!buff.isEmpty() && currentReq.buff.size() < currentReq.requested) {
             currentReq.buff.add(buff.remove());
         }
 
-        boolean hasMoreRows = waiting != -1 || !buff.isEmpty();
-
-        if (currentReq.buff.size() == currentReq.requested || !hasMoreRows) {
-            pendingRequests.remove();
-
-            currentReq.fut.complete(new BatchedResult<>(currentReq.buff, hasMoreRows));
+        HasMore hasMore;
+        if (waiting == NOT_WAITING && buff.isEmpty()) {
+            hasMore = HasMore.NO;
+        } else if (!buff.isEmpty()) {
+            hasMore = HasMore.YES;
+        } else {
+            hasMore = HasMore.UNCERTAIN;
         }
 
-        if (waiting == 0) {
-            source.request(waiting = IN_BUFFER_SIZE);
-        } else if (waiting == -1 && buff.isEmpty()) {
-            closeAsync();
+        // Even if demand is fulfilled we should not complete request
+        // if we are not sure whether there are more rows or not to
+        // avoid returning false-positive result.
+        if ((currentReq.buff.size() == currentReq.requested && hasMore != HasMore.UNCERTAIN) || hasMore == HasMore.NO) {
+            // use poll() instead of remove() because latter throws exception when queue is empty,
+            // and queue may be cleared concurrently by cancellation
+            pendingRequests.poll();
+
+            currentReq.fut.complete(new BatchedResult<>(currentReq.buff, hasMore == HasMore.YES));
+        }
+
+        if (buff.isEmpty()) {
+            if (waiting == 0) {
+                //noinspection NestedAssignment
+                source.request(waiting = IN_BUFFER_SIZE);
+            } else if (waiting == NOT_WAITING) {
+                assert hasMore == HasMore.NO : hasMore;
+
+                closeAsync();
+            }
+        } else if (!pendingRequests.isEmpty()) {
+            scheduleTask();
         }
     }
 
@@ -249,7 +271,11 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      */
     private void scheduleTask() {
         if (!pendingRequests.isEmpty() && taskScheduled.compareAndSet(false, true)) {
-            source.context().execute(this::flush, source::onError);
+            source.execute(() -> {
+                taskScheduled.set(false);
+
+                flush();
+            });
         }
     }
 
@@ -289,5 +315,9 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             this.fut = fut;
             this.buff = new ArrayList<>(requested);
         }
+    }
+
+    private enum HasMore {
+        YES, NO, UNCERTAIN
     }
 }

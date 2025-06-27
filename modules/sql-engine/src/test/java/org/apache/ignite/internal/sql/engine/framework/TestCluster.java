@@ -23,12 +23,18 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.ClockWaiter;
+import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
+import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
+import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.AssignmentsProvider;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -44,15 +50,29 @@ public class TestCluster implements LifecycleAware {
     private final Map<String, TestNode> nodeByName;
     private final List<LifecycleAware> components;
     private final Runnable initClosure;
+    private final RunnableX stopClosure;
     private final CatalogManager catalogManager;
+    private final ConcurrentMap<String, ScannableTable> dataProvidersByTableName;
+    private final ConcurrentMap<String, UpdatableTable> updatableTablesByName;
+    private final ConcurrentMap<String, AssignmentsProvider> assignmentsProvidersByTableName;
+    private final ConcurrentMap<String, Long> tablesSize;
 
     TestCluster(
+            ConcurrentMap<String, Long> tablesSize,
+            ConcurrentMap<String, ScannableTable> dataProvidersByTableName,
+            ConcurrentMap<String, UpdatableTable> updatableTablesByName,
+            ConcurrentMap<String, AssignmentsProvider> assignmentsProvidersByTableName,
             Map<String, TestNode> nodeByName,
             CatalogManager catalogManager,
             PrepareService prepareService,
             ClockWaiter clockWaiter,
-            Runnable initClosure
+            Runnable initClosure,
+            RunnableX stopClosure
     ) {
+        this.tablesSize = tablesSize;
+        this.dataProvidersByTableName = dataProvidersByTableName;
+        this.updatableTablesByName = updatableTablesByName;
+        this.assignmentsProvidersByTableName = assignmentsProvidersByTableName;
         this.nodeByName = nodeByName;
         this.components = List.of(
                 new ComponentToLifecycleAwareAdaptor(catalogManager),
@@ -61,6 +81,7 @@ public class TestCluster implements LifecycleAware {
         );
         this.initClosure = initClosure;
         this.catalogManager = catalogManager;
+        this.stopClosure = stopClosure;
     }
 
     public CatalogManager catalogManager() {
@@ -83,6 +104,10 @@ public class TestCluster implements LifecycleAware {
 
         nodeByName.values().forEach(TestNode::start);
 
+        nodeByName.values().iterator().next().initSchema(
+                "CREATE TABLE blackhole (x INT PRIMARY KEY)"
+        );
+
         initClosure.run();
     }
 
@@ -97,6 +122,28 @@ public class TestCluster implements LifecycleAware {
 
         Collections.reverse(closeables);
         IgniteUtils.closeAll(closeables);
+
+        try {
+            stopClosure.run();
+        } catch (Throwable t) {
+            throw new Exception(t);
+        }
+    }
+
+    public void setAssignmentsProvider(String tableName, AssignmentsProvider assignmentsProvider) {
+        assignmentsProvidersByTableName.put(tableName, assignmentsProvider);
+    }
+
+    public void setDataProvider(String tableName, ScannableTable dataProvider) {
+        dataProvidersByTableName.put(tableName, dataProvider);
+    }
+
+    public void setUpdatableTable(String tableName, UpdatableTable table) {
+        updatableTablesByName.put(tableName, table);
+    }
+
+    public void setTableSize(String name, long size) {
+        tablesSize.put(name, size);
     }
 
     private static class ComponentToLifecycleAwareAdaptor implements LifecycleAware {
@@ -108,12 +155,12 @@ public class TestCluster implements LifecycleAware {
 
         @Override
         public void start() {
-            assertThat(component.startAsync(), willCompleteSuccessfully());
+            assertThat(component.startAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         @Override
         public void stop() {
-            assertThat(component.stopAsync(), willCompleteSuccessfully());
+            assertThat(component.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 }

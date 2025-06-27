@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -36,11 +36,13 @@ import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
+import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -76,11 +78,43 @@ public class TableTestUtils {
             List<ColumnParams> columns,
             List<String> pkColumns
     ) {
+        createTable(
+                catalogManager,
+                schemaName,
+                zoneName,
+                tableName,
+                columns,
+                pkColumns,
+                null
+        );
+    }
+
+    /**
+     * Creates table in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param schemaName Schema name.
+     * @param zoneName Zone name or {@code null} to use default distribution zone.
+     * @param tableName Table name.
+     * @param columns Table columns.
+     * @param pkColumns Primary key columns.
+     * @param storageProfile Storage profile name.
+     */
+    public static void createTable(
+            CatalogManager catalogManager,
+            String schemaName,
+            @Nullable String zoneName,
+            String tableName,
+            List<ColumnParams> columns,
+            List<String> pkColumns,
+            @Nullable String storageProfile
+    ) {
         CatalogCommand command = CreateTableCommand.builder()
                 .schemaName(schemaName)
                 .zone(zoneName)
                 .tableName(tableName)
                 .columns(columns)
+                .storageProfile(storageProfile)
                 // Hash index for primary key is being used here,
                 // because such index only requests a list of column names.
                 .primaryKey(TableHashPrimaryKey.builder()
@@ -125,6 +159,19 @@ public class TableTestUtils {
     public static void dropIndex(CatalogManager catalogManager, String schemaName, String indexName) {
         assertThat(
                 catalogManager.execute(DropIndexCommand.builder().schemaName(schemaName).indexName(indexName).build()),
+                willCompleteSuccessfully()
+        );
+    }
+
+    /**
+     * Drops the index created using {@link #createSimpleHashIndex(CatalogManager, String, String)}.
+     *
+     * @param catalogManager Catalog manager.
+     * @param indexName Index name.
+     */
+    public static void dropSimpleIndex(CatalogManager catalogManager, String indexName) {
+        assertThat(
+                catalogManager.execute(DropIndexCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build()),
                 willCompleteSuccessfully()
         );
     }
@@ -179,7 +226,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable CatalogTableDescriptor getTable(CatalogService catalogService, String tableName, long timestamp) {
-        return catalogService.table(tableName, timestamp);
+        return catalogService.activeCatalog(timestamp).table(DEFAULT_SCHEMA_NAME, tableName);
     }
 
     /**
@@ -191,7 +238,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, String tableName, long timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableName, timestamp);
+        CatalogTableDescriptor table = catalogService.activeCatalog(timestamp).table(DEFAULT_SCHEMA_NAME, tableName);
 
         assertNotNull(table, "tableName=" + tableName + ", timestamp=" + timestamp);
 
@@ -207,7 +254,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, int tableId, long timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableId, timestamp);
+        CatalogTableDescriptor table = catalogService.activeCatalog(timestamp).table(tableId);
 
         assertNotNull(table, "tableId=" + table + ", timestamp=" + timestamp);
 
@@ -237,6 +284,18 @@ public class TableTestUtils {
      */
     public static int getTableIdStrict(CatalogService catalogService, String tableName, long timestamp) {
         return getTableStrict(catalogService, tableName, timestamp).id();
+    }
+
+    /**
+     * Returns zone ID for the given table.
+     *
+     * @param catalogService Catalog service.
+     * @param tableName Table name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If table is absent.
+     */
+    public static int getZoneIdByTableNameStrict(CatalogService catalogService, String tableName, long timestamp) {
+        return getTableStrict(catalogService, tableName, timestamp).zoneId();
     }
 
     /**
@@ -272,7 +331,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable CatalogIndexDescriptor getIndex(CatalogService catalogService, String indexName, long timestamp) {
-        return catalogService.aliveIndex(indexName, timestamp);
+        return catalogService.activeCatalog(timestamp).aliveIndex(DEFAULT_SCHEMA_NAME, indexName);
     }
 
     /**
@@ -284,7 +343,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogIndexDescriptor getIndexStrict(CatalogService catalogService, String indexName, long timestamp) {
-        CatalogIndexDescriptor index = catalogService.aliveIndex(indexName, timestamp);
+        CatalogIndexDescriptor index = catalogService.activeCatalog(timestamp).aliveIndex(DEFAULT_SCHEMA_NAME, indexName);
 
         assertNotNull(index, "indexName=" + indexName + ", timestamp=" + timestamp);
 
@@ -292,10 +351,10 @@ public class TableTestUtils {
     }
 
     /**
-     * Creates a simple table in {@link CatalogService#DEFAULT_SCHEMA_NAME} and single
+     * Creates a simple table in {@link SqlCommon#DEFAULT_SCHEMA_NAME} and single
      * {@link #COLUMN_NAME column} of type {@link ColumnType#INT32} in default distribution zone.
      *
-     * @param catalogManager Catalog name.
+     * @param catalogManager Catalog manager.
      * @param tableName Table name.
      */
     public static void createSimpleTable(CatalogManager catalogManager, String tableName) {
@@ -312,7 +371,7 @@ public class TableTestUtils {
     /**
      * Creates a simple index on the table from {@link #createSimpleTable(CatalogManager, String)}.
      *
-     * @param catalogManager Catalog name.
+     * @param catalogManager Catalog manager.
      * @param tableName Table name.
      * @param indexName Index name.
      */
@@ -375,5 +434,22 @@ public class TableTestUtils {
      */
     public static void addColumnToSimpleTable(CatalogManager catalogManager, String tableName, String columnName, ColumnType columnType) {
         addColumnToTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName, columnName, columnType);
+    }
+
+    /**
+     * Renames a simple table created using {@link #createSimpleTable(CatalogManager, String)}.
+     *
+     * @param catalogManager Catalog manager.
+     * @param tableName Old table name.
+     * @param newTableName New table name.
+     */
+    public static void renameSimpleTable(CatalogManager catalogManager, String tableName, String newTableName) {
+        CatalogCommand command = RenameTableCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .newTableName(newTableName)
+                .build();
+
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
     }
 }

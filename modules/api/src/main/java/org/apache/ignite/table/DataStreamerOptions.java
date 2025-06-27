@@ -28,7 +28,7 @@ public class DataStreamerOptions {
 
     private final int perPartitionParallelOperations;
 
-    private final int autoFlushFrequency;
+    private final int autoFlushInterval;
 
     private final int retryLimit;
 
@@ -37,13 +37,13 @@ public class DataStreamerOptions {
      *
      * @param pageSize Page size.
      * @param perPartitionParallelOperations Per partition parallel operations.
-     * @param autoFlushFrequency Auto flush frequency.
+     * @param autoFlushInterval Auto flush interval.
      * @param retryLimit Retry limit.
      */
-    private DataStreamerOptions(int pageSize, int perPartitionParallelOperations, int autoFlushFrequency, int retryLimit) {
+    private DataStreamerOptions(int pageSize, int perPartitionParallelOperations, int autoFlushInterval, int retryLimit) {
         this.pageSize = pageSize;
         this.perPartitionParallelOperations = perPartitionParallelOperations;
-        this.autoFlushFrequency = autoFlushFrequency;
+        this.autoFlushInterval = autoFlushInterval;
         this.retryLimit = retryLimit;
     }
 
@@ -75,13 +75,13 @@ public class DataStreamerOptions {
     }
 
     /**
-     * Gets the auto flush frequency, in milliseconds
+     * Gets the auto flush interval, in milliseconds
      * (the period of time after which the streamer will flush the per-node buffer even if it is not full).
      *
-     * @return Auto flush frequency.
+     * @return Auto flush interval.
      */
-    public int autoFlushFrequency() {
-        return autoFlushFrequency;
+    public int autoFlushInterval() {
+        return autoFlushInterval;
     }
 
     /**
@@ -102,7 +102,7 @@ public class DataStreamerOptions {
 
         private int perPartitionParallelOperations = 1;
 
-        private int autoFlushFrequency = 5000;
+        private int autoFlushInterval = 5000;
 
         private int retryLimit = 16;
 
@@ -139,14 +139,14 @@ public class DataStreamerOptions {
         }
 
         /**
-         * Sets the auto flush frequency, in milliseconds
+         * Sets the auto flush interval, in milliseconds
          * (the period of time after which the streamer will flush the per-node buffer even if it is not full).
          *
-         * @param autoFlushFrequency Auto flush frequency, in milliseconds. 0 or less means no auto flush.
+         * @param autoFlushInterval Auto flush interval, in milliseconds. 0 or less means no auto flush.
          * @return This builder instance.
          */
-        public Builder autoFlushFrequency(int autoFlushFrequency) {
-            this.autoFlushFrequency = autoFlushFrequency;
+        public Builder autoFlushInterval(int autoFlushInterval) {
+            this.autoFlushInterval = autoFlushInterval;
 
             return this;
         }
@@ -170,7 +170,7 @@ public class DataStreamerOptions {
          * @return Data streamer options.
          */
         public DataStreamerOptions build() {
-            return new DataStreamerOptions(pageSize, perPartitionParallelOperations, autoFlushFrequency, retryLimit);
+            return new DataStreamerOptions(pageSize, perPartitionParallelOperations, autoFlushInterval, retryLimit);
         }
     }
 }

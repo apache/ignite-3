@@ -23,15 +23,28 @@ import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseJoinDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.util.VarBinary;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 
 /**
  * Tests for {@code JOIN} operator for {@link SqlTypeName#VARBINARY} type.
  */
 public class ItVarBinaryJoinTest extends BaseJoinDataTypeTest<VarBinary> {
-
     /** {@inheritDoc} */
     @Override
     protected DataTypeTestSpec<VarBinary> getTypeSpec() {
         return DataTypeTestSpecs.VARBINARY_TYPE;
+    }
+
+    @Override
+    @AfterEach
+    public void cleanJoinTables() {
+        runSql("DELETE FROM t_join_varbinary");
+    }
+
+    @Override
+    @BeforeAll
+    public void createJoinTables() {
+        runSql("create table t_join_varbinary(id integer primary key, test_key varbinary)");
     }
 }

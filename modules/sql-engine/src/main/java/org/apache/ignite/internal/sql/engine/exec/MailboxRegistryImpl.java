@@ -18,16 +18,15 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyEventHandler;
 
 /**
  * MailboxRegistryImpl.
@@ -58,10 +57,10 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
     /** {@inheritDoc} */
     @Override
     public void register(Inbox<?> inbox) {
-        Inbox<?> res = remotes.putIfAbsent(new MailboxKey(inbox.queryId(), inbox.exchangeId()), inbox);
+        Inbox<?> res = remotes.putIfAbsent(new MailboxKey(inbox.executionId(), inbox.exchangeId()), inbox);
 
         if (LOG.isTraceEnabled()) {
-            LOG.trace("Inbox registered [qryId={}, fragmentId={}]", inbox.queryId(), inbox.fragmentId());
+            LOG.trace("Inbox registered [executionId={}, fragmentId={}]", inbox.executionId(), inbox.fragmentId());
         }
 
         assert res == null : res;
@@ -70,7 +69,7 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
     /** {@inheritDoc} */
     @Override
     public void register(Outbox<?> outbox) {
-        CompletableFuture<Outbox<?>> res = locals.computeIfAbsent(new MailboxKey(outbox.queryId(), outbox.exchangeId()),
+        CompletableFuture<Outbox<?>> res = locals.computeIfAbsent(new MailboxKey(outbox.executionId(), outbox.exchangeId()),
                 k -> new CompletableFuture<>());
 
         assert !res.isDone();
@@ -78,42 +77,42 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
         res.complete(outbox);
 
         if (LOG.isTraceEnabled()) {
-            LOG.trace("Outbox registered [qryId={}, fragmentId={}]", outbox.queryId(), outbox.fragmentId());
+            LOG.trace("Outbox registered [executionId={}, fragmentId={}]", outbox.executionId(), outbox.fragmentId());
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void unregister(Inbox<?> inbox) {
-        boolean removed = remotes.remove(new MailboxKey(inbox.queryId(), inbox.exchangeId()), inbox);
+        boolean removed = remotes.remove(new MailboxKey(inbox.executionId(), inbox.exchangeId()), inbox);
 
         if (LOG.isTraceEnabled()) {
-            LOG.trace("Inbox {} unregistered [qryId={}, fragmentId={}]", removed ? "was" : "wasn't",
-                    inbox.queryId(), inbox.fragmentId());
+            LOG.trace("Inbox {} unregistered [executionId={}, fragmentId={}]", removed ? "was" : "wasn't",
+                    inbox.executionId(), inbox.fragmentId());
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void unregister(Outbox<?> outbox) {
-        boolean removed = locals.remove(new MailboxKey(outbox.queryId(), outbox.exchangeId())) != null;
+        boolean removed = locals.remove(new MailboxKey(outbox.executionId(), outbox.exchangeId())) != null;
 
         if (LOG.isTraceEnabled()) {
-            LOG.trace("Outbox {} unregistered [qryId={}, fragmentId={}]", removed ? "was" : "wasn't",
-                    outbox.queryId(), outbox.fragmentId());
+            LOG.trace("Outbox {} unregistered [executionId={}, fragmentId={}]", removed ? "was" : "wasn't",
+                    outbox.executionId(), outbox.fragmentId());
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Outbox<?>> outbox(UUID qryId, long exchangeId) {
-        return locals.computeIfAbsent(new MailboxKey(qryId, exchangeId), k -> new CompletableFuture<>());
+    public CompletableFuture<Outbox<?>> outbox(ExecutionId executionId, long exchangeId) {
+        return locals.computeIfAbsent(new MailboxKey(executionId, exchangeId), k -> new CompletableFuture<>());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Inbox<?> inbox(UUID qryId, long exchangeId) {
-        return remotes.get(new MailboxKey(qryId, exchangeId));
+    public Inbox<?> inbox(ExecutionId executionId, long exchangeId) {
+        return remotes.get(new MailboxKey(executionId, exchangeId));
     }
 
     /** {@inheritDoc} */
@@ -138,17 +137,17 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
     /** {@inheritDoc} */
     @Override
     public void onDisappeared(ClusterNode member) {
-        locals.values().forEach(fut -> fut.thenAccept(n -> n.onNodeLeft(member.name())));
-        remotes.values().forEach(n -> n.onNodeLeft(member.name()));
+        locals.values().forEach(fut -> fut.thenAccept(n -> n.onNodeLeft(member)));
+        remotes.values().forEach(n -> n.onNodeLeft(member));
     }
 
     private static class MailboxKey {
-        private final UUID qryId;
+        private final ExecutionId executionId;
 
         private final long exchangeId;
 
-        private MailboxKey(UUID qryId, long exchangeId) {
-            this.qryId = qryId;
+        private MailboxKey(ExecutionId executionId, long exchangeId) {
+            this.executionId = executionId;
             this.exchangeId = exchangeId;
         }
 
@@ -167,13 +166,13 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
             if (exchangeId != that.exchangeId) {
                 return false;
             }
-            return qryId.equals(that.qryId);
+            return executionId.equals(that.executionId);
         }
 
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            int res = qryId.hashCode();
+            int res = executionId.hashCode();
             res = 31 * res + (int) (exchangeId ^ (exchangeId >>> 32));
             return res;
         }

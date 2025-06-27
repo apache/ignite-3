@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.eq;
@@ -26,6 +27,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.UUID;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -53,57 +56,69 @@ class VaultStaleIdsTest extends BaseIgniteAbstractTest {
 
     @Test
     void consultsVaultWhenCheckingForStaleness() {
-        when(vaultManager.get(staleIdsKey)).thenReturn(new VaultEntry(staleIdsKey, "id1\nid2\nid3".getBytes(UTF_8)));
+        when(vaultManager.get(staleIdsKey)).thenReturn(new VaultEntry(staleIdsKey, staleIdsBytes(1, 2, 3)));
 
-        assertThat(staleIds.isIdStale("id1"), is(true));
-        assertThat(staleIds.isIdStale("id2"), is(true));
-        assertThat(staleIds.isIdStale("id3"), is(true));
-        assertThat(staleIds.isIdStale("id10"), is(false));
+        assertThat(this.staleIds.isIdStale(id(1)), is(true));
+        assertThat(this.staleIds.isIdStale(id(2)), is(true));
+        assertThat(this.staleIds.isIdStale(id(3)), is(true));
+        assertThat(this.staleIds.isIdStale(id(10)), is(false));
+    }
+
+    private static UUID id(int id) {
+        return new UUID(0, id);
+    }
+
+    private static byte[] staleIdsBytes(int... ids) {
+        String staleIds = IntStream.of(ids)
+                .mapToObj(VaultStaleIdsTest::id)
+                .map(UUID::toString)
+                .collect(joining("\n"));
+        return staleIds.getBytes(UTF_8);
     }
 
     @Test
     void cachesVaultStateInMemory() {
-        when(vaultManager.get(staleIdsKey)).thenReturn(new VaultEntry(staleIdsKey, "id1\nid2\nid3".getBytes(UTF_8)));
+        when(vaultManager.get(staleIdsKey)).thenReturn(new VaultEntry(staleIdsKey, staleIdsBytes(1, 2, 3)));
 
-        staleIds.isIdStale("id1");
-        staleIds.isIdStale("id2");
-        staleIds.isIdStale("id3");
+        staleIds.isIdStale(id(1));
+        staleIds.isIdStale(id(2));
+        staleIds.isIdStale(id(3));
 
         verify(vaultManager).get(any());
     }
 
     @Test
     void savesNewStaleIdsToVault() {
-        staleIds.markAsStale("id2");
+        staleIds.markAsStale(id(2));
 
-        verify(vaultManager).put(staleIdsKey, "id2".getBytes(UTF_8));
+        verify(vaultManager).put(staleIdsKey, staleIdsBytes(2));
 
-        staleIds.markAsStale("id1");
+        staleIds.markAsStale(id(1));
 
-        verify(vaultManager).put(staleIdsKey, "id2\nid1".getBytes(UTF_8));
+        verify(vaultManager).put(staleIdsKey, staleIdsBytes(2, 1));
     }
 
     @Test
     void respectsMaxIdsLimit() {
         staleIds = new VaultStaleIds(vaultManager, 2);
 
-        staleIds.markAsStale("id3");
-        staleIds.markAsStale("id2");
-        staleIds.markAsStale("id1");
+        staleIds.markAsStale(id(3));
+        staleIds.markAsStale(id(2));
+        staleIds.markAsStale(id(1));
 
         ArgumentCaptor<byte[]> idsCaptor = ArgumentCaptor.forClass(byte[].class);
 
         verify(vaultManager, times(3)).put(eq(staleIdsKey), idsCaptor.capture());
 
-        assertThat(idsCaptor.getValue(), is("id2\nid1".getBytes(UTF_8)));
+        assertThat(idsCaptor.getValue(), is(staleIdsBytes(2, 1)));
     }
 
     @Test
     void loadsBeforeDoingFirstSave() {
-        when(vaultManager.get(staleIdsKey)).thenReturn(new VaultEntry(staleIdsKey, "id1".getBytes(UTF_8)));
+        when(vaultManager.get(staleIdsKey)).thenReturn(new VaultEntry(staleIdsKey, staleIdsBytes(1)));
 
-        staleIds.markAsStale("id2");
+        staleIds.markAsStale(id(2));
 
-        verify(vaultManager).put(staleIdsKey, "id1\nid2".getBytes(UTF_8));
+        verify(vaultManager).put(staleIdsKey, staleIdsBytes(1, 2));
     }
 }

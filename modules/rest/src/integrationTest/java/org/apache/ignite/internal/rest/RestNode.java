@@ -21,9 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWin
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.rest.ssl.ItRestSslTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 
@@ -43,7 +41,8 @@ public class RestNode {
     private final boolean sslClientAuthEnabled;
     private final boolean dualProtocol;
     private final String ciphers;
-    private CompletableFuture<Ignite> igniteNodeFuture;
+
+    private IgniteServer igniteNode;
 
     /** Constructor. */
     public RestNode(
@@ -81,21 +80,13 @@ public class RestNode {
     }
 
     /** Starts the node. */
-    public CompletableFuture<Ignite> start() {
-        igniteNodeFuture = TestIgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
-        return igniteNodeFuture;
-    }
-
-    /** Restarts the node. */
-    public CompletableFuture<Ignite> restart() {
-        stop();
-        igniteNodeFuture = TestIgnitionManager.start(name, null, workDir.resolve(name));
-        return igniteNodeFuture;
+    public void start() {
+        igniteNode = TestIgnitionManager.start(name, bootstrapCfg(), workDir.resolve(name));
     }
 
     /** Stops the node. */
     public void stop() {
-        IgnitionManager.stop(name);
+        igniteNode.shutdown();
     }
 
     /** Returns the node name. */
@@ -113,15 +104,10 @@ public class RestNode {
         return "https://localhost:" + httpsPort;
     }
 
-    /** Returns future of the node. */
-    public CompletableFuture<Ignite> igniteNodeFuture() {
-        return igniteNodeFuture;
-    }
-
     private String bootstrapCfg() {
         String keyStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, keyStorePath));
         String trustStoreFilePath = escapeWindowsPath(getResourcePath(ItRestSslTest.class, trustStorePath));
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: " + networkPort + ",\n"
                 + "    nodeFinder: {\n"
@@ -147,7 +133,8 @@ public class RestNode {
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 }

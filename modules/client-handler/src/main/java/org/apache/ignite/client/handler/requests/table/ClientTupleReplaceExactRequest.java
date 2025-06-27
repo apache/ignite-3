@@ -17,16 +17,17 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readSchema;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.table.IgniteTables;
 
 /**
  * Client tuple replace request.
@@ -35,30 +36,27 @@ public class ClientTupleReplaceExactRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param tables    Ignite tables.
+     * @param in Unpacker.
+     * @param tables Ignite tables.
      * @param resources Resource registry.
+     * @param txManager Ignite transactions.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteTables tables,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            TxManager txManager,
+            ClockService clockService,
+            NotificationSender notificationSender,
+            HybridTimestampTracker tsTracker
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, out, resources);
-
-            return readSchema(in, table).thenCompose(schema -> {
-                var oldTuple = readTuple(in, false, schema);
-                var newTuple = readTuple(in, false, schema);
-
-                return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
-                    out.packInt(table.schemaView().lastKnownSchemaVersion());
-                    out.packBoolean(res);
-                });
-            });
-        });
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false, true)
+                .thenCompose(req -> req.table().recordView().replaceAsync(req.tx(), req.tuple(), req.tuple2())
+                        .thenApply(res -> out -> {
+                            writeTxMeta(out, tsTracker, clockService, req);
+                            out.packInt(req.table().schemaView().lastKnownSchemaVersion());
+                            out.packBoolean(res);
+                        }));
     }
 }

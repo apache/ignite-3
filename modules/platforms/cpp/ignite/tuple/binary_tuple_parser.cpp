@@ -17,7 +17,7 @@
 
 #include "binary_tuple_parser.h"
 
-#include <ignite/common/bytes.h>
+#include "ignite/common/detail/bytes.h"
 
 #include <cassert>
 #include <cstring>
@@ -29,7 +29,7 @@ namespace {
 
 template<typename T>
 T load_little(bytes_view view, std::size_t offset = 0) noexcept {
-    return bytes::load<endian::LITTLE, T>(view.data() + offset);
+    return detail::bytes::load<detail::endian::LITTLE, T>(view.data() + offset);
 }
 
 ignite_date load_date(bytes_view bytes) {
@@ -99,7 +99,7 @@ binary_tuple_parser::binary_tuple_parser(tuple_num_t num_elements, bytes_view da
     memcpy(&le_end_offset, value_base - entry_size, entry_size);
 
     // Fix tuple size if needed.
-    const std::byte *tuple_end = value_base + bytes::ltoh(le_end_offset);
+    const std::byte *tuple_end = value_base + detail::bytes::ltoh(le_end_offset);
     const std::byte *given_end = binary_tuple.data() + binary_tuple.size();
     if (given_end > tuple_end) {
         binary_tuple.remove_suffix(given_end - tuple_end);
@@ -119,7 +119,7 @@ bytes_view binary_tuple_parser::get_next() {
     next_entry += entry_size;
 
     const std::byte *value = next_value;
-    next_value = value_base + bytes::ltoh(le_offset);
+    next_value = value_base + detail::bytes::ltoh(le_offset);
 
     element_index++;
 

@@ -21,6 +21,11 @@ package org.apache.ignite.internal.metastorage.server;
 public class SimpleInMemoryCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
     @Override
     public KeyValueStorage createStorage() {
-        return new SimpleInMemoryKeyValueStorage("test");
+        return new SimpleInMemoryKeyValueStorage(NODE_NAME, readOperationForCompactionTracker);
+    }
+
+    @Override
+    void testSaveCompactionRevisionAndRestart() {
+        // No-op. In-memory storage implementation loses the data upon restart.
     }
 }

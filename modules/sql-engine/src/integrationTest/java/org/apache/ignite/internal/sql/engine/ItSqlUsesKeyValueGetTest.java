@@ -32,7 +32,7 @@ public class ItSqlUsesKeyValueGetTest extends BaseSqlIntegrationTest {
     private static final int TABLE_SIZE = 10;
 
     @BeforeAll
-    @SuppressWarnings({"ConcatenationWithEmptyString", "resource"})
+    @SuppressWarnings("ConcatenationWithEmptyString")
     static void initSchema() {
         CLUSTER.aliveNode().sql().executeScript(""
                 + "CREATE TABLE simple_key (id INT PRIMARY KEY, val INT);"

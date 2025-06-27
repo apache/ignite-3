@@ -118,9 +118,11 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODE_STOPPING:
         case error::code::COMPONENT_NOT_STARTED:
         case error::code::ILLEGAL_ARGUMENT:
+        case error::code::USER_OBJECT_SERIALIZATION:
         case error::code::SSL_CONFIGURATION:
         case error::code::NODE_LEFT:
         case error::code::INTERNAL:
+        case error::code::NULLABLE_VALUE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Table group. Group code: 2
@@ -132,20 +134,18 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::S42S21_COLUMN_ALREADY_EXISTS;
         case error::code::COLUMN_NOT_FOUND:
             return sql_state::S42S22_COLUMN_NOT_FOUND;
-        case error::code::TABLE_STOPPING:
-        case error::code::TABLE_DEFINITION:
         case error::code::SCHEMA_VERSION_MISMATCH:
+        case error::code::UNSUPPORTED_PARTITION_TYPE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Client group. Group code: 3
         case error::code::CONNECTION:
         case error::code::PROTOCOL:
         case error::code::PROTOCOL_COMPATIBILITY:
+        case error::code::SERVER_TO_CLIENT_REQUEST:
             return sql_state::S08001_CANNOT_CONNECT;
         case error::code::TABLE_ID_NOT_FOUND:
             return sql_state::S42S02_TABLE_OR_VIEW_NOT_FOUND;
-        case error::code::AUTHENTICATION:
-        case error::code::AUTHORIZATION:
         case error::code::CONFIGURATION:
         case error::code::CLUSTER_ID_MISMATCH:
         case error::code::CLIENT_SSL_CONFIGURATION:
@@ -155,8 +155,6 @@ sql_state error_code_to_sql_state(error::code code) {
         // Sql group. Group code: 4
         case error::code::SCHEMA_NOT_FOUND:
             return sql_state::S3F000_INVALID_SCHEMA_NAME;
-        case error::code::PLANNING_TIMEOUT:
-            return sql_state::SHYT00_TIMEOUT_EXPIRED;
         case error::code::EXECUTION_CANCELLED:
             return sql_state::SHY008_OPERATION_CANCELED;
         case error::code::TX_CONTROL_INSIDE_EXTERNAL_TX:
@@ -180,14 +178,15 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::RESTORING_STORAGE:
         case error::code::COMPACTION:
             return sql_state::SHY000_GENERAL_ERROR;
+        case error::code::COMPACTED:
+        case error::code::DIVERGED:
+            return sql_state::SHY000_GENERAL_ERROR;
 
         // Index group. Group code: 6
         case error::code::INDEX_NOT_FOUND:
             return sql_state::S42S12_INDEX_NOT_FOUND;
         case error::code::INDEX_ALREADY_EXISTS:
             return sql_state::S42S11_INDEX_ALREADY_EXISTS;
-        case error::code::INVALID_INDEX_DEFINITION:
-            return sql_state::SHY000_GENERAL_ERROR;
 
         // Transactions group. Group code: 7
         case error::code::TX_STATE_STORAGE:
@@ -198,13 +197,14 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_COMMIT:
         case error::code::TX_ROLLBACK:
         case error::code::TX_FAILED_READ_WRITE_OPERATION:
-        case error::code::TX_REPLICA_UNAVAILABLE:
         case error::code::TX_STATE_STORAGE_REBALANCE:
         case error::code::TX_READ_ONLY_TOO_OLD:
         case error::code::TX_INCOMPATIBLE_SCHEMA:
         case error::code::TX_PRIMARY_REPLICA_EXPIRED:
         case error::code::TX_ALREADY_FINISHED:
         case error::code::TX_STALE_OPERATION:
+        case error::code::TX_STALE_READ_ONLY_OPERATION:
+        case error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8
@@ -218,17 +218,12 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::REPLICA_UNAVAILABLE:
         case error::code::REPLICA_MISS:
         case error::code::REPLICA_STOPPING:
-        case error::code::REPLICATION_SAFE_TIME_REORDERING:
+        case error::code::GROUP_OVERLOADED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Storage group. Group code: 9
-        case error::code::GENERIC:
-        case error::code::DIRECTORY_CREATION:
-        case error::code::ALREADY_CLOSED:
-        case error::code::STORAGE_REBALANCE:
-        case error::code::ALREADY_DESTROYED:
         case error::code::INDEX_NOT_BUILT:
-        case error::code::INCONSISTENT_INDEX_STATE:
+        case error::code::STORAGE_CORRUPTED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10
@@ -238,6 +233,8 @@ sql_state error_code_to_sql_state(error::code code) {
         // Network group. Group code: 11
         case error::code::UNRESOLVABLE_CONSISTENT_ID:
         case error::code::PORT_IN_USE:
+        case error::code::FILE_TRANSFER:
+        case error::code::FILE_VALIDATION:
         case error::code::RECIPIENT_LEFT:
         case error::code::ADDRESS_UNRESOLVED:
             return sql_state::S08001_CANNOT_CONNECT;
@@ -271,16 +268,17 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CLASS_LOADER:
         case error::code::CLASS_INITIALIZATION:
         case error::code::QUEUE_OVERFLOW:
-        case error::code::COMPUTE_JOB_STATE_TRANSITION:
+        case error::code::COMPUTE_JOB_STATUS_TRANSITION:
         case error::code::CANCELLING:
         case error::code::RESULT_NOT_FOUND:
-        case error::code::FAIL_TO_GET_JOB_STATUS:
+        case error::code::FAIL_TO_GET_JOB_STATE:
         case error::code::COMPUTE_JOB_FAILED:
-        case error::code::CHANGE_JOB_PRIORITY_NO_JOB:
         case error::code::PRIMARY_REPLICA_RESOLVE:
-        case error::code::CHANGE_JOB_PRIORITY_JOB_EXECUTING:
         case error::code::CHANGE_JOB_PRIORITY:
         case error::code::NODE_NOT_FOUND:
+        case error::code::MARSHALLING_TYPE_MISMATCH:
+        case error::code::COMPUTE_JOB_CANCELLED:
+        case error::code::COMPUTE_PLATFORM_EXECUTOR:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Catalog group. Group code: 17
@@ -296,6 +294,30 @@ sql_state error_code_to_sql_state(error::code code) {
         // CriticalWorkers group. Group code: 19
         case error::code::SYSTEM_WORKER_BLOCKED:
         case error::code::SYSTEM_CRITICAL_OPERATION_TIMEOUT:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // DisasterRecovery group. Group code: 20
+        case error::code::NODES_NOT_FOUND:
+        case error::code::ILLEGAL_PARTITION_ID:
+        case error::code::PARTITION_STATE:
+        case error::code::CLUSTER_NOT_IDLE:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // Embedded group. Group code: 21
+        case error::code::CLUSTER_NOT_INITIALIZED:
+        case error::code::CLUSTER_INIT_FAILED:
+        case error::code::NODE_NOT_STARTED:
+        case error::code::NODE_START:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // Marshalling group. Group code: 22
+        case error::code::COMMON:
+        case error::code::UNSUPPORTED_OBJECT_TYPE:
+        case error::code::UNMARSHALLING:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // REST service group. Group code: 23
+        case error::code::CLUSTER_NOT_INIT:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

@@ -18,9 +18,10 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 
 /**
@@ -31,14 +32,13 @@ public class ClientJdbcPreparedStmntBatchRequest {
      * Processes remote {@code BatchPreparedStmntRequest}.
      *
      * @param in      Client message unpacker.
-     * @param out     Client message packer.
      * @param handler Query event handler.
      * @return Operation future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            JdbcQueryEventHandler handler
+            JdbcQueryEventHandlerImpl handler,
+            HybridTimestampTracker tsTracker
     ) {
         var req = new JdbcBatchPreparedStmntRequest();
 
@@ -46,6 +46,8 @@ public class ClientJdbcPreparedStmntBatchRequest {
 
         req.readBinary(in);
 
-        return handler.batchPrepStatementAsync(connectionId, req).thenAccept(res -> res.writeBinary(out));
+        req.timestampTracker(tsTracker);
+
+        return handler.batchPrepStatementAsync(connectionId, req).thenApply(res -> res::writeBinary);
     }
 }

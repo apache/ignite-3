@@ -44,25 +44,23 @@ import org.junit.jupiter.api.function.Executable;
 public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     private MetricManager metricManager;
     private IgniteSql sql;
-    private MetricSet clientMetricSet;
 
     @BeforeAll
     void beforeAll() {
         metricManager = queryProcessor().metricManager();
         sql = igniteSql();
-        clientMetricSet = metricManager.enable(SqlClientMetricSource.NAME);
 
         createAndPopulateTable();
     }
 
     @BeforeEach
     void beforeEach() throws Exception {
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 
     @AfterEach
     void afterEach() throws Exception {
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 
     @Override
@@ -75,7 +73,7 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
         sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
 
         // default pageSize greater than number of rows in a table, thus cursor will be closed immediately
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
         Statement statement = sql.statementBuilder()
                 .query("SELECT * from " + DEFAULT_TABLE_NAME)
@@ -84,20 +82,20 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
 
         ResultSet<SqlRow> rs1 = sql.execute(null, statement);
 
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
         rs1.forEachRemaining(c -> {});
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
         ResultSet<SqlRow> rs2 = sql.execute(null, statement);
         ResultSet<SqlRow> rs3 = sql.execute(null, statement);
 
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 2);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 2);
 
         rs2.close();
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
         rs3.close();
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 
     private static void assertInternalSqlException(String expectedText, Executable executable) {
@@ -111,13 +109,15 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
                 Sql.STMT_PARSE_ERR,
                 "Failed to parse query",
                 () -> sql.execute(null, "SELECT * ODINfrom " + DEFAULT_TABLE_NAME));
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
         assertInternalSqlException("Column 'A' not found in any table", () -> sql.execute(null, "SELECT a from " + DEFAULT_TABLE_NAME));
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
+        assertMetricValue(SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 
-    private void assertMetricValue(MetricSet metricSet, String metricName, Object expectedValue) throws InterruptedException {
+    private void assertMetricValue(String metricName, Object expectedValue) throws InterruptedException {
+        MetricSet metricSet = metricManager.metricSnapshot().get1().get(SqlClientMetricSource.NAME);
+
         assertTrue(
                 waitForCondition(
                         () -> expectedValue.toString().equals(metricSet.get(metricName).getValueAsString()),

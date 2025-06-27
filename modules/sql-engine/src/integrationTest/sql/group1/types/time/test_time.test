@@ -1,0 +1,165 @@
+# name: test/sql/types/time/test_time.test
+# description: Test basic TIME functionality
+# group: [time]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE times(t1 TIME(3), t2 TIME(3) WITHOUT TIME ZONE)
+
+statement ok
+INSERT INTO times VALUES (time '00:01:20', time '00:01:20'), (time '20:08:10.998', time '20:08:10.998'), (time '20:08:10.33', time '20:08:10.33'), (time '20:08:10.001', time '20:08:10.001'), (NULL, NULL)
+
+query TT
+SELECT * FROM times ORDER by t1
+----
+00:01:20	00:01:20
+20:08:10.001	20:08:10.001
+20:08:10.33	20:08:10.33
+20:08:10.998	20:08:10.998
+NULL	NULL
+
+query TT
+SELECT cast(t1 AS VARCHAR), cast(t2 AS VARCHAR) FROM times ORDER by t1
+----
+00:01:20	00:01:20
+20:08:10.001	20:08:10.001
+20:08:10.33	20:08:10.33
+20:08:10.998	20:08:10.998
+NULL	NULL
+
+# A cast operation to a time data type that reduce precision behave the same way as such cast to a decimal
+# SELECT '20.999'::DECIMAL(4,2) produces 20.99
+
+# TIME
+
+# Literals
+
+statement ok
+CREATE TABLE times2(id INT PRIMARY KEY, t1_0 TIME(0), t1_1 TIME(1), t1_2 TIME(2), t1_3 TIME(3))
+
+statement ok
+INSERT INTO times2 VALUES(1, TIME '00:00:00.333', TIME '00:00:00.333',  TIME '00:00:00.333', TIME '00:00:00.333')
+
+statement ok
+INSERT INTO times2 VALUES(2, TIME '00:00:00.999', TIME '00:00:00.999',  TIME '00:00:00.999', TIME '00:00:00.999')
+
+statement ok
+INSERT INTO times2 VALUES(3, TIME '00:00:59.333', TIME '00:00:59.333',  TIME '00:00:59.333', TIME '00:00:59.333')
+
+statement ok
+INSERT INTO times2 VALUES(4, TIME '00:00:59.999', TIME '00:00:59.999',  TIME '00:00:59.999', TIME '00:00:59.999')
+
+query TTTT
+SELECT t1_0::VARCHAR, t1_1::VARCHAR, t1_2::VARCHAR, t1_3::VARCHAR FROM times2 ORDER BY id ASC
+----
+00:00:00	00:00:00.3	00:00:00.33	00:00:00.333
+00:00:00	00:00:00.9	00:00:00.99	00:00:00.999
+00:00:59	00:00:59.3	00:00:59.33	00:00:59.333
+00:00:59	00:00:59.9	00:00:59.99	00:00:59.999
+
+# same as above but with CAST to TIME(3)
+
+# Cast to time instead of literals
+
+statement ok
+CREATE TABLE times3(id INT PRIMARY KEY, t1_0 TIME(0), t1_1 TIME(1), t1_2 TIME(2), t1_3 TIME(3))
+
+statement ok
+INSERT INTO times3 VALUES(1, '00:00:00.333'::TIME(3), '00:00:00.333'::TIME(3), '00:00:00.333'::TIME(3), '00:00:00.333'::TIME(3))
+
+statement ok
+INSERT INTO times3 VALUES(2, '00:00:00.999'::TIME(3), '00:00:00.999'::TIME(3), '00:00:00.999'::TIME(3), '00:00:00.999'::TIME(3))
+
+statement ok
+INSERT INTO times3 VALUES(3, '00:00:59.333'::TIME(3), '00:00:59.333'::TIME(3), '00:00:59.333'::TIME(3), '00:00:59.333'::TIME(3))
+
+statement ok
+INSERT INTO times3 VALUES(4, '00:00:59.999'::TIME(3), '00:00:59.999'::TIME(3), '00:00:59.999'::TIME(3), '00:00:59.999'::TIME(3))
+
+query TTTT
+SELECT t1_0::VARCHAR, t1_1::VARCHAR, t1_2::VARCHAR, t1_3::VARCHAR FROM times3 ORDER BY id ASC
+----
+00:00:00	00:00:00.3	00:00:00.33	00:00:00.333
+00:00:00	00:00:00.9	00:00:00.99	00:00:00.999
+00:00:59	00:00:59.3	00:00:59.33	00:00:59.333
+00:00:59	00:00:59.9	00:00:59.99	00:00:59.999
+
+# Sub-millisecond precision time
+
+statement ok
+CREATE TABLE times_sub_ms(id INT PRIMARY KEY, t1_0 TIME(6), t1_1 TIME(7), t1_2 TIME(8), t1_3 TIME(9))
+
+# Literals
+
+statement ok
+INSERT INTO times_sub_ms VALUES(1, TIME '00:00:00.333333', TIME '00:00:00.333333',  TIME '00:00:00.333333', TIME '00:00:00.333333')
+
+statement ok
+INSERT INTO times_sub_ms VALUES(2, TIME '00:00:00.999999', TIME '00:00:00.999999',  TIME '00:00:00.999999', TIME '00:00:00.999999')
+
+statement ok
+INSERT INTO times_sub_ms VALUES(3, TIME '00:00:59.333333', TIME '00:00:59.333333',  TIME '00:00:59.333', TIME '00:00:59.333333')
+
+statement ok
+INSERT INTO times_sub_ms VALUES(4, TIME '00:00:58.999999', TIME '00:00:58.999999', TIME '00:00:58.999999', TIME '00:00:58.999999')
+
+statement ok
+INSERT INTO times_sub_ms VALUES(5, TIME '00:00:00.999999', TIME '00:00:00.999999', TIME '00:00:00.999999', TIME '00:00:00.999999')
+
+statement ok
+INSERT INTO times_sub_ms VALUES(6, TIME '00:00:00.999999999', TIME '00:00:00.999999999', TIME '00:00:00.999999999', TIME '00:00:00.999999999')
+
+query TTTT
+SELECT t1_0::VARCHAR, t1_1::VARCHAR, t1_2::VARCHAR, t1_3::VARCHAR FROM times_sub_ms ORDER BY id ASC
+----
+00:00:00.333	00:00:00.333	00:00:00.333	00:00:00.333
+00:00:00.999	00:00:00.999	00:00:00.999	00:00:00.999
+00:00:59.333	00:00:59.333	00:00:59.333	00:00:59.333
+00:00:58.999	00:00:58.999	00:00:58.999	00:00:58.999
+00:00:00.999	00:00:00.999	00:00:00.999	00:00:00.999
+00:00:00.999	00:00:00.999	00:00:00.999	00:00:00.999
+
+statement ok
+DROP TABLE times_sub_ms
+
+# Cast to time instead of literals
+
+for type in [TIME(6), TIME(7), TIME(8), TIME(9)]
+
+statement ok
+CREATE TABLE times_sub_ms(id INT PRIMARY KEY, t1_0 TIME(6), t1_1 TIME(7), t1_2 TIME(8), t1_3 TIME(9))
+
+statement ok
+INSERT INTO times_sub_ms VALUES(1, '00:00:00.333333'::${type}, '00:00:00.333333'::${type}, '00:00:00.333333'::${type}, '00:00:00.333333'::${type})
+
+statement ok
+INSERT INTO times_sub_ms VALUES(2, '00:00:00.999999'::${type}, '00:00:00.999999'::${type}, '00:00:00.999999'::${type}, '00:00:00.999999'::${type})
+
+statement ok
+INSERT INTO times_sub_ms VALUES(3, '00:00:59.333333'::${type}, '00:00:59.333333'::${type}, '00:00:59.333333'::${type}, '00:00:59.333333'::${type})
+
+statement ok
+INSERT INTO times_sub_ms VALUES(4, '00:00:58.999999'::${type}, '00:00:58.999999'::${type}, '00:00:58.999999'::${type}, '00:00:58.999999'::${type})
+
+statement ok
+INSERT INTO times_sub_ms VALUES(5, '00:00:00.999999'::${type}, '00:00:00.999999'::${type}, '00:00:00.999999'::${type}, '00:00:00.999999'::${type})
+
+statement ok
+INSERT INTO times_sub_ms VALUES(6, '00:00:00.999999999'::${type}, '00:00:00.999999999'::${type}, '00:00:00.999999999'::${type}, '00:00:00.999999999'::${type})
+
+query TTTT
+SELECT t1_0::VARCHAR, t1_1::VARCHAR, t1_2::VARCHAR, t1_3::VARCHAR FROM times_sub_ms ORDER BY id ASC
+----
+00:00:00.333	00:00:00.333	00:00:00.333	00:00:00.333
+00:00:00.999	00:00:00.999	00:00:00.999	00:00:00.999
+00:00:59.333	00:00:59.333	00:00:59.333	00:00:59.333
+00:00:58.999	00:00:58.999	00:00:58.999	00:00:58.999
+00:00:00.999	00:00:00.999	00:00:00.999	00:00:00.999
+00:00:00.999	00:00:00.999	00:00:00.999	00:00:00.999
+
+statement ok
+DROP TABLE times_sub_ms
+
+endfor

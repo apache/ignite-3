@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxStateMetaFinishingMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link TxStateMeta} implementation for {@link TxState#FINISHING} state. Contains future that is is completed after the state of
+ * {@link TxStateMeta} implementation for {@link TxState#FINISHING} state. Contains future that is completed after the state of
  * corresponding transaction changes to final state.
  */
 public class TxStateMetaFinishing extends TxStateMeta {
@@ -37,9 +43,12 @@ public class TxStateMetaFinishing extends TxStateMeta {
      *
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition id.
+     * @param isFinishingDueToTimeout {@code true} if transaction is finishing due to timeout, {@code false} otherwise.
      */
-    public TxStateMetaFinishing(@Nullable String txCoordinatorId, @Nullable TablePartitionId commitPartitionId) {
-        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null);
+    public TxStateMetaFinishing(
+            @Nullable UUID txCoordinatorId, @Nullable ReplicationGroupId commitPartitionId, @Nullable Boolean isFinishingDueToTimeout
+    ) {
+        super(TxState.FINISHING, txCoordinatorId, commitPartitionId, null, null, isFinishingDueToTimeout);
     }
 
     /**
@@ -54,6 +63,25 @@ public class TxStateMetaFinishing extends TxStateMeta {
     @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         throw new UnsupportedOperationException("Can't get commit timestamp from FINISHING transaction state meta.");
+    }
+
+    @Override
+    public TxStateMetaFinishingMessage toTransactionMetaMessage(
+            ReplicaMessagesFactory replicaMessagesFactory,
+            TxMessagesFactory txMessagesFactory
+    ) {
+        ReplicationGroupId commitPartitionId = commitPartitionId();
+
+        return txMessagesFactory.txStateMetaFinishingMessage()
+                .txState(txState())
+                .txCoordinatorId(txCoordinatorId())
+                .commitPartitionId(
+                        commitPartitionId == null ? null : toReplicationGroupIdMessage(replicaMessagesFactory, commitPartitionId)
+                )
+                .commitTimestamp(commitTimestamp())
+                .initialVacuumObservationTimestamp(initialVacuumObservationTimestamp())
+                .cleanupCompletionTimestamp(cleanupCompletionTimestamp())
+                .build();
     }
 
     @Override

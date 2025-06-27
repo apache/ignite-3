@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Generators
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.IO;
     using System.Linq;
@@ -32,6 +33,10 @@ namespace Apache.Ignite.Internal.Generators
     /// Generates exception classes from Java exceptions.
     /// </summary>
     [Generator]
+    [SuppressMessage(
+        "MicrosoftCodeAnalysisCorrectness",
+        "RS1035:Do not use APIs banned for analyzers",
+        Justification = "IO is required to read Java code.")]
     public sealed class ExceptionsGenerator : JavaToCsharpGeneratorBase
     {
         /// <inheritdoc/>
@@ -53,7 +58,7 @@ namespace Apache.Ignite.Internal.Generators
                 .Where(x => !exclude.Any(x.Contains))
                 .Select(File.ReadAllText)
                 .Select(x => (
-                    Class: Regex.Match(x, @"public class (\w+) extends (\w+)"),
+                    Class: Regex.Match(x, @"public(?:\s\w+)? class (\w+) extends (\w+)"),
                     Source: x))
                 .Where(x => x.Class.Success)
                 .Where(x => !x.Class.Value.Contains("RaftException")) // Ignore duplicate RaftException.
@@ -143,7 +148,7 @@ namespace Apache.Ignite.Internal.Generators
 
         private static string GetXmlDoc(string javaClassName, string javaSource)
         {
-            var javaDocMatch = Regex.Match(javaSource, @"/\*\*\s*\*?\s*(.*?)\s*\*/\s+public class", RegexOptions.Singleline);
+            var javaDocMatch = Regex.Match(javaSource, @"/\*\*\s*\*?\s*(.*?)\s*\*/(\s+@(?:\w+))?\s+public(?:\s\w+)? class", RegexOptions.Singleline);
 
             if (!javaDocMatch.Success)
             {
@@ -151,7 +156,7 @@ namespace Apache.Ignite.Internal.Generators
             }
 
             var xmlDoc = javaDocMatch.Groups[1].Value
-                .Replace(Environment.NewLine, " ")
+                .Replace("\r\n", " ")
                 .Replace('\n', ' ')
                 .Replace(" * ", " ");
 

@@ -17,28 +17,23 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Test scenarios when filter of a zone is altered and immediate scale up is triggered.
@@ -47,28 +42,28 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
     private static final String FILTER = "$[?(@.storage == 'SSD' || @.region == 'US')]";
 
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl(randomUUID(), "D", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20"),
             Map.of(),
             List.of(DEFAULT_STORAGE_PROFILE)
@@ -80,10 +75,14 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    void testAlterFilter(boolean defaultZone) throws Exception {
-        String zoneName = preparePrerequisites(defaultZone);
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    void testAlterFilter(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        String zoneName = preparePrerequisites(defaultZone, consistencyMode);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
         alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
@@ -104,10 +103,14 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    void testAlterFilterToEmtpyNodes(boolean defaultZone) throws Exception {
-        String zoneName = preparePrerequisites(defaultZone);
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    void testAlterFilterToEmtpyNodes(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        String zoneName = preparePrerequisites(defaultZone, consistencyMode);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
         alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
@@ -128,25 +131,31 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    void testAlterFilterDoNotAffectScaleDown(boolean defaultZone) throws Exception {
-        String zoneName = preparePrerequisites(IMMEDIATE_TIMER_VALUE, COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, defaultZone);
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    void testAlterFilterDoNotAffectScaleDown(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        String zoneName = preparePrerequisites(
+                IMMEDIATE_TIMER_VALUE,
+                COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS,
+                defaultZone,
+                consistencyMode
+        );
 
         topology.putNode(D);
 
         int zoneId = getZoneId(zoneName);
-
-        if (ZONE_NAME.equals(zoneName)) {
-            assertNull(distributionZoneManager.zonesState().get(zoneId).scaleDownTask());
-        }
 
         topology.removeNodes(Set.of(C));
 
         // Check that scale down task was scheduled.
         assertTrue(
                 waitForCondition(
-                        () -> distributionZoneManager.zonesState().get(zoneId).scaleDownTask() != null,
+                        () -> distributionZoneManager.dataNodesManager().zoneTimers(zoneId) != null
+                                && distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleDown.taskIsScheduled(),
                         ZONE_MODIFICATION_AWAIT_TIMEOUT
                 )
         );
@@ -156,18 +165,12 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         alterZone(zoneName, null, null, newFilter);
 
-        // Node C is still in data nodes because altering a filter triggers only immediate scale up.
-        assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
-                zoneId, Set.of(C, D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
-
-        // Check that scale down task is still scheduled.
-        assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
-
-        // Alter zone so we could check that node C is removed from data nodes.
-        alterZone(zoneName, INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, newFilter);
-
+        // Node C is removed from data nodes instantly.
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 zoneId, Set.of(D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
+
+        // Check that scale down task is not scheduled.
+        assertTrue(distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleDown.taskIsCancelled());
     }
 
     /**
@@ -176,23 +179,24 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    void testNodeAddedWhileAlteringFilter(boolean defaultZone) throws Exception {
-        String zoneName = preparePrerequisites(COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, INFINITE_TIMER_VALUE, defaultZone);
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    void testNodeAddedWhileAlteringFilter(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        String zoneName = preparePrerequisites(COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, INFINITE_TIMER_VALUE, defaultZone, consistencyMode);
 
         int zoneId = getZoneId(zoneName);
-
-        if (ZONE_NAME.equals(zoneName)) {
-            assertNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
-        }
 
         topology.putNode(D);
 
         // Check that scale up task was scheduled.
         assertTrue(
                 waitForCondition(
-                        () -> distributionZoneManager.zonesState().get(zoneId).scaleUpTask() != null,
+                        () -> distributionZoneManager.dataNodesManager().zoneTimers(zoneId) != null
+                            && distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleUp.taskIsScheduled(),
                         ZONE_MODIFICATION_AWAIT_TIMEOUT
                 )
         );
@@ -203,32 +207,22 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         alterZone(zoneName, null, null, newFilter);
 
         LogicalNode e = new LogicalNode(
-                new ClusterNodeImpl("5", "E", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl(randomUUID(), "E", new NetworkAddress("localhost", 123)),
                 Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20"),
                 Map.of(),
                 List.of(DEFAULT_STORAGE_PROFILE)
         );
 
-        doAnswer(invocation -> {
-            If iif = invocation.getArgument(0);
+        topology.putNode(e);
 
-            // Emulate a situation when immediate timer was run after filter altering and new node was added, so timer was scheduled.
-            byte[] key = zoneScaleUpChangeTriggerKey(zoneId).bytes();
-
-            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
-                assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
-
-                topology.putNode(e);
-            }
-            return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any(), any());
-
-        // Check that node E, that was added while filter's altering, is not propagated to data nodes.
+        // Check that node E, that was added while filter's altering, is not instantly propagated to data nodes.
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 zoneId, Set.of(C, D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
 
-        // Assert that scheduled timer was not canceled because of immediate scale up after filter altering.
-        assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
+        // Assert that scheduled timer was created because of node E addition.
+        assertTrue(
+                waitForCondition(() -> distributionZoneManager.dataNodesManager().zoneTimers(zoneId).scaleUp.taskIsScheduled(), 2000)
+        );
 
         alterZone(zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, newFilter);
 
@@ -243,8 +237,8 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed
      */
-    private String preparePrerequisites(boolean defaultZone) throws Exception {
-        return preparePrerequisites(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, defaultZone);
+    private String preparePrerequisites(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        return preparePrerequisites(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, defaultZone, consistencyMode);
     }
 
     /**
@@ -253,7 +247,12 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed
      */
-    private String preparePrerequisites(int scaleUpTimer, int scaleDownTimer, boolean defaultZone) throws Exception {
+    private String preparePrerequisites(
+            int scaleUpTimer,
+            int scaleDownTimer,
+            boolean defaultZone,
+            ConsistencyMode consistencyMode
+    ) throws Exception {
         startDistributionZoneManager();
 
         topology.putNode(A);
@@ -267,7 +266,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
             alterZone(zoneName, scaleUpTimer, scaleDownTimer, FILTER);
         } else {
             zoneName = ZONE_NAME;
-            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER, DEFAULT_STORAGE_PROFILE);
+            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER, consistencyMode, DEFAULT_STORAGE_PROFILE);
         }
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,

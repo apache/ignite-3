@@ -38,6 +38,7 @@ import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.NodeInfo;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Checks connection to the Ignite3 node. Creates {@link SessionInfo} on success.
@@ -96,7 +97,12 @@ public class ConnectionChecker {
         ApiClient apiClient = ApiClientFactory.buildClient(apiClientSettings);
 
         NodeInfo nodeInfo = new NodeManagementApi(apiClient).nodeInfo();
-        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(apiClientSettings.basePath(), nodeInfo.getJdbcPort());
+        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(
+                apiClientSettings.basePath(),
+                nodeInfo.getJdbcPort(),
+                apiClientSettings.basicAuthenticationUsername(),
+                apiClientSettings.basicAuthenticationPassword()
+        );
         return SessionInfo.builder().nodeUrl(apiClientSettings.basePath())
                 .nodeName(nodeInfo.getName()).jdbcUrl(jdbcUrl).username(apiClientSettings.basicAuthenticationUsername()).build();
     }
@@ -116,14 +122,33 @@ public class ConnectionChecker {
     }
 
     private void buildAuthSettings(ConnectCallInput callInput, ApiClientSettingsBuilder settingsBuilder) {
-        if (!nullOrBlank(callInput.username()) && !nullOrBlank(callInput.password())) {
-            settingsBuilder.basicAuthenticationUsername(callInput.username());
-            settingsBuilder.basicAuthenticationPassword(callInput.password());
-        } else {
-            ConfigManager configManager = configManagerProvider.get();
-            settingsBuilder.basicAuthenticationUsername(configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value()))
-                    .basicAuthenticationPassword(configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()));
+        ConfigManager configManager = configManagerProvider.get();
+
+        String username = firstNonNullOrBlankString(callInput.username(),
+                configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value()));
+        String password = firstNonNullOrBlankString(callInput.password(),
+                configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()));
+
+        settingsBuilder.basicAuthenticationUsername(username);
+        settingsBuilder.basicAuthenticationPassword(password);
+    }
+
+    /**
+     * Returns first non-null and non-blank argument. Useful when getting the value from CLI parameter or from the config file.
+     *
+     * @param first First string.
+     * @param second Second string.
+     * @return First non-null and non-blank string.
+     */
+    @Nullable
+    public static String firstNonNullOrBlankString(@Nullable String first, @Nullable String second) {
+        if (!nullOrBlank(first)) {
+            return first;
         }
+        if (!nullOrBlank(second)) {
+            return second;
+        }
+        return null;
     }
 
     private static void buildSslSettings(SslConfig sslConfig, ApiClientSettingsBuilder settingsBuilder) {

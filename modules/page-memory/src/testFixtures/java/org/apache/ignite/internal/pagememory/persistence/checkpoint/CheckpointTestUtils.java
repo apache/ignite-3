@@ -24,9 +24,10 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
@@ -44,10 +45,11 @@ public class CheckpointTestUtils {
     /**
      * Returns new instance of {@link CheckpointReadWriteLock}.
      *
-     * @param log Logger.
+     * @param log             Logger.
+     * @param executorService Executor service.
      */
-    static CheckpointReadWriteLock newReadWriteLock(IgniteLogger log) {
-        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000));
+    static CheckpointReadWriteLock newReadWriteLock(IgniteLogger log, ExecutorService executorService) {
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService);
     }
 
     /**
@@ -63,7 +65,7 @@ public class CheckpointTestUtils {
                 Long.MAX_VALUE,
                 () -> CheckpointUrgency.NOT_REQUIRED,
                 mock(Checkpointer.class),
-                mock(FailureProcessor.class)
+                mock(FailureManager.class)
         ) {
             @Override
             public boolean checkpointLockIsHeldByThread() {

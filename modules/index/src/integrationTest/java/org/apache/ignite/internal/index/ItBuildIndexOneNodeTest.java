@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -33,22 +36,33 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -71,7 +85,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
 
-        CLUSTER.runningNodes().forEach(IgniteImpl::stopDroppingMessages);
+        CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(IgniteImpl::stopDroppingMessages);
     }
 
     @Test
@@ -115,8 +129,8 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         createIndexForSalaryFieldAndWaitBecomeAvailable();
 
         // Now let's check the data itself.
-        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE salary > 0.0", INDEX_NAME, TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0)
                 .check();
     }
@@ -148,8 +162,8 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertThat(insertIntoTableFuture, willBe(greaterThan(0)));
 
         // Now let's check the data itself.
-        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE salary > 0.0", INDEX_NAME, TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returnRowCount(nextPersonId.get())
                 .check();
     }
@@ -188,8 +202,9 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertThat(updateIntoTableFuture, willBe(greaterThan(0)));
 
         // Now let's check the data itself.
-        QueryChecker queryChecker = assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0 ORDER BY ID ASC", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+        QueryChecker queryChecker = assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ NAME FROM {} "
+                + "WHERE salary > 0.0 ORDER BY ID ASC", INDEX_NAME, TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .ordered();
 
         int updatedRowCount = updateIntoTableFuture.join();
@@ -234,8 +249,8 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertThat(deleteFromTableFuture, willBe(greaterThan(0)));
 
         // Now let's check the data itself.
-        assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ NAME FROM {} WHERE salary > 0.0", INDEX_NAME, TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returnRowCount(nextPersonId.get() - deleteFromTableFuture.join())
                 .check();
     }
@@ -260,13 +275,13 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         // Hack so that we can wait for the index to be added to the sql planner.
         waitForReadTimestampThatObservesMostRecentCatalog();
 
-        assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName0))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE salary > 0.0", indexName0, TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName0))
                 .returns(0, "0", 10.0, "foo")
                 .check();
 
-        assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName1))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE SURNAME = 'foo'", indexName1, TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName1))
                 .returns(0, "0", 10.0, "foo")
                 .check();
     }
@@ -295,14 +310,38 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
-        assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE SURNAME = 'foo'", INDEX_NAME, TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0, "foo")
                 .check();
     }
 
+    @Test
+    void testBuildIndexAfterDisasterRecovery() throws Exception {
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
+
+        insertPeople(TABLE_NAME, new Person(0, "0", 10.0));
+
+        createIndexForSalaryFieldAndWaitBecomeAvailable();
+
+        // Not a fair reproduction of disaster recovery, but simple.
+        int partitionId = 0;
+        setNextRowIdToBuild(INDEX_NAME, partitionId, RowId.lowestRowId(partitionId));
+
+        CLUSTER.stopNode(0);
+        CLUSTER.startNode(0);
+
+        assertTrue(waitForCondition(() -> indexStorage(INDEX_NAME, partitionId).getNextRowIdToBuild() == null, SECONDS.toMillis(5)));
+
+        // Now let's check the data itself.
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE salary > 0.0", INDEX_NAME, TABLE_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+                .returns(0, "0", 10.0)
+                .check();
+    }
+
     private static IgniteImpl node() {
-        return CLUSTER.node(0);
+        return unwrapIgniteImpl(CLUSTER.node(0));
     }
 
     private static CompletableFuture<Void> awaitIndexBecomeAvailableEventAsync(IgniteImpl ignite, String indexName) {
@@ -315,7 +354,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
                 int indexId = ((MakeIndexAvailableEventParameters) parameters).indexId();
                 int catalogVersion = parameters.catalogVersion();
 
-                CatalogIndexDescriptor index = catalogManager.index(indexId, catalogVersion);
+                CatalogIndexDescriptor index = catalogManager.catalog(catalogVersion).index(indexId);
 
                 assertNotNull(index, "indexId=" + indexId + ", catalogVersion=" + catalogVersion);
 
@@ -341,7 +380,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         // Use hash index for primary key, otherwise if sorted index exists,
         // the optimizer might choose it (the primary key index) instead of an existing sorted one.
         sql(format(
-                "CREATE TABLE IF NOT EXISTS {} (id INT, name VARCHAR, salary DOUBLE, PRIMARY KEY USING HASH (id)) WITH PRIMARY_ZONE='{}'",
+                "CREATE TABLE IF NOT EXISTS {} (id INT, name VARCHAR, salary DOUBLE, PRIMARY KEY USING HASH (id)) ZONE {}",
                 TABLE_NAME, ZONE_NAME
         ));
 
@@ -387,5 +426,73 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertThat(startFunFuture, willCompleteSuccessfully());
 
         return future;
+    }
+
+    private static void setNextRowIdToBuild(String indexName, int partitionId, @Nullable RowId nextRowIdToBuild) {
+        CatalogIndexDescriptor indexDescriptor = indexDescriptor(indexName);
+
+        MvPartitionStorage mvPartitionStorage = mvPartitionStorage(indexDescriptor, partitionId);
+        IndexStorage indexStorage = indexStorage(indexDescriptor, partitionId);
+
+        CompletableFuture<Void> flushFuture = runAsync(() -> {
+            mvPartitionStorage.runConsistently(locker -> {
+                indexStorage.setNextRowIdToBuild(nextRowIdToBuild);
+
+                return null;
+            });
+        }, "test-flusher");
+
+        assertThat(flushFuture, willCompleteSuccessfully());
+    }
+
+    private static TableViewInternal tableViewInternal(int tableId) {
+        CompletableFuture<List<Table>> tablesFuture = node().tables().tablesAsync();
+
+        assertThat(tablesFuture, willCompleteSuccessfully());
+
+        TableViewInternal tableViewInternal = tablesFuture.join().stream()
+                .map(TestWrappers::unwrapTableViewInternal)
+                .filter(table -> table.tableId() == tableId)
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(tableViewInternal, "tableId=" + tableId);
+
+        return tableViewInternal;
+    }
+
+    private static CatalogIndexDescriptor indexDescriptor(String indexName) {
+        IgniteImpl node = node();
+
+        return getIndexStrict(node.catalogManager(), indexName, node.clock().nowLong());
+    }
+
+    private static IndexStorage indexStorage(String indexName, int partitionId) {
+        return indexStorage(indexDescriptor(indexName), partitionId);
+    }
+
+    private static IndexStorage indexStorage(CatalogIndexDescriptor indexDescriptor, int partitionId) {
+        TableViewInternal tableViewInternal = tableViewInternal(indexDescriptor.tableId());
+
+        int indexId = indexDescriptor.id();
+
+        IndexStorage indexStorage = tableViewInternal.internalTable().storage().getIndex(partitionId, indexId);
+
+        assertNotNull(indexStorage, String.format("indexId=%s, partitionId=%s", indexId, partitionId));
+
+        return indexStorage;
+    }
+
+    private static MvPartitionStorage mvPartitionStorage(CatalogIndexDescriptor indexDescriptor, int partitionId) {
+        int tableId = indexDescriptor.tableId();
+
+        TableViewInternal tableViewInternal = tableViewInternal(tableId);
+
+        MvTableStorage mvTableStorage = tableViewInternal.internalTable().storage();
+
+        MvPartitionStorage mvPartitionStorage = mvTableStorage.getMvPartition(partitionId);
+        assertNotNull(mvPartitionStorage, String.format("tableId=%s, partitionId=%s", tableId, partitionId));
+
+        return mvPartitionStorage;
     }
 }

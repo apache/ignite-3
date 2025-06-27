@@ -1,0 +1,13 @@
+﻿Feature,Java,.NET,C++
+Record Binary View,{yes},{yes},{yes}
+Key-Value Binary View,{yes},{yes},{yes}
+Record View,{yes},{yes},{yes}
+Key-Value View,{yes},{yes},{yes}
+SQL API,{yes},{yes},{yes}
+Partition Awareness,{yes},{yes},No
+Transactions,{yes},{yes},{yes}
+Compute API,{yes},{yes},{yes}
+Retry Policy,{yes},{yes},No
+Heartbeats,{yes},{yes},No
+Data Streamer,{yes},{yes},No
+Continuous Query,{yes},No,No

@@ -28,13 +28,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
-import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 
@@ -63,6 +67,10 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final ReplicaService replicaService;
 
+    private final FailureProcessor failureProcessor;
+
+    private final NodeProperties nodeProperties;
+
     private final Map<IndexBuildTaskId, IndexBuildTask> indexBuildTaskById = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -72,9 +80,11 @@ class IndexBuilder implements ManuallyCloseable {
     private final List<IndexBuildCompletionListener> listeners = new CopyOnWriteArrayList<>();
 
     /** Constructor. */
-    IndexBuilder(Executor executor, ReplicaService replicaService) {
-        this.replicaService = replicaService;
+    IndexBuilder(Executor executor, ReplicaService replicaService, FailureProcessor failureProcessor, NodeProperties nodeProperties) {
         this.executor = executor;
+        this.replicaService = replicaService;
+        this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
     }
 
     /**
@@ -85,9 +95,11 @@ class IndexBuilder implements ManuallyCloseable {
      *     <li>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommand}
      *     on the replica, batches are sent sequentially.</li>
      *     <li>It is expected that the index building is triggered by the primary replica.</li>
-     *     <li>If the index has already been built, {@link IndexBuildCompletionListener} will be notified.</li>
+     *     <li>If the index has already been built or after the building is complete, {@link IndexBuildCompletionListener#onBuildCompletion}
+     *     will be notified.</li>
      * </ul>
      *
+     * @param zoneId Distribution zone ID.
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      * @param indexId Index ID.
@@ -96,9 +108,9 @@ class IndexBuilder implements ManuallyCloseable {
      * @param node Node to which requests to build the index will be sent.
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the message goes
      *      to the replica.
-     * @param creationCatalogVersion Catalog version in which the index was created.
      */
     public void scheduleBuildIndex(
+            int zoneId,
             int tableId,
             int partitionId,
             int indexId,
@@ -106,7 +118,7 @@ class IndexBuilder implements ManuallyCloseable {
             MvPartitionStorage partitionStorage,
             ClusterNode node,
             long enlistmentConsistencyToken,
-            int creationCatalogVersion
+            HybridTimestamp initialOperationTimestamp
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -117,49 +129,89 @@ class IndexBuilder implements ManuallyCloseable {
                 return;
             }
 
-            IndexBuildTaskId taskId = new IndexBuildTaskId(tableId, partitionId, indexId);
+            var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
 
             IndexBuildTask newTask = new IndexBuildTask(
                     taskId,
                     indexStorage,
                     partitionStorage,
                     replicaService,
+                    failureProcessor,
+                    nodeProperties,
                     executor,
                     busyLock,
                     BATCH_SIZE,
                     node,
                     listeners,
                     enlistmentConsistencyToken,
-                    creationCatalogVersion
+                    false,
+                    initialOperationTimestamp
             );
 
-            IndexBuildTask previousTask = indexBuildTaskById.putIfAbsent(taskId, newTask);
-
-            if (previousTask != null) {
-                // Index building is already in progress.
-                return;
-            }
-
-            newTask.start();
-
-            newTask.getTaskFuture().whenComplete((unused, throwable) -> indexBuildTaskById.remove(taskId));
+            putAndStartTaskIfAbsent(taskId, newTask);
         });
     }
 
     /**
-     * Stops index building if it is in progress.
+     * Schedules building an {@link CatalogIndexStatus#AVAILABLE available} index after disaster recovery, if it is not already built or is
+     * not yet in progress.
      *
+     * <p>Notes:</p>
+     * <ul>
+     *     <li>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommand}
+     *     on the replica, batches are sent sequentially.</li>
+     *     <li>It is expected that the index building is triggered by the primary replica.</li>
+     *     <li>If the index has already been built, then nothing will happen.</li>
+     *     <li>After index building is complete, {@link IndexBuildCompletionListener#onBuildCompletionAfterDisasterRecovery} will be
+     *     notified.</li>
+     * </ul>
+     *
+     * @param zoneId Distribution zone ID.
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      * @param indexId Index ID.
+     * @param indexStorage Index storage to build.
+     * @param partitionStorage Multi-versioned partition storage.
+     * @param node Node to which requests to build the index will be sent.
+     * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the
+     *         message goes to the replica.
      */
-    public void stopBuildIndex(int tableId, int partitionId, int indexId) {
+    public void scheduleBuildIndexAfterDisasterRecovery(
+            int zoneId,
+            int tableId,
+            int partitionId,
+            int indexId,
+            IndexStorage indexStorage,
+            MvPartitionStorage partitionStorage,
+            ClusterNode node,
+            long enlistmentConsistencyToken,
+            HybridTimestamp initialOperationTimestamp
+    ) {
         inBusyLockSafe(busyLock, () -> {
-            IndexBuildTask removed = indexBuildTaskById.remove(new IndexBuildTaskId(tableId, partitionId, indexId));
-
-            if (removed != null) {
-                removed.stop();
+            if (indexStorage.getNextRowIdToBuild() == null) {
+                return;
             }
+
+            var taskId = new IndexBuildTaskId(zoneId, tableId, partitionId, indexId);
+
+            IndexBuildTask newTask = new IndexBuildTask(
+                    taskId,
+                    indexStorage,
+                    partitionStorage,
+                    replicaService,
+                    failureProcessor,
+                    nodeProperties,
+                    executor,
+                    busyLock,
+                    BATCH_SIZE,
+                    node,
+                    listeners,
+                    enlistmentConsistencyToken,
+                    true,
+                    initialOperationTimestamp
+            );
+
+            putAndStartTaskIfAbsent(taskId, newTask);
         });
     }
 
@@ -169,8 +221,19 @@ class IndexBuilder implements ManuallyCloseable {
      * @param tableId Table ID.
      * @param partitionId Partition ID.
      */
-    public void stopBuildingIndexes(int tableId, int partitionId) {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+    public void stopBuildingTableIndexes(int tableId, int partitionId) {
         stopBuildingIndexes(taskId -> tableId == taskId.getTableId() && partitionId == taskId.getPartitionId());
+    }
+
+    /**
+     * Stops building indexes for the given distribution zone and partition if they are in progress.
+     *
+     * @param zoneId Zone ID.
+     * @param partitionId Partition ID.
+     */
+    public void stopBuildingZoneIndexes(int zoneId, int partitionId) {
+        stopBuildingIndexes(taskId -> zoneId == taskId.getZoneId() && partitionId == taskId.getPartitionId());
     }
 
     /**
@@ -213,5 +276,20 @@ class IndexBuilder implements ManuallyCloseable {
     /** Removes a listener. */
     public void stopListen(IndexBuildCompletionListener listener) {
         listeners.remove(listener);
+    }
+
+    private void putAndStartTaskIfAbsent(IndexBuildTaskId taskId, IndexBuildTask task) {
+        IndexBuildTask previousTask = indexBuildTaskById.putIfAbsent(taskId, task);
+
+        if (previousTask != null) {
+            // Index building is already in progress.
+            return;
+        }
+
+        try {
+            task.start();
+        } finally {
+            task.getTaskFuture().whenComplete((unused, throwable) -> indexBuildTaskById.remove(taskId));
+        }
     }
 }

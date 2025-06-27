@@ -39,7 +39,7 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
 
     /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgsAndFile;
 
     @Inject
     private NodeConfigUpdateCall call;
@@ -47,19 +47,15 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
     /** {@inheritDoc} */
     @Override
     public Integer call() {
-        return CallExecutionPipeline.builder(call)
+        return runPipeline(CallExecutionPipeline.builder(call)
                 .inputProvider(this::buildCallInput)
-                .output(spec.commandLine().getOut())
-                .errOutput(spec.commandLine().getErr())
-                .verbose(verbose)
-                .build()
-                .runPipeline();
+        );
     }
 
     private NodeConfigUpdateCallInput buildCallInput() {
         return NodeConfigUpdateCallInput.builder()
                 .nodeUrl(nodeUrl.getNodeUrl())
-                .config(config.toString())
+                .config(configFromArgsAndFile.formUpdateConfig())
                 .build();
     }
 }

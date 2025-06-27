@@ -19,14 +19,13 @@ package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.causality.BaseVersionedValue.DEFAULT_MAX_HISTORY_SIZE;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,6 +54,13 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     private long lastCompleteToken = -1;
 
     /**
+     * Token that was used with the most recent {@link #deleteInternal} call.
+     *
+     * <p>Multi-threaded access is guarded by {@link #updateMutex}.</p>
+     */
+    private long lastDeletedToken = -1;
+
+    /**
      * Future that will be completed after all updates over the value in context of current causality token will be performed.
      *
      * <p>Multi-threaded access is guarded by {@link #updateMutex}.
@@ -72,68 +78,80 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
      * <p>In the case of "fresh" VV with no updates, first closure is always being executed synchronously inside of the
      * {@link #update(long, BiFunction)} call.
      */
-    public static Consumer<LongFunction<CompletableFuture<?>>> dependingOn(IncrementalVersionedValue<?> vv) {
-        return callback -> vv.whenComplete((causalityToken, value, ex) -> callback.apply(causalityToken));
+    public static RevisionListenerRegistry dependingOn(IncrementalVersionedValue<?> vv) {
+        return listener -> {
+            vv.whenComplete((token, value, ex) -> listener.onUpdate(token));
+
+            vv.whenDelete(listener::onDelete);
+        };
     }
 
     /**
      * Constructor.
      *
-     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this
-     *         VersionedValue should be able to listen to, for receiving storage revision updates. This closure is called once on a
-     *         construction of this VersionedValue and accepts a {@code LongFunction<CompletableFuture<?>>} that should be called on every
-     *         update of storage revision as a listener.
+     * @param registry Registry intended to connect this VersionedValue with a revision updater, that this
+     *         VersionedValue should be able to listen to, for receiving storage revision updates. This registry is called once on a
+     *         construction of this VersionedValue.
      * @param maxHistorySize Size of the history of changes to store, including last applied token.
      * @param defaultValueSupplier Supplier of the default value, that is used on {@link #update(long, BiFunction)} to evaluate the
      *         default value if the value is not initialized yet. It is not guaranteed to execute only once.
      */
     public IncrementalVersionedValue(
-            @Nullable Consumer<LongFunction<CompletableFuture<?>>> observableRevisionUpdater,
+            String name,
+            @Nullable RevisionListenerRegistry registry,
             int maxHistorySize,
             @Nullable Supplier<T> defaultValueSupplier
     ) {
-        this.versionedValue = new BaseVersionedValue<>(maxHistorySize, defaultValueSupplier);
+        this.versionedValue = new BaseVersionedValue<>(name, maxHistorySize, defaultValueSupplier);
 
         this.updaterFuture = completedFuture(versionedValue.getDefault());
 
-        if (observableRevisionUpdater != null) {
-            observableRevisionUpdater.accept(this::completeInternal);
+        if (registry != null) {
+            registry.listen(new RevisionListener() {
+                @Override
+                public CompletableFuture<?> onUpdate(long revision) {
+                    return completeInternal(revision);
+                }
+
+                @Override
+                public void onDelete(long revisionUpperBoundInclusive) {
+                    deleteInternal(revisionUpperBoundInclusive);
+                }
+            });
         }
     }
 
     /**
      * Constructor.
      *
-     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this
-     *         VersionedValue should be able to listen to, for receiving storage revision updates. This closure is called once on a
-     *         construction of this VersionedValue and accepts a {@code LongFunction<CompletableFuture<?>>} that should be called on every
-     *         update of storage revision as a listener.
+     * @param registry Registry intended to connect this VersionedValue with a revision updater, that this
+     *         VersionedValue should be able to listen to, for receiving storage revision updates. This registry is called once on a
+     *         construction of this VersionedValue.
      * @param defaultValueSupplier Supplier of the default value, that is used on {@link #update(long, BiFunction)} to evaluate the
      *         default value if the value is not initialized yet. It is not guaranteed to execute only once.
      */
     public IncrementalVersionedValue(
-            @Nullable Consumer<LongFunction<CompletableFuture<?>>> observableRevisionUpdater,
+            String name,
+            @Nullable RevisionListenerRegistry registry,
             @Nullable Supplier<T> defaultValueSupplier
     ) {
-        this.versionedValue = new BaseVersionedValue<>(defaultValueSupplier);
-
-        this.updaterFuture = completedFuture(versionedValue.getDefault());
-
-        if (observableRevisionUpdater != null) {
-            observableRevisionUpdater.accept(this::completeInternal);
-        }
+        this(name, registry, DEFAULT_MAX_HISTORY_SIZE, defaultValueSupplier);
     }
 
     /**
      * Constructor with default history size.
      *
-     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this
-     *         VersionedValue should be able to listen to, for receiving storage revision updates. This closure is called once on a
-     *         construction of this VersionedValue and accepts a {@code LongFunction<CompletableFuture<?>>} that should be called on every
-     *         update of storage revision as a listener.
+     * @param registry Registry intended to connect this VersionedValue with a revision updater, that this
+     *         VersionedValue should be able to listen to, for receiving storage revision updates. This registry is called once on a
+     *         construction of this VersionedValue.
      */
-    public IncrementalVersionedValue(Consumer<LongFunction<CompletableFuture<?>>> observableRevisionUpdater) {
-        this(observableRevisionUpdater, null);
+    public IncrementalVersionedValue(String name, RevisionListenerRegistry registry) {
+        this(name, registry, DEFAULT_MAX_HISTORY_SIZE, null);
+    }
+
+    @Override
+    public String name() {
+        return versionedValue.name();
     }
 
     @Override
@@ -159,6 +177,16 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
     @Override
     public void removeWhenComplete(CompletionListener<T> action) {
         versionedValue.removeWhenComplete(action);
+    }
+
+    @Override
+    public void whenDelete(DeletionListener<T> action) {
+        versionedValue.whenDelete(action);
+    }
+
+    @Override
+    public void removeWhenDelete(DeletionListener<T> action) {
+        versionedValue.removeWhenDelete(action);
     }
 
     /**
@@ -243,6 +271,12 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
         synchronized (updateMutex) {
             assert expectedToken == -1 || expectedToken == causalityToken
                     : String.format("Causality token mismatch, expected %d, got %d", expectedToken, causalityToken);
+            assert causalityToken > lastCompleteToken : String.format(
+                    "Causality token must be greater than the last completed: [token=%s, lastCompleted=%s]", causalityToken,
+                    lastCompleteToken);
+            assert causalityToken > lastDeletedToken : String.format(
+                    "Causality token must be greater than the last deleted: [token=%s, lastDeleted=%s]", causalityToken,
+                    lastDeletedToken);
 
             lastCompleteToken = causalityToken;
             expectedToken = -1;
@@ -259,6 +293,27 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
             }
 
             return updaterFuture;
+        }
+    }
+
+    private void deleteInternal(long causalityToken) {
+        synchronized (updateMutex) {
+            assert causalityToken < lastCompleteToken : String.format(
+                    "Causality token must be less than the last completed: [name=%s, token=%s, lastCompleted=%s]",
+                    name(),
+                    causalityToken,
+                    lastCompleteToken
+            );
+            assert causalityToken > lastDeletedToken : String.format(
+                    "Causality token must be greater than the last deleted: [name=%s, token=%s, lastDeleted=%s]",
+                    name(),
+                    causalityToken,
+                    lastDeletedToken
+            );
+
+            lastDeletedToken = causalityToken;
+
+            versionedValue.deleteUpTo(causalityToken);
         }
     }
 }

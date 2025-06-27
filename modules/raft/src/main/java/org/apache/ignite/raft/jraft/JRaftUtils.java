@@ -35,6 +35,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RpcOptions;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.ThreadPoolUtil;
 import org.apache.ignite.raft.jraft.util.Utils;
@@ -258,5 +259,17 @@ public final class JRaftUtils {
     }
 
     private JRaftUtils() {
+    }
+
+    /**
+     * Is determined whether an append request is heartbeat.
+     *
+     * @param request Append entry request.
+     * @return True if the request is heartbeat.
+     */
+    public static boolean isHeartbeatRequest(AppendEntriesRequest request) {
+        // No entries and no data means a true heartbeat request.
+        // TODO refactor, adds a new flag field? https://issues.apache.org/jira/browse/IGNITE-14832
+        return request.entriesList() == null && request.data() == null;
     }
 }

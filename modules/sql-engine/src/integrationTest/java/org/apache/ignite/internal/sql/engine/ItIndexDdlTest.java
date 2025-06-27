@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
@@ -31,10 +31,10 @@ import static org.hamcrest.Matchers.containsString;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.IndexExistsValidationException;
-import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -67,8 +67,8 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsWithCause(
                 () -> tryToCreateIndex(TABLE_NAME, INDEX_NAME, true),
-                IndexExistsValidationException.class,
-                String.format("Index with name '%s.%s' already exists", DEFAULT_SCHEMA_NAME, INDEX_NAME)
+                CatalogValidationException.class,
+                format("Index with name '{}.{}' already exists", SqlCommon.DEFAULT_SCHEMA_NAME, INDEX_NAME)
         );
 
         tryToCreateIndex(TABLE_NAME, INDEX_NAME, false);
@@ -84,8 +84,8 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
         // Let's check the drop on a non-existent index.
         assertThrowsWithCause(
                 () -> tryToDropIndex(INDEX_NAME, true),
-                IndexNotFoundValidationException.class,
-                String.format("Index with name '%s.%s' not found", DEFAULT_SCHEMA_NAME, INDEX_NAME)
+                CatalogValidationException.class,
+                format("Index with name '{}.{}' not found", SqlCommon.DEFAULT_SCHEMA_NAME, INDEX_NAME)
         );
 
         tryToCreateIndex(TABLE_NAME, INDEX_NAME, false);
@@ -150,7 +150,7 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void createIndexFutureFailsIfNodeIsStoppedBeforeIndexIsAvailable() throws Exception {
-        IgniteImpl node = CLUSTER.node(0);
+        Ignite node = CLUSTER.node(0);
 
         // Prevent index build by starting a transaction.
         node.transactions().begin(new TransactionOptions().readOnly(false));

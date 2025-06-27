@@ -17,29 +17,45 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.wrapper.Wrappers.unwrap;
+import static org.apache.ignite.lang.ErrorGroups.Compute.RESULT_NOT_FOUND_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasEntry;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
-import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.TraceableExceptionMatcher;
+import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
-import org.apache.ignite.internal.wrapper.Wrappers;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("resource")
 class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     private ExecutionManager localExecutionManager;
 
@@ -56,7 +72,7 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return "{\n"
+        return "ignite {\n"
                 + "  network: {\n"
                 + "    port: {},\n"
                 + "    nodeFinder.netClusterNodes: [ {} ]\n"
@@ -66,28 +82,27 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
                 + "  compute: {"
                 + "    threadPoolSize: 1,\n"
                 + "    statesLifetimeMillis: 1000\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 
     @BeforeEach
     void setUp() {
         // Get new references before each test since node can be restarted.
-        IgniteImpl localNode = CLUSTER.node(0);
-        IgniteImpl remoteNode = CLUSTER.node(1);
+        Ignite localNode = CLUSTER.node(0);
+        Ignite remoteNode = CLUSTER.node(1);
 
-        IgniteComputeImpl localCompute = unwrapIgniteComputeImpl(localNode.compute());
-        IgniteComputeImpl remoteCompute = unwrapIgniteComputeImpl(remoteNode.compute());
+        localExecutionManager = executionManager(localNode);
+        remoteExecutionManager = executionManager(remoteNode);
 
-        localExecutionManager = ((ComputeComponentImpl) localCompute.computeComponent()).executionManager();
-        remoteExecutionManager = ((ComputeComponentImpl) remoteCompute.computeComponent()).executionManager();
-
-        localNodes = Set.of(localNode.node());
-        remoteNodes = Set.of(remoteNode.node());
+        localNodes = Set.of(unwrapIgniteImpl(localNode).node());
+        remoteNodes = Set.of(unwrapIgniteImpl(remoteNode).node());
     }
 
-    private static IgniteComputeImpl unwrapIgniteComputeImpl(IgniteCompute compute) {
-        return Wrappers.unwrap(compute, IgniteComputeImpl.class);
+    private static ExecutionManager executionManager(Ignite ignite) {
+        IgniteComputeImpl compute = unwrap(ignite.compute(), IgniteComputeImpl.class);
+        return ((ComputeComponentImpl) compute.computeComponent()).executionManager();
     }
 
     @Test
@@ -100,46 +115,49 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         execution.assertCompleted();
 
         // Execution is retained
-        assertThat(localExecutionManager.executions(), hasItem(jobId));
+        assertThat(localExecutionManager.localExecutions(), hasSingleEntry(equalTo(jobId), instanceOf(DelegatingJobExecution.class)));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.localExecutions(), is(anEmptyMap()));
 
-            assertThat(localExecutionManager.resultAsync(jobId), willThrow(ComputeException.class));
+            assertThat(localExecutionManager.localResultAsync(jobId), willThrow(resultNotFoundErr()));
         });
     }
 
     @Test
     void localCancelled() throws Exception {
         // Start first task
-        TestingJobExecution<Object> runningExecution = submit(localNodes);
+        CancelHandle runningCancelHandle = CancelHandle.create();
+        TestingJobExecution<Object> runningExecution = submit(localNodes, runningCancelHandle.token());
         UUID runningJobId = runningExecution.idSync();
 
         // Start second task
-        TestingJobExecution<Object> queuedExecution = submit(localNodes);
+        CancelHandle queuedCancelHandle = CancelHandle.create();
+        TestingJobExecution<Object> queuedExecution = submit(localNodes, queuedCancelHandle.token());
         UUID queuedJobId = queuedExecution.idSync();
 
         // Second task is queued, cancel it
         queuedExecution.assertQueued();
-        queuedExecution.cancelAsync();
+        queuedCancelHandle.cancel();
         queuedExecution.assertCancelled();
 
         // First task is executing, cancel it
         runningExecution.assertExecuting();
-        runningExecution.cancelAsync();
+        runningCancelHandle.cancel();
         runningExecution.assertCancelled();
 
         // All executions are retained
-        assertThat(localExecutionManager.executions(), hasItem(runningJobId));
-        assertThat(localExecutionManager.executions(), hasItem(queuedJobId));
+        assertThat(localExecutionManager.localExecutions(), is(aMapWithSize(2)));
+        assertThat(localExecutionManager.localExecutions(), hasEntry(equalTo(runningJobId), instanceOf(DelegatingJobExecution.class)));
+        assertThat(localExecutionManager.localExecutions(), hasEntry(equalTo(queuedJobId), instanceOf(DelegatingJobExecution.class)));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.localExecutions(), is(anEmptyMap()));
 
-            assertThat(localExecutionManager.resultAsync(runningJobId), willThrow(ComputeException.class));
-            assertThat(localExecutionManager.resultAsync(queuedJobId), willThrow(ComputeException.class));
+            assertThat(localExecutionManager.localResultAsync(runningJobId), willThrow(resultNotFoundErr()));
+            assertThat(localExecutionManager.localResultAsync(queuedJobId), willThrow(resultNotFoundErr()));
         });
     }
 
@@ -154,58 +172,73 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         execution.assertCompleted();
 
         // Execution is retained
-        assertThat(localExecutionManager.executions(), hasItem(jobId));
-        assertThat(remoteExecutionManager.executions(), hasItem(jobId));
+        assertThat(localExecutionManager.localExecutions(), hasSingleEntry(equalTo(jobId), instanceOf(FailSafeJobExecution.class)));
+        assertThat(localExecutionManager.remoteExecutions(), hasSingleEntry(not(equalTo(jobId)), instanceOf(RemoteJobExecution.class)));
+        assertThat(remoteExecutionManager.localExecutions(), hasSingleEntry(not(equalTo(jobId)), instanceOf(DelegatingJobExecution.class)));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
-            assertThat(remoteExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.localExecutions(), anEmptyMap());
+            assertThat(localExecutionManager.remoteExecutions(), anEmptyMap());
+            assertThat(remoteExecutionManager.localExecutions(), anEmptyMap());
 
-            assertThat(localExecutionManager.resultAsync(jobId), willThrow(ComputeException.class));
-            assertThat(remoteExecutionManager.resultAsync(jobId), willThrow(ComputeException.class));
+            assertThat(localExecutionManager.localResultAsync(jobId), willThrow(resultNotFoundErr()));
+            assertThat(remoteExecutionManager.localResultAsync(jobId), willThrow(resultNotFoundErr()));
         });
     }
 
     @Test
     void remoteCancelled() throws Exception {
         // Start first task
-        TestingJobExecution<Object> runningExecution = submit(remoteNodes);
+        CancelHandle runningCancelHandle = CancelHandle.create();
+        TestingJobExecution<Object> runningExecution = submit(remoteNodes, runningCancelHandle.token());
         UUID runningJobId = runningExecution.idSync();
 
         // Start second task
-        TestingJobExecution<Object> queuedExecution = submit(remoteNodes);
+        CancelHandle queuedCancelHandle = CancelHandle.create();
+        TestingJobExecution<Object> queuedExecution = submit(remoteNodes, queuedCancelHandle.token());
         UUID queuedJobId = queuedExecution.idSync();
 
         // Second task is queued, cancel it
         queuedExecution.assertQueued();
-        queuedExecution.cancelAsync();
+        queuedCancelHandle.cancel();
         queuedExecution.assertCancelled();
 
         // First task is executing, cancel it
         runningExecution.assertExecuting();
-        runningExecution.cancelAsync();
+        runningCancelHandle.cancel();
         runningExecution.assertCancelled();
 
         // All executions are retained
-        assertThat(localExecutionManager.executions(), hasItem(runningJobId));
-        assertThat(remoteExecutionManager.executions(), hasItem(queuedJobId));
+        assertThat(localExecutionManager.localExecutions(), is(aMapWithSize(2)));
+        assertThat(localExecutionManager.localExecutions(), hasEntry(equalTo(runningJobId), instanceOf(FailSafeJobExecution.class)));
+        assertThat(localExecutionManager.localExecutions(), hasEntry(equalTo(queuedJobId), instanceOf(FailSafeJobExecution.class)));
+
+        // Actual ids are different, so check only the size
+        assertThat(localExecutionManager.remoteExecutions(), is(aMapWithSize(2)));
+        assertThat(localExecutionManager.remoteExecutions().values(), everyItem(instanceOf(RemoteJobExecution.class)));
+
+        assertThat(remoteExecutionManager.localExecutions(), is(aMapWithSize(2)));
+        assertThat(remoteExecutionManager.localExecutions().values(), everyItem(instanceOf(DelegatingJobExecution.class)));
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
-            assertThat(remoteExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.localExecutions(), is(anEmptyMap()));
+            assertThat(localExecutionManager.remoteExecutions(), is(anEmptyMap()));
+            assertThat(remoteExecutionManager.localExecutions(), is(anEmptyMap()));
 
-            assertThat(localExecutionManager.resultAsync(runningJobId), willThrow(ComputeException.class));
-            assertThat(remoteExecutionManager.resultAsync(runningJobId), willThrow(ComputeException.class));
-            assertThat(localExecutionManager.resultAsync(queuedJobId), willThrow(ComputeException.class));
-            assertThat(remoteExecutionManager.resultAsync(queuedJobId), willThrow(ComputeException.class));
+            assertThat(localExecutionManager.localResultAsync(runningJobId), willThrow(resultNotFoundErr()));
+            assertThat(remoteExecutionManager.localResultAsync(runningJobId), willThrow(resultNotFoundErr()));
+            assertThat(localExecutionManager.localResultAsync(queuedJobId), willThrow(resultNotFoundErr()));
+            assertThat(remoteExecutionManager.localResultAsync(queuedJobId), willThrow(resultNotFoundErr()));
         });
     }
 
     @Test
     void failover() throws Exception {
-        TestingJobExecution<Object> execution = submit(Set.of(CLUSTER.node(1).node(), CLUSTER.node(2).node()));
+        TestingJobExecution<Object> execution = submit(
+                Set.of(unwrapIgniteImpl(CLUSTER.node(1)).node(), unwrapIgniteImpl(CLUSTER.node(2)).node())
+        );
         UUID jobId = execution.idSync();
 
         execution.assertExecuting();
@@ -217,9 +250,8 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
 
         String failoverWorkerNodeName = InteractiveJobs.globalJob().currentWorkerName();
 
-        IgniteImpl failoverNode = CLUSTER.node(CLUSTER.nodeIndex(failoverWorkerNodeName));
-        IgniteComputeImpl failoverCompute = unwrapIgniteComputeImpl(failoverNode.compute());
-        ExecutionManager failoverExecutionManager = ((ComputeComponentImpl) failoverCompute.computeComponent()).executionManager();
+        Ignite failoverNode = CLUSTER.node(CLUSTER.nodeIndex(failoverWorkerNodeName));
+        ExecutionManager failoverExecutionManager = executionManager(failoverNode);
 
         InteractiveJobs.globalJob().assertAlive();
         execution.assertExecuting();
@@ -229,14 +261,22 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         execution.assertCompleted();
 
         // Execution is retained
-        assertThat(localExecutionManager.executions(), hasItem(jobId));
+        assertThat(localExecutionManager.localExecutions(), hasSingleEntry(equalTo(jobId), instanceOf(FailSafeJobExecution.class)));
+        // There could be 1 or 2 executions, one from the initial execution, another from failover
+        assertThat(localExecutionManager.remoteExecutions(), is(aMapWithSize(lessThanOrEqualTo(2))));
+        assertThat(localExecutionManager.remoteExecutions(), hasEntry(not(equalTo(jobId)), instanceOf(RemoteJobExecution.class)));
+
         // Job id on the failover node is different, so just check that something is stored there
-        assertThat(failoverExecutionManager.executions(), is(not(empty())));
+        assertThat(
+                failoverExecutionManager.localExecutions(),
+                hasSingleEntry(not(equalTo(jobId)), instanceOf(DelegatingJobExecution.class))
+        );
 
         // And eventually cleaned
         await().untilAsserted(() -> {
-            assertThat(localExecutionManager.executions(), is(empty()));
-            assertThat(failoverExecutionManager.executions(), is(empty()));
+            assertThat(localExecutionManager.localExecutions(), is(anEmptyMap()));
+            assertThat(localExecutionManager.remoteExecutions(), is(anEmptyMap()));
+            assertThat(failoverExecutionManager.localExecutions(), is(anEmptyMap()));
         });
 
         // Start node again for next tests
@@ -244,6 +284,33 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
-        return new TestingJobExecution<>(CLUSTER.node(0).compute().submit(nodes, List.of(), InteractiveJobs.globalJob().name()));
+        return submit(nodes, null);
+    }
+
+    private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes, @Nullable CancellationToken cancellationToken) {
+        return new TestingJobExecution<>(CLUSTER.node(0).compute().submitAsync(
+                JobTarget.anyNode(nodes), JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null, cancellationToken
+        ));
+    }
+
+    /**
+     * Creates a matcher for a map that matches when the map contains a singular entry whose key satisfies the specified {@code keyMatcher}
+     * and whose value satisfies the specified {@code valueMatcher}.
+     *
+     * @param <K> Key type.
+     * @param <V> Value type.
+     * @param keyMatcher Key matcher.
+     * @param valueMatcher Value matcher.
+     * @return The matcher.
+     */
+    private static <K, V> Matcher<Map<? extends K, ? extends V>> hasSingleEntry(
+            Matcher<? super K> keyMatcher,
+            Matcher<? super V> valueMatcher
+    ) {
+        return both(Matchers.<K, V>aMapWithSize(1)).and(hasEntry(keyMatcher, valueMatcher));
+    }
+
+    private static TraceableExceptionMatcher resultNotFoundErr() {
+        return traceableException(ComputeException.class).withCode(equalTo(RESULT_NOT_FOUND_ERR));
     }
 }

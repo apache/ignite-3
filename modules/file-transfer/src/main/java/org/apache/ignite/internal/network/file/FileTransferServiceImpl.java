@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.file;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHANNEL;
 import static org.apache.ignite.internal.network.file.messages.FileHeader.fromPaths;
 import static org.apache.ignite.internal.network.file.messages.FileTransferError.fromThrowable;
@@ -38,12 +39,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.TopologyEventHandler;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
@@ -60,8 +63,6 @@ import org.apache.ignite.internal.network.file.messages.Identifier;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Implementation of {@link FileTransferService}.
@@ -145,14 +146,21 @@ public class FileTransferServiceImpl implements FileTransferService {
                 messagingService,
                 configuration,
                 transferDirectory,
-                new ThreadPoolExecutor(
-                        0,
-                        configuration.value().threadPoolSize(),
-                        0L, TimeUnit.MILLISECONDS,
-                        new LinkedBlockingQueue<>(),
-                        NamedThreadFactory.create(nodeName, "file-transfer", LOG)
-                )
+                createExecutor(nodeName, configuration)
         );
+    }
+
+    private static ExecutorService createExecutor(String nodeName, FileTransferConfiguration configuration) {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                configuration.value().threadPoolSize(),
+                configuration.value().threadPoolSize(),
+                10, SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "file-transfer", LOG)
+        );
+        executor.allowCoreThreadTimeOut(true);
+
+        return executor;
     }
 
     /**
@@ -172,14 +180,14 @@ public class FileTransferServiceImpl implements FileTransferService {
             ExecutorService executorService
     ) {
         this(
-                configuration.value().responseTimeout(),
+                configuration.value().responseTimeoutMillis(),
                 topologyService,
                 messagingService,
                 transferDirectory,
                 new FileSender(
-                        configuration.value().chunkSize(),
+                        configuration.value().chunkSizeBytes(),
                         new Semaphore(configuration.value().maxConcurrentRequests()),
-                        configuration.value().responseTimeout(),
+                        configuration.value().responseTimeoutMillis(),
                         messagingService,
                         executorService
                 ),
@@ -218,7 +226,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         topologyService.addEventHandler(new TopologyEventHandler() {
             @Override
             public void onDisappeared(ClusterNode member) {
@@ -247,8 +255,8 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
-        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, SECONDS);
 
         return nullCompletedFuture();
     }

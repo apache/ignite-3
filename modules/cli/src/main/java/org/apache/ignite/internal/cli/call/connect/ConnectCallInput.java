@@ -31,10 +31,13 @@ public class ConnectCallInput implements CallInput {
     @Nullable
     private final String password;
 
-    private ConnectCallInput(String url, @Nullable String username, @Nullable String password) {
+    private final boolean checkClusterInit;
+
+    private ConnectCallInput(String url, @Nullable String username, @Nullable String password, boolean checkClusterInit) {
         this.url = url;
         this.username = username;
         this.password = password;
+        this.checkClusterInit = checkClusterInit;
     }
 
     public String url() {
@@ -61,6 +64,10 @@ public class ConnectCallInput implements CallInput {
         return password;
     }
 
+    public boolean checkClusterInit() {
+        return checkClusterInit;
+    }
+
     /**
      * Builder method provider.
      *
@@ -80,6 +87,8 @@ public class ConnectCallInput implements CallInput {
         @Nullable
         private String password;
 
+        private boolean checkClusterInit;
+
         private ConnectCallInputBuilder() {
         }
 
@@ -98,8 +107,13 @@ public class ConnectCallInput implements CallInput {
             return this;
         }
 
+        public ConnectCallInputBuilder checkClusterInit(boolean checkClusterInit) {
+            this.checkClusterInit = checkClusterInit;
+            return this;
+        }
+
         public ConnectCallInput build() {
-            return new ConnectCallInput(url, username, password);
+            return new ConnectCallInput(url, username, password, checkClusterInit);
         }
     }
 }

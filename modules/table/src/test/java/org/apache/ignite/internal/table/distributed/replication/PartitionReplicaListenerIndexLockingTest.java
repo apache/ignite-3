@@ -19,6 +19,19 @@ package org.apache.ignite.internal.table.distributed.replication;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE_EXACT_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_DELETE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_REPLACE;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_AND_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_INSERT_ALL;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE_IF_EXIST;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.table.distributed.replication.PartitionReplicaListenerTest.binaryRowsToBuffers;
 import static org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener.tablePartitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -45,29 +58,38 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
+import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.storage.RowId;
@@ -83,14 +105,11 @@ import org.apache.ignite.internal.table.distributed.HashIndexLocker;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
-import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
@@ -103,14 +122,14 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeResolver;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
@@ -127,13 +146,16 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final int PK_INDEX_ID = 1;
     private static final int HASH_INDEX_ID = 2;
     private static final int SORTED_INDEX_ID = 3;
+    private static final int ZONE_ID = 4;
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
     private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
-    private static final LockManager LOCK_MANAGER = new HeapLockManager();
-    private static final TablePartitionId PARTITION_ID = new TablePartitionId(TABLE_ID, PART_ID);
-    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+    private static final LockManager LOCK_MANAGER = lockManager();
+    private static final TablePartitionId TABLE_PARTITION_ID = new TablePartitionId(TABLE_ID, PART_ID);
+    private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
     private static final TestMvPartitionStorage TEST_MV_PARTITION_STORAGE = new TestMvPartitionStorage(PART_ID);
+
+    static final UUID LOCAL_NODE_ID = new UUID(0, 0);
 
     private static SchemaDescriptor schemaDescriptor;
     private static KvMarshaller<Integer, Integer> kvMarshaller;
@@ -143,7 +165,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static ColumnsExtractor row2SortKeyConverter;
 
     @InjectConfiguration
-    private static StorageUpdateConfiguration storageUpdateConfiguration;
+    private static ReplicationConfiguration replicationConfiguration;
 
     @BeforeAll
     public static void beforeAll() {
@@ -165,7 +187,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         StorageHashIndexDescriptor pkIndexDescriptor = new StorageHashIndexDescriptor(
                 PK_INDEX_ID,
                 List.of(new StorageHashIndexColumnDescriptor("ID", NativeTypes.INT32, false)),
-                true
+                false
         );
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
@@ -188,7 +210,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new TestSortedIndexStorage(PART_ID,
                         new StorageSortedIndexDescriptor(
                                 SORTED_INDEX_ID,
-                                List.of(new StorageSortedIndexColumnDescriptor("val", NativeTypes.INT32, false, true)),
+                                List.of(new StorageSortedIndexColumnDescriptor("val", NativeTypes.INT32, false, true, false)),
                                 false
                         )),
                 row2SortKeyConverter
@@ -199,7 +221,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 PART_ID,
                 LOCK_MANAGER,
                 (SortedIndexStorage) sortedIndexStorage.storage(),
-                row2SortKeyConverter
+                row2SortKeyConverter,
+                false
         );
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
@@ -211,18 +234,21 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
 
+        Catalog catalog = mock(Catalog.class);
         CatalogService catalogService = mock(CatalogService.class);
+        when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
         when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());
 
-        when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
-        when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
+        when(catalog.table(anyInt())).thenReturn(tableDescriptor);
+        when(catalog.table(anyInt())).thenReturn(tableDescriptor);
 
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
         when(indexDescriptor.id()).thenReturn(PK_INDEX_ID);
 
-        when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
+        when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
 
         ClusterNode localNode = DummyInternalTableImpl.LOCAL_NODE;
 
@@ -232,7 +258,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 newTxManager(),
                 LOCK_MANAGER,
                 Runnable::run,
-                PART_ID,
+                colocationEnabled() ? new ZonePartitionId(ZONE_ID, PART_ID) : TABLE_PARTITION_ID,
                 TABLE_ID,
                 () -> Map.of(
                         pkLocker.id(), pkLocker,
@@ -246,13 +272,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 ),
                 CLOCK_SERVICE,
                 safeTime,
-                new TestTxStateStorage(),
+                new TestTxStatePartitionStorage(),
                 mock(TransactionStateResolver.class),
                 new StorageUpdateHandler(
                         PART_ID,
                         partitionDataStorage,
                         indexUpdateHandler,
-                        storageUpdateConfiguration
+                        replicationConfiguration
                 ),
                 new DummyValidationSchemasSource(schemaManager),
                 localNode,
@@ -261,7 +287,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new TestPlacementDriver(localNode),
                 mock(ClusterNodeResolver.class),
                 new RemotelyTriggeredResourceRegistry(),
-                schemaManager
+                schemaManager,
+                mock(IndexMetaStorage.class),
+                new TestLowWatermark(),
+                new NoOpFailureManager(),
+                new SystemPropertiesNodeProperties()
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);
@@ -295,6 +325,12 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         return txManager;
     }
 
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
+    }
+
     @BeforeEach
     public void beforeTest() {
         ((TestHashIndexStorage) pkStorage.get().storage()).clear();
@@ -306,11 +342,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
     @ParameterizedTest
     @MethodSource("readWriteSingleTestArguments")
-    void testReadWriteSingle(ReadWriteTestArg arg) throws MarshallerException {
+    void testReadWriteSingle(ReadWriteTestArg arg) {
         BinaryRow testPk = kvMarshaller.marshal(1);
         BinaryRow testBinaryRow = kvMarshaller.marshal(1, 1);
 
-        if (arg.type != RequestType.RW_INSERT) {
+        if (arg.type != RW_INSERT) {
             var rowId = new RowId(PART_ID);
             insertRows(List.of(new Pair<>(testBinaryRow, rowId)), TestTransactionIds.newTransactionId());
         }
@@ -323,14 +359,16 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_DELETE:
             case RW_GET_AND_DELETE:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
-                        .groupId(PARTITION_ID)
+                        .groupId(tablePartitionId(TABLE_PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(PARTITION_ID))
+                        .commitPartitionId(tablePartitionId(TABLE_PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testPk.schemaVersion())
                         .primaryKey(testPk.tupleSlice())
                         .requestType(arg.type)
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -342,14 +380,16 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_GET_AND_REPLACE:
             case RW_GET_AND_UPSERT:
                 request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
-                        .groupId(PARTITION_ID)
+                        .groupId(tablePartitionId(TABLE_PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(PARTITION_ID))
+                        .commitPartitionId(tablePartitionId(TABLE_PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(testBinaryRow.schemaVersion())
                         .binaryTuple(testBinaryRow.tupleSlice())
                         .requestType(arg.type)
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
                 break;
 
@@ -357,7 +397,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, "local");
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
 
         await(fut);
 
@@ -367,6 +407,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         hasItem(lockThat(
                                 arg.expectedLockOnUniqueHash + " on unique hash index",
                                 lock -> Objects.equals(PK_INDEX_ID, lock.lockKey().contextId())
+                                        && row2HashKeyConverter.extractColumns(testBinaryRow).byteBuffer().equals(lock.lockKey().key())
                                         && lock.lockMode() == arg.expectedLockOnUniqueHash
                         )),
                         hasItem(lockThat(
@@ -386,7 +427,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     /** Verifies the mode in which the lock was acquired on the index key for a particular operation. */
     @ParameterizedTest
     @MethodSource("readWriteMultiTestArguments")
-    void testReadWriteMulti(ReadWriteTestArg arg) throws MarshallerException {
+    void testReadWriteMulti(ReadWriteTestArg arg) {
         var pks = new ArrayList<BinaryRow>();
         var rows = new ArrayList<BinaryRow>();
 
@@ -395,7 +436,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             rows.add(kvMarshaller.marshal(i, i));
         }
 
-        if (arg.type != RequestType.RW_INSERT_ALL) {
+        if (arg.type != RW_INSERT_ALL) {
             for (BinaryRow row : rows) {
                 var rowId = new RowId(PART_ID);
                 insertRows(List.of(new Pair<>(row, rowId)), TestTransactionIds.newTransactionId());
@@ -409,14 +450,16 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         switch (arg.type) {
             case RW_DELETE_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
-                        .groupId(PARTITION_ID)
+                        .groupId(tablePartitionId(TABLE_PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(PARTITION_ID))
+                        .commitPartitionId(tablePartitionId(TABLE_PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(pks.iterator().next().schemaVersion())
                         .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
                         .requestType(arg.type)
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -425,14 +468,16 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_INSERT_ALL:
             case RW_UPSERT_ALL:
                 request = TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                        .groupId(PARTITION_ID)
+                        .groupId(tablePartitionId(TABLE_PARTITION_ID))
+                        .tableId(TABLE_ID)
                         .enlistmentConsistencyToken(1L)
-                        .commitPartitionId(tablePartitionId(PARTITION_ID))
+                        .commitPartitionId(tablePartitionId(TABLE_PARTITION_ID))
                         .transactionId(TRANSACTION_ID)
                         .schemaVersion(rows.iterator().next().schemaVersion())
                         .binaryTuples(binaryRowsToBuffers(rows))
                         .requestType(arg.type)
                         .coordinatorId(localNode.id())
+                        .timestamp(CLOCK.now())
                         .build();
 
                 break;
@@ -441,7 +486,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, "local");
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, LOCAL_NODE_ID);
 
         await(fut);
 
@@ -474,24 +519,24 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
     private static Iterable<ReadWriteTestArg> readWriteSingleTestArguments() {
         return List.of(
-                new ReadWriteTestArg(RequestType.RW_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_DELETE_EXACT, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_INSERT, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RequestType.RW_UPSERT, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RequestType.RW_REPLACE_IF_EXIST, LockMode.X, LockMode.IX, LockMode.X),
+                new ReadWriteTestArg(RW_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_DELETE_EXACT, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_INSERT, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_UPSERT, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_REPLACE_IF_EXIST, LockMode.X, LockMode.IX, LockMode.IX),
 
-                new ReadWriteTestArg(RequestType.RW_GET_AND_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_GET_AND_REPLACE, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RequestType.RW_GET_AND_UPSERT, LockMode.X, LockMode.IX, LockMode.X)
+                new ReadWriteTestArg(RW_GET_AND_DELETE, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_GET_AND_REPLACE, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_GET_AND_UPSERT, LockMode.X, LockMode.IX, LockMode.IX)
         );
     }
 
     private static Iterable<ReadWriteTestArg> readWriteMultiTestArguments() {
         return List.of(
-                new ReadWriteTestArg(RequestType.RW_DELETE_ALL, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_DELETE_EXACT_ALL, LockMode.X, LockMode.IX, LockMode.IX),
-                new ReadWriteTestArg(RequestType.RW_INSERT_ALL, LockMode.X, LockMode.IX, LockMode.X),
-                new ReadWriteTestArg(RequestType.RW_UPSERT_ALL, LockMode.X, LockMode.IX, LockMode.X)
+                new ReadWriteTestArg(RW_DELETE_ALL, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_DELETE_EXACT_ALL, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_INSERT_ALL, LockMode.X, LockMode.IX, LockMode.IX),
+                new ReadWriteTestArg(RW_UPSERT_ALL, LockMode.X, LockMode.IX, LockMode.IX)
         );
     }
 
@@ -516,7 +561,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
             pkStorage.get().put(binaryRow, rowId);
             TEST_MV_PARTITION_STORAGE.addWrite(rowId, binaryRow, txId, TABLE_ID, PART_ID);
-            TEST_MV_PARTITION_STORAGE.commitWrite(rowId, commitTs);
+            TEST_MV_PARTITION_STORAGE.commitWrite(rowId, commitTs, txId);
         }
     }
 

@@ -17,87 +17,17 @@
 
 package org.apache.ignite.internal.client;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteCheckedException;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LoggerFactory;
-import org.apache.ignite.lang.TraceableException;
 
 /**
  * Client utilities.
  */
 public class ClientUtils {
-    /**
-     * Wraps an exception in an IgniteException, extracting trace identifier and error code when the specified exception or one of its
-     * causes is an IgniteException itself.
-     *
-     * @param e Internal exception.
-     * @return Public exception.
-     */
-    public static Throwable ensurePublicException(Throwable e) {
-        Objects.requireNonNull(e);
-
-        e = ExceptionUtils.unwrapCause(e);
-
-        if (e instanceof IgniteException) {
-            return copyExceptionWithCauseIfPossible((IgniteException) e);
-        }
-
-        if (e instanceof IgniteCheckedException) {
-            return copyExceptionWithCauseIfPossible((IgniteCheckedException) e);
-        }
-
-        e = IgniteExceptionMapperUtil.mapToPublicException(e);
-
-        return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
-    }
-
-    /**
-     * Try to copy exception using ExceptionUtils.copyExceptionWithCause and return new exception if it was not possible.
-     *
-     * @param e Exception.
-     * @return Properly copied exception or a new error, if exception can not be copied.
-     */
-    private static <T extends Throwable & TraceableException> Throwable copyExceptionWithCauseIfPossible(T e) {
-        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e);
-        if (copy != null) {
-            return copy;
-        }
-
-        return new IgniteException(INTERNAL_ERR, "Public Ignite exception-derived class does not have required constructor: "
-                + e.getClass().getName(), e);
-    }
-
-    /**
-     * Waits for async operation completion.
-     *
-     * @param fut Future to wait to.
-     * @param <T> Future result type.
-     * @return Future result.
-     */
-    public static <T> T sync(CompletableFuture<T> fut) {
-        try {
-            return fut.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupt flag.
-
-            throw ExceptionUtils.sneakyThrow(ensurePublicException(e));
-        } catch (ExecutionException e) {
-            throw ExceptionUtils.sneakyThrow(ensurePublicException(e));
-        }
-    }
-
     /**
      * Converts internal op code to public {@link ClientOperationType}.
      *
@@ -115,9 +45,11 @@ public class ClientUtils {
                 return null;
 
             case ClientOp.TABLES_GET:
+            case ClientOp.TABLES_GET_QUALIFIED:
                 return ClientOperationType.TABLES_GET;
 
             case ClientOp.TABLE_GET:
+            case ClientOp.TABLE_GET_QUALIFIED:
                 return ClientOperationType.TABLE_GET;
 
             case ClientOp.SCHEMAS_GET:
@@ -170,10 +102,16 @@ public class ClientUtils {
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientOperationType.TUPLE_CONTAINS_KEY;
 
+            case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
+                return ClientOperationType.TUPLE_CONTAINS_ALL_KEYS;
+
             case ClientOp.JDBC_CONNECT:
                 return null;
 
             case ClientOp.JDBC_EXEC:
+                return null;
+
+            case ClientOp.JDBC_CANCEL:
                 return null;
 
             case ClientOp.JDBC_NEXT:
@@ -200,9 +138,6 @@ public class ClientUtils {
             case ClientOp.JDBC_PK_META:
                 return null;
 
-            case ClientOp.JDBC_QUERY_META:
-                return null;
-
             case ClientOp.TX_BEGIN:
             case ClientOp.TX_COMMIT:
             case ClientOp.TX_ROLLBACK:
@@ -213,10 +148,14 @@ public class ClientUtils {
 
             case ClientOp.COMPUTE_EXECUTE:
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
+            case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
                 return ClientOperationType.COMPUTE_EXECUTE;
 
-            case ClientOp.COMPUTE_GET_STATUS:
-                return ClientOperationType.COMPUTE_GET_STATUS;
+            case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
+                return ClientOperationType.COMPUTE_EXECUTE_MAPREDUCE;
+
+            case ClientOp.COMPUTE_GET_STATE:
+                return ClientOperationType.COMPUTE_GET_STATE;
 
             case ClientOp.COMPUTE_CANCEL:
                 return ClientOperationType.COMPUTE_CANCEL;
@@ -251,8 +190,22 @@ public class ClientUtils {
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientOperationType.STREAMER_BATCH_SEND;
 
+            case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
+                return ClientOperationType.STREAMER_WITH_RECEIVER_BATCH_SEND;
+
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientOperationType.SQL_EXECUTE_BATCH;
+
+            case ClientOp.PRIMARY_REPLICAS_GET:
+                return ClientOperationType.PRIMARY_REPLICAS_GET;
+
+            case ClientOp.OPERATION_CANCEL:
+                // The request is used to cancel queries initiated with a particular connection,
+                // and these requests are terminated when the connection is lost.
+                return null;
+
+            case ClientOp.SERVER_OP_RESPONSE:
+                return null;
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:

@@ -56,12 +56,15 @@ namespace Apache.Ignite
                 ClientOperationType.TupleGetAndDelete => false,
                 ClientOperationType.TupleContainsKey => false,
                 ClientOperationType.ComputeExecute => false,
+                ClientOperationType.ComputeExecuteMapReduce => false,
                 ClientOperationType.SqlExecute => false,
                 ClientOperationType.SqlExecuteScript => false,
                 ClientOperationType.ComputeCancel => false,
                 ClientOperationType.ComputeChangePriority => false,
                 ClientOperationType.ComputeGetStatus => true,
                 ClientOperationType.StreamerBatchSend => false,
+                ClientOperationType.StreamerWithReceiverBatchSend => false,
+                ClientOperationType.PrimaryReplicasGet => true,
                 var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)
             };
         }

@@ -1,0 +1,13 @@
+.idea
+.benchmarks
+.vscode
+.eggs
+*.egg-info
+.pytest_cache
+*.so
+*.pyd
+build
+distr
+docs/generated
+__pycache__
+venv

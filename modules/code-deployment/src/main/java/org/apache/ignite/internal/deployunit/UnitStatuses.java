@@ -22,7 +22,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 
 /**
  * Deployment unit status.

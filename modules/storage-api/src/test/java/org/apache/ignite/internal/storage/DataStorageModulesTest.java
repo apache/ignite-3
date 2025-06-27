@@ -30,9 +30,12 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -76,11 +79,14 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
 
         Map<String, StorageEngine> engines = dataStorageModules.createStorageEngines(
                 "test",
+                mock(MetricManager.class),
                 mock(ConfigurationRegistry.class),
                 workDir,
                 null,
-                mock(FailureProcessor.class),
-                mock(LogSyncer.class)
+                mock(FailureManager.class),
+                mock(LogSyncer.class),
+                mock(HybridClock.class),
+                mock(ScheduledExecutorService.class)
         );
 
         assertThat(engines, aMapWithSize(2));
@@ -91,12 +97,12 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
         assertNotSame(engines.get(FIRST), engines.get(SECOND));
     }
 
-    static DataStorageModule createMockedDataStorageModule(String name) {
+    private static DataStorageModule createMockedDataStorageModule(String name) {
         DataStorageModule mock = mock(DataStorageModule.class);
 
         when(mock.name()).thenReturn(name);
 
-        when(mock.createEngine(any(), any(), any(), any(), any(), any())).thenReturn(mock(StorageEngine.class));
+        when(mock.createEngine(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(mock(StorageEngine.class));
 
         return mock;
     }

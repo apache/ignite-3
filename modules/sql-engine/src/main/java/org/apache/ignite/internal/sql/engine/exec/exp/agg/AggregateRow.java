@@ -17,25 +17,30 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
+import java.util.Set;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 
 /**
  * Per group/grouping set row that contains state of accumulators.
  */
-public final class AggregateRow<RowT> {
+public class AggregateRow<RowT> {
     /** A placeholder of absent group id. */
     public static final byte NO_GROUP_ID = -1;
 
-    private final List<AccumulatorWrapper<RowT>> accs;
+    private final AccumulatorsState state;
 
-    private final AggregateType type;
+    private final Int2ObjectMap<Set<Object>> distinctSets;
 
     /** Constructor. */
-    public AggregateRow(List<AccumulatorWrapper<RowT>> accs, AggregateType type) {
-        this.type = type;
-        this.accs = accs;
+    public AggregateRow(
+            AccumulatorsState state,
+            Int2ObjectMap<Set<Object>> distinctSets
+    ) {
+        this.state = state;
+        this.distinctSets = distinctSets;
     }
 
     /** Initialized an empty group if necessary. */
@@ -56,14 +61,30 @@ public final class AggregateRow<RowT> {
     }
 
     /** Updates this row by using data of the given row. */
-    public void update(ImmutableBitSet allFields, RowHandler<RowT> handler, RowT row) {
-        for (AccumulatorWrapper<RowT> acc : accs) {
-            acc.add(row);
+    public void update(List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet allFields, RowHandler<RowT> handler, RowT row) {
+        for (int i = 0; i < accs.size(); i++) {
+            AccumulatorWrapper<RowT> acc = accs.get(i);
+
+            Object[] args = acc.getArguments(row);
+            if (args == null) {
+                continue;
+            }
+
+            state.setIndex(i);
+
+            if (acc.isDistinct()) {
+                Set<Object> distinctSet = distinctSets.get(i);
+                distinctSet.add(args[0]);
+            } else {
+                acc.accumulator().add(state, args);
+            }
+
+            state.resetIndex();
         }
     }
 
     /** Creates an empty array for fields to populate output row with. */
-    public Object[] createOutput(ImmutableBitSet allFields, byte groupId) {
+    public Object[] createOutput(AggregateType type, List<AccumulatorWrapper<RowT>> accs, ImmutableBitSet allFields, byte groupId) {
         int extra = groupId == NO_GROUP_ID || type != AggregateType.MAP ? 0 : 1;
         int rowSize = allFields.cardinality() + accs.size() + extra;
 
@@ -71,11 +92,31 @@ public final class AggregateRow<RowT> {
     }
 
     /** Writes aggregate state of the given row to given array. */
-    public void writeTo(Object[] output, ImmutableBitSet allFields, byte groupId) {
+    public void writeTo(AggregateType type, List<AccumulatorWrapper<RowT>> accs, Object[] output, ImmutableBitSet allFields, byte groupId) {
         int cardinality = allFields.cardinality();
+
+        AccumulatorsState result = new AccumulatorsState(accs.size());
+
         for (int i = 0; i < accs.size(); i++) {
-            AccumulatorWrapper<RowT> wrapper = accs.get(i);
-            output[i + cardinality] = wrapper.end();
+            AccumulatorWrapper<RowT> acc = accs.get(i);
+
+            state.setIndex(i);
+            result.setIndex(i);
+
+            if (acc.isDistinct()) {
+                Set<Object> distinctSet = distinctSets.get(i);
+
+                for (var arg : distinctSet) {
+                    acc.accumulator().add(state, new Object[]{arg});
+                }
+            }
+
+            acc.accumulator().end(state, result);
+
+            output[i + cardinality] = acc.convertResult(result.get());
+
+            state.resetIndex();
+            result.resetIndex();
         }
 
         if (groupId != NO_GROUP_ID && type == AggregateType.MAP) {

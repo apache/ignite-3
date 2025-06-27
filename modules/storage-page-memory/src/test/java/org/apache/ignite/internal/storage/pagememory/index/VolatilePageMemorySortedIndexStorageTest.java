@@ -24,13 +24,12 @@ import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,17 +43,14 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration
-            VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
-            StorageConfiguration storageConfiguration
+            @InjectConfiguration("mock.profiles.default = {engine = aimem}")
+            StorageConfiguration storageConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig,
-                storageConfiguration, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        engine = new VolatilePageMemoryStorageEngine("node", storageConfig, ioRegistry, mock(FailureProcessor.class), clock);
 
         engine.start();
 
@@ -63,7 +59,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
                 mock(StorageIndexDescriptorSupplier.class)
         );
 
-        initialize(tableStorage, engineConfig.pageSize().value());
+        initialize(tableStorage, engine.configuration().pageSizeBytes().value());
     }
 
     @AfterEach

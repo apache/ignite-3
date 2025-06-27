@@ -19,8 +19,6 @@ project(ignite-protocol)
 
 set(TARGET ${PROJECT_NAME})
 
-find_package(msgpack)
-
 set(SOURCES
     bitset_span.h
     buffer_adapter.cpp buffer_adapter.h
@@ -34,7 +32,7 @@ set(SOURCES
 )
 
 add_library(${TARGET} OBJECT ${SOURCES})
-target_link_libraries(${TARGET} ignite-common msgpackc)
+target_link_libraries(${TARGET} ignite-common msgpack-c)
 
 set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
 set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)

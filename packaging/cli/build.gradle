@@ -50,13 +50,10 @@ def tokens = [
         APP_JAR             : "${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar".toString(),
         SETUP_JAVA_FILE_NAME: 'setup-java.sh',
         MAIN_CLASS          : 'org.apache.ignite.internal.cli.Main',
-        ARGS                : '$@'
 ]
 
-task createChecksums(type: Checksum) {
-    dependsOn distZip
-
-    inputFiles.from distZip.outputs.files
+def createChecksums = tasks.register('createChecksums', Checksum) {
+    inputFiles.from distZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
@@ -67,7 +64,7 @@ def zipTokens = tokens + [
         LIB_DIR             : '$(dirname "$0")/../lib',
 ]
 
-task replaceScriptVarsZip(type: Copy) {
+def replaceScriptVarsZip = tasks.register('replaceScriptVarsZip', Copy) {
     from 'start.sh'
     filter(ReplaceTokens, tokens: zipTokens)
     into "$buildDir/zip"
@@ -77,7 +74,7 @@ task replaceScriptVarsZip(type: Copy) {
 }
 
 // task that generates start script for cli
-task cliStartScript(type: CreateStartScripts) {
+def cliStartScript = tasks.register('cliStartScript', CreateStartScripts) {
     // will be passed to exec "java ... <mainClassName>"
     mainClass = "org.apache.ignite.internal.cli.Main"
     // forms a classpath string that will be passed to exec "java -cp <classpath> .."
@@ -87,7 +84,7 @@ task cliStartScript(type: CreateStartScripts) {
     applicationName = 'ignite3'
 }
 
-task windowsCliStartScript(type: Copy) {
+def windowsCliStartScript = tasks.register('windowsCliStartScript', Copy) {
     from cliStartScript
     include '*.bat'
     into "$buildDir/windows"
@@ -111,7 +108,7 @@ distributions {
             }
             into('lib') {
                 from configurations.cliArtifacts
-                from "$rootDir/packaging/common/setup-java.sh"
+                from "$rootDir/packaging/common/linux/setup-java.sh"
             }
         }
     }
@@ -130,7 +127,7 @@ artifacts {
 }
 
 // Explicitly create task so that the resulting artifact is not added to the configuration
-tasks.register('signCliZip', Sign) {
+def signCliZip = tasks.register('signCliZip', Sign) {
     sign configurations.cliZip
 }
 
@@ -141,7 +138,7 @@ def linuxTokens = tokens + [
         LIB_DIR             : '/usr/lib/ignite3'
 ]
 
-task replaceScriptVarsLinux(type: Copy) {
+def replaceScriptVarsLinux = tasks.register('replaceScriptVarsLinux', Copy) {
     from 'start.sh'
     from 'postInstall.sh'
     filter(ReplaceTokens, tokens: linuxTokens)
@@ -179,7 +176,7 @@ ospackage {
     user 'root'
 
     into(linuxTokens.INSTALL_DIR) {
-        from "$buildDir/linux/ignite3"
+        from "$buildDir/linux/start.sh"
         fileMode 0755
         rename {
             'ignite3'
@@ -188,7 +185,7 @@ ospackage {
 
     into(linuxTokens.LIB_DIR) {
         from configurations.cliArtifacts
-        from "$rootDir/packaging/common/setup-java.sh"
+        from "$rootDir/packaging/common/linux/setup-java.sh"
     }
 
     postInstall file("$buildDir/linux/postInstall.sh")

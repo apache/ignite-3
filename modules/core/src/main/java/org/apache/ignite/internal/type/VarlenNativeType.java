@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.type;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Variable-length native type.
@@ -32,15 +36,22 @@ public class VarlenNativeType extends NativeType {
      * @param typeSpec Type spec.
      * @param len Type length.
      */
-    VarlenNativeType(NativeTypeSpec typeSpec, int len) {
+    VarlenNativeType(ColumnType typeSpec, int len) {
         super(typeSpec);
 
         this.len = len;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean mismatch(NativeType type) {
         return super.mismatch(type) || len < ((VarlenNativeType) type).len;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String displayName() {
+        return format("{}({})", super.displayName(), len);
     }
 
     /**
@@ -50,6 +61,29 @@ public class VarlenNativeType extends NativeType {
         return len;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        VarlenNativeType that = (VarlenNativeType) o;
+        return len == that.len;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), len);
+    }
+
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(VarlenNativeType.class.getSimpleName(), "name", spec(), "len", len);

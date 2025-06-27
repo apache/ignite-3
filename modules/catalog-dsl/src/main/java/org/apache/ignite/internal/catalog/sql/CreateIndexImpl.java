@@ -25,10 +25,9 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
-import org.apache.ignite.catalog.Options;
 import org.apache.ignite.sql.IgniteSql;
 
-class CreateIndexImpl extends AbstractCatalogQuery {
+class CreateIndexImpl extends AbstractCatalogQuery<Name> {
     private Name indexName;
 
     private boolean ifNotExists;
@@ -44,14 +43,19 @@ class CreateIndexImpl extends AbstractCatalogQuery {
      *
      * @see CreateFromAnnotationsImpl
      */
-    CreateIndexImpl(IgniteSql sql, Options options) {
-        super(sql, options);
+    CreateIndexImpl(IgniteSql sql) {
+        super(sql);
     }
 
-    CreateIndexImpl name(String... names) {
-        Objects.requireNonNull(names, "Index name must not be null.");
+    @Override
+    protected Name result() {
+        return indexName;
+    }
 
-        indexName = new Name(names);
+    CreateIndexImpl name(String name) {
+        Objects.requireNonNull(name, "Index name must not be null.");
+
+        indexName = Name.simple(name);
         return this;
     }
 
@@ -87,13 +91,11 @@ class CreateIndexImpl extends AbstractCatalogQuery {
             ctx.sql(" USING ").sql(indexType.name());
         }
 
-        ctx.sqlIndentStart(" (");
+        ctx.sql(" (");
         if (!columns.isEmpty()) {
-            ctx.visit(partsList(columns).formatSeparator());
+            ctx.visit(partsList(columns));
         }
 
-        ctx.sqlIndentEnd(")");
-
-        ctx.sql(";");
+        ctx.sql(");");
     }
 }

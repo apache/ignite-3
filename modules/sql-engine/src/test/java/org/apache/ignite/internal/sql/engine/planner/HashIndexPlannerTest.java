@@ -116,7 +116,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
 
         String sql = "SELECT l.*, r.* FROM left_tbl l JOIN right_tbl r ON l.val0 = r.val0 AND l.val1 = r.val1";
 
-        RelNode phys = physicalPlan(sql, schema, "MergeJoinConverter", "NestedLoopJoinConverter");
+        RelNode phys = physicalPlan(sql, schema, "MergeJoinConverter", "NestedLoopJoinConverter", "HashJoinConverter");
 
         IgniteIndexScan scan = findFirstNode(phys, byClass(IgniteIndexScan.class));
 
@@ -136,7 +136,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
 
         String sql = "SELECT l.id FROM left_tbl l JOIN right_tbl r ON l.val0 = r.val0";
 
-        RelNode phys = physicalPlan(sql, schema, "MergeJoinConverter", "NestedLoopJoinConverter");
+        RelNode phys = physicalPlan(sql, schema, "MergeJoinConverter", "NestedLoopJoinConverter", "HashJoinConverter");
 
         IgniteIndexScan scan = findFirstNode(phys, byClass(IgniteIndexScan.class));
 

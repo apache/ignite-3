@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schema;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -31,6 +30,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -56,15 +56,17 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to delete columns from. Should not be null or blank.
      * @param schemaName Name of the schema the table of interest belongs to. Should not be null or blank.
+     * @param ifTableExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param columns Set of the columns to delete. There should be at least one column.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private AlterTableDropColumnCommand(
             String tableName,
             String schemaName,
+            boolean ifTableExists,
             Set<String> columns
     ) throws CatalogValidationException {
-        super(schemaName, tableName);
+        super(schemaName, tableName, ifTableExists, true);
 
         // Set.copyOf() will throw NPE if any elements of the given set is null
         validate(columns);
@@ -73,10 +75,17 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
+        CatalogSchemaDescriptor schema = schema(catalog, schemaName, !ifTableExists);
+        if (schema == null) {
+            return List.of();
+        }
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        CatalogTableDescriptor table = table(schema, tableName, !ifTableExists);
+        if (table == null) {
+            return List.of();
+        }
 
         Set<String> indexedColumns = aliveIndexesForTable(catalog, table.id())
                 .flatMap(AlterTableDropColumnCommand::indexColumnNames)
@@ -85,12 +94,12 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         // To validate always in the same order let's sort given columns
         columns.stream().sorted().forEach(columnName -> {
             if (table.column(columnName) == null) {
-                throw new CatalogValidationException(format(
-                        "Column with name '{}' not found in table '{}.{}'", columnName, schemaName, tableName));
+                throw new CatalogValidationException(
+                        "Column with name '{}' not found in table '{}.{}'.", columnName, schemaName, tableName);
             }
 
             if (table.isPrimaryKeyColumn(columnName)) {
-                throw new CatalogValidationException(format("Deleting column `{}` belonging to primary key is not allowed", columnName));
+                throw new CatalogValidationException("Deleting column `{}` belonging to primary key is not allowed.", columnName);
             }
 
             if (indexedColumns.contains(columnName)) {
@@ -99,13 +108,13 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
                         .map(CatalogIndexDescriptor::name)
                         .collect(Collectors.toList());
 
-                throw new CatalogValidationException(format(
-                        "Deleting column '{}' used by index(es) {}, it is not allowed", columnName, indexesNames));
+                throw new CatalogValidationException("Deleting column '{}' used by index(es) {}, it is not allowed.",
+                        columnName, indexesNames);
             }
         });
 
         return List.of(
-                new DropColumnsEntry(table.id(), columns, schemaName)
+                new DropColumnsEntry(table.id(), columns)
         );
     }
 
@@ -128,7 +137,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
 
     private static void validate(Set<String> columns) {
         if (nullOrEmpty(columns)) {
-            throw new CatalogValidationException("Columns not specified");
+            throw new CatalogValidationException("Columns not specified.");
         }
 
         for (String name : columns) {
@@ -146,6 +155,8 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
 
         private String tableName;
 
+        private boolean ifTableExists;
+
         @Override
         public AlterTableDropColumnCommandBuilder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -156,6 +167,13 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         @Override
         public AlterTableDropColumnCommandBuilder tableName(String tableName) {
             this.tableName = tableName;
+
+            return this;
+        }
+
+        @Override
+        public AlterTableDropColumnCommandBuilder ifTableExists(boolean ifTableExists) {
+            this.ifTableExists = ifTableExists;
 
             return this;
         }
@@ -172,6 +190,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
             return new AlterTableDropColumnCommand(
                     tableName,
                     schemaName,
+                    ifTableExists,
                     columns
             );
         }

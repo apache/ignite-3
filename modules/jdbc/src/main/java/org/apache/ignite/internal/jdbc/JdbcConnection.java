@@ -23,6 +23,7 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.sql.Array;
 import java.sql.Blob;
@@ -52,18 +53,22 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.BasicAuthenticator;
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientAuthenticator;
+import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPort;
+import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -74,10 +79,10 @@ public class JdbcConnection implements Connection {
     /** Network timeout permission. */
     private static final String SET_NETWORK_TIMEOUT_PERM = "setNetworkTimeout";
 
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     /** Statements modification mutex. */
     private final Object stmtsMux = new Object();
+
+    private final AtomicLong tokenGenerator = new AtomicLong();
 
     /** Handler. */
     private final JdbcQueryEventHandler handler;
@@ -124,8 +129,9 @@ public class JdbcConnection implements Connection {
      * Creates new connection.
      *
      * @param props Connection properties.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
      */
-    public JdbcConnection(ConnectionProperties props) throws SQLException {
+    public JdbcConnection(ConnectionProperties props, HybridTimestampTracker observableTimeTracker) throws SQLException {
         this.connProps = props;
         autoCommit = true;
 
@@ -135,19 +141,8 @@ public class JdbcConnection implements Connection {
         netTimeout = connProps.getConnectionTimeout();
         qryTimeout = connProps.getQueryTimeout();
 
-        long reconnectThrottlingPeriod = connProps.getReconnectThrottlingPeriod();
-        int reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
-
         try {
-            client = ((TcpIgniteClient) IgniteClient.builder()
-                    .addresses(addrs)
-                    .connectTimeout(netTimeout)
-                    .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
-                    .reconnectThrottlingRetries(reconnectThrottlingRetries)
-                    .ssl(extractSslConfiguration(connProps))
-                    .authenticator(extractAuthenticationConfiguration(connProps))
-                    .build());
-
+            client = buildClient(addrs, observableTimeTracker);
         } catch (Exception e) {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
         }
@@ -157,7 +152,7 @@ public class JdbcConnection implements Connection {
         try {
             JdbcConnectResult result = handler.connect(connProps.getConnectionTimeZone()).get();
 
-            if (!result.hasResults()) {
+            if (!result.success()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
             }
 
@@ -177,6 +172,27 @@ public class JdbcConnection implements Connection {
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
 
+    private TcpIgniteClient buildClient(String[] addrs, HybridTimestampTracker observableTimeTracker) {
+        var cfg = new IgniteClientConfigurationImpl(
+                null,
+                addrs,
+                netTimeout,
+                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RECONNECT_INTERVAL,
+                null,
+                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
+                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
+                null,
+                null,
+                extractSslConfiguration(connProps),
+                false,
+                extractAuthenticationConfiguration(connProps),
+                IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT,
+                IgniteClientConfiguration.DFLT_SQL_PARTITION_AWARENESS_METADATA_CACHE_SIZE
+        );
+
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker));
+    }
+
     /**
      * Constructor used for testing purposes.
      */
@@ -192,7 +208,7 @@ public class JdbcConnection implements Connection {
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
 
-        schema = DEFAULT_SCHEMA_NAME;
+        schema = SqlCommon.DEFAULT_SCHEMA_NAME;
 
         client = null;
         connectionId = -1;
@@ -204,7 +220,6 @@ public class JdbcConnection implements Connection {
                     .enabled(true)
                     .trustStorePath(connProps.getTrustStorePath())
                     .trustStorePassword(connProps.getTrustStorePassword())
-                    .clientAuth(connProps.getClientAuth())
                     .ciphers(connProps.getCiphers())
                     .keyStorePath(connProps.getKeyStorePath())
                     .keyStorePassword(connProps.getKeyStorePassword())
@@ -433,11 +448,7 @@ public class JdbcConnection implements Connection {
             return;
         }
 
-        try {
-            client.close();
-        } catch (Exception e) {
-            throw new SQLException(e);
-        }
+        client.close();
     }
 
     /**
@@ -856,6 +867,11 @@ public class JdbcConnection implements Connection {
         return connectionId;
     }
 
+    /** Returns the latest time observed by client. */
+    long observableTimestamp() {
+        return client.channel().observableTimestamp().get().longValue();
+    }
+
     /** {@inheritDoc} */
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
@@ -927,7 +943,7 @@ public class JdbcConnection implements Connection {
      */
     public static String normalizeSchema(String schemaName) {
         if (schemaName == null || schemaName.isEmpty()) {
-            return DEFAULT_SCHEMA_NAME;
+            return SqlCommon.DEFAULT_SCHEMA_NAME;
         }
 
         String res;
@@ -957,5 +973,9 @@ public class JdbcConnection implements Connection {
      */
     public String url() {
         return connProps.getUrl();
+    }
+
+    long nextToken() {
+        return tokenGenerator.getAndIncrement();
     }
 }

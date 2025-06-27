@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb.instance;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.toStringName;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.ESTIMATED_SIZE_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.INDEX_ROW_ID_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.LEASE_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
@@ -47,12 +48,15 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.rocksdb.IgniteRocksDbException;
 import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor;
 import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor.TableAndIndexId;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -110,11 +114,14 @@ public final class SharedRocksDbInstance {
     /** Meta information instance that wraps {@link ColumnFamily} instance for meta column family. */
     public final RocksDbMetaStorage meta;
 
-    /** Column Family for partition data. */
+    /** Column Family for TX data and references to {@link #dataCf}. */
     public final ColumnFamily partitionCf;
 
     /** Column Family for GC queue. */
     public final ColumnFamily gcQueueCf;
+
+    /** Column Family for storing binary rows. */
+    public final ColumnFamily dataCf;
 
     /** Column Family for Hash Index data. */
     private final ColumnFamily hashIndexCf;
@@ -128,6 +135,9 @@ public final class SharedRocksDbInstance {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Tracks external resources that need to be closed. */
+    private final List<AutoCloseable> resources;
+
     SharedRocksDbInstance(
             RocksDbStorageEngine engine,
             Path path,
@@ -137,8 +147,10 @@ public final class SharedRocksDbInstance {
             RocksDbMetaStorage meta,
             ColumnFamily partitionCf,
             ColumnFamily gcQueueCf,
+            ColumnFamily dataCf,
             ColumnFamily hashIndexCf,
-            List<ColumnFamily> sortedIndexCfs
+            List<ColumnFamily> sortedIndexCfs,
+            List<AutoCloseable> resources
     ) {
         this.engine = engine;
         this.path = path;
@@ -150,7 +162,10 @@ public final class SharedRocksDbInstance {
         this.meta = meta;
         this.partitionCf = partitionCf;
         this.gcQueueCf = gcQueueCf;
+        this.dataCf = dataCf;
         this.hashIndexCf = hashIndexCf;
+
+        this.resources = new ArrayList<>(resources);
 
         recoverExistingSortedIndexes(sortedIndexCfs);
     }
@@ -195,15 +210,25 @@ public final class SharedRocksDbInstance {
 
         busyLock.block();
 
-        List<AutoCloseable> resources = new ArrayList<>();
+        // Add resources from sorted indexes.
+        {
+            int expectedSize = sortedIndexCfsByName.size();
+            List<AutoCloseable> sortedIndexOptions = new ArrayList<>(expectedSize);
+            List<AutoCloseable> sortedIndexHandles = new ArrayList<>(expectedSize);
+            for (SortedIndexColumnFamily sortedIndexCf : sortedIndexCfsByName.values()) {
+                ColumnFamily cf = sortedIndexCf.columnFamily;
+                sortedIndexHandles.add(cf.handle());
+                @Nullable ColumnFamilyOptions options = cf.privateOptions();
+                if (options != null) {
+                    sortedIndexOptions.add(cf.privateOptions());
+                }
+            }
 
-        resources.add(meta.columnFamily().handle());
-        resources.add(partitionCf.handle());
-        resources.add(gcQueueCf.handle());
-        resources.add(hashIndexCf.handle());
-        resources.addAll(sortedIndexCfsByName.values());
+            // Some of the CF handles/options might be repeated, it should not be a critical but it is not ideal.
+            resources.addAll(0, sortedIndexOptions);
+            resources.addAll(sortedIndexHandles);
+        }
 
-        resources.add(db);
         resources.add(flusher::stop);
 
         try {
@@ -344,6 +369,7 @@ public final class SharedRocksDbInstance {
                     .array();
 
             deleteByPrefix(writeBatch, partitionCf, tableIdBytes);
+            deleteByPrefix(writeBatch, dataCf, tableIdBytes);
             deleteByPrefix(writeBatch, gcQueueCf, tableIdBytes);
             deleteByPrefix(writeBatch, hashIndexCf, tableIdBytes);
 
@@ -351,6 +377,7 @@ public final class SharedRocksDbInstance {
             deleteByPrefix(writeBatch, meta.columnFamily(), metaPrefix(PARTITION_CONF_PREFIX, tableIdBytes));
             deleteByPrefix(writeBatch, meta.columnFamily(), metaPrefix(INDEX_ROW_ID_PREFIX, tableIdBytes));
             deleteByPrefix(writeBatch, meta.columnFamily(), metaPrefix(LEASE_PREFIX, tableIdBytes));
+            deleteByPrefix(writeBatch, meta.columnFamily(), metaPrefix(ESTIMATED_SIZE_PREFIX, tableIdBytes));
 
             var cfsToRemove = new ArrayList<ColumnFamily>();
 
@@ -376,7 +403,7 @@ public final class SharedRocksDbInstance {
                 scheduleIndexCfsDestroyIfNeeded(cfsToRemove);
             }
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to destroy table data. [tableId={}]", e, targetTableId);
+            throw new IgniteRocksDbException(String.format("Failed to destroy table data. [tableId=%d]", targetTableId), e);
         }
     }
 
@@ -389,13 +416,15 @@ public final class SharedRocksDbInstance {
     }
 
     private ColumnFamily createSortedIndexCf(byte[] cfName) {
-        ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(cfName, sortedIndexCfOptions(cfName));
+        ColumnFamilyOptions cfOptions = sortedIndexCfOptions(cfName);
+        this.resources.add(0, cfOptions); // Added to the first position of the resources.
+        ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(cfName, cfOptions);
 
         ColumnFamily columnFamily;
         try {
-            columnFamily = ColumnFamily.create(db, cfDescriptor);
+            columnFamily = ColumnFamily.withPrivateOptions(db, cfDescriptor);
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfName), e);
+            throw new IgniteRocksDbException("Failed to create new RocksDB column family: " + toStringName(cfName), e);
         }
 
         flusher.addColumnFamily(columnFamily.handle());
@@ -409,9 +438,8 @@ public final class SharedRocksDbInstance {
         try {
             columnFamily.destroy();
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    "Failed to destroy RocksDB Column Family. [cfName={}, path={}]",
-                    e, columnFamily.name(), path
+            throw new IgniteRocksDbException(
+                    String.format("Failed to destroy RocksDB Column Family. [cfName=%s, path=%s]", columnFamily.name(), path), e
             );
         }
     }

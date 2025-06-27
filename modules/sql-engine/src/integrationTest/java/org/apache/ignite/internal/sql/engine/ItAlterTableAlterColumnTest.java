@@ -20,12 +20,18 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Month;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -41,6 +47,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Integration test for ALTER TABLE ALTER COLUMN command.
+ *
+ * <p>SQL F381 feature. Extended schema manipulation.
  */
 public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     @AfterEach
@@ -95,6 +103,7 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
         arguments.add(Arguments.of("SMALLINT", Short.MAX_VALUE, ColumnType.INT32, "INT", Integer.MAX_VALUE));
         arguments.add(Arguments.of("INT", Integer.MAX_VALUE, ColumnType.INT64, "BIGINT", Long.MAX_VALUE));
         arguments.add(Arguments.of("FLOAT", Float.MAX_VALUE, ColumnType.DOUBLE, "DOUBLE", Double.MAX_VALUE));
+        arguments.add(Arguments.of("FLOAT", Float.MIN_VALUE, ColumnType.DOUBLE, "DOUBLE", Double.MIN_VALUE));
         arguments.add(Arguments.of("VARCHAR(10)", "'" + "c".repeat(10) + "'", ColumnType.STRING,
                 "VARCHAR(20)", "'" + "c".repeat(20) + "'"));
         arguments.add(Arguments.of("VARBINARY(1)", "x'01'", ColumnType.BYTE_ARRAY,
@@ -177,6 +186,129 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
                 () -> sql("ALTER TABLE t ALTER COLUMN val SET DATA TYPE VARCHAR(100) NOT NULL"));
         assertThrowsSqlException(STMT_VALIDATION_ERR, "Adding NOT NULL constraint is not allowed",
                 () -> sql("ALTER TABLE t ALTER COLUMN val2 SET DATA TYPE VARCHAR(100) NOT NULL"));
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testChangeColumnDefault() {
+        sql("CREATE TABLE test("
+                + "id BIGINT PRIMARY KEY, "
+                + "valint INTEGER, "
+                + "valdate DATE,"
+                + "valtime TIME(3),"
+                + "valts TIMESTAMP(3),"
+                + "valstr VARCHAR,"
+                + "valbin VARBINARY"
+                + ")");
+
+
+        sql("ALTER TABLE test ALTER COLUMN valint SET DEFAULT 1");
+        sql("ALTER TABLE test ALTER COLUMN valdate SET DEFAULT DATE '2001-12-21'");
+        sql("ALTER TABLE test ALTER COLUMN valtime SET DEFAULT TIME '11:22:33.444555'");
+        sql("ALTER TABLE test ALTER COLUMN valts SET DEFAULT TIMESTAMP '2001-12-21 11:22:33.444555'");
+        sql("ALTER TABLE test ALTER COLUMN valstr SET DEFAULT 'string'");
+        sql("ALTER TABLE test ALTER COLUMN valbin SET DEFAULT x'ff'");
+
+        sql("INSERT INTO test (id) VALUES (0)");
+
+        assertQuery("SELECT * FROM test")
+                .returns(0L,
+                        1,
+                        LocalDate.of(2001, Month.DECEMBER, 21),
+                        LocalTime.of(11, 22, 33, 444000000),
+                        LocalDateTime.of(2001, Month.DECEMBER, 21, 11, 22, 33, 444000000),
+                        "string",
+                        new byte[]{(byte) 0xff}
+                )
+                .check();
+    }
+
+    @Test
+    public void setDefault() {
+        sql("CREATE TABLE t (id int PRIMARY KEY, val int)");
+
+        for (String col : Arrays.asList("id", "val")) {
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Non-constant default cannot be assigned after table creation.",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT rand_uuid", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Non-constant default cannot be assigned after table creation.",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT rand_uuid()", col))
+            );
+
+            // Compound id
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: A.B.C",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT a.b.c", col))
+            );
+
+            // Expression
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (1/0)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT 1/0", col))
+            );
+
+            // SELECT
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Query expression encountered in illegal context",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (SELECT 1000)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Query expression encountered in illegal context",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DEFAULT (SELECT count(*) FROM xyz)", col))
+            );
+        }
+    }
+
+    @Test
+    public void setDataTypeSetDefault() {
+        sql("CREATE TABLE t (id int PRIMARY KEY, val int)");
+
+        for (String col : Arrays.asList("id", "val")) {
+            // Compound id
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: A.B.C",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT a.b.c", col))
+            );
+
+            // Expression
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (1/0)", col))
+            );
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    "Unsupported default expression: 1 / 0",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT 1/0", col))
+            );
+
+            // SELECT
+
+            assertThrowsSqlException(
+                    STMT_PARSE_ERR,
+                    "Query expression encountered in illegal context",
+                    () -> sql(format("ALTER TABLE t ALTER COLUMN {} SET DATA TYPE BIGINT DEFAULT (SELECT 1000)", col))
+            );
+        }
     }
 
     @Override

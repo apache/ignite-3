@@ -21,15 +21,19 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -51,10 +55,13 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
      * start of the components/node. Will use {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)}.
      */
     public TestPlacementDriver(Supplier<ClusterNode> leaseholderSupplier) {
-        primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholderSupplier.get());
+        primaryReplicaSupplier = () -> {
+            ClusterNode leaseholder = leaseholderSupplier.get();
+            return leaseholder == null ? null : new TestReplicaMetaImpl(leaseholder);
+        };
     }
 
-    public TestPlacementDriver(String leaseholder, String leaseholderId) {
+    public TestPlacementDriver(String leaseholder, UUID leaseholderId) {
         primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholder, leaseholderId);
     }
 
@@ -74,6 +81,11 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
+    public @Nullable ReplicaMeta getCurrentPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        return getReplicaMetaFuture().join();
+    }
+
+    @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return nullCompletedFuture();
     }
@@ -81,6 +93,14 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     @Override
     public CompletableFuture<Void> fireEvent(PrimaryReplicaEvent event, PrimaryReplicaEventParameters parameters) {
         return super.fireEvent(event, parameters);
+    }
+
+    @Override
+    public CompletableFuture<List<TokenizedAssignments>> getAssignments(
+            List<? extends ReplicationGroupId> replicationGroupIds,
+            HybridTimestamp clusterTimeToAwait
+    ) {
+        return failedFuture(new UnsupportedOperationException("getAssignments() is not supported in FakePlacementDriver yet."));
     }
 
     private CompletableFuture<ReplicaMeta> getReplicaMetaFuture() {
@@ -95,7 +115,34 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return this.primaryReplicaSupplier;
     }
 
-    public void setPrimaryReplicaSupplier(Supplier<? extends ReplicaMeta> primaryReplicaSupplier) {
+    /**
+     * Setter for a test primary replica supplier with {@code PRIMARY_REPLICA_ELECTED} event firing that is crucial for some tests internal
+     * logic that depends on the event handling.
+     *
+     * @param primaryReplicaSupplier The supplier that provides {@link TestReplicaMetaImpl} instance with a test primary replica meta
+     *      information.
+     */
+    public void setPrimaryReplicaSupplier(Supplier<? extends TestReplicaMetaImpl> primaryReplicaSupplier) {
         this.primaryReplicaSupplier = primaryReplicaSupplier;
+
+        TestReplicaMetaImpl replicaMeta = primaryReplicaSupplier.get();
+
+        fireEvent(
+                PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
+                new PrimaryReplicaEventParameters(
+                        // The only usage of causality token below is IndexBuildController that doesn't use in tests, so the actual
+                        // value doesn't matter there yet.
+                        0,
+                        replicaMeta.getReplicationGroupId(),
+                        replicaMeta.getLeaseholderId(),
+                        replicaMeta.getLeaseholder(),
+                        replicaMeta.getStartTime()
+                )
+        );
+    }
+
+    @Override
+    public boolean isActualAt(HybridTimestamp timestamp) {
+        return true;
     }
 }

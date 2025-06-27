@@ -16,85 +16,86 @@
 
 == Prerequisites
 
-Ignite was tested on:
+include::includes/prereqs.adoc[]
 
-include::../includes/prereqs.adoc[]
+== Ignite Package Structure
 
+The Ignite provides 2 archives for the distribution:
 
-== Installing Using ZIP Archive
+- `ignite3-db-3.0.0` - this archive contains everything related to the Ignite database, and when unpacked,  the folder where data will be stored by default. You start Ignite nodes from this folder.
+- `ignite3-cli-3.0.0` - this archive contains the link:ignite-cli-tool[Ignite CLI tool]. This tool is the main way of interacting with Ignite clusters and nodes.
 
+== Installing Ignite Database
 
-. Download the archive with the Ignite CLI tool:
-+
-[tabs]
---
-tab:Unix[]
-[source,shell]
-----
-curl -L "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=ignite/3.0.0-beta1/ignite3-3.0.0-beta1.zip" -o ignite3-3.0.0-beta1.zip
-----
-
-tab:Windows (PowerShell)[]
-[source,shell]
-----
-include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
-----
-
-tab:Windows (CMD)[]
-[source,shell]
-----
-include::../includes/ignite-cli-download-windows.adoc[tag=command,indent=0]
-----
---
+To install the Ignite database, link:https://ignite.apache.org/download.cgi[download] the database archive from the website and then:
 
 . Unpack the archive:
 +
 [tabs]
 --
 tab:Unix[]
-[source,shell]
+[source,shell, subs="attributes,specialchars"]
 ----
-unzip ignite3-3.0.0-beta1.zip && cd ignite3-3.0.0-beta1
+unzip ignite3-db-3.0.0.zip && cd ignite3-db-3.0.0
 ----
 
 
 tab:Windows (PowerShell)[]
-[source,shell]
+[source,shell, subs="attributes,specialchars"]
 ----
-Expand-Archive ignite3-3.0.0-beta1.zip -DestinationPath . ; cd ignite3-3.0.0-beta1
+Expand-Archive ignite3-3.0.0.zip -DestinationPath . ; cd ignite3-db-3.0.0
 ----
 
 tab:Windows (CMD)[]
-[source,shell]
+[source,shell, subs="attributes,specialchars"]
 ----
-tar -xf ignite3-3.0.0-beta1.zip & cd ignite3-3.0.0-beta1
+unzip -xf ignite3-db-3.0.0.zip & cd ignite3-db-3.0.0
 ----
 --
 
-. Add your installation directory to the PATH environment variable:
-+
+. Create the `IGNITE_HOME` environment variable with the path to the `ignite3-db-3.0.0` folder.
+
+== Starting the Node
+
+Once you have unpacked the archive, you can start the Ignite node:
+
+[source,shell]
+----
+bin/ignite3db
+----
+
+By default, the node loads the `etc/ignite-config.conf` configuration file on startup. You can update it to customize the node configuration, or change the configuration folder in the `etc/vars.env` file.
+
+When the node is started, it will enter the cluster if it is already configured and initialized, or will wait for cluster initialization.
+
+== Installing Ignite CLI Tool
+
+The CLI tool is the primary means of working with the Ignite database. It is not necessary to install on every machine that is running Ignite, as you can connect to the node via REST interface.
+
+To install the Ignite CLI, link:https://ignite.apache.org/download.cgi[download] the database archive from the website and then unpack it:
+
 [tabs]
 --
 tab:Unix[]
-[source,shell]
+[source,shell, subs="attributes,specialchars"]
 ----
-export IGNITE_HOME=$(pwd)
+unzip ignite3-cli-3.0.0.zip && cd ignite3-cli-3.0.0
 ----
 
-//tab:Windows (PowerShell)[]
-//[source,shell]
-//----
-//$ENV:PATH += ";."
-//----
 
-//tab:Windows (CMD)[]
-//[source,text]
-//----
-//set PATH=%cd%;%PATH%
-//----
+tab:Windows (PowerShell)[]
+[source,shell, subs="attributes,specialchars"]
+----
+Expand-Archive ignite3-cli-3.0.0.zip -DestinationPath . ; cd ignite3-cli-3.0.0
+----
+
+tab:Windows (CMD)[]
+[source,shell, subs="attributes,specialchars"]
+----
+unzip -xf ignite3-cli-3.0.0.zip & cd ignite3-cli-3.0.0
+----
 --
 
-//NOTE: On Windows, this latter change is not permanent and only affects the current terminal session. If you want the
-//`ignite` command to be available after terminal or system restart, use the `System Properties` dialog to
-//permanently update the `PATH` environment variable by adding a full path to the Ignite installation directory.
+== Next Steps
 
+With the Ignite installed, you can proceed with the link:quick-start/getting-started-guide[Getting Started] or link:developers-guide/table-api[use the available APIs] immediately.

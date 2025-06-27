@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.exporters.configuration.TestExporterView;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,8 +34,8 @@ public class TestExporter extends BasicMetricExporter<TestExporterView> {
     private volatile int port;
 
     @Override
-    public void start(MetricProvider metricsProvider, TestExporterView configuration) {
-        super.start(metricsProvider, configuration);
+    public void start(MetricProvider metricsProvider, TestExporterView configuration, Supplier<UUID> clusterIdSupplier, String nodeName) {
+        super.start(metricsProvider, configuration, clusterIdSupplier, nodeName);
 
         port = configuration.port();
 

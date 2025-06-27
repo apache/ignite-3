@@ -47,9 +47,10 @@ public class SortedIndexLocker implements IndexLocker {
     private final Object positiveInf;
 
     private final int indexId;
+
     private final LockManager lockManager;
 
-
+    private final boolean unique;
     /** Index storage. */
     private final SortedIndexStorage storage;
 
@@ -63,14 +64,22 @@ public class SortedIndexLocker implements IndexLocker {
      * @param lockManager A lock manager to acquire locks in.
      * @param storage A storage of an index this locker is created for.
      * @param indexRowResolver A convertor which derives an index key from given table row.
+     * @param unique A flag indicating whether the given index unique or not.
      */
-    public SortedIndexLocker(int indexId, int partId, LockManager lockManager, SortedIndexStorage storage,
-            ColumnsExtractor indexRowResolver) {
+    public SortedIndexLocker(
+            int indexId,
+            int partId,
+            LockManager lockManager,
+            SortedIndexStorage storage,
+            ColumnsExtractor indexRowResolver,
+            boolean unique
+    ) {
         this.indexId = indexId;
         this.lockManager = lockManager;
         this.storage = storage;
         this.indexRowResolver = indexRowResolver;
         this.positiveInf = partId;
+        this.unique = unique;
     }
 
     @Override
@@ -172,10 +181,24 @@ public class SortedIndexLocker implements IndexLocker {
 
         var nextLockKey = new LockKey(indexId, indexKey(nextRow));
 
-        return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock ->
-                lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), LockMode.X).thenApply((lock) ->
-                        new Lock(nextLockKey, LockMode.IX, txId)
-                ));
+        return lockManager.acquire(txId, nextLockKey, LockMode.IX).thenCompose(shortLock -> {
+            LockMode modeToLock = currentKeyLockMode(shortLock.lockMode());
+
+            return lockManager.acquire(txId, new LockKey(indexId, key.byteBuffer()), modeToLock)
+                    .thenApply(lock -> new Lock(nextLockKey, LockMode.IX, txId));
+        });
+    }
+
+    private LockMode currentKeyLockMode(LockMode nextKeyLockMode) {
+        if (unique) {
+            return LockMode.X;
+        }
+        if (nextKeyLockMode == LockMode.S
+                || nextKeyLockMode == LockMode.X
+                || nextKeyLockMode == LockMode.SIX) {
+            return LockMode.X;
+        }
+        return LockMode.IX;
     }
 
     /** {@inheritDoc} */

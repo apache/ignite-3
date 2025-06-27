@@ -22,11 +22,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -45,10 +48,12 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
     private Condition cond3;
     private Condition cond4;
 
+    private final HybridClock clock = new HybridClockImpl();
+
     private final Entry[] entries = {
-            new EntryImpl(new byte[]{1}, new byte[]{10}, 1, 1),
-            new EntryImpl(new byte[]{2}, new byte[]{20}, 2, 3),
-            new EntryImpl(new byte[]{3}, new byte[]{30}, 3, 4),
+            new EntryImpl(new byte[]{1}, new byte[]{10}, 1, clock.now()),
+            new EntryImpl(new byte[]{2}, new byte[]{20}, 2, clock.now()),
+            new EntryImpl(new byte[]{3}, new byte[]{30}, 3, clock.now()),
     };
 
     @BeforeEach
@@ -66,7 +71,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond1.keys(), cond2.keys()), cond.keys());
         assertTrue(cond.test(entries));
         verify(cond1, times(1)).test(Arrays.copyOf(entries, 2));
-        verify(cond2, times(1)).test(Arrays.copyOfRange(entries, 2, 3));
+        verify(cond2, never()).test(any(Entry[].class));
     }
 
     @Test
@@ -76,7 +81,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
         assertArrayEquals(ArrayUtils.concat(cond2.keys(), cond3.keys()), cond.keys());
         assertTrue(cond.test(entries));
         verify(cond2, times(1)).test(Arrays.copyOf(entries, 1));
-        verify(cond3, times(1)).test(Arrays.copyOfRange(entries, 1, 3));
+        verify(cond3, never()).test(any(Entry[].class));
     }
 
     @Test
@@ -91,7 +96,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testFalseFalse() {
-        var cond = new AndCondition(cond3, cond4);
+        var cond = new OrCondition(cond3, cond4);
 
         assertArrayEquals(ArrayUtils.concat(cond3.keys(), cond4.keys()), cond.keys());
         assertFalse(cond.test(entries));
@@ -104,7 +109,7 @@ public class OrConditionTest extends BaseIgniteAbstractTest {
 
         when(m.keys()).thenReturn(keys);
 
-        when(m.test(any())).thenReturn(result);
+        when(m.test(any(Entry[].class))).thenReturn(result);
 
         return m;
     }

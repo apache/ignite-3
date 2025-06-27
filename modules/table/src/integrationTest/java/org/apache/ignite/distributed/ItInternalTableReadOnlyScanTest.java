@@ -19,13 +19,15 @@ package org.apache.ignite.distributed;
 
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -37,18 +39,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScanTest {
-    private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = new HybridTimestampTracker();
+    private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = HybridTimestampTracker.atomicTracker(null);
 
     @Override
     protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
         requireNonNull(tx);
 
-        return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), mock(ClusterNode.class), tx.coordinatorId());
+        ClusterNode node = mock(ClusterNode.class);
+        lenient().when(node.name()).thenReturn("node");
+
+        return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), node, tx.coordinatorId());
     }
 
     @Override
     protected InternalTransaction startTx() {
-        return internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER, true);
+        return internalTbl.txManager().beginExplicitRo(HYBRID_TIMESTAMP_TRACKER, InternalTxOptions.defaults());
     }
 
     @Override

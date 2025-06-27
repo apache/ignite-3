@@ -27,11 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * metrics source.
  */
 public interface MetricSource {
-    /**
-     * Returns metric source name.
-     *
-     * @return Metric source name.
-     */
+    /** Returns metric source name. */
     String name();
 
     /**
@@ -42,9 +38,7 @@ public interface MetricSource {
      */
     @Nullable MetricSet enable();
 
-    /**
-     * Disables metrics for metric source. Nothing happens if the metrics are already disabled for this source.
-     */
+    /** Disables metrics for metric source. Nothing happens if the metrics are already disabled for this source. */
     void disable();
 
     /**

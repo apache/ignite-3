@@ -17,14 +17,10 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-
-import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,9 +42,7 @@ public interface TxCleanupMessage extends TimestampAware {
      *
      * @return Replication groups aggregated by expected primary replica nodes.
      */
-    @Marshallable
-    @Nullable
-    Collection<ReplicationGroupId> groups();
+    @Nullable List<EnlistedPartitionGroupMessage> groups();
 
     /**
      * Returns {@code True} if a commit request.
@@ -57,19 +51,6 @@ public interface TxCleanupMessage extends TimestampAware {
      */
     boolean commit();
 
-    /**
-     * Returns a transaction commit timestamp.
-     *
-     * @return Commit timestamp.
-     */
-    long commitTimestampLong();
-
-    /**
-     * Returns a transaction commit timestamp.
-     *
-     * @return Commit timestamp.
-     */
-    default @Nullable HybridTimestamp commitTimestamp() {
-        return nullableHybridTimestamp(commitTimestampLong());
-    }
+    /** Transaction commit timestamp. */
+    @Nullable HybridTimestamp commitTimestamp();
 }

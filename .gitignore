@@ -21,8 +21,6 @@ build/
 *.ipr
 out/
 
-modules/platforms/cpp/cmake-build-*
-
 # JVM crash dumps
 **/hs_err_pid*
 

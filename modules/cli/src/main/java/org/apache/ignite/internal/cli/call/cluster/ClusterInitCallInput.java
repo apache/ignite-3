@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.cluster;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitOptions;
 import org.apache.ignite.internal.cli.core.call.CallInput;
@@ -124,6 +125,21 @@ public class ClusterInitCallInput implements CallInput {
             return this;
         }
 
+        public ClusterInitCallInputBuilder metaStorageNodes(List<String> metaStorageNodes) {
+            this.metaStorageNodes = metaStorageNodes;
+            return this;
+        }
+
+        public ClusterInitCallInputBuilder cmgNodes(List<String> cmgNodes) {
+            this.cmgNodes = cmgNodes;
+            return this;
+        }
+
+        public ClusterInitCallInputBuilder clusterName(String clusterName) {
+            this.clusterName = clusterName;
+            return this;
+        }
+
         /**
          * Extract cluster initialization options.
          *
@@ -131,8 +147,8 @@ public class ClusterInitCallInput implements CallInput {
          * @return this builder
          */
         public ClusterInitCallInputBuilder fromClusterInitOptions(ClusterInitOptions clusterInitOptions) {
-            this.metaStorageNodes = clusterInitOptions.metaStorageNodes();
-            this.cmgNodes = clusterInitOptions.cmgNodes();
+            this.metaStorageNodes = trim(clusterInitOptions.metaStorageNodes());
+            this.cmgNodes = trim(clusterInitOptions.cmgNodes());
             this.clusterName = clusterInitOptions.clusterName();
             this.clusterConfiguration = clusterInitOptions.clusterConfiguration();
             return this;
@@ -140,6 +156,19 @@ public class ClusterInitCallInput implements CallInput {
 
         public ClusterInitCallInput build() {
             return new ClusterInitCallInput(clusterUrl, metaStorageNodes, cmgNodes, clusterName, clusterConfiguration);
+        }
+
+        private static List<String> trim(List<String> input) {
+            if (input.isEmpty()) {
+                return input;
+            }
+
+            List<String> trimmed = new ArrayList<>(input.size());
+            for (String s : input) {
+                trimmed.add(s.trim());
+            }
+
+            return trimmed;
         }
     }
 }

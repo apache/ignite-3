@@ -28,6 +28,11 @@ namespace Apache.Ignite.Table
         public string Name { get; }
 
         /// <summary>
+        /// Gets the table qualified name.
+        /// </summary>
+        public QualifiedName QualifiedName { get; }
+
+        /// <summary>
         /// Gets the record binary view.
         /// </summary>
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }
@@ -36,6 +41,11 @@ namespace Apache.Ignite.Table
         /// Gets the key-value binary view.
         /// </summary>
         public IKeyValueView<IIgniteTuple, IIgniteTuple> KeyValueBinaryView { get; }
+
+        /// <summary>
+        /// Gets the partition manager.
+        /// </summary>
+        public IPartitionManager PartitionManager { get; }
 
         /// <summary>
         /// Gets the record view mapped to specified type <typeparamref name="T"/>.

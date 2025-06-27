@@ -139,6 +139,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(new DateTime(2023, 01, 18, 09, 29, 0), reader.GetDateTime("DATETIME"));
         Assert.AreEqual(Instant.ToDateTimeUtc(), reader.GetDateTime("TIMESTAMP"));
         Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
+        Assert.AreEqual(new BigDecimal( 8.7m), reader.GetValue("DECIMAL"));
         Assert.AreEqual(2, reader.GetBytes("BLOB", 0, null!, 0, 0));
         Assert.AreEqual(Guid, reader.GetGuid("UUID"));
         Assert.IsTrue(reader.GetBoolean("BOOLEAN"));
@@ -439,7 +440,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(LocalTime, reader.GetValue("TIME"));
         Assert.AreEqual(LocalDateTime, reader.GetValue("DATETIME"));
         Assert.AreEqual(Instant, reader.GetValue("TIMESTAMP"));
-        Assert.AreEqual(8.7m, reader.GetValue("DECIMAL"));
+        Assert.AreEqual(new BigDecimal(8.7m), reader.GetValue("DECIMAL"));
         Assert.AreEqual(Bytes, reader.GetValue("BLOB"));
         Assert.IsNull(reader.GetValue("NULL"));
     }
@@ -454,7 +455,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
 
         var expected = new object?[]
         {
-            1, "v-1", 2, 3, 4, 5, 6.5f, 7.5d, LocalDate, LocalTime, LocalDateTime, Instant, Bytes, 8.7m, Guid, true, null
+            1, "v-1", 2, 3, 4, 5, 6.5f, 7.5d, LocalDate, LocalTime, LocalDateTime, Instant, Bytes, new BigDecimal(8.7m), Guid, true, null
         };
 
         CollectionAssert.AreEqual(expected, values);
@@ -630,7 +631,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(typeof(LocalDateTime), reader.GetFieldType(10));
         Assert.AreEqual(typeof(Instant), reader.GetFieldType(11));
         Assert.AreEqual(typeof(byte[]), reader.GetFieldType(12));
-        Assert.AreEqual(typeof(decimal), reader.GetFieldType(13));
+        Assert.AreEqual(typeof(BigDecimal), reader.GetFieldType(13));
     }
 
     [Test]

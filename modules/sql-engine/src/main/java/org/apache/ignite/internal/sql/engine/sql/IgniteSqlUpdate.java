@@ -26,6 +26,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
@@ -37,7 +38,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public class IgniteSqlUpdate extends SqlUpdate {
 
     /** UPDATE operator. */
-    protected static final class Operator extends IgniteSqlSpecialOperator {
+    protected static final class Operator extends SqlSpecialOperator {
 
         /** Constructor. */
         protected Operator() {

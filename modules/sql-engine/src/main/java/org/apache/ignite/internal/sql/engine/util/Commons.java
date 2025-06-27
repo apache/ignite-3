@@ -19,12 +19,9 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.rel.hint.HintPredicates.AGGREGATE;
 import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
-import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
-import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
+import static org.apache.ignite.internal.sql.engine.prepare.PlanningContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
-import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -33,31 +30,23 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.io.StringReader;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
 import org.apache.calcite.config.NullCollation;
-import org.apache.calcite.linq4j.Ord;
-import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
@@ -71,6 +60,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeCoercionRule;
@@ -90,8 +80,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.InvalidTypeException;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexExecutorImpl;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
@@ -101,40 +91,47 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NumberNativeType;
-import org.apache.ignite.internal.type.TemporalNativeType;
-import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Utility methods.
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
+    public static final String PART_COL_NAME = "__PART";
+    // Old name for partition column. Kept for backward compatibility.
+    public static final String PART_COL_NAME_LEGACY = "__part";
 
     public static final int IN_BUFFER_SIZE = 512;
 
     public static final int IO_BATCH_SIZE = 256;
     public static final int IO_BATCH_COUNT = 4;
+
+    private static final EnumSet<SqlKind> SUPPORTED_DDL = EnumSet.of(
+            SqlKind.CREATE_SCHEMA, SqlKind.DROP_SCHEMA,
+            SqlKind.CREATE_TABLE, SqlKind.ALTER_TABLE, SqlKind.DROP_TABLE,
+            SqlKind.CREATE_INDEX, SqlKind.ALTER_INDEX, SqlKind.DROP_INDEX,
+            SqlKind.OTHER_DDL
+    );
 
     /**
      * The number of elements to be prefetched from each partition when scanning the sorted index.
@@ -154,6 +151,10 @@ public final class Commons {
             .executor(new RexExecutorImpl(DataContexts.EMPTY))
             .sqlToRelConverterConfig(SqlToRelConverter.config()
                     .withTrimUnusedFields(true)
+                    // Disable `RemoveSortInSubQuery` hint that causes incorrect plan transformation
+                    // because calcite does not distinguish between VIEWs and nested subqueries.
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22392
+                    .withRemoveSortInSubQuery(false)
                     // currently SqlToRelConverter creates not optimal plan for both optimization and execution
                     // so it's better to disable such rewriting right now
                     // TODO: remove this after IGNITE-14277
@@ -188,6 +189,8 @@ public final class Commons {
             .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
 
+    private static volatile @Nullable Boolean fastOptimizationsEnabled = null;
+
     private Commons() {
     }
 
@@ -196,25 +199,24 @@ public final class Commons {
     }
 
     /**
-     * Gets appropriate field from two rows by offset.
-     *
-     * @param hnd RowHandler impl.
-     * @param offset Current offset.
-     * @param row1 row1.
-     * @param row2 row2.
-     * @return Returns field by offset.
-     */
-    public static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
-        return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
-            hnd.get(offset - hnd.columnCount(row1), row2);
-    }
-
-    /**
      * Returns a given list as a typed list.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static <T> List<T> cast(List<?> src) {
         return (List) src;
+    }
+
+    /** Returns the given future as typed future. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static <T> CompletableFuture<T> cast(CompletableFuture<?> src) {
+        return (CompletableFuture) src;
+    }
+
+    /**
+     * Returns a given object as a typed one.
+     */
+    public static <T> T cast(Object src) {
+        return (T) src;
     }
 
     /**
@@ -263,22 +265,15 @@ public final class Commons {
     /**
      * Extracts query context.
      */
-    public static BaseQueryContext context(RelNode rel) {
+    public static PlanningContext context(RelNode rel) {
         return context(rel.getCluster());
     }
 
     /**
      * Extracts query context.
      */
-    public static BaseQueryContext context(RelOptCluster cluster) {
-        return Objects.requireNonNull(cluster.getPlanner().getContext().unwrap(BaseQueryContext.class));
-    }
-
-    /**
-     * Extracts planner context.
-     */
-    public static PlanningContext context(Context ctx) {
-        return Objects.requireNonNull(ctx.unwrap(PlanningContext.class));
+    public static PlanningContext context(RelOptCluster cluster) {
+        return Objects.requireNonNull(cluster.getPlanner().getContext().unwrap(PlanningContext.class));
     }
 
     /**
@@ -334,10 +329,28 @@ public final class Commons {
     }
 
     /**
-     * Flat.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Flattens a list of lists into a single list containing all elements from the nested lists.
+     *
+     * <p>This method takes a source list where each element is itself a list and combines 
+     * all the nested lists into a single list containing all their elements in order.
+     *
+     * <p>For example:
+     * <pre>
+     * List&lt;List&lt;Integer&gt;&gt; nestedList = List.of(
+     *     List.of(1, 2, 3),
+     *     List.of(4, 5),
+     *     List.of(6)
+     * );
+     * List&lt;Integer&gt flattenedList = flat(nestedList);
+     * // Result: [1, 2, 3, 4, 5, 6]
+     * </pre>
+     *
+     * @param <T> The type of elements in the lists.
+     * @param src The source list of lists to be flattened.
+     * @return A single list containing all elements from the nested lists.
+     * @throws NullPointerException if {@code src} or any nested list within {@code src} is {@code null}.
      */
-    public static <T> List<T> flat(List<List<? extends T>> src) {
+    public static <T> List<T> flat(List<List<T>> src) {
         return src.stream().flatMap(List::stream).collect(Collectors.toList());
     }
 
@@ -449,8 +462,14 @@ public final class Commons {
      */
     public static Mapping trimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
         Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, sourceSize, requiredElements.cardinality());
-        for (Ord<Integer> ord : Ord.zip(requiredElements)) {
-            mapping.set(ord.e, ord.i);
+
+        int i = 0;
+        for (int idx = requiredElements.nextSetBit(0); idx >= 0; idx = requiredElements.nextSetBit(idx + 1)) {
+            mapping.set(idx, i++);
+
+            if (idx == Integer.MAX_VALUE) {
+                break;  // or (i+1) would overflow
+            }
         }
         return mapping;
     }
@@ -486,13 +505,13 @@ public final class Commons {
             case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
             case UUID: return tuple.uuidValue(fieldIndex);
             case STRING: return tuple.stringValue(fieldIndex);
-            case BYTES: return tuple.bytesValue(fieldIndex);
-            case BITMASK: return tuple.bitmaskValue(fieldIndex);
-            case NUMBER: return tuple.numberValue(fieldIndex);
+            case BYTE_ARRAY: return tuple.bytesValue(fieldIndex);
             case DATE: return tuple.dateValue(fieldIndex);
             case TIME: return tuple.timeValue(fieldIndex);
             case DATETIME: return tuple.dateTimeValue(fieldIndex);
             case TIMESTAMP: return tuple.timestampValue(fieldIndex);
+            case PERIOD: return tuple.periodValue(fieldIndex);
+            case DURATION: return tuple.durationValue(fieldIndex);
             default: throw new InvalidTypeException("Unknown element type: " + nativeType);
         }
     }
@@ -535,184 +554,6 @@ public final class Commons {
             } catch (Exception ignored) {
                 // No-op.
             }
-        }
-    }
-
-    /**
-     * Provide mapping Native types to java classes.
-     *
-     * @param type Native type
-     * @return Java corresponding class.
-     */
-    public static Class<?> nativeTypeToClass(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case BOOLEAN:
-                return Boolean.class;
-
-            case INT8:
-                return Byte.class;
-
-            case INT16:
-                return Short.class;
-
-            case INT32:
-                return Integer.class;
-
-            case INT64:
-                return Long.class;
-
-            case FLOAT:
-                return Float.class;
-
-            case DOUBLE:
-                return Double.class;
-
-            case NUMBER:
-                return BigInteger.class;
-
-            case DECIMAL:
-                return BigDecimal.class;
-
-            case UUID:
-                return UUID.class;
-
-            case STRING:
-                return String.class;
-
-            case BYTES:
-                return byte[].class;
-
-            case BITMASK:
-                return BitSet.class;
-
-            case DATE:
-                return LocalDate.class;
-
-            case TIME:
-                return LocalTime.class;
-
-            case DATETIME:
-                return LocalDateTime.class;
-
-            case TIMESTAMP:
-                return Instant.class;
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
-        }
-    }
-
-    /**
-     * Provide mapping Native types to JDBC classes.
-     *
-     * @param type Native type
-     * @return JDBC corresponding class.
-     */
-    public static Class<?> nativeTypeToJdbcClass(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case DATE:
-                return java.sql.Date.class;
-            case TIME:
-                return java.sql.Time.class;
-            case DATETIME:
-            case TIMESTAMP:
-                return java.sql.Timestamp.class;
-            default:
-                return nativeTypeToClass(type);
-        }
-    }
-
-    /**
-     * Gets the precision of this type. Returns {@link ColumnMetadata#UNDEFINED_PRECISION} if
-     * precision is not applicable for this type.
-     *
-     * @return Precision for current type.
-     */
-    public static int nativeTypePrecision(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case INT8:
-                return 3;
-
-            case INT16:
-                return 5;
-
-            case INT32:
-                return 10;
-
-            case INT64:
-                return 19;
-
-            case FLOAT:
-            case DOUBLE:
-                return 15;
-
-            case NUMBER:
-                return ((NumberNativeType) type).precision();
-
-            case DECIMAL:
-                return ((DecimalNativeType) type).precision();
-
-            case BOOLEAN:
-            case UUID:
-            case DATE:
-                return UNDEFINED_PRECISION;
-
-            case TIME:
-            case DATETIME:
-            case TIMESTAMP:
-                return ((TemporalNativeType) type).precision();
-
-            case BYTES:
-            case STRING:
-                return ((VarlenNativeType) type).length();
-
-            case BITMASK:
-                return ((BitmaskNativeType) type).bits();
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
-        }
-    }
-
-    /**
-     * Gets the scale of this type. Returns {@link ColumnMetadata#UNDEFINED_SCALE} if
-     * scale is not valid for this type.
-     *
-     * @return number of digits of scale
-     */
-    public static int nativeTypeScale(NativeType type) {
-        switch (type.spec()) {
-            case INT8:
-            case INT16:
-            case INT32:
-            case INT64:
-            case NUMBER:
-                return 0;
-
-            case BOOLEAN:
-            case FLOAT:
-            case DOUBLE:
-            case UUID:
-            case DATE:
-            case TIME:
-            case DATETIME:
-            case TIMESTAMP:
-            case BYTES:
-            case STRING:
-            case BITMASK:
-                return UNDEFINED_SCALE;
-
-            case DECIMAL:
-                return ((DecimalNativeType) type).scale();
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
         }
     }
 
@@ -775,6 +616,31 @@ public final class Commons {
     }
 
     /**
+     * Checks whether a fast path optimizations are enabled or not.
+     *
+     * <p>Note: for test purpose only.
+     *
+     * @return A {@code true} if fast path optimizations are enabled, {@code false} otherwise.
+     */
+    public static boolean fastQueryOptimizationEnabled() {
+        Boolean enabled = fastOptimizationsEnabled;
+
+        if (enabled == null) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+            enabled = IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
+
+            fastOptimizationsEnabled = enabled;
+        }
+
+        return enabled;
+    }
+
+    @TestOnly
+    public static void resetFastQueryOptimizationFlag() {
+        fastOptimizationsEnabled = null;
+    }
+
+    /**
      * Returns a short version of a rule description.
      *
      * <p>Short description is used to match the rule to disable in DISABLE_RULE hint processor.
@@ -811,8 +677,12 @@ public final class Commons {
             return SqlQueryType.TX_CONTROL;
         }
 
-        if (SqlKind.DDL.contains(sqlKind)) {
+        if (SUPPORTED_DDL.contains(sqlKind)) {
             return SqlQueryType.DDL;
+        }
+
+        if (sqlNode instanceof IgniteSqlKill) {
+            return SqlQueryType.KILL;
         }
 
         switch (sqlKind) {
@@ -826,6 +696,9 @@ public final class Commons {
                 return SqlQueryType.QUERY;
 
             case INSERT:
+                assert sqlNode instanceof SqlInsert;
+                SqlInsert insert = (SqlInsert) sqlNode;
+                return insert.isUpsert() ? null : SqlQueryType.DML;
             case DELETE:
             case UPDATE:
             case MERGE:
@@ -902,8 +775,38 @@ public final class Commons {
 
     /** Returns {@code true} if the specified properties allow multi-statement query execution. */
     public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
-        Set<SqlQueryType> allowedTypes = properties.get(ALLOWED_QUERY_TYPES);
+        Set<SqlQueryType> allowedTypes = properties.allowedQueryTypes();
 
         return allowedTypes.contains(SqlQueryType.TX_CONTROL);
+    }
+
+    /**
+     * Derives an exception from the list of futures.
+     *
+     * <p>The exception from the first failed future in the list will be the root exception,
+     * the remaining exceptions will be added to the suppression list of the first exception.
+     *
+     * @param futures List of futures.
+     * @return Exception or {@code null} if all futures are completed successfully.
+     */
+    public static @Nullable Throwable deriveExceptionFromListOfFutures(List<CompletableFuture<?>> futures) {
+        Throwable firstFoundError = null;
+
+        for (CompletableFuture<?> fut : futures) {
+            assert fut.isDone();
+
+            if (fut.isCompletedExceptionally()) {
+                // all futures are expected to be completed by this point
+                Throwable fromFuture = ExceptionUtils.unwrapCause(fut.handle((ignored, ex) -> ex).join());
+
+                if (firstFoundError == null) {
+                    firstFoundError = fromFuture;
+                } else {
+                    firstFoundError.addSuppressed(fromFuture);
+                }
+            }
+        }
+
+        return firstFoundError;
     }
 }

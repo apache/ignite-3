@@ -22,7 +22,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -34,18 +36,22 @@ import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.Test;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -55,10 +61,10 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 
 /**
- * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile
- * storages for storing RAFT meta and RAFT log, while they are persistent for persistent storages.
+ * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile storages for storing RAFT meta
+ * and RAFT log, while they are persistent for persistent storages.
  */
-@WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
+@WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
 class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "test";
 
@@ -71,17 +77,29 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     void raftMetaStorageIsVolatileForVolatilePartitions() {
         createInMemoryTable();
 
-        IgniteImpl ignite = node(0);
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
 
-        assertThat(partitionRaftMetaPaths(ignite), everyItem(not(exists())));
+        if (colocationEnabled()) {
+            int zoneId = testZoneId(ignite);
+
+            // Check that there are no meta files for partitions of the table.
+            assertThat(
+                    partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith(zoneId + "_part_")),
+                    everyItem(not(exists())));
+
+            // The default zone still exists and uses persistent profile.
+            assertThat(partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith("0_part_")), everyItem(exists()));
+        } else {
+            assertThat(partitionRaftMetaPaths(ignite), everyItem(not(exists())));
+        }
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " WITH STORAGE_PROFILES = '" + DEFAULT_AIMEM_PROFILE_NAME + "'");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " STORAGE PROFILES ['" + DEFAULT_AIMEM_PROFILE_NAME + "']");
 
         executeSql("CREATE TABLE " + TABLE_NAME
-                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH STORAGE_PROFILE='"
-                + DEFAULT_AIMEM_PROFILE_NAME + "', PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ZONE ZONE_" + TABLE_NAME + " STORAGE PROFILE '"
+                + DEFAULT_AIMEM_PROFILE_NAME + "'");
     }
 
     /**
@@ -90,41 +108,55 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
      * @param ignite Ignite instance.
      * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
      */
-    private List<Path> partitionRaftMetaPaths(IgniteImpl ignite) {
-        try (Stream<Path> paths = Files.list(workDir.resolve(ignite.name()))) {
-            return paths
-                    .filter(path -> isPartitionDir(path, ignite))
-                    .map(path -> path.resolve("meta"))
-                    .collect(toList());
+    private static List<Path> partitionRaftMetaPaths(IgniteImpl ignite) {
+        return partitionRaftMetaPaths(ignite, p -> true);
+    }
+
+    /**
+     * Returns paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
+     *
+     * @param ignite Ignite instance.
+     * @param predicate Predicate to filter paths.
+     * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
+     */
+    private static List<Path> partitionRaftMetaPaths(IgniteImpl ignite, Predicate<Path> predicate) {
+        try (Stream<Path> paths = Files.list(ignite.partitionsWorkDir().metaPath())) {
+            return paths.filter(predicate).collect(toList());
+        } catch (NoSuchFileException e) {
+            return List.of();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private boolean isPartitionDir(Path path, IgniteImpl ignite) {
-        return path.getFileName().toString().startsWith(testTablePartitionPrefix(ignite));
-    }
-
-    private String testTablePartitionPrefix(IgniteImpl ignite) {
+    private static String testTablePartitionPrefix(IgniteImpl ignite) {
         return testTableId(ignite) + "_part_";
     }
 
-    private int testTableId(IgniteImpl ignite) {
+    private static int testTableId(IgniteImpl ignite) {
         TableManager tables = unwrapTableManager(ignite.tables());
-        return tables.tableView(TABLE_NAME).tableId();
+        return tables.tableView(QualifiedName.fromSimple(TABLE_NAME)).tableId();
+    }
+
+    private static String testZonePartitionPrefix(IgniteImpl ignite) {
+        return testZoneId(ignite) + "_part_";
+    }
+
+    private static int testZoneId(IgniteImpl ignite) {
+        TableManager tables = unwrapTableManager(ignite.tables());
+        return tables.tableView(QualifiedName.fromSimple(TABLE_NAME)).zoneId();
     }
 
     @Test
     void raftLogStorageIsVolatileForVolatilePartitions() throws Exception {
         createInMemoryTable();
 
-        IgniteImpl ignite = node(0);
-        String nodeName = ignite.name();
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
         String tablePartitionPrefix = testTablePartitionPrefix(ignite);
 
-        node(0).close();
+        stopNode(0);
 
-        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
+        Path logRocksDbDir = ignite.partitionsWorkDir().raftLogPath();
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -141,7 +173,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private void assertThatFamilyHasNoDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
+    private static void assertThatFamilyHasNoDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
         try (
                 ReadOptions readOptions = new ReadOptions().setIterateLowerBound(new Slice(tablePartitionPrefix.getBytes(UTF_8)));
                 RocksIterator iterator = db.newIterator(cfHandle, readOptions)
@@ -159,32 +191,33 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     void raftMetaStorageIsPersistentForPersistentPartitions() {
         createPersistentTable();
 
-        IgniteImpl ignite = node(0);
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
 
         assertThat(partitionRaftMetaPaths(ignite), everyItem(exists()));
     }
 
     private void createPersistentTable() {
         executeSql("CREATE ZONE ZONE_" + TABLE_NAME
-                + " WITH STORAGE_PROFILES = '" + DEFAULT_ROCKSDB_PROFILE_NAME + "'");
+                + " STORAGE PROFILES ['" + DEFAULT_ROCKSDB_PROFILE_NAME + "']");
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) "
-                + "WITH STORAGE_PROFILE='" + DEFAULT_ROCKSDB_PROFILE_NAME + "',"
-                + "PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
+                + "ZONE ZONE_" + TABLE_NAME.toUpperCase() + " "
+                + "STORAGE PROFILE '" + DEFAULT_ROCKSDB_PROFILE_NAME + "' ");
     }
 
     @Test
     void raftLogStorageIsPersistentForPersistentPartitions() throws Exception {
         createPersistentTable();
 
-        IgniteImpl ignite = node(0);
-        String nodeName = ignite.name();
-        String tablePartitionPrefix = testTablePartitionPrefix(ignite);
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
+        String partitionPrefix = colocationEnabled()
+                ? testZonePartitionPrefix(ignite)
+                : testTablePartitionPrefix(ignite);
 
-        node(0).close();
+        stopNode(0);
 
-        Path logRocksDbDir = workDir.resolve(nodeName).resolve("log");
+        Path logRocksDbDir = ignite.partitionsWorkDir().raftLogPath();
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -196,12 +229,12 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
         try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
-            assertThatFamilyHasDataForPartition(db, tablePartitionPrefix, cfHandles.get(0));
-            assertThatFamilyHasDataForPartition(db, tablePartitionPrefix, cfHandles.get(1));
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(0));
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(1));
         }
     }
 
-    private void assertThatFamilyHasDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
+    private static void assertThatFamilyHasDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
         try (
                 ReadOptions readOptions = new ReadOptions().setIterateLowerBound(new Slice(tablePartitionPrefix.getBytes(UTF_8)));
                 RocksIterator iterator = db.newIterator(cfHandle, readOptions)
@@ -236,22 +269,22 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
     @SuppressWarnings("resource")
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        CompletableFuture<Void> configUpdateFuture = node(0).nodeConfiguration().getConfiguration(RaftConfiguration.KEY).change(cfg -> {
-            cfg.changeVolatileRaft(change -> {
-                change.changeLogStorage(budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1));
-            });
+        RaftConfiguration raftConfiguration = unwrapIgniteImpl(node(0)).nodeConfiguration()
+                .getConfiguration(RaftExtensionConfiguration.KEY).raft();
+        CompletableFuture<Void> configUpdateFuture = raftConfiguration.change(cfg -> {
+            cfg.changeVolatileRaft().changeLogStorageBudget().convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1);
         });
         assertThat(configUpdateFuture, willCompleteSuccessfully());
 
         cluster.doInSession(0, session -> {
             session.execute(
                     null,
-                    "create zone zone1 with partitions=1, replicas=1, "
-                            + "storage_profiles = '" + DEFAULT_AIMEM_PROFILE_NAME + "'"
+                    "create zone zone1 (partitions 1, replicas 1) "
+                            + "storage profiles ['" + DEFAULT_AIMEM_PROFILE_NAME + "']"
             );
             session.execute(null, "create table " + tableName
-                    + " (id int primary key, name varchar) with storage_profile='"
-                    + DEFAULT_AIMEM_PROFILE_NAME + "', primary_zone='ZONE1'");
+                    + " (id int primary key, name varchar) zone ZONE1 storage profile '"
+                    + DEFAULT_AIMEM_PROFILE_NAME + "'");
         });
     }
 }

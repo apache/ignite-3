@@ -20,8 +20,6 @@ package org.apache.ignite.internal.network;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Base class for {@link TopologyService} implementations.
@@ -34,6 +32,11 @@ public abstract class AbstractTopologyService implements TopologyService {
     @Override
     public void addEventHandler(TopologyEventHandler handler) {
         eventHandlers.add(handler);
+    }
+
+    @Override
+    public void removeEventHandler(TopologyEventHandler handler) {
+        eventHandlers.remove(handler);
     }
 
     /**

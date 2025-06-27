@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +41,6 @@ public class ItNodeNameTest extends CliIntegrationTest {
     @BeforeEach
     void connect() {
         execute("connect");
-        resetOutput();
         // wait to pulling node names
         await().until(() -> !nodeNameRegistry.names().isEmpty());
     }
@@ -48,6 +48,7 @@ public class ItNodeNameTest extends CliIntegrationTest {
     @Test
     void nodeUrls() {
         List<String> urls = CLUSTER.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
                 .map(IgniteImpl::restHttpAddress)
                 .map(address -> "http://" + address)
                 .collect(Collectors.toList());
@@ -60,13 +61,13 @@ public class ItNodeNameTest extends CliIntegrationTest {
     @DisplayName("Should display node version with provided node name")
     void nodeVersion() {
         // When
-        execute("node", "version", "--node-name", nodeName());
+        execute("node", "version", "--node", nodeName());
 
         // Then
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputMatches("[1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?\\s+")
+                () -> assertOutputMatches("Apache Ignite version [1-9]\\d*\\.\\d+\\.\\d+(?:-[a-zA-Z0-9]+)?\\s+")
         );
     }
 
@@ -74,7 +75,7 @@ public class ItNodeNameTest extends CliIntegrationTest {
     @DisplayName("Should display node config with provided node name")
     void nodeConfig() {
         // When
-        execute("node", "config", "show", "--node-name", nodeName());
+        execute("node", "config", "show", "--node", nodeName());
 
         // Then
         assertAll(
@@ -89,7 +90,7 @@ public class ItNodeNameTest extends CliIntegrationTest {
     void nodeStatus() {
         // When
         String nodeName = nodeName();
-        execute("node", "status", "--node-name", nodeName);
+        execute("node", "status", "--node", nodeName);
 
         // Then
         assertAll(

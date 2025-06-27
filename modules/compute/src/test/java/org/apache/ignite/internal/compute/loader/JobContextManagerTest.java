@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.compute.loader;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.compute.version.Version.LATEST;
+import static org.apache.ignite.deployment.version.Version.LATEST;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getPath;
@@ -40,8 +40,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.compute.DeploymentUnit;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.compute.util.DummyIgniteDeployment;
 import org.apache.ignite.internal.deployunit.DeploymentUnitAccessorImpl;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;

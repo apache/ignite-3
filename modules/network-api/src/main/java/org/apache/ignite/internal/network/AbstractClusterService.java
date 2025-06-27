@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network;
 
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.TopologyService;
 
 /**
  * Default implementation of a {@link ClusterService}.

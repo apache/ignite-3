@@ -17,18 +17,19 @@
 
 package org.apache.ignite.internal.deployunit.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Configuration schema for Compute functionality.
  */
-@ConfigurationRoot(rootName = "deployment", type = ConfigurationType.LOCAL)
+@Config
 public class DeploymentConfigurationSchema {
     /**
      * Relative path to folder in node working directory where will store all deployment units content.
      */
     @Value(hasDefault = true)
-    public final String deploymentLocation = "deployment";
+    @PublicName(legacyNames = "deploymentLocation")
+    public final String location = "deployment";
 }

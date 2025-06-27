@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.deployunit.metastore;
 
 import java.util.List;
-import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 
 /**

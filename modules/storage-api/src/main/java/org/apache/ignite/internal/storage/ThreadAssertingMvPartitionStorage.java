@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.worker.ThreadAssertingCursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;
@@ -50,10 +51,10 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public CompletableFuture<Void> flush() {
+    public CompletableFuture<Void> flush(boolean trigger) {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.flush();
+        return partitionStorage.flush(trigger);
     }
 
     @Override
@@ -91,32 +92,41 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException {
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
+    public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
         assertThreadAllowsToWrite();
 
-        return partitionStorage.abortWrite(rowId);
+        return partitionStorage.abortWrite(rowId, txId);
     }
 
     @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
+    public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
         assertThreadAllowsToWrite();
 
-        partitionStorage.commitWrite(rowId, timestamp);
+        return partitionStorage.commitWrite(rowId, timestamp, txId);
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
         assertThreadAllowsToWrite();
 
-        partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override
@@ -155,22 +165,20 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public long rowsCount() throws StorageException {
-        assertThreadAllowsToRead();
-
-        return partitionStorage.rowsCount();
-    }
-
-    @Override
-    public void updateLease(long leaseStartTime) {
+    public void updateLease(LeaseInfo leaseInfo) {
         assertThreadAllowsToWrite();
 
-        partitionStorage.updateLease(leaseStartTime);
+        partitionStorage.updateLease(leaseInfo);
     }
 
     @Override
-    public long leaseStartTime() {
-        return partitionStorage.leaseStartTime();
+    public @Nullable LeaseInfo leaseInfo() {
+        return partitionStorage.leaseInfo();
+    }
+
+    @Override
+    public long estimatedSize() {
+        return partitionStorage.estimatedSize();
     }
 
     @Override

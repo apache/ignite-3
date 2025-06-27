@@ -73,8 +73,6 @@ public class JdbcBatchExecuteResult extends Response {
         Objects.requireNonNull(updateCnts);
 
         this.updateCnts = updateCnts;
-
-        hasResults = true;
     }
 
     /**

@@ -24,9 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -50,9 +53,9 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testMemoryUsageMetric() {
-        MetricManager metricManager = new MetricManager();
+        MetricManager metricManager = new MetricManagerImpl();
 
-        metricManager.configure(simpleConfiguration);
+        metricManager.configure(simpleConfiguration, UUID::randomUUID, "test-node");
 
         Map<String, MetricExporter> exporters = new HashMap<>();
 
@@ -79,7 +82,7 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
         assertNotNull(jvmMetrics.get("memory.non-heap.Committed"));
         assertNotNull(jvmMetrics.get("memory.non-heap.Max"));
 
-        assertThat(metricManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metricManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     private void assertPositiveLongValue(String metric) {

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
-import static org.apache.calcite.sql.SqlExplainLevel.ALL_ATTRIBUTES;
-
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -28,8 +26,11 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Relational operator that represents DML operation (such as INSERT, UPDATE, DELETE, etc.)
@@ -95,8 +96,8 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
             RelOptTable table,
             RelNode input,
             Operation operation,
-            List<String> updateColumnList,
-            List<RexNode> sourceExpressionList,
+            @Nullable List<String> updateColumnList,
+            @Nullable List<RexNode> sourceExpressionList,
             boolean flattened
     ) {
         super(cluster, traitSet, table, Commons.context(cluster).catalogReader(), input, operation, updateColumnList,
@@ -147,6 +148,29 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
 
     /** {@inheritDoc} */
     @Override
+    public RelNode accept(RexShuttle shuttle) {
+        List<RexNode> sourceExprList = getSourceExpressionList();
+        List<RexNode> newSourceExprList = shuttle.apply(sourceExprList);
+
+        if (newSourceExprList == sourceExprList) {
+            return this;
+        }
+
+        return new IgniteTableModify(
+                sourceId,
+                getCluster(),
+                traitSet,
+                getTable(),
+                input,
+                getOperation(),
+                getUpdateColumnList(),
+                newSourceExprList,
+                isFlattened()
+        );
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public IgniteRel clone(long sourceId) {
         return new IgniteTableModify(
                 sourceId,
@@ -173,7 +197,7 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
     public RelWriter explainTerms(RelWriter pw) {
         // for correct rel obtaining from ExecutionServiceImpl#physNodesCache.
         return super.explainTerms(pw)
-                .itemIf("tableId", Integer.toString(getTable().unwrap(IgniteTable.class).id()), pw.getDetailLevel() == ALL_ATTRIBUTES)
+                .item("tableId", Integer.toString(getTable().unwrap(IgniteTable.class).id()))
                 .itemIf("sourceId", sourceId, sourceId != -1);
 
     }
@@ -188,5 +212,12 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer
+                .addTable(table)
+                .addModifyOperationType(getOperation());
     }
 }

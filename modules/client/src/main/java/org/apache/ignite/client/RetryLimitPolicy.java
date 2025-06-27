@@ -39,7 +39,7 @@ public class RetryLimitPolicy implements RetryPolicy {
     }
 
     /**
-     * Sets the retry limit. 0 or less for no limit.
+     * Sets the retry limit. 0 for no retries. -1 or less for unlimited retries.
      *
      * @return this instance.
      */
@@ -54,7 +54,11 @@ public class RetryLimitPolicy implements RetryPolicy {
     public boolean shouldRetry(RetryPolicyContext context) {
         Objects.requireNonNull(context);
 
-        if (retryLimit <= 0) {
+        if (retryLimit == 0) {
+            return false;
+        }
+
+        if (retryLimit < 0) {
             return true;
         }
 

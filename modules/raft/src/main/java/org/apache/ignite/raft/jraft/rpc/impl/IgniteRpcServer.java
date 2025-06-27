@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
+import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,15 +27,14 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.NetworkMessageHandler;
-import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -41,8 +43,8 @@ import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddLearnersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddPeerRequestProcessor;
-import org.apache.ignite.raft.jraft.rpc.impl.cli.ChangePeersAsyncRequestProcessor;
-import org.apache.ignite.raft.jraft.rpc.impl.cli.ChangePeersRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.ChangePeersAndLearnersAsyncRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.ChangePeersAndLearnersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.GetLeaderRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.GetPeersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.RemoveLearnersRequestProcessor;
@@ -54,6 +56,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.cli.TransferLeaderRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.GetFileRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.HeartbeatRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.InterceptingAppendEntriesRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
@@ -109,12 +112,13 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new PingRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new TimeoutNowRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ReadIndexRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new HeartbeatRequestProcessor(rpcExecutor, raftMessagesFactory));
         // raft native cli service
         registerProcessor(new AddPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new RemovePeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
-        registerProcessor(new ChangePeersRequestProcessor(rpcExecutor, raftMessagesFactory));
-        registerProcessor(new ChangePeersAsyncRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new ChangePeersAndLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new ChangePeersAndLearnersAsyncRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new GetLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new SnapshotRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new TransferLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
@@ -176,7 +180,11 @@ public class IgniteRpcServer implements RpcServer<Void> {
             RpcProcessor<NetworkMessage> finalPrc = prc;
 
             try {
-                executor.execute(() -> finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message));
+                if (shouldSwitchToRequestsExecutor(PROCESS_RAFT_REQ)) {
+                    executor.execute(() -> finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message));
+                } else {
+                    finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message);
+                }
             } catch (RejectedExecutionException e) {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
                 LOG.warn("A request execution was rejected [sender={} req={} reason={}]", sender, S.toString(message), e.getMessage());

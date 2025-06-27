@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -24,28 +26,41 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Base class for SQL integration tests.
  */
 @ExtendWith(QueryCheckerExtension.class)
-public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
+public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
+    protected static String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     @InjectQueryCheckerFactory
     protected static QueryCheckerFactory queryCheckerFactory;
 
@@ -59,7 +74,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
         return assertQuery((InternalTransaction) null, qry);
     }
 
-    protected static QueryChecker assertQuery(IgniteImpl node, String qry) {
+    protected static QueryChecker assertQuery(Ignite node, String qry) {
         return assertQuery(node, null, qry);
     }
 
@@ -74,8 +89,9 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
         return assertQuery(CLUSTER.aliveNode(), tx, qry);
     }
 
-    protected static QueryChecker assertQuery(IgniteImpl node, @Nullable InternalTransaction tx, String qry) {
-        return queryCheckerFactory.create(node.name(), node.queryEngine(), node.transactions(), tx, qry);
+    protected static QueryChecker assertQuery(Ignite node, @Nullable InternalTransaction tx, String qry) {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
+        return queryCheckerFactory.create(igniteImpl.name(), igniteImpl.queryEngine(), igniteImpl.observableTimeTracker(), tx, qry);
     }
 
     /**
@@ -86,9 +102,17 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * @param rules Additional rules need to be disabled.
      */
     protected static QueryChecker assertQuery(String qry, JoinType joinType, String... rules) {
-        return assertQuery(qry)
-                .disableRules(joinType.disabledRules)
-                .disableRules(rules);
+        return assertQuery(qry, rules).disableRules(joinType.disabledRules);
+    }
+
+    /**
+     * Query check with disabled rules.
+     *
+     * @param qry Query for check.
+     * @param rules Additional rules need to be disabled.
+     */
+    protected static QueryChecker assertQuery(String qry, String... rules) {
+        return assertQuery(qry).disableRules(rules);
     }
 
     /**
@@ -99,9 +123,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * @param rules Additional rules need to be disabled.
      */
     protected static QueryChecker assertQuery(String qry, AggregateType aggregateType, String... rules) {
-        return assertQuery(qry)
-                .disableRules(aggregateType.disabledRules)
-                .disableRules(rules);
+        return assertQuery(qry, rules).disableRules(aggregateType.disabledRules);
     }
 
     /**
@@ -111,19 +133,29 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
         NESTED_LOOP(
                 "CorrelatedNestedLoopJoin",
                 "JoinCommuteRule",
-                "MergeJoinConverter"
+                "MergeJoinConverter",
+                "HashJoinConverter"
         ),
 
         MERGE(
                 "CorrelatedNestedLoopJoin",
                 "JoinCommuteRule",
-                "NestedLoopJoinConverter"
+                "NestedLoopJoinConverter",
+                "HashJoinConverter"
         ),
 
         CORRELATED(
                 "MergeJoinConverter",
                 "JoinCommuteRule",
-                "NestedLoopJoinConverter"
+                "NestedLoopJoinConverter",
+                "HashJoinConverter"
+        ),
+
+        HASH(
+                "MergeJoinConverter",
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter",
+                "CorrelatedNestedLoopJoin"
         );
 
         private final String[] disabledRules;
@@ -201,6 +233,13 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
+     * Returns observable time of first cluster node.
+     */
+    protected HybridTimestampTracker observableTimeTracker() {
+        return unwrapIgniteImpl(CLUSTER.aliveNode()).observableTimeTracker();
+    }
+
+    /**
      * Gets the SQL API.
      *
      * @return SQL API.
@@ -213,14 +252,14 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * Returns internal  {@code SqlQueryProcessor} for first cluster node.
      */
     protected SqlQueryProcessor queryProcessor() {
-        return (SqlQueryProcessor) CLUSTER.aliveNode().queryEngine();
+        return (SqlQueryProcessor) unwrapIgniteImpl(CLUSTER.aliveNode()).queryEngine();
     }
 
     /**
      * Returns internal {@code TxManager} for first cluster node.
      */
     protected TxManager txManager() {
-        return CLUSTER.aliveNode().txManager();
+        return unwrapIgniteImpl(CLUSTER.aliveNode()).txManager();
     }
 
     protected static Table table(String canonicalName) {
@@ -231,6 +270,45 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
      * Returns internal {@code SystemViewManager} for first cluster node.
      */
     protected SystemViewManagerImpl systemViewManager() {
-        return (SystemViewManagerImpl) CLUSTER.aliveNode().systemViewManager();
+        return (SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager();
+    }
+
+    /**
+     * Waits until the number of running queries matches the specified matcher.
+     *
+     * @param matcher Matcher to check the number of running queries.
+     * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
+     */
+    protected void waitUntilRunningQueriesCount(Matcher<Integer> matcher) {
+        SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor(), matcher);
+    }
+
+    protected static void gatherStatistics() {
+        SqlStatisticManagerImpl statisticManager = (SqlStatisticManagerImpl) ((SqlQueryProcessor) unwrapIgniteImpl(CLUSTER.aliveNode())
+                .queryEngine()).sqlStatisticManager();
+
+        statisticManager.forceUpdateAll();
+        try {
+            statisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /** An executable that retrieves the data from the specified cursor. */
+    public static class DrainCursor implements Executable {
+        private final AsyncSqlCursor<?> cursor;
+
+        public DrainCursor(AsyncSqlCursor<?> cursor) {
+            this.cursor = cursor;
+        }
+
+        @Override
+        public void execute() throws Throwable {
+            BatchedResult<?> batch;
+            do {
+                batch = await(cursor.requestNextAsync(1));
+            } while (batch.hasMore());
+        }
     }
 }

@@ -43,7 +43,7 @@ public final class MarshallerUtil {
      */
     public static int getValueSize(Object val, NativeType type) throws InvalidTypeException {
         switch (type.spec()) {
-            case BYTES:
+            case BYTE_ARRAY:
                 if (val instanceof byte[]) {
                     byte[] bytes = (byte[]) val;
                     if (bytes.length == 0 || bytes[0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
@@ -56,10 +56,9 @@ public final class MarshallerUtil {
 
             case STRING:
                 CharSequence chars = (CharSequence) val;
-                return chars.length() == 0 ? 1 : utf8EncodedLength(chars);
+                int length = chars.length();
 
-            case NUMBER:
-                return sizeInBytes((BigInteger) val);
+                return length == 0 ? 1 : length /* optimistically assume string value contains only ASCII symbols */;
 
             case DECIMAL:
                 return sizeInBytes((BigDecimal) val);
@@ -88,34 +87,6 @@ public final class MarshallerUtil {
      * Stub.
      */
     private MarshallerUtil() {
-    }
-
-    /**
-     * Calculates encoded string length.
-     *
-     * @param seq Char sequence.
-     * @return Encoded string length.
-     * @implNote This implementation is not tolerant to malformed char sequences.
-     */
-    public static int utf8EncodedLength(CharSequence seq) {
-        int cnt = 0;
-
-        for (int i = 0, len = seq.length(); i < len; i++) {
-            char ch = seq.charAt(i);
-
-            if (ch <= 0x7F) {
-                cnt++;
-            } else if (ch <= 0x7FF) {
-                cnt += 2;
-            } else if (Character.isHighSurrogate(ch)) {
-                cnt += 4;
-                ++i;
-            } else {
-                cnt += 3;
-            }
-        }
-
-        return cnt;
     }
 
     /**
@@ -183,12 +154,8 @@ public final class MarshallerUtil {
                 return BinaryMode.UUID;
             case STRING:
                 return BinaryMode.STRING;
-            case BYTES:
+            case BYTE_ARRAY:
                 return BinaryMode.BYTE_ARR;
-            case BITMASK:
-                return BinaryMode.BITSET;
-            case NUMBER:
-                return BinaryMode.NUMBER;
             case DATE:
                 return BinaryMode.DATE;
             case TIME:

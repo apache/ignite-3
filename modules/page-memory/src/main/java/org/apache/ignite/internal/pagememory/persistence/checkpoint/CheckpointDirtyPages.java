@@ -20,22 +20,19 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static java.util.Arrays.binarySearch;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.RandomAccess;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and unsorted partition IDs that should be
- * checkpointed.
- */
-class CheckpointDirtyPages {
+/** Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and partition IDs that should be checkpointed. */
+public class CheckpointDirtyPages {
     /** Dirty page ID comparator by groupId -> partitionId -> pageIdx. */
     static final Comparator<FullPageId> DIRTY_PAGE_COMPARATOR = Comparator
             .comparingInt(FullPageId::groupId)
@@ -44,8 +41,8 @@ class CheckpointDirtyPages {
     /** Empty checkpoint dirty pages. */
     static final CheckpointDirtyPages EMPTY = new CheckpointDirtyPages(List.of());
 
-    /** Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and unsorted partition IDs. */
-    private final List<DataRegionDirtyPages<FullPageId[]>> dirtyPages;
+    /** Dirty pages and partitions of data regions, with sorted dirty page IDs by {@link #DIRTY_PAGE_COMPARATOR}. */
+    private final List<DirtyPagesAndPartitions> dirtyPagesAndPartitions;
 
     /** Total number of dirty page IDs. */
     private final int dirtyPagesCount;
@@ -53,14 +50,15 @@ class CheckpointDirtyPages {
     /**
      * Constructor.
      *
-     * @param dirtyPages Dirty pages of data regions, with sorted page IDs by {@link #DIRTY_PAGE_COMPARATOR} and unsorted partition IDs.
+     * @param dirtyPagesAndPartitions Dirty pages and partitions of data regions, with sorted dirty page IDs by
+     *     {@link #DIRTY_PAGE_COMPARATOR}. Expected list with {@link RandomAccess}.
      */
-    public CheckpointDirtyPages(List<DataRegionDirtyPages<FullPageId[]>> dirtyPages) {
-        assert dirtyPages instanceof RandomAccess : dirtyPages;
+    CheckpointDirtyPages(List<DirtyPagesAndPartitions> dirtyPagesAndPartitions) {
+        assert dirtyPagesAndPartitions instanceof RandomAccess : dirtyPagesAndPartitions;
 
-        this.dirtyPages = dirtyPages;
+        this.dirtyPagesAndPartitions = dirtyPagesAndPartitions;
 
-        dirtyPagesCount = dirtyPages.stream().mapToInt(pages -> pages.dirtyPages.length).sum();
+        dirtyPagesCount = dirtyPagesAndPartitions.stream().mapToInt(pages -> pages.dirtyPages.length).sum();
     }
 
     /**
@@ -70,15 +68,16 @@ class CheckpointDirtyPages {
         return dirtyPagesCount;
     }
 
-    /**
-     * Returns a queue of dirty page IDs to be written to a checkpoint.
-     */
-    public IgniteConcurrentMultiPairQueue<PersistentPageMemory, FullPageId> toDirtyPageIdQueue() {
-        List<IgniteBiTuple<PersistentPageMemory, FullPageId[]>> dirtyPageIds = dirtyPages.stream()
-                .map(pages -> new IgniteBiTuple<>(pages.pageMemory, pages.dirtyPages))
+    /** Creates a concurrent queue of dirty partitions to be written to at checkpoint. */
+    public IgniteConcurrentMultiPairQueue<PersistentPageMemory, GroupPartitionId> toDirtyPartitionQueue() {
+        List<IgniteBiTuple<PersistentPageMemory, GroupPartitionId[]>> dirtyPartitions = dirtyPagesAndPartitions.stream()
+                .map(dirtyPagesAndPartitions -> new IgniteBiTuple<>(
+                        dirtyPagesAndPartitions.pageMemory,
+                        dirtyPagesAndPartitions.dirtyPartitions.toArray(GroupPartitionId[]::new))
+                )
                 .collect(toList());
 
-        return new IgniteConcurrentMultiPairQueue<>(dirtyPageIds);
+        return new IgniteConcurrentMultiPairQueue<>(dirtyPartitions);
     }
 
     /**
@@ -89,8 +88,8 @@ class CheckpointDirtyPages {
      * @param partId Partition ID.
      */
     public @Nullable CheckpointDirtyPagesView getPartitionView(PersistentPageMemory pageMemory, int grpId, int partId) {
-        for (int i = 0; i < dirtyPages.size(); i++) {
-            if (dirtyPages.get(i).pageMemory == pageMemory) {
+        for (int i = 0; i < dirtyPagesAndPartitions.size(); i++) {
+            if (dirtyPagesAndPartitions.get(i).pageMemory == pageMemory) {
                 return getPartitionView(i, grpId, partId);
             }
         }
@@ -102,7 +101,7 @@ class CheckpointDirtyPages {
         FullPageId startPageId = new FullPageId(pageId(partId, (byte) 0, 0), grpId);
         FullPageId endPageId = new FullPageId(pageId(partId + 1, (byte) 0, 0), grpId);
 
-        FullPageId[] pageIds = dirtyPages.get(dirtyPagesIdx).dirtyPages;
+        FullPageId[] pageIds = dirtyPagesAndPartitions.get(dirtyPagesIdx).dirtyPages;
 
         int fromIndex = binarySearch(pageIds, startPageId, DIRTY_PAGE_COMPARATOR);
 
@@ -120,42 +119,11 @@ class CheckpointDirtyPages {
     }
 
     /**
-     * Looks for the next dirty page IDs view from the current one, {@code null} if not found.
-     *
-     * @param currentView Current view to dirty pages, {@code null} to get first.
+     * Returns a full list of {@link PersistentPageMemory} instances, for which there exist at least a single dirty partition in current
+     * checkpoint.
      */
-    public @Nullable CheckpointDirtyPagesView nextPartitionView(@Nullable CheckpointDirtyPagesView currentView) {
-        assert currentView == null || currentView.owner() == this : currentView;
-
-        if (dirtyPages.isEmpty()) {
-            return null;
-        }
-
-        int regionIndex;
-        int fromPosition;
-
-        if (currentView == null) {
-            regionIndex = 0;
-            fromPosition = 0;
-        } else {
-            regionIndex = currentView.needsNextRegion() ? currentView.regionIndex + 1 : currentView.regionIndex;
-            fromPosition = currentView.needsNextRegion() ? 0 : currentView.toPosition;
-        }
-
-        if (regionIndex >= dirtyPages.size()) {
-            return null;
-        }
-
-        FullPageId[] pageIds = dirtyPages.get(regionIndex).dirtyPages;
-
-        FullPageId startPageId = pageIds[fromPosition];
-        FullPageId endPageId = new FullPageId(pageId(partitionId(startPageId.pageId()) + 1, (byte) 0, 0), startPageId.groupId());
-
-        int toPosition = binarySearch(pageIds, fromPosition, pageIds.length, endPageId, DIRTY_PAGE_COMPARATOR);
-
-        toPosition = toPosition > 0 ? toPosition : -toPosition - 1;
-
-        return new CheckpointDirtyPagesView(regionIndex, fromPosition, toPosition);
+    List<PersistentPageMemory> dirtyPageMemoryInstances() {
+        return this.dirtyPagesAndPartitions.stream().map(p -> p.pageMemory).collect(toList());
     }
 
     /**
@@ -165,7 +133,7 @@ class CheckpointDirtyPages {
      * <p>Thread safe.
      */
     class CheckpointDirtyPagesView {
-        /** Element index in {@link CheckpointDirtyPages#dirtyPages}. */
+        /** Element index in {@link CheckpointDirtyPages#dirtyPagesAndPartitions}. */
         private final int regionIndex;
 
         /** Starting position (inclusive) of the dirty page within the element at {@link #regionIndex}. */
@@ -177,7 +145,7 @@ class CheckpointDirtyPages {
         /**
          * Private constructor.
          *
-         * @param regionIndex Element index in {@link CheckpointDirtyPages#dirtyPages}.
+         * @param regionIndex Element index in {@link CheckpointDirtyPages#dirtyPagesAndPartitions}.
          * @param fromPosition Starting position (inclusive) of the dirty page within the element at {@link #regionIndex}.
          * @param toPosition End position (exclusive) of the dirty page within the element at {@link #regionIndex}.
          */
@@ -193,14 +161,14 @@ class CheckpointDirtyPages {
          * @param index Dirty page index.
          */
         public FullPageId get(int index) {
-            return dirtyPages.get(this.regionIndex).dirtyPages[fromPosition + index];
+            return dirtyPagesAndPartitions.get(this.regionIndex).dirtyPages[fromPosition + index];
         }
 
         /**
          * Returns the page memory for view.
          */
         public PersistentPageMemory pageMemory() {
-            return dirtyPages.get(regionIndex).pageMemory;
+            return dirtyPagesAndPartitions.get(regionIndex).pageMemory;
         }
 
         /**
@@ -208,14 +176,6 @@ class CheckpointDirtyPages {
          */
         public int size() {
             return toPosition - fromPosition;
-        }
-
-        private CheckpointDirtyPages owner() {
-            return CheckpointDirtyPages.this;
-        }
-
-        private boolean needsNextRegion() {
-            return toPosition == dirtyPages.get(regionIndex).dirtyPages.length;
         }
     }
 

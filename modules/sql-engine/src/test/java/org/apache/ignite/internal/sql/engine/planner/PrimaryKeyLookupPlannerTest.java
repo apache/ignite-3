@@ -29,9 +29,9 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
@@ -69,10 +69,10 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
         int version = CLUSTER.catalogManager().latestCatalogVersion();
 
         List<CatalogCommand> commands = new ArrayList<>();
-        for (CatalogTableDescriptor table : CLUSTER.catalogManager().tables(version)) {
+        for (CatalogTableDescriptor table : CLUSTER.catalogManager().catalog(version).tables()) {
             commands.add(
                     DropTableCommand.builder()
-                            .schemaName(CatalogService.DEFAULT_SCHEMA_NAME)
+                            .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                             .tableName(table.name())
                             .build()
             );
@@ -193,7 +193,7 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertKeyExpressions(KeyValueGetPlan plan, String... expectedExpressions) {
-        List<String> keyExpressions = plan.lookupNode().keyExpressions().stream()
+        List<String> keyExpressions = (plan.getRel()).keyExpressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
@@ -205,20 +205,20 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
 
     private static void assertCondition(KeyValueGetPlan plan, String expectedCondition) {
         assertThat(
-                plan.lookupNode().condition().toString(),
+                (plan.getRel()).condition().toString(),
                 equalTo(expectedCondition)
         );
     }
 
     private static void assertEmptyCondition(KeyValueGetPlan plan) {
         assertThat(
-                plan.lookupNode().condition(),
+                (plan.getRel()).condition(),
                 nullValue()
         );
     }
 
     private static void assertProjection(KeyValueGetPlan plan, String... expectedProjections) {
-        List<String> projections = plan.lookupNode().projects().stream()
+        List<String> projections = (plan.getRel()).projects().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 

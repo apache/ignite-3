@@ -78,8 +78,8 @@ public class PendingIndependentComparableValuesTracker<T extends Comparable<T>, 
     }
 
     @Override
-    protected void cleanupWaitersOnClose(TrackerClosedException trackerClosedException) {
-        valueFutures.forEach((k, futureSet) -> futureSet.forEach(f -> f.completeExceptionally(trackerClosedException)));
+    protected void cleanupWaitersOnClose(Exception waiterCompletionException) {
+        valueFutures.forEach((k, futureSet) -> futureSet.forEach(f -> f.completeExceptionally(waiterCompletionException)));
 
         valueFutures.clear();
     }

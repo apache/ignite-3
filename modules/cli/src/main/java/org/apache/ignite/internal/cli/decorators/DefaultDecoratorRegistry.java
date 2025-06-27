@@ -22,10 +22,12 @@ import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.call.node.status.NodeStatus;
 import org.apache.ignite.internal.cli.config.Profile;
+import org.apache.ignite.internal.cli.config.ini.IniProfile;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.DecoratorRegistry;
 import org.apache.ignite.internal.cli.sql.SqlQueryResult;
 import org.apache.ignite.internal.cli.sql.table.Table;
+import org.apache.ignite.internal.rest.api.node.NodeVersion;
 
 /**
  * Default set of {@link Decorator}.
@@ -37,10 +39,12 @@ public class DefaultDecoratorRegistry extends DecoratorRegistry {
     public DefaultDecoratorRegistry() {
         add(JsonString.class, new JsonDecorator(false));
         add(Profile.class, new ProfileDecorator());
+        add(IniProfile.class, new ProfileDecorator());
         add(ProfileList.class, new ProfileListDecorator());
         add(Table.class, new TableDecorator(false));
         add(SqlQueryResult.class, new SqlQueryResultDecorator(false));
         add(ClusterStatus.class, new ClusterStatusDecorator());
         add(NodeStatus.class, new NodeStatusDecorator());
+        add(NodeVersion.class, new NodeVersionDecorator());
     }
 }

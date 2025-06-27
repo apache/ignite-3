@@ -19,28 +19,29 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.Instant;
-import java.util.Locale;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.TimeZone;
 import java.util.function.Supplier;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
+import java.util.stream.Stream;
+import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.runtime.SqlFunctions.DateParseFunction;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Sql functions test.
@@ -108,7 +109,7 @@ public class IgniteSqlFunctionsTest {
         );
 
         assertEquals(
-                new BigDecimal("10.101"),
+                new BigDecimal("10.100"),
                 IgniteSqlFunctions.toBigDecimal(10.101f, 10, 3)
         );
 
@@ -147,7 +148,7 @@ public class IgniteSqlFunctionsTest {
         );
 
         assertEquals(
-                new BigDecimal("10.101"),
+                new BigDecimal("10.100"),
                 IgniteSqlFunctions.toBigDecimal(Float.valueOf(10.101f), 10, 3)
         );
 
@@ -160,23 +161,14 @@ public class IgniteSqlFunctionsTest {
     @Test
     public void testFractionsToDecimal() {
         assertEquals(
-                new BigDecimal("0.0101"),
+                new BigDecimal("0.0100"),
                 IgniteSqlFunctions.toBigDecimal(Float.valueOf(0.0101f), 3, 4)
         );
 
         assertEquals(
-                new BigDecimal("0.0101"),
+                new BigDecimal("0.0100"),
                 IgniteSqlFunctions.toBigDecimal(Double.valueOf(0.0101d), 3, 4)
         );
-    }
-
-    /** Access of dynamic parameter value - parameter is not transformed. */
-    @Test
-    public void testToBigDecimalFromObject() {
-        Object value = new BigDecimal("100.1");
-        int defaultPrecision = IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL);
-
-        assertSame(value, IgniteSqlFunctions.toBigDecimal(value, defaultPrecision, 0));
     }
 
     /** Tests for decimal conversion function. */
@@ -212,7 +204,7 @@ public class IgniteSqlFunctionsTest {
             "1.123, 4, 4, overflow",
 
             "0.0011, 1, 3, 0.001",
-            "0.0016, 1, 3, 0.002",
+            "0.0016, 1, 3, 0.001",
             "-0.0011, 1, 3, -0.001",
             "-0.0011, 1, 4, overflow",
             "-0.0011, 2, 4, -0.0011",
@@ -230,6 +222,8 @@ public class IgniteSqlFunctionsTest {
             "10.00, 3, 1, 10.0",
 
             "100.0, 3, 1, overflow",
+
+            "1, 32767, 32767, overflow",
 
             "100.01, 4, 1, 100.0",
             "100.01, 4, 0, 100",
@@ -492,40 +486,11 @@ public class IgniteSqlFunctionsTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "2023-10-29 02:01:01",
-            "2023-10-29 03:01:01",
-            "2023-10-29 04:01:01",
-            "2023-10-29 05:01:01",
-            "2024-03-31 02:01:01",
-            "2024-03-31 03:01:01",
-            "2024-03-31 04:01:01",
-            "2024-03-31 05:01:01",
-    })
-    public void testSubtractTimeZoneOffset(String input) throws ParseException {
-        TimeZone cyprusTz = TimeZone.getTimeZone("Asia/Nicosia");
-        TimeZone utcTz = TimeZone.getTimeZone("UTC");
-
-        SimpleDateFormat dateFormatTz = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-        dateFormatTz.setTimeZone(cyprusTz);
-
-        SimpleDateFormat dateFormatUtc = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-        dateFormatUtc.setTimeZone(utcTz);
-
-        long expMillis = dateFormatTz.parse(input).getTime();
-        long utcMillis = dateFormatUtc.parse(input).getTime();
-
-        long actualTs = IgniteSqlFunctions.subtractTimeZoneOffset(utcMillis, cyprusTz);
-
-        assertEquals(Instant.ofEpochMilli(expMillis), Instant.ofEpochMilli(actualTs));
-    }
-
-    @ParameterizedTest
     @CsvSource(
             value = {
-                    "1; 2; 0.5",
-                    "1; 3; 0.3333333333333333",
-                    "6; 2; 3",
+                    "1; 2; 0.50",
+                    "1; 3; 0.33",
+                    "6; 2; 3.00",
                     "1; 0;",
             },
             delimiterString = ";"
@@ -535,25 +500,113 @@ public class IgniteSqlFunctionsTest {
         BigDecimal denum = new BigDecimal(b);
 
         if (expected != null) {
-            BigDecimal actual = IgniteSqlFunctions.decimalDivide(num, denum, 4, 2);
+            BigDecimal actual = IgniteMath.decimalDivide(num, denum, 4, 2);
             assertEquals(new BigDecimal(expected), actual);
         } else {
-            assertThrows(ArithmeticException.class, () -> IgniteSqlFunctions.decimalDivide(num, denum, 4, 2));
+            assertThrows(ArithmeticException.class, () -> IgniteMath.decimalDivide(num, denum, 4, 2));
         }
     }
 
     @ParameterizedTest
-    @CsvSource({
-            "1970-01-01 00:00:00,     0, 0",
-            "1970-01-01 00:00:00.12,  2, 123",
-            "1970-01-01 00:00:00.123, 3, 123",
-            "1970-01-01 00:00:00.123, 6, 123",
-            "1970-02-01 23:59:59,     0, 2764799000",
-            "1970-02-01 23:59:59.04,  2, 2764799040",
-            "1969-12-31 23:59:59.999, 3, -1",
-            "1969-12-31 23:59:59.98,  2, -11",
-    })
-    public void testTimestampToString(String expectedDate, int precision, long millis) {
-        assertThat(IgniteSqlFunctions.unixTimestampToString(millis, precision), is(expectedDate));
+    @MethodSource("timeZoneTime")
+    public void toTimestampWithLocalTimeZoneFormat(String zoneIdstr, LocalDateTime time) {
+        ZoneId zoneId = ZoneId.of(zoneIdstr);
+
+        String v = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+
+        TimeZone timeZone = TimeZone.getTimeZone(zoneId);
+        long calciteTsLtz = SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
+        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, "yyyy-MM-dd hh24:mi:ss.ff3", timeZone);
+
+        assertEquals(Instant.ofEpochMilli(calciteTsLtz), Instant.ofEpochMilli(tsLtz));
+    }
+
+    private static Stream<Arguments> timeZoneTime() {
+        List<String> zones = List.of("Europe/Paris", "Europe/Moscow", "Asia/Tokyo", "America/New_York");
+        List<LocalDateTime> times = List.of(
+                LocalDateTime.of(2012, 7, 19, 11, 13, 58, 1_000_000),
+                LocalDateTime.of(2012, 7, 19, 11, 13, 58, 123_000_000),
+                LocalDateTime.of(2012, 7, 19, 11, 13, 58, 500_000_000),
+                LocalDateTime.of(2012, 7, 19, 11, 13, 58, 999_000_000),
+
+                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 1_000_000),
+                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 123_000_000),
+                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 500_000_000),
+                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 999_000_000),
+
+                LocalDateTime.of(2023, 10, 29, 2, 1, 1, 111_000_000),
+                LocalDateTime.of(2023, 10, 29, 3, 1, 1, 111_000_000),
+                LocalDateTime.of(2023, 10, 29, 4, 1, 1, 111_000_000),
+                LocalDateTime.of(2023, 10, 29, 5, 1, 1, 111_000_000),
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-25342
+                // This time (02:00 - 02:59) does not exist because France switches to the summer time schedule
+                // LocalDateTime.of(2024, 3, 31, 2, 1, 1, 111_000_000),
+                LocalDateTime.of(2024, 3, 31, 3, 1, 1, 111_000_000),
+                LocalDateTime.of(2024, 3, 31, 4, 1, 1, 111_000_000),
+                LocalDateTime.of(2024, 3, 31, 5, 1, 1, 111_000_000)
+        );
+
+        return zones.stream().flatMap(z -> times.stream().map(t -> Arguments.of(z, t)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("timeValues")
+    public void testToTime(String timeStr, int expectedMillis) {
+
+        DateParseFunction f = new DateParseFunction();
+        int millis = f.parseTime("HH:mi:SS", timeStr);
+        int time2 = IgniteSqlFunctions.toTime(timeStr, "HH24:MI:SS");
+
+        assertEquals(expectedMillis, millis);
+        assertEquals(millis, time2);
+    }
+
+    private static Stream<Arguments> timeValues() {
+        return Stream.of(
+                Arguments.of("00:00:00", 0),
+                Arguments.of("01:01:43", 3703000),
+                Arguments.of("07:37:59", 27479000),
+                Arguments.of("19:01:32", 68492000),
+                Arguments.of("23:59:59", 86399000)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("dateValues")
+    public void testToDate(String timeStr, int expectedDays) {
+
+        DateParseFunction f = new DateParseFunction();
+        int days = f.parseDate("YYYY-MM-DD", timeStr);
+        int days2 = IgniteSqlFunctions.toDate(timeStr, "YYYY-MM-DD");
+
+        assertEquals(expectedDays, days);
+        assertEquals(days, days2);
+    }
+
+    private static Stream<Arguments> dateValues() {
+        return Stream.of(
+                Arguments.of("1970-01-01", 0),
+                Arguments.of("2025-01-01", 20089)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampValues")
+    public void testToTimestamp(String timeStr, long expectedTs) {
+
+        DateParseFunction f = new DateParseFunction();
+        long ts = f.parseTimestamp("YYYY-MM-DD", timeStr);
+        Long ts2 = IgniteSqlFunctions.toTimestamp(timeStr, "YYYY-MM-DD");
+
+        assertEquals(expectedTs, ts);
+        assertEquals(ts, ts2);
+    }
+
+    private static Stream<Arguments> timestampValues() {
+        return Stream.of(
+                Arguments.of("1970-01-01", 0),
+                Arguments.of("2025-01-01", 1735689600000L)
+        );
     }
 }

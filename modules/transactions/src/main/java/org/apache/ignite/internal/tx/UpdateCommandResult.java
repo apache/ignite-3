@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.io.Serializable;
+import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,32 +33,49 @@ public class UpdateCommandResult implements Serializable {
     @Nullable
     private final Long currentLeaseStartTime;
 
+    /** {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise. */
+    private final boolean primaryInPeersAndLearners;
+
+    /** The safe timestamp. */
+    private final long safeTimestamp;
+
     /**
      * Constructor.
      *
-     * @param primaryReplicaMatch Whether the command should be successfully applied on primary replica.
+     * @param primaryReplicaMatch Whether the command was executed successfully or failed due to mismatch of primary replica information.
      */
-    public UpdateCommandResult(boolean primaryReplicaMatch) {
-        this(primaryReplicaMatch, null);
+    public UpdateCommandResult(boolean primaryReplicaMatch, boolean primaryInPeersAndLearners, long safeTimestamp) {
+        this(primaryReplicaMatch, null, primaryInPeersAndLearners, safeTimestamp);
     }
 
     /**
      * Constructor.
      *
-     * @param primaryReplicaMatch Whether the command should be successfully applied on primary replica.
+     * @param primaryReplicaMatch Whether the command was executed successfully or failed due to mismatch of primary replica information.
      * @param currentLeaseStartTime Actual lease start time.
+     * @param primaryInPeersAndLearners {@code true} if primary replica belongs to the raft group topology: peers and learners,
+     *     (@code false) otherwise.
+     * @param safeTimestamp The safe timestamp.
      */
-    public UpdateCommandResult(boolean primaryReplicaMatch, @Nullable Long currentLeaseStartTime) {
+    public UpdateCommandResult(
+            boolean primaryReplicaMatch,
+            @Nullable Long currentLeaseStartTime,
+            boolean primaryInPeersAndLearners,
+            long safeTimestamp
+    ) {
         assert primaryReplicaMatch || currentLeaseStartTime != null : "Incorrect UpdateCommandResult.";
 
         this.primaryReplicaMatch = primaryReplicaMatch;
         this.currentLeaseStartTime = currentLeaseStartTime;
+        this.primaryInPeersAndLearners = primaryInPeersAndLearners;
+        this.safeTimestamp = safeTimestamp;
     }
 
     /**
-     * Whether the command should be successfully applied on primary replica.
+     * Whether the command was executed successfully or failed due to mismatch of primary replica information, i.e. lease start time that
+     * was sent along with the command doesn't match the one in raft updated by handlePrimaryReplicaChangeCommand.
      *
-     * @return Whether the command should be successfully applied on primary replica.
+     * @return Whether the command was executed successfully or failed due to mismatch of primary replica information.
      */
     public boolean isPrimaryReplicaMatch() {
         return primaryReplicaMatch;
@@ -73,6 +91,24 @@ public class UpdateCommandResult implements Serializable {
         return currentLeaseStartTime;
     }
 
+    /**
+     * Returns whether primary replica belongs to the raft group topology: peers and learners.
+     *
+     * @return {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise.
+     */
+    public boolean isPrimaryInPeersAndLearners() {
+        return primaryInPeersAndLearners;
+    }
+
+    /**
+     * Returns a safe timestamp associated with the moment of command application.
+     *
+     * @return The timestamp.
+     */
+    public long safeTimestamp() {
+        return safeTimestamp;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -81,20 +117,13 @@ public class UpdateCommandResult implements Serializable {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
         UpdateCommandResult that = (UpdateCommandResult) o;
-
-        if (primaryReplicaMatch != that.primaryReplicaMatch) {
-            return false;
-        }
-        return currentLeaseStartTime != null ? currentLeaseStartTime.equals(that.currentLeaseStartTime)
-                : that.currentLeaseStartTime == null;
+        return primaryReplicaMatch == that.primaryReplicaMatch && primaryInPeersAndLearners == that.primaryInPeersAndLearners
+                && Objects.equals(currentLeaseStartTime, that.currentLeaseStartTime);
     }
 
     @Override
     public int hashCode() {
-        int result = (primaryReplicaMatch ? 1 : 0);
-        result = 31 * result + (currentLeaseStartTime != null ? currentLeaseStartTime.hashCode() : 0);
-        return result;
+        return Objects.hash(primaryReplicaMatch, currentLeaseStartTime, primaryInPeersAndLearners);
     }
 }

@@ -17,19 +17,22 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
+import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.lang.IgniteException;
 
 /**
  * Base configuration controller.
  */
-public abstract class AbstractConfigurationController {
+public abstract class AbstractConfigurationController implements ResourceHolder {
 
     /** Presentation of the configuration. */
-    private final ConfigurationPresentation<String> cfgPresentation;
+    private ConfigurationPresentation<String> cfgPresentation;
 
     public AbstractConfigurationController(ConfigurationPresentation<String> cfgPresentation) {
         this.cfgPresentation = cfgPresentation;
@@ -54,7 +57,7 @@ public abstract class AbstractConfigurationController {
         try {
             return cfgPresentation.representByPath(path);
         } catch (IllegalArgumentException ex) {
-            throw new IgniteException(ex);
+            throw new IgniteException(INTERNAL_ERR, ex);
         }
     }
 
@@ -70,10 +73,15 @@ public abstract class AbstractConfigurationController {
                         var cause = ex.getCause();
                         if (cause instanceof IllegalArgumentException
                                 || cause instanceof ConfigurationValidationException) {
-                            throw new IgniteException(cause);
+                            throw new IgniteException(INTERNAL_ERR, cause);
                         }
                     }
-                    throw new IgniteException(ex);
+                    throw new IgniteException(INTERNAL_ERR, ex);
                 });
+    }
+
+    @Override
+    public void cleanResources() {
+        cfgPresentation = null;
     }
 }

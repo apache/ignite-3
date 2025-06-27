@@ -20,6 +20,7 @@ package org.apache.ignite.internal.lang;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,14 +71,43 @@ public final class IgniteSystemProperties {
     /** Name of the property controlling whether thread assertions are enabled. */
     public static final String THREAD_ASSERTIONS_ENABLED = "IGNITE_THREAD_ASSERTIONS_ENABLED";
 
+    /** Name of the property controlling whether logging long handling of messages and events is enabled. */
+    public static final String LONG_HANDLING_LOGGING_ENABLED = "IGNITE_LONG_HANDLING_LOGGING_ENABLED";
+
     /** Name of the property controlling whether, when a thread assertion is triggered, it should also be written to the log. */
     public static final String THREAD_ASSERTIONS_LOG_BEFORE_THROWING = "THREAD_ASSERTIONS_LOG_BEFORE_THROWING";
+
+    /** Skip replication in a benchmark. */
+    public static final String IGNITE_SKIP_REPLICATION_IN_BENCHMARK = "IGNITE_SKIP_REPLICATION_IN_BENCHMARK";
+
+    /** Skip storage update in a benchmark. */
+    public static final String IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK = "IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK";
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this feature flag.
+    /** Enables zone based replication (aka colocation) feature. */
+    public static final String COLOCATION_FEATURE_FLAG = "IGNITE_ZONE_BASED_REPLICATION";
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25526 - remove this.
+    /** Name of the property controlling whether JMX MBean creation failure due to existing bean should be ignored. */
+    public static final String IGNORE_DUPLICATE_JMX_MBEANS_ERROR = "IGNITE_IGNORE_DUPLICATE_JMX_MBEANS_ERROR";
 
     /**
      * Enforces singleton.
      */
     private IgniteSystemProperties() {
         // No-op.
+    }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
+    /**
+     * Feature flag for zone based colocation track.
+     *
+     * <p>Do not use in production code (apart from {@link NodeProperties} implementations). If a component needs colocation status,
+     * it should get one from {@link NodeProperties}.
+     */
+    @Deprecated
+    public static boolean colocationEnabled() {
+        return getBoolean(COLOCATION_FEATURE_FLAG, false);
     }
 
     /**

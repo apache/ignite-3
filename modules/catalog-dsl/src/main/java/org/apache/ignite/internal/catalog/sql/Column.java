@@ -25,13 +25,13 @@ class Column extends QueryPart {
     private final String definition;
 
     Column(String name, ColumnTypeImpl<?> type) {
-        this.name = new Name(name);
+        this.name = Name.simple(name);
         this.type = type;
         this.definition = null;
     }
 
     Column(String name, String definition) {
-        this.name = new Name(name);
+        this.name = Name.simple(name);
         this.type = null;
         this.definition = definition;
     }

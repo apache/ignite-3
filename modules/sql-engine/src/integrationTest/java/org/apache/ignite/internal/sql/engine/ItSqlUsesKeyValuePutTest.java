@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSu
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,10 +35,10 @@ public class ItSqlUsesKeyValuePutTest extends BaseSqlIntegrationTest {
     private static final int TABLE_SIZE = 10;
 
     @BeforeAll
-    @SuppressWarnings({"ConcatenationWithEmptyString", "resource"})
+    @SuppressWarnings("ConcatenationWithEmptyString")
     static void initSchema() {
         CLUSTER.aliveNode().sql().executeScript(""
-                + "CREATE TABLE simple_key (id INT PRIMARY KEY, val INT);"
+                + "CREATE TABLE simple_key (id INT PRIMARY KEY, val INT DEFAULT 42);"
                 + "CREATE TABLE complex_key (id1 INT, id2 INT, val INT, PRIMARY KEY(id1, id2));"
         );
     }
@@ -66,6 +67,69 @@ public class ItSqlUsesKeyValuePutTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    void insertConstantReversFieldOrder() {
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            assertQuery(format("INSERT INTO simple_key (val, id) VALUES ({}, {})", i * 10, i))
+                    .matches(containsSubPlan("KeyValueModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            assertQuery("SELECT * FROM simple_key WHERE id = ?")
+                    .withParams(i)
+                    .returns(i, i * 10)
+                    .check();
+        }
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    void insertWithImplicitPk() {
+        sql("CREATE TABLE implicit_pk(val INT)");
+
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            assertQuery(format("INSERT INTO implicit_pk VALUES ({})", i))
+                    .matches(containsSubPlan("KeyValueModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            assertQuery("SELECT true FROM implicit_pk WHERE val = ?")
+                    .withParams(i)
+                    .returns(true)
+                    .check();
+        }
+    }
+
+    @Test
+    void insertWithDefault() {
+        // implicit default
+        for (int i = 0; i < TABLE_SIZE / 2; i++) {
+            assertQuery(format("INSERT INTO simple_key (id) VALUES ({})", i))
+                    .matches(containsSubPlan("KeyValueModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        // explicit default
+        for (int i = TABLE_SIZE / 2; i < TABLE_SIZE; i++) {
+            assertQuery(format("INSERT INTO simple_key (id, val) VALUES ({}, DEFAULT)", i))
+                    .matches(containsSubPlan("KeyValueModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            assertQuery("SELECT * FROM simple_key WHERE id = ?")
+                    .withParams(i)
+                    .returns(i, 42)
+                    .check();
+        }
+    }
+
+    @Test
     void insertDynamicParamsSimpleKey() {
         for (int i = 0; i < TABLE_SIZE; i++) {
             assertQuery("INSERT INTO simple_key VALUES (?, ?)")
@@ -79,6 +143,24 @@ public class ItSqlUsesKeyValuePutTest extends BaseSqlIntegrationTest {
             assertQuery("SELECT * FROM simple_key WHERE id = ?")
                     .withParams(i)
                     .returns(i, i)
+                    .check();
+        }
+    }
+
+    @Test
+    void insertExpressionSimpleKey() {
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            assertQuery("INSERT INTO simple_key VALUES (?, CASE WHEN ? % 2 = 0 THEN ? * 3 ELSE ? * 2 END)")
+                    .withParams(i, /* case predicate */ i, /* then branch */ i, /* else branch */ i)
+                    .matches(containsSubPlan("KeyValueModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            assertQuery("SELECT * FROM simple_key WHERE id = ?")
+                    .withParams(i)
+                    .returns(i, i % 2 == 0 ? i * 3 : i * 2)
                     .check();
         }
     }

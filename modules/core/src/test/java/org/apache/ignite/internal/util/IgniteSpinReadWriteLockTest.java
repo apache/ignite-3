@@ -86,7 +86,7 @@ class IgniteSpinReadWriteLockTest {
     private void assertThatWriteLockAcquireAttemptBlocksForever() {
         Future<?> future = executor.submit(lock::writeLock);
 
-        assertThrows(TimeoutException.class, () -> future.get(500, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> future.get(100, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -146,7 +146,7 @@ class IgniteSpinReadWriteLockTest {
     private void assertThatReadLockAcquireAttemptBlocksForever() {
         Future<?> readLockAttemptFuture = executor.submit(lock::readLock);
 
-        assertThrows(TimeoutException.class, () -> readLockAttemptFuture.get(500, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> readLockAttemptFuture.get(100, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -188,7 +188,7 @@ class IgniteSpinReadWriteLockTest {
     private void assertThatWriteLockAcquireAttemptWithoutSleepsBlocksForever() {
         Future<?> future = executor.submit(lock::writeLockBusy);
 
-        assertThrows(TimeoutException.class, () -> future.get(500, TimeUnit.MILLISECONDS));
+        assertThrows(TimeoutException.class, () -> future.get(100, TimeUnit.MILLISECONDS));
     }
 
     @Test

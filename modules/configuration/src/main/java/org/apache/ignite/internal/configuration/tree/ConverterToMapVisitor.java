@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
+
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -44,6 +46,9 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** Include internal configuration nodes (private configuration extensions). */
     private final boolean includeInternal;
 
+    /** Include deprecated nodes. */
+    private final boolean includeDeprecated;
+
     /** Skip nulls, empty Maps and empty lists. */
     private final boolean skipEmptyValues;
 
@@ -66,10 +71,12 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
      */
     ConverterToMapVisitor(
             boolean includeInternal,
+            boolean includeDeprecated,
             boolean skipEmptyValues,
             boolean maskSecretValues
     ) {
         this.includeInternal = includeInternal;
+        this.includeDeprecated = includeDeprecated;
         this.skipEmptyValues = skipEmptyValues;
         this.maskSecretValues = maskSecretValues;
     }
@@ -77,12 +84,16 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** {@inheritDoc} */
     @Override
     public Object visitLeafNode(Field field, String key, Serializable val) {
+        if (!includeDeprecated && field.isAnnotationPresent(Deprecated.class)) {
+            return null;
+        }
+
         Object valObj = val;
 
         if (val instanceof Character || val instanceof UUID) {
             valObj = val.toString();
         } else if (val != null && val.getClass().isArray()) {
-            valObj = toListOfObjects(field, val);
+            valObj = toListOfObjects(val);
         } else if (val instanceof String) {
             valObj = maskIfNeeded(field, (String) val);
         }
@@ -92,10 +103,13 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         return valObj;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Object visitInnerNode(Field field, String key, InnerNode node) {
         if (skipEmptyValues && node == null) {
+            return null;
+        }
+
+        if (!includeDeprecated && field != null && field.isAnnotationPresent(Deprecated.class)) {
             return null;
         }
 
@@ -107,33 +121,78 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
         deque.pop();
 
-        addToParent(key, innerMap);
+        String injectedValueFieldName = node.injectedValueFieldName();
 
-        return innerMap;
+        if (injectedValueFieldName != null) {
+            // If configuration contains an injected value, the rendered named list will be a map, where every injected value is represented
+            // as a separate key-value pair.
+            Object injectedValue = innerMap.get(injectedValueFieldName);
+
+            addToParent(key, injectedValue);
+
+            return injectedValue;
+        } else {
+            // Otherwise, the rendered named list will be a list of maps.
+            addToParent(key, innerMap);
+
+            return innerMap;
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Object visitNamedListNode(Field field, String key, NamedListNode<?> node) {
-        if (skipEmptyValues && node.size() == 0) {
+        if (skipEmptyValues && node.isEmpty()) {
             return null;
         }
 
-        List<Object> list = new ArrayList<>(node.size());
+        if (!includeDeprecated && field.isAnnotationPresent(Deprecated.class)) {
+            return null;
+        }
 
-        deque.push(list);
+        Object renderedList;
 
-        for (String subkey : node.namedListKeys()) {
-            node.getInnerNode(subkey).accept(field, subkey, this);
+        boolean hasInjectedValues = !node.isEmpty() && getFirstNode(node).injectedValueFieldName() != null;
 
-            ((Map<String, Object>) list.get(list.size() - 1)).put(node.syntheticKeyName(), subkey);
+        // See the comment inside "visitInnerNode" why named lists are rendered differently for injected values.
+        if (hasInjectedValues) {
+            Map<String, Object> map = newHashMap(node.size());
+
+            deque.push(map);
+
+            for (String subkey : node.namedListKeys()) {
+                InnerNode innerNode = node.getInnerNode(subkey);
+
+                innerNode.accept(field, subkey, this);
+            }
+
+            renderedList = map;
+        } else {
+            List<Object> list = new ArrayList<>(node.size());
+
+            deque.push(list);
+
+            for (String subkey : node.namedListKeys()) {
+                InnerNode innerNode = node.getInnerNode(subkey);
+
+                innerNode.accept(field, subkey, this);
+
+                ((Map<String, Object>) list.get(list.size() - 1)).put(node.syntheticKeyName(), subkey);
+            }
+
+            renderedList = list;
         }
 
         deque.pop();
 
-        addToParent(key, list);
+        addToParent(key, renderedList);
 
-        return list;
+        return renderedList;
+    }
+
+    private static InnerNode getFirstNode(NamedListNode<?> namedListNode) {
+        String firstKey = namedListNode.namedListKeys().get(0);
+
+        return namedListNode.getInnerNode(firstKey);
     }
 
     /**
@@ -173,11 +232,10 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /**
      * Converts array into a list of objects. Boxes array elements if they are primitive values.
      *
-     * @param field Field of the array
      * @param val Array of primitives or array of {@link String}s
      * @return List of objects corresponding to the passed array.
      */
-    private List<?> toListOfObjects(Field field, Serializable val) {
+    private static List<?> toListOfObjects(Serializable val) {
         Stream<?> stream = IntStream.range(0, Array.getLength(val)).mapToObj(i -> Array.get(val, i));
 
         if (val.getClass().getComponentType() == char.class || val.getClass().getComponentType() == UUID.class) {

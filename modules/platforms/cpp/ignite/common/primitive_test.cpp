@@ -19,6 +19,11 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <cstddef>
+#include <string>
+#include <vector>
+
 using namespace ignite;
 
 template<typename T>
@@ -28,12 +33,12 @@ void check_primitive_type(ignite_type expected) {
 }
 
 TEST(primitive, get_column_type) {
-    check_primitive_type<nullptr_t>(ignite_type::NIL);
+    check_primitive_type<std::nullptr_t>(ignite_type::NIL);
     check_primitive_type<bool>(ignite_type::BOOLEAN);
-    check_primitive_type<int8_t>(ignite_type::INT8);
-    check_primitive_type<int16_t>(ignite_type::INT16);
-    check_primitive_type<int32_t>(ignite_type::INT32);
-    check_primitive_type<int64_t>(ignite_type::INT64);
+    check_primitive_type<std::int8_t>(ignite_type::INT8);
+    check_primitive_type<std::int16_t>(ignite_type::INT16);
+    check_primitive_type<std::int32_t>(ignite_type::INT32);
+    check_primitive_type<std::int64_t>(ignite_type::INT64);
     check_primitive_type<float>(ignite_type::FLOAT);
     check_primitive_type<double>(ignite_type::DOUBLE);
     check_primitive_type<big_decimal>(ignite_type::DECIMAL);
@@ -44,10 +49,8 @@ TEST(primitive, get_column_type) {
     check_primitive_type<ignite_period>(ignite_type::PERIOD);
     check_primitive_type<ignite_duration>(ignite_type::DURATION);
     check_primitive_type<uuid>(ignite_type::UUID);
-    check_primitive_type<bit_array>(ignite_type::BITMASK);
     check_primitive_type<std::string>(ignite_type::STRING);
     check_primitive_type<std::vector<std::byte>>(ignite_type::BYTE_ARRAY);
-    check_primitive_type<big_integer>(ignite_type::NUMBER);
 }
 
 TEST(primitive, null_value_by_nullptr) {

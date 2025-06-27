@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "ignite/common/config.h"
+#include "ignite/common/detail/config.h"
 #include "odbc_suite.h"
 
 #include <gtest/gtest.h>

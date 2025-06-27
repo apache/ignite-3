@@ -24,6 +24,7 @@ public enum HandshakeExtension {
     AUTHENTICATION_TYPE("authn-type", String.class),
     AUTHENTICATION_IDENTITY("authn-identity", String.class),
     AUTHENTICATION_SECRET("authn-secret", String.class),
+    COMPUTE_EXECUTOR_ID("compute-executor-id", String.class),
     ;
 
     private final String key;

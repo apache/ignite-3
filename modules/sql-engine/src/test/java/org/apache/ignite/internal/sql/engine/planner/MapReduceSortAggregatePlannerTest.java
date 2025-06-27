@@ -246,6 +246,17 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     /**
+     * Validates that the SINGLE_VALUE aggregate is added for a sub-query where a single value is expected.
+     */
+    @Test
+    public void subqueryWithSingleValueAggregate() throws Exception {
+        checkSimpleAggSingle(TestCase.CASE_27, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27A, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27B, hasSingleValueAggregate());
+        checkSimpleAggSingle(TestCase.CASE_27C, hasSingleValueAggregate());
+    }
+
+    /**
      * Validates a plan for a query with DISTINCT aggregate in WHERE clause.
      */
     @Test
@@ -260,7 +271,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
      */
     @Test
     public void noSortAppendingWithCorrectCollation() throws Exception {
-        String[] additionalRulesToDisable = {"NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule"};
+        String[] additionalRulesToDisable = {"NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule",
+                "HashJoinConverter"};
 
         assertPlan(TestCase.CASE_16,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
@@ -572,10 +584,14 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
+        checkSimpleAggSingle(testCase, hasAggregate());
+    }
+
+    private void checkSimpleAggSingle(TestCase testCase, Predicate<IgniteMapSortAggregate> aggPredicate) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                .and(hasAggregate())
+                                .and(aggPredicate)
                                 .and(hasGroups())
                                 .and(input(isTableScan("TEST")))
                         ))

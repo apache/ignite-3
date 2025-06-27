@@ -252,11 +252,11 @@ public partial class LinqTests
     [Test]
     public async Task TestAverageAsync()
     {
-        Assert.AreEqual(4.0d, await PocoIntView.AsQueryable().Select(x => x.Key).AverageAsync());
-        Assert.AreEqual(14.0d, await PocoIntView.AsQueryable().AverageAsync(x => x.Key + 10));
+        Assert.AreEqual(4.5d, await PocoIntView.AsQueryable().Select(x => x.Key).AverageAsync());
+        Assert.AreEqual(14.5d, await PocoIntView.AsQueryable().AverageAsync(x => x.Key + 10));
 
-        Assert.AreEqual(4.0d, await PocoLongView.AsQueryable().Select(x => x.Key).AverageAsync());
-        Assert.AreEqual(14.0d, await PocoLongView.AsQueryable().AverageAsync(x => x.Key + 10));
+        Assert.AreEqual(4.5d, await PocoLongView.AsQueryable().Select(x => x.Key).AverageAsync());
+        Assert.AreEqual(14.5d, await PocoLongView.AsQueryable().AverageAsync(x => x.Key + 10));
 
         Assert.AreEqual(4.5d, await PocoDoubleView.AsQueryable().Select(x => x.Key).AverageAsync());
         Assert.AreEqual(14.5d, await PocoDoubleView.AsQueryable().AverageAsync(x => x.Key + 10));
@@ -273,11 +273,11 @@ public partial class LinqTests
     {
         var query = PocoAllColumnsSqlNullableView.AsQueryable();
 
-        Assert.AreEqual(7.0d, await query.Select(x => x.Int32).AverageAsync());
-        Assert.AreEqual(17.0d, await query.AverageAsync(x => x.Int32 + 10));
+        Assert.AreEqual(7.5d, await query.Select(x => x.Int32).AverageAsync());
+        Assert.AreEqual(17.5d, await query.AverageAsync(x => x.Int32 + 10));
 
-        Assert.AreEqual(8.0d, await query.Select(x => x.Int64).AverageAsync());
-        Assert.AreEqual(18.0d, await query.AverageAsync(x => x.Int64 + 10));
+        Assert.AreEqual(8.5d, await query.Select(x => x.Int64).AverageAsync());
+        Assert.AreEqual(18.5d, await query.AverageAsync(x => x.Int64 + 10));
 
         Assert.AreEqual(11.0d, await query.Select(x => x.Double).AverageAsync());
         Assert.AreEqual(21.0d, await query.AverageAsync(x => x.Double + 10));
@@ -296,5 +296,24 @@ public partial class LinqTests
             () => PocoIntView.AsQueryable().Where(x => x.Key > 1000).AverageAsync(x => x.Val));
 
         Assert.AreEqual("Sequence contains no elements", ex!.Message);
+    }
+
+    [Test]
+    public void TestDecimalMaterialization()
+    {
+        var query = PocoBigDecimalView.AsQueryable();
+
+        var key = new BigDecimal(6);
+
+        BigDecimal? primitive = query
+            .Where(x => x.Key == key)
+            .Select(x => x.Val)
+            .Single();
+
+        PocoBigDecimal poco = query.Single(x => x.Key == key);
+
+        Assert.AreEqual(key, primitive);
+        Assert.AreEqual(key, poco.Key);
+        Assert.AreEqual(key, poco.Val);
     }
 }

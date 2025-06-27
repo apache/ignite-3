@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rest.authentication;
 
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,9 +37,9 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.NetworkAddress;
@@ -50,7 +52,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     /** HTTP client that is expected to be defined in subclasses. */
-    private HttpClient client;
+    private final HttpClient client = HttpClient.newBuilder().build();
 
     private String username = "admin";
 
@@ -60,9 +62,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
 
     @BeforeEach
     @Override
-    public void setup(TestInfo testInfo) {
-        client = HttpClient.newBuilder()
-                .build();
+    public void startCluster(TestInfo testInfo) {
     }
 
     @Override
@@ -78,16 +78,16 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
                     + "}]}";
         }
 
-        builder.clusterConfiguration(config);
+        builder.clusterConfiguration("ignite {\n" + config + "\n}");
     }
 
     @Test
     public void disabledAuthentication(TestInfo testInfo) throws Exception {
         enableAuth = false;
-        super.setup(testInfo);
+        super.startCluster(testInfo);
 
         // Then.
-        cluster.runningNodes().forEach(node ->
+        cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(node ->
                 assertTrue(isRestAvailable(node.restHttpAddress(), "", ""))
         );
     }
@@ -96,10 +96,10 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
     public void defaultUser(TestInfo testInfo) throws Exception {
         username = null;
         password = null;
-        super.setup(testInfo);
+        super.startCluster(testInfo);
 
         // Authentication is enabled.
-        Set<IgniteImpl> nodes = cluster.runningNodes().collect(Collectors.toSet());
+        Set<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
         for (IgniteImpl node : nodes) {
             assertTrue(waitForCondition(() -> isRestNotAvailable(node.restHttpAddress(), "", ""),
                     Duration.ofSeconds(5).toMillis()));
@@ -113,8 +113,8 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void changeCredentials(TestInfo testInfo) throws Exception {
-        super.setup(testInfo);
-        Set<IgniteImpl> nodes = cluster.runningNodes().collect(Collectors.toSet());
+        super.startCluster(testInfo);
+        Set<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
 
         // Then.
         // Authentication is enabled.
@@ -134,9 +134,9 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
         }
 
         // Change credentials.
-        String updateRestAuthConfigBody = "security.authentication.providers.default.users.admin.password=new-password";
+        String updateRestAuthConfigBody = "ignite.security.authentication.providers.default.users.admin.password=new-password";
 
-        updateClusterConfiguration(node(0).restHttpAddress(), "admin", "password", updateRestAuthConfigBody);
+        updateClusterConfiguration(unwrapIgniteImpl(node(0)).restHttpAddress(), "admin", "password", updateRestAuthConfigBody);
 
         // REST is not available with old credentials
         for (IgniteImpl node : nodes) {
@@ -152,8 +152,8 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void enableAuthenticationAndRestartNode(TestInfo testInfo) throws Exception {
-        super.setup(testInfo);
-        Set<IgniteImpl> nodes = cluster.runningNodes().collect(Collectors.toSet());
+        super.startCluster(testInfo);
+        Set<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
 
         // Then.
         // Authentication is enabled.
@@ -175,7 +175,7 @@ public class ItAuthenticationTest extends ClusterPerTestIntegrationTest {
         // Restart a node.
         restartNode(2);
 
-        nodes = cluster.runningNodes().collect(Collectors.toSet());
+        nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
 
         // REST is available with valid credentials
         for (IgniteImpl node : nodes) {

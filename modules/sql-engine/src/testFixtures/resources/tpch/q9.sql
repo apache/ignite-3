@@ -2,6 +2,7 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
 SELECT
+    /*+ NO_INDEX, DISABLE_RULE('MergeJoinConverter') */
     nation,
     o_year,
     sum(amount) AS sum_profit

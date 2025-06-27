@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.UUID;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.List;
@@ -27,10 +29,14 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -112,12 +118,31 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         builder = fillProperties(builder);
 
         builder.columns(List.of(
-                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("C").type(UUID).defaultValue(DefaultValue.functionCall("rand_uuid")).build(),
                 ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
 
         )).primaryKey(primaryKey("C", "D"));
 
         builder.build();
+    }
+
+    @Test
+    void unsupportedFunctionalDefault() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        )).primaryKey(primaryKey("C", "D"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Functional default contains unsupported function: [col=C, functionName=function]"
+        );
     }
 
     @Test
@@ -301,6 +326,21 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
+    @Test
+    void exceptionIsThrownIfZoneNeitherSpecifiedExplicitlyNorDefaultWasSet() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        Catalog catalog = emptyCatalog();
+
+        CatalogCommand command = fillProperties(builder).zone(null).build();
+
+        assertThrowsWithCause(
+                () -> command.get(new UpdateContext(catalog)),
+                CatalogValidationException.class,
+                "The zone is not specified. Please specify zone explicitly or set default one."
+        );
+    }
+
     private static CreateTableCommandBuilder fillProperties(CreateTableCommandBuilder builder) {
         return builder
                 .schemaName(SCHEMA_NAME)
@@ -320,12 +360,12 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     void exceptionIsThrownIfSchemaNotExists() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
@@ -341,20 +381,32 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "Operations with reserved schemas are not allowed"
+                "Operations with system schemas are not allowed"
         );
+    }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    void exceptionIsNotThrownIfSchemaIsReservedButValidationFlagSet(String schema) {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .validateSystemSchemas(false) // This flag disables the schema name validation.
+                .schemaName(schema);
+
+        assertDoesNotThrow(builder::build);
     }
 
     @Test
     void exceptionIsThrownIfZoneNotExists() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = fillProperties(builder).zone(ZONE_NAME + "_UNK").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Distribution zone with name 'Default_UNK' not found"
         );
@@ -369,7 +421,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' already exists"
         );
@@ -384,7 +436,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).tableName("TEST_IDX").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.TEST_IDX' already exists"
         );
@@ -399,7 +451,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST_PK' already exists"
         );
@@ -414,7 +466,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).tableName("FOO").build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.FOO_PK' already exists"
         );
@@ -433,7 +485,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         CatalogCommand command = fillProperties(builder).zone(zoneName).storageProfile(tableProfile).build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 format("Zone with name '{}' does not contain table's storage profile [storageProfile='{}']", zoneName, tableProfile)
         );
@@ -442,7 +494,62 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
             // Let's check the success case.
             Catalog newCatalog = catalog(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile)));
 
-            command.get(newCatalog);
+            command.get(new UpdateContext(newCatalog));
         });
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
+    //  Remove this after interval type support is added.
+    @ParameterizedTest
+    @EnumSource(value = ColumnType.class, names = {"PERIOD", "DURATION"}, mode = Mode.INCLUDE)
+    void rejectIntervalTypes(ColumnType columnType) {
+        ColumnParams id = ColumnParams.builder()
+                .name("ID")
+                .type(INT32)
+                .build();
+
+        String error = format("Column of type '{}' cannot be persisted [col=P]", columnType);
+
+        {
+            ColumnParams val = ColumnParams.builder()
+                    .name("P")
+                    .type(columnType)
+                    .precision(2)
+                    .nullable(false)
+                    .build();
+
+            CreateTableCommandBuilder builder = CreateTableCommand.builder()
+                    .tableName("T")
+                    .schemaName(SCHEMA_NAME)
+                    .columns(List.of(id, val))
+                    .primaryKey(primaryKey("ID"));
+
+            assertThrows(
+                    CatalogValidationException.class,
+                    builder::build,
+                    error
+            );
+        }
+
+        {
+            ColumnParams val = ColumnParams.builder()
+                    .name("P")
+                    .type(columnType)
+                    .precision(2)
+                    .nullable(true)
+                    .build();
+
+            CreateTableCommandBuilder builder = CreateTableCommand.builder()
+                    .tableName("T")
+                    .schemaName(SCHEMA_NAME)
+                    .columns(List.of(id, val))
+                    .primaryKey(primaryKey("ID"));
+
+            assertThrows(
+                    CatalogValidationException.class,
+                    builder::build,
+                    error
+            );
+        }
     }
 }

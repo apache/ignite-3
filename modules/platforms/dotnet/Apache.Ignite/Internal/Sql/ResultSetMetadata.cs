@@ -21,6 +21,10 @@ namespace Apache.Ignite.Internal.Sql
     using Common;
     using Ignite.Sql;
 
+    /// <summary>
+    /// Result set metadata.
+    /// </summary>
+    /// <param name="Columns">Columns.</param>
     internal sealed record ResultSetMetadata(IReadOnlyList<IColumnMetadata> Columns) : IResultSetMetadata
     {
         /** Column index by name. Initialized on first access. */

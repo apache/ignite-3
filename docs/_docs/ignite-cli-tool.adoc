@@ -12,75 +12,129 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 = Ignite CLI Tool
 
-The Ignite CLI tool uses REST API as a communication protocol between the node and the CLI,
-allowing you to configure the node. By default, the CLI tool runs in the REPL (Read Eval Print Loop) mode, but you can also execute commands without entering it.
+== Overview
 
-Below is a list of Ignite CLI tool commands with short descriptions:
+The Ignite CLI tool uses REST API as a communication protocol between the node and the CLI, allowing you to configure the node. By default, the CLI tool runs in the interactive mode, but you can also execute commands without entering it.
 
-== Installation and Usage
+When using the Ignite CLI tool, the arguments should be put in quotation marks, and the string should not include line breaks. For example:
 
-You can find detailed installation guide in the link:quick-start/getting-started-guide[Getting Started] tutorial. The tutorial also includes some basic usage examples.
+[source, bash]
+----
+cluster config update "ignite.security.authentication.providers.basic4={type=basic,username=name,password=pass}"
+----
 
-== Command Options
+Otherwise, special POSIX characters in strings (`{` and `}` in the above command) will be handled appropriately, leading to potentially unpredictable results.
 
-The following commands can be executed in REPL mode of the command line tool:
+Alternatively, you can use the backslash (`\`) to escape all special characters in your command. For example:
 
-[cols="1,1,3",opts="header", stripes=none]
-|===
-| Command| Parameters | Description
-//| `bootsrap` || Installs Ignite core modules locally. Previously `init`.
-| `clear` || Clears the terminal.
-| `cli config` || Gets all CLI tool configuration values.
-| `cli config get` | `<config key-value>` | Gets the value of the specified CLI tool configuration.
-| `cli config set` | `<config key-value>` | Sets the value of the specified CLI tool configuration.
-| `cli config show` | `<config key-value>` | Shows the cluster configuration.
-| `cluster init` | `[--cluster-url] <--meta-storage-node> [--cmg-node]`| Initializes the cluster on the specified URL.
-| `cluster status` | `[--cluster-url]` | Displays the detailed status of the specified cluster.
-| `cluster config show` | `[--cluster-url] [--selector]` | Gets the configuration of the specified cluster.
-| `cluster config update` | `[--cluster-url] <config in HOCON format>` | Updates the configuration of the cluster with the provided configuration in HOCON format.
-| `cluster topology physical` | `[--cluster-url]` | Shows physical cluster topology.
-| `cluster topology logical` | `[--cluster-url]` | Shows logical cluster topology.
-| `connect` | [--cluster-url] | Connects to the specified cluster, or `localhost:3000` if no cluster url is specified. All subsequent commands use the specified cluster url.
-| `disconnect` || Disconnects from the cluster.
-| `exit` || Stops current interactive session.
-| `help` | `<command>` | Provides information on available commands, or for specific command if the `command` parameter is specified.
-| `node classpath` || Shows the current classpath used by Ignite nodes.
-| `node config show` | `[--node-url][--selector]` | Gets the local node configuration.
-|`node config update` | `[--node-url] <config in HOCON format>` | Updates the local node configuration with the provided configuration in HOCON format.
-//| `node list` || Shows the list of currently running local Ignite nodes.
-//| `node start` | `[--config] <nodeName>` | Starts an Ignite node locally.
-//| `node stop` | `<nodeName>` | Stops a locally running Ignite node.
-| `node status` | `--node-url` |Shows the status of the default cluster, or a different one if cluster-url is provided.
-| `sql` | `[--cluster-url][--script-file] <query>` | Executes the specified SQL query.
-| `version` || Displays current CLI tool version.
-|===
+[source, bash]
+----
+cluster config update ignite.security.authentication.providers.basic4=\{type=basic,username=name,password=pass\}
+----
 
-== Non-interactive Mode
+== Commands and Options
 
-The following commands can be executed in non-REPL mode of the command-line tool:
+The following commands can be executed in the interactive CLI mode.
+
+=== CLI Commands
+
+These commands help you configure your CLI tool and cluster.
 
 [cols="1,1,3",opts="header", stripes=none]
 |===
 | Command| Parameters | Description
-| `ignite3 cli config` || Gets all CLI tool configuration values.
-| `ignite3 cli config get` | `<config key-value>` | Gets the value of the specified CLI tool configuration.
-| `ignite3 cli config set` | `<config key-value>` | Sets the value of the specified CLI tool configuration.
-//| `ignite3 bootsrap` || Installs Ignite core modules locally. Previously `init`.
-| `ignite3 cluster config show` | `[--cluster-url] [--selector]` | Gets the configuration of the specified cluster.
-| `ignite3 cluster config update` | `[--cluster-url] <config in HOCON format>` | Sets the configuration of the cluster with the provided configuration in HOCON format.
-| `ignite3 cluster init` | `[--cluster-url] <--meta-storage-node> [--cmg-node]`| Initializes the cluster on the specified URL.
-| `ignite3 cluster status` | `[--cluster-url]` | Displays the detailed status of the specified cluster.
-| `ignite3 help` | `<command>` | Provides information on available commands, or for specific command if the `command` parameter is specified.
-//| `ignite3 node classpath` || Shows the current classpath used by Ignite nodes.
-| `ignite3 node config show` | `[--node-url][--selector]` | Gets the local node configuration.
-//| `ignite3 node list` || Shows the list of currently running local Ignite nodes.
-//| `ignite3 node start` | `[--config] <nodeName>` | Starts an Ignite node locally.
-//| `ignite3 node stop` | `<nodeName>` | Stops a locally running Ignite node.
-|`ignite3 node config update` | `[--node-url] <config in HOCON format>` | Updates the local node configuration with the provided configuration in HOCON format.
-| `ignite3 node status` | `[--node-url]` |Shows the status of the default node, or a different one if node-url is provided.
-| `ignite3 sql` | `[--cluster-url][--script-file] <query>` | Executes the specified SQL query.
-| `ignite3 version` || Displays current CLI tool version.
+| `cli config profile create` | `[--activate] [--copy-from] <profileName>` | Creates a profile with the given name, optionally by copying an existing profile, optionally activating the new profile upon creation.
+| `cli config profile activate` | `<profileName>` | Activates the profile identified by name.
+| `cli config profile list` | | Lists configuration profiles.
+| `cli config profile show` | | Gets the current profile details.
+| `cli config get` | `<key>` | Gets the value for the specified configuration key.
+| `cli config set` | `<String=String>...` | Sets configuration parameters using comma-separated input key-value pair(s).
+| `cli config show` | | Shows the currently active configuration.
+| `cli config remove` | `<key>` | Removes the specified configuration key.
+|===
+
+=== Cluster Commands
+
+These commands let you manage your cluster.
+
+[cols="1,1,3",opts="header", stripes=none]
+|===
+| Command| Parameters | Description
+| `cluster config show` | `[--url] [<selector>]` | Shows configuration of the cluster indicated by the endpoint URL and, optionally, by a configuration path selector. 
+| `cluster config update` | `[--url] <args>...` | Updates configuration of the cluster indicated by the endpoint URL with the provided argument values.
+| `cluster init` | `--name=<clusterName> [--url] [--cluster-management-group=<node name>[,<node name>...]] [--metastorage-group=<node name>[,<node name>...]] [--config=<config> \| --config-files=<file path>[,<file path>...]`| Initializes a cluster, optionally for the indicated cluster URL, optionally with Cluster Management Group and Cluster Metastorage nodes specified, with the cluster configuration optionally provided in a file or multiple files. The path to config files is resolved relative to the folder the CLI tool is started from.
+| `cluster metrics source disable` | `<srcName>` | Disables metrics from the specifies source on all nodes of the cluster.
+| `cluster metrics source enable` | `<srcName>` | Enables metrics for the specifies source on all nodes of the cluster.
+| `cluster metrics source list` | | Prints a list of metric sources for each of the cluster's nodes, along with each source's status (enabled or disabled).
+| `cluster status` | `[--url]` | Displays the detailed status of the specified cluster.
+| `cluster topology physical` | `[--plain] [--url]` | Shows [.tooltip]#Physical Topology# of the specified cluster, optionally in a plain format.
+| `cluster topology logical` | `[--plain] [--url]` | Shows [.tooltip]#Logical Topology# of the specified cluster, optionally in a plain format.
+| `cluster unit deploy` | `--path [--url] --version [--nodes [, <nodes>...]]... <id>` | Deploys the specified version of a unit, from the specified path, optionally tp specific nodes.
+| `cluster unit undeploy` | `[--url] --version <id>` | Un-deploys the specified unit version, optionally for the specified cluster.
+| `cluster unit list` | `[--plain] [--url] [--status [,<statuses>...]]... [<unitId> [--version]]` | Lists cluster's deployed units, optionally filtered by status.
+| `connect` | `[-u -p] <nodeUrl>` | Connects to the specified node, optionally with the specified user name (u) an password (p).
+| `disconnect` || Disconnects from the current cluster.
+|===
+
+=== Node Commands
+
+These commands address specific node(s) in a cluster.
+
+[cols="1,1,3",opts="header", stripes=none]
+|===
+| Command| Parameters | Description
+| `node config show` | `[--url \| -n] [<selector>]` | Gets the specified node (n) configuration.
+|`node config update` | `[--url \| -n] <args>...` | Updates the local node configuration with the arguments in the HOCON format.
+| `node status` | `[--url \| -n]` |Shows the status of the default node, or a different one if specified.
+| `node version` | `[--url \| -n]` |Shows the node's build version.
+| `node metric list` | `[--plain][--url \| -n]` |Lists node's metrics.
+| `node metric source enable` | `[--url \| -n] <srcName>` |Enables a metric source for the node.
+| `node metric source disable` | `[--url \| -n] <srcName>` |Disables a metric source for the node.
+| `node metric source list` | `[--plain] [--url \| -n]` |Lists node metrics' sources.
+| `node unit list` | `[--plain] [--status [,<statuses>...]]...[<unitId> [--version]] [--url> \| -n]` |Lists node's deployment units.
+|===
+
+=== Disaster Recovery Commands
+
+These commands enable you to:
+
+* Recover data partitions link:administrators-guide/disaster-recovery#disaster-scenarios-and-recovery-instructions[in a number of disaster scenarios]
+* Recover link:link:administrators-guide/system-group-recovery[system system RAFT groups]
+
+[cols="2,2,3",opts="header", stripes=none]
+|===
+| Command| Parameters | Description
+| `recovery partitions restart` | `--table [--url] --zone [--nodes [,<nodeNames>...]]... [--partitions [, <partitionIds>...]]...]` | Restarts the indicated partitions of the specified table (if not specified, all existing partitions) on the indicated nodes in the indicated zones.
+| `recovery partitions reset` | `--table [--url] --zone
+[--partitions [, <partitionIds>...]]...`| Resets the indicated partitions (if not specified, all existing partitions) in the indicated zones (if not specified, in all existing zones). This operation is irreversible. It can lead to data loss. Use with caution, only when strictly necessary.
+| `recovery partitions states` | `[--plain] [--url] [--partitions [, <partitionIds>...]]... [--zones [, <zoneNames>...]]... (--global \| [--local [--nodes [,<nodeNames>...]]...])`| Returns the link:administrators-guide/disaster-recovery#partition-states[partition states (local or global)], optionally for the indicated nodes and/or zones and/or partitions.
+| `recovery cluster reset` for CMG | `--url=<node-url> --cluster-management-group=<new-cmg-nodes>` | Initiates link:administrators-guide/system-group-recovery#cluster-management-group[CMG node group] repair to restore the lost majority. The command is sent to the node indicated by the `--url` parameter, which must belong to the `new-cmg-nodes` RAFT group (a comma-separated list of nodes that belong to cluster's physical topology).
+| `recovery cluster reset` for MG | `--url=<existing-node-url> [--cluster-management-group=<new-cmg-nodes>] --metastorage-replication-factor=N` | Initiates link:administrators-guide/system-group-recovery#majority-loss[MG node group] repair to restore the lost majority. `N` is the requested number of the voting RAFT nodes in the MG after repair. If you omit `--cluster-management-group`, the command takes the current CMG voting members set from the CMG leader; if CMG is not available, the command fails.  
+| `recovery cluster migrate` | `--old-cluster-url=<url-of-old-cluster-node> --new-cluster-url=<url-of-new-cluster-node>` | Initiates migration of a link:administrators-guide/system-group-recovery#cluster-management-group[CMG] or link:administrators-guide/system-group-recovery#metastorage-group[MG] node that did not take part in recovery performed by `recovery cluster reset` (because it was down or unavailable due to a network partition) to the new (recovered) cluster.
+|===
+
+=== Distribution Commands
+
+These commands address partition distribution.
+
+[cols="1,1,3",opts="header", stripes=none]
+|===
+| Command| Parameters | Description
+| `distribution reset` | `[--zones <zoneNames>]`| Resets the algorithm state for link:administrators-guide/data-partitions#distribution-reset[partition distribution] in all tables within the specified zones. Generates partition assignments "from scratch" (as if the same table (zone) was just created on the data nodes. This ensures data colocation between tables in a zone.
+|===
+
+=== Miscellaneous Commands
+
+These are general-purpose commands.
+
+[cols="1,1,3",opts="header", stripes=none]
+|===
+| Command| Parameters | Description
+| `cls` || Clears the terminal.
+| `exit` || Stops the current interactive session.
+| `help` | `<command or command group>` | Provides information on available command groups, commands in the specified group, or for the specified command.
+| `sql` | `[--plain] [--jdbc-url] [<command> \| --file]`| Executes the specified SQL query (command) or the queries included in the specified file, on the specified cluster.
+| `version` || Displays the current CLI tool version.
 |===

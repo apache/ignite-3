@@ -31,25 +31,31 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -683,25 +689,6 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Returns random BitSet.
-     *
-     * @param rnd  Random generator.
-     * @param bits Amount of bits in bitset.
-     * @return Random BitSet.
-     */
-    public static BitSet randomBitSet(Random rnd, int bits) {
-        BitSet set = new BitSet();
-
-        for (int i = 0; i < bits; i++) {
-            if (rnd.nextBoolean()) {
-                set.set(i);
-            }
-        }
-
-        return set;
-    }
-
-    /**
      * Returns random byte array.
      *
      * @param rnd Random generator.
@@ -717,6 +704,8 @@ public final class IgniteTestUtils {
 
     /**
      * Returns random string.
+     * The result string may differs on different JDK versions even for the same random seed, because of Character table changes.
+     * E.g. character for codePoint=42946 is defined in JDK 17, but undefined in JDK 11.
      *
      * @param rnd Random generator.
      * @param len String length.
@@ -726,6 +715,7 @@ public final class IgniteTestUtils {
         StringBuilder sb = new StringBuilder();
 
         while (sb.length() < len) {
+            // Casted value is always a valid codepoint. See Character.isValidCodepoint(int).
             char pt = (char) rnd.nextInt(Character.MAX_VALUE + 1);
 
             if (Character.isDefined(pt)
@@ -740,11 +730,53 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns random {@link BigDecimal} with given scale and precision.
+     *
+     * @param rnd Random generator.
+     * @param precision Precision of generating value.
+     * @param scale Scale of generating value.
+     * @return Random string.
+     */
+    public static BigDecimal randomBigDecimal(Random rnd, int precision, int scale) {
+        BigInteger bd = IntStream.generate(() -> rnd.nextInt(9) + 1).limit(precision).mapToObj(BigInteger::valueOf)
+                .reduce((n1, n2) -> n1.multiply(BigInteger.TEN).add(n2)).get();
+
+        BigDecimal res = new BigDecimal(bd).divide(BigDecimal.TEN.pow(scale));
+        if (rnd.nextBoolean()) {
+            res = res.negate();
+        }
+
+        assert res.precision() == precision;
+        assert res.scale() == scale;
+
+        return res;
+    }
+
+    /**
+     * Returns random {@link LocalTime} with given precision.
+     *
+     * @param rnd Random generator.
+     * @param precision Precision of generating value. Precision can be between 0 and 9 includes both bounds.
+     * @return Random {@link LocalTime} with given precision.
+     */
+    public static LocalTime randomTime(Random rnd, int precision) {
+        assert precision >= 0 && precision <= 9 : "Valid precision for time should belong to a range [0:9]";
+
+        LocalTime time = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60), rnd.nextInt(60));
+
+        long nanos = (precision > 0) ? 1 : 0;
+        for (int i = 1; i < 9; i++) {
+            nanos = nanos * 10 + (i + 1) * (i < precision ? 1 : 0);
+        }
+
+        return time.plusNanos(nanos);
+    }
+
+    /**
      * Creates a unique Ignite node name for the given test.
      *
      * @param testInfo Test info.
      * @param idx Node index.
-     *
      * @return Node name.
      */
     public static String testNodeName(TestInfo testInfo, int idx) {
@@ -802,7 +834,7 @@ public final class IgniteTestUtils {
      * @return A result of the stage.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public static <T> @Nullable T await(CompletionStage<T> stage, long timeout, TimeUnit unit) {
+    public static <T> T await(CompletionStage<T> stage, long timeout, TimeUnit unit) {
         try {
             return stage.toCompletableFuture().get(timeout, unit);
         } catch (Throwable e) {
@@ -821,9 +853,7 @@ public final class IgniteTestUtils {
             sneakyThrow(original);
         }
 
-        assert false;
-
-        return null;
+        throw new AssertionError("Should not get here");
     }
 
     /**
@@ -834,7 +864,7 @@ public final class IgniteTestUtils {
      * @return A result of the stage.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public static <T> @Nullable T await(CompletionStage<T> stage) {
+    public static <T> T await(CompletionStage<T> stage) {
         return await(stage, TIMEOUT_SEC, TimeUnit.SECONDS);
     }
 
@@ -970,6 +1000,29 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Run the closure in the given executor, wait for the result and get it synchronously.
+     *
+     * @param executor Executor.
+     * @param closure Closure.
+     * @return Closure result.
+     */
+    public static <T> T runInExecutor(ExecutorService executor, Supplier<T> closure) {
+        Object[] arr = new Object[1];
+
+        Future f = executor.submit(() -> {
+            arr[0] = closure.get();
+        });
+
+        try {
+            f.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+
+        return (T) arr[0];
+    }
+
+    /**
      * Predicate matcher.
      *
      * @param <DataT> Data type.
@@ -995,5 +1048,15 @@ public final class IgniteTestUtils {
         public boolean matches(Object o) {
             return predicate.test((DataT) o);
         }
+    }
+
+    /**
+     * Derives a UUID from a string in a determenistic way in hope there will be no collisions of derived UUIDs for different strings
+     * in practice.
+     *
+     * @param str String for which to derive a UUID.
+     */
+    public static UUID deriveUuidFrom(String str) {
+        return new UUID(str.hashCode(), new StringBuilder(str).reverse().toString().hashCode());
     }
 }

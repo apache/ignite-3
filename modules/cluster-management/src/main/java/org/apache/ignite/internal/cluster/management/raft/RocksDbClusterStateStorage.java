@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
@@ -96,16 +99,17 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             try {
+                Files.createDirectories(dbPath);
                 // Delete existing data, relying on log playback.
                 RocksDB.destroyDB(dbPath.toString(), options);
 
                 init();
 
                 return nullCompletedFuture();
-            } catch (RocksDBException e) {
+            } catch (RocksDBException | IOException e) {
                 return failedFuture(new CmgStorageException("Failed to start the storage", e));
             }
         });
@@ -141,6 +145,21 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         inBusyLock(busyLock, () -> {
             try {
                 db.put(defaultWriteOptions, key, value);
+            } catch (RocksDBException e) {
+                throw new CmgStorageException("Unable to put data into Rocks DB", e);
+            }
+        });
+    }
+
+    @Override
+    public void putAll(List<byte[]> keys, List<byte[]> values) {
+        inBusyLock(busyLock, () -> {
+            try (var batch = new WriteBatch()) {
+                for (int i = 0; i < keys.size(); i++) {
+                    batch.put(keys.get(i), values.get(i));
+                }
+
+                db.write(defaultWriteOptions, batch);
             } catch (RocksDBException e) {
                 throw new CmgStorageException("Unable to put data into Rocks DB", e);
             }
@@ -244,7 +263,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

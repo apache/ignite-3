@@ -52,12 +52,15 @@ public class IgniteProductVersion implements Serializable {
      *     <li>3.1.3-SNAPSHOT</li>
      * </ul>
      */
-    private static final Pattern VERSION_PATTERN = Pattern.compile(
+    public static final Pattern VERSION_PATTERN = Pattern.compile(
             "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)(?:\\.(?<patch>\\d+))?(?:-(?<preRelease>[0-9A-Za-z]+))?"
     );
 
     /** Version of the current node. */
     public static final IgniteProductVersion CURRENT_VERSION = fromString(IgniteProperties.get(IgniteProperties.VERSION));
+
+    /** Product name of the current node. */
+    public static final String CURRENT_PRODUCT = IgniteProperties.get(IgniteProperties.PRODUCT);
 
     /** Major version number. */
     private final byte major;
@@ -76,7 +79,8 @@ public class IgniteProductVersion implements Serializable {
     @Nullable
     private final String preRelease;
 
-    private IgniteProductVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
+    /** Constructor. */
+    public IgniteProductVersion(byte major, byte minor, byte maintenance, @Nullable Byte patch, @Nullable String preRelease) {
         this.major = major;
         this.minor = minor;
         this.maintenance = maintenance;
