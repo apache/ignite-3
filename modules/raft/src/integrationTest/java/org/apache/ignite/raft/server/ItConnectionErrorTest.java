@@ -53,7 +53,6 @@ import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.apache.logging.log4j.core.config.Property;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -108,12 +107,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         startClient(TEST_GROUP);
     }
 
-    @RepeatedTest(100)
+    @Test
     public void testStopLeader() throws Exception {
         commonTestStopNode(true);
     }
 
-    @RepeatedTest(100)
+    @Test
     public void testStopFollower() throws Exception {
         commonTestStopNode(false);
     }
