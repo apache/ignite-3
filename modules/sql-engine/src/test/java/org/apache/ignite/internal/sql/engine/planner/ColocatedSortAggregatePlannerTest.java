@@ -312,10 +312,8 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_17,
                 hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
                         .and(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
-                                .and(input(isInstanceOf(IgniteLimit.class)
-                                        .and(input(isInstanceOf(IgniteSort.class)
-                                                .and(input(isTableScan("TEST")))
-                                        ))
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(input(isTableScan("TEST")))
                                 ))
                         ))
                 ),

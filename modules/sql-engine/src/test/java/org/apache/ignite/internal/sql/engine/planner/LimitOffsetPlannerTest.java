@@ -52,8 +52,7 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
 
         sql = "SELECT * FROM TEST ORDER BY ID OFFSET 10 ROWS FETCH FIRST 10 ROWS ONLY";
 
-        assertPlan(sql, publicSchema, nodeOrAnyChild(isInstanceOf(IgniteLimit.class)
-                .and(hasChildThat(isInstanceOf(IgniteSort.class)))));
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteSort.class));
     }
 
     @Test
@@ -65,7 +64,7 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                     .and(l -> l.getCluster().getMetadataQuery().getRowCount(l) == 10d)));
 
         assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT " + ROW_CNT + " OFFSET 15", publicSchema,
-                nodeOrAnyChild(isInstanceOf(IgniteLimit.class)
+                nodeOrAnyChild(isInstanceOf(IgniteSort.class)
                     .and(l -> l.getCluster().getMetadataQuery().getRowCount(l) == ROW_CNT - 15d)));
 
         assertPlan("SELECT * FROM TEST ORDER BY ID OFFSET 60", publicSchema,
@@ -171,8 +170,13 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
         // Sort node is not required, since collation of the Limit node equals to the index collation.
         assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 10 OFFSET 10", publicSchema,
                 isInstanceOf(IgniteLimit.class)
+                    .and(l -> doubleFromRex(l.fetch(), -1) == 10)
+                    .and(l -> doubleFromRex(l.offset(), -1) == 10)
                     .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(input(isInstanceOf(IgniteIndexScan.class)))))
+                            .and(input(isInstanceOf(IgniteLimit.class)
+                                    .and(l -> doubleFromRex(l.fetch(), -1) == 20)
+                                    .and(l -> l.offset() == null)
+                                    .and(input(isInstanceOf(IgniteIndexScan.class)))))))
                     .and(hasChildThat(isInstanceOf(IgniteSort.class)).negate()));
 
         publicSchema = createSchemaWithTable(IgniteDistributions.random(), "ID", "VAL");
@@ -180,16 +184,22 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
         // Sort node is not required, since collation of the Limit node satisfies the index collation.
         assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 10 OFFSET 10", publicSchema,
                 isInstanceOf(IgniteLimit.class)
-                    .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(input(isInstanceOf(IgniteIndexScan.class)))))
+                        .and(l -> doubleFromRex(l.fetch(), -1) == 10)
+                        .and(l -> doubleFromRex(l.offset(), -1) == 10)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteLimit.class)
+                                        .and(l -> doubleFromRex(l.fetch(), -1) == 20)
+                                        .and(l -> l.offset() == null)
+                                        .and(input(isInstanceOf(IgniteIndexScan.class)))))))
                     .and(hasChildThat(isInstanceOf(IgniteSort.class)).negate()));
 
         publicSchema = createSchemaWithTable(IgniteDistributions.single());
 
         // Exchange node is not required, since distribution of the table is already "single".
         assertPlan("SELECT * FROM TEST ORDER BY ID LIMIT 10 OFFSET 10", publicSchema,
-                isInstanceOf(IgniteLimit.class)
-                    .and(input(isInstanceOf(IgniteSort.class)))
+                isInstanceOf(IgniteSort.class)
+                    .and(s -> doubleFromRex(s.fetch, -1) == 10)
+                    .and(s -> doubleFromRex(s.offset, -1) == 10)
                     .and(hasChildThat(isInstanceOf(IgniteExchange.class)).negate()));
     }
 
