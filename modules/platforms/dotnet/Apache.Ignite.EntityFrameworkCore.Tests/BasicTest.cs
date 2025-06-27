@@ -25,16 +25,15 @@ using NUnit.Framework;
 public class BasicTest
 {
     [SetUp]
-    public async Task SetUp()
+    public async Task DropAllTables()
     {
+        // Drop all tables so that EnsureCreatedAsync works as expected and every test starts with a clean slate.
         using var client = await IgniteClient.StartAsync(new(GetIgniteEndpoint()));
 
         var tables = await client.Tables.GetTablesAsync();
+        var script = string.Join("\n", tables.Select(t => $"DROP TABLE {t.Name}; "));
 
-        foreach (var table in tables)
-        {
-            await client.Sql.ExecuteAsync(null, $"DROP TABLE \"{table.Name}\"");
-        }
+        await client.Sql.ExecuteScriptAsync(script);
     }
 
     [Test]
