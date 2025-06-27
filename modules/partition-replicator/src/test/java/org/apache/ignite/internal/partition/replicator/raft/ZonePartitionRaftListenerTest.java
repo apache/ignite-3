@@ -57,6 +57,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
@@ -449,7 +450,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
 
-        FinishTxCommand finishTxCommand = mock(FinishTxCommand.class);
+        FinishTxCommandV2 finishTxCommand = mock(FinishTxCommandV2.class);
         when(finishTxCommand.groupType()).thenReturn(PartitionReplicationMessageGroup.GROUP_TYPE);
         when(finishTxCommand.messageType()).thenReturn(Commands.FINISH_TX_V2);
 

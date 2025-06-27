@@ -76,15 +76,6 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) throws IgniteInternalException {
-        return handleInternally(command, commandIndex, commandTerm, enlistedPartitions(command));
-    }
-
-    private CommandResult handleInternally(
-            FinishTxCommand command,
-            long commandIndex,
-            long commandTerm,
-            List<EnlistedPartitionGroup> enlistedPartitions
-    ) throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStatePartitionStorage.lastAppliedIndex()) {
             return CommandResult.EMPTY_NOT_APPLIED_RESULT;
@@ -96,7 +87,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                enlistedPartitions,
+                enlistedPartitions(command),
                 command.commitTimestamp()
         );
 
