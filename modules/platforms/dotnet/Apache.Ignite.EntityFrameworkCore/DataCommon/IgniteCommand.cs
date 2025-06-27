@@ -76,6 +76,11 @@ public class IgniteCommand : DbCommand
 
         Debug.Assert(!resultSet.HasRowSet, "!resultSet.HasRowSet");
 
+        if (resultSet.AffectedRows < 0)
+        {
+            return resultSet.WasApplied ? 1 : 0;
+        }
+
         return (int)resultSet.AffectedRows;
     }
 
