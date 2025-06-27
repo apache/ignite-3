@@ -16,20 +16,18 @@
 namespace Apache.Ignite.EntityFrameworkCore.DataCommon;
 
 #nullable disable // TODO: Remove nullable disable.
-
 using System;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
-using Apache.Ignite.Sql;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Sql;
 
 public class IgniteCommand : DbCommand
 {
-    private IgniteParameterCollection _parameters = null;
+    private IgniteParameterCollection _parameters;
 
     public override void Cancel()
     {
@@ -41,39 +39,19 @@ public class IgniteCommand : DbCommand
         return ExecuteNonQueryAsync(CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
-    {
-        if (CommandSource == CommandSource.SaveChanges)
-        {
-            // Ignite-specific: SaveChangesDataReader is used to return the number of rows affected.
-            var rowsAffected = await ExecuteNonQueryAsync(cancellationToken);
-
-            return new IgniteSaveChangesDataReader(rowsAffected);
-        }
-
-        var args = _parameters?.ToObjectArray() ?? Array.Empty<object>();
-
-        // TODO: Remove debug output.
-        Console.WriteLine($"IgniteCommand.ExecuteDbDataReaderAsync [statement={CommandText}, parameters={string.Join(", ", args)}]");
-
-        // TODO: Propagate transaction somehow.
-        return await Sql.ExecuteReaderAsync(
-            null,
-            CommandText,
-            args);
-    }
-
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {
-        var args = _parameters?.ToObjectArray() ?? Array.Empty<object>();
+        var args = GetArgs();
+        var statement = GetStatement();
 
         // TODO: Remove debug output.
-        Console.WriteLine($"IgniteCommand.ExecuteNonQueryAsync [statement={CommandText}, parameters={string.Join(", ", args)}]");
+        Console.WriteLine($"IgniteCommand.ExecuteNonQueryAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
         // TODO: Propagate transaction somehow.
         await using IResultSet<object> resultSet = await Sql.ExecuteAsync<object>(
             transaction: null,
-            CommandText,
+            statement,
+            cancellationToken,
             args);
 
         Debug.Assert(!resultSet.HasRowSet, "!resultSet.HasRowSet");
@@ -90,7 +68,7 @@ public class IgniteCommand : DbCommand
 
     public override void Prepare()
     {
-        throw new NotImplementedException();
+        // No-op.
     }
 
     public override string CommandText { get; set; }
@@ -112,6 +90,30 @@ public class IgniteCommand : DbCommand
 
     public CommandSource CommandSource { get; set; }
 
+    protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
+    {
+        if (CommandSource == CommandSource.SaveChanges)
+        {
+            // Ignite-specific: SaveChangesDataReader is used to return the number of rows affected.
+            var rowsAffected = await ExecuteNonQueryAsync(cancellationToken);
+
+            return new IgniteSaveChangesDataReader(rowsAffected);
+        }
+
+        var args = GetArgs();
+        var statement = GetStatement();
+
+        // TODO: Remove debug output.
+        Console.WriteLine($"IgniteCommand.ExecuteDbDataReaderAsync [statement={statement}, parameters={string.Join(", ", args)}]");
+
+        // TODO: Propagate transaction somehow.
+        return await Sql.ExecuteReaderAsync(
+            null,
+            statement,
+            cancellationToken,
+            args);
+    }
+
     protected override DbParameter CreateDbParameter() => new IgniteParameter();
 
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
@@ -122,4 +124,8 @@ public class IgniteCommand : DbCommand
     private IIgniteClient IgniteClient => ((IgniteConnection)DbConnection).Client;
 
     private ISql Sql => IgniteClient.Sql;
+
+    private object[] GetArgs() => _parameters?.ToObjectArray() ?? [];
+
+    private SqlStatement GetStatement() => new(CommandText);
 }
