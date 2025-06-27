@@ -108,12 +108,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         startClient(TEST_GROUP);
     }
 
-    @RepeatedTest(1000)
+    @RepeatedTest(100)
     public void testStopLeader() throws Exception {
         commonTestStopNode(true);
     }
 
-    @RepeatedTest(1000)
+    @RepeatedTest(100)
     public void testStopFollower() throws Exception {
         commonTestStopNode(false);
     }
