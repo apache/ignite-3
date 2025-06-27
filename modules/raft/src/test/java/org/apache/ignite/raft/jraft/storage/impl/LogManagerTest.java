@@ -91,7 +91,7 @@ public class LogManagerTest extends BaseStorageTest {
         final LogManagerOptions opts = new LogManagerOptions();
 
         NodeOptions nodeOptions = new NodeOptions();
-        executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        executor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
         nodeOptions.setCommonExecutor(executor);
         Mockito.when(node.getOptions()).thenReturn(nodeOptions);
         Mockito.when(node.getNodeId()).thenReturn(new NodeId("foo", new PeerId("bar")));

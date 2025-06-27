@@ -69,6 +69,16 @@ public class IgniteThreadFactory implements ThreadFactory {
     }
 
     /**
+     * Returns the prefix used for thread names.
+     *
+     * @return Thread name prefix.
+     * @see IgniteThread#threadPrefix(String, String)
+     */
+    public String prefix() {
+        return prefix;
+    }
+
+    /**
      * Creates a non-daemon thread factory based on a node's name and a name of the pool.
      *
      * @param nodeName Node name.

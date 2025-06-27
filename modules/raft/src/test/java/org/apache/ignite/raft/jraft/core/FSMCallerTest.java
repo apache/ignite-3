@@ -86,7 +86,7 @@ public class FSMCallerTest extends BaseIgniteAbstractTest {
     public void setup() {
         this.fsmCaller = new FSMCallerImpl();
         NodeOptions options = new NodeOptions();
-        executor = JRaftUtils.createExecutor("test-executor-", Utils.cpus());
+        executor = JRaftUtils.createExecutor("test-node", "test-executor-", Utils.cpus());
         options.setCommonExecutor(executor);
         this.closureQueue = new ClosureQueueImpl(options);
         opts = new FSMCallerOptions();
