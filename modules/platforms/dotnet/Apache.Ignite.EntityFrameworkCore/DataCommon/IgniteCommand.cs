@@ -68,6 +68,7 @@ public class IgniteCommand : DbCommand
         // TODO: Remove debug output.
         Console.WriteLine($"IgniteCommand.ExecuteNonQueryAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
+        // TODO: DDL does not support transactions, but DML does, we should determine this based on the command type.
         await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
             transaction: null, // DDL does not support transactions.
             statement,
