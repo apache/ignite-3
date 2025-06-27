@@ -24,14 +24,12 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import java.util.List;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @ParameterizedClass
 @MethodSource("baseVersions")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-25647")
 class ItCompatibilityTest extends CompatibilityTestBase {
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
