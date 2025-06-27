@@ -24,6 +24,19 @@ using NUnit.Framework;
 
 public class BasicTest
 {
+    [SetUp]
+    public async Task SetUp()
+    {
+        using var client = await IgniteClient.StartAsync(new(GetIgniteEndpoint()));
+
+        var tables = await client.Tables.GetTablesAsync();
+
+        foreach (var table in tables)
+        {
+            await client.Sql.ExecuteAsync(null, $"DROP TABLE \"{table.Name}\"");
+        }
+    }
+
     [Test]
     public async Task TestIgniteEfCore()
     {

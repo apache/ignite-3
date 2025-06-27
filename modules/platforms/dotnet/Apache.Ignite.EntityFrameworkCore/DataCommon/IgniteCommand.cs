@@ -65,18 +65,15 @@ public class IgniteCommand : DbCommand
 
     public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {
-        var args = _parameters?.ToObjectArray() ?? [];
+        var args = _parameters?.ToObjectArray() ?? Array.Empty<object>();
 
         // TODO: Remove debug output.
-        var statement = new SqlStatement(CommandText);
-
-        Console.WriteLine($"IgniteCommand.ExecuteNonQueryAsync [statement={statement}, parameters={string.Join(", ", args)}]");
+        Console.WriteLine($"IgniteCommand.ExecuteNonQueryAsync [statement={CommandText}, parameters={string.Join(", ", args)}]");
 
         // TODO: Propagate transaction somehow.
         await using IResultSet<object> resultSet = await Sql.ExecuteAsync<object>(
             transaction: null,
-            statement,
-            cancellationToken,
+            CommandText,
             args);
 
         Debug.Assert(!resultSet.HasRowSet, "!resultSet.HasRowSet");
