@@ -41,6 +41,7 @@ dotnet_diagnostic.CA1305.severity = none # Specify IFormatProvider
 dotnet_diagnostic.CA1819.severity = none # Properties should not return arrays
 dotnet_diagnostic.CA1812.severity = none # Avoid uninstantiated internal classes
 dotnet_diagnostic.CA5394.severity = none # Use secure random
+dotnet_diagnostic.CA2227.severity = none # Collection properties should be read only
 
 dotnet_diagnostic.NUnit2005.severity = none # Consider using the constraint model
 dotnet_diagnostic.NUnit2006.severity = none # Consider using the constraint model
