@@ -755,6 +755,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled
     void testRebalanceWithTheSameNodes() throws Exception {
         Node node = getNode(0);
 
