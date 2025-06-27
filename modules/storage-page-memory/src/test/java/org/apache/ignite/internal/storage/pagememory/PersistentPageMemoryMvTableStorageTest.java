@@ -33,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.Iterator;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -80,8 +82,10 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
     private final TestMetricManager metricManager = new TestMetricManager();
 
+    @WorkDirectory Path workDir;
+
     @BeforeEach
-    void setUp(@WorkDirectory Path workDir) {
+    void setUp() {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -124,6 +128,135 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
                 indexDescriptorSupplier
         );
+    }
+
+    @Test
+    public void testUncommitedRowsIterator() throws Exception {
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        var testVal = new TestValue(0, String.valueOf(0));
+
+        int rows = 10;
+
+        for (int i = 0; i < rows; i++) {
+            BinaryRow binaryRow = binaryRow(new TestKey(i, String.valueOf(i)), testVal);
+
+            UUID txId = newTransactionId();
+
+            RowId rowId = new RowId(PARTITION_ID);
+
+            MvPartitionStorage finalMvPartitionStorage = mvPartitionStorage;
+
+            mvPartitionStorage.runConsistently(locker -> {
+                locker.lock(rowId);
+
+                return finalMvPartitionStorage.addWrite(rowId, binaryRow, txId, COMMIT_TABLE_ID, 0);
+            });
+
+            if (i % 2 == 1) {
+                mvPartitionStorage.runConsistently(locker -> {
+                    locker.lock(rowId);
+
+                    return finalMvPartitionStorage.commitWrite(rowId, clock.current(), txId);
+                });
+            }
+        }
+
+        mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        var p = (PersistentPageMemoryMvPartitionStorage) mvPartitionStorage;
+
+        Iterator<RowId> uncommitedRowsIterator = p.findIntentsFromHead();
+
+        log.info("findIntentsFromHead before restart");
+
+        while (uncommitedRowsIterator.hasNext()) {
+            RowId rowId = uncommitedRowsIterator.next();
+
+            log.info("Uncommited row id " + rowId);
+        }
+
+        restartEngin();
+
+        mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        p = (PersistentPageMemoryMvPartitionStorage) mvPartitionStorage;
+
+        uncommitedRowsIterator = p.findIntentsFromHead();
+
+        log.info("findIntentsFromHead after restart");
+
+        while (uncommitedRowsIterator.hasNext()) {
+            RowId rowId = uncommitedRowsIterator.next();
+
+            log.info("Uncommited row id " + rowId);
+        }
+
+        uncommitedRowsIterator = p.findUncommited(null);
+
+        long startTime = System.currentTimeMillis();
+
+        int uncommitedRowsCount = 0;
+
+        RowId skippedId = RowId.lowestRowId(PARTITION_ID);
+
+        log.info("findUncommited (scan storage)");
+
+        while (uncommitedRowsIterator.hasNext()) {
+            RowId rowId = uncommitedRowsIterator.next();
+
+            if (!rowId.equals(skippedId)) {
+                log.info("Uncommited row id " + rowId);
+
+                uncommitedRowsCount++;
+            }
+        }
+
+        assertEquals(rows / 2, uncommitedRowsCount, "Uncommited rows count should be equal to " + (rows / 2));
+
+        System.out.println("Uncommited rows iterator took " + (System.currentTimeMillis() - startTime) + " ms");
+
+        uncommitedRowsIterator = p.findIntentsFromHead();
+
+        log.info("findIntentsFromHead after restart");
+
+        while (uncommitedRowsIterator.hasNext()) {
+            RowId rowId = uncommitedRowsIterator.next();
+
+            if (!rowId.equals(skippedId)) {
+                log.info("Uncommited row id " + rowId);
+
+                uncommitedRowsCount++;
+            }
+        }
+    }
+
+    private void restartEngin() throws Exception {
+        tableStorage.close();
+        engine.checkpointManager().forceCheckpoint("restart").futureFor(FINISHED).get();
+
+        engine.stop();
+
+        var ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+
+        engine = new PersistentPageMemoryStorageEngine(
+                "test",
+                metricManager,
+                storageConfig,
+                null,
+                ioRegistry,
+                workDir,
+                null,
+                mock(FailureManager.class),
+                mock(LogSyncer.class),
+                executorService,
+                clock
+        );
+        engine.start();
+
+        tableStorage = createMvTableStorage();
     }
 
     @ParameterizedTest

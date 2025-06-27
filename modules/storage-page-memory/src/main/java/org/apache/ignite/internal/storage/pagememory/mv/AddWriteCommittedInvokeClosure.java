@@ -144,7 +144,8 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     private RowVersion insertCommittedRowVersion(@Nullable BinaryRow row, HybridTimestamp commitTimestamp, long nextPartitionlessLink) {
-        RowVersion rowVersion = new RowVersion(storage.partitionId, commitTimestamp, nextPartitionlessLink, row);
+        RowVersion rowVersion = new RowVersion(rowId, storage.partitionId, commitTimestamp, nextPartitionlessLink, row,
+                NULL_LINK, NULL_LINK);
 
         storage.insertRowVersion(rowVersion);
 

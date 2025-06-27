@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToC
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AddWriteCommittedResult;
@@ -62,6 +64,8 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateNextWiLinkHandler;
+import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdatePrevWiLinkHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateTimestampHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.apache.ignite.internal.storage.pagememory.mv.RemoveWriteOnGcInvokeClosure.UpdateNextLinkHandler;
@@ -123,6 +127,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     private final UpdateTimestampHandler updateTimestampHandler;
 
+    private final UpdatePrevWiLinkHandler updatePrevWiLinkHandler;
+
+    private final UpdateNextWiLinkHandler updateNextWiLinkHandler;
+
     /**
      * Constructor.
      *
@@ -148,6 +156,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId());
         updateNextLinkHandler = new UpdateNextLinkHandler();
         updateTimestampHandler = new UpdateTimestampHandler();
+        updatePrevWiLinkHandler = new UpdatePrevWiLinkHandler();
+        updateNextWiLinkHandler = new UpdateNextWiLinkHandler();
     }
 
     protected abstract GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool);
@@ -505,6 +515,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                         timestamp,
                         txId,
                         updateTimestampHandler,
+                        updatePrevWiLinkHandler,
+                        updateNextWiLinkHandler,
                         this
                 );
 
@@ -888,6 +900,71 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throwStorageExceptionIfItCause(e);
 
             throw new StorageException("Row version lookup failed: [rowId={}, {}]", e, rowId, createStorageInfo());
+        }
+    }
+
+    /**
+     * Creates an iterator that traverses the write intent list starting from the head.
+     *
+     * <p>The iterator starts at the head of the write intent list and follows the links to the previous
+     * row versions until the end of the list is reached. Each iteration returns the {@link RowId} of the current row version.
+     *
+     * @return An {@link Iterator} of {@link RowId} objects representing the write intents.
+     */
+    public Iterator<RowId> findIntentsFromHead() {
+        return new Iterator<>() {
+            private long current = wiHead().link;
+
+            @Override
+            public boolean hasNext() {
+                return current != PageIdUtils.NULL_LINK;
+            }
+
+            @Override
+            public RowId next() {
+                RowVersion rowVersion = runConsistently(locker -> readRowVersion(current, DONT_LOAD_VALUE));
+
+                current = rowVersion.getPrev();
+
+                return rowVersion.rowId();
+            }
+        };
+    }
+
+    /**
+     * Finds uncommitted rows starting from a given lower bound.
+     *
+     * <p>This method searches the version chain tree for rows that are uncommitted, starting from the specified
+     * lower bound. If no lower bound is provided, the search starts from the beginning of the tree.
+     *
+     * @param lowBound The lower bound {@link RowId} to start the search from, or {@code null} to start from the beginning.
+     * @return An {@link Iterator} of {@link RowId} objects representing uncommitted rows.
+     * @throws StorageException If an error occurs during the search.
+     */
+    public Iterator<RowId> findUncommited(RowId lowBound) {
+        // Assertion above guarantees that we're in "runConsistently" closure.
+        throwExceptionIfStorageNotInRunnableState();
+
+        try {
+            return renewableState.versionChainTree().find(
+                    lowBound == null ? null : new VersionChainKey(lowBound),
+                    null,
+                    new TreeRowMapClosure<>() {
+                        @Override
+                        public RowId map(VersionChain treeRow) {
+                            if (treeRow.isUncommitted()) {
+                                return treeRow.rowId();
+                            }
+
+                            return RowId.lowestRowId(partitionId);
+                        }
+                    },
+                    null
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throwStorageExceptionIfItCause(e);
+
+            throw new StorageException("Error while looking for uncommitted rows: [lowBound={}, {}]", e, lowBound, createStorageInfo());
         }
     }
 

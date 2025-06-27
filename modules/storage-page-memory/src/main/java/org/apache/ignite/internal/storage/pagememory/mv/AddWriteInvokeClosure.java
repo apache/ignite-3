@@ -22,16 +22,24 @@ import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemor
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.freelist.FreeList;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
+import org.apache.ignite.internal.pagememory.util.PageHandler;
+import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.WriteIntentListNode;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,13 +62,19 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final AbstractPageMemoryMvPartitionStorage storage;
 
+    private final FreeList freeList;
+
     private OperationType operationType;
 
     private @Nullable VersionChain newRow;
 
+    private @Nullable RowVersion newRowVersion;
+
     private @Nullable RowVersion toRemove;
 
     private AddWriteResult addWriteResult;
+
+    private AtomicReference<WriteIntentListNode> head;
 
     AddWriteInvokeClosure(
             RowId rowId,
@@ -76,18 +90,28 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         this.commitTableOrZoneId = commitTableOrZoneId;
         this.commitPartitionId = commitPartitionId;
         this.storage = storage;
+
+        RenewablePartitionStorageState localState = storage.renewableState;
+
+        this.freeList = localState.freeList();
     }
 
     @Override
     public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
+        WriteIntentListNode oldHead = storage.wiHead();
+
         if (oldRow == null) {
-            RowVersion newVersion = insertRowVersion(row, NULL_LINK);
+            RowVersion newVersion = insertRowVersion(row, NULL_LINK, oldHead);
+
+            WriteIntentListNode newHead = WriteIntentListNode.createHeadNode(rowId, newVersion.link(), oldHead.prev);
 
             newRow = VersionChain.createUncommitted(rowId, txId, commitTableOrZoneId, commitPartitionId, newVersion.link(), NULL_LINK);
 
             operationType = OperationType.PUT;
 
             addWriteResult = AddWriteResult.success(null);
+
+            storage.updateWiHead(newHead);
 
             return;
         }
@@ -103,7 +127,9 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
             return;
         }
 
-        RowVersion newVersion = insertRowVersion(row, oldRow.newestCommittedLink());
+        RowVersion newVersion = insertRowVersion(row, oldRow.newestCommittedLink(), oldHead);
+
+        WriteIntentListNode newHead = WriteIntentListNode.createHeadNode(rowId, newVersion.link(), oldHead.prev);
 
         if (oldRow.isUncommitted()) {
             RowVersion currentVersion = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE);
@@ -126,6 +152,8 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         );
 
         operationType = OperationType.PUT;
+
+        storage.updateWiHead(newHead);
     }
 
     @Override
@@ -143,10 +171,12 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         return operationType;
     }
 
-    private RowVersion insertRowVersion(@Nullable BinaryRow row, long nextPartitionlessLink) {
-        RowVersion rowVersion = new RowVersion(storage.partitionId, nextPartitionlessLink, row);
+    private RowVersion insertRowVersion(@Nullable BinaryRow row, long nextPartitionlessLink, WriteIntentListNode oldHead) {
+        RowVersion rowVersion = new RowVersion(rowId, storage.partitionId, nextPartitionlessLink, row, oldHead.link, NULL_LINK);
 
         storage.insertRowVersion(rowVersion);
+
+        newRowVersion = rowVersion;
 
         return rowVersion;
     }
@@ -182,5 +212,38 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private String addWriteInfo() {
         return storage.addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+    }
+
+    @Override
+    public void onUpdate() {
+        if (newRowVersion != null && newRowVersion.getPrev() != NULL_LINK) {
+            try {
+                freeList.updateDataRow(newRowVersion.getPrev(), new UpdateNextLinkHandler(), newRowVersion.link());
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Error while update new WI link: [link={}, {}]", e, newRowVersion.getPrev(), addWriteInfo());
+            }
+        }
+    }
+
+    private static class UpdateNextLinkHandler implements PageHandler<Long, Object> {
+
+        @Override
+        public Object run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                Long arg,
+                int itemId
+        ) {
+            DataPageIo dataIo = (DataPageIo) io;
+
+            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, GridUnsafe.pageSize(), 0);
+
+            PageUtils.putLong(pageAddr, payloadOffset + RowVersion.NEXT_WI_LINK_OFFSET, arg);
+
+            return true;
+        }
     }
 }

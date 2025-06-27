@@ -44,6 +44,8 @@ public class StoragePartitionMeta extends PartitionMeta {
 
     private volatile long leaseStartTime;
 
+    private volatile long wiHeadLink;
+
     private volatile @Nullable UUID primaryReplicaNodeId;
 
     private volatile long primaryReplicaNodeNameFirstPageId;
@@ -89,7 +91,8 @@ public class StoragePartitionMeta extends PartitionMeta {
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
             long gcQueueMetaPageId,
-            long estimatedSize
+            long estimatedSize,
+            long wiHeadLink
     ) {
         super(pageCount);
         this.lastAppliedIndex = lastAppliedIndex;
@@ -103,6 +106,7 @@ public class StoragePartitionMeta extends PartitionMeta {
         this.indexTreeMetaPageId = indexTreeMetaPageId;
         this.gcQueueMetaPageId = gcQueueMetaPageId;
         this.estimatedSize = estimatedSize;
+        this.wiHeadLink = wiHeadLink;
     }
 
     /**
@@ -280,7 +284,8 @@ public class StoragePartitionMeta extends PartitionMeta {
                 leaseStartTime,
                 primaryReplicaNodeId,
                 primaryReplicaNodeNameFirstPageId,
-                estimatedSize
+                estimatedSize,
+                wiHeadLink
         );
     }
 
@@ -313,6 +318,24 @@ public class StoragePartitionMeta extends PartitionMeta {
      */
     public long leaseStartTime() {
         return leaseStartTime;
+    }
+
+    /**
+     * Updates the link to the head of the write intent list.
+     *
+     * @param link Link to the head of the write intent list.
+     */
+    public void updateWiHead(long link) {
+        this.wiHeadLink = link;
+    }
+
+    /**
+     * Returns the link to the head of the write intent list.
+     *
+     * @return Link to the head of the write intent list.
+     */
+    public long wiHeadLink() {
+        return wiHeadLink;
     }
 
     /**
@@ -383,6 +406,8 @@ public class StoragePartitionMeta extends PartitionMeta {
 
         private final long estimatedSize;
 
+        private final long wiHeadLink;
+
         private StoragePartitionMetaSnapshot(
                 @Nullable UUID checkpointId,
                 long lastAppliedIndex,
@@ -396,7 +421,8 @@ public class StoragePartitionMeta extends PartitionMeta {
                 long leaseStartTime,
                 @Nullable UUID primaryReplicaNodeId,
                 long primaryReplicaNodeNameFistPageId,
-                long estimatedSize
+                long estimatedSize,
+                long wiHeadLink
         ) {
             this.checkpointId = checkpointId;
             this.lastAppliedIndex = lastAppliedIndex;
@@ -411,6 +437,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             this.primaryReplicaNodeId = primaryReplicaNodeId;
             this.primaryReplicaNodeNameFirstPageId = primaryReplicaNodeNameFistPageId;
             this.estimatedSize = estimatedSize;
+            this.wiHeadLink = wiHeadLink;
         }
 
         /**
@@ -504,6 +531,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             storageMetaIo.setPrimaryReplicaNodeId(pageAddr, primaryReplicaNodeId);
             storageMetaIo.setPrimaryReplicaNodeNameFirstPageId(pageAddr, primaryReplicaNodeNameFirstPageId);
             storageMetaIo.setEstimatedSize(pageAddr, estimatedSize);
+            storageMetaIo.setWiHead(pageAddr, wiHeadLink);
         }
 
         /**

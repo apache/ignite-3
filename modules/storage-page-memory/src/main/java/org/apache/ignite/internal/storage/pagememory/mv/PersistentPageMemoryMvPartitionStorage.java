@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.WriteIntentListNode;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
@@ -80,6 +82,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * Cached lease info in order not to touch blobStorage each time.
      */
     private volatile @Nullable LeaseInfo leaseInfo;
+
+    private volatile WriteIntentListNode wiHead = WriteIntentListNode.EMPTY;
 
     /**
      * Lock for updating lease info in the storage.
@@ -153,6 +157,26 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         );
 
         leaseInfo = leaseInfoFromMeta();
+    }
+
+    @Override
+    public void start() {
+        super.start();
+
+        busy(() -> {
+            long wiHeadLink = meta.wiHeadLink();
+
+            if (wiHeadLink != NULL_LINK) {
+                RowVersion headRowVersion = readRowVersion(wiHeadLink, DONT_LOAD_VALUE);
+
+                this.wiHead = WriteIntentListNode.createNode(
+                        headRowVersion.rowId(),
+                        wiHeadLink,
+                        headRowVersion.getPrev(),
+                        headRowVersion.getNext()
+                );
+            }
+        });
     }
 
     @Override
@@ -358,6 +382,34 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
                 this.leaseInfo = leaseInfo;
             }
+        });
+    }
+
+    @Override
+    public WriteIntentListNode wiHead() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            return wiHead;
+        });
+    }
+
+    @Override
+    public void updateWiHead(WriteIntentListNode wiHead) {
+        busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            this.wiHead = wiHead;
+
+            updateWiHeadBusy(wiHead.link);
+
+            return null;
+        });
+    }
+
+    private void updateWiHeadBusy(long link) {
+        updateMeta((lastCheckpointId, meta) -> {
+            meta.updateWiHead(link);
         });
     }
 

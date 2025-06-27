@@ -32,9 +32,11 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.WriteIntentListNode;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.jetbrains.annotations.Nullable;
 
@@ -78,6 +80,10 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final UpdateTimestampHandler updateTimestampHandler;
 
+    private final UpdatePrevWiLinkHandler updatePrevWiLinkHandler;
+
+    private final UpdateNextWiLinkHandler updateNextWiLinkHandler;
+
     @Nullable
     private RowVersion currentRowVersion;
 
@@ -89,6 +95,8 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             HybridTimestamp timestamp,
             UUID txId,
             UpdateTimestampHandler updateTimestampHandler,
+            UpdatePrevWiLinkHandler updatePrevWiLinkHandler,
+            UpdateNextWiLinkHandler updateNextWiLinkHandler,
             AbstractPageMemoryMvPartitionStorage storage
     ) {
         this.rowId = rowId;
@@ -96,6 +104,8 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         this.txId = txId;
         this.storage = storage;
         this.updateTimestampHandler = updateTimestampHandler;
+        this.updatePrevWiLinkHandler = updatePrevWiLinkHandler;
+        this.updateNextWiLinkHandler = updateNextWiLinkHandler;
 
         RenewablePartitionStorageState localState = storage.renewableState;
 
@@ -120,8 +130,68 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
 
             HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, arg);
+            PageUtils.putLong(pageAddr, payloadOffset + RowVersion.PREV_WI_LINK_OFFSET, NULL_LINK);
+            PageUtils.putLong(pageAddr, payloadOffset + RowVersion.NEXT_WI_LINK_OFFSET, NULL_LINK);
 
             return true;
+        }
+    }
+
+    static class UpdatePrevWiLinkHandler implements PageHandler<WriteIntentListNode, WriteIntentListNode> {
+
+        @Override
+        public WriteIntentListNode run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                WriteIntentListNode removedNode,
+                int itemId
+        ) throws IgniteInternalCheckedException {
+            DataPageIo dataIo = (DataPageIo) io;
+
+            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
+
+            PageUtils.putLong(pageAddr, payloadOffset + RowVersion.PREV_WI_LINK_OFFSET, removedNode.prev);
+
+            long lsb = PageUtils.getLong(pageAddr, payloadOffset + RowVersion.ROW_ID_LSB_OFFSET);
+            long msb = PageUtils.getLong(pageAddr, payloadOffset + RowVersion.ROW_ID_MSB_OFFSET);
+
+            RowId rowId = new RowId(removedNode.rowId.partitionId(), msb, lsb);
+
+            long nextWiLink = PageUtils.getLong(pageAddr, payloadOffset + RowVersion.NEXT_WI_LINK_OFFSET);
+
+            return WriteIntentListNode.createNode(rowId, removedNode.next, removedNode.prev, nextWiLink);
+        }
+    }
+
+    static class UpdateNextWiLinkHandler implements PageHandler<WriteIntentListNode, WriteIntentListNode> {
+
+        @Override
+        public WriteIntentListNode run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                WriteIntentListNode removedNode,
+                int itemId
+        ) throws IgniteInternalCheckedException {
+            DataPageIo dataIo = (DataPageIo) io;
+
+            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
+
+            PageUtils.putLong(pageAddr, payloadOffset + RowVersion.NEXT_WI_LINK_OFFSET, removedNode.next);
+
+            long lsb = PageUtils.getLong(pageAddr, payloadOffset + RowVersion.ROW_ID_LSB_OFFSET);
+            long msb = PageUtils.getLong(pageAddr, payloadOffset + RowVersion.ROW_ID_MSB_OFFSET);
+
+            RowId rowId = new RowId(removedNode.rowId.partitionId(), msb, lsb);
+
+            long prevWiLink = PageUtils.getLong(pageAddr, payloadOffset + RowVersion.PREV_WI_LINK_OFFSET);
+
+            return WriteIntentListNode.createNode(rowId, removedNode.prev, prevWiLink, removedNode.next);
         }
     }
 
@@ -198,7 +268,24 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
                 commitWriteInfo() + ", link=" + updateTimestampLink + ", op=" + operationType;
 
         if (updateTimestampLink != NULL_LINK) {
+            assert !currentRowVersion.isCommitted() : commitWriteInfo() + ", currentRowVersion=" + currentRowVersion;
+
+            WriteIntentListNode currentNode = WriteIntentListNode.createNode(currentRowVersion.rowId(),
+                    updateTimestampLink, currentRowVersion.getPrev(), currentRowVersion.getNext());
+
             try {
+                if (currentRowVersion.getNext() != NULL_LINK) {
+                    freeList.updateDataRow(currentRowVersion.getNext(), updatePrevWiLinkHandler, currentNode);
+                }
+
+                WriteIntentListNode prevNode = currentRowVersion.getPrev() != NULL_LINK
+                        ? freeList.updateDataRow(currentRowVersion.getPrev(), updateNextWiLinkHandler, currentNode) :
+                        WriteIntentListNode.EMPTY;
+
+                if (currentRowVersion.getNext() == NULL_LINK) {
+                    storage.updateWiHead(prevNode);
+                }
+
                 freeList.updateDataRow(updateTimestampLink, updateTimestampHandler, timestamp);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException("Error while update timestamp: [link={}, {}]", e, updateTimestampLink, commitWriteInfo());

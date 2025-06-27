@@ -30,6 +30,7 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,6 +55,12 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
     private int rowValueSize;
 
     private int schemaVersion;
+
+    private RowId rowId;
+
+    private long prevWiLink;
+
+    private long nextWiLink;
 
     private @Nullable RowVersion result;
 
@@ -81,6 +88,14 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
         rowNextLink = nextLink;
         schemaVersion = Short.toUnsignedInt(PageUtils.getShort(pageAddr, payload.offset() + RowVersion.SCHEMA_VERSION_OFFSET));
 
+        long lsb = PageUtils.getLong(pageAddr, payload.offset() + RowVersion.ROW_ID_LSB_OFFSET);
+        long msb = PageUtils.getLong(pageAddr, payload.offset() + RowVersion.ROW_ID_MSB_OFFSET);
+
+        rowId = new RowId(partitionId, msb, lsb);
+
+        prevWiLink = PageUtils.getLong(pageAddr, payload.offset() + RowVersion.PREV_WI_LINK_OFFSET);
+        nextWiLink = PageUtils.getLong(pageAddr, payload.offset() + RowVersion.NEXT_WI_LINK_OFFSET);
+
         if (loadValueBytes) {
             return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
         }
@@ -105,9 +120,10 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
                     ? null
                     : new BinaryRowImpl(schemaVersion, ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
 
-            result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, row);
+            result = new RowVersion(rowId, partitionId, rowLink, rowTimestamp, rowNextLink, row, prevWiLink, nextWiLink,
+                    row == null ? 0 : row.tupleSliceLength());
         } else {
-            result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, rowValueSize);
+            result = new RowVersion(rowId, partitionId, rowLink, rowTimestamp, rowNextLink, prevWiLink, nextWiLink, rowValueSize);
         }
     }
 

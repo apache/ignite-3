@@ -60,6 +60,8 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     /** Estimated size here is not a size of a meta, but an approximate rows count. */
     private static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF + Long.BYTES;
 
+    private static final int WI_HEAD_OFF = ESTIMATED_SIZE_OFF + Long.BYTES;
+
     /** I/O versions. */
     public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(new StoragePartitionMetaIo(1));
 
@@ -89,6 +91,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         setPrimaryReplicaNodeId(pageAddr, new UUID(0, 0));
         setPrimaryReplicaNodeNameFirstPageId(pageAddr, 0);
         setEstimatedSize(pageAddr, 0);
+        setWiHead(pageAddr, 0);
     }
 
     /**
@@ -320,6 +323,34 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     }
 
     /**
+     * Sets the head link of the write intent list in the partition metadata.
+     *
+     * <p>This method updates the page at the specified address with the given head link value.
+     * The head link represents the starting point of the write intent list.
+     *
+     * @param pageAddr The address of the page to update.
+     * @param headLink The link value to set as the head of the write intent list.
+     */
+    public void setWiHead(long pageAddr, long headLink) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, WI_HEAD_OFF, headLink);
+    }
+
+    /**
+     * Retrieves the head link of the write intent list from the partition metadata.
+     *
+     * <p>This method reads the page at the specified address and returns the head link value,
+     * which represents the starting point of the write intent list.
+     *
+     * @param pageAddr The address of the page to read.
+     * @return The head link of the write intent list.
+     */
+    public long getWiHead(long pageAddr) {
+        return getLong(pageAddr, WI_HEAD_OFF);
+    }
+
+    /**
      * Sets the estimated number of latest entries in the partition.
      *
      * @param pageAddr Page address.
@@ -355,6 +386,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
                 .app("primaryReplicaNodeId=").app(getPrimaryReplicaNodeId(addr)).nl()
                 .app("primaryReplicaNodeNameFirstPageId=").app(getPrimaryReplicaNodeNameFirstPageId(addr)).nl()
                 .app("estimatedSize=").app(getEstimatedSize(addr)).nl()
+                .app("wiHead=").app(getWiHead(addr)).nl()
                 .app(']');
     }
 }

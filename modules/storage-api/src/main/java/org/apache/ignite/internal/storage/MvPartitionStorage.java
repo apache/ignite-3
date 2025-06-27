@@ -290,6 +290,26 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     void updateLease(LeaseInfo leaseInfo);
 
     /**
+     * Update a head link in partition metadata. This is used during cluster startup to recover the write intent list.
+     *
+     * @param link Link to the first row version. link.Link
+     */
+    default void updateWiHead(WriteIntentListNode link) {
+    }
+
+    /**
+     * Retrieves the head of the write intent list for the partition.
+     *
+     * <p>This method returns the first node in the write intent list, which is used to track uncommitted changes
+     * in the partition. If the list is empty, it returns a predefined empty node.
+     *
+     * @return The head of the write intent list, or {@link WriteIntentListNode#EMPTY} if the list is empty.
+     */
+    default WriteIntentListNode wiHead() {
+        return WriteIntentListNode.EMPTY;
+    }
+
+    /**
      * Returns the last saved lease information or {@code null} if it was never saved.
      */
     @Nullable LeaseInfo leaseInfo();
