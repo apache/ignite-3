@@ -69,7 +69,7 @@ internal sealed class JobLoadContextCache : IDisposable
     /// </summary>
     /// <param name="paths">Deployment unit paths.</param>
     /// <returns>Job load context.</returns>
-    public async Task<JobLoadContext> GetOrAddJobLoadContext(DeploymentUnitPaths paths)
+    public async ValueTask<JobLoadContext> GetOrAddJobLoadContext(DeploymentUnitPaths paths)
     {
         await _cacheLock.WaitAsync().ConfigureAwait(false);
 
@@ -110,7 +110,7 @@ internal sealed class JobLoadContextCache : IDisposable
     /// </summary>
     /// <param name="deploymentUnitPaths">Deployment unit paths to undeploy.</param>
     /// <returns><see cref="Task"/> representing the asynchronous operation.</returns>
-    public async Task<bool> UndeployUnits(ICollection<string> deploymentUnitPaths)
+    public async ValueTask<bool> UndeployUnits(ICollection<string> deploymentUnitPaths)
     {
         await _cacheLock.WaitAsync().ConfigureAwait(false);
 

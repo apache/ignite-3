@@ -72,7 +72,7 @@ internal static class ComputeJobExecutor
     /// </summary>
     /// <param name="request">Request.</param>
     /// <returns>Whether units were cleaned up.</returns>
-    internal static async Task<bool> UndeployUnits(PooledBuffer request)
+    internal static async ValueTask<bool> UndeployUnits(PooledBuffer request)
     {
         return await Cache.UndeployUnits(Read()).ConfigureAwait(false);
 
