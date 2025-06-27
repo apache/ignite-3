@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-description = 'ignite-raft-api'
+import java.util.List;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
+import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 
-dependencies {
-    implementation project(':ignite-core')
-    implementation project(':ignite-network-api')
-    implementation project(':ignite-configuration-api')
-    implementation project(':ignite-configuration-root')
-    implementation project(':ignite-partition-distribution')
-    implementation libs.jetbrains.annotations
-    implementation libs.auto.service.annotations
-
-    testImplementation testFixtures(project(':ignite-core'))
-
-    annotationProcessor project(":ignite-configuration-annotation-processor")
-    annotationProcessor libs.auto.service
+/** Extension of {@link FinishTxCommand} with new fields to support backward compatibility. */
+@Transferable(Commands.FINISH_TX_V2)
+public interface FinishTxCommandV2 extends FinishTxCommand {
+    /** Returns ordered partitions. */
+    List<EnlistedPartitionGroupMessage> partitions();
 }

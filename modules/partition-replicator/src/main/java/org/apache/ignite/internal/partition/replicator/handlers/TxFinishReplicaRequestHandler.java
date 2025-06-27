@@ -44,7 +44,7 @@ import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.ReplicationRaftCommandApplicator;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandBuilder;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2Builder;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.CompatValidationResult;
@@ -316,7 +316,7 @@ public class TxFinishReplicaRequestHandler {
             List<EnlistedPartitionGroupMessage> enlistedPartitions
     ) {
         HybridTimestamp now = clockService.now();
-        FinishTxCommandBuilder finishTxCmdBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
+        FinishTxCommandV2Builder finishTxCmdBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommandV2()
                 .txId(transactionId)
                 .commit(commit)
                 .initiatorTime(now)
