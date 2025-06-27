@@ -23,20 +23,32 @@ import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
  * Reads {@link RowVersion#value()} from page-memory.
  */
 class ReadRowVersionValue extends ReadPageMemoryRowValue {
-    /** {@inheritDoc} */
     @Override
-    protected int valueSizeOffsetInFirstSlot() {
-        return RowVersion.VALUE_SIZE_OFFSET;
+    protected int valueSizeOffsetInFirstSlot(byte dataType) {
+        switch (dataType) {
+            case RowVersion.DATA_TYPE:
+                return RowVersion.VALUE_SIZE_OFFSET;
+            case WiLinkableRowVersion.DATA_TYPE:
+                return WiLinkableRowVersion.VALUE_SIZE_OFFSET;
+            default:
+                throw new IllegalStateException("Unsupported data type: " + dataType);
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
-    protected int valueOffsetInFirstSlot() {
-        return RowVersion.VALUE_OFFSET;
+    protected int valueOffsetInFirstSlot(byte dataType) {
+        switch (dataType) {
+            case RowVersion.DATA_TYPE:
+                return RowVersion.VALUE_OFFSET;
+            case WiLinkableRowVersion.DATA_TYPE:
+                return WiLinkableRowVersion.VALUE_OFFSET;
+            default:
+                throw new IllegalStateException("Unsupported data type: " + dataType);
+        }
     }
 
     @Override
-    protected byte dataType() {
-        return RowVersion.DATA_TYPE;
+    protected boolean supportsDataType(byte dataType) {
+        return dataType == RowVersion.DATA_TYPE || dataType == WiLinkableRowVersion.DATA_TYPE;
     }
 }

@@ -24,12 +24,14 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.read
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.jetbrains.annotations.Nullable;
 
@@ -45,6 +47,8 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
+    private byte dataType;
+
     private long rowLink = NULL_LINK;
 
     private @Nullable HybridTimestamp rowTimestamp;
@@ -54,6 +58,11 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
     private int rowValueSize;
 
     private int schemaVersion;
+
+    private RowId rowId;
+
+    private long nextWiLink;
+    private long prevWiLink;
 
     private @Nullable RowVersion result;
 
@@ -76,18 +85,30 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
 
         rowVersionFound = true;
 
+        dataType = PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET);
+
         rowLink = link;
         rowTimestamp = HybridTimestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
         rowNextLink = nextLink;
         schemaVersion = Short.toUnsignedInt(PageUtils.getShort(pageAddr, payload.offset() + RowVersion.SCHEMA_VERSION_OFFSET));
 
-        if (loadValueBytes) {
-            return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
+        if (dataType == WiLinkableRowVersion.DATA_TYPE) {
+            long rowIdMsb = PageUtils.getLong(pageAddr, payload.offset() + WiLinkableRowVersion.ROW_ID_MSB_OFFSET);
+            long rowIdLsb = PageUtils.getLong(pageAddr, payload.offset() + WiLinkableRowVersion.ROW_ID_LSB_OFFSET);
+
+            rowId = new RowId(partitionId, rowIdMsb, rowIdLsb);
+
+            nextWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.NEXT_WRITE_INTENT_LINK_OFFSET);
+            prevWiLink = readPartitionless(partitionId, pageAddr, payload.offset() + WiLinkableRowVersion.PREV_WRITE_INTENT_LINK_OFFSET);
         }
 
-        rowValueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
+        if (loadValueBytes) {
+            return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
+        } else {
+            rowValueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
 
-        return STOP_TRAVERSAL;
+            return STOP_TRAVERSAL;
+        }
     }
 
     @Override
@@ -96,18 +117,33 @@ class FindRowVersion implements PageMemoryTraversal<RowVersionFilter> {
             return;
         }
 
+        BinaryRow value;
+        int valueSize;
+
         if (loadValueBytes) {
             readRowVersionValue.finish();
 
             byte[] valueBytes = readRowVersionValue.result();
 
-            BinaryRow row = valueBytes.length == 0
+            value = valueBytes.length == 0
                     ? null
                     : new BinaryRowImpl(schemaVersion, ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
-
-            result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, row);
+            valueSize = value == null ? 0 : value.tupleSliceLength();
         } else {
-            result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, rowValueSize);
+            value = null;
+            valueSize = rowValueSize;
+        }
+
+        switch (dataType) {
+            case RowVersion.DATA_TYPE:
+                result = new RowVersion(partitionId, rowLink, rowTimestamp, rowNextLink, valueSize, value);
+                break;
+            case WiLinkableRowVersion.DATA_TYPE:
+                result = new WiLinkableRowVersion(rowId, partitionId, rowLink, rowTimestamp, rowNextLink, nextWiLink, prevWiLink,
+                        valueSize, value);
+                break;
+            default:
+                throw new IllegalStateException("Unexpected row version data type: " + dataType);
         }
     }
 

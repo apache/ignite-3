@@ -213,7 +213,7 @@ public class StoragePartitionMetaTest {
     }
 
     private static StoragePartitionMeta createMeta() {
-        return new StoragePartitionMeta(0, 1, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0)
+        return new StoragePartitionMeta(0, 1, 0, 0, 0, 0, null, 0, 0, 0, 0, 0, 0, 0)
                 .init(null);
     }
 }

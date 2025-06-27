@@ -48,7 +48,8 @@ public class StoragePartitionMetaFactory implements PartitionMetaFactory {
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
                 metaIo.getGcQueueMetaPageId(pageAddr),
-                metaIo.getEstimatedSize(pageAddr)
+                metaIo.getEstimatedSize(pageAddr),
+                metaIo.getWiHead(pageAddr)
         );
 
         return result.init(checkpointId);
@@ -56,6 +57,6 @@ public class StoragePartitionMetaFactory implements PartitionMetaFactory {
 
     @Override
     public StoragePartitionMetaIo partitionMetaIo() {
-        return StoragePartitionMetaIo.VERSIONS.latest();
+        return StoragePartitionMetaIoVersions.VERSIONS.latest();
     }
 }

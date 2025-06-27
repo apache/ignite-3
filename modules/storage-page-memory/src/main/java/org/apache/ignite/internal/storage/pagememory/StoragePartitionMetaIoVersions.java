@@ -15,26 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.freelist;
+package org.apache.ignite.internal.storage.pagememory;
 
-import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
 
-/**
- * Reads {@link IndexColumns#valueBuffer()} value from page-memory.
- */
-public class ReadIndexColumnsValue extends ReadPageMemoryRowValue {
-    @Override
-    protected int valueSizeOffsetInFirstSlot(byte dataType) {
-        return IndexColumns.SIZE_OFFSET;
-    }
-
-    @Override
-    protected int valueOffsetInFirstSlot(byte dataType) {
-        return IndexColumns.VALUE_OFFSET;
-    }
-
-    @Override
-    protected boolean supportsDataType(byte dataType) {
-        return dataType == IndexColumns.DATA_TYPE;
-    }
+/** Storage partition meta I/O versions. */
+public class StoragePartitionMetaIoVersions {
+    /** I/O versions. */
+    public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(
+            new StoragePartitionMetaIo(),
+            new StoragePartitionMetaIoV2()
+    );
 }
