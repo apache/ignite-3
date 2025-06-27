@@ -29,6 +29,25 @@ public class IgniteCommand : DbCommand
 {
     private IgniteParameterCollection _parameters;
 
+    public override string CommandText { get; set; }
+
+    public override int CommandTimeout { get; set; }
+
+    public override CommandType CommandType { get; set; }
+
+    public override UpdateRowSource UpdatedRowSource { get; set; }
+
+    public override bool DesignTimeVisible { get; set; }
+
+    public CommandSource CommandSource { get; set; }
+
+    protected override DbConnection DbConnection { get; set; }
+
+    protected override DbParameterCollection DbParameterCollection =>
+        _parameters ??= new IgniteParameterCollection();
+
+    protected override DbTransaction DbTransaction { get; set; }
+
     public override void Cancel()
     {
         // No-op.
@@ -48,7 +67,7 @@ public class IgniteCommand : DbCommand
         Console.WriteLine($"IgniteCommand.ExecuteNonQueryAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
         // TODO: Propagate transaction somehow.
-        await using IResultSet<object> resultSet = await Sql.ExecuteAsync<object>(
+        await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
             transaction: null,
             statement,
             cancellationToken,
@@ -71,25 +90,6 @@ public class IgniteCommand : DbCommand
         // No-op.
     }
 
-    public override string CommandText { get; set; }
-
-    public override int CommandTimeout { get; set; }
-
-    public override CommandType CommandType { get; set; }
-
-    public override UpdateRowSource UpdatedRowSource { get; set; }
-
-    protected override DbConnection DbConnection { get; set; }
-
-    protected override DbParameterCollection DbParameterCollection =>
-        _parameters ??= new IgniteParameterCollection();
-
-    protected override DbTransaction DbTransaction { get; set; }
-
-    public override bool DesignTimeVisible { get; set; }
-
-    public CommandSource CommandSource { get; set; }
-
     protected override async Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
     {
         if (CommandSource == CommandSource.SaveChanges)
@@ -107,7 +107,7 @@ public class IgniteCommand : DbCommand
         Console.WriteLine($"IgniteCommand.ExecuteDbDataReaderAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
         // TODO: Propagate transaction somehow.
-        return await Sql.ExecuteReaderAsync(
+        return await GetSql().ExecuteReaderAsync(
             null,
             statement,
             cancellationToken,
@@ -121,11 +121,20 @@ public class IgniteCommand : DbCommand
         throw new NotImplementedException();
     }
 
-    private IIgniteClient IgniteClient => ((IgniteConnection)DbConnection).Client;
+    private ISql GetSql()
+    {
+        if (DbConnection is not IgniteConnection igniteConn)
+        {
+            throw new InvalidOperationException("DbConnection is not an IgniteConnection or is null.");
+        }
 
-    private ISql Sql => IgniteClient.Sql;
+        var client = igniteConn.Client
+                     ?? throw new InvalidOperationException("Ignite client is not initialized (connection is not open).");
 
-    private object[] GetArgs() => _parameters?.ToObjectArray() ?? [];
+        return client.Sql;
+    }
 
     private SqlStatement GetStatement() => new(CommandText);
+
+    private object[] GetArgs() => _parameters?.ToObjectArray() ?? [];
 }
