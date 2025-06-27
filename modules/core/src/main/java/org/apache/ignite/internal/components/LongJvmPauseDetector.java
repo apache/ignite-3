@@ -111,13 +111,13 @@ public class LongJvmPauseDetector implements IgniteComponent {
                 try {
                     Thread.sleep(PRECISION);
 
-                    long now = System.currentTimeMillis();
-                    long pause = now - PRECISION - lastWakeUpTime;
+                    synchronized (this) {
+                        long now = System.currentTimeMillis();
+                        long pause = now - PRECISION - lastWakeUpTime;
 
-                    if (pause >= threshold) {
-                        log.warn("Possible too long JVM pause [duration={}ms]", pause);
+                        if (pause >= threshold) {
+                            log.warn("Possible too long JVM pause [duration={}ms]", pause);
 
-                        synchronized (this) {
                             int next = (int) (longPausesCnt % EVT_CNT);
 
                             longPausesCnt++;
@@ -129,9 +129,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
                             longPausesDurations[next] = pause;
 
                             lastWakeUpTime = now;
-                        }
-                    } else {
-                        synchronized (this) {
+                        } else {
                             lastWakeUpTime = now;
                         }
                     }
