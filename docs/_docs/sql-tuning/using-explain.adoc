@@ -519,7 +519,7 @@ from **emp** table to appropriate **dept** one.
 
 And finally, both join predicate related columns are colocated:
 
-NOTE: Please note that the following colocation example will only work if the **emp** and **dept** tables belong to the same distribution zone.
+NOTE: The following colocation example will only work if the **emp** and **dept** tables belong to the same distribution zone.
 
 [source,sql]
 ----
