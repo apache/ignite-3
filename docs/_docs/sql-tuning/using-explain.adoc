@@ -291,73 +291,6 @@ And the plan becomes as follows:
          ...
 ----
 
-== Colocated Data Misses
-
-Usually, you want to colocate entries that are often accessed together.
-This way, multi-entry queries are executed on the same node without involving data from other nodes.
-Let`s consider schema and follow query:
-
-[source,sql]
-----
--- The table is explicitly colocated by dept_id column.
-CREATE TABLE emp(dept_id INTEGER, name VARCHAR, salary INTEGER, PRIMARY KEY(dept_id, name)) COLOCATE BY(dept_id);
-
--- The table is missing the COLOCATE BY command and is implicitly colocated by primary key (id, name).
-CREATE TABLE dept(id INTEGER, name VARCHAR, PRIMARY KEY(id, name));
-
-SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id;
-----
-
-We would expect a colocated join here, but plan shows a different result:
-
-[source,sql]
-----
-     HashJoin
-         ...
-       TableScan
-           table: PUBLIC.EMP
-           ...
-       Exchange
-           distribution: table PUBLIC.EMP in zone "Default" by [ID]
-           ...
-         TableScan
-             table: PUBLIC.DEPT
-----
-
-We can see the **Exchange** operator between two table scans, which means that predicate involved rows belonging to the same table
-
-that had to be transferred to different nodes that hold corresponding predicate involved columns, but have a different distribution.
-
-After changing 'lost' colocation:
-
-[source,sql]
-----
--- explicitly colocated by (dept_id)
-CREATE TABLE emp(dept_id INTEGER, name VARCHAR, salary INTEGER, PRIMARY KEY(dept_id, name)) COLOCATE BY(dept_id);
-
--- explicitly colocated by (id)
-CREATE TABLE dept(id INTEGER, name VARCHAR, PRIMARY KEY(id, name)) COLOCATE BY(id);
-
-SELECT emp.name, dept.name FROM emp JOIN dept ON emp.dept_id = dept.id;
-----
-
-Possible plan will show correct colocated join:
-
-[source,sql]
-----
-     HashJoin
-         ...
-       TableScan
-           table: PUBLIC.EMP
-           ...
-       TableScan
-           table: PUBLIC.DEPT
-           ...
-----
-
-Now, both tables are colocated by predicate involved columns. No more intermediate **Exchange** contained in plan,
-and as a result no additional cross nodes data transfer is raised in such a case.
-
 == Select Count Optimization
 
 Some queries can be optimized to use more optimal plans which brings performance speed up. For example, plan for:
@@ -582,9 +515,11 @@ node where **dept** holds the rows according to **DEPT.ID** distribution:
 ----
 
 Only one **Exchange** operator for now, which, once again, mean only rows transferring
-from **Emp** table to appropriate **DEPT** one.
+from **emp** table to appropriate **dept** one.
 
 And finally, both join predicate related columns are colocated:
+
+NOTE: Please note that the following colocation example will only work if the **emp** and **dept** tables belong to the same distribution zone.
 
 [source,sql]
 ----
@@ -594,8 +529,9 @@ CREATE TABLE emp(dept_id INTEGER, name VARCHAR, salary INTEGER, PRIMARY KEY(dept
 CREATE TABLE dept(id INTEGER, name VARCHAR, PRIMARY KEY(id, name)) COLOCATE BY(id);
 ----
 
-Now, the emp and dept tables are colocated by ID column also they belong to the same distribution zone.
-And plan will look like this:
+Now, the **emp** and **dept** tables are both colocated.
+
+And the final plan will look like this:
 
 [source,sql]
 ----
