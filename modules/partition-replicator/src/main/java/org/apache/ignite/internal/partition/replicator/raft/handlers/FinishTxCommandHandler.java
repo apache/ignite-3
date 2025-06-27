@@ -29,6 +29,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV1;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
@@ -72,6 +74,15 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) throws IgniteInternalException {
+        return handleInternally(command, commandIndex, commandTerm, enlistedPartitions(command));
+    }
+
+    private CommandResult handleInternally(
+            FinishTxCommand command,
+            long commandIndex,
+            long commandTerm,
+            List<EnlistedPartitionGroup> enlistedPartitions
+    ) throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStatePartitionStorage.lastAppliedIndex()) {
             return CommandResult.EMPTY_NOT_APPLIED_RESULT;
@@ -83,7 +94,7 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                fromPartitionMessages(command.partitions()),
+                enlistedPartitions,
                 command.commitTimestamp()
         );
 
@@ -139,5 +150,20 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
         LOG.error(errorMsg);
 
         throw stateChangeException;
+    }
+
+    private static List<EnlistedPartitionGroup> enlistedPartitions(FinishTxCommand command) {
+        if (command instanceof FinishTxCommandV2) {
+            return fromPartitionMessages(((FinishTxCommandV2) command).partitions());
+        } else if (command instanceof FinishTxCommandV1) {
+            return enlistedPartitions((FinishTxCommandV1) command);
+        }
+
+        throw new IllegalArgumentException("Unknown command: " + command);
+    }
+
+    private static List<EnlistedPartitionGroup> enlistedPartitions(FinishTxCommandV1 command) {
+        // TODO: IGNITE-25732 доедалть
+        return List.of();
     }
 }
