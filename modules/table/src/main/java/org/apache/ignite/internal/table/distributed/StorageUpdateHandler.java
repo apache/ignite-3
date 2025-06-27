@@ -27,6 +27,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -54,6 +56,8 @@ import org.jetbrains.annotations.TestOnly;
 
 /** Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests. */
 public class StorageUpdateHandler {
+    private static final IgniteLogger LOG = Loggers.forClass(StorageUpdateHandler.class);
+
     /** Partition id. */
     private final int partitionId;
 
@@ -98,6 +102,35 @@ public class StorageUpdateHandler {
     /** Returns partition ID of the storage. */
     public int partitionId() {
         return partitionId;
+    }
+
+    /**
+     * Starts the handler doing necessary recovery.
+     */
+    public void start() {
+        recoverPendingRows();
+    }
+
+    private void recoverPendingRows() {
+        LOG.info("Recovering pending rows [tableId={}, partitionIndex={}]", storage.tableId(), storage.partitionId());
+
+        int count = 0;
+        try (Cursor<RowId> writeIntentRowIds = storage.getStorage().scanWriteIntents()) {
+            for (RowId rowId : writeIntentRowIds) {
+                ReadResult result = storage.getStorage().read(rowId, HybridTimestamp.MAX_VALUE);
+
+                if (!result.isEmpty() && result.isWriteIntent()) {
+                    UUID txId = result.transactionId();
+                    assert txId != null : "Transaction ID is null for a write intent [rowId=" + rowId + "]";
+
+                    pendingRows.addPendingRowId(txId, rowId);
+                }
+
+                count++;
+            }
+        }
+
+        LOG.info("Recovered pending rows [tableId={}, partitionIndex={}, count={}]", storage.tableId(), storage.partitionId(), count);
     }
 
     /**

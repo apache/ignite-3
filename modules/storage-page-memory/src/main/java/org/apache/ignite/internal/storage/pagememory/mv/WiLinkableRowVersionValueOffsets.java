@@ -15,15 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
+class WiLinkableRowVersionValueOffsets implements RowVersionValueOffsets {
+    static final WiLinkableRowVersionValueOffsets INSTANCE = new WiLinkableRowVersionValueOffsets();
 
-/** Storage partition meta I/O versions. */
-public class StoragePartitionMetaIoVersions {
-    /** I/O versions. */
-    public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(
-            new StoragePartitionMetaIo(),
-            new StoragePartitionMetaIoV2()
-    );
+    private WiLinkableRowVersionValueOffsets() {
+        // No-op.
+    }
+
+    @Override
+    public int valueSizeOffsetInFirstSlot() {
+        return WiLinkableRowVersion.VALUE_SIZE_OFFSET;
+    }
+
+    @Override
+    public int valueOffsetInFirstSlot() {
+        return WiLinkableRowVersion.VALUE_OFFSET;
+    }
 }

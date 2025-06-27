@@ -27,6 +27,8 @@ interface RowVersionValueOffsets {
         switch (dataType) {
             case RowVersion.DATA_TYPE:
                 return PlainRowVersionValueOffsets.INSTANCE;
+            case WiLinkableRowVersion.DATA_TYPE:
+                return WiLinkableRowVersionValueOffsets.INSTANCE;
             default:
                 throw new IllegalStateException("Unsupported data type: " + dataType);
         }

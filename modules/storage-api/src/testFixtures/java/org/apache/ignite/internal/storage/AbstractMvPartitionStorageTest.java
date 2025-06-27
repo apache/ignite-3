@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.isRow;
 import static org.apache.ignite.internal.storage.AbortResultMatcher.equalsToAbortResult;
 import static org.apache.ignite.internal.storage.AddWriteCommittedResultMatcher.equalsToAddWriteCommittedResult;
@@ -70,8 +71,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     private final TestValue value = new TestValue(20, "bar");
     protected final BinaryRow binaryRow = binaryRow(key, value);
     private final TestValue value2 = new TestValue(21, "bar2");
-    private final BinaryRow binaryRow2 = binaryRow(key, value2);
-    private final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
+    protected final BinaryRow binaryRow2 = binaryRow(key, value2);
+    protected final BinaryRow binaryRow3 = binaryRow(key, new TestValue(22, "bar3"));
 
     /**
      * Tests that reads from empty storage return empty results.
@@ -2072,6 +2073,19 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         abortWrite(ROW_ID, txId);
 
         assertThat(storage.estimatedSize(), is(1L));
+    }
+
+    @Test
+    protected void writeIntentsCursorIsEmptyEvenWhenHavingWriteIntents() {
+        addWrite(ROW_ID, binaryRow, txId);
+
+        try (Cursor<RowId> cursor = storage.scanWriteIntents()) {
+            assertThat(drain(cursor), is(empty()));
+        }
+    }
+
+    protected static <T> List<T> drain(Cursor<T> cursor) {
+        return cursor.stream().collect(toUnmodifiableList());
     }
 
     /**

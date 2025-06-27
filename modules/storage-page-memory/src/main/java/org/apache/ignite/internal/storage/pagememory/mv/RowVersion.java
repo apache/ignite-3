@@ -94,13 +94,6 @@ public class RowVersion implements Storable {
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long link, @Nullable HybridTimestamp commitTimestamp, long nextLink, int valueSize) {
-        this(partitionId, link, commitTimestamp, nextLink, valueSize, null);
-    }
-
-    /**
-     * Constructor.
-     */
     public RowVersion(
             int partitionId,
             long link,
@@ -247,6 +240,10 @@ public class RowVersion implements Storable {
     private short schemaVersionOrZero() {
         //noinspection NumericCastThatLosesPrecision
         return value == null ? 0 : (short) value.schemaVersion();
+    }
+
+    RowVersionOperations operations() {
+        return PlainRowVersionOperations.INSTANCE;
     }
 
     static long readNextLink(int partitionId, long pageAddr, int offset) {

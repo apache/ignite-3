@@ -15,15 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.pagememory.util.PageHandler;
 
-/** Storage partition meta I/O versions. */
-public class StoragePartitionMetaIoVersions {
-    /** I/O versions. */
-    public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(
-            new StoragePartitionMetaIo(),
-            new StoragePartitionMetaIoV2()
+/**
+ * Operations that can be performed on a row version. Used to abstract different behaviors for different row version types.
+ */
+interface RowVersionOperations {
+    void removeFromWriteIntentsList(
+            AbstractPageMemoryMvPartitionStorage storage,
+            Supplier<String> operationInfoSupplier
     );
+
+    long nextWriteIntentLink(long defaultLink);
+
+    long prevWriteIntentLink();
+
+    PageHandler<HybridTimestamp, Object> converterToCommittedVersion();
 }
