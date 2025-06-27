@@ -47,7 +47,9 @@ public class BasicTest
         {
             Author = new Author(Guid.NewGuid(), "George", "Orwell")
         };
+
         ctx.Books.Add(book);
+
         await ctx.SaveChangesAsync();
         ctx.ChangeTracker.Clear();
 
@@ -75,6 +77,14 @@ public class BasicTest
 
         var queryString = query.ToQueryString();
         Assert.AreEqual(expectedSql, queryString);
+    }
+
+    [Test]
+    public async Task TestMigrateFromEmpty()
+    {
+        await using var ctx = CreateDbContext();
+
+        await ctx.Database.MigrateAsync();
     }
 
     private static TestDbContext CreateDbContext()
