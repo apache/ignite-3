@@ -69,7 +69,7 @@ public class IgniteCommand : DbCommand
         Console.WriteLine($"IgniteCommand.ExecuteNonQueryAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
         await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
-            transaction: GetTransaction(),
+            transaction: null, // DDL does not support transactions.
             statement,
             cancellationToken,
             args);
