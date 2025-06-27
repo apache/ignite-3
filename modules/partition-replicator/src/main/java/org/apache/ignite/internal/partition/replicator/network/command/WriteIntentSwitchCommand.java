@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.network.command;
 
-import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -25,8 +24,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command to cleanup on a transaction commit.
+ *
+ * <p>This command is replaced with {@link WriteIntentSwitchCommandV2} and only exists in the source code for backward compatibility.
  */
-@Transferable(PartitionReplicationMessageGroup.Commands.WRITE_INTENT_SWITCH)
+@Transferable(PartitionReplicationMessageGroup.Commands.WRITE_INTENT_SWITCH_V1)
 public interface WriteIntentSwitchCommand extends PartitionCommand {
     /**
      * Returns a commit or a rollback state.
@@ -35,7 +36,4 @@ public interface WriteIntentSwitchCommand extends PartitionCommand {
 
     /** Transaction commit timestamp. */
     @Nullable HybridTimestamp commitTimestamp();
-
-    /** IDs of tables in which the partition in question had write intents. */
-    Set<Integer> tableIds();
 }

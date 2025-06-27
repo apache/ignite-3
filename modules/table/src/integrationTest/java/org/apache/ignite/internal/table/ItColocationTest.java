@@ -289,7 +289,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                                                 .build())
                         );
 
-                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                         .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .messageRowsToUpdate(rows)
@@ -302,7 +302,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
-                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+                return r.run(PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                         .tableId(TABLE_ID)
                         .commitPartitionId(commitPartId)
                         .rowUuid(UUID.randomUUID())

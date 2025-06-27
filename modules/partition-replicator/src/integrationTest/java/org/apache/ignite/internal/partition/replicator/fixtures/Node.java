@@ -125,8 +125,6 @@ import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigur
 import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -162,7 +160,9 @@ import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigu
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfigurationSchema;

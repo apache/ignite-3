@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator.raft.handlers;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommandV2;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
@@ -48,10 +49,12 @@ public class WriteIntentSwitchCommandHandler extends AbstractCommandHandler<Writ
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
+        assert switchCommand instanceof WriteIntentSwitchCommandV2 : "Unexpected command type: " + switchCommand.getClass();
+
         txFinishMarker.markFinished(switchCommand.txId(), switchCommand.commit(), switchCommand.commitTimestamp(), null);
 
         boolean applied = false;
-        for (int tableId : switchCommand.tableIds()) {
+        for (int tableId : ((WriteIntentSwitchCommandV2) switchCommand).tableIds()) {
             CommandResult singleResult = raftTableProcessor(tableId)
                     .processCommand(switchCommand, commandIndex, commandTerm, safeTimestamp);
 

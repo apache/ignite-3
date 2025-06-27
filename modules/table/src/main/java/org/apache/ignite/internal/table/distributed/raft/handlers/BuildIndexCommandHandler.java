@@ -35,6 +35,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.AbstractCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -52,7 +53,10 @@ import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Raft command handler that handles {@link BuildIndexCommand}.
+ * Raft command handler that handles {@link BuildIndexCommandV2}.
+ *
+ * <p>We will also handle {@link BuildIndexCommand}, since there is no specific logic for {@link BuildIndexCommandV2}, we will leave it
+ * as is to support backward compatibility.</p>
  */
 public class BuildIndexCommandHandler extends AbstractCommandHandler<BuildIndexCommand> {
     private static final IgniteLogger LOG = Loggers.forClass(BuildIndexCommandHandler.class);
