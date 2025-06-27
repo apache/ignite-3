@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.handlers;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTxFinishMarker;
 import org.apache.ignite.internal.partition.replicator.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -163,7 +165,9 @@ public class FinishTxCommandHandler extends AbstractCommandHandler<FinishTxComma
     }
 
     private static List<EnlistedPartitionGroup> enlistedPartitions(FinishTxCommandV1 command) {
-        // TODO: IGNITE-25732 доедалть
-        return List.of();
+        return command.partitionIds().stream()
+                .map(TablePartitionIdMessage::asTablePartitionId)
+                .map(EnlistedPartitionGroup::new)
+                .collect(toList());
     }
 }

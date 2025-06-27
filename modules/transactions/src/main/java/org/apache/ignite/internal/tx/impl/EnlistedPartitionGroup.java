@@ -23,7 +23,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition enlistment information together with partition group ID.
@@ -41,7 +40,6 @@ public class EnlistedPartitionGroup {
     }
 
     /** Constructor. */
-    @TestOnly
     public EnlistedPartitionGroup(TablePartitionId groupId) {
         this(groupId, Set.of(groupId.tableId()));
     }
