@@ -33,7 +33,10 @@ public class BasicTest
         var tables = await client.Tables.GetTablesAsync();
         var script = string.Join("\n", tables.Select(t => $"DROP TABLE {t.Name}; "));
 
-        await client.Sql.ExecuteScriptAsync(script);
+        if (!string.IsNullOrWhiteSpace(script))
+        {
+            await client.Sql.ExecuteScriptAsync(script);
+        }
     }
 
     [Test]
