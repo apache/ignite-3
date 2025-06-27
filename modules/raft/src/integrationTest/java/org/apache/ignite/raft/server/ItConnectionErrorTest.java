@@ -26,7 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -46,8 +48,12 @@ import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.ReplicatorGroupImpl;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.server.counter.CounterListener;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -59,6 +65,8 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
     private Supplier<CounterListener> listenerFactory = CounterListener::new;
 
     private List<LogInspector> logInspectors;
+
+    private List<TestLogAppender> testAppenders = new ArrayList<>();
 
     @BeforeEach
     public void setUp() throws Exception {
@@ -100,12 +108,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         startClient(TEST_GROUP);
     }
 
-    @Test
+    @RepeatedTest(1000)
     public void testStopLeader() throws Exception {
         commonTestStopNode(true);
     }
 
-    @Test
+    @RepeatedTest(1000)
     public void testStopFollower() throws Exception {
         commonTestStopNode(false);
     }
@@ -122,15 +130,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         // Wait for some time for log spam.
         Thread.sleep(3_000);
 
-        for (LogInspector logInspector : logInspectors) {
-            assertTrue(
-                    logInspector.timesMatched().min().orElseThrow() < 2,
-                    logInspector.loggerName() + " has written to the log more than 1 time."
-            );
+        for (TestLogAppender testAppender : testAppenders) {
+            assertTrue(testAppender.check(), testAppender.getName()  + " has written to the log more than 1 time.");
         }
     }
 
-    private static List<LogInspector> startLogInspectors() {
+    private List<LogInspector> startLogInspectors() {
         List<LogInspector> logInspectors = new ArrayList<>();
 
         logInspectors.add(logInspector(ReplicatorGroupImpl.class, "Fail to check replicator connection"));
@@ -145,8 +150,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         return logInspectors;
     }
 
-    private static LogInspector logInspector(Class<?> cls, String msg) {
-        return new LogInspector(cls.getName(), evt -> evt.getMessage().getFormattedMessage().contains(msg));
+    private LogInspector logInspector(Class<?> cls, String msg) {
+        var appender = new TestLogAppender(cls.getName(), msg);
+
+        testAppenders.add(appender);
+
+        return new LogInspector(cls.getName(), appender);
     }
 
     private static void stopLogInspectors(List<LogInspector> logInspectors) {
@@ -204,5 +213,32 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
     private static RaftGroupOptions groupOptions(RaftServer raftServer) {
         return defaults().commandsMarshaller(new ThreadLocalOptimizedMarshaller(raftServer.clusterService().serializationRegistry()));
+    }
+
+    private static class TestLogAppender extends AbstractAppender {
+        private final String requiredSubstring;
+        private Map<String, AtomicInteger> perThreadCounters = new ConcurrentHashMap<>();
+
+        TestLogAppender(String name, String requiredSubstring) {
+            super(name, null, null, true, Property.EMPTY_ARRAY);
+
+            this.requiredSubstring = requiredSubstring;
+        }
+
+        @Override
+        public void append(LogEvent event) {
+            if (event.getMessage().getFormattedMessage().contains(requiredSubstring)) {
+                assertTrue(event.getThreadName().startsWith("%"));
+                String instanceName = event.getThreadName().split("%")[1];
+                perThreadCounters.computeIfAbsent(instanceName, k -> new AtomicInteger()).incrementAndGet();
+            }
+        }
+
+        boolean check() {
+            return perThreadCounters.values().stream()
+                    .filter(v -> v.get() > 1)
+                    .findAny()
+                    .isEmpty();
+        }
     }
 }
