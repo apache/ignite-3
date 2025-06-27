@@ -67,10 +67,10 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.FastTimestamps;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -6318,7 +6318,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             try {
                 return nextPage(lastRow);
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Unable to read the next page", e);
+                // Can't throw checked exceptions from existing iterator API.
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Unable to read the next page", e);
             }
         }
 

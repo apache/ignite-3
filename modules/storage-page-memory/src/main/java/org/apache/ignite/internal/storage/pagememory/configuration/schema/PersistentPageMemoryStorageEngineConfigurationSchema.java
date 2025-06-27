@@ -24,7 +24,6 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.PowerOfTwo;
 import org.apache.ignite.configuration.validation.Range;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 
 /**

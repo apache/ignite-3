@@ -48,11 +48,10 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -73,8 +72,6 @@ import org.mockito.invocation.InvocationOnMock;
  */
 @ExtendWith({ConfigurationExtension.class, ExecutorServiceExtension.class})
 public class CheckpointManagerTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration
-    private PageMemoryCheckpointConfiguration checkpointConfig;
 
     @InjectExecutorService
     private ExecutorService executorService;
@@ -89,7 +86,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 mock(FailureManager.class),
-                checkpointConfig,
+                CheckpointConfiguration.builder().build(),
                 mock(FilePageStoreManager.class),
                 mock(PartitionMetaManager.class),
                 List.of(dataRegion),
@@ -202,7 +199,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 "test",
                 null,
                 mock(FailureManager.class),
-                checkpointConfig,
+                CheckpointConfiguration.builder().build(),
                 filePageStoreManager,
                 mock(PartitionMetaManager.class),
                 List.of(),

@@ -113,7 +113,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
             for (int i = 0; i < 100; i++) {
                 map.put(UUID.randomUUID(), timedBinaryRowMessage);
             }
-            message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommand()
+            message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateAllCommandV2()
                     .txId(uuid)
                     .leaseStartTime(timestamp.longValue())
                     .safeTime(timestamp)
@@ -128,7 +128,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                     .messageRowsToUpdate(map)
                     .build();
         } else {
-            message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommand()
+            message = PARTITION_REPLICATION_MESSAGES_FACTORY.updateCommandV2()
                     .txId(uuid)
                     .leaseStartTime(timestamp.longValue())
                     .safeTime(timestamp)

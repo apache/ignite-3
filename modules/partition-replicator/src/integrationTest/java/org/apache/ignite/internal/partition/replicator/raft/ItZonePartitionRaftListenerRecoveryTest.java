@@ -561,7 +561,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                         .build())
                 .build();
 
-        return MESSAGE_FACTORY.updateCommand()
+        return MESSAGE_FACTORY.updateCommandV2()
                 .tableId(tableId)
                 .commitPartitionId(toReplicationGroupIdMessage(new ReplicaMessagesFactory(), PARTITION_ID))
                 .rowUuid(id)
