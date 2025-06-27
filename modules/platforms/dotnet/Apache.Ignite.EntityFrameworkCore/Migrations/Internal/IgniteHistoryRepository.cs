@@ -32,13 +32,9 @@ public class IgniteHistoryRepository : HistoryRepository
         get
         {
             var stringTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(string));
+            var literal = stringTypeMapping.GenerateSqlLiteral(TableName);
 
-            return
-                $"""
-                 SELECT COUNT(*) FROM "IGNITE_MASTER_TODO" 
-                                 WHERE "name" = {stringTypeMapping.GenerateSqlLiteral(TableName)} 
-                                   AND "type" = 'table';
-                 """;
+            return $"SELECT COUNT(*) FROM SYSTEM.TABLES WHERE TABLE_NAME = {literal};";
         }
     }
 

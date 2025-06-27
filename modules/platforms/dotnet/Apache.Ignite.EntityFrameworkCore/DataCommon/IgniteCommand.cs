@@ -24,6 +24,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Sql;
+using Table;
 
 public class IgniteCommand : DbCommand
 {
@@ -87,7 +88,7 @@ public class IgniteCommand : DbCommand
         Console.WriteLine($"IgniteCommand.ExecuteScalarAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
         // TODO: Propagate transaction somehow.
-        await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
+        await using IResultSet<IIgniteTuple> resultSet = await GetSql().ExecuteAsync(
             transaction: null,
             statement,
             cancellationToken,
@@ -96,7 +97,7 @@ public class IgniteCommand : DbCommand
         await foreach (var row in resultSet)
         {
             // Return the first result.
-            return row;
+            return row[0];
         }
 
         throw new InvalidOperationException("Query returned no results: " + statement);
