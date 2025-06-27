@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.propertyName;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -153,15 +154,15 @@ public class MessageSerializerGenerator {
         CodeBlock.Builder writerMethodCallBuilder = CodeBlock.builder();
 
         if (typeUtils.isEnum(getter.getReturnType())) {
-            String fieldName = getter.getSimpleName().toString();
+            String getterName = getter.getSimpleName().toString();
 
             checkIdMethodExists(getter.getReturnType());
 
             // Let's write the shifted id to efficiently transfer null (since we use "var int").
             writerMethodCallBuilder
-                    .add("int idShifted = message.$L() == null ? 0 : message.$L().id() + 1;", fieldName, fieldName)
+                    .add("int idShifted = message.$L() == null ? 0 : message.$L().id() + 1;", getterName, getterName)
                     .add("\n")
-                    .add("boolean written = writer.writeInt($S, idShifted)", fieldName);
+                    .add("boolean written = writer.writeInt($S, idShifted)", propertyName(getter));
         } else {
             writerMethodCallBuilder
                     .add("boolean written = writer.")

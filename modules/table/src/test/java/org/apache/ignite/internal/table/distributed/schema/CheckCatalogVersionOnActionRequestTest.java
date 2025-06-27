@@ -135,7 +135,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     }
 
     private WriteCommand commandWithRequiredCatalogVersion(int requiredVersion) {
-        return tableMessagesFactory.updateCommand()
+        return tableMessagesFactory.updateCommandV2()
                 .tableId(TABLE_ID)
                 .commitPartitionId(replicaMessagesFactory.tablePartitionIdMessage().build())
                 .txId(UUID.randomUUID())

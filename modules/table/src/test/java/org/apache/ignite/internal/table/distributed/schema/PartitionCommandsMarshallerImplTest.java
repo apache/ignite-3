@@ -33,7 +33,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandSerializationFactory;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2SerializationFactory;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandSerializationFactory;
@@ -51,8 +51,8 @@ class PartitionCommandsMarshallerImplTest {
         // For a command that has required catalog version property.
         registry.registerFactory(
                 PartitionReplicationMessageGroup.GROUP_TYPE,
-                PartitionReplicationMessageGroup.Commands.FINISH_TX,
-                new FinishTxCommandSerializationFactory(tableMessagesFactory)
+                PartitionReplicationMessageGroup.Commands.FINISH_TX_V2,
+                new FinishTxCommandV2SerializationFactory(tableMessagesFactory)
         );
 
         // For a command that does not have required catalog version property.
@@ -98,7 +98,7 @@ class PartitionCommandsMarshallerImplTest {
 
     private FinishTxCommand commandWithRequiredCatalogVersion(int requiredCatalogVersion) {
         long time = System.currentTimeMillis();
-        return tableMessagesFactory.finishTxCommand()
+        return tableMessagesFactory.finishTxCommandV2()
                 .txId(UUID.randomUUID())
                 .partitions(List.of())
                 .initiatorTime(HybridTimestamp.hybridTimestamp(time))

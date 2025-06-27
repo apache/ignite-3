@@ -133,11 +133,11 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.commandHandlers = new CommandHandlers.Builder()
                 .addHandler(
                         PartitionReplicationMessageGroup.GROUP_TYPE,
-                        Commands.FINISH_TX,
+                        Commands.FINISH_TX_V2,
                         new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager))
                 .addHandler(
                         PartitionReplicationMessageGroup.GROUP_TYPE,
-                        Commands.WRITE_INTENT_SWITCH,
+                        Commands.WRITE_INTENT_SWITCH_V2,
                         new WriteIntentSwitchCommandHandler(tableProcessors::get, txManager))
                 .addHandler(
                         TxMessageGroup.GROUP_TYPE,
@@ -221,7 +221,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
                             commandHandlers.handler(command.groupType(), command.messageType());
 
                     if (commandHandler == null) {
-                        LOG.info("Message type " + command.getClass() + " is not supported by the zone partition RAFT listener yet");
+                        LOG.info("Message type {} is not supported by the zone partition RAFT listener yet", command.getClass());
 
                         result = EMPTY_APPLIED_RESULT;
                     } else {

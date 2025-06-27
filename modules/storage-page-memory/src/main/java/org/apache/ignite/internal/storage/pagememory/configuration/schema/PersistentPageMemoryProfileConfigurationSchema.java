@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.configuration.schema;
+package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.OneOf;
+import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
 
 /**
@@ -28,13 +29,25 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileConfigura
  */
 @PolymorphicConfigInstance("aipersist")
 public class PersistentPageMemoryProfileConfigurationSchema extends StorageProfileConfigurationSchema {
-    /** Random-LRU page replacement algorithm. */
+    /**
+     * Random-LRU page replacement algorithm.
+     *
+     * @see ReplacementMode#RANDOM_LRU
+     */
     public static final String RANDOM_LRU_REPLACEMENT_MODE = "RANDOM_LRU";
 
-    /** Segmented-LRU page replacement algorithm. */
+    /**
+     * Segmented-LRU page replacement algorithm.
+     *
+     * @see ReplacementMode#SEGMENTED_LRU
+     */
     public static final String SEGMENTED_LRU_REPLACEMENT_MODE = "SEGMENTED_LRU";
 
-    /** CLOCK page replacement algorithm. */
+    /**
+     * CLOCK page replacement algorithm.
+     *
+     * @see ReplacementMode#CLOCK
+     */
     public static final String CLOCK_REPLACEMENT_MODE = "CLOCK";
 
     /**

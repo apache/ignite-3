@@ -57,7 +57,8 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -442,16 +443,16 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         mvPartitionStorage.lastApplied(10L, 1L);
 
-        UpdateCommand updateCommand = mock(UpdateCommand.class);
+        UpdateCommandV2 updateCommand = mock(UpdateCommandV2.class);
         when(updateCommand.tableId()).thenReturn(TABLE_ID);
 
         WriteIntentSwitchCommand writeIntentSwitchCommand = mock(WriteIntentSwitchCommand.class);
 
         SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
 
-        FinishTxCommand finishTxCommand = mock(FinishTxCommand.class);
+        FinishTxCommandV2 finishTxCommand = mock(FinishTxCommandV2.class);
         when(finishTxCommand.groupType()).thenReturn(PartitionReplicationMessageGroup.GROUP_TYPE);
-        when(finishTxCommand.messageType()).thenReturn(Commands.FINISH_TX);
+        when(finishTxCommand.messageType()).thenReturn(Commands.FINISH_TX_V2);
 
         PrimaryReplicaChangeCommand primaryReplicaChangeCommand = mock(PrimaryReplicaChangeCommand.class);
 
@@ -499,7 +500,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     void updatesLastAppliedForFinishTxCommands() {
         safeTimeTracker.update(clock.now(), null);
 
-        FinishTxCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
+        FinishTxCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommandV2()
                 .txId(TestTransactionIds.newTransactionId())
                 .initiatorTime(clock.now())
                 .partitions(List.of())
