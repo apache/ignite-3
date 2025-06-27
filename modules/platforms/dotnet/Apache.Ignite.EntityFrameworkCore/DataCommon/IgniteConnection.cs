@@ -29,7 +29,7 @@ public sealed class IgniteConnection : DbConnection
 
     public IgniteConnection(string connectionString)
     {
-        // TODO: Parse connection string?
+        // TODO: Parse connection string and set various properties.
         _config = new IgniteClientConfiguration(connectionString);
         ConnectionString = connectionString;
     }
