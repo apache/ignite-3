@@ -118,11 +118,6 @@ public class ThreadPoolsManager implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, SECONDS);
 
-        metricSources.forEach(metricSource -> {
-            metricManager.disable(metricSource);
-            metricManager.unregisterSource(metricSource);
-        });
-
         return nullCompletedFuture();
     }
 

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * of corresponding component and must be unregistered in case of component is destroyed or stopped. Metrics registry also
  * provides access to all enabled metrics through corresponding metrics sets. Metrics registry lifetime is equal to the node lifetime.
  */
-public class MetricRegistry {
+public class MetricRegistry implements MetricProvider, ManuallyCloseable {
     private final ReentrantLock lock = new ReentrantLock();
 
     /** Registered metric sources. */
@@ -282,13 +283,8 @@ public class MetricRegistry {
         metricSnapshot = new IgniteBiTuple<>(unmodifiableMap(metricSets), old.get2() + 1);
     }
 
-    /**
-     * Metrics snapshot. This is a snapshot of metric sets with corresponding version, the values of the metrics in the
-     * metric sets that are included into the snapshot, are changed dynamically.
-     *
-     * @return Metrics snapshot.
-     */
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
+    @Override
+    public IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
         return metricSnapshot;
     }
 
@@ -301,6 +297,19 @@ public class MetricRegistry {
         lock.lock();
         try {
             return List.copyOf(sources.values());
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void close() throws Exception {
+        lock.lock();
+
+        try {
+            sources.values().forEach(this::disable);
+
+            sources.clear();
         } finally {
             lock.unlock();
         }
