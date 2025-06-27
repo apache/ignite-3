@@ -97,7 +97,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + DEFAULT_FILE_NAME);
 
-        ConfigurationTreeComparator.compare(currentMetadata, snapshotMetadata);
+        ConfigurationTreeComparator.compare(snapshotMetadata, currentMetadata);
     }
 
     /**
@@ -110,7 +110,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + fileName);
 
-        ConfigurationTreeComparator.ensureCompatible(currentMetadata, snapshotMetadata);
+        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata);
     }
 
     private static List<ConfigNode> loadCurrentConfiguration() {
@@ -176,12 +176,16 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         }
         if ("file".equals(dirUrl.getProtocol())) {
             Path dirPath = Path.of(dirUrl.getPath());
-            return Files.list(dirPath)
-                    .filter(Files::isRegularFile)
-                    .map(Path::getFileName)
-                    .map(Path::toString)
-                    .filter(p -> p.endsWith(".bin"))
-                    .map(Arguments::of);
+            try (Stream<Path> list = Files.list(dirPath)) {
+                return list
+                        .filter(Files::isRegularFile)
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .filter(p -> p.endsWith(".bin"))
+                        .map(Arguments::of)
+                        .collect(Collectors.toList())
+                        .stream();
+            }
         } else {
             throw new UnsupportedOperationException("Unsupported protocol: " + dirUrl.getProtocol());
         }
