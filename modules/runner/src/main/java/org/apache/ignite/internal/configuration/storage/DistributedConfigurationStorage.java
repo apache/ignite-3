@@ -47,7 +47,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -101,7 +101,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     public DistributedConfigurationStorage(String nodeName, MetaStorageManager metaStorageMgr) {
         this.metaStorageMgr = metaStorageMgr;
 
-        threadPool = Executors.newFixedThreadPool(4, NamedThreadFactory.create(nodeName, "dst-cfg", LOG));
+        threadPool = Executors.newFixedThreadPool(4, IgniteThreadFactory.create(nodeName, "dst-cfg", LOG));
     }
 
     @Override
