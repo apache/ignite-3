@@ -162,7 +162,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        final Thread worker = workerRef.getAndSet(null);
+        Thread worker = workerRef.getAndSet(null);
 
         if (worker != null && worker.isAlive() && !worker.isInterrupted()) {
             worker.interrupt();
@@ -213,7 +213,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
      * @return Last long JVM pause events.
      */
     synchronized Map<Long, Long> longPauseEvents() {
-        final Map<Long, Long> evts = new TreeMap<>();
+        Map<Long, Long> evts = new TreeMap<>();
 
         for (int i = 0; i < longPausesTimestamps.length && longPausesTimestamps[i] != 0; i++) {
             evts.put(longPausesTimestamps[i], longPausesDurations[i]);
