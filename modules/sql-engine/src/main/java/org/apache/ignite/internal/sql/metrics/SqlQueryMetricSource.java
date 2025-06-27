@@ -31,7 +31,6 @@ public class SqlQueryMetricSource extends AbstractMetricSource<SqlQueryMetricSou
     public static final String FAILED_QUERIES = "Failed";
     public static final String CANCELED_QUERIES = "Canceled";
     public static final String TIMED_OUT_QUERIES = "TimedOut";
-    public static final String QUOTA_EXCEEDED = "ExceededMemoryQuota";
 
     /**
      * Constructor.
@@ -68,13 +67,6 @@ public class SqlQueryMetricSource extends AbstractMetricSource<SqlQueryMetricSou
         increment((h) -> h.cancelled.increment());
     }
 
-    /**
-     * Increments the number of queries that exceeded memory quota.
-     */
-    public void memoryQuotaExceeded() {
-        increment((h) -> h.memoryQuotaExceeded.increment());
-    }
-
     private void increment(Consumer<Holder> inc) {
         Holder holder = holder();
 
@@ -94,11 +86,10 @@ public class SqlQueryMetricSource extends AbstractMetricSource<SqlQueryMetricSou
         private final AtomicLongMetric failure = new AtomicLongMetric(FAILED_QUERIES, "Failed queries");
         private final AtomicLongMetric cancelled = new AtomicLongMetric(CANCELED_QUERIES, "Cancelled queries");
         private final AtomicLongMetric timedOut = new AtomicLongMetric(TIMED_OUT_QUERIES, "Timed out queries");
-        private final AtomicLongMetric memoryQuotaExceeded = new AtomicLongMetric(QUOTA_EXCEEDED, "Memory quota exceeded queries");
 
         @Override
         public Iterable<Metric> metrics() {
-            return List.of(success, failure, cancelled, timedOut, memoryQuotaExceeded);
+            return List.of(success, failure, cancelled, timedOut);
         }
     }
 }
