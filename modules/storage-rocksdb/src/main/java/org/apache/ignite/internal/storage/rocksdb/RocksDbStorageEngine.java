@@ -49,7 +49,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.rocksdb.RocksDB;
 
 /**
@@ -127,7 +127,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
         threadPool = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
-                NamedThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG)
+                IgniteThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG)
         );
     }
 
