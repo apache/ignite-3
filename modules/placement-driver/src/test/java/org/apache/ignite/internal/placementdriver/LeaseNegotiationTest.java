@@ -39,8 +39,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -520,7 +518,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return emptyList();
         }
 
-        LeaseBatch leases = LeaseBatch.fromBytes(ByteBuffer.wrap(e.value()).order(ByteOrder.LITTLE_ENDIAN));
+        LeaseBatch leases = LeaseBatch.fromBytes(e.value());
 
         return leases.leases();
     }
