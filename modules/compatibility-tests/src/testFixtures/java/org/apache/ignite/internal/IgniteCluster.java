@@ -146,8 +146,16 @@ public class IgniteCluster {
         LOG.info("Shut the embedded cluster down");
 
         if (runnerNodes != null) {
+            List<String> nodeNames = runnerNodes.stream()
+                    .map(RunnerNode::nodeName)
+                    .collect(toList());
+
+            LOG.info("Shutting the runner nodes down: [nodes={}]", nodeNames);
+
             runnerNodes.forEach(RunnerNode::stop);
             runnerNodes.clear();
+
+            LOG.info("Shutting down nodes is complete: [nodes={}]", nodeNames);
         }
 
         started = false;
