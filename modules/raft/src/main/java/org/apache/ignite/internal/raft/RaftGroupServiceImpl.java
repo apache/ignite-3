@@ -729,10 +729,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
-    private Exception wrapInComponentStoppingException(Throwable e) {
-        return stoppingExceptionFactory.wrap("Raft client is stopping [" + groupId + "].", e);
-    }
-
     private void handleThrowable(CompletableFuture<? extends NetworkMessage> fut, Throwable err, RetryContext retryContext) {
         err = unwrapCause(err);
 

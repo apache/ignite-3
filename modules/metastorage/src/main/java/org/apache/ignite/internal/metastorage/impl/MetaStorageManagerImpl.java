@@ -1182,6 +1182,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                     // This callback should be executed asynchronously due to
                     // its code might be done under a busyLock of the raftGroupService,
                     // and so, it results in a deadlock on shutting down the service.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-25787
                     .whenCompleteAsync((res, ex) -> {
                         if (ex != null) {
                             LOG.error("One-off raft group action on {} failed", ex, raftClientConfiguration);

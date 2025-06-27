@@ -58,7 +58,7 @@ import org.junit.jupiter.api.Test;
 class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25786")
     void testLearnerReplicaCreatedAfterStartingNewNode() {
         executeSql("CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS ALL, QUORUM SIZE 2) STORAGE PROFILES ['default']");
         executeSql("CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
