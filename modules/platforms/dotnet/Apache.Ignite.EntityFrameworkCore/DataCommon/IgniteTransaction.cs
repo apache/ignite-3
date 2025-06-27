@@ -15,41 +15,35 @@
 
 namespace Apache.Ignite.EntityFrameworkCore.DataCommon;
 
-using System;
 using System.Data;
 using System.Data.Common;
 using System.Threading;
 using System.Threading.Tasks;
-using Apache.Ignite.Transactions;
+using Transactions;
 
 public class IgniteTransaction : DbTransaction
 {
-    private readonly ITransaction _tx;
-
     public IgniteTransaction(ITransaction tx, IsolationLevel isolationLevel, DbConnection connection)
     {
-        _tx = tx;
+        InternalTransaction = tx;
         IsolationLevel = isolationLevel;
         DbConnection = connection;
     }
 
-    public override void Commit()
-    {
-        throw new NotImplementedException();
-    }
+    public override IsolationLevel IsolationLevel { get; }
 
-    public override void Rollback()
-    {
-        throw new NotImplementedException();
-    }
-
-    public override async Task CommitAsync(CancellationToken cancellationToken) =>
-        await _tx.CommitAsync();
-
-    public override async Task RollbackAsync(string savepointName, CancellationToken cancellationToken) =>
-        await _tx.RollbackAsync();
+    internal ITransaction InternalTransaction { get; }
 
     protected override DbConnection DbConnection { get; }
 
-    public override IsolationLevel IsolationLevel { get; }
+    public override void Commit() => CommitAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+    public override void Rollback() => RollbackAsync(null!, CancellationToken.None).GetAwaiter().GetResult();
+
+    public override async Task CommitAsync(CancellationToken cancellationToken = default) =>
+        await InternalTransaction.CommitAsync();
+
+    public override async Task RollbackAsync(string savepointName, CancellationToken cancellationToken = default) =>
+        await InternalTransaction.RollbackAsync();
+
 }

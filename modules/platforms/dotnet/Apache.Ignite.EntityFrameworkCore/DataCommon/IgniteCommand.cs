@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Sql;
 using Table;
+using Transactions;
 
 public class IgniteCommand : DbCommand
 {
@@ -67,9 +68,8 @@ public class IgniteCommand : DbCommand
         // TODO: Remove debug output.
         Console.WriteLine($"IgniteCommand.ExecuteNonQueryAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
-        // TODO: Propagate transaction somehow.
         await using IResultSet<object> resultSet = await GetSql().ExecuteAsync<object>(
-            transaction: null,
+            transaction: GetTransaction(),
             statement,
             cancellationToken,
             args);
@@ -92,9 +92,8 @@ public class IgniteCommand : DbCommand
         // TODO: Remove debug output.
         Console.WriteLine($"IgniteCommand.ExecuteScalarAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
-        // TODO: Propagate transaction somehow.
         await using IResultSet<IIgniteTuple> resultSet = await GetSql().ExecuteAsync(
-            transaction: null,
+            transaction: GetTransaction(),
             statement,
             cancellationToken,
             args);
@@ -131,9 +130,8 @@ public class IgniteCommand : DbCommand
         // TODO: Remove debug output.
         Console.WriteLine($"IgniteCommand.ExecuteDbDataReaderAsync [statement={statement}, parameters={string.Join(", ", args)}]");
 
-        // TODO: Propagate transaction somehow.
         return await GetSql().ExecuteReaderAsync(
-            null,
+            GetTransaction(),
             statement,
             cancellationToken,
             args);
@@ -160,6 +158,11 @@ public class IgniteCommand : DbCommand
     }
 
     private SqlStatement GetStatement() => new(CommandText);
+
+    private ITransaction? GetTransaction() =>
+        DbTransaction is IgniteTransaction igniteTx
+            ? igniteTx.InternalTransaction
+            : null;
 
     private object[] GetArgs() => _parameters?.ToObjectArray() ?? [];
 }
