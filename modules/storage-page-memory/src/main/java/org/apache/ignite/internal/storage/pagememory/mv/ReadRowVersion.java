@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionIdFromLink;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 
 import java.nio.ByteBuffer;
@@ -29,6 +29,7 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.storage.RowId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,6 +51,12 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
     private int schemaVersion;
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
+
+    private RowId rowId;
+
+    private long prevWiLink;
+
+    private long nextWiLink;
 
     ReadRowVersion(int partitionId) {
         this.partitionId = partitionId;
@@ -73,10 +80,18 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
         nextLink = readPartitionless(partitionId, pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
         schemaVersion = Short.toUnsignedInt(PageUtils.getShort(pageAddr, payload.offset() + RowVersion.SCHEMA_VERSION_OFFSET));
 
+        long lsb = PageUtils.getLong(pageAddr, payload.offset() + RowVersion.ROW_ID_LSB_OFFSET);
+        long msb = PageUtils.getLong(pageAddr, payload.offset() + RowVersion.ROW_ID_MSB_OFFSET);
+
+        rowId = new RowId(partitionId, msb, lsb);
+
+        prevWiLink = PageUtils.getLong(pageAddr, payload.offset() + RowVersion.PREV_WI_LINK_OFFSET);
+        nextWiLink = PageUtils.getLong(pageAddr, payload.offset() + RowVersion.NEXT_WI_LINK_OFFSET);
+
         if (!loadValue.test(timestamp)) {
             int valueSize = PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
 
-            result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, valueSize);
+            result = new RowVersion(rowId, partitionId, firstFragmentLink, timestamp, nextLink, prevWiLink, nextWiLink, valueSize);
 
             return STOP_TRAVERSAL;
         }
@@ -99,7 +114,8 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
                 ? null
                 : new BinaryRowImpl(schemaVersion, ByteBuffer.wrap(valueBytes).order(BinaryTuple.ORDER));
 
-        result = new RowVersion(partitionIdFromLink(firstFragmentLink), firstFragmentLink, timestamp, nextLink, row);
+        result = new RowVersion(rowId, partitionId, firstFragmentLink, timestamp, nextLink, row,
+                prevWiLink, nextLink, row == null ? 0 : row.tupleSliceLength());
     }
 
     RowVersion result() {
@@ -108,6 +124,9 @@ class ReadRowVersion implements PageMemoryTraversal<Predicate<HybridTimestamp>> 
 
     void reset() {
         result = null;
+        prevWiLink = NULL_LINK;
+        nextWiLink = NULL_LINK;
+        rowId = null;
         readingFirstSlot = true;
         readRowVersionValue.reset();
     }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -28,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.WriteIntentListNode;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
@@ -80,6 +83,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * Cached lease info in order not to touch blobStorage each time.
      */
     private volatile @Nullable LeaseInfo leaseInfo;
+
+    private WriteIntentListNode wiHead = WriteIntentListNode.EMPTY;
+
+    private final ReentrantLock wiHeadLock = new ReentrantLock();
 
     /**
      * Lock for updating lease info in the storage.
@@ -153,6 +160,26 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         );
 
         leaseInfo = leaseInfoFromMeta();
+    }
+
+    @Override
+    public void start() {
+        super.start();
+
+        busy(() -> {
+            long wiHeadLink = meta.wiHeadLink();
+
+            if (wiHeadLink != NULL_LINK) {
+                RowVersion headRowVersion = readRowVersion(wiHeadLink, DONT_LOAD_VALUE);
+
+                this.wiHead = WriteIntentListNode.createNode(
+                        headRowVersion.rowId(),
+                        wiHeadLink,
+                        headRowVersion.getPrev(),
+                        headRowVersion.getNext()
+                );
+            }
+        });
     }
 
     @Override
@@ -358,6 +385,42 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
                 this.leaseInfo = leaseInfo;
             }
+        });
+    }
+
+    @Override
+    public WriteIntentListNode wiHeadAndLock() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            wiHeadLock.lock();
+
+            return wiHead;
+        });
+    }
+
+    @Override
+    public void updateWiHeadAndUnlock(WriteIntentListNode wiHead) {
+        try {
+            if (wiHead == this.wiHead) {
+                return;
+            }
+
+            busy(() -> {
+                throwExceptionIfStorageNotInRunnableState();
+
+                this.wiHead = wiHead;
+
+                updateWiHeadBusy(wiHead.link);
+            });
+        } finally {
+            wiHeadLock.unlock();
+        }
+    }
+
+    private void updateWiHeadBusy(long link) {
+        updateMeta((lastCheckpointId, meta) -> {
+            meta.updateWiHead(link);
         });
     }
 

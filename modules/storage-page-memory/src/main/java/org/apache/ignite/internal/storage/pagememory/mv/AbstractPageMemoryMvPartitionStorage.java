@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToC
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -37,12 +38,14 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AddWriteCommittedResult;
@@ -55,6 +58,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.WriteIntentListNode;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -62,6 +66,8 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateNextWiLinkHandler;
+import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdatePrevWiLinkHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateTimestampHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.apache.ignite.internal.storage.pagememory.mv.RemoveWriteOnGcInvokeClosure.UpdateNextLinkHandler;
@@ -122,6 +128,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private final UpdateNextLinkHandler updateNextLinkHandler;
 
     private final UpdateTimestampHandler updateTimestampHandler;
+    private final CommitWriteInvokeClosureOld.UpdateTimestampHandler oldUpdateTimestampHandler;
+
+    private final UpdatePrevWiLinkHandler updatePrevWiLinkHandler;
+
+    private final UpdateNextWiLinkHandler updateNextWiLinkHandler;
+
+    private boolean updateWiList = IgniteSystemProperties.getBoolean("IGNITE_UPDATE_WI_LIST");
 
     /**
      * Constructor.
@@ -148,6 +161,9 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId());
         updateNextLinkHandler = new UpdateNextLinkHandler();
         updateTimestampHandler = new UpdateTimestampHandler();
+        updatePrevWiLinkHandler = new UpdatePrevWiLinkHandler();
+        updateNextWiLinkHandler = new UpdateNextWiLinkHandler();
+        oldUpdateTimestampHandler = new CommitWriteInvokeClosureOld.UpdateTimestampHandler();
     }
 
     protected abstract GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool);
@@ -438,13 +454,25 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
             try {
-                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
+                AddWriteResult addWriteResult;
 
-                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
+                if (updateWiList) {
+                    var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
 
-                addWrite.afterCompletion();
+                    renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
-                AddWriteResult addWriteResult = addWrite.addWriteResult();
+                    addWrite.afterCompletion();
+
+                    addWriteResult = addWrite.addWriteResult();
+                } else {
+                    var addWrite = new AddWriteInvokeClosureOld(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
+
+                    renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
+
+                    addWrite.afterCompletion();
+
+                    addWriteResult = addWrite.addWriteResult();
+                }
 
                 assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
@@ -499,20 +527,40 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             assert rowIsLocked(rowId) : commitWriteInfo(rowId, timestamp, txId);
 
+            CommitResult commitResult;
+
             try {
-                var commitWrite = new CommitWriteInvokeClosure(
-                        rowId,
-                        timestamp,
-                        txId,
-                        updateTimestampHandler,
-                        this
-                );
+                if (updateWiList) {
+                    var commitWrite = new CommitWriteInvokeClosure(
+                            rowId,
+                            timestamp,
+                            txId,
+                            updateTimestampHandler,
+                            updatePrevWiLinkHandler,
+                            updateNextWiLinkHandler,
+                            this
+                    );
 
-                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, commitWrite);
+                    renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, commitWrite);
 
-                commitWrite.afterCompletion();
+                    commitWrite.afterCompletion();
 
-                CommitResult commitResult = commitWrite.commitResult();
+                    commitResult = commitWrite.commitResult();
+                } else {
+                    var commitWrite = new CommitWriteInvokeClosureOld(
+                            rowId,
+                            timestamp,
+                            txId,
+                            oldUpdateTimestampHandler,
+                            this
+                    );
+
+                    renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, commitWrite);
+
+                    commitWrite.afterCompletion();
+
+                    commitResult = commitWrite.commitResult();
+                }
 
                 assert commitResult != null : commitWriteInfo(rowId, timestamp, txId);
 
@@ -888,6 +936,77 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throwStorageExceptionIfItCause(e);
 
             throw new StorageException("Row version lookup failed: [rowId={}, {}]", e, rowId, createStorageInfo());
+        }
+    }
+
+    /**
+     * Creates an iterator that traverses the write intent list starting from the head.
+     *
+     * <p>The iterator starts at the head of the write intent list and follows the links to the previous
+     * row versions until the end of the list is reached. Each iteration returns the {@link RowId} of the current row version.
+     *
+     * @return An {@link Iterator} of {@link RowId} objects representing the write intents.
+     */
+    public Iterator<RowId> findIntentsFromHead() {
+        WriteIntentListNode head = wiHeadAndLock();
+
+        return new Iterator<>() {
+            private long current = head.link;
+
+            @Override
+            public boolean hasNext() {
+                return current != PageIdUtils.NULL_LINK;
+            }
+
+            @Override
+            public RowId next() {
+                RowVersion rowVersion = runConsistently(locker -> readRowVersion(current, DONT_LOAD_VALUE));
+
+                current = rowVersion.getPrev();
+
+                if (current == PageIdUtils.NULL_LINK) {
+                    updateWiHeadAndUnlock(head);
+                }
+
+                return rowVersion.rowId();
+            }
+        };
+    }
+
+    /**
+     * Finds uncommitted rows starting from a given lower bound.
+     *
+     * <p>This method searches the version chain tree for rows that are uncommitted, starting from the specified
+     * lower bound. If no lower bound is provided, the search starts from the beginning of the tree.
+     *
+     * @param lowBound The lower bound {@link RowId} to start the search from, or {@code null} to start from the beginning.
+     * @return An {@link Iterator} of {@link RowId} objects representing uncommitted rows.
+     * @throws StorageException If an error occurs during the search.
+     */
+    public Iterator<RowId> findUncommited(RowId lowBound) {
+        // Assertion above guarantees that we're in "runConsistently" closure.
+        throwExceptionIfStorageNotInRunnableState();
+
+        try {
+            return renewableState.versionChainTree().find(
+                    lowBound == null ? null : new VersionChainKey(lowBound),
+                    null,
+                    new TreeRowMapClosure<>() {
+                        @Override
+                        public RowId map(VersionChain treeRow) {
+                            if (treeRow.isUncommitted()) {
+                                return treeRow.rowId();
+                            }
+
+                            return RowId.lowestRowId(partitionId);
+                        }
+                    },
+                    null
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throwStorageExceptionIfItCause(e);
+
+            throw new StorageException("Error while looking for uncommitted rows: [lowBound={}, {}]", e, lowBound, createStorageInfo());
         }
     }
 
