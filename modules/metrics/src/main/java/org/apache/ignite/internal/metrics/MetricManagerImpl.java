@@ -19,9 +19,11 @@ package org.apache.ignite.internal.metrics;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
+import static org.apache.ignite.lang.ErrorGroups.Common.RESOURCE_CLOSING_ERR;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -34,9 +36,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -57,8 +62,6 @@ public class MetricManagerImpl implements MetricManager {
 
     /** Metric registry. */
     private final MetricRegistry registry;
-
-    private final MetricProvider metricsProvider;
 
     private final Map<String, MetricExporter> enabledMetricExporters = new ConcurrentHashMap<>();
 
@@ -89,7 +92,6 @@ public class MetricManagerImpl implements MetricManager {
      */
     public MetricManagerImpl(IgniteLogger log) {
         registry = new MetricRegistry();
-        metricsProvider = new MetricProvider(registry);
         this.log = log;
     }
 
@@ -133,7 +135,7 @@ public class MetricManagerImpl implements MetricManager {
             var availableExporters = new HashMap<String, MetricExporter>();
 
             for (MetricExporter exporter : exporters) {
-                exporter.start(metricsProvider, null, clusterIdSupplier, nodeName);
+                exporter.start(registry, null, clusterIdSupplier, nodeName);
 
                 availableExporters.put(exporter.name(), exporter);
                 enabledMetricExporters.put(exporter.name(), exporter);
@@ -144,17 +146,25 @@ public class MetricManagerImpl implements MetricManager {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+    public void beforeNodeStop() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return nullCompletedFuture();
+            return;
         }
 
         busyLock.block();
 
-        for (MetricExporter metricExporter : enabledMetricExporters.values()) {
-            metricExporter.stop();
+        try {
+            closeAllManually(Stream.concat(
+                    enabledMetricExporters.values().stream().map(metricExporter -> (ManuallyCloseable) metricExporter::stop),
+                    Stream.of(registry)
+            ));
+        } catch (Exception e) {
+            throw new IgniteInternalException(RESOURCE_CLOSING_ERR, e);
         }
+    }
 
+    @Override
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         enabledMetricExporters.clear();
 
         return nullCompletedFuture();
@@ -167,12 +177,12 @@ public class MetricManagerImpl implements MetricManager {
 
     @Override
     public void unregisterSource(MetricSource src) {
-        inBusyLock(busyLock, () -> registry.unregisterSource(src));
+        inBusyLockSafe(busyLock, () -> registry.unregisterSource(src));
     }
 
     @Override
     public void unregisterSource(String srcName) {
-        inBusyLock(busyLock, () -> registry.unregisterSource(srcName));
+        inBusyLockSafe(busyLock, () -> registry.unregisterSource(srcName));
     }
 
     @Override
@@ -221,7 +231,7 @@ public class MetricManagerImpl implements MetricManager {
 
     @Override
     public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
-        return inBusyLock(busyLock, registry::metricSnapshot);
+        return inBusyLock(busyLock, registry::metrics);
     }
 
     @Override
@@ -240,7 +250,7 @@ public class MetricManagerImpl implements MetricManager {
         if (exporter != null) {
             enabledMetricExporters.computeIfAbsent(exporter.name(), name -> {
                 try {
-                    exporter.start(metricsProvider, exporterConfiguration, clusterIdSupplier, nodeName);
+                    exporter.start(registry, exporterConfiguration, clusterIdSupplier, nodeName);
 
                     return exporter;
                 } catch (Exception e) {

@@ -48,31 +48,31 @@ public class MetricEntitiesTest {
         MetricSource metricSource = new TestMetricSource();
 
         registry.registerSource(metricSource);
-        assertEquals(0L, registry.metricSnapshot().get2());
+        assertEquals(0L, registry.metrics().get2());
 
         assertThrows(IllegalStateException.class, () -> registry.registerSource(metricSource));
 
-        assertEquals(0L, registry.metricSnapshot().get2());
-        assertTrue(registry.metricSnapshot().get1().isEmpty());
+        assertEquals(0L, registry.metrics().get2());
+        assertTrue(registry.metrics().get1().isEmpty());
 
         MetricSource alreadyEnabled = new TestMetricSource("alreadyEnabled");
         alreadyEnabled.enable();
         assertThrows(AssertionError.class, () -> registry.registerSource(alreadyEnabled));
-        assertEquals(0L, registry.metricSnapshot().get2());
+        assertEquals(0L, registry.metrics().get2());
 
         // Enabling metric source, metric snapshot and its version should be changed.
         MetricSet metricSet = registry.enable(SOURCE_NAME);
         assertNotNull(metricSet);
-        assertEquals(1L, registry.metricSnapshot().get2());
-        assertFalse(registry.metricSnapshot().get1().isEmpty());
+        assertEquals(1L, registry.metrics().get2());
+        assertFalse(registry.metrics().get1().isEmpty());
         assertNull(registry.enable(metricSource));
 
         assertThrows(IllegalStateException.class, () -> registry.enable("unexisting"));
-        assertEquals(1L, registry.metricSnapshot().get2());
+        assertEquals(1L, registry.metrics().get2());
 
         // Enabling the metric source that was already enabled before, metric snapshot should not be changed.
         assertNull(registry.enable(SOURCE_NAME));
-        IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot = registry.metricSnapshot();
+        IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot = registry.metrics();
         assertEquals(1L, metricSnapshot.get2());
         assertFalse(metricSnapshot.get1().isEmpty());
         MetricSet ms = metricSnapshot.get1().get(SOURCE_NAME);
@@ -80,33 +80,33 @@ public class MetricEntitiesTest {
 
         // Disable the metric source.
         registry.disable(SOURCE_NAME);
-        assertEquals(2L, registry.metricSnapshot().get2());
+        assertEquals(2L, registry.metrics().get2());
 
         // Disable unexisting metric source, exception is thrown, metric snapshot should not be changed.
         assertThrows(IllegalStateException.class, () -> registry.disable("unexisting"));
-        metricSnapshot = registry.metricSnapshot();
+        metricSnapshot = registry.metrics();
         assertEquals(2L, metricSnapshot.get2());
         assertTrue(metricSnapshot.get1().isEmpty());
 
         // Trying to disable the metric source that was already disabled before, metric snapshot should not be changed.
         registry.disable(SOURCE_NAME);
-        assertEquals(2L, registry.metricSnapshot().get2());
+        assertEquals(2L, registry.metrics().get2());
         registry.disable(metricSource);
-        assertEquals(2L, registry.metricSnapshot().get2());
+        assertEquals(2L, registry.metrics().get2());
 
         // Enabling metric source again, metric snapshot changes.
         registry.enable(metricSource);
-        assertEquals(3L, registry.metricSnapshot().get2());
-        assertFalse(registry.metricSnapshot().get1().isEmpty());
+        assertEquals(3L, registry.metrics().get2());
+        assertFalse(registry.metrics().get1().isEmpty());
 
         // Unregister enabled metric source, it should be disabled, metric snapshot should be changed.
         registry.unregisterSource(metricSource);
-        assertEquals(4L, registry.metricSnapshot().get2());
-        assertTrue(registry.metricSnapshot().get1().isEmpty());
+        assertEquals(4L, registry.metrics().get2());
+        assertTrue(registry.metrics().get1().isEmpty());
 
         // Trying to unregister the metric source that was already unregistered before, metric snapshot should not be changed.
         assertThrows(IllegalStateException.class, () -> registry.unregisterSource(metricSource));
-        metricSnapshot = registry.metricSnapshot();
+        metricSnapshot = registry.metrics();
         assertEquals(4L, metricSnapshot.get2());
         assertTrue(metricSnapshot.get1().isEmpty());
     }
