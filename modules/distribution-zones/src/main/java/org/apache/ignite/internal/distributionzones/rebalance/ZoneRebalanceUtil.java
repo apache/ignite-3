@@ -71,6 +71,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Util class for methods needed for the rebalance process.
@@ -756,5 +757,24 @@ public class ZoneRebalanceUtil {
         Entry e = metaStorageManager.getLocally(assignmentsChainKey(zonePartitionId), revision);
 
         return e != null ? AssignmentsChain.fromBytes(e.value()) : null;
+    }
+
+    /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone ID.
+     * @param partitionId Partition ID.
+     * @return Future with partition assignments as a value.
+     */
+    @TestOnly
+    public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionId
+    ) {
+        return metaStorageManager
+                .get(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 }
