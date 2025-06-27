@@ -30,7 +30,7 @@ using Tests.TestHelpers;
 ///
 /// | Method          | Mean     | Error   | StdDev  | Gen0   | Allocated |
 /// |---------------- |---------:|--------:|--------:|-------:|----------:|
-/// | ExecuteJobAsync | 416.7 ns | 4.64 ns | 4.34 ns | 0.0014 |     544 B |.
+/// | ExecuteJobAsync | 412.7 ns | 3.36 ns | 2.81 ns | 0.0014 |     464 B |.
 /// </summary>
 [MemoryDiagnoser]
 public class ComputeJobExecutorBenchmarks
