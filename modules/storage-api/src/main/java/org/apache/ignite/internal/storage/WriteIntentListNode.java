@@ -29,9 +29,9 @@ public class WriteIntentListNode {
     public static WriteIntentListNode EMPTY = new WriteIntentListNode(null, 0, 0, 0);
 
     public final RowId rowId;
-    public long link;
-    public long prev;
-    public long next;
+    public final long link;
+    public final long prev;
+    public final long next;
 
     private WriteIntentListNode(RowId rowId, long link, long prev, long next) {
         this.rowId = rowId;

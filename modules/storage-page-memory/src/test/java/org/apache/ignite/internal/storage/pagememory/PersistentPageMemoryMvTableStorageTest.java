@@ -134,6 +134,8 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     public void testUncommitedRowsIterator() throws Exception {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
+        RowId skippedId = RowId.lowestRowId(PARTITION_ID);
+
         var testVal = new TestValue(0, String.valueOf(0));
 
         int rows = 10;
@@ -176,6 +178,18 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
             log.info("Uncommited row id " + rowId);
         }
 
+        uncommitedRowsIterator = p.findIntentsFromHead();
+
+        log.info("findIntentsFromHead before restart");
+
+        while (uncommitedRowsIterator.hasNext()) {
+            RowId rowId = uncommitedRowsIterator.next();
+
+            if (!rowId.equals(skippedId)) {
+                log.info("Uncommited row id " + rowId);
+            }
+        }
+
         restartEngin();
 
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
@@ -184,21 +198,25 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         uncommitedRowsIterator = p.findIntentsFromHead();
 
+        int uncommitedRowsCount = 0;
+
         log.info("findIntentsFromHead after restart");
 
         while (uncommitedRowsIterator.hasNext()) {
             RowId rowId = uncommitedRowsIterator.next();
 
             log.info("Uncommited row id " + rowId);
+
+            uncommitedRowsCount++;
         }
+
+        assertEquals(rows / 2, uncommitedRowsCount, "Uncommited rows count should be equal to " + (rows / 2));
 
         uncommitedRowsIterator = p.findUncommited(null);
 
         long startTime = System.currentTimeMillis();
 
-        int uncommitedRowsCount = 0;
-
-        RowId skippedId = RowId.lowestRowId(PARTITION_ID);
+        uncommitedRowsCount = 0;
 
         log.info("findUncommited (scan storage)");
 
@@ -215,20 +233,6 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         assertEquals(rows / 2, uncommitedRowsCount, "Uncommited rows count should be equal to " + (rows / 2));
 
         System.out.println("Uncommited rows iterator took " + (System.currentTimeMillis() - startTime) + " ms");
-
-        uncommitedRowsIterator = p.findIntentsFromHead();
-
-        log.info("findIntentsFromHead after restart");
-
-        while (uncommitedRowsIterator.hasNext()) {
-            RowId rowId = uncommitedRowsIterator.next();
-
-            if (!rowId.equals(skippedId)) {
-                log.info("Uncommited row id " + rowId);
-
-                uncommitedRowsCount++;
-            }
-        }
     }
 
     private void restartEngin() throws Exception {

@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -83,7 +84,9 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      */
     private volatile @Nullable LeaseInfo leaseInfo;
 
-    private volatile WriteIntentListNode wiHead = WriteIntentListNode.EMPTY;
+    private WriteIntentListNode wiHead = WriteIntentListNode.EMPTY;
+
+    private final ReentrantLock wiHeadLock = new ReentrantLock();
 
     /**
      * Lock for updating lease info in the storage.
@@ -386,25 +389,33 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public WriteIntentListNode wiHead() {
+    public WriteIntentListNode wiHeadAndLock() {
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            wiHeadLock.lock();
 
             return wiHead;
         });
     }
 
     @Override
-    public void updateWiHead(WriteIntentListNode wiHead) {
-        busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
+    public void updateWiHeadAndUnlock(WriteIntentListNode wiHead) {
+        try {
+            if (wiHead == this.wiHead) {
+                return;
+            }
 
-            this.wiHead = wiHead;
+            busy(() -> {
+                throwExceptionIfStorageNotInRunnableState();
 
-            updateWiHeadBusy(wiHead.link);
+                this.wiHead = wiHead;
 
-            return null;
-        });
+                updateWiHeadBusy(wiHead.link);
+            });
+        } finally {
+            wiHeadLock.unlock();
+        }
     }
 
     private void updateWiHeadBusy(long link) {
