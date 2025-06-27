@@ -42,8 +42,8 @@ import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Base class for testing cluster upgrades. Starts a cluster on an old version, initializes it, stops it, then starts it in the
- * embedded mode using current version.
+ * Base class for testing cluster upgrades. Starts a cluster on an old version, initializes it, stops it, then starts it in the embedded
+ * mode using current version.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
@@ -83,7 +83,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     @BeforeParameterizedClassInvocation
     void startCluster(String baseVersion, TestInfo testInfo) {
         log.info("Starting nodes for base version: {}", baseVersion);
-        
+
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
                 .build();
