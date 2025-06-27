@@ -91,6 +91,7 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -249,7 +250,8 @@ public class TestNode implements LifecycleAware {
                     public void log(String type, Supplier<Event> eventProvider) {
                         // No-op.
                     }
-                }
+                },
+                new SqlQueryMetricSource()
         ));
     }
 

@@ -47,6 +47,7 @@ dependencies {
     integrationTestImplementation project(":ignite-runner")
     integrationTestImplementation project(":ignite-api")
     integrationTestImplementation project(":ignite-system-view-api")
+    integrationTestImplementation libs.awaitility
 
     testFixturesImplementation testFixtures(project(":ignite-core"))
 }
