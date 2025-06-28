@@ -151,19 +151,7 @@ subprojects {
     apply plugin: 'base'
 
     repositories {
-        maven {
-            url = uri('https://repo.maven.apache.org/maven2/')
-            mavenContent {
-                releasesOnly()
-            }
-        }
-
-        maven {
-            url = uri(' https://repository.apache.org/service/local/staging/deploy/maven2')
-            mavenContent {
-                releasesOnly()
-            }
-        }
+        mavenCentral()
 
         mavenLocal()
     }
