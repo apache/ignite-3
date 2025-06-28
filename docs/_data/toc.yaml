@@ -92,6 +92,8 @@
       url: developers-guide/data-streamer
     - title: Code Deployment
       url: developers-guide/code-deployment/code-deployment
+    - title: Events
+      url: developers-guide/events/overview
     - title: REST API
       url: developers-guide/rest/rest-api
       items:
@@ -107,17 +109,15 @@
           url: administrators-guide/config/node-config
         - title: Cluster Configuration Parameters
           url: administrators-guide/config/cluster-config
-        - title: Storage Configuration
-          url: administrators-guide/config/storage/persistent
-          items:
-            - title: Native Persistent Storage
-              url: administrators-guide/config/storage/persistent
-            - title: RocksDB Persistent Storage
-              url: administrators-guide/config/storage/rocksdb
-            - title: Volatile Storage
-              url: administrators-guide/config/storage/volatile
-            - title: Table Configuration
-              url: administrators-guide/config/storage/table-configuration
+    - title: Storage Configuration
+        url: administrators-guide/config/storage/persistent
+        items:
+          - title: Native Persistent Storage
+            url: administrators-guide/config/storage/persistent
+          - title: RocksDB Persistent Storage
+            url: administrators-guide/config/storage/rocksdb
+          - title: Volatile Storage
+            url: administrators-guide/config/storage/volatile
     - title: Cluster Lifecycle
       url: administrators-guide/lifecycle
     - title: Distribution Zones
@@ -126,6 +126,10 @@
       url: administrators-guide/storage
     - title: Data Partitioning
       url: administrators-guide/data-partitions
+    - title: Disaster Recovery
+      url: administrators-guide/disaster-recovery
+    - title: Disaster Recovery for System Groups
+      url: administrators-guide/system-groups-recovery
     - title: Data Colocation
       url: administrators-guide/colocation
     - title: Cluster Security
@@ -159,6 +163,8 @@
       url: sql-reference/distribution-zones
     - title: Supported Operators and Functions
       url: sql-reference/operators-and-functions
+    - title: Operational Commands
+      url: sql-reference/operational-commands
     - title: Grammar Reference
       url: sql-reference/grammar-reference
     - title: Data Types
