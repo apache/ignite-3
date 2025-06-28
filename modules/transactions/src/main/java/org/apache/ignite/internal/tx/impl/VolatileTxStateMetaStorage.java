@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
+import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -148,8 +149,6 @@ public class VolatileTxStateMetaStorage {
             // Should be changed to ZonePartitionId.
             Function<Map<ReplicationGroupId, Set<VacuumizableTx>>, CompletableFuture<PersistentTxStateVacuumResult>> persistentVacuumOp
     ) {
-        LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
-
         AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
         AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
@@ -225,19 +224,28 @@ public class VolatileTxStateMetaStorage {
                         });
                     }
 
-                    LOG.info("Vacuum finished [vacuumObservationTimestamp={}, "
-                                    + "txnResourceTtl={}, "
-                                    + "vacuumizedTxnsCount={}, "
-                                    + "vacuumizedPersistentTxnStatesCount={}, "
-                                    + "alreadyMarkedTxnsCount={}, "
-                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
-                            vacuumObservationTimestamp,
-                            txnResourceTtl,
-                            vacuumizedTxnsCount,
+                    if (findAny(
+                            p -> p > 0,
+                            vacuumizedTxnsCount.get(),
                             vacuumResult.vacuumizedPersistentTxnStatesCount,
-                            alreadyMarkedTxnsCount,
-                            skippedForFurtherProcessingUnfinishedTxnsCount
-                    );
+                            alreadyMarkedTxnsCount.get(),
+                            skippedForFurtherProcessingUnfinishedTxnsCount.get()).isPresent()) {
+                        LOG.info("Transaction state vacuum performed ["
+                                        + "vacuumObservationTimestamp={}, "
+                                        + "txnResourceTtl={}, "
+                                        + "vacuumizedTxnsCount={}, "
+                                        + "vacuumizedPersistentTxnStatesCount={}, "
+                                        + "alreadyMarkedTxnsCount={}, "
+                                        + "skippedForFurtherProcessingUnfinishedTxnsCount={}"
+                                        + "].",
+                                vacuumObservationTimestamp,
+                                txnResourceTtl,
+                                vacuumizedTxnsCount,
+                                vacuumResult.vacuumizedPersistentTxnStatesCount,
+                                alreadyMarkedTxnsCount,
+                                skippedForFurtherProcessingUnfinishedTxnsCount
+                        );
+                    }
                 });
     }
 
