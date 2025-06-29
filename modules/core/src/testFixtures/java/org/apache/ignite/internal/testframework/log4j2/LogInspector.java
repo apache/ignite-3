@@ -93,7 +93,7 @@ public class LogInspector {
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     /** Test log appender that is used to check log events/messages. */
-    private final TestLogAppender appender;
+    private final Appender appender;
 
     /** Logger configuration. */
     private Configuration config;
@@ -195,6 +195,19 @@ public class LogInspector {
         } finally {
             lock.writeLock().unlock();
         }
+    }
+
+    /**
+     * Creates a new instance of {@link LogInspector}.
+     *
+     * @param loggerName Logger name.
+     * @param appender Appender.
+     */
+    public LogInspector(String loggerName, Appender appender) {
+        Objects.requireNonNull(loggerName);
+
+        this.loggerName = loggerName;
+        this.appender = appender;
     }
 
     /**
