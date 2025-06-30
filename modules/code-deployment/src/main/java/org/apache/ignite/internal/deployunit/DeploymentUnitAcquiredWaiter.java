@@ -26,7 +26,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 
 /**
  * Executes action on the deployment unit if it is not acquired. Otherwise, puts it to the queue.
@@ -59,7 +59,7 @@ class DeploymentUnitAcquiredWaiter {
             Consumer<DeploymentUnit> action) {
         this.deploymentUnitAccessor = deploymentUnitAccessor;
         this.executor = Executors.newScheduledThreadPool(
-                1, NamedThreadFactory.create(nodeName, "deployment-unit-acquired-waiter", LOG));
+                1, IgniteThreadFactory.create(nodeName, "deployment-unit-acquired-waiter", LOG));
         this.action = action;
     }
 

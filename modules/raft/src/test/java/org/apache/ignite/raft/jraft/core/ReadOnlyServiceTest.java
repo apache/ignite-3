@@ -99,7 +99,7 @@ public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
                 false,
                 null));
         NodeOptions nodeOptions = new NodeOptions();
-        ExecutorService executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        ExecutorService executor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
         executors.add(executor);
         nodeOptions.setCommonExecutor(executor);
         ExecutorService clientExecutor = JRaftUtils.createClientExecutor(nodeOptions, "unittest");

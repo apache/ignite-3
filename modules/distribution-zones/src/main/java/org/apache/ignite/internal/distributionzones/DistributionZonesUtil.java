@@ -55,7 +55,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -537,13 +537,13 @@ public class DistributionZonesUtil {
      * execution time are enabled in first-in-first-out (FIFO) order of submission.
      *
      * @param concurrencyLvl Number of threads.
-     * @param namedThreadFactory Named thread factory.
+     * @param threadFactory Named thread factory.
      * @return Executor.
      */
-    static StripedScheduledThreadPoolExecutor createZoneManagerExecutor(int concurrencyLvl, NamedThreadFactory namedThreadFactory) {
+    static StripedScheduledThreadPoolExecutor createZoneManagerExecutor(int concurrencyLvl, IgniteThreadFactory threadFactory) {
         return new StripedScheduledThreadPoolExecutor(
                 concurrencyLvl,
-                namedThreadFactory,
+                threadFactory,
                 new ThreadPoolExecutor.DiscardPolicy()
         );
     }

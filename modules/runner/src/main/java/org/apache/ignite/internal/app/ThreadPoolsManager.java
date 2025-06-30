@@ -39,7 +39,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -90,7 +89,7 @@ public class ThreadPoolsManager implements IgniteComponent {
                 )
         );
 
-        commonScheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "common-scheduler", LOG));
+        commonScheduler = Executors.newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "common-scheduler", LOG));
 
         this.metricManager = metricManager;
 

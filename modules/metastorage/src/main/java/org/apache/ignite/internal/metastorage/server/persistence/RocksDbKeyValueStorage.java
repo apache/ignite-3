@@ -112,7 +112,7 @@ import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -311,7 +311,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         executor = Executors.newFixedThreadPool(
                 2,
-                NamedThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-executor", log)
+                IgniteThreadFactory.create(nodeName, "metastorage-rocksdb-kv-storage-executor", log)
         );
     }
 

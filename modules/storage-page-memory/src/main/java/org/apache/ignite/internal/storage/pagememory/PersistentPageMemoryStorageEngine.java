@@ -64,7 +64,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
 /** Storage engine implementation based on {@link PersistentPageMemory}. */
@@ -238,7 +238,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(igniteInstanceName, "persistent-mv-partition-destruction", LOG)
+                IgniteThreadFactory.create(igniteInstanceName, "persistent-mv-partition-destruction", LOG)
         );
         executor.allowCoreThreadTimeOut(true);
 
