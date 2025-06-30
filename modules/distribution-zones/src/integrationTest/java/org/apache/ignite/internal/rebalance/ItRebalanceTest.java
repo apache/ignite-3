@@ -61,8 +61,6 @@ import org.junit.jupiter.api.Test;
  * Test suite for the rebalance.
  */
 public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
-    public static final String ZONE_NAME = "TEST_ZONE";
-    public static final String TABLE_NAME = "TEST_TABLE";
     private final HybridClock clock = new HybridClockImpl();
 
     @Override
@@ -88,11 +86,11 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
-        createZone(ZONE_NAME, 1, 3);
+        createZone("TEST_ZONE", 1, 3);
         // Creates table with 1 partition and 3 replicas.
-        createTestTable(TABLE_NAME, ZONE_NAME);
+        createTestTable("TEST_TABLE", "TEST_ZONE");
 
-        TableViewInternal table = unwrapTableViewInternal(cluster.node(0).tables().table(TABLE_NAME));
+        TableViewInternal table = unwrapTableViewInternal(cluster.node(0).tables().table("TEST_TABLE"));
 
         waitForStableAssignmentsInMetastore(Set.of(
                 nodeName(0),

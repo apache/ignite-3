@@ -626,7 +626,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
             return null;
         });
 
-        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+        tableStorage.destroyPartition(PARTITION_ID).get(1, SECONDS);
 
         MvPartitionStorage newMvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
