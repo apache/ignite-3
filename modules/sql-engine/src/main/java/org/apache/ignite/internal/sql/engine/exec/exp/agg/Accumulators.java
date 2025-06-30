@@ -45,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -273,7 +274,7 @@ public class Accumulators {
     public static class LiteralVal implements Accumulator {
 
         private final RelDataType type;
-        
+
         private final @Nullable Object value;
 
         private LiteralVal(RelDataType type, @Nullable Object value) {
@@ -281,8 +282,17 @@ public class Accumulators {
             this.value = value;
         }
 
+        /**
+         * Creates an instance of a accumulator factory function.
+         *
+         * @param literal Literal.
+         * @return Accumulator factory function.
+         */
         public static Supplier<Accumulator> newAccumulator(RexLiteral literal) {
             Class<?> javaClass = (Class<?>) Commons.typeFactory().getJavaClass(literal.getType());
+            if (javaClass.isPrimitive()) {
+                javaClass = Primitives.wrap(javaClass);
+            }
             Object value = RexUtils.literalValue(DataContexts.EMPTY, literal, javaClass);
 
             return () -> new LiteralVal(literal.getType(), value);
