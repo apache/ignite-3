@@ -56,7 +56,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -158,7 +157,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
         lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
-        JobClassLoader classLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
+        JobClassLoader classLoader = new JobClassLoader(List.of(), getClass().getClassLoader());
         JobContext jobContext = new JobContext(classLoader, ignored -> {});
         lenient().when(jobContextManager.acquireClassLoader(anyList()))
                 .thenReturn(completedFuture(jobContext));
