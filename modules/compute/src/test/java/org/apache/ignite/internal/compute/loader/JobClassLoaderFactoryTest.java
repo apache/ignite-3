@@ -65,13 +65,13 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
         try (JobClassLoader classLoader1 = jobClassLoaderFactory.createClassLoader(units1);
                 JobClassLoader classLoader2 = jobClassLoaderFactory.createClassLoader(units2)) {
             // then classes from the first unit are loaded from the first class loader
-            Class<?> clazz1 = classLoader1.loadClass(UNIT_JOB_CLASS_NAME);
+            Class<?> clazz1 = classLoader1.classLoader().loadClass(UNIT_JOB_CLASS_NAME);
             ComputeJob<Void, Integer> job1 = (ComputeJob<Void, Integer>) clazz1.getDeclaredConstructor().newInstance();
             CompletableFuture<Integer> result1 = job1.executeAsync(null, null);
             assertThat(result1, willBe(1));
 
             // and classes from the second unit are loaded from the second class loader
-            Class<?> clazz2 = classLoader2.loadClass(UNIT_JOB_CLASS_NAME);
+            Class<?> clazz2 = classLoader2.classLoader().loadClass(UNIT_JOB_CLASS_NAME);
             ComputeJob<Void, String> job2 = (ComputeJob<Void, String>) clazz2.getDeclaredConstructor().newInstance();
             CompletableFuture<String> result2 = job2.executeAsync(null, null);
             assertThat(result2, willBe("Hello World!"));
@@ -88,7 +88,7 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
         );
 
         try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
-            Class<?> unitJobClass = classLoader.loadClass(UNIT_JOB_CLASS_NAME);
+            Class<?> unitJobClass = classLoader.classLoader().loadClass(UNIT_JOB_CLASS_NAME);
             assertNotNull(unitJobClass);
 
             // and classes are loaded in the aplhabetical order
@@ -96,10 +96,10 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
             CompletableFuture<Integer> result1 = job1.executeAsync(null, null);
             assertThat(result1, willBe(1));
 
-            Class<?> job1UtilityClass = classLoader.loadClass(JOB1_UTILITY_CLASS_NAME);
+            Class<?> job1UtilityClass = classLoader.classLoader().loadClass(JOB1_UTILITY_CLASS_NAME);
             assertNotNull(job1UtilityClass);
 
-            Class<?> job2UtilityClass = classLoader.loadClass(JOB2_UTILITY_CLASS_NAME);
+            Class<?> job2UtilityClass = classLoader.classLoader().loadClass(JOB2_UTILITY_CLASS_NAME);
             assertNotNull(job2UtilityClass);
 
             // classes from the different units are loaded from the same class loader
@@ -116,13 +116,13 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
 
         // then class from all jars are loaded
         try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
-            Class<?> unitJobClass = classLoader.loadClass(UNIT_JOB_CLASS_NAME);
+            Class<?> unitJobClass = classLoader.classLoader().loadClass(UNIT_JOB_CLASS_NAME);
             assertNotNull(unitJobClass);
 
-            Class<?> job1UtilityClass = classLoader.loadClass(JOB1_UTILITY_CLASS_NAME);
+            Class<?> job1UtilityClass = classLoader.classLoader().loadClass(JOB1_UTILITY_CLASS_NAME);
             assertNotNull(job1UtilityClass);
 
-            Class<?> job2UtilityClass = classLoader.loadClass(JOB2_UTILITY_CLASS_NAME);
+            Class<?> job2UtilityClass = classLoader.classLoader().loadClass(JOB2_UTILITY_CLASS_NAME);
             assertNotNull(job2UtilityClass);
         }
     }
@@ -136,13 +136,13 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
 
         // then class from all jars are loaded
         try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
-            Class<?> unitJobClass = classLoader.loadClass(UNIT_JOB_CLASS_NAME);
+            Class<?> unitJobClass = classLoader.classLoader().loadClass(UNIT_JOB_CLASS_NAME);
             assertNotNull(unitJobClass);
 
-            Class<?> job1UtilityClass = classLoader.loadClass(JOB1_UTILITY_CLASS_NAME);
+            Class<?> job1UtilityClass = classLoader.classLoader().loadClass(JOB1_UTILITY_CLASS_NAME);
             assertNotNull(job1UtilityClass);
 
-            Class<?> job2UtilityClass = classLoader.loadClass(JOB2_UTILITY_CLASS_NAME);
+            Class<?> job2UtilityClass = classLoader.classLoader().loadClass(JOB2_UTILITY_CLASS_NAME);
             assertNotNull(job2UtilityClass);
         }
     }
@@ -156,7 +156,7 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
 
         // then class loader throws an exception
         try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
-            assertThrows(ClassNotFoundException.class, () -> classLoader.loadClass(UNIT_JOB_CLASS_NAME));
+            assertThrows(ClassNotFoundException.class, () -> classLoader.classLoader().loadClass(UNIT_JOB_CLASS_NAME));
         }
     }
 
@@ -171,7 +171,8 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
         List<DisposableDeploymentUnit> units = toDisposableDeploymentUnits(new DeploymentUnit("unit1", "5.0.0"));
 
         // then the files are accessible
-        try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
+        try (JobClassLoader jobClassLoader = jobClassLoaderFactory.createClassLoader(units)) {
+            ClassLoader classLoader = jobClassLoader.classLoader();
             String resource = Files.readString(getPath(classLoader.getResource("test.txt")));
             String subDirResource = Files.readString(getPath(classLoader.getResource("subdir/test.txt")));
             assertEquals(expectedContent, resource);
@@ -199,7 +200,9 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        assertThrows(IllegalArgumentException.class, () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)).classLoader());
     }
 
     @Test
@@ -213,7 +216,9 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        assertThrows(IllegalArgumentException.class, () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> jobClassLoaderFactory.createClassLoader(List.of(disposableDeploymentUnit)).classLoader());
     }
 
     private List<DisposableDeploymentUnit> toDisposableDeploymentUnits(DeploymentUnit... units) {

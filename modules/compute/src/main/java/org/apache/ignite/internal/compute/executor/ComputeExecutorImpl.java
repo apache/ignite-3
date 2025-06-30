@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -256,6 +257,20 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
         if (dotNetExec != null) {
             dotNetExec.stop();
+        }
+    }
+
+    /**
+     * Handles the removal of a deployment unit.
+     *
+     * @param unitPath Path to the deployment unit that is being removed.
+     */
+    public void onUnitRemoving(Path unitPath) {
+        DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
+
+        if (dotNetExec != null) {
+            // Start async undeployment, do not wait. Won't throw.
+            dotNetExec.beginUndeployUnit(unitPath);
         }
     }
 }

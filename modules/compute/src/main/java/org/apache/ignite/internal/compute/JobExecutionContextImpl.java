@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +32,7 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final AtomicBoolean isInterrupted;
 
-    private final ClassLoader classLoader;
+    private final JobClassLoader classLoader;
 
     private final @Nullable Partition partition;
 
@@ -43,7 +44,7 @@ public class JobExecutionContextImpl implements JobExecutionContext {
      * @param classLoader Job class loader.
      * @param partition Partition associated with this job.
      */
-    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, ClassLoader classLoader, @Nullable Partition partition) {
+    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, JobClassLoader classLoader, @Nullable Partition partition) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
         this.classLoader = classLoader;
@@ -70,7 +71,7 @@ public class JobExecutionContextImpl implements JobExecutionContext {
      *
      * @return Job class loader.
      */
-    public ClassLoader classLoader() {
+    public JobClassLoader classLoader() {
         return classLoader;
     }
 }

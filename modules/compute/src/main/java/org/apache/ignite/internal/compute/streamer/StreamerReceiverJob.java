@@ -46,7 +46,7 @@ public class StreamerReceiverJob implements ComputeJob<byte[], byte[]> {
                 buf.slice().order(ByteOrder.LITTLE_ENDIAN),
                 payloadElementCount,
                 receiverClassName -> {
-                    ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
+                    ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader().classLoader();
                     Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(
                             classLoader, receiverClassName);
 

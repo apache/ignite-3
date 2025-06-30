@@ -354,7 +354,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             I input
     ) {
         try {
-            return executor.executeTask(jobSubmitter, taskClass(context.classLoader(), taskClassName), input);
+            return executor.executeTask(jobSubmitter, taskClass(context.classLoader().classLoader(), taskClassName), input);
         } catch (Throwable e) {
             context.close();
             throw e;

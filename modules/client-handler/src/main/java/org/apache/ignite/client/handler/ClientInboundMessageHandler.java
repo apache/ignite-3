@@ -1342,14 +1342,22 @@ public class ClientInboundMessageHandler
         public CompletableFuture<Boolean> cancelJobAsync(long jobId) {
             return sendServerToClientRequest(ServerOp.COMPUTE_JOB_CANCEL,
                     packer -> packer.packLong(jobId))
-                    .thenApply(ClientMessageUnpacker::unpackBoolean);
+                    .thenApply(unpacker -> {
+                        try (unpacker) {
+                            return unpacker.unpackBoolean();
+                        }
+                    });
         }
 
         @Override
         public CompletableFuture<Boolean> undeployUnitsAsync(List<String> deploymentUnitPaths) {
             return sendServerToClientRequest(ServerOp.DEPLOYMENT_UNITS_UNDEPLOY,
                     packer -> packDeploymentUnitPaths(deploymentUnitPaths, packer))
-                    .thenApply(ClientMessageUnpacker::unpackBoolean);
+                    .thenApply(unpacker -> {
+                        try (unpacker) {
+                            return unpacker.unpackBoolean();
+                        }
+                    });
         }
 
         @Override

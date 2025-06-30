@@ -32,7 +32,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
-import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -77,7 +76,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private ComputeExecutor computeExecutor;
 
-    private final JobClassLoader jobClassLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
+    private final JobClassLoader jobClassLoader = new JobClassLoader(List.of(), getClass().getClassLoader());
 
     @BeforeEach
     void setUp() {

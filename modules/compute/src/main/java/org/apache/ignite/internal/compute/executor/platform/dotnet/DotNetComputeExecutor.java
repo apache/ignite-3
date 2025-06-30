@@ -97,6 +97,38 @@ public class DotNetComputeExecutor {
     }
 
     /**
+     * Starts undeploy process for the specified deployment units.
+     *
+     * @param unitPath Paths to deployment units to undeploy.
+     */
+    public void beginUndeployUnit(Path unitPath) {
+        try {
+            String unitPathStr = unitPath.toRealPath().toString();
+
+            getPlatformComputeConnectionWithRetryAsync()
+                    .thenCompose(conn -> conn.connectionFut()
+                            .thenCompose(c -> c.undeployUnitsAsync(List.of(unitPathStr)))
+                            .exceptionally(e -> {
+                                var cause = unwrapCause(e);
+
+                                if (cause instanceof TraceableException) {
+                                    TraceableException te = (TraceableException) cause;
+
+                                    if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                                        // Connection was lost (process exited), nothing to do.
+                                        return true;
+                                    }
+                                }
+
+                                LOG.warn(".NET unit undeploy error: " + e.getMessage(), e);
+                                return false;
+                            }));
+        } catch (Throwable t) {
+            LOG.warn(".NET unit undeploy error: " + t.getMessage(), t);
+        }
+    }
+
+    /**
      * Stops the executor.
      */
     public synchronized void stop() {

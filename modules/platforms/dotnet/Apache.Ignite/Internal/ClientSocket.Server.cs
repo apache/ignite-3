@@ -40,7 +40,7 @@ internal sealed partial class ClientSocket
         switch (op)
         {
             case ServerOp.Ping:
-                // No-op.
+                response.MessageWriter.Write(0); // Response flags: success.
                 break;
 
             case ServerOp.ComputeJobExec:
@@ -50,11 +50,14 @@ internal sealed partial class ClientSocket
 
             case ServerOp.ComputeJobCancel:
                 // TODO IGNITE-25153: Add cancellation support for platform jobs.
+                response.MessageWriter.Write(0); // Response flags: success.
                 response.MessageWriter.Write(false);
                 break;
 
             case ServerOp.DeploymentUnitsUndeploy:
-                response.MessageWriter.Write(false);
+                var res = await ComputeJobExecutor.UndeployUnits(request).ConfigureAwait(false);
+                response.MessageWriter.Write(0); // Response flags: success.
+                response.MessageWriter.Write(res);
                 break;
 
             default:
