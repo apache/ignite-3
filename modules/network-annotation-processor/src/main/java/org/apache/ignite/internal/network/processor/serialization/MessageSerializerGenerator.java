@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.checkPropertyNames;
-import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.propertyName;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.propertyName;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -130,8 +129,6 @@ public class MessageSerializerGenerator {
                 .addCode("\n");
 
         if (!getters.isEmpty()) {
-            checkPropertyNames(getters);
-
             method.beginControlFlow("switch (writer.state())");
 
             for (int i = 0; i < getters.size(); ++i) {

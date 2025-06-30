@@ -91,6 +91,7 @@ spring-boot = "3.5.3"
 spring-data = "3.5.1"
 testcontainers = "1.21.2"
 gradleToolingApi = "8.6"
+protobuf = "4.31.1"
 
 #Tools
 pmdTool = "6.55.0"
@@ -102,7 +103,7 @@ openapiGenerator = "org.openapi.generator:7.12.0"
 javacc = "com.intershop.gradle.javacc:4.1.3"
 shadow = "com.gradleup.shadow:8.3.7"
 cmake = "dev.welbyseely.gradle-cmake-plugin:0.0.5"
-nebula = "com.netflix.nebula.ospackage:11.11.2"
+nebula = "com.netflix.nebula.ospackage:12.0.0"
 docker = "com.palantir.docker:0.36.0"
 dockerRemoteApi = "com.bmuschko.docker-remote-api:9.4.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
@@ -297,6 +298,8 @@ commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "co
 spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugsTool" }
 
 gradle-tooling-api = { module = "org.gradle:gradle-tooling-api", version.ref = "gradleToolingApi" }
+
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
 
 [bundles]
 junit = ["junit5-api", "junit5-impl", "junit5-params", "junit-pioneer"]
