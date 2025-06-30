@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table;
 
 import static com.google.common.base.Predicates.notNull;
 import static java.util.Objects.requireNonNull;
-import static java.util.Optional.ofNullable;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -41,6 +40,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -103,9 +103,11 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
     private static Set<Assignment> getStableAssignments(Ignite node, String tableName) {
         IgniteImpl ignite = unwrapIgniteImpl(node);
-        return ofNullable(getTableId(ignite, tableName))
-                .map(tableId -> RebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), tableId, 0).join())
-                .orElse(Set.of());
+        int tableOrZoneId = getTableOrZoneId(ignite, tableName);
+
+        return colocationEnabled()
+                ? ZoneRebalanceUtil.zoneStableAssignments(ignite.metaStorageManager(), tableOrZoneId, new int[]{0}).join().get(0).nodes()
+                : RebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), tableOrZoneId, 0).join();
     }
 
     private static int getTableOrZoneId(Ignite node, String tableName) {
