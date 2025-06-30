@@ -68,6 +68,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
@@ -216,6 +217,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
@@ -758,9 +760,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void testRebalanceWithTheSameNodes() throws Exception {
         Node node = getNode(0);
 
-        createZone(node, ZONE_NAME, 1, 1);
-
         clearSpyInvocations();
+
+        createZone(node, ZONE_NAME, 1, 1);
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
@@ -1013,11 +1015,25 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
+        TableViewInternal table = unwrapTableViewInternal(getNode(0).tableManager.table(TABLE_NAME));
+
+        ReplicationGroupId groupId = colocationEnabled()
+                ? new ZonePartitionId(table.zoneId(), 0)
+                : new TablePartitionId(table.tableId(), 0);
+
         for (int i = 0; i < NODE_COUNT; i++) {
-            verify(getNode(i).raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
-                    .startRaftGroupNode(any(), any(), any(), any(), any(), notNull(TopologyAwareRaftGroupServiceFactory.class));
-            verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
-                    .startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any());
+            var node = getNode(i);
+            verify(node.raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
+                    .startRaftGroupNode(eq(new RaftNodeId(groupId, new Peer(node.name))), any(), any(), any(), any(),
+                            notNull(TopologyAwareRaftGroupServiceFactory.class));
+
+            if (colocationEnabled()) {
+                verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
+                        .startReplica(eq(groupId), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+            } else {
+                verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
+                        .startReplica(any(), any(), anyBoolean(), any(), any(), any(), eq(groupId), any());
+            }
         }
     }
 
