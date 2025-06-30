@@ -18,6 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
@@ -42,10 +43,12 @@ dependencies {
     testImplementation project(':ignite-configuration')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
     testImplementation libs.awaitility
+
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
 }
 
 description = 'ignite-metrics-exporter-otlp'

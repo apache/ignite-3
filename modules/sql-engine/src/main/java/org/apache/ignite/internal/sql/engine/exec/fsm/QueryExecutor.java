@@ -69,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -102,6 +103,8 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
     private final QueryEventsFactory eventsFactory;
 
+    private final SqlQueryMetricSource queryMetricSource;
+
     /**
      * Creates executor.
      *
@@ -119,6 +122,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
      * @param transactionalOperationTracker Tracker to track usage of transactions by query.
      * @param idGenerator Id generator used to provide cluster-wide unique query id.
      * @param eventLog Event log.
+     * @param queryMetricSource Query metric source.
      */
     public QueryExecutor(
             String nodeId,
@@ -134,7 +138,8 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             ExecutionService executionService,
             TransactionalOperationTracker transactionalOperationTracker,
             QueryIdGenerator idGenerator,
-            EventLog eventLog
+            EventLog eventLog,
+            SqlQueryMetricSource queryMetricSource
     ) {
         this.queryToParsedResultCache = cacheFactory.create(parsedResultsCacheSize);
         this.parserService = parserService;
@@ -148,6 +153,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         this.transactionalOperationTracker = transactionalOperationTracker;
         this.idGenerator = idGenerator;
         this.eventLog = eventLog;
+        this.queryMetricSource = queryMetricSource;
         this.eventsFactory = new QueryEventsFactory(nodeId);
     }
 
@@ -168,7 +174,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
             QueryTransactionContext txContext,
             String sql,
             @Nullable CancellationToken cancellationToken,
-            Object[] params
+            Object... params
     ) {
         Query query = new Query(
                 Instant.ofEpochMilli(clockService.now().getPhysical()),
@@ -258,7 +264,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         if (IgniteUtils.assertionsEnabled()) {
             int offsetInBatch = 0;
             for (ParsedResultWithNextCursorFuture item : batch) {
-                assert item.parsedQuery.queryType() == SqlQueryType.DDL 
+                assert item.parsedQuery.queryType() == SqlQueryType.DDL
                         : item.parsedQuery.queryType() + " at statement #" + (batchOffset + offsetInBatch);
 
                 offsetInBatch++;
@@ -377,7 +383,7 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
                                     query.moveTo(ExecutionPhase.EXECUTING);
 
                                     AsyncDataCursor<InternalSqlRow> dataCursor = dataCursorIterator.next();
-                                    AsyncSqlCursor<InternalSqlRow> currentCursor = createAndSaveSqlCursor(query, dataCursor); 
+                                    AsyncSqlCursor<InternalSqlRow> currentCursor = createAndSaveSqlCursor(query, dataCursor);
 
                                     if (cursorRef != null) {
                                         cursorRef.complete(currentCursor);
@@ -563,6 +569,8 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
             long finishTime = clockService.current().getPhysical();
 
+            updateMetrics(query);
+
             eventLog.log(IgniteEventType.QUERY_FINISHED.name(),
                     () -> eventsFactory.makeFinishEvent(new QueryInfo(query), EventUser.system(), finishTime));
         });
@@ -642,6 +650,38 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
 
         if (executionService instanceof Debuggable) {
             ((Debuggable) executionService).dumpState(writer, indent);
+        }
+    }
+
+    private void updateMetrics(Query query) {
+        boolean individualStatement = query.parsedScript == null;
+        // Ignore 'script' queries from metrics as well, because they act as containers for individual statements.
+        if (!individualStatement) {
+            return;
+        }
+
+        Throwable err = query.error.get();
+
+        if (query.parsedResult == null || query.plan == null) {
+            updateFailureMetrics(err);
+        } else {
+            if (err == null) {
+                queryMetricSource.success();
+            } else {
+                updateFailureMetrics(err);
+            }
+        }
+    }
+
+    private void updateFailureMetrics(Throwable t) {
+        queryMetricSource.failure();
+
+        if (t instanceof QueryCancelledException) {
+            if (QueryCancelledException.TIMEOUT_MSG.equals(t.getMessage())) {
+                queryMetricSource.timedOut();
+            } else {
+                queryMetricSource.cancel();
+            }
         }
     }
 }

@@ -19,8 +19,10 @@ package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.lang.Math.max;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX;
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V1;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V2;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V1;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V2;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.GROUP_TYPE;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
@@ -47,7 +49,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.raft.CommandResult;
 import org.apache.ignite.internal.partition.replicator.raft.OnSnapshotSaveHandler;
@@ -189,7 +193,13 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 tablePartitionId,
                 minTimeCollectorService
         ));
-        commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX, new BuildIndexCommandHandler(
+        commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V1, new BuildIndexCommandHandler(
+                storage,
+                indexMetaStorage,
+                storageUpdateHandler,
+                schemaRegistry
+        ));
+        commandHandlersBuilder.addHandler(GROUP_TYPE, BUILD_INDEX_V2, new BuildIndexCommandHandler(
                 storage,
                 indexMetaStorage,
                 storageUpdateHandler,
@@ -199,8 +209,15 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         if (!nodeProperties.colocationEnabled()) {
             commandHandlersBuilder.addHandler(
                     GROUP_TYPE,
-                    FINISH_TX,
-                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager));
+                    FINISH_TX_V1,
+                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager)
+            );
+
+            commandHandlersBuilder.addHandler(
+                    GROUP_TYPE,
+                    FINISH_TX_V2,
+                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager)
+            );
 
             commandHandlersBuilder.addHandler(
                     TxMessageGroup.GROUP_TYPE,
@@ -383,6 +400,9 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     /**
      * Handler for the {@link UpdateCommand}.
      *
+     * <p>We will also handle {@link UpdateCommandV2}, since there is no specific logic for {@link UpdateCommandV2}, we will leave it as is
+     * to support backward compatibility.</p>
+     *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
@@ -452,6 +472,9 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     /**
      * Handler for the {@link UpdateAllCommand}.
+     *
+     * <p>We will also handle {@link UpdateAllCommandV2}, since there is no specific logic for {@link UpdateAllCommandV2}, we will leave it
+     * as is to support backward compatibility.</p>
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.

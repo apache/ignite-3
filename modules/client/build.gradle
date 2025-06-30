@@ -40,7 +40,6 @@ dependencies {
     annotationProcessor libs.auto.service
 
     testAnnotationProcessor libs.jmh.annotation.processor
-    testImplementation libs.jetbrains.annotations
     testImplementation project(':ignite-client-handler')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-configuration-root')
@@ -59,17 +58,14 @@ dependencies {
     testImplementation project(':ignite-compute')
     testImplementation project(':ignite-code-deployment')
     testImplementation project(':ignite-eventlog')
-    testImplementation(testFixtures(project(':ignite-api')))
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-sql-engine')))
-    testImplementation(testFixtures(project(':ignite-table')))
-    testImplementation(testFixtures(project(':ignite-client-handler')))
-    testImplementation(testFixtures(project(':ignite-low-watermark')))
-    testImplementation(testFixtures(project(':ignite-schema')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.junit5.params
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-api'))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-sql-engine'))
+    testImplementation testFixtures(project(':ignite-table'))
+    testImplementation testFixtures(project(':ignite-client-handler'))
+    testImplementation testFixtures(project(':ignite-low-watermark'))
+    testImplementation testFixtures(project(':ignite-schema'))
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
     testImplementation libs.jmh.core

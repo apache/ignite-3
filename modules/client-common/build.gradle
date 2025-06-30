@@ -31,9 +31,7 @@ dependencies {
 
     testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-core')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation libs.mockito.junit
-    testImplementation libs.hamcrest.core
+    testImplementation testFixtures(project(':ignite-core'))
     testImplementation libs.jmh.core
 }
 

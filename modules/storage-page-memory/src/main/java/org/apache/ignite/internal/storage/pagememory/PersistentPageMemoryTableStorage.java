@@ -33,10 +33,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointListener;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
@@ -54,10 +51,6 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
 public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage<PersistentPageMemoryMvPartitionStorage> {
-    // TODO IGNITE-25738 Check if 1 second is a good value.
-    /** After partition invalidation checkpoint will be scheduled using this delay to allow batching. */
-    public static final int CHECKPOINT_ON_DESTRUCTION_DELAY_MILLIS = 1000;
-
     /** Storage engine instance. */
     private final PersistentPageMemoryStorageEngine engine;
 
@@ -360,45 +353,13 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     private CompletableFuture<Void> destroyPartitionPhysically(GroupPartitionId groupPartitionId) {
-        FilePageStore store = dataRegion.filePageStoreManager().getStore(groupPartitionId);
+        dataRegion.filePageStoreManager().getStore(groupPartitionId).markToDestroy();
 
-        assert store != null : groupPartitionId;
+        dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
 
-        store.markToDestroy();
-
-        var prepareDestroyFuture = new CompletableFuture<>();
-
-        CheckpointManager checkpointManager = dataRegion.checkpointManager();
-
-        var listener = new CheckpointListener() {
-            @Override
-            public void afterCheckpointEnd(CheckpointProgress progress) {
-                checkpointManager.removeCheckpointListener(this);
-
-                try {
-                    dataRegion.pageMemory().invalidate(groupPartitionId.getGroupId(), groupPartitionId.getPartitionId());
-
-                    dataRegion.partitionMetaManager().removeMeta(groupPartitionId);
-
-                    prepareDestroyFuture.complete(null);
-                } catch (Exception e) {
-                    prepareDestroyFuture.completeExceptionally(
-                            new StorageException("Couldn't invalidate partition for destruction: " + groupPartitionId, e)
-                    );
-                }
-            }
-        };
-
-        checkpointManager.addCheckpointListener(listener, dataRegion);
-
-        CheckpointProgress checkpoint = dataRegion.checkpointManager().scheduleCheckpoint(
-                CHECKPOINT_ON_DESTRUCTION_DELAY_MILLIS,
-                "Partition destruction"
-        );
-
-        return checkpoint.futureFor(CheckpointState.FINISHED)
-                .thenCompose(v -> prepareDestroyFuture)
-                .thenCompose(v -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
+        return dataRegion.checkpointManager().onPartitionDestruction(groupPartitionId)
+                .thenAccept(unused -> dataRegion.partitionMetaManager().removeMeta(groupPartitionId))
+                .thenCompose(unused -> dataRegion.filePageStoreManager().destroyPartition(groupPartitionId));
     }
 
     private GroupPartitionId createGroupPartitionId(int partitionId) {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.tree;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
@@ -31,15 +30,12 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
@@ -47,7 +43,6 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
-import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
@@ -69,9 +64,6 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
 
     private static final int GROUP_ID = 100500;
 
-    @InjectConfiguration(polymorphicExtensions = { VolatilePageMemoryProfileConfigurationSchema.class }, value = "mock.engine = aimem")
-    private StorageProfileConfiguration dataRegionCfg;
-
     @Nullable
     protected PageMemory pageMem;
 
@@ -90,20 +82,13 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     }
 
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg
-                .change(c -> ((VolatilePageMemoryProfileChange) c)
-                        .changeInitSizeBytes(1024 * MiB)
-                        .changeMaxSizeBytes(1024 * MiB))
-                .get(1, TimeUnit.SECONDS);
-
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new VolatilePageMemory(
-                (VolatilePageMemoryProfileConfiguration) fixConfiguration(dataRegionCfg),
+                VolatileDataRegionConfiguration.builder().pageSize(512).initSize(1024 * MiB).maxSize(1024 * MiB).build(),
                 ioRegistry,
-                512,
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
     }
