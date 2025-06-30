@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import static org.apache.calcite.sql.type.SqlTypeName.ANY;
 import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
+import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.VARBINARY;
@@ -30,19 +31,25 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
+import org.apache.calcite.DataContexts;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexLiteral;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Accumulators implementations.
@@ -89,7 +96,11 @@ public class Accumulators {
                 return anyValueFactory(call);
             case "LITERAL_AGG":
                 assert call.rexList.size() == 1 : "Incorrect number of pre-operands for LiteralAgg: " + call + ", input: " + inputType;
-                return LiteralVal.newAccumulator(call.rexList.get(0).getType());
+                RexNode lit = call.rexList.get(0);
+                assert lit instanceof RexLiteral : "Non-literal argument for LiteralAgg: " + call + ", argument: " + lit;
+                assert lit.getType().getSqlTypeName() == BOOLEAN : "Unsupported argument for LiteralAgg: " + call + ", argument: " + lit;
+
+                return LiteralVal.newAccumulator((RexLiteral) lit);
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -262,13 +273,19 @@ public class Accumulators {
     public static class LiteralVal implements Accumulator {
 
         private final RelDataType type;
+        
+        private final @Nullable Object value;
 
-        private LiteralVal(RelDataType type) {
+        private LiteralVal(RelDataType type, @Nullable Object value) {
             this.type = type;
+            this.value = value;
         }
 
-        public static Supplier<Accumulator> newAccumulator(RelDataType type) {
-            return () -> new LiteralVal(type);
+        public static Supplier<Accumulator> newAccumulator(RexLiteral literal) {
+            Class<?> javaClass = (Class<?>) Commons.typeFactory().getJavaClass(literal.getType());
+            Object value = RexUtils.literalValue(DataContexts.EMPTY, literal, javaClass);
+
+            return () -> new LiteralVal(literal.getType(), value);
         }
 
         /** {@inheritDoc} */
@@ -276,14 +293,13 @@ public class Accumulators {
         public void add(AccumulatorsState state, Object[] args) {
             assert args.length == 1 : args.length;
             // Literal Agg is called with the same argument.
-            state.set(args[0]);
+            state.set(value);
         }
 
         /** {@inheritDoc} */
         @Override
         public void end(AccumulatorsState state, AccumulatorsState result) {
-            Object val = state.get();
-            result.set(val);
+            result.set(value);
         }
 
         /** {@inheritDoc} */

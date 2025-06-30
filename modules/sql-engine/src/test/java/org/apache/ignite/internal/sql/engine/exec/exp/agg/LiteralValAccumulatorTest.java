@@ -33,23 +33,23 @@ public class LiteralValAccumulatorTest extends BaseIgniteAbstractTest {
 
     @Test
     public void test() {
-        StatefulAccumulator accumulator = newCall();
+        StatefulAccumulator accumulator = newCall("123");
 
         // Literal agg accepts the same value.
         accumulator.add("1");
 
-        assertEquals("1", accumulator.end());
+        assertEquals("123", accumulator.end());
     }
 
     @Test
     public void empty() {
-        StatefulAccumulator accumulator = newCall();
+        StatefulAccumulator accumulator = newCall("1234");
 
-        assertEquals(null, accumulator.end());
+        assertEquals("1234", accumulator.end());
     }
 
-    private StatefulAccumulator newCall() {
-        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(Commons.typeFactory().createSqlType(SqlTypeName.VARCHAR));
+    private StatefulAccumulator newCall(String literal) {
+        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(Commons.rexBuilder().makeLiteral(literal));
         return new StatefulAccumulator(supplier);
     }
 }
