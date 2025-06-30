@@ -61,6 +61,7 @@ import static org.apache.calcite.sql.fun.SqlLibraryOperators.ARRAY_REMOVE;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.ARRAY_REPEAT;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.ARRAY_REVERSE;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.ARRAY_SIZE;
+import static org.apache.calcite.sql.fun.SqlLibraryOperators.ARRAY_SLICE;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.ARRAY_TO_STRING;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.ARRAY_UNION;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.ASIND;
@@ -1000,6 +1001,7 @@ public class RexImpTable {
       define(IS_NOT_TRUE, new IsNotTrueImplementor());
       define(IS_FALSE, new IsFalseImplementor());
       define(IS_NOT_FALSE, new IsNotFalseImplementor());
+      //define(IS_NOT_DISTINCT_FROM, new IsNotDistinctFromImplementor());
 
       // LIKE, ILIKE, RLIKE and SIMILAR
       defineReflective(LIKE, BuiltInMethod.LIKE.method,
@@ -1058,6 +1060,7 @@ public class RexImpTable {
       defineMethod(ARRAY_REPEAT, BuiltInMethod.ARRAY_REPEAT.method, NullPolicy.NONE);
       defineMethod(ARRAY_REVERSE, BuiltInMethod.ARRAY_REVERSE.method, NullPolicy.STRICT);
       defineMethod(ARRAY_SIZE, BuiltInMethod.COLLECTION_SIZE.method, NullPolicy.STRICT);
+      defineMethod(ARRAY_SLICE, BuiltInMethod.ARRAY_SLICE.method, NullPolicy.STRICT);
       defineMethod(ARRAY_TO_STRING, BuiltInMethod.ARRAY_TO_STRING.method,
           NullPolicy.STRICT);
       defineMethod(ARRAY_UNION, BuiltInMethod.ARRAY_UNION.method, NullPolicy.ANY);
@@ -3943,6 +3946,8 @@ public class RexImpTable {
     // use the general MethodImplementor.
     private AbstractRexCallImplementor getImplementor(SqlTypeName sqlTypeName) {
       switch (sqlTypeName) {
+      case VARIANT:
+        return new MethodImplementor(BuiltInMethod.VARIANT_ITEM.method, nullPolicy, false);
       case ARRAY:
         return new ArrayItemImplementor();
       case MAP:
@@ -3996,6 +4001,10 @@ public class RexImpTable {
         return Expressions.call(BuiltInMethod.LOCAL_TIMESTAMP.method, root);
       } else if (op == LOCALTIME) {
         return Expressions.call(BuiltInMethod.LOCAL_TIME.method, root);
+      //} else if (op == SYSDATE) {
+      //  return Expressions.call(BuiltInMethod.SYSDATE.method, root);
+      //} else if (op == SYSTIMESTAMP) {
+      //  return Expressions.call(BuiltInMethod.SYSTIMESTAMP.method, root);
       } else {
         throw new AssertionError("unknown function " + op);
       }
@@ -4869,6 +4878,52 @@ public class RexImpTable {
       return Expressions.equal(argValueList.get(0), NULL_EXPR);
     }
   }
+
+  /* Implementor for the {@code IS NOT DISTINCT FROM} SQL operator. 
+  private static class IsNotDistinctFromImplementor extends AbstractRexCallImplementor {
+    IsNotDistinctFromImplementor() {
+      super("is_not_distinct_from", NullPolicy.NONE, false);
+    }
+
+    @Override public RexToLixTranslator.Result implement(final RexToLixTranslator translator,
+        final RexCall call, final List<RexToLixTranslator.Result> arguments) {
+      final RexToLixTranslator.Result left = arguments.get(0);
+      final RexToLixTranslator.Result right = arguments.get(1);
+
+      // Generated expression:
+      // left IS NULL ?
+      //   (right IS NULL ? TRUE : FALSE) :  -> when left is null
+      //   (right IS NULL ? FALSE :          -> when left is not null
+      //     left.equals(right))             -> when both are not null, compare values
+      final Expression valueExpression =
+          Expressions.condition(left.isNullVariable,
+          Expressions.condition(right.isNullVariable, BOXED_TRUE_EXPR, BOXED_FALSE_EXPR),
+          Expressions.condition(right.isNullVariable, BOXED_FALSE_EXPR,
+              Expressions.call(BuiltInMethod.OBJECTS_EQUAL.method,
+                  left.valueVariable, right.valueVariable)));
+
+      BlockBuilder builder = translator.getBlockBuilder();
+      final ParameterExpression valueVariable =
+          Expressions.parameter(valueExpression.getType(),
+              builder.newName(variableName + "_value"));
+      final ParameterExpression isNullVariable =
+          Expressions.parameter(Boolean.TYPE,
+              builder.newName(variableName + "_isNull"));
+
+      builder.add(
+          Expressions.declare(Modifier.FINAL, valueVariable, valueExpression));
+      builder.add(
+          Expressions.declare(Modifier.FINAL, isNullVariable, FALSE_EXPR));
+
+      return new RexToLixTranslator.Result(isNullVariable, valueVariable);
+    }
+
+    @Override Expression implementSafe(final RexToLixTranslator translator,
+        final RexCall call, final List<Expression> argValueList) {
+      throw new IllegalStateException("This implementSafe should not be called,"
+          + " please call implement(...)");
+    }
+  }*/
 
   /** Implementor for the {@code IS TRUE} SQL operator. */
   private static class IsTrueImplementor extends AbstractRexCallImplementor {

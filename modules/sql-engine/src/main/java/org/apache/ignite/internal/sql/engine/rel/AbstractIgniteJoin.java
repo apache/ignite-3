@@ -38,6 +38,7 @@ import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
@@ -62,9 +63,27 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgniteRel {
+
+    /** Override JoinInfo stored in {@link Join} because that joinInfo treats IS NOT DISTINCT FROM as non-equijoin condition. */
+    protected final JoinInfo joinInfo;
+
     protected AbstractIgniteJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left, RelNode right,
             RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType) {
         super(cluster, traitSet, List.of(), left, right, condition, variablesSet, joinType);
+
+        JoinInfo baseJoinInfo = super.analyzeCondition();
+
+        if (baseJoinInfo.isEqui()) {
+            this.joinInfo = baseJoinInfo;
+        } else {
+            this.joinInfo = JoinInfo.of(left, right, condition);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public JoinInfo analyzeCondition() {
+        return joinInfo;
     }
 
     /** {@inheritDoc} */

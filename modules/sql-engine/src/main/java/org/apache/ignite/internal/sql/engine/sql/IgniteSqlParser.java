@@ -132,6 +132,10 @@ public final class IgniteSqlParser {
                 list.set(i, newNode);
             }
 
+            if (list.isEmpty()) {
+                throw new SqlException(STMT_PARSE_ERR, "Failed to parse query: No statements");
+            }
+
             return mode.createResult(list, dynamicParamsCount);
         } catch (SqlParseException e) {
             throw convertException(e);
