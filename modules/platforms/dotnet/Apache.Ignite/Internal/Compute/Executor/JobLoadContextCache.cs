@@ -40,7 +40,7 @@ internal sealed class JobLoadContextCache : IDisposable
 {
     private static readonly long TicksPerMs = Stopwatch.Frequency / 1000L;
 
-    private readonly int _ttlMs;
+    private readonly long _ttlTicks;
 
     /** Main cache of job load contexts. */
     private readonly Dictionary<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)> _jobLoadContextCache = new();
@@ -59,7 +59,7 @@ internal sealed class JobLoadContextCache : IDisposable
     /// <param name="cacheCleanupIntervalMs">Cache cleanup interval.</param>
     internal JobLoadContextCache(int ttlMs = 30_000, int cacheCleanupIntervalMs = 5_000)
     {
-        _ttlMs = ttlMs;
+        _ttlTicks = ttlMs * TicksPerMs;
 
         _ = StartCacheCleanupAsync(cacheCleanupIntervalMs);
     }
@@ -99,7 +99,7 @@ internal sealed class JobLoadContextCache : IDisposable
                 }
             }
 
-            valRef.Ts = NowMs();
+            valRef.Ts = NowTicks();
 
             return valRef.Ctx;
         }
@@ -171,7 +171,7 @@ internal sealed class JobLoadContextCache : IDisposable
         }
     }
 
-    private static long NowMs() => Stopwatch.GetTimestamp() / TicksPerMs;
+    private static long NowTicks() => Stopwatch.GetTimestamp();
 
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
     private async Task StartCacheCleanupAsync(int cacheCleanupIntervalMs)
@@ -202,11 +202,11 @@ internal sealed class JobLoadContextCache : IDisposable
     private void CleanUpExpiredJobContexts()
     {
         List<KeyValuePair<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)>>? toRemove = null;
-        long now = NowMs();
+        long nowTicks = NowTicks();
 
         foreach (KeyValuePair<DeploymentUnitPaths, (JobLoadContext Ctx, long Ts)> cachedJobCtx in _jobLoadContextCache)
         {
-            if (cachedJobCtx.Value.Ts + _ttlMs < now)
+            if (cachedJobCtx.Value.Ts + _ttlTicks < nowTicks)
             {
                 toRemove ??= new();
                 toRemove.Add(cachedJobCtx);
