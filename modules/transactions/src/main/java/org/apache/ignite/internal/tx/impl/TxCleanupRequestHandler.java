@@ -118,10 +118,9 @@ public class TxCleanupRequestHandler {
     public void start() {
         messagingService.addMessageHandler(
                 TxMessageGroup.class,
-                message -> cleanupExecutor,
                 (msg, sender, correlationId) -> {
                     if (msg instanceof TxCleanupMessage) {
-                        processTxCleanup((TxCleanupMessage) msg, sender, correlationId);
+                        cleanupExecutor.execute(() -> processTxCleanup((TxCleanupMessage) msg, sender, correlationId));
                     }
                 }
         );
