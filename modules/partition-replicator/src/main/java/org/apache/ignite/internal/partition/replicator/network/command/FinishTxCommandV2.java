@@ -15,30 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.leases;
+package org.apache.ignite.internal.partition.replicator.network.command;
 
-import java.util.Collection;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
+import java.util.List;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands;
+import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 
-/**
- * Representation of leases batch.
- */
-public class LeaseBatch {
-    private final Collection<Lease> leases;
-
-    public LeaseBatch(Collection<Lease> leases) {
-        this.leases = leases;
-    }
-
-    public Collection<Lease> leases() {
-        return leases;
-    }
-
-    public byte[] bytes() {
-        return VersionedSerialization.toBytes(this, LeaseBatchSerializer.INSTANCE);
-    }
-
-    public static LeaseBatch fromBytes(byte[] bytes) {
-        return VersionedSerialization.fromBytes(bytes, LeaseBatchSerializer.INSTANCE);
-    }
+/** Extension of {@link FinishTxCommand} with new fields to support backward compatibility. */
+@Transferable(Commands.FINISH_TX_V2)
+public interface FinishTxCommandV2 extends FinishTxCommand {
+    /** Returns ordered partitions. */
+    List<EnlistedPartitionGroupMessage> partitions();
 }

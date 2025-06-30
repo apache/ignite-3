@@ -133,7 +133,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         this.commandHandlers = new CommandHandlers.Builder()
                 .addHandler(
                         PartitionReplicationMessageGroup.GROUP_TYPE,
-                        Commands.FINISH_TX,
+                        Commands.FINISH_TX_V2,
                         new FinishTxCommandHandler(txStatePartitionStorage, zonePartitionId, txManager))
                 .addHandler(
                         PartitionReplicationMessageGroup.GROUP_TYPE,
