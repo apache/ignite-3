@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -30,9 +29,9 @@ import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -182,9 +181,12 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     Entry msEntry = entry.newEntry();
 
                     byte[] leasesBytes = msEntry.value();
-                    Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
 
-                    LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
+                    assert leasesBytes != null;
+
+                    LeaseBatch leaseBatch = LeaseBatch.fromBytes(leasesBytes);
+
+                    Map<ReplicationGroupId, Lease> leasesMap = newHashMap(leaseBatch.leases().size());
 
                     Map<ReplicationGroupId, Lease> previousLeasesMap = leases.leaseByGroupId();
 
@@ -352,7 +354,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         } else {
             byte[] leasesBytes = entry.value();
 
-            LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
+            assert leasesBytes != null;
+
+            LeaseBatch leaseBatch = LeaseBatch.fromBytes(leasesBytes);
 
             Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
 

@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -38,6 +39,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.PartitionProcessingCounterMap;
 import org.apache.ignite.internal.pagememory.persistence.WriteSpeedFormatter;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -79,6 +82,9 @@ public class Compactor extends IgniteWorker {
 
     /** Thread local with buffers for the compaction threads. */
     private static final ThreadLocal<ByteBuffer> THREAD_BUF = new ThreadLocal<>();
+
+    /** Partitions for which delta files are currently compacted. */
+    private final PartitionProcessingCounterMap partitionCompactionInProgressMap = new PartitionProcessingCounterMap();
 
     /** Page size in bytes. */
     private final int pageSize;
@@ -241,11 +247,19 @@ public class Compactor extends IgniteWorker {
                                 break;
                             }
 
-                            mergeDeltaFileToMainFile(
-                                    toMerge.groupPartitionFilePageStore.pageStore(),
-                                    toMerge.deltaFilePageStoreIo,
-                                    tracker
-                            );
+                            GroupPartitionId groupPartitionId = toMerge.groupPartitionFilePageStore.groupPartitionId();
+
+                            partitionCompactionInProgressMap.incrementPartitionProcessingCounter(groupPartitionId);
+
+                            try {
+                                mergeDeltaFileToMainFile(
+                                        toMerge.groupPartitionFilePageStore.pageStore(),
+                                        toMerge.deltaFilePageStoreIo,
+                                        tracker
+                                );
+                            } finally {
+                                partitionCompactionInProgressMap.decrementPartitionProcessingCounter(groupPartitionId);
+                            }
                         }
                     } catch (Throwable ex) {
                         future.completeExceptionally(ex);
@@ -434,6 +448,21 @@ public class Compactor extends IgniteWorker {
         boolean removed = filePageStore.removeDeltaFile(deltaFilePageStore);
 
         assert removed : filePageStore.filePath();
+    }
+
+    /**
+     * Prepares the compactor to destroy a partition.
+     *
+     * <p>If the partition compaction is in progress, then we will wait until it is completed so that there are no errors when we want to
+     * destroy the partition file and its delta file, and at this time its compaction occurs.
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @return Future at the complete of which we can delete the partition file and its delta files.
+     */
+    public CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
+        CompletableFuture<Void> partitionProcessingFuture = partitionCompactionInProgressMap.getProcessedPartitionFuture(groupPartitionId);
+
+        return partitionProcessingFuture == null ? nullCompletedFuture() : partitionProcessingFuture;
     }
 
     private static ByteBuffer getThreadLocalBuffer(int pageSize) {
