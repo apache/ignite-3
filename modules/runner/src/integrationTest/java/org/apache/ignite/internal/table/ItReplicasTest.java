@@ -106,7 +106,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         int tableOrZoneId = getTableOrZoneId(ignite, tableName);
 
         return colocationEnabled()
-                ? ZoneRebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), tableOrZoneId, 0).join()
+                ? ZoneRebalanceUtil.zoneStableAssignments(ignite.metaStorageManager(), tableOrZoneId, new int[]{0}).join().get(0).nodes()
                 : RebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), tableOrZoneId, 0).join();
     }
 

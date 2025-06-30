@@ -758,23 +758,4 @@ public class ZoneRebalanceUtil {
 
         return e != null ? AssignmentsChain.fromBytes(e.value()) : null;
     }
-
-    /**
-     * Returns partition assignments from meta storage.
-     *
-     * @param metaStorageManager Meta storage manager.
-     * @param zoneId Zone ID.
-     * @param partitionId Partition ID.
-     * @return Future with partition assignments as a value.
-     */
-    @TestOnly
-    public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
-            MetaStorageManager metaStorageManager,
-            int zoneId,
-            int partitionId
-    ) {
-        return metaStorageManager
-                .get(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
-    }
 }
