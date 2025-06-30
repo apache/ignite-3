@@ -348,9 +348,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                                     return typeFactory.createTypeWithNullability(resultType, nullable);
                                 }
                             } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
-                                return typeFactory.createTypeWithNullability(type1, nullable);
+                                return deriveDatetimePlusMinusInterval(typeFactory, type1, type2, nullable);
                             } else if (SqlTypeUtil.isDatetime(type2) && SqlTypeUtil.isInterval(type1)) {
-                                return typeFactory.createTypeWithNullability(type2, nullable);
+                                return deriveDatetimePlusMinusInterval(typeFactory, type2, type1, nullable);
                             }
 
                             return null;
@@ -358,6 +358,20 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     },
                     InferTypes.FIRST_KNOWN,
                     PLUS_OPERATOR_TYPES_CHECKER);
+
+    private static RelDataType deriveDatetimePlusMinusInterval(
+            RelDataTypeFactory typeFactory,
+            RelDataType datetimeType,
+            RelDataType intervalType,
+            boolean nullable
+    ) {
+        if (datetimeType.getSqlTypeName().allowsPrecScale(true, false)
+                && intervalType.getScale() > datetimeType.getPrecision()) {
+            return typeFactory.createSqlType(datetimeType.getSqlTypeName(), intervalType.getScale());
+        }
+
+        return typeFactory.createTypeWithNullability(datetimeType, nullable);
+    }
 
     /**
      * Infix arithmetic minus operator, '{@code -}'.
@@ -388,7 +402,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                                     return typeFactory.createTypeWithNullability(resultType, nullable);
                                 }
                             } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
-                                return typeFactory.createTypeWithNullability(type1, nullable);
+                                return deriveDatetimePlusMinusInterval(typeFactory, type1, type2, nullable);
                             }
 
                             return null;

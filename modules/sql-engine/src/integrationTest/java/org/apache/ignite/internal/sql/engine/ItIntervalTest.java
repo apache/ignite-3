@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlIntervalLiteral;
@@ -58,12 +59,15 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -525,6 +529,31 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         timestampChecker.accept("SELECT {} '2021-01-01 00:00:00.123' + INTERVAL '1.123' SECOND", "2021-01-01T00:00:01.246");
         timestampChecker.accept("SELECT {} '2021-01-01 00:00:00' + INTERVAL '1 1:1:1.123' DAY TO SECOND", "2021-01-02T01:01:01.123");
         timestampChecker.accept("SELECT {} '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH", "2022-02-01T01:01:01.123");
+    }
+
+    @ParameterizedTest
+    @MethodSource("testIntervalWithFractionOfSecondArithmeticArgs")
+    public void testIntervalWithFractionOfSecondArithmetic(String stmt, Object expected, ColumnType expType, int expPrecision) {
+        assertQuery("SELECT " + stmt)
+                .columnMetadata(new MetadataMatcher().type(expType).precision(expPrecision))
+                .returns(expected)
+                .check();
+    }
+
+    private static Stream<Arguments> testIntervalWithFractionOfSecondArithmeticArgs() {
+        return Stream.of(
+                Arguments.of("TIME '00:00:00' + INTERVAL '0.001' SECOND", LocalTime.parse("00:00:00.001"), ColumnType.TIME, 6),
+                Arguments.of("TIME '00:00:00.1' + INTERVAL '0.1' SECOND(1, 1)", LocalTime.parse("00:00:00.2"), ColumnType.TIME, 1),
+                Arguments.of("TIME '00:00:00.01' + INTERVAL '0.1' SECOND(1, 1)", LocalTime.parse("00:00:00.11"), ColumnType.TIME, 2),
+                Arguments.of("TIME '00:00:00.1' + INTERVAL '0.01' SECOND(1, 2)", LocalTime.parse("00:00:00.11"), ColumnType.TIME, 2),
+                Arguments.of("TIME '00:00:00.1' + INTERVAL '0.001' SECOND(1, 3)", LocalTime.parse("00:00:00.101"), ColumnType.TIME, 3),
+                Arguments.of("TIME '00:00:00.1' + INTERVAL 1 SECOND", LocalTime.parse("00:00:01.1"), ColumnType.TIME, 6),
+                Arguments.of("TIME '00:00:00' + INTERVAL 1 SECOND(1, 0)", LocalTime.parse("00:00:01"), ColumnType.TIME, 0),
+                Arguments.of("TIME '00:00:00.1' + INTERVAL '1:01.01' MINUTE TO SECONDS(2)", LocalTime.parse("00:01:01.110"),
+                        ColumnType.TIME, 2),
+                Arguments.of("TIME '00:00:00.1' + INTERVAL '1:01.011' MINUTE TO SECONDS(3)", LocalTime.parse("00:01:01.111"),
+                        ColumnType.TIME, 3)
+        );
     }
 
     @Test
