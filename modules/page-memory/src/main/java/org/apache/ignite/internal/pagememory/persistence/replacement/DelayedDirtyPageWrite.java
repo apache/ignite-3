@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
@@ -133,6 +134,8 @@ public class DelayedDirtyPageWrite {
 
         Throwable errorOnWrite = null;
 
+        checkpointPages.blockPartitionDestruction(GroupPartitionId.convert(fullPageId));
+
         try {
             flushDirtyPage.write(pageMemory, fullPageId, byteBufThreadLoc.get());
         } catch (Throwable t) {
@@ -140,6 +143,8 @@ public class DelayedDirtyPageWrite {
 
             throw t;
         } finally {
+            checkpointPages.unblockPartitionDestruction(GroupPartitionId.convert(fullPageId));
+
             checkpointPages.unblockFsyncOnPageReplacement(fullPageId, errorOnWrite);
 
             tracker.unlock(fullPageId);

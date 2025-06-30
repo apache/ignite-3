@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMI
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -521,7 +522,7 @@ public class Checkpointer extends IgniteWorker {
 
         tracker.onFsyncStart();
 
-        syncUpdatedPageStores(updatedPartitions);
+        syncUpdatedPageStores(updatedPartitions, currentCheckpointProgress);
 
         tracker.onFsyncEnd();
 
@@ -536,7 +537,10 @@ public class Checkpointer extends IgniteWorker {
         return true;
     }
 
-    private void syncUpdatedPageStores(ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions) throws IgniteInternalCheckedException {
+    private void syncUpdatedPageStores(
+            ConcurrentMap<GroupPartitionId, LongAdder> updatedPartitions,
+            CheckpointProgressImpl currentCheckpointProgress
+    ) throws IgniteInternalCheckedException {
         ThreadPoolExecutor pageWritePool = checkpointWritePagesPool;
 
         if (pageWritePool == null) {
@@ -545,7 +549,7 @@ public class Checkpointer extends IgniteWorker {
                     return;
                 }
 
-                fsyncDeltaFile(entry.getKey(), entry.getValue());
+                fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
             }
         } else {
             int checkpointThreads = pageWritePool.getMaximumPoolSize();
@@ -570,7 +574,7 @@ public class Checkpointer extends IgniteWorker {
                                 break;
                             }
 
-                            fsyncDeltaFile(entry.getKey(), entry.getValue());
+                            fsyncDeltaFile(currentCheckpointProgress, entry.getKey(), entry.getValue());
 
                             entry = queue.poll();
                         }
@@ -593,6 +597,7 @@ public class Checkpointer extends IgniteWorker {
     }
 
     private void fsyncDeltaFile(
+            CheckpointProgressImpl currentCheckpointProgress,
             GroupPartitionId partitionId,
             LongAdder pagesWritten
     ) throws IgniteInternalCheckedException {
@@ -602,9 +607,15 @@ public class Checkpointer extends IgniteWorker {
             return;
         }
 
-        fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, pagesWritten);
+        currentCheckpointProgress.blockPartitionDestruction(partitionId);
 
-        renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
+        try {
+            fsyncDeltaFilePageStoreOnCheckpointThread(filePageStore, pagesWritten);
+
+            renameDeltaFileOnCheckpointThread(filePageStore, partitionId);
+        } finally {
+            currentCheckpointProgress.unblockPartitionDestruction(partitionId);
+        }
     }
 
     /**
@@ -889,6 +900,30 @@ public class Checkpointer extends IgniteWorker {
      */
     void updateLastProgressAfterReleaseWriteLock() {
         afterReleaseWriteLockCheckpointProgress = currentCheckpointProgress;
+    }
+
+    /**
+     * Prepares the checkpointer to destroy a partition.
+     *
+     * <p>If the checkpoint is in progress, then wait until it finishes processing the partition that we are going to destroy, in order to
+     * prevent the situation when we want to destroy the partition file along with its delta files, and at this time the checkpoint performs
+     * I/O operations on them.
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @return Future that will end when the checkpoint is ready to destroy the partition.
+     */
+    CompletableFuture<Void> prepareToDestroyPartition(GroupPartitionId groupPartitionId) {
+        CheckpointProgressImpl currentCheckpointProgress = this.currentCheckpointProgress;
+
+        // If the checkpoint starts after this line, then the data region will already know that we want to destroy the partition, and when
+        // reading the page for writing to the delta file, we will receive an "outdated" page that we will not write to disk.
+        if (currentCheckpointProgress == null || !currentCheckpointProgress.inProgress()) {
+            return nullCompletedFuture();
+        }
+
+        CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getUnblockPartitionDestructionFuture(groupPartitionId);
+
+        return processedPartitionFuture == null ? nullCompletedFuture() : processedPartitionFuture;
     }
 
     private void replicatorLogSync(CheckpointMetricsTracker tracker) throws IgniteInternalCheckedException {

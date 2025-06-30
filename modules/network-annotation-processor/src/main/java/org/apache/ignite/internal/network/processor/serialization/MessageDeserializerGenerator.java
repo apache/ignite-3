@@ -19,8 +19,7 @@ package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
-import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.checkPropertyNames;
-import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.propertyName;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.propertyName;
 
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -139,8 +138,6 @@ public class MessageDeserializerGenerator {
                 .addCode("\n");
 
         if (!getters.isEmpty()) {
-            checkPropertyNames(getters);
-
             method.beginControlFlow("switch (reader.state())");
 
             for (int i = 0; i < getters.size(); ++i) {

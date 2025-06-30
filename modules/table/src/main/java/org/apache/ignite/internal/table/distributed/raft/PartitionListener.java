@@ -21,7 +21,8 @@ import static java.lang.Math.max;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V1;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.BUILD_INDEX_V2;
-import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V1;
+import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.FINISH_TX_V2;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.Commands.UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND;
 import static org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.GROUP_TYPE;
 import static org.apache.ignite.internal.partition.replicator.raft.CommandResult.EMPTY_APPLIED_RESULT;
@@ -208,8 +209,15 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         if (!nodeProperties.colocationEnabled()) {
             commandHandlersBuilder.addHandler(
                     GROUP_TYPE,
-                    FINISH_TX,
-                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager));
+                    FINISH_TX_V1,
+                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager)
+            );
+
+            commandHandlersBuilder.addHandler(
+                    GROUP_TYPE,
+                    FINISH_TX_V2,
+                    new FinishTxCommandHandler(txStatePartitionStorage, tablePartitionId, txManager)
+            );
 
             commandHandlersBuilder.addHandler(
                     TxMessageGroup.GROUP_TYPE,
