@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -128,6 +129,8 @@ public class RunnerNode {
     public void stop() {
         process.destroy();
 
+        CompletableFuture<Process> processCompletableFuture = process.onExit();
+
         try {
             if (!process.waitFor(30, TimeUnit.SECONDS)) {
                 processLogger.info("Process did not respond to destroy, destroying forcibly: {}", nodeName);
@@ -140,8 +143,10 @@ public class RunnerNode {
                 }
             }
 
+            processCompletableFuture.get(30, TimeUnit.SECONDS);
+
             processLogger.info("Process stopped: {}", nodeName);
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -193,6 +198,9 @@ public class RunnerNode {
                 "--work-dir", workDir.toString(),
                 "--config-path", configPath.toString()
         );
+
+        pb.redirectErrorStream(true);
+
         return pb.start();
     }
 }

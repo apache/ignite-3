@@ -31,6 +31,8 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterStatePersistentSerializer;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNodeSerializer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,6 +54,8 @@ public class ClusterStateStorageManager {
         this.storage = storage;
     }
 
+    private static final IgniteLogger LOG = Loggers.forClass(ClusterStateStorageManager.class);
+
     /**
      * Retrieves the current CMG state or {@code null} if it has not been initialized.
      *
@@ -59,6 +63,15 @@ public class ClusterStateStorageManager {
      */
     @Nullable
     public ClusterState getClusterState() {
+        ClusterState clusterState0 = getClusterState0();
+
+        LOG.info(">>>>> ClusterStateStorageManager#getClusterState: {}", clusterState0);
+
+        return clusterState0;
+    }
+
+    @Nullable
+    private ClusterState getClusterState0() {
         byte[] value = storage.get(CMG_STATE_KEY);
 
         return value == null ? null : VersionedSerialization.fromBytes(value, ClusterStatePersistentSerializer.INSTANCE);
@@ -71,6 +84,8 @@ public class ClusterStateStorageManager {
      */
     public void putClusterState(ClusterState state) {
         storage.put(CMG_STATE_KEY, VersionedSerialization.toBytes(state, ClusterStatePersistentSerializer.INSTANCE));
+
+        LOG.info(">>>>> ClusterStateStorageManager#putClusterState: {}", new Exception(), state);
     }
 
     /**

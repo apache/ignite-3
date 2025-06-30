@@ -22,6 +22,10 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -41,6 +45,7 @@ class LocalStateStorage {
     static class LocalState {
         private final Set<String> cmgNodeNames;
 
+        @IgniteToStringInclude
         private final ClusterTag clusterTag;
 
         LocalState(Set<String> cmgNodeNames, ClusterTag clusterTag) {
@@ -55,6 +60,11 @@ class LocalStateStorage {
         ClusterTag clusterTag() {
             return clusterTag;
         }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
     }
 
     private final VaultManager vault;
@@ -63,12 +73,22 @@ class LocalStateStorage {
         this.vault = vault;
     }
 
+    private static final IgniteLogger LOG = Loggers.forClass(LocalStateStorage.class);
+
     /**
      * Retrieves the local state.
      *
      * @return Local state.
      */
     @Nullable LocalState getLocalState() {
+        LocalState localState0 = getLocalState0();
+
+        LOG.info(">>>>> LocalStateStorage#getLocalState: {}", localState0);
+
+        return localState0;
+    }
+
+    private @Nullable LocalState getLocalState0() {
         VaultEntry entry = vault.get(CMG_STATE_VAULT_KEY);
 
         if (entry == null) {
@@ -85,6 +105,8 @@ class LocalStateStorage {
      */
     void saveLocalState(LocalState state) {
         vault.put(CMG_STATE_VAULT_KEY, VersionedSerialization.toBytes(state, LocalStateSerializer.INSTANCE));
+
+        LOG.info(">>>>> LocalStateStorage#saveLocalState: {}", new Exception(), state);
     }
 
     /**
@@ -92,6 +114,8 @@ class LocalStateStorage {
      */
     void clear() {
         vault.remove(CMG_STATE_VAULT_KEY);
+
+        LOG.info(">>>>> LocalStateStorage#clear");
     }
 
     private static class LocalStateSerializer extends VersionedSerializer<LocalState> {

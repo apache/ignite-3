@@ -82,7 +82,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     @SuppressWarnings("unused")
     @BeforeParameterizedClassInvocation
     void startCluster(String baseVersion, TestInfo testInfo) {
-        log.info("Starting nodes for base version: {}", baseVersion);
+        log.info("Starting nodes for base version: [baseVersion={}, workDir={}]}", baseVersion, workDir);
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
@@ -93,16 +93,26 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         cluster = new IgniteCluster(clusterConfiguration);
         cluster.start(baseVersion, nodesCount);
 
+        log.info(">>>>> startCluster, after start nodes: [baseVersion={}, nodesCount={}]", baseVersion, nodesCount);
+
         cluster.init(this::configureInitParameters);
+
+        log.info(">>>>> startCluster, after init: [baseVersion={}, nodesCount={}]", baseVersion, nodesCount);
 
         try (IgniteClient client = cluster.createClient()) {
             setupBaseVersion(client);
         }
 
+        log.info(">>>>> startCluster, after start client: [baseVersion={}, nodesCount={}]", baseVersion, nodesCount);
+
         if (restartWithCurrentEmbeddedVersion()) {
             cluster.stop();
 
+            log.info(">>>>> startCluster, after cluster stop: [baseVersion={}, nodesCount={}]", baseVersion, nodesCount);
+
             cluster.startEmbedded(nodesCount);
+
+            log.info(">>>>> startCluster, after start embeded: [baseVersion={}, nodesCount={}]", baseVersion, nodesCount);
         }
     }
 
