@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.PushMetricExporter;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.internal.metrics.exporters.configuration.OtlpExporterView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -31,21 +32,21 @@ import org.jetbrains.annotations.TestOnly;
  * Otlp(OpenTelemetry) metrics exporter.
  */
 @AutoService(MetricExporter.class)
-public class OtlpPushMetricExporter extends PushMetricExporter<OtlpExporterView> {
+public class OtlpPushMetricExporter extends PushMetricExporter {
     public static final String EXPORTER_NAME = "otlp";
 
     private final AtomicReference<MetricReporter> reporter = new AtomicReference<>();
 
     @Override
-    public synchronized void stop() {
+    public void stop() {
         super.stop();
 
         changeReporter(null);
     }
 
     @Override
-    public synchronized void reconfigure(OtlpExporterView newVal) {
-        MetricReporter newReporter = new MetricReporter(newVal, this::clusterId, nodeName());
+    public void reconfigure(ExporterView newVal) {
+        var newReporter = new MetricReporter((OtlpExporterView) newVal, clusterIdSupplier(), nodeName());
 
         for (MetricSet metricSet : metrics().getKey().values()) {
             newReporter.addMetricSet(metricSet);
@@ -75,8 +76,8 @@ public class OtlpPushMetricExporter extends PushMetricExporter<OtlpExporterView>
     }
 
     @Override
-    protected long period() {
-        return configuration().periodMillis();
+    protected long period(ExporterView exporterView) {
+        return ((OtlpExporterView) exporterView).periodMillis();
     }
 
     @Override

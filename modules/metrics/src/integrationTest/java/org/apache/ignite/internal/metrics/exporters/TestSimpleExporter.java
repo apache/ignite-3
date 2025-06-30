@@ -21,12 +21,13 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 
 /**
  * Simple metrics exporter for test purposes.
  * It has a trivial API to receive all available metrics as map: (sourceName -> [(metricName -> metricValue), ...])
  */
-public class TestSimpleExporter extends BasicMetricExporter<TestSimpleExporterView> {
+public class TestSimpleExporter extends BasicMetricExporter {
     /** Exporter name. */
     static final String EXPORTER_NAME = "simple";
 
@@ -51,27 +52,17 @@ public class TestSimpleExporter extends BasicMetricExporter<TestSimpleExporterVi
         return results;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() {
         // No-op
     }
 
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return EXPORTER_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void addMetricSet(MetricSet metricSet) {
-        // No-op
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removeMetricSet(String metricSetName) {
-        // No-op
+    public void reconfigure(ExporterView newValue) {
     }
 }

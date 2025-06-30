@@ -795,7 +795,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         try {
             IgniteUtils.closeAllManually(
-                    () -> metricManager.unregisterSource(metaStorageMetricSource),
                     clusterTime,
                     () -> failOrConsume(metaStorageSvcFut, new NodeStoppingException(), MetaStorageServiceImpl::close),
                     () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),

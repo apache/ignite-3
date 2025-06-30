@@ -28,37 +28,24 @@ import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 /**
  * Base class for new metrics exporters implementations.
  */
-public abstract class BasicMetricExporter<CfgT extends ExporterView> implements MetricExporter<CfgT> {
+public abstract class BasicMetricExporter implements MetricExporter {
     /** Metrics provider. */
-    private MetricProvider metricsProvider;
+    private volatile MetricProvider metricsProvider;
 
-    private Supplier<UUID> clusterIdSupplier;
+    private volatile Supplier<UUID> clusterIdSupplier;
 
-    private String nodeName;
-
-    /** Exporter's configuration view. */
-    private CfgT configuration;
+    private volatile String nodeName;
 
     @Override
-    public synchronized void start(MetricProvider metricsProvider, CfgT configuration, Supplier<UUID> clusterIdSupplier, String nodeName) {
+    public void start(
+            MetricProvider metricsProvider,
+            ExporterView configuration,
+            Supplier<UUID> clusterIdSupplier,
+            String nodeName
+    ) {
         this.metricsProvider = metricsProvider;
-        this.configuration = configuration;
         this.clusterIdSupplier = clusterIdSupplier;
         this.nodeName = nodeName;
-    }
-
-    @Override
-    public synchronized void reconfigure(CfgT newVal) {
-        configuration = newVal;
-    }
-
-    /**
-     * Returns current exporter configuration.
-     *
-     * @return Current exporter configuration
-     */
-    protected synchronized CfgT configuration() {
-        return configuration;
     }
 
     /**
@@ -66,21 +53,21 @@ public abstract class BasicMetricExporter<CfgT extends ExporterView> implements 
      *
      * @return map of metrics
      */
-    protected final synchronized IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
+    protected final IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
         return metricsProvider.metrics();
     }
 
     /**
      * Returns current cluster ID.
      */
-    protected final synchronized UUID clusterId() {
-        return clusterIdSupplier.get();
+    protected final Supplier<UUID> clusterIdSupplier() {
+        return clusterIdSupplier;
     }
 
     /**
      * Returns the network alias of the node.
      */
-    protected final synchronized String nodeName() {
+    protected final String nodeName() {
         return nodeName;
     }
 }

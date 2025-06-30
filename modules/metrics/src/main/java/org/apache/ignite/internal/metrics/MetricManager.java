@@ -56,7 +56,7 @@ public interface MetricManager extends IgniteComponent {
      *
      * @param exporters Exporters.
      */
-    void start(Iterable<MetricExporter<?>> exporters);
+    void start(Iterable<MetricExporter> exporters);
 
     /**
      * Register metric source. See {@link MetricRegistry#registerSource(MetricSource)}.
