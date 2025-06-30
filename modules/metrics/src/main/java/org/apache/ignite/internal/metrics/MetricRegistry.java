@@ -307,9 +307,7 @@ public class MetricRegistry implements MetricProvider, ManuallyCloseable {
         lock.lock();
 
         try {
-            sources.values().forEach(this::disable);
-
-            sources.clear();
+            sources.values().forEach(MetricSource::disable);
         } finally {
             lock.unlock();
         }
