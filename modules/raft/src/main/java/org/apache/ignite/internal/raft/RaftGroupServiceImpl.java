@@ -610,34 +610,34 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
-        ThrottlingContextHolder peerThrottlingContextHolder = throttlingContextHolder.peerContextHolder(peer.consistentId());
+        if (!busyLock.enterBusy()) {
+            future.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId + "]."));
 
-        if (throttleOnOverload && peerThrottlingContextHolder.isOverloaded()) {
-            if (!busyLock.enterBusy()) {
-                future.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId + "]."));
+            return future;
+        }
 
-                return future;
-            }
+        try {
+            ThrottlingContextHolder peerThrottlingContextHolder = throttlingContextHolder.peerContextHolder(peer.consistentId());
 
-            try {
+            if (throttleOnOverload && peerThrottlingContextHolder.isOverloaded()) {
                 executor.schedule(
                         () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
                         100,
                         TimeUnit.MILLISECONDS
                 );
-            } finally {
-                busyLock.leaveBusy();
+
+                return future;
             }
 
+            long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
+            var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
+
+            sendWithRetry(future, context, peerThrottlingContextHolder);
+
             return future;
+        } finally {
+            busyLock.leaveBusy();
         }
-
-        long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
-        var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
-
-        sendWithRetry(future, context, peerThrottlingContextHolder);
-
-        return future;
     }
 
     /**
