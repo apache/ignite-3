@@ -87,6 +87,9 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"false", "true"})
     private boolean updateWiList;
 
+    @Param({"false", "true"})
+    private boolean igniteSkipWriteIntentSwitch;
+
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
     private static final ThreadLocal<Integer> GEN = ThreadLocal.withInitial(() -> COUNTER.getAndIncrement() * 20_000_000);
@@ -96,6 +99,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 //        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
 //        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
         System.setProperty("IGNITE_UPDATE_WI_LIST", Boolean.toString(updateWiList));
+        System.setProperty("IGNITE_SKIP_WRITE_INTENT_SWITCH", Boolean.toString(igniteSkipWriteIntentSwitch));
         super.nodeSetUp();
     }
 
