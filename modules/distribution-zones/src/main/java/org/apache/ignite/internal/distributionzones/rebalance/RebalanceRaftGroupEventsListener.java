@@ -64,7 +64,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
-import org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -346,7 +345,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 }
 
                 Assignments stable = Assignments.of(stableFromRaft, pendingAssignmentsQueue.peekFirst().timestamp());
-                pendingAssignmentsQueue = PendingAssignmentsCalculator.pendingAssignmentsCalculator()
+                pendingAssignmentsQueue = pendingAssignmentsCalculator()
                         .stable(stable)
                         .target(pendingAssignmentsQueue.peekLast())
                         .toQueue();
