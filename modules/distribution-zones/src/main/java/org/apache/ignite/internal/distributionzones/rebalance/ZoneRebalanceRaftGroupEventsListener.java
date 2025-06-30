@@ -545,9 +545,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         // eq(revision(partition.assignments.planned), plannedEntry.revision)
                         con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
 
+                        AssignmentsQueue partAssignmentsPendingQueue = PendingAssignmentsCalculator.pendingAssignmentsCalculator()
+                                .stable(newStableAssignments)
+                                .target(Assignments.fromBytes(plannedEntry.value()))
+                                .toQueue();
+
                         successCase = ops(
                                 put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                                put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
+                                put(pendingPartAssignmentsKey, partAssignmentsPendingQueue.toBytes()),
                                 remove(plannedPartAssignmentsKey),
                                 assignmentChainChangeOp
                         ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
