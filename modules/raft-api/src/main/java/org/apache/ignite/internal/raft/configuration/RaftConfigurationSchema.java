@@ -73,17 +73,21 @@ public class RaftConfigurationSchema {
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
+     *
+     * @see DisruptorConfigurationSchema#stripes
      */
-    // TODO: IGNITE-25776 move to DisruptorConfigurationSchema
+    @Deprecated
     @Value(hasDefault = true)
-    public int stripes = Runtime.getRuntime().availableProcessors();
+    public int stripes = DisruptorConfigurationSchema.DEFAULT_STRIPES_COUNT;
 
     /**
      * Amount of log manager Disruptors stripes.
+     *
+     * @see DisruptorConfigurationSchema#logManagerStripes
      */
-    // TODO: IGNITE-25776 move to DisruptorConfigurationSchema
+    @Deprecated
     @Value(hasDefault = true)
-    public int logStripesCount = 4;
+    public int logStripesCount = DisruptorConfigurationSchema.DEFAULT_LOG_MANAGER_STRIPES_COUNT;
 
     /**
      * Set true to use the non-blocking strategy in the log manager.
