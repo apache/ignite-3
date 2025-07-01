@@ -29,9 +29,13 @@
     <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
     <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
 
+    <!-- Package Compatibility Checks -->
     <EnablePackageValidation>true</EnablePackageValidation>
     <PackageValidationBaselineVersion>3.0.0</PackageValidationBaselineVersion>
-    <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
+    <EnableStrictModeForBaselineValidation>true</EnableStrictModeForBaselineValidation>
+    <GenerateCompatibilitySuppressionFile>true</GenerateCompatibilitySuppressionFile>
+    <CompatibilitySuppressionFilePath>ApiCompatibilitySuppressions.xml</CompatibilitySuppressionFilePath>
+
   </PropertyGroup>
 
   <ItemGroup>
