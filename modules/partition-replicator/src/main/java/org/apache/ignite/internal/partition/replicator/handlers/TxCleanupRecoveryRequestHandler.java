@@ -126,11 +126,15 @@ public class TxCleanupRecoveryRequestHandler {
         List<IgniteBiTuple<UUID, TxMeta>> toCleanup = new ArrayList<>(batch);
         batch.clear();
 
-        callCleanup(toCleanup).whenComplete((r, e) -> {
-            if (!tasks.isEmpty()) {
-                throttledCleanup(tasks);
+        try {
+            callCleanup(toCleanup).whenComplete((r, e) -> throttledCleanup(tasks));
+        } catch (IgniteInternalException e) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-25302 - remove this IF after proper stop is implemented.
+            if (!hasCause(e, TxStateStorageClosedException.class, TxStateStorageDestroyedException.class)) {
+                String errorMessage = String.format("Failed to cleanup transaction states [commitPartition=%s].", replicationGroupId);
+                failureProcessor.process(new FailureContext(e, errorMessage));
             }
-        });
+        }
     }
 
     private CompletableFuture<?> callCleanup(List<IgniteBiTuple<UUID, TxMeta>> tasks) {
