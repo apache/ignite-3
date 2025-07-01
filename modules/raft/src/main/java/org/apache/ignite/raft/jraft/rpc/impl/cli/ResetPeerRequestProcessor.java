@@ -59,9 +59,12 @@ public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeer
                     .newResponse(msgFactory(), RaftError.EINVAL, "Fail to parse peer id %s", peerIdStr);
             }
         }
-        LOG.info("Receive ResetPeerRequest to {} from {}, new conf is {}", ctx.node.getNodeId(), done.getRpcCtx()
-            .getRemoteAddress(), newConf);
-        final Status st = ctx.node.resetPeers(newConf);
+
+        Long term = request.term();
+
+        LOG.info("Receive ResetPeerRequest to {} from {}, new conf is {}, term is {}", ctx.node.getNodeId(), done.getRpcCtx()
+            .getRemoteAddress(), newConf, term);
+        final Status st = ctx.node.resetPeers(newConf, term==null? 0L : term);
         return RaftRpcFactory.DEFAULT //
             .newResponse(msgFactory(), st);
     }

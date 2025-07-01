@@ -593,10 +593,11 @@ public class Loza implements RaftManager {
      * @param raftNodeId Raft node ID.
      * @param peersAndLearners New node configuration.
      */
-    public boolean resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
+    public boolean resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long term) {
+        // TODO: busylock?
         LOG.warn("Reset peers for raft group {}, new configuration is {}", raftNodeId, peersAndLearners);
 
-        Status status = raftServer.resetPeers(raftNodeId, peersAndLearners);
+        Status status = raftServer.resetPeers(raftNodeId, peersAndLearners, term);
 
         return status.isOk();
     }

@@ -1911,7 +1911,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<PeerId> peers = new ArrayList<>();
         peers.add(bootPeer.getPeerId());
         // reset peers from empty
-        assertTrue(nodes.get(0).resetPeers(new Configuration(peers)).isOk());
+        assertTrue(nodes.get(0).resetPeers(new Configuration(peers), nodes.get(0).getCurrentTerm()).isOk());
         assertNotNull(cluster.waitAndGetLeader());
     }
 
@@ -1961,10 +1961,13 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         newPeers.add(leaderId);
 
         // new peers equal to current conf
-        assertTrue(leader.resetPeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList()))).isOk());
+        assertTrue(leader
+                .resetPeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList())), leader.getCurrentTerm())
+                .isOk()
+        );
         // set peer when quorum die
         log.warn("Set peers to {}", leaderId);
-        assertTrue(leader.resetPeers(new Configuration(newPeers)).isOk());
+        assertTrue(leader.resetPeers(new Configuration(newPeers), leader.getCurrentTerm()).isOk());
 
         leader = cluster.waitAndGetLeader();
         assertNotNull(leader);
@@ -3643,9 +3646,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         TestPeer fakePeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
 
-        leader.resetPeers(new Configuration(List.of(fakePeer.getPeerId())));
+        leader.resetPeers(new Configuration(List.of(fakePeer.getPeerId())), leader.getCurrentTerm());
 
-        leader.resetPeers(new Configuration(List.of(peer0.getPeerId())));
+        leader.resetPeers(new Configuration(List.of(peer0.getPeerId())), leader.getCurrentTerm());
 
         // Term was changed twice because of two reset peers
         assertTrue(waitForCondition(() -> leader.getCurrentTerm() == 3, 10_000));
@@ -4338,7 +4341,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // This makes majority go.
         cluster.stop(originalLeaderPeer.getPeerId());
 
-        cluster.getNode(forcedLeaderPeer.getPeerId()).resetPeers(new Configuration(Set.of(forcedLeaderPeer.getPeerId())));
+        cluster.getNode(forcedLeaderPeer.getPeerId()).resetPeers(
+                new Configuration(Set.of(forcedLeaderPeer.getPeerId())),
+                cluster.getNode(forcedLeaderPeer.getPeerId()).getCurrentTerm()
+        );
         assertThat(cluster.waitAndGetLeader().getLeaderId(), is(forcedLeaderPeer.getPeerId()));
 
         assertThat(lastLogIndexAt(forcedLeaderPeer), is(configFromResetIndex));
@@ -4401,7 +4407,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         cluster.stop(originalLeaderPeer.getPeerId());
 
         Node forcedLeaderNode = cluster.getNode(forcedLeaderPeer.getPeerId());
-        forcedLeaderNode.resetPeers(new Configuration(Set.of(forcedLeaderPeer.getPeerId())));
+        forcedLeaderNode.resetPeers(new Configuration(Set.of(forcedLeaderPeer.getPeerId())), forcedLeaderNode.getCurrentTerm());
         Node node = cluster.waitAndGetLeader();
         assertThat(node.getLeaderId(), is(forcedLeaderPeer.getPeerId()));
 

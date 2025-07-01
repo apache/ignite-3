@@ -3513,7 +3513,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     @Override
-    public Status resetPeers(final Configuration newPeers) {
+    public Status resetPeers(final Configuration newPeers, long term) {
         if (options.getExternallyEnforcedConfigIndex() != null) {
             throw new IllegalStateException("Using both externallyEnforcedConfigIndex and resetPeers() is not supported "
                     + "[externallyEnforcedConfigIndex=" + options.getExternallyEnforcedConfigIndex() + "]");
@@ -3532,6 +3532,15 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} is in state {}, can't set peers.", getNodeId(), this.state);
                 return new Status(RaftError.EPERM, "Bad state: %s", this.state);
             }
+            long currentTerm = getCurrentTerm();
+
+            if (currentTerm != term) {
+                LOG.warn("Node {} rejected the reset because of mismatching terms. Current term is {}, but provided is {}.",
+                    getNodeId(), currentTerm, term);
+
+                return new Status(RaftError.EPERM, "Mismatching terms, Current term is %d, but provided is %d", currentTerm, term);
+            }
+
             // bootstrap?
             if (this.conf.getConf().isEmpty()) {
                 LOG.info("Node {} set peers to {} from empty.", getNodeId(), newPeers);

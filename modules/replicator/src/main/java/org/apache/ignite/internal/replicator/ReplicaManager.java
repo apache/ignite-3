@@ -88,6 +88,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -785,6 +786,24 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return replicas.get(replicationGroupId);
     }
 
+    private @Nullable IndexWithTerm currentTerm(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
+        Loza loza = (Loza) raftManager;
+        return loza.raftNodeIndex(new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId)));
+    }
+
+    /**
+     * Performs a {@code resetPeers} operation on raft node.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @param peersAndLearners New node configuration.
+     * @param term Term on which this method was called.
+     */
+    public boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long term) {
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        Loza loza = (Loza) raftManager;
+        return loza.resetPeers(raftNodeId, peersAndLearners, term);
+    }
+
     /**
      * Performs a {@code resetPeers} operation on raft node.
      *
@@ -792,8 +811,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param peersAndLearners New node configuration.
      */
     public boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
-        return ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
+        IndexWithTerm indexWithTerm;
+        try {
+            indexWithTerm = currentTerm(replicaGrpId);
+            if (indexWithTerm == null) {
+                // TODO: This is not handled in reset either.
+                return false;
+            }
+        } catch (NodeStoppingException e) {
+            //TODO: properly handle node stopping.
+            return false;
+        }
+        return resetPeers(replicaGrpId, peersAndLearners, indexWithTerm.term());
     }
 
     /**
@@ -805,33 +834,51 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments) {
         var result = new CompletableFuture<Void>();
 
-        resetWithRetry(replicaGrpId, assignments, result, 1);
+        IndexWithTerm indexWithTerm;
+
+        try {
+            indexWithTerm = currentTerm(replicaGrpId);
+        } catch (NodeStoppingException e) {
+            return failedFuture(e);
+        }
+
+        if (indexWithTerm == null) {
+            return failedFuture(new IllegalStateException("The local node is outside of the replication group: " + replicaGrpId));
+        }
+
+        resetWithRetry(replicaGrpId, assignments, indexWithTerm.term(), result, 1);
 
         return result;
     }
 
-    private void resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments, CompletableFuture<Void> result, int iteration) {
+    private void resetWithRetry(
+            ReplicationGroupId replicaGrpId,
+            Assignments assignments,
+            long term,
+            CompletableFuture<Void> result,
+            int iteration
+    ) {
         if (iteration % 1000 == 0) {
             LOG.info("Retrying reset [iter={}, groupId={}, assignments={}]", iteration, replicaGrpId, assignments);
         }
         supplyAsync(() -> inBusyLock(busyLock, () -> {
             assert isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
 
-            return resetPeers(replicaGrpId, fromAssignments(assignments.nodes()));
+            return resetPeers(replicaGrpId, fromAssignments(assignments.nodes()), term);
         }), replicaLifecycleExecutor)
                 .whenComplete((resetSuccessful, ex) -> {
                     if (ex != null) {
                         if (isRetriable(ex)) {
                             LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
 
-                            resetWithRetryThrottling(replicaGrpId, assignments, result, iteration);
+                            resetWithRetryThrottling(replicaGrpId, assignments, term, result, iteration);
                         } else {
                             result.completeExceptionally(ex);
                         }
                     } else if (!resetSuccessful) {
                         LOG.debug("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
 
-                        resetWithRetryThrottling(replicaGrpId, assignments, result, iteration);
+                        resetWithRetryThrottling(replicaGrpId, assignments, term, result, iteration);
                     } else {
                         result.complete(null);
                     }
@@ -841,11 +888,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private void resetWithRetryThrottling(
             ReplicationGroupId replicaGrpId,
             Assignments assignments,
+            long term,
             CompletableFuture<Void> result,
             int iteration
     ) {
         replicaLifecycleExecutor.schedule(
-                () -> resetWithRetry(replicaGrpId, assignments, result, iteration + 1),
+                () -> resetWithRetry(replicaGrpId, assignments, term, result, iteration + 1),
                 500,
                 TimeUnit.MILLISECONDS
         );
