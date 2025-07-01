@@ -23,7 +23,10 @@ namespace Apache.Ignite.Compute;
 /// <param name="Priority">Job execution priority.</param>
 /// <param name="MaxRetries">Number of times to retry job execution in case of failure, 0 to not retry.</param>
 /// <param name="ExecutorType">>Job executor type.</param>
-public sealed record JobExecutionOptions(int Priority = 0, int MaxRetries = 0, JobExecutorType ExecutorType = JobExecutorType.JavaEmbedded)
+public sealed record JobExecutionOptions(
+    int Priority = 0,
+    int MaxRetries = 0,
+    JobExecutorType ExecutorType = JobExecutorType.JavaEmbedded)
 {
     /// <summary>
     /// Default job execution options.
@@ -35,6 +38,17 @@ public sealed record JobExecutionOptions(int Priority = 0, int MaxRetries = 0, J
     /// </summary>
     public JobExecutionOptions()
         : this(0, 0)
+    {
+        // No-op.
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JobExecutionOptions"/> class.
+    /// </summary>
+    /// <param name="priority">Priority.</param>
+    /// <param name="maxRetries">Max retries.</param>
+    public JobExecutionOptions(int priority, int maxRetries)
+        : this(priority, maxRetries, JobExecutorType.JavaEmbedded)
     {
         // No-op.
     }
