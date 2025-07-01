@@ -73,15 +73,21 @@ public class RaftConfigurationSchema {
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
+     *
+     * @see DisruptorConfigurationSchema#stripes
      */
+    @Deprecated
     @Value(hasDefault = true)
-    public int stripes = Runtime.getRuntime().availableProcessors();
+    public int stripes = DisruptorConfigurationSchema.DEFAULT_STRIPES_COUNT;
 
     /**
      * Amount of log manager Disruptors stripes.
+     *
+     * @see DisruptorConfigurationSchema#logManagerStripes
      */
+    @Deprecated
     @Value(hasDefault = true)
-    public int logStripesCount = 4;
+    public int logStripesCount = DisruptorConfigurationSchema.DEFAULT_LOG_MANAGER_STRIPES_COUNT;
 
     /**
      * Set true to use the non-blocking strategy in the log manager.
@@ -95,4 +101,8 @@ public class RaftConfigurationSchema {
      */
     @Value(hasDefault = true)
     public double maxInflightOverflowRate = 1.3;
+
+    /** Configuration for RAFT disruptor's. */
+    @ConfigValue
+    public DisruptorConfigurationSchema disruptor;
 }

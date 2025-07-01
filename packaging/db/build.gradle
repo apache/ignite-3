@@ -25,6 +25,7 @@ plugins {
 }
 
 apply from: "$rootDir/buildscripts/generate-version-file.gradle"
+apply from: "$rootDir/buildscripts/utils.gradle"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -261,6 +262,7 @@ ospackage {
     user packageTokens.USERNAME
     packageDescription "This package will install Apache Ignite"
     os LINUX
+    release getCommitNum()
 
     into(packageTokens.CONF_DIR) {
         from("$buildDir/linux/service/vars.env")

@@ -92,7 +92,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         TxStateRocksDbPartitionStorage storage = storages.get(partitionId);
 
         if (storage == null) {
-            storage = new TxStateRocksDbPartitionStorage(partitionId, this);
+            storage = createPartitionStorage(partitionId);
 
             storage.start();
         }
@@ -100,6 +100,11 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         storages.set(partitionId, storage);
 
         return storage;
+    }
+
+    @Override
+    public TxStateRocksDbPartitionStorage createPartitionStorage(int partitionId) {
+        return new TxStateRocksDbPartitionStorage(partitionId, this);
     }
 
     @Override

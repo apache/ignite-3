@@ -75,7 +75,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testUpdate() throws Exception {
-        var versionedValue = new IncrementalVersionedValue<Integer>(register);
+        var versionedValue = new IncrementalVersionedValue<Integer>("test", register);
 
         versionedValue.update(0, (integer, throwable) -> completedFuture(TEST_VALUE));
 
@@ -109,7 +109,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testUpdatePredefined() throws Exception {
-        var versionedValue = new IncrementalVersionedValue<Integer>(register);
+        var versionedValue = new IncrementalVersionedValue<Integer>("test", register);
 
         CompletableFuture<Integer> fut = versionedValue.get(0);
 
@@ -135,7 +135,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testAsyncUpdate() {
-        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>(register);
+        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>("test", register);
 
         CompletableFuture<Integer> fut = new CompletableFuture<>();
 
@@ -161,7 +161,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testExceptionOnUpdate() {
-        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>(register, () -> 0);
+        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>("test", register, () -> 0);
 
         final int count = 4;
         final int successfulCompletionsCount = count / 2;
@@ -206,10 +206,10 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
         final String assignmentName = "Assignment";
         final String tableName = "T1_";
 
-        IncrementalVersionedValue<Map<UUID, String>> tablesVv = new IncrementalVersionedValue<>(f -> {
+        IncrementalVersionedValue<Map<UUID, String>> tablesVv = new IncrementalVersionedValue<>("test", f -> {
         }, HashMap::new);
-        IncrementalVersionedValue<Map<UUID, String>> schemasVv = new IncrementalVersionedValue<>(register, HashMap::new);
-        IncrementalVersionedValue<Map<UUID, String>> assignmentsVv = new IncrementalVersionedValue<>(register, HashMap::new);
+        IncrementalVersionedValue<Map<UUID, String>> schemasVv = new IncrementalVersionedValue<>("test", register, HashMap::new);
+        IncrementalVersionedValue<Map<UUID, String>> assignmentsVv = new IncrementalVersionedValue<>("test", register, HashMap::new);
 
         schemasVv.whenComplete((token, value, ex) -> tablesVv.complete(token));
 
@@ -260,7 +260,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testDefaultValueSupplier() {
-        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>(register, () -> TEST_VALUE);
+        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>("test", register, () -> TEST_VALUE);
 
         checkDefaultValue(vv, TEST_VALUE);
     }
@@ -270,14 +270,14 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testWithoutDefaultValue() {
-        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>(register);
+        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>("test", register);
 
         checkDefaultValue(vv, null);
     }
 
     @RepeatedTest(100)
     void testConcurrentGetAndComplete() {
-        var versionedValue = new IncrementalVersionedValue<>(register, () -> 1);
+        var versionedValue = new IncrementalVersionedValue<>("test", register, () -> 1);
 
         // Set initial value.
         versionedValue.complete(1);
@@ -294,7 +294,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
     @RepeatedTest(100)
     void testConcurrentGetAndCompleteWithHistoryTrimming() {
-        var versionedValue = new IncrementalVersionedValue<>(register, 2, () -> 1);
+        var versionedValue = new IncrementalVersionedValue<>("test", register, 2, () -> 1);
 
         // Set initial value (history size 1).
         versionedValue.complete(2);
@@ -326,7 +326,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCompleteMultipleFutures() {
-        var versionedValue = new IncrementalVersionedValue<>(register, () -> 1);
+        var versionedValue = new IncrementalVersionedValue<>("test", register, () -> 1);
 
         // Set initial value.
         versionedValue.complete(1);
@@ -349,9 +349,9 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @RepeatedTest(100)
     public void testDependingOn() {
-        var vv0 = new IncrementalVersionedValue<>(register, () -> 1);
+        var vv0 = new IncrementalVersionedValue<>("test", register, () -> 1);
 
-        var vv1 = new IncrementalVersionedValue<>(dependingOn(vv0), () -> 1);
+        var vv1 = new IncrementalVersionedValue<>("test", dependingOn(vv0), () -> 1);
 
         int token = 1;
 
@@ -372,7 +372,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testImmediateUpdate() {
-        var vv = new IncrementalVersionedValue<>(register, () -> 1);
+        var vv = new IncrementalVersionedValue<>("test", register, () -> 1);
 
         //noinspection unchecked
         BiFunction<Integer, Throwable, CompletableFuture<Integer>> closure = mock(BiFunction.class);
@@ -393,7 +393,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testWhenComplete() {
-        var vv = new IncrementalVersionedValue<>(register, () -> 1);
+        var vv = new IncrementalVersionedValue<>("test", register, () -> 1);
 
         CompletionListener<Integer> listener = mock(CompletionListener.class);
 
@@ -437,7 +437,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testLatest() {
-        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>(register);
+        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>("test", register);
 
         // Default token.
         assertEquals(-1, vv.latestCausalityToken());
@@ -479,7 +479,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testLatestSeveralVersions() {
-        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>(register);
+        IncrementalVersionedValue<Integer> vv = new IncrementalVersionedValue<>("test", register);
 
         CompletableFuture<Integer> fut = new CompletableFuture<>();
 
@@ -506,7 +506,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
 
     @Test
     void testDelete() {
-        var vv = new IncrementalVersionedValue<Integer>(register);
+        var vv = new IncrementalVersionedValue<Integer>("test", register);
 
         assertThat(register.updateRevision(1), willCompleteSuccessfully());
         assertThat(register.updateRevision(2), willCompleteSuccessfully());

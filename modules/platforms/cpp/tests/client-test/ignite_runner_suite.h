@@ -107,14 +107,14 @@ public:
      *
      * @return Addresses.
      */
-    static std::vector<std::string> get_ssl_node_addrs() { return ignite_runner::SSL_NODE_ADDRS; }
+    static std::vector<std::string> get_ssl_node_addrs() { return ignite_runner::get_ssl_node_addrs(); }
 
     /**
      * Get node addresses to use for tests.
      *
      * @return Addresses.
      */
-    static std::vector<std::string> get_ssl_node_ca_addrs() { return ignite_runner::SSL_NODE_CA_ADDRS; }
+    static std::vector<std::string> get_ssl_node_ca_addrs() { return ignite_runner::get_ssl_node_ca_addrs(); }
 
     /**
      * Clear table @c TABLE_1.

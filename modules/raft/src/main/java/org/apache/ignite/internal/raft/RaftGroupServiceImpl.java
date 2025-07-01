@@ -23,7 +23,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
@@ -49,7 +48,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -612,24 +610,34 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
-        ThrottlingContextHolder peerThrottlingContextHolder = throttlingContextHolder.peerContextHolder(peer.consistentId());
-
-        if (throttleOnOverload && peerThrottlingContextHolder.isOverloaded()) {
-            executor.schedule(
-                    () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
-                    100,
-                    TimeUnit.MILLISECONDS
-            );
+        if (!busyLock.enterBusy()) {
+            future.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId + "]."));
 
             return future;
         }
 
-        long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
-        var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
+        try {
+            ThrottlingContextHolder peerThrottlingContextHolder = throttlingContextHolder.peerContextHolder(peer.consistentId());
 
-        sendWithRetry(future, context, peerThrottlingContextHolder);
+            if (throttleOnOverload && peerThrottlingContextHolder.isOverloaded()) {
+                executor.schedule(
+                        () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
+                        100,
+                        TimeUnit.MILLISECONDS
+                );
 
-        return future;
+                return future;
+            }
+
+            long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
+            var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
+
+            sendWithRetry(future, context, peerThrottlingContextHolder);
+
+            return future;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -692,6 +700,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                         peerThrottlingContextHolder.afterRequest(requestStartTime, retriableError(err, resp));
 
+                        if (!busyLock.enterBusy()) {
+                            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId + "]."));
+
+                            return;
+                        }
+
                         try {
                             if (err != null) {
                                 handleThrowable(fut, err, retryContext);
@@ -705,11 +719,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                 fut.complete((R) resp);
                             }
                         } catch (Throwable e) {
-                            if (hasCause(e, RejectedExecutionException.class)) {
-                                fut.completeExceptionally(wrapInComponentStoppingException(e));
-                            } else {
-                                fut.completeExceptionally(e);
-                            }
+                            fut.completeExceptionally(e);
+                        } finally {
+                            busyLock.leaveBusy();
                         }
                     });
         } finally {
@@ -717,19 +729,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
-    private Exception wrapInComponentStoppingException(Throwable e) {
-        return stoppingExceptionFactory.wrap("Raft client is stopping [" + groupId + "].", e);
-    }
-
     private void handleThrowable(CompletableFuture<? extends NetworkMessage> fut, Throwable err, RetryContext retryContext) {
         err = unwrapCause(err);
 
         if (!recoverable(err)) {
-            if (hasCause(err, RejectedExecutionException.class)) {
-                fut.completeExceptionally(wrapInComponentStoppingException(err));
-            } else {
-                fut.completeExceptionally(err);
-            }
+            fut.completeExceptionally(err);
 
             return;
         }
@@ -1041,11 +1045,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             public void onDisappeared(ClusterNode member) {
                 // Peers in throttling context are used for retries, so we use retry timeout here. Also, the retries themselves
                 // also can be delayed for any reasons, so here is the multiplier.
-                executor.schedule(
-                        () -> throttlingContextHolder.onNodeLeft(member.name()),
-                        configuration.retryTimeoutMillis().value() * 3,
-                        TimeUnit.MILLISECONDS
-                );
+                if (!busyLock.enterBusy()) {
+                    // Replica is stopping, so we do not need to schedule the retry.
+                    return;
+                }
+
+                try {
+                    executor.schedule(
+                            () -> throttlingContextHolder.onNodeLeft(member.name()),
+                            configuration.retryTimeoutMillis().value() * 3,
+                            TimeUnit.MILLISECONDS
+                    );
+                } finally {
+                    busyLock.leaveBusy();
+                }
             }
         };
     }

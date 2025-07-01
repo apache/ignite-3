@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -404,12 +405,54 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Entry switchAppendEntry = values.get(switchAppendKey);
             Entry assignmentsChainEntry = values.get(assignmentsChainKey);
 
+            AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingEntry.value());
+
+            if (pendingAssignmentsQueue != null && pendingAssignmentsQueue.size() > 1) {
+
+                if (pendingAssignmentsQueue.peekFirst().nodes().equals(stableFromRaft)) {
+                    pendingAssignmentsQueue.poll(); // remove, first element was already applied to the configuration by pending listeners
+                }
+
+                Assignments stable = Assignments.of(stableFromRaft, pendingAssignmentsQueue.peekFirst().timestamp());
+                pendingAssignmentsQueue = pendingAssignmentsCalculator()
+                        .stable(stable)
+                        .target(pendingAssignmentsQueue.peekLast())
+                        .toQueue();
+
+                final AssignmentsQueue pendingAssignmentsQueueFinal = pendingAssignmentsQueue;
+                return metaStorageMgr.invoke(iif(
+                        revision(pendingPartAssignmentsKey).eq(pendingEntry.revision()),
+                        ops(put(pendingPartAssignmentsKey, pendingAssignmentsQueue.toBytes())).yield(true),
+                        ops().yield(false)
+                )).thenCompose(statementResult -> {
+                    boolean updated = statementResult.getAsBoolean();
+
+                    if (updated) {
+                        LOG.info("Pending assignments queue polled and updated [zonePartitionId={}, pendingQueue={}]",
+                                zonePartitionId, pendingAssignmentsQueueFinal);
+                        return nullCompletedFuture(); // quit and wait for new configuration iteration
+                    } else {
+                        LOG.info("Pending assignments queue update retry [zonePartitionId={}, pendingQueue={}]",
+                                zonePartitionId, pendingAssignmentsQueueFinal);
+                        return doStableKeySwitch(
+                                stableFromRaft,
+                                zonePartitionId,
+                                configurationTerm,
+                                configurationIndex,
+                                calculateAssignmentsFn
+                        );
+                    }
+                });
+            }
+
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
             Set<Assignment> retrievedSwitchAppend = readAssignments(switchAppendEntry).nodes();
-            Assignments pendingAssignments = pendingEntry.value() == null
+
+            Assignments pendingAssignments = pendingAssignmentsQueue == null
                     ? Assignments.EMPTY
-                    : AssignmentsQueue.fromBytes(pendingEntry.value()).poll();
+                    : pendingAssignmentsQueue.poll();
+
             Set<Assignment> retrievedPending = pendingAssignments.nodes();
 
             if (!retrievedPending.equals(stableFromRaft)) {
@@ -502,9 +545,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         // eq(revision(partition.assignments.planned), plannedEntry.revision)
                         con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
 
+                        AssignmentsQueue partAssignmentsPendingQueue = pendingAssignmentsCalculator()
+                                .stable(newStableAssignments)
+                                .target(Assignments.fromBytes(plannedEntry.value()))
+                                .toQueue();
+
                         successCase = ops(
                                 put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                                put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
+                                put(pendingPartAssignmentsKey, partAssignmentsPendingQueue.toBytes()),
                                 remove(plannedPartAssignmentsKey),
                                 assignmentChainChangeOp
                         ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);

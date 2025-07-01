@@ -101,7 +101,7 @@ public class ComputeUtils {
      */
     public static <T, R> Class<ComputeJob<T, R>> jobClass(JobClassLoader jobClassLoader, String jobClassName) {
         try {
-            return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader);
+            return (Class<ComputeJob<T, R>>) Class.forName(jobClassName, true, jobClassLoader.classLoader());
         } catch (ClassNotFoundException e) {
             String message = "Cannot load job class by name '" + jobClassName + "'";
             if (jobClassLoader.units().isEmpty()) {

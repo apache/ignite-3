@@ -24,44 +24,28 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for new metrics exporters implementations.
  */
-public abstract class BasicMetricExporter<CfgT extends ExporterView> implements MetricExporter<CfgT> {
+public abstract class BasicMetricExporter implements MetricExporter {
     /** Metrics provider. */
-    private MetricProvider metricsProvider;
+    private volatile MetricProvider metricsProvider;
 
-    private Supplier<UUID> clusterIdSupplier;
+    private volatile Supplier<UUID> clusterIdSupplier;
 
-    private String nodeName;
+    private volatile String nodeName;
 
-    /** Exporter's configuration view. */
-    private CfgT configuration;
-
-    /** {@inheritDoc} */
     @Override
-    public void start(MetricProvider metricsProvider, CfgT configuration, Supplier<UUID> clusterIdSupplier, String nodeName) {
+    public void start(
+            MetricProvider metricsProvider,
+            ExporterView configuration,
+            Supplier<UUID> clusterIdSupplier,
+            String nodeName
+    ) {
         this.metricsProvider = metricsProvider;
-        this.configuration = configuration;
         this.clusterIdSupplier = clusterIdSupplier;
         this.nodeName = nodeName;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public synchronized void reconfigure(@Nullable CfgT newVal) {
-        configuration = newVal;
-    }
-
-    /**
-     * Returns current exporter configuration.
-     *
-     * @return Current exporter configuration
-     */
-    protected synchronized CfgT configuration() {
-        return configuration;
     }
 
     /**
@@ -76,8 +60,8 @@ public abstract class BasicMetricExporter<CfgT extends ExporterView> implements 
     /**
      * Returns current cluster ID.
      */
-    protected final UUID clusterId() {
-        return clusterIdSupplier.get();
+    protected final Supplier<UUID> clusterIdSupplier() {
+        return clusterIdSupplier;
     }
 
     /**

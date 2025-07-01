@@ -19,24 +19,28 @@ package org.apache.ignite.internal.table;
 
 import static com.google.common.base.Predicates.notNull;
 import static java.util.Objects.requireNonNull;
-import static java.util.Optional.ofNullable;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItem;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -48,49 +52,49 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24072")
     @Test
-    void testStartNewNodeAsLearner() {
+    void testLearnerReplicaCreatedAfterStartingNewNode() {
         executeSql("CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS ALL, QUORUM SIZE 2) STORAGE PROFILES ['default']");
         executeSql("CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
         executeSql("INSERT INTO TEST VALUES (0, 0)");
+
         await().untilAsserted(() -> {
             assertTrue(cluster.runningNodes().map(resolvePartition("TEST")).allMatch(notNull()),
                     "all nodes should contain table partition replica");
+            Set<Assignment> stableAssignments = getStableAssignments(cluster.node(0), "TEST");
+            assertFalse(stableAssignments.stream().anyMatch(a -> !a.isPeer()), "no learners before starting new node");
         });
-        Set<Assignment> assignmentsBefore = getStableAssignments(cluster.node(0), "TEST");
 
-        cluster.startNode((int) cluster.runningNodes().count());
-
-        // Node 1 is downgraded from peer to learner
-        String learnerName = node(1).name();
-
-        Set<Assignment> assignmentsAfterExpected = new HashSet<>(assignmentsBefore);
-        assignmentsAfterExpected.removeIf(assignment -> assignment.consistentId().equals(learnerName));
-        assignmentsAfterExpected.add(Assignment.forLearner(learnerName));
+        Ignite newNode = cluster.startNode((int) cluster.runningNodes().count());
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            Set<Assignment> stableAssignments = getStableAssignments(cluster.node(0), "TEST");
+            assertTrue(stableAssignments.stream().anyMatch(a -> !a.isPeer()), "learners found after staring new node");
+
+            Set<String> stableConsistentIds = stableAssignments.stream().map(Assignment::consistentId).collect(Collectors.toSet());
+            assertThat("new node in stable", stableConsistentIds, hasItem(newNode.name()));
+            assertThat(stableConsistentIds, containsInAnyOrder(cluster.runningNodes().map(Ignite::name).toArray(String[]::new)));
+
             assertTrue(cluster.runningNodes()
-                    .filter(in(assignmentsAfterExpected))
+                    .filter(in(stableAssignments))
                     .map(toRaftClient("TEST"))
-                    .allMatch(equalsPeersAndLearners(assignmentsAfterExpected)),
+                    .allMatch(equalsPeersAndLearners(stableAssignments)),
                     "peers and learners on every assigned nodes should be equal"
             );
 
             assertTrue(cluster.runningNodes()
-                    .filter(in(assignmentsAfterExpected))
+                    .filter(in(stableAssignments))
                     .map(resolvePartition("TEST"))
                     .allMatch(notNull()),
                     "table partition replica should exist on every assigned nodes"
             );
 
             assertTrue(cluster.runningNodes()
-                    .filter(notIn(assignmentsAfterExpected))
+                    .filter(notIn(stableAssignments))
                     .noneMatch(isReplicationGroupStarted("TEST")),
                     "not assigned nodes should not be in table replication group"
             );
@@ -99,9 +103,11 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
     private static Set<Assignment> getStableAssignments(Ignite node, String tableName) {
         IgniteImpl ignite = unwrapIgniteImpl(node);
-        return ofNullable(getTableId(ignite, tableName))
-                .map(tableId -> RebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), tableId, 0).join())
-                .orElse(Set.of());
+        int tableOrZoneId = getTableOrZoneId(ignite, tableName);
+
+        return colocationEnabled()
+                ? ZoneRebalanceUtil.zoneStableAssignments(ignite.metaStorageManager(), tableOrZoneId, new int[]{0}).join().get(0).nodes()
+                : RebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), tableOrZoneId, 0).join();
     }
 
     private static int getTableOrZoneId(Ignite node, String tableName) {

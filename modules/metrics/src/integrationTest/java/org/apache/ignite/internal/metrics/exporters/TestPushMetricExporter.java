@@ -23,12 +23,13 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 
 /**
  * Test push metrics exporter.
  */
 @AutoService(MetricExporter.class)
-public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsExporterView> {
+public class TestPushMetricExporter extends PushMetricExporter {
     public static final String EXPORTER_NAME = "testPush";
 
     private static OutputStream outputStream;
@@ -38,8 +39,8 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     }
 
     @Override
-    protected long period() {
-        return configuration().period();
+    protected long period(ExporterView exporterView) {
+        return ((TestPushMetricsExporterView) exporterView).period();
     }
 
     @Override

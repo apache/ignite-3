@@ -33,8 +33,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -102,7 +101,7 @@ public class CheckpointManager {
             String igniteInstanceName,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureManager failureManager,
-            PageMemoryCheckpointConfiguration checkpointConfig,
+            CheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
@@ -114,9 +113,7 @@ public class CheckpointManager {
     ) throws IgniteInternalCheckedException {
         this.filePageStoreManager = filePageStoreManager;
 
-        PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
-
-        long logReadLockThresholdTimeout = checkpointConfigView.logReadLockThresholdTimeoutMillis();
+        long logReadLockThresholdTimeout = checkpointConfig.logReadLockThresholdTimeoutMillis();
 
         ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = logReadLockThresholdTimeout > 0
                 ? new ReentrantReadWriteLockWithTracking(Loggers.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
@@ -131,7 +128,7 @@ public class CheckpointManager {
                 igniteInstanceName,
                 checkpointReadWriteLock,
                 dataRegions,
-                checkpointConfigView.checkpointThreads()
+                checkpointConfig.checkpointThreads()
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
@@ -165,7 +162,7 @@ public class CheckpointManager {
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
                 checkpointReadWriteLock,
-                checkpointConfigView.readLockTimeoutMillis(),
+                checkpointConfig.readLockTimeoutMillis(),
                 () -> checkpointUrgency(dataRegions),
                 checkpointer,
                 failureManager

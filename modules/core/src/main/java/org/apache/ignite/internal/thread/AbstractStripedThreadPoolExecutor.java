@@ -61,7 +61,6 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
         stripeExecutor(idx).execute(task);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void execute(Runnable task) {
         stripeExecutor(random.nextInt(execs.length)).execute(task);
@@ -81,25 +80,21 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
         return CompletableFuture.runAsync(task, stripeExecutor(idx));
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T> Future<T> submit(Callable<T> task) {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T> Future<T> submit(Runnable task, T res) {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public Future<?> submit(Runnable task) {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void shutdown() {
         for (E exec : execs) {
@@ -107,7 +102,6 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public List<Runnable> shutdownNow() {
         if (execs.length == 0) {
@@ -117,15 +111,12 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
         List<Runnable> res = new ArrayList<>(execs.length);
 
         for (E exec : execs) {
-            for (Runnable r : exec.shutdownNow()) {
-                res.add(r);
-            }
+            res.addAll(exec.shutdownNow());
         }
 
         return res;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isShutdown() {
         for (E exec : execs) {
@@ -137,7 +128,6 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean isTerminated() {
         for (E exec : execs) {
@@ -149,7 +139,6 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
         return true;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
         boolean res = true;
@@ -161,13 +150,11 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
         return res;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks,
             long timeout,
@@ -175,32 +162,39 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T> T invokeAny(Collection<? extends Callable<T>> tasks) {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) {
         throw new UnsupportedOperationException();
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(AbstractStripedThreadPoolExecutor.class, this);
     }
 
     /**
-     * Return an executor by an index.
+     * Returns an executor by the given index.
      *
      * @param idx Index of executor.
      * @return Executor.
      */
     public E stripeExecutor(int idx) {
         return execs[threadId(idx)];
+    }
+
+    /**
+     * Returns concurrency level of this executor.
+     * The concurrency level is the number of executors in this striped executor.
+     *
+     * @return Concurrency level.
+     */
+    public int concurrencyLevel() {
+        return execs.length;
     }
 
     /**
