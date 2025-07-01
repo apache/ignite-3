@@ -1642,6 +1642,7 @@ public class Replicator implements ThreadId.OnError {
      * @param nextSendingIndex next sending index
      * @return send result.
      */
+    // TODO: IGNITE-25686 This place is a candidate for optimization
     private boolean sendEntries(final long nextSendingIndex) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (!fillCommonFields(rb, nextSendingIndex - 1, false)) {
