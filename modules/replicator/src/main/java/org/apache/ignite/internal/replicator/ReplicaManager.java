@@ -798,7 +798,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param peersAndLearners New node configuration.
      * @param term Term on which this method was called.
      */
-    public boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long term) {
+    private boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long term) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         Loza loza = (Loza) raftManager;
         return loza.resetPeers(raftNodeId, peersAndLearners, term);
