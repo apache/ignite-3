@@ -411,10 +411,10 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             return;
         }
 
-        flushTask = flushExecutor.scheduleAtFixedRate(this::flushBuffers, interval, interval, TimeUnit.MILLISECONDS);
+        flushTask = flushExecutor.scheduleWithFixedDelay(this::onAutoFlushInterval, interval, interval, TimeUnit.MILLISECONDS);
     }
 
-    private void flushBuffers() {
+    private void onAutoFlushInterval() {
         // TODO IGNITE-25509 Data Streamer ignores backpressure in flush timer.
         buffers.values().forEach(StreamerBuffer::flush);
     }
