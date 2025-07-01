@@ -96,7 +96,7 @@ public class IgniteSqlParserSelfTest {
     @Test
     public void testEmptyString() {
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
-                "Failed to parse query: No statements",
+                "Failed to parse query: Not a statement",
                 () -> IgniteSqlParser.parse("", StatementParseResult.MODE));
     }
 
@@ -111,7 +111,7 @@ public class IgniteSqlParserSelfTest {
                 () -> IgniteSqlParser.parse("--- comment\n;", ScriptParseResult.MODE));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
-                "Failed to parse query: No statements",
+                "Failed to parse query: Not a statement",
                 () -> IgniteSqlParser.parse("--- comment", ScriptParseResult.MODE));
     }
 
@@ -119,7 +119,7 @@ public class IgniteSqlParserSelfTest {
     public void testCommentedQuery() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
-                "Failed to parse query: No statements",
+                "Failed to parse query: Not a statement",
                 () -> IgniteSqlParser.parse("-- SELECT 1", StatementParseResult.MODE));
     }
 

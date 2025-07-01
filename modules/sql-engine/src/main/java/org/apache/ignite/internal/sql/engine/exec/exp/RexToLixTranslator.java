@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.PhysType;
@@ -126,6 +127,7 @@ import org.locationtech.jts.geom.Geometry;
  *      DECIMAL use own implementation see IgniteSqlFunctions.class, "toBigDecimal"
  *      TIMESTAMP_WITH_LOCAL_TIME_ZONE use own implementation
  *      use Primitives.convertPrimitiveExact instead of primitive.number method
+ *      Original branch that handles a UUID literal is commented out. A UUID literal is created from 2 long values.
  * 7. Reworked implementation of dynamic parameters:
  *      IgniteMethod.CONTEXT_GET_PARAMETER_VALUE instead of BuiltInMethod.DATA_CONTEXT_GET
  *      added conversation for Decimals
@@ -1195,9 +1197,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       value2 = literal.getValueAs(String.class);
       break;
-    case UUID:
+    /* case UUID:
       return Expressions.call(null, BuiltInMethod.UUID_FROM_STRING.method,
-          Expressions.constant(literal.getValueAs(String.class)));
+          Expressions.constant(literal.getValueAs(String.class))); */
     case BINARY:
     case VARBINARY:
       return Expressions.new_(
@@ -1218,6 +1220,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
               () -> "getValueAs(Enum.class) for " + literal);
       javaClass = value2.getClass();
       break;
+    case UUID: {
+      UUID value = literal.getValueAs(UUID.class);
+
+      // Literal NULL is covered at the very beginning of this method.
+      assert value != null;
+
+      return Expressions.new_(
+              UUID.class, constant(value.getMostSignificantBits()), constant(value.getLeastSignificantBits())
+      );
+    }
     default:
       final Primitive primitive = Primitive.ofBoxOr(javaClass);
       final Comparable value = literal.getValueAs(Comparable.class);
