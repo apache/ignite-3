@@ -345,6 +345,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
+            // Always write it in LE explicitly on all platforms.
             if (IS_BIG_ENDIAN) {
                 GridUnsafe.putIntLittleEndian(heapArr, baseOff + pos, val);
             } else {
@@ -365,6 +366,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
+            // Always write it in LE explicitly on all platforms.
             if (IS_BIG_ENDIAN) {
                 GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos, val);
             } else {
@@ -1216,6 +1218,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
+            // Always read it in LE explicitly on all platforms.
             if (IS_BIG_ENDIAN) {
                 val = GridUnsafe.getIntLittleEndian(heapArr, baseOff + pos);
             } else {
@@ -1237,6 +1240,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
+            // Always read it in LE explicitly on all platforms.
             if (IS_BIG_ENDIAN) {
                 val = GridUnsafe.getLongLittleEndian(heapArr, baseOff + pos);
             } else {
