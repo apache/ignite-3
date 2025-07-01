@@ -830,8 +830,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             // For not-unaligned architectures in Ignite 3.0 we were writing these values in native byte order.
             GridUnsafe.putLong(heapArr, pos, val);
         } else if (IS_BIG_ENDIAN) {
-            // Due to the previous usage of "putLongLittleEndian" in the code, it resulted in Big Endian writes in serialized format.
-            // We repeat the same behavior.
+            // Before the fix we used "putLongLittleEndian" to write this value. It resulted with BigEndian writes on UNALIGNED platforms
+            // and with LittleEndian writes on non-UNALIGNED platforms.
+            // We repeat the same behavior. here.
             GridUnsafe.putLong(heapArr, pos, val);
         } else {
             // This it the reverse of "IS_BIG_ENDIAN" branch.
@@ -1563,7 +1564,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             // For not-unaligned architectures in Ignite 3.0 we were writing these values in native byte order.
             return GridUnsafe.getLong(heapArr, pos);
         } else if (IS_BIG_ENDIAN) {
-            // Due to the previous usage of "getLongLittleEndian" in the code, it resulted in Big Endian reads from serialized format.
+            // Before the fix we used "getLongLittleEndian" to read this value. It resulted with BigEndian reads on UNALIGNED platforms
+            // and with LittleEndian reads on non-UNALIGNED platforms.
             // We repeat the same behavior.
             return GridUnsafe.getLong(heapArr, pos);
         } else {
