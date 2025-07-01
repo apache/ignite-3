@@ -17,9 +17,9 @@ package org.apache.ignite.raft.jraft.util;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.WeakHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import java.util.Set;import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
 /**
@@ -33,6 +33,12 @@ public abstract class Recyclers<T> {
     private static final IgniteLogger LOG = Loggers.forClass(Recyclers.class);
 
     private static final AtomicInteger idGenerator = new AtomicInteger(Integer.MIN_VALUE);
+
+    public static final Set<Stack<?>> STACKS = ConcurrentHashMap.newKeySet();
+
+    public static final Set<WeakOrderQueue> WEAK_ORDER_QUEUES = ConcurrentHashMap.newKeySet();
+
+    public static final Set<DefaultHandle> DEFAULT_HANDLES = ConcurrentHashMap.newKeySet();
 
     private static final int OWN_THREAD_ID = idGenerator.getAndIncrement();
     private static final int DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD = 4 * 1024; // Use 4k instances as default.
@@ -60,7 +66,11 @@ public abstract class Recyclers<T> {
 
         @Override
         protected Stack<T> initialValue() {
-            return new Stack<>(Recyclers.this, Thread.currentThread(), maxCapacityPerThread);
+            Stack<T> tStack = new Stack<>(Recyclers.this, Thread.currentThread(), maxCapacityPerThread);
+
+            STACKS.add(tStack);
+
+            return tStack;
         }
     };
 
@@ -81,6 +91,7 @@ public abstract class Recyclers<T> {
         if (handle == null) {
             handle = stack.newHandle();
             handle.value = newObject(handle);
+            stack.newHandleCount.incrementAndGet();
         }
         return (T) handle.value;
     }
@@ -120,15 +131,19 @@ public abstract class Recyclers<T> {
     public interface Handle {
     }
 
-    static final class DefaultHandle implements Handle {
+    public static final class DefaultHandle implements Handle {
         private int lastRecycledId;
         private int recycleId;
 
-        private Stack<?> stack;
-        private Object value;
+        public Stack<?> stack;
+
+        public final Stack<?> stackOrigin;
+        public Object value;
 
         DefaultHandle(Stack<?> stack) {
             this.stack = stack;
+
+            stackOrigin = stack;
         }
 
         public void recycle() {
@@ -150,6 +165,8 @@ public abstract class Recyclers<T> {
             WeakOrderQueue queue = delayedRecycled.get(stack);
             if (queue == null) {
                 delayedRecycled.put(stack, queue = new WeakOrderQueue(stack, thread));
+
+                WEAK_ORDER_QUEUES.add(queue);
             }
             queue.add(this);
         }
@@ -159,7 +176,7 @@ public abstract class Recyclers<T> {
 
     // a queue that makes only moderate guarantees about visibility: items are seen in the correct order,
     // but we aren't absolutely guaranteed to ever see anything at all, thereby keeping the queue cheap to maintain
-    private static final class WeakOrderQueue {
+    public static final class WeakOrderQueue {
         private static final int LINK_CAPACITY = 16;
 
         // Let Link extend AtomicInteger for intrinsics. The Link itself will be used as writerIndex.
@@ -178,9 +195,13 @@ public abstract class Recyclers<T> {
         private final WeakReference<Thread> owner;
         private final int id = idGenerator.getAndIncrement();
 
+        public final Stack<?> stack;
+
         WeakOrderQueue(Stack<?> stack, Thread thread) {
             head = tail = new Link();
             owner = new WeakReference<>(thread);
+            this.stack = stack;
+            this.stack.newWeakOrderQueueCount.incrementAndGet();
             synchronized (stackLock(stack)) {
                 next = stack.head;
                 stack.head = this;
@@ -272,20 +293,24 @@ public abstract class Recyclers<T> {
         }
     }
 
-    static final class Stack<T> {
+    public static final class Stack<T> {
 
         // we keep a queue of per-thread queues, which is appended to once only, each time a new thread other
         // than the stack owner recycles: when we run out of items in our stack we iterate this collection
         // to scavenge those that can be reused. this permits us to incur minimal thread synchronisation whilst
         // still recycling all items.
-        final Recyclers<T> parent;
-        final Thread thread;
+        public final Recyclers<T> parent;
+        public final Thread thread;
         private DefaultHandle[] elements;
         private final int maxCapacity;
-        private int size;
+        public volatile int size;
 
         private volatile WeakOrderQueue head;
         private WeakOrderQueue cursor, prev;
+
+        public final AtomicLong newHandleCount = new AtomicLong();
+
+        public final AtomicLong newWeakOrderQueueCount = new AtomicLong();
 
         Stack(Recyclers<T> parent, Thread thread, int maxCapacity) {
             this.parent = parent;
@@ -411,7 +436,11 @@ public abstract class Recyclers<T> {
         }
 
         DefaultHandle newHandle() {
-            return new DefaultHandle(this);
+            DefaultHandle defaultHandle = new DefaultHandle(this);
+
+            DEFAULT_HANDLES.add(defaultHandle);
+
+            return defaultHandle;
         }
     }
 }
