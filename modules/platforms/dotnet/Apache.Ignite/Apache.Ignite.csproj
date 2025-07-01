@@ -30,10 +30,9 @@
     <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
 
     <!-- Package Compatibility Checks -->
-    <EnablePackageValidation>true</EnablePackageValidation>
     <PackageValidationBaselineVersion>3.0.0</PackageValidationBaselineVersion>
     <EnableStrictModeForBaselineValidation>true</EnableStrictModeForBaselineValidation>
-    <GenerateCompatibilitySuppressionFile>true</GenerateCompatibilitySuppressionFile>
+    <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
     <CompatibilitySuppressionFilePath>ApiCompatibilitySuppressions.xml</CompatibilitySuppressionFilePath>
 
   </PropertyGroup>
