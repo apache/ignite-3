@@ -83,7 +83,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @see #readUuidLong(long)
      * @see #unaligned30()
      */
-    private static final String IGNITE_30_3X_COMPATIBILITY_PROPERTY = "IGNITE_30_3X_COMPATIBILITY";
+    private static final String IGNITE_30_3X_COMPATIBILITY_PROPERTY = "IGNITE_30_3X_UUIDS_SERIALIZATION_COMPATIBILITY";
 
     private static final boolean IS_30_UNALIGNED = unaligned30();
 
