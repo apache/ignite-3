@@ -30,6 +30,7 @@
       <Class name="~com\.facebook\.presto\..*" />
       <Class name="~org\.apache\.ignite\.internal\.generated\..*"/>
       <Class name="~org\.apache\.ignite\.rest\.client\..*"/>
+      <Class name="~.*_jmh.*"/>
       <Annotation name="org.immutables.value.Generated" />
     </Or>
   </Match>
