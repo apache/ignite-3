@@ -32,6 +32,8 @@ class StreamerBuffer<T> {
 
     private boolean closed;
 
+    private volatile long lastFlushNanoTime;
+
     StreamerBuffer(int capacity, Consumer<List<T>> flusher) {
         this.capacity = capacity;
         this.flusher = flusher;
@@ -90,7 +92,12 @@ class StreamerBuffer<T> {
             buf = new ArrayList<>(capacity);
         }
 
+        lastFlushNanoTime = System.nanoTime();
         flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
+    }
+
+    long getLastFlushNanoTime() {
+        return lastFlushNanoTime;
     }
 
     synchronized void forEach(Consumer<T> consumer) {
