@@ -824,26 +824,31 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (isRetriable(ex)) {
                             LOG.debug("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
 
-                            replicaLifecycleExecutor.schedule(
-                                    () -> resetWithRetry(replicaGrpId, assignments, result, iteration + 1),
-                                    500,
-                                    TimeUnit.MILLISECONDS
-                            );
+                            resetWithRetryThrottling(replicaGrpId, assignments, result, iteration);
                         } else {
                             result.completeExceptionally(ex);
                         }
                     } else if (!resetSuccessful) {
                         LOG.debug("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
 
-                        replicaLifecycleExecutor.schedule(
-                                () -> resetWithRetry(replicaGrpId, assignments, result, iteration + 1),
-                                500,
-                                TimeUnit.MILLISECONDS
-                        );
+                        resetWithRetryThrottling(replicaGrpId, assignments, result, iteration);
                     } else {
                         result.complete(null);
                     }
                 });
+    }
+
+    private void resetWithRetryThrottling(
+            ReplicationGroupId replicaGrpId,
+            Assignments assignments,
+            CompletableFuture<Void> result,
+            int iteration
+    ) {
+        replicaLifecycleExecutor.schedule(
+                () -> resetWithRetry(replicaGrpId, assignments, result, iteration + 1),
+                500,
+                TimeUnit.MILLISECONDS
+        );
     }
 
     private static boolean isRetriable(Throwable ex) {
