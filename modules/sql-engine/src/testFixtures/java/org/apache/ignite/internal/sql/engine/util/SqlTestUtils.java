@@ -43,6 +43,8 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -590,7 +592,59 @@ public class SqlTestUtils {
      * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
      */
     public static void waitUntilRunningQueriesCount(SqlQueryProcessor queryProcessor, Matcher<Integer> matcher) {
-        //noinspection TestOnlyProblems
         Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueries().size(), matcher));
+    }
+
+    /**
+     * Trims milliseconds of a source temporal-type object to the target precision.
+     *
+     * @param type Source type.
+     * @param sourcePrecision Source precision.
+     * @param sourceObject Source object.
+     * @param targetPrecision Target precision.
+     * @return Adjusted number of nanoseconds.
+     */
+    public static Temporal adjustTemporalPrecision(ColumnType type, int sourcePrecision, Temporal sourceObject, int targetPrecision) {
+        int precision = Math.min(sourcePrecision, targetPrecision);
+
+        switch (type) {
+            case TIME: {
+                LocalTime time = (LocalTime) sourceObject;
+
+                return time.withNano(adjustNanos(time.getNano(), precision));
+            }
+
+            case DATETIME: {
+                LocalDateTime dt = (LocalDateTime) sourceObject;
+
+                return dt.withNano(adjustNanos(dt.getNano(), precision));
+            }
+
+            case TIMESTAMP: {
+                Instant dt = (Instant) sourceObject;
+
+                return dt.with(ChronoField.NANO_OF_SECOND, adjustNanos(dt.getNano(), precision));
+            }
+
+            default:
+                throw new IllegalStateException("Unexpected type: " + type);
+        }
+    }
+
+    /**
+     * Trims number of nanoseconds according to the specified precision.
+     *
+     * @param nanos Number of nanoseconds.
+     * @param precision Desired precision.
+     * @return Adjusted number of nanoseconds.
+     */
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    public static int adjustNanos(int nanos, int precision) {
+        long millis = TimeUnit.NANOSECONDS.toMillis(nanos);
+
+        int d = 3 - Math.min(3, precision);
+        long adjustedMillis = (millis / (long) Math.pow(10, d)) * (long) Math.pow(10, d);
+
+        return (int) TimeUnit.MILLISECONDS.toNanos(adjustedMillis);
     }
 }

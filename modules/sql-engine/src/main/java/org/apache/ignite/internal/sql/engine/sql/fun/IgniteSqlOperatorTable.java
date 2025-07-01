@@ -348,9 +348,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                                     return typeFactory.createTypeWithNullability(resultType, nullable);
                                 }
                             } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
-                                return deriveDatetimePlusMinusInterval(typeFactory, type1, type2, nullable);
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type1, type2, nullable);
                             } else if (SqlTypeUtil.isDatetime(type2) && SqlTypeUtil.isInterval(type1)) {
-                                return deriveDatetimePlusMinusInterval(typeFactory, type2, type1, nullable);
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type2, type1, nullable);
                             }
 
                             return null;
@@ -358,20 +358,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     },
                     InferTypes.FIRST_KNOWN,
                     PLUS_OPERATOR_TYPES_CHECKER);
-
-    private static RelDataType deriveDatetimePlusMinusInterval(
-            RelDataTypeFactory typeFactory,
-            RelDataType datetimeType,
-            RelDataType intervalType,
-            boolean nullable
-    ) {
-        if (datetimeType.getSqlTypeName().allowsPrecScale(true, false)
-                && intervalType.getScale() > datetimeType.getPrecision()) {
-            return typeFactory.createSqlType(datetimeType.getSqlTypeName(), intervalType.getScale());
-        }
-
-        return typeFactory.createTypeWithNullability(datetimeType, nullable);
-    }
 
     /**
      * Infix arithmetic minus operator, '{@code -}'.
@@ -402,7 +388,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                                     return typeFactory.createTypeWithNullability(resultType, nullable);
                                 }
                             } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
-                                return deriveDatetimePlusMinusInterval(typeFactory, type1, type2, nullable);
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type1, type2, nullable);
                             }
 
                             return null;
@@ -410,6 +396,21 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     },
                     InferTypes.FIRST_KNOWN,
                     MINUS_OPERATOR_TYPES_CHECKER);
+
+    private static RelDataType deriveDatetimePlusMinusIntervalType(
+            RelDataTypeFactory typeFactory,
+            RelDataType datetimeType,
+            RelDataType intervalType,
+            boolean nullable
+    ) {
+        if (datetimeType.getSqlTypeName().allowsPrecScale(true, false)
+                && intervalType.getScale() > datetimeType.getPrecision()) {
+            // Using a fraction of a second from an interval as the precision of the expression.
+            return typeFactory.createSqlType(datetimeType.getSqlTypeName(), intervalType.getScale());
+        }
+
+        return typeFactory.createTypeWithNullability(datetimeType, nullable);
+    }
 
     /**
      * Arithmetic division operator, '{@code /}'.
