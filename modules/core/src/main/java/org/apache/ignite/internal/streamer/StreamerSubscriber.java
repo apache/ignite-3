@@ -415,8 +415,14 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     }
 
     private void onAutoFlushInterval() {
-        // TODO IGNITE-25509 Data Streamer ignores backpressure in flush timer.
-        buffers.values().forEach(StreamerBuffer::flush);
+        long now = System.nanoTime();
+        long intervalNanos = TimeUnit.MILLISECONDS.toNanos(options.autoFlushInterval());
+
+        for (StreamerBuffer<E> buf : buffers.values()) {
+            if (buf.getLastFlushNanos() + intervalNanos < now) {
+                buf.flush();
+            }
+        }
     }
 
     private static StreamerMetricSink getMetrics(@Nullable StreamerMetricSink metrics) {
