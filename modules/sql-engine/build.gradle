@@ -101,25 +101,22 @@ dependencies {
     testImplementation project(':ignite-placement-driver')
     testImplementation libs.jmh.core
     testImplementation libs.awaitility
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-schema')))
-    testImplementation(testFixtures(project(':ignite-network-api')))
-    testImplementation(testFixtures(project(':ignite-storage-api')))
-    testImplementation(testFixtures(project(':ignite-sql-engine')))
-    testImplementation(testFixtures(project(':ignite-distribution-zones')))
-    testImplementation(testFixtures(project(':ignite-placement-driver-api')))
-    testImplementation(testFixtures(project(':ignite-vault')))
-    testImplementation(testFixtures(project(':ignite-metastorage')))
-    testImplementation(testFixtures(project(':ignite-catalog')))
-    testImplementation(testFixtures(project(':ignite-table')))
-    testImplementation(testFixtures(project(':ignite-transactions')))
-    testImplementation(testFixtures(project(':ignite-low-watermark')))
-    testImplementation(testFixtures(project(':ignite-metrics')))
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-schema'))
+    testImplementation testFixtures(project(':ignite-network-api'))
+    testImplementation testFixtures(project(':ignite-storage-api'))
+    testImplementation testFixtures(project(':ignite-sql-engine'))
+    testImplementation testFixtures(project(':ignite-distribution-zones'))
+    testImplementation testFixtures(project(':ignite-placement-driver-api'))
+    testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-catalog'))
+    testImplementation testFixtures(project(':ignite-table'))
+    testImplementation testFixtures(project(':ignite-transactions'))
+    testImplementation testFixtures(project(':ignite-low-watermark'))
+    testImplementation testFixtures(project(':ignite-metrics'))
 
-    testImplementation libs.mockito.junit
-    testImplementation libs.mockito.core
-    testImplementation libs.hamcrest.core
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
@@ -137,7 +134,7 @@ dependencies {
     integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-metrics')
-    integrationTestImplementation project(":ignite-network-api")
+    integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation project(':ignite-sql-engine-api')
     integrationTestImplementation project(':ignite-eventlog')
     integrationTestImplementation project(':ignite-placement-driver-api') // TODO: IGNITE-25283 - remove.
@@ -147,7 +144,6 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
     integrationTestImplementation testFixtures(project(':ignite-table'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
-    integrationTestImplementation libs.jetbrains.annotations
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
@@ -158,26 +154,17 @@ dependencies {
     testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.awaitility
-    testFixturesImplementation libs.junit5.params
-
-    constraints {
-        api('com.google.protobuf:protobuf-java:4.31.1'){
-            because 'previous versions have a CVE'
-        }
-    }
 }
 
 integrationTest {
     useJUnitPlatform {
-        if (System.getProperty("sqlTest") != null) {
-            it.includeTags "sqllogic"
+        if (System.getProperty('sqlTest') != null) {
+            it.includeTags 'sqllogic'
         } else {
-            it.excludeTags "sqllogic"
+            it.excludeTags 'sqllogic'
         }
     }
 
-    systemProperty "buildDirPath", project.buildDir.path
+    systemProperty 'buildDirPath', project.buildDir.path
 }

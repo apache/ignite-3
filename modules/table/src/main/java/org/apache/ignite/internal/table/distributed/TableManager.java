@@ -582,11 +582,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clockService);
 
-        tablesVv = new IncrementalVersionedValue<>(registry, 100, null);
+        tablesVv = new IncrementalVersionedValue<>("TableManager#tables", registry, 100, null);
 
-        localPartitionsVv = new IncrementalVersionedValue<>(dependingOn(tablesVv));
+        localPartitionsVv = new IncrementalVersionedValue<>("TableManager#localPartitions", dependingOn(tablesVv));
 
-        assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartitionsVv));
+        assignmentsUpdatedVv = new IncrementalVersionedValue<>("TableManager#assignmentsUpdated", dependingOn(localPartitionsVv));
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));

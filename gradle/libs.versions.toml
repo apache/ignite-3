@@ -33,8 +33,8 @@ javax = "1.3.2"
 jetbrainsAnnotations = "26.0.2"
 jline = "3.29.0"
 jmh = "1.37"
-junit5 = "5.13.1"
-junit5-platform = "1.13.1"
+junit5 = "5.13.2"
+junit5-platform = "1.13.2"
 junitPioneer = "2.3.0"
 jsr305 = "3.0.2"
 okhttp = "4.12.0"
@@ -60,13 +60,13 @@ hamcrestPath = "1.0.1"
 hamcrestJson = "0.3"
 scalecube = "2.6.15"
 calcite = "1.39.0"
-value = "2.10.1"
+value = "2.11.0"
 janino = "3.1.12"
 jsonpath = "2.9.0"
 javassist = "3.30.2-GA"
 rocksdb = "10.2.1"
 disruptor = "4.0.0"
-metrics = "4.2.32"
+metrics = "4.2.33"
 jctools = "4.0.5"
 msgpack = "0.8.24"
 caffeine = "3.2.0"
@@ -75,7 +75,7 @@ kryo = "5.6.2"
 bytebuddy = "1.17.6"
 mockServer = "5.15.0"
 archunit = "1.4.1"
-testkit = "1.13.1"
+testkit = "1.13.2"
 openapi = "4.10.0"
 autoService = "1.1.1"
 awaitility = "4.3.0"
@@ -87,10 +87,11 @@ tree-sitter-json = "0.24.8"
 tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
 otel = "1.51.0"
-spring-boot = "3.5.1"
+spring-boot = "3.5.3"
 spring-data = "3.5.1"
-testcontainers = "1.21.2"
+testcontainers = "1.21.3"
 gradleToolingApi = "8.6"
+protobuf = "4.31.1"
 
 #Tools
 pmdTool = "6.55.0"
@@ -100,16 +101,16 @@ spotbugsTool = "4.8.3"
 [plugins]
 openapiGenerator = "org.openapi.generator:7.12.0"
 javacc = "com.intershop.gradle.javacc:4.1.3"
-shadow = "com.gradleup.shadow:8.3.6"
+shadow = "com.gradleup.shadow:8.3.7"
 cmake = "dev.welbyseely.gradle-cmake-plugin:0.0.5"
-nebula = "com.netflix.nebula.ospackage:11.11.2"
+nebula = "com.netflix.nebula.ospackage:12.0.0"
 docker = "com.palantir.docker:0.36.0"
 dockerRemoteApi = "com.bmuschko.docker-remote-api:9.4.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.10"
-spotbugs = "com.github.spotbugs:6.2.0"
+spotbugs = "com.github.spotbugs:6.2.1"
 jmh = 'me.champeau.jmh:0.7.3'
 jmhReport = 'io.morethan.jmhreport:0.9.6'
 
@@ -297,3 +298,11 @@ commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "co
 spotbugs-annotations = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugsTool" }
 
 gradle-tooling-api = { module = "org.gradle:gradle-tooling-api", version.ref = "gradleToolingApi" }
+
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
+
+[bundles]
+junit = ["junit5-api", "junit5-impl", "junit5-params", "junit-pioneer"]
+mockito = ["mockito-core", "mockito-junit"]
+hamcrest = ["hamcrest-core", "hamcrest-optional", "hamcrest-path"]
+log4j = ["jansi-core", "log4j-api", "log4j-core", "log4j-bridge", "slf4j-log4j"]

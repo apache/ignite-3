@@ -83,7 +83,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -185,7 +186,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     public static final int PLANNING_THREAD_COUNT = 2;
 
-    /** Timeout in ms for stopping execution service.*/
+    /** Timeout in ms for stopping execution service. */
     private static final long SHUTDOWN_TIMEOUT = 5_000;
 
     private static final int CATALOG_VERSION = 1;
@@ -228,13 +229,15 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     private ClusterNode firstNode;
 
+    private final MetricManager metricManager = new NoOpMetricManager();
+
     @BeforeEach
     public void init(TestInfo info) {
         if (info.getTags().stream().anyMatch(CUSTOM_CLUSTER_SETUP_TAG::equals)) {
             return;
         }
 
-        setupCluster(EmptyCacheFactory.INSTANCE, name -> new QueryTaskExecutorImpl(name, 4, NOOP_FAILURE_PROCESSOR));
+        setupCluster(EmptyCacheFactory.INSTANCE, name -> new QueryTaskExecutorImpl(name, 4, NOOP_FAILURE_PROCESSOR, metricManager));
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
@@ -252,7 +255,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 converter,
                 PLANNING_TIMEOUT,
                 PLANNING_THREAD_COUNT,
-                new MetricManagerImpl(),
+                metricManager,
                 new PredefinedSchemaManager(schema)
         );
         parserService = new ParserServiceImpl();
@@ -379,8 +382,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * A query initialization is failed on the initiator during the mapping phase.
-     * Need to verify that the exception is handled properly.
+     * A query initialization is failed on the initiator during the mapping phase. Need to verify that the exception is handled properly.
      */
     @Test
     public void testQueryMappingFailure() {

@@ -222,9 +222,10 @@ public class Loza implements RaftManager {
 
         opts.setRaftMetrics(stripeSource);
         opts.setRpcInstallSnapshotTimeout(raftConfig.installSnapshotTimeoutMillis());
-        opts.setStripes(raftConfig.stripes());
-        opts.setLogStripesCount(raftConfig.logStripesCount());
+        opts.setStripes(raftConfig.disruptor().stripes());
+        opts.setLogStripesCount(raftConfig.disruptor().logManagerStripes());
         opts.setLogYieldStrategy(raftConfig.logYieldStrategy());
+        opts.getRaftOptions().setDisruptorBufferSize(raftConfig.disruptor().queueSize());
 
         opts.getRaftOptions().setSync(raftConfig.fsync());
 

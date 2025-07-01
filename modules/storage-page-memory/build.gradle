@@ -45,16 +45,12 @@ dependencies {
     testImplementation project(':ignite-transactions')
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-schema')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-storage-api')))
-    testImplementation(testFixtures(project(':ignite-schema')))
-    testImplementation(testFixtures(project(':ignite-page-memory')))
-    testImplementation(testFixtures(project(':ignite-metrics')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.junit5.params
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-storage-api'))
+    testImplementation testFixtures(project(':ignite-schema'))
+    testImplementation testFixtures(project(':ignite-page-memory'))
+    testImplementation testFixtures(project(':ignite-metrics'))
 
     testFixturesAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testFixturesAnnotationProcessor libs.auto.service
@@ -62,7 +58,6 @@ dependencies {
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-configuration')
-    testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.auto.service.annotations
 }
 

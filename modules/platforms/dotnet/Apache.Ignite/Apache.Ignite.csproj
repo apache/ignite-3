@@ -28,9 +28,6 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
     <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
-
-    <PackageValidationBaselineVersion />
-    <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
   </PropertyGroup>
 
   <ItemGroup>

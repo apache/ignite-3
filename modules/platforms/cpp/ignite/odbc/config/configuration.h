@@ -157,11 +157,25 @@ public:
     [[nodiscard]] const value_with_default<ssl_mode_t> &get_ssl_mode() const { return m_ssl_mode; }
 
     /**
+     * Set SSL mode.
+     *
+     * @param ssl_mode SSL Mode.
+     */
+    void set_ssl_mode(ssl_mode_t ssl_mode) { m_ssl_mode = { ssl_mode, true }; }
+
+    /**
      * Get the SSL private key file path.
      *
      * @return SSL private key file path.
      */
     [[nodiscard]] const value_with_default<std::string> &get_ssl_key_file() const { return m_ssl_key_file; }
+
+    /**
+     * Set SSL key file.
+     *
+     * @param ssl_key_file SSL key file.
+     */
+    void set_ssl_key_file(std::string ssl_key_file) { m_ssl_key_file = {std::move(ssl_key_file), true}; }
 
     /**
      * Get the SSL certificate file path.
@@ -171,11 +185,25 @@ public:
     [[nodiscard]] const value_with_default<std::string> &get_ssl_cert_file() const { return m_ssl_cert_file; }
 
     /**
+     * Set SSL certificate file.
+     *
+     * @param ssl_cert_file SSL certificate file.
+     */
+    void set_ssl_cert_file(std::string ssl_cert_file) { m_ssl_cert_file = {std::move(ssl_cert_file), true}; }
+
+    /**
      * Get the SSL certificate authority file path.
      *
      * @return SSL certificate authority file path.
      */
     [[nodiscard]] const value_with_default<std::string> &get_ssl_ca_file() const { return m_ssl_ca_file; }
+
+    /**
+     * Set SSL CA certificate file.
+     *
+     * @param ssl_ca_file SSL CA certificate file.
+     */
+    void set_ssl_ca_file(std::string ssl_ca_file) { m_ssl_ca_file = {std::move(ssl_ca_file), true}; }
 
     /**
      * Fill from configuration params.

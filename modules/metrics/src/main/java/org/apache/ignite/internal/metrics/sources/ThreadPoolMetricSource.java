@@ -29,6 +29,9 @@ import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.Holder;
 
 /** Metric source for monitoring of {@link ThreadPoolExecutor}. */
 public class ThreadPoolMetricSource extends AbstractMetricSource<Holder> {
+    /** Default prefix source name for a thread pools. */
+    public static final String THREAD_POOLS_METRICS_SOURCE_NAME = "thread.pools.";
+
     private final ThreadPoolExecutor exec;
 
     /**

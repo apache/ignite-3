@@ -45,16 +45,12 @@ dependencies {
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-vault')
     testImplementation project(':ignite-system-view-api')
-    testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-configuration')))
-    testImplementation(testFixtures(project(':ignite-metastorage')))
-    testImplementation(testFixtures(project(':ignite-vault')))
-    testImplementation(testFixtures(project(':ignite-catalog')))
-    testImplementation(testFixtures(project(':ignite-marshaller-common')))
-    testImplementation libs.hamcrest.core
-    testImplementation libs.hamcrest.optional
-    testImplementation libs.mockito.core
-    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-catalog'))
+    testImplementation testFixtures(project(':ignite-marshaller-common'))
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 
@@ -64,10 +60,5 @@ dependencies {
     testFixturesImplementation project(':ignite-bytecode')
     testFixturesImplementation project(':ignite-configuration-api')
     testFixturesImplementation project(':ignite-catalog')
-    testFixturesImplementation(testFixtures(project(':ignite-core')))
-    testFixturesImplementation libs.jetbrains.annotations
-    testFixturesImplementation libs.junit5.api
-    testFixturesImplementation libs.junit5.impl
-    testFixturesImplementation libs.junit5.params
-    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation testFixtures(project(':ignite-core'))
 }

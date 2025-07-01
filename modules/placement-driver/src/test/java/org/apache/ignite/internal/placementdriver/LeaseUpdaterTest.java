@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,7 +42,6 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -173,7 +173,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                     if (leaseConsumer != null) {
                         OperationImpl op = invocation.getArgument(1);
 
-                        Lease lease = LeaseBatch.fromBytes(op.value().order(ByteOrder.LITTLE_ENDIAN)).leases().iterator()
+                        Lease lease = LeaseBatch.fromBytes(toByteArray(op.value())).leases().iterator()
                                 .next();
 
                         leaseConsumer.accept(lease);

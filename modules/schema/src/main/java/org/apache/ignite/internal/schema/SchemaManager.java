@@ -69,7 +69,7 @@ public class SchemaManager implements IgniteComponent {
 
     /** Constructor. */
     public SchemaManager(RevisionListenerRegistry registry, CatalogService catalogService) {
-        this.registriesVv = new IncrementalVersionedValue<>(registry);
+        this.registriesVv = new IncrementalVersionedValue<>("SchemaManager#registries", registry);
         this.catalogService = catalogService;
     }
 

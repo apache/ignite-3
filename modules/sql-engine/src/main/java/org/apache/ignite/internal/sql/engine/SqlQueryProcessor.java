@@ -98,6 +98,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
+import org.apache.ignite.internal.sql.metrics.SqlQueryMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
@@ -265,12 +266,20 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         ClusterNode localNode = clusterSrvc.topologyService().localMember();
         String nodeName = localNode.name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureManager));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(
+                nodeName,
+                nodeCfg.execution().threadCount().value(),
+                failureManager,
+                metricManager));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(this::openedCursors);
         metricManager.registerSource(sqlClientMetricSource);
         metricManager.enable(sqlClientMetricSource);
+
+        SqlQueryMetricSource sqlQueryMetricSource = new SqlQueryMetricSource();
+        metricManager.registerSource(sqlQueryMetricSource);
+        metricManager.enable(sqlQueryMetricSource);
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
@@ -366,7 +375,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 executionSrvc,
                 txTracker,
                 new QueryIdGenerator(nodeName.hashCode()),
-                eventLog
+                eventLog,
+                sqlQueryMetricSource
         ));
 
         queriesViewProvider.init(queryExecutor);
@@ -404,6 +414,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             closeAll(services.stream().map(s -> s::stop));
         } catch (Exception e) {
             return failedFuture(e);
+        } finally {
+            // Calling unregisterSource after closeAll ensures that
+            // we are collecting metrics for queries interrupted during node termination,
+            metricManager.unregisterSource(SqlQueryMetricSource.NAME);
         }
 
         return nullCompletedFuture();

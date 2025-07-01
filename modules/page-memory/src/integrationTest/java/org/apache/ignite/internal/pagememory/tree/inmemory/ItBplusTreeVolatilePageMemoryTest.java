@@ -17,19 +17,14 @@
 
 package org.apache.ignite.internal.pagememory.tree.inmemory;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
-
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,16 +35,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItBplusTreeVolatilePageMemoryTest extends AbstractBplusTreePageMemoryTest {
-    @InjectConfiguration(
-            polymorphicExtensions = VolatilePageMemoryProfileConfigurationSchema.class,
-            value = "mock = {"
-                    + "engine=aimem, "
-                    + "initSizeBytes=" + MAX_MEMORY_SIZE
-                    + ", maxSizeBytes=" + MAX_MEMORY_SIZE
-                    + "}"
-    )
-    private StorageProfileConfiguration storageProfileConfiguration;
-
     @BeforeAll
     static void initLockOffset() {
         lockOffset = VolatilePageMemory.LOCK_OFFSET;
@@ -63,9 +48,8 @@ public class ItBplusTreeVolatilePageMemoryTest extends AbstractBplusTreePageMemo
         ioRegistry.loadFromServiceLoader();
 
         return new VolatilePageMemory(
-                (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileConfiguration),
+                VolatileDataRegionConfiguration.builder().pageSize(PAGE_SIZE).initSize(MAX_MEMORY_SIZE).maxSize(MAX_MEMORY_SIZE).build(),
                 ioRegistry,
-                PAGE_SIZE,
                 wrapLock(new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL))
         );
     }

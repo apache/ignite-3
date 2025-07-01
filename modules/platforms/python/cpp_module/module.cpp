@@ -67,6 +67,10 @@ static PyObject* pyignite_dbapi_connect(PyObject* self, PyObject* args, PyObject
         "timeout",
         "page_size",
         "autocommit",
+        "use_ssl",
+        "ssl_keyfile",
+        "ssl_certfile",
+        "ssl_ca_certfile",
         nullptr
     };
 
@@ -78,9 +82,13 @@ static PyObject* pyignite_dbapi_connect(PyObject* self, PyObject* args, PyObject
     int timeout = 0;
     int page_size = 0;
     int autocommit = 1;
+    int use_ssl = 0;
+    const char *ssl_keyfile = nullptr;
+    const char *ssl_certfile = nullptr;
+    const char *ssl_ca_certfile = nullptr;
 
-    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ssssiip", kwlist,
-        &address, &identity, &secret, &schema, &timezone, &timeout, &page_size, &autocommit);
+    int parsed = PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ssssiippsss", kwlist, &address, &identity, &secret,
+        &schema, &timezone, &timeout, &page_size, &autocommit, &use_ssl, &ssl_keyfile, &ssl_certfile, &ssl_ca_certfile);
 
     if (!parsed)
         return nullptr;
@@ -150,8 +158,7 @@ static PyObject* pyignite_dbapi_connect(PyObject* self, PyObject* args, PyObject
     if (page_size)
         cfg.set_page_size(std::int32_t(page_size));
 
-    if (timeout)
-    {
+    if (timeout) {
         void* ptr_timeout = (void*)(ptrdiff_t(timeout));
         sql_conn->set_attribute(SQL_ATTR_CONNECTION_TIMEOUT, ptr_timeout, 0);
         if (!check_errors(*sql_conn))
@@ -162,12 +169,23 @@ static PyObject* pyignite_dbapi_connect(PyObject* self, PyObject* args, PyObject
             return nullptr;
     }
 
+    if (use_ssl)
+        cfg.set_ssl_mode(ssl_mode_t::REQUIRE);
+
+    if (ssl_keyfile)
+        cfg.set_ssl_key_file(ssl_keyfile);
+
+    if (ssl_certfile)
+        cfg.set_ssl_cert_file(ssl_certfile);
+
+    if (ssl_ca_certfile)
+        cfg.set_ssl_ca_file(ssl_ca_certfile);
+
     sql_conn->establish(cfg);
     if (!check_errors(*sql_conn))
         return nullptr;
 
-    if (!autocommit)
-    {
+    if (!autocommit) {
         void* ptr_autocommit = (void*)(ptrdiff_t(SQL_AUTOCOMMIT_OFF));
         sql_conn->set_attribute(SQL_ATTR_AUTOCOMMIT, ptr_autocommit, 0);
         if (!check_errors(*sql_conn))
