@@ -29,7 +29,8 @@
     <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
     <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
 
-    <PackageValidationBaselineVersion />
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageValidationBaselineVersion>3.0.0</PackageValidationBaselineVersion>
     <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
   </PropertyGroup>
 
