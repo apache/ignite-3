@@ -173,7 +173,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
         @Override
         protected void pushLeft(RowT row) throws Exception {
-            // Prefent fetching left if right is empty.
+            // Prevent fetching left if right is empty.
             if (waitingRight == NOT_WAITING && rightMaterialized.isEmpty()) {
                 waitingLeft--;
 
@@ -221,6 +221,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         if (rightIdx == rightMaterialized.size()) {
                             left = null;
                             rightIdx = 0;
+
+                            // Allow others to do their job.
+                            execute(this::join);
+
+                            return;
                         }
                     }
                 } finally {
@@ -319,6 +324,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             if (matched || wasPushed) {
                                 left = null;
                                 rightIdx = 0;
+
+                                // Allow others to do their job.
+                                execute(this::join);
+
+                                return;
                             }
                         }
 
@@ -381,7 +391,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
         @Override
         protected void pushLeft(RowT row) throws Exception {
-            // Prefent fetching left if right is empty.
+            // Prevent fetching left if right is empty.
             if (waitingRight == NOT_WAITING && rightMaterialized.isEmpty()) {
                 waitingLeft--;
 
@@ -440,6 +450,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         if (rightIdx == rightMaterialized.size()) {
                             left = null;
                             rightIdx = 0;
+
+                            // Allow others to do their job.
+                            execute(this::join);
+
+                            return;
                         }
                     }
                 } finally {
@@ -589,6 +604,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             if (leftMatched || wasPushed) {
                                 left = null;
                                 rightIdx = 0;
+
+                                // Allow others to do their job.
+                                execute(this::join);
+
+                                return;
                             }
                         }
 
@@ -662,7 +682,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
         @Override
         protected void pushLeft(RowT row) throws Exception {
-            // Prefent fetching left if right is empty.
+            // Prevent fetching left if right is empty.
             if (waitingRight == NOT_WAITING && rightMaterialized.isEmpty()) {
                 waitingLeft--;
 
@@ -712,6 +732,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                     if (matched || rightIdx == rightMaterialized.size()) {
                         left = null;
                         rightIdx = 0;
+
+                        // Allow others to do their job.
+                        execute(this::join);
+
+                        return;
                     }
                 }
             }
