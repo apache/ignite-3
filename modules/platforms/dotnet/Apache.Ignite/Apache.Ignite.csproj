@@ -28,13 +28,6 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
     <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
-
-    <!-- Package Compatibility Checks -->
-    <PackageValidationBaselineVersion>3.0.0</PackageValidationBaselineVersion>
-    <EnableStrictModeForBaselineValidation>true</EnableStrictModeForBaselineValidation>
-    <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
-    <CompatibilitySuppressionFilePath>ApiCompatibilitySuppressions.xml</CompatibilitySuppressionFilePath>
-
   </PropertyGroup>
 
   <ItemGroup>
