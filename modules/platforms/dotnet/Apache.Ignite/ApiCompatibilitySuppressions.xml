@@ -93,6 +93,20 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:Apache.Ignite.Table.ReceiverDescriptor`2.Deconstruct(System.String@,System.Collections.Generic.IEnumerable{Apache.Ignite.Compute.DeploymentUnit}@)</Target>
+    <Left>lib/net8.0/Apache.Ignite.dll</Left>
+    <Right>lib/net8.0/Apache.Ignite.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:Apache.Ignite.Compute.JobExecutionOptions.#ctor(System.Int32,System.Int32)</Target>
+    <Left>lib/net8.0/Apache.Ignite.dll</Left>
+    <Right>lib/net8.0/Apache.Ignite.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:Apache.Ignite.Compute.JobExecutionOptions.Deconstruct(System.Int32@,System.Int32@)</Target>
     <Left>lib/net8.0/Apache.Ignite.dll</Left>
     <Right>lib/net8.0/Apache.Ignite.dll</Right>
