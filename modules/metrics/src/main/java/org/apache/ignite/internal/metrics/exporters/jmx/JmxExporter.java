@@ -21,9 +21,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.makeMbeanName;
 
 import com.google.auto.service.AutoService;
 import java.lang.management.ManagementFactory;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.JMException;
@@ -36,7 +36,7 @@ import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.BasicMetricExporter;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
-import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 
 /**
  * Exporter for Ignite metrics to JMX API.
@@ -44,7 +44,7 @@ import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterVie
  * a separate MBean with corresponding attribute per source's metric.
  */
 @AutoService(MetricExporter.class)
-public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
+public class JmxExporter extends BasicMetricExporter {
     /** Exporter name. Must be the same for configuration and exporter itself. */
     public static final String JMX_EXPORTER_NAME = "jmx";
 
@@ -55,7 +55,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     private final IgniteLogger log;
 
     /** Current registered MBeans. */
-    private final List<ObjectName> mbeans = new ArrayList<>();
+    private final List<ObjectName> mbeans = new CopyOnWriteArrayList<>();
 
     public JmxExporter() {
         log = Loggers.forClass(JmxExporter.class);
@@ -66,9 +66,9 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     }
 
     @Override
-    public synchronized void start(
+    public void start(
             MetricProvider metricsProvider,
-            JmxExporterView configuration,
+            ExporterView configuration,
             Supplier<UUID> clusterIdSupplier,
             String nodeName
     ) {
@@ -80,7 +80,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
     }
 
     @Override
-    public synchronized void stop() {
+    public void stop() {
         mbeans.forEach(this::unregBean);
 
         mbeans.clear();
@@ -91,13 +91,17 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
         return JMX_EXPORTER_NAME;
     }
 
+    @Override
+    public void reconfigure(ExporterView newValue) {
+    }
+
     /**
      * {@inheritDoc}
      *
      * <p>Register new MBean for received metric set.
      */
     @Override
-    public synchronized void addMetricSet(MetricSet metricSet) {
+    public void addMetricSet(MetricSet metricSet) {
         register(metricSet);
     }
 
@@ -107,7 +111,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
      * <p>Unregister MBean for removed metric set.
      */
     @Override
-    public synchronized void removeMetricSet(String metricSet) {
+    public void removeMetricSet(String metricSet) {
         unregister(metricSet);
     }
 

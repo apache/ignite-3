@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.partition.replicator.network.PartitionR
 
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV1;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
@@ -219,8 +221,12 @@ public interface PartitionReplicationMessageGroup {
      * <p>NOTE: Commands must be immutable because they will be stored in the replication log.</p>
      */
     interface Commands {
-        /** Message type for {@link FinishTxCommand}. */
-        short FINISH_TX = 40;
+        /**
+         * Message type for {@link FinishTxCommandV1}.
+         *
+         * @see #FINISH_TX_V2
+         */
+        short FINISH_TX_V1 = 40;
 
         /**
          * Message type for {@link WriteIntentSwitchCommand} for non-collocated distribution zones.
@@ -243,8 +249,12 @@ public interface PartitionReplicationMessageGroup {
          */
         short UPDATE_V1 = 43;
 
-        /** Message type for {@link BuildIndexCommand}. */
-        short BUILD_INDEX = 44;
+        /**
+         * Message type for {@link BuildIndexCommand}.
+         *
+         * @see #UPDATE_V2
+         */
+        short BUILD_INDEX_V1 = 44;
 
         /** Message type for {@link UpdateMinimumActiveTxBeginTimeCommand}. */
         short UPDATE_MINIMUM_ACTIVE_TX_TIME_COMMAND = 45;
@@ -257,6 +267,12 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link UpdateAllCommandV2}. */
         short UPDATE_ALL_V2 = 48;
+
+        /** Message type for {@link BuildIndexCommandV2}. */
+        short BUILD_INDEX_V2 = 49;
+
+        /** Message type for {@link FinishTxCommandV2}. */
+        short FINISH_TX_V2 = 50;
     }
 
     /**

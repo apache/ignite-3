@@ -133,7 +133,7 @@ public interface ClientCompatibilityTests {
             assertThat(cols.get(6).toString(), containsString("name=DOUBLE, type=DOUBLE, precision=15"));
             assertThat(cols.get(7).toString(), containsString("name=DEC, type=DECIMAL, precision=10, scale=1"));
             assertThat(cols.get(8).toString(), containsString("name=STRING, type=STRING, precision=65536"));
-            assertThat(cols.get(9).toString(), containsString("name=UUID, type=UUID, precision=-1"));
+            assertThat(cols.get(9).toString(), containsString("name=GUID, type=UUID, precision=-1"));
             assertThat(cols.get(10).toString(), containsString("name=DT, type=DATE, precision=0"));
             assertThat(cols.get(11).toString(), containsString("name=TM, type=TIME, precision=9"));
             assertThat(cols.get(12).toString(), containsString("name=TS, type=DATETIME, precision=9"));
@@ -159,7 +159,7 @@ public interface ClientCompatibilityTests {
         assertEquals(6.0d, row.doubleValue("double"));
         assertEquals(new BigDecimal("7"), row.decimalValue("dec"));
         assertEquals("test", row.stringValue("string"));
-        assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.uuidValue("uuid"));
+        assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.uuidValue("guid"));
         assertEquals(LocalDate.of(2023, 1, 1), row.dateValue("dt"));
         assertEquals(LocalTime.of(12, 0, 0), row.timeValue("tm"));
         assertEquals(LocalDateTime.of(2023, 1, 1, 12, 0, 0), row.datetimeValue("ts"));
@@ -432,7 +432,7 @@ public interface ClientCompatibilityTests {
                 .set("double", 6.6d)
                 .set("dec", new BigDecimal("7.7"))
                 .set("string", "test")
-                .set("uuid", UUID.randomUUID())
+                .set("guid", UUID.randomUUID())
                 .set("dt", LocalDate.now())
                 .set("tm", LocalTime.now())
                 .set("ts", LocalDateTime.now())
@@ -579,13 +579,13 @@ public interface ClientCompatibilityTests {
 
         if (!ddl(client, "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, "
                 + "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL(10,1), "
-                + "string VARCHAR, uuid UUID, dt DATE, tm TIME(9), ts TIMESTAMP(9), "
+                + "string VARCHAR, guid UUID, dt DATE, tm TIME(9), ts TIMESTAMP(9), "
                 + "tstz TIMESTAMP WITH LOCAL TIME ZONE, bool BOOLEAN, bytes VARBINARY)")) {
             sql(client, "DELETE FROM " + TABLE_NAME_ALL_COLUMNS);
         }
 
         sql(client, "INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, "
-                + "string, uuid, dt, tm, ts, tstz, bool, bytes) VALUES "
+                + "string, guid, dt, tm, ts, tstz, bool, bytes) VALUES "
                 + "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, "
                 + "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', "
                 + "?, true, X'01020304')", Instant.ofEpochSecond(1714946523L));

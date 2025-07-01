@@ -27,6 +27,7 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.PropertyName;
 import org.jetbrains.annotations.Nullable;
 
 /** Сlass that contains useful constants and methods when generating classes for {@link NetworkMessage}. */
@@ -71,5 +72,12 @@ public class MessageGeneratorUtils {
     /** Adds postfix "ByteArray". */
     public static String addByteArrayPostfix(String s) {
         return s + "ByteArray";
+    }
+
+    /** Returns the property name for the message interface getter. */
+    public static String propertyName(ExecutableElement getter) {
+        PropertyName propertyNameAnnotation = getter.getAnnotation(PropertyName.class);
+
+        return propertyNameAnnotation == null ? getter.getSimpleName().toString() : propertyNameAnnotation.value();
     }
 }
