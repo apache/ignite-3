@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.network;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.RefuseJoinMessage;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -47,4 +48,9 @@ public interface CmgMessageCallback {
      * Notifies about an incoming {@link CmgInitMessage}.
      */
     void onCmgInitMessageReceived(CmgInitMessage message, ClusterNode sender, @Nullable Long correlationId);
+
+    /**
+     * Notifies about an incoming {@link CmgPrepareInitMessage}.
+     */
+    void onCmgPrepareInitMessageReceived(CmgPrepareInitMessage message, ClusterNode sender, @Nullable Long correlationId);
 }
