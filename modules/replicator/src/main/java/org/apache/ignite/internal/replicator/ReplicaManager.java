@@ -786,7 +786,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return replicas.get(replicationGroupId);
     }
 
-    private @Nullable IndexWithTerm currentTerm(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
+    @TestOnly
+    public @Nullable IndexWithTerm currentTerm(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
         Loza loza = (Loza) raftManager;
         return loza.raftNodeIndex(new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId)));
     }
@@ -798,7 +799,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param peersAndLearners New node configuration.
      * @param term Term on which this method was called.
      */
-    private boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long term) {
+    @TestOnly
+    public boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners, long term) {
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
         Loza loza = (Loza) raftManager;
         return loza.resetPeers(raftNodeId, peersAndLearners, term);
@@ -819,7 +821,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return false;
             }
         } catch (NodeStoppingException e) {
-            //TODO: properly handle node stopping.
+            // TODO: properly handle node stopping.
             return false;
         }
         return resetPeers(replicaGrpId, peersAndLearners, indexWithTerm.term());

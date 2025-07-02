@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.clearInvocations;
@@ -121,6 +122,7 @@ import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -342,7 +344,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testResetPeersRetry() {
+    public void testResetPeersRetry() throws Exception {
         createSimpleTable(catalogManager, TABLE_NAME);
 
         int tableId = catalogManager.activeCatalog(clock.nowLong()).table(DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
@@ -360,7 +362,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         doReturn(true).when(replicaMgr).isReplicaStarted(any());
         doReturn(completedFuture(mock(Replica.class, RETURNS_DEEP_STUBS))).when(replicaMgr).replica(any());
-        when(replicaMgr.resetPeers(any(), any())).thenThrow(IllegalStateException.class).thenReturn(false).thenReturn(true);
+        when(replicaMgr.resetPeers(any(), any(), anyLong()))
+                .thenThrow(IllegalStateException.class).thenReturn(false).thenReturn(true);
+        when(replicaMgr.currentTerm(any())).thenReturn(new IndexWithTerm(1, 1));
 
         // This is to wait until handleChangePendingAssignments is finished.
         CompletableFuture<Void> assignmentsHandled = new CompletableFuture<>();
@@ -384,7 +388,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         assertThat(assignmentsHandled, willCompleteSuccessfully());
 
-        verify(replicaMgr, times(3)).resetPeers(any(), any());
+        verify(replicaMgr, times(3)).resetPeers(any(), any(), anyLong());
     }
 
     /**
