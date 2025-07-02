@@ -35,9 +35,9 @@ class StreamerBuffer<T> {
     private boolean closed;
 
     /** Last flush completion timestamp, in nanoseconds. */
-    private volatile long lastFlushNanos = System.nanoTime();
+    private long lastFlushNanos = System.nanoTime();
 
-    private volatile CompletableFuture<?> flushFut;
+    private CompletableFuture<?> flushFut;
 
     StreamerBuffer(int capacity, Function<List<T>, CompletableFuture<?>> flusher) {
         this.capacity = capacity;
@@ -63,6 +63,7 @@ class StreamerBuffer<T> {
             if (buf.size() >= capacity) {
                 bufToFlush = buf;
                 buf = new ArrayList<>(capacity);
+                lastFlushNanos = System.nanoTime();
             }
         }
 
@@ -85,7 +86,7 @@ class StreamerBuffer<T> {
         flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
     }
 
-    void flush() {
+    void autoFlush(long intervalNanos) {
         List<T> bufToFlush;
 
         synchronized (this) {
@@ -93,23 +94,22 @@ class StreamerBuffer<T> {
                 return;
             }
 
+            if (flushFut != null && !flushFut.isDone()) {
+                // Flush in progress.
+                return;
+            }
+
+            if (System.nanoTime() - lastFlushNanos < intervalNanos) {
+                // Not enough time has passed since the last flush.
+                return;
+            }
+
             bufToFlush = buf;
             buf = new ArrayList<>(capacity);
+            lastFlushNanos = System.nanoTime();
         }
 
-        lastFlushNanos = System.nanoTime();
-
         flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
-    }
-
-    boolean isFlushing() {
-        CompletableFuture<?> fut = flushFut;
-
-        return fut != null && !fut.isDone();
-    }
-
-    long getLastFlushNanos() {
-        return lastFlushNanos;
     }
 
     synchronized void forEach(Consumer<T> consumer) {
@@ -125,6 +125,10 @@ class StreamerBuffer<T> {
             return;
         }
 
-        flushFut = flusher.apply(bufToFlush);
+        CompletableFuture<?> fut = flusher.apply(bufToFlush);
+
+        synchronized (this) {
+            flushFut = fut;
+        }
     }
 }

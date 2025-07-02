@@ -415,13 +415,10 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     }
 
     private void onAutoFlushInterval() {
-        long now = System.nanoTime();
         long intervalNanos = TimeUnit.MILLISECONDS.toNanos(options.autoFlushInterval());
 
         for (StreamerBuffer<E> buf : buffers.values()) {
-            if (!buf.isFlushing() && buf.getLastFlushNanos() + intervalNanos < now) {
-                buf.flush();
-            }
+            buf.autoFlush(intervalNanos);
         }
     }
 
