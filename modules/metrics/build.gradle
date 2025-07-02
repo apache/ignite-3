@@ -25,6 +25,7 @@ dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.micronaut.inject.annotation.processor
 
+    implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-configuration-root')
