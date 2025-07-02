@@ -42,6 +42,7 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.table.KeyValueView;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
@@ -130,6 +131,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25819")
     void repairIsPossibleWhenAllNodesWaitForCmgMajorityOnJoin() throws Exception {
         // Node with index 2 will host neither of voting sets.
         startAndInitCluster(3, new int[]{0}, new int[]{1});
