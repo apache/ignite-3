@@ -22,6 +22,7 @@ import static java.util.Optional.ofNullable;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestRebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
@@ -30,6 +31,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationE
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.rebalance.ItRebalanceByPendingAssignmentsQueueTest.AssignmentsRecorder.recordAssignmentsEvents;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -45,6 +47,7 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Deque;
@@ -96,6 +99,7 @@ import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -272,11 +276,15 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         });
     }
 
-    @Test
-    void testNodeRestartDuringQueueProcessing() {
+    @RepeatedTest(30)
+    void testNodeRestartDuringQueueProcessing() throws InterruptedException {
         createZoneAndTable(4, 2);
 
+        assertTrue(waitForCondition(() -> stablePartitionAssignments(TABLE_NAME).size() == 4, 10_000));
+
+        System.out.println("stablePartitionAssignments " + stablePartitionAssignments(TABLE_NAME));
         Set<Assignment> stableAssignments = stablePartitionAssignments(TABLE_NAME);
+
         AssignmentsQueue expectedPendingAssignmentsQueue = assignmentsPromoteDemote(stableAssignments);
         assertThat("pending queue size >= 2", expectedPendingAssignmentsQueue.size(), greaterThanOrEqualTo(2));
 
@@ -285,7 +293,9 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
                 .map(Assignment::consistentId).filter(name -> !name.equals(leaseholder)).findFirst().orElseThrow();
 
         putPendingAssignments(raftLeader(TABLE_NAME), TABLE_NAME, expectedPendingAssignmentsQueue);
+        System.out.println(">>> Before start " + restartNode + " expectedPendingAssignmentsQueue " + expectedPendingAssignmentsQueue);
         cluster.restartNode(cluster.nodeIndex(restartNode));
+        System.out.println(">>> After start");
 
         await().atMost(60, SECONDS).untilAsserted(() -> {
             assertThat(dataNodes(TABLE_NAME), hasSize(4));
@@ -402,7 +412,11 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     private static void putPendingAssignments(Ignite ignite, String tableName, AssignmentsQueue pendingAssignmentsQueue) {
         ByteArray pendingKey = pendingPartitionAssignmentsKey(partitionGroupId(ignite, tableName, 0));
         byte[] pendingVal = pendingAssignmentsQueue.toBytes();
-        unwrapIgniteImpl(ignite).metaStorageManager().put(pendingKey, pendingVal).join();
+
+        ByteArray pendingChangeTriggerKey = pendingChangeTriggerKey(partitionGroupId(ignite, tableName, 0));
+        byte[] pendinChangeTriggerKeyValue = unwrapIgniteImpl(ignite).clock().now().toBytes();
+        var keyValsToUpdate = Map.of(pendingKey, pendingVal, pendingChangeTriggerKey, pendinChangeTriggerKeyValue);
+        unwrapIgniteImpl(ignite).metaStorageManager().putAll(keyValsToUpdate).join();
     }
 
     private Set<String> dataNodes(String tableName) {
