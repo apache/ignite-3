@@ -87,7 +87,7 @@ public enum PlannerPhase {
             "Heuristic phase to convert subqueries into correlates",
             CoreRules.FILTER_SUB_QUERY_TO_CORRELATE,
             CoreRules.PROJECT_SUB_QUERY_TO_CORRELATE,
-            // revert into CoreRules.JOIN_SUB_QUERY_TO_CORRELATE after https://issues.apache.org/jira/browse/IGNITE-25255
+            // revert into CoreRules.JOIN_SUB_QUERY_TO_CORRELATE after https://issues.apache.org/jira/browse/IGNITE-25801
             IgniteSubQueryRemoveRule.INSTANCE
     ) {
         /** {@inheritDoc} */
