@@ -53,6 +53,7 @@ import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventL
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -63,7 +64,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Zone rebalance manager.
  */
-public class DistributionZoneRebalanceEngine {
+public class DistributionZoneRebalanceEngine implements DistributionZoneRebalanceEngineService {
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
 
     /** Prevents double stopping of the component. */
@@ -85,11 +86,6 @@ public class DistributionZoneRebalanceEngine {
     private final CatalogService catalogService;
 
     private final NodeProperties nodeProperties;
-
-    /** Zone rebalance manager. */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 this class will replace DistributionZoneRebalanceEngine
-    // TODO: after switching to zone-based replication
-    private final DistributionZoneRebalanceEngineV2 distributionZoneRebalanceEngineV2;
 
     /** Special flag to skip rebalance on node recovery for tests. */
     // TODO: IGNITE-24607 Remove it
@@ -118,17 +114,9 @@ public class DistributionZoneRebalanceEngine {
         this.nodeProperties = nodeProperties;
 
         this.dataNodesListener = createDistributionZonesDataNodesListener();
-        this.distributionZoneRebalanceEngineV2 = new DistributionZoneRebalanceEngineV2(
-                busyLock,
-                metaStorageManager,
-                distributionZoneManager,
-                catalogService
-        );
     }
 
-    /**
-     * Starts the rebalance engine by registering corresponding meta storage and configuration listeners.
-     */
+    @Override
     public CompletableFuture<Void> startAsync(int catalogVersion) {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
             catalogService.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogService) {
@@ -152,12 +140,7 @@ public class DistributionZoneRebalanceEngine {
                 return nullCompletedFuture();
             }
 
-            if (nodeProperties.colocationEnabled()) {
-                return recoveryRebalanceTrigger(recoveryRevision, catalogVersion)
-                        .thenCompose(v -> distributionZoneRebalanceEngineV2.startAsync());
-            } else {
-                return recoveryRebalanceTrigger(recoveryRevision, catalogVersion);
-            }
+            return recoveryRebalanceTrigger(recoveryRevision, catalogVersion);
         });
     }
 
@@ -191,16 +174,10 @@ public class DistributionZoneRebalanceEngine {
         }
     }
 
-    /**
-     * Stops the rebalance engine by unregistering meta storage watches.
-     */
+    @Override
     public void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
-        }
-
-        if (nodeProperties.colocationEnabled()) {
-            distributionZoneRebalanceEngineV2.stop();
         }
 
         metaStorageManager.unregisterWatch(dataNodesListener);
