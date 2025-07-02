@@ -419,8 +419,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         long intervalNanos = TimeUnit.MILLISECONDS.toNanos(options.autoFlushInterval());
 
         for (StreamerBuffer<E> buf : buffers.values()) {
-            if (buf.getLastFlushNanos() + intervalNanos < now) {
-                // Only flush if there are no active requests for this buffer for the specified interval.
+            if (!buf.isFlushing() && buf.getLastFlushNanos() + intervalNanos < now) {
                 buf.flush();
             }
         }

@@ -97,17 +97,18 @@ class StreamerBuffer<T> {
             buf = new ArrayList<>(capacity);
         }
 
+        lastFlushNanos = System.nanoTime();
+
         flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
     }
 
-    long getLastFlushNanos() {
+    boolean isFlushing() {
         CompletableFuture<?> fut = flushFut;
 
-        if (fut != null && !fut.isDone()) {
-            // Flush in progress.
-            return System.nanoTime();
-        }
+        return fut != null && !fut.isDone();
+    }
 
+    long getLastFlushNanos() {
         return lastFlushNanos;
     }
 
@@ -124,7 +125,6 @@ class StreamerBuffer<T> {
             return;
         }
 
-        flushFut = flusher.apply(bufToFlush)
-                .thenRun(() -> lastFlushNanos = System.nanoTime());
+        flushFut = flusher.apply(bufToFlush);
     }
 }
