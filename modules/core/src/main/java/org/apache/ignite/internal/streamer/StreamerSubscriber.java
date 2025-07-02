@@ -211,7 +211,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         return completionFut;
     }
 
-    private void enlistBatch(P partition, List<E> batch) {
+    private CompletableFuture<Collection<R>> enlistBatch(P partition, List<E> batch) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
         assert partition != null : "Partition must not be null.";
@@ -219,7 +219,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         inFlightItemCount.addAndGet(batchSize);
         metrics.streamerBatchesActiveAdd(1);
 
-        pendingRequests.compute(
+        return pendingRequests.compute(
                 partition,
                 // Chain existing futures to preserve request order.
                 (part, fut) -> fut == null
@@ -419,8 +419,8 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         long intervalNanos = TimeUnit.MILLISECONDS.toNanos(options.autoFlushInterval());
 
         for (StreamerBuffer<E> buf : buffers.values()) {
-            // TODO: Check time from last flush completion, not from the last flush call.
             if (buf.getLastFlushNanos() + intervalNanos < now) {
+                // Only flush if there are no active requests for this buffer for the specified interval.
                 buf.flush();
             }
         }

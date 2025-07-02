@@ -19,22 +19,27 @@ package org.apache.ignite.internal.streamer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 class StreamerBuffer<T> {
     private final int capacity;
 
-    private final Consumer<List<T>> flusher;
+    private final Function<List<T>, CompletableFuture<?>> flusher;
 
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
     private boolean closed;
 
-    private volatile long lastFlushNanos;
+    /** Last flush completion timestamp, in nanoseconds. */
+    private volatile long lastFlushNanos = System.nanoTime();
 
-    StreamerBuffer(int capacity, Consumer<List<T>> flusher) {
+    private volatile CompletableFuture<?> flushFut;
+
+    StreamerBuffer(int capacity, Function<List<T>, CompletableFuture<?>> flusher) {
         this.capacity = capacity;
         this.flusher = flusher;
         buf = new ArrayList<>(capacity);
@@ -92,11 +97,17 @@ class StreamerBuffer<T> {
             buf = new ArrayList<>(capacity);
         }
 
-        lastFlushNanos = System.nanoTime();
         flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
     }
 
     long getLastFlushNanos() {
+        CompletableFuture<?> fut = flushFut;
+
+        if (fut != null && !fut.isDone()) {
+            // Flush in progress.
+            return System.nanoTime();
+        }
+
         return lastFlushNanos;
     }
 
@@ -113,6 +124,7 @@ class StreamerBuffer<T> {
             return;
         }
 
-        flusher.accept(bufToFlush);
+        flushFut = flusher.apply(bufToFlush)
+                .thenRun(() -> lastFlushNanos = System.nanoTime());
     }
 }
