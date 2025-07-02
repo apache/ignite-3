@@ -161,13 +161,15 @@ public class DistributionZoneManager extends
     private final WatchListener topologyWatchListener;
 
     /** Rebalance engine. */
-    private final DistributionZoneRebalanceEngineService rebalanceEngine;
+    private volatile DistributionZoneRebalanceEngineService rebalanceEngine;
 
     /** Catalog manager. */
     private final CatalogManager catalogManager;
 
     /** Configuration of HA mode. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> partitionDistributionResetTimeoutConfiguration;
+
+    private final NodeProperties nodeProperties;
 
     /**
      * Constructor.
@@ -225,26 +227,6 @@ public class DistributionZoneManager extends
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
-        // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
-        // meta storage notification thread that won't start before all components start.
-        //noinspection ThisEscapedInObjectConstruction
-        if (nodeProperties.colocationEnabled()) {
-            rebalanceEngine = new DistributionZoneRebalanceEngineV2(
-                    busyLock,
-                    metaStorageManager,
-                    this,
-                    catalogManager
-            );
-        } else {
-            rebalanceEngine = new DistributionZoneRebalanceEngine(
-                    busyLock,
-                    metaStorageManager,
-                    this,
-                    catalogManager,
-                    nodeProperties
-            );
-        }
-
         partitionDistributionResetTimeoutConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
                 this::onUpdatePartitionDistributionResetBusy,
@@ -263,11 +245,34 @@ public class DistributionZoneManager extends
                 this::fireTopologyReduceLocalEvent,
                 partitionDistributionResetTimeoutConfiguration::currentValue
         );
+
+        this.nodeProperties = nodeProperties;
     }
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
+
+            // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
+            // meta storage notification thread that won't start before all components start.
+            //noinspection ThisEscapedInObjectConstruction
+            if (nodeProperties.colocationEnabled()) {
+                rebalanceEngine = new DistributionZoneRebalanceEngineV2(
+                        busyLock,
+                        metaStorageManager,
+                        this,
+                        catalogManager
+                );
+            } else {
+                rebalanceEngine = new DistributionZoneRebalanceEngine(
+                        busyLock,
+                        metaStorageManager,
+                        this,
+                        catalogManager,
+                        nodeProperties
+                );
+            }
+
             partitionDistributionResetTimeoutConfiguration.init();
 
             registerCatalogEventListenersOnStartManagerBusy();
