@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
@@ -43,14 +44,13 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.ReplicatorGroupImpl;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.server.counter.CounterListener;
 import org.apache.logging.log4j.core.LogEvent;
-import org.apache.logging.log4j.core.appender.AbstractAppender;
-import org.apache.logging.log4j.core.config.Property;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,10 +65,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
     private List<LogInspector> logInspectors;
 
-    private List<TestLogAppender> testAppenders = new ArrayList<>();
+    private final Map<Class<?>, Map<String, AtomicInteger>> perClassCounters = new ConcurrentHashMap<>();
 
     @BeforeEach
     public void setUp() throws Exception {
+        perClassCounters.clear();
+
         startCluster();
 
         logInspectors = startLogInspectors();
@@ -129,9 +131,14 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         // Wait for some time for log spam.
         Thread.sleep(3_000);
 
-        for (TestLogAppender testAppender : testAppenders) {
-            assertTrue(testAppender.check(), testAppender.getName()  + " has written to the log more than 1 time.");
-        }
+        perClassCounters.forEach((cls, instances) -> {
+            boolean correct = instances.values().stream()
+                    .filter(v -> v.get() > 1)
+                    .findAny()
+                    .isEmpty();
+
+            assertTrue(correct, cls.getName()  + " has been written to the log more than 1 time.");
+        });
     }
 
     private List<LogInspector> startLogInspectors() {
@@ -150,11 +157,21 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
     }
 
     private LogInspector logInspector(Class<?> cls, String msg) {
-        var appender = new TestLogAppender(cls.getName(), msg);
+        var instanceCounters = new ConcurrentHashMap<String, AtomicInteger>();
 
-        testAppenders.add(appender);
+        perClassCounters.put(cls, instanceCounters);
 
-        return new LogInspector(cls.getName(), appender);
+        Predicate<LogEvent> pred = event -> {
+            if (event.getMessage().getFormattedMessage().contains(msg)) {
+                assertTrue(event.getThreadName().startsWith("%"));
+                String instanceName = event.getThreadName().split("%")[1];
+                instanceCounters.computeIfAbsent(instanceName, k -> new AtomicInteger()).incrementAndGet();
+            }
+
+            return false;
+        };
+
+        return new LogInspector(cls.getName(), new Handler(pred, () -> {}));
     }
 
     private static void stopLogInspectors(List<LogInspector> logInspectors) {
@@ -212,32 +229,5 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
     private static RaftGroupOptions groupOptions(RaftServer raftServer) {
         return defaults().commandsMarshaller(new ThreadLocalOptimizedMarshaller(raftServer.clusterService().serializationRegistry()));
-    }
-
-    private static class TestLogAppender extends AbstractAppender {
-        private final String requiredSubstring;
-        private Map<String, AtomicInteger> perThreadCounters = new ConcurrentHashMap<>();
-
-        TestLogAppender(String name, String requiredSubstring) {
-            super(name, null, null, true, Property.EMPTY_ARRAY);
-
-            this.requiredSubstring = requiredSubstring;
-        }
-
-        @Override
-        public void append(LogEvent event) {
-            if (event.getMessage().getFormattedMessage().contains(requiredSubstring)) {
-                assertTrue(event.getThreadName().startsWith("%"));
-                String instanceName = event.getThreadName().split("%")[1];
-                perThreadCounters.computeIfAbsent(instanceName, k -> new AtomicInteger()).incrementAndGet();
-            }
-        }
-
-        boolean check() {
-            return perThreadCounters.values().stream()
-                    .filter(v -> v.get() > 1)
-                    .findAny()
-                    .isEmpty();
-        }
     }
 }

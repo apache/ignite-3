@@ -21,11 +21,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
-import java.util.stream.IntStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.LogEvent;
@@ -93,7 +92,7 @@ public class LogInspector {
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     /** Test log appender that is used to check log events/messages. */
-    private final Appender appender;
+    private final TestLogAppender appender;
 
     /** Logger configuration. */
     private Configuration config;
@@ -198,28 +197,6 @@ public class LogInspector {
     }
 
     /**
-     * Creates a new instance of {@link LogInspector}.
-     *
-     * @param loggerName Logger name.
-     * @param appender Appender.
-     */
-    public LogInspector(String loggerName, Appender appender) {
-        Objects.requireNonNull(loggerName);
-
-        this.loggerName = loggerName;
-        this.appender = appender;
-    }
-
-    /**
-     * Logger name.
-     *
-     * @return Logger name.
-     */
-    public String loggerName() {
-        return loggerName;
-    }
-
-    /**
      * Adds a new handler with the given {@code predicate} and {@code action}.
      *
      * @param predicate Predicate to check log messages.
@@ -273,22 +250,7 @@ public class LogInspector {
         lock.readLock().lock();
 
         try {
-            return handlers.stream().anyMatch(Handler::isMatched);
-        } finally {
-            lock.readLock().unlock();
-        }
-    }
-
-    /**
-     * Returns integer stream of {@link Handler#timesMatched()} for all handlers.
-     *
-     * @return Returns integer stream of {@link Handler#timesMatched()} for all handlers.
-     */
-    public IntStream timesMatched() {
-        lock.readLock().lock();
-
-        try {
-            return handlers.stream().mapToInt(Handler::timesMatched);
+            return handlers.stream().anyMatch(handler -> handler.isMatched.get());
         } finally {
             lock.readLock().unlock();
         }
@@ -352,8 +314,8 @@ public class LogInspector {
         /** Action to be executed when the {@code predicate} is matched. */
         private final Runnable action;
 
-        /** Counter that indicates how many times the predicate has matched. */
-        private final AtomicInteger timesMatched = new AtomicInteger();
+        /** Flag indicating whether the predicate is matched. */
+        private final AtomicBoolean isMatched = new AtomicBoolean();
 
         /**
          * Creates a new instance of {@link Handler}.
@@ -375,16 +337,7 @@ public class LogInspector {
          * @return {@code true} if the predicate is matched, {@code false} otherwise.
          */
         public boolean isMatched() {
-            return timesMatched.get() > 0;
-        }
-
-        /**
-         * Indicates how many times the predicate has matched.
-         *
-         * @return How many times the predicate has matched.
-         */
-        public int timesMatched() {
-            return timesMatched.get();
+            return isMatched.get();
         }
     }
 
@@ -403,7 +356,7 @@ public class LogInspector {
             try {
                 handlers.forEach(handler -> {
                     if (handler.predicate.test(event)) {
-                        handler.timesMatched.incrementAndGet();
+                        handler.isMatched.set(true);
                         handler.action.run();
                     }
                 });
