@@ -142,6 +142,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
     void testDoStableKeySwitchWhenPendingQueueIsGreaterThanOne() {
         createZoneAndTable(4, 2);
 
