@@ -104,7 +104,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testRestartPartitionTableNotFound() {
         // This test in colocation mode is not relevant.
 

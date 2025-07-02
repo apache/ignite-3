@@ -70,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.ColumnType;
@@ -749,7 +750,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         } else if (columnType == ColumnType.DOUBLE) {
             expected = ((Number) ((RexLiteral) expr1).getValue4()).doubleValue();
         } else {
-            expected = val == null ? null : TypeUtils.toInternal(val, val.getClass());
+            expected = val == null ? null : TypeUtils.toInternal(val, NativeTypes.fromObject(val).spec());
         }
 
         assertEquals(Arrays.asList(expected, val2), Arrays.asList(actual));

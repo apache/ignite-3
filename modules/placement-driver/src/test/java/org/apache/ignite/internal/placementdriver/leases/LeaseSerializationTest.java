@@ -49,7 +49,7 @@ public class LeaseSerializationTest {
 
         byte[] leaseBatchBytes = new LeaseBatch(leases).bytes();
 
-        assertEquals(leases, LeaseBatch.fromBytes(wrap(leaseBatchBytes)).leases());
+        assertEquals(leases, LeaseBatch.fromBytes(leaseBatchBytes).leases());
     }
 
     private static Lease newLease(

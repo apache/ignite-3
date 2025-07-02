@@ -74,7 +74,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     public NamedListConfiguration(
             List<String> prefix,
             String key,
-            RootKey<?, ?> rootKey,
+            RootKey<?, ?, ?> rootKey,
             DynamicConfigurationChanger changer,
             boolean listenOnly,
             BiFunction<List<String>, String, T> cfgCreator,

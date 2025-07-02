@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -106,7 +105,7 @@ public class Compactor extends IgniteWorker {
     public Compactor(
             IgniteLogger log,
             String igniteInstanceName,
-            ConfigurationValue<Integer> threads,
+            int threads,
             FilePageStoreManager filePageStoreManager,
             int pageSize,
             FailureManager failureManager
@@ -116,12 +115,10 @@ public class Compactor extends IgniteWorker {
         this.filePageStoreManager = filePageStoreManager;
         this.failureManager = failureManager;
 
-        int threadCount = threads.value();
-
-        if (threadCount > 1) {
+        if (threads > 1) {
             threadPoolExecutor = new ThreadPoolExecutor(
-                    threadCount,
-                    threadCount,
+                    threads,
+                    threads,
                     30,
                     SECONDS,
                     new LinkedBlockingQueue<>(),

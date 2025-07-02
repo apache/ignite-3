@@ -73,9 +73,8 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         closeAll(client, server);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testConnectionMetrics(boolean gracefulDisconnect) throws Exception {
+    @Test
+    public void testConnectionMetrics() throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
@@ -84,18 +83,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(1, metrics.connectionsEstablished());
         assertEquals(1, metrics.connectionsActive());
 
-        if (gracefulDisconnect) {
-            client.close();
-        } else {
-            server.close();
-        }
+        server.close();
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> metrics.connectionsActive() == 0, 1000),
                 () -> "connectionsActive: " + metrics.connectionsActive());
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLost() == (gracefulDisconnect ? 0 : 1), 1000),
+                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLost() == 1, 1000),
                 () -> "connectionsLost: " + metrics.connectionsLost());
 
         assertEquals(1, metrics.connectionsEstablished());
@@ -241,14 +236,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
-        assertEquals(16, metrics().bytesSent());
+        assertEquals(17, metrics().bytesSent());
 
         long handshakeReceived = metrics().bytesReceived();
         assertThat(handshakeReceived, greaterThanOrEqualTo(77L));
 
         client.tables().tables();
 
-        assertEquals(22, metrics().bytesSent());
+        assertEquals(23, metrics().bytesSent());
         assertEquals(handshakeReceived + 21, metrics().bytesReceived());
     }
 

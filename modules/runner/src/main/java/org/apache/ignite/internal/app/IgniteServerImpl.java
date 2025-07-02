@@ -40,6 +40,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -394,6 +395,12 @@ public class IgniteServerImpl implements IgniteServer {
 
         logAvailableResources();
 
+        logOsInfo();
+
+        logVmInfo();
+
+        ackRemoteManagement();
+
         return instance.startAsync().handle((result, throwable) -> {
             if (throwable != null) {
                 return CompletableFuture.<Void>failedFuture(throwable);
@@ -413,11 +420,6 @@ public class IgniteServerImpl implements IgniteServer {
 
             return completedFuture(result);
         }).thenCompose(identity());
-    }
-
-    private static void logAvailableResources() {
-        LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
-        LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
     }
 
     @Override
@@ -455,6 +457,75 @@ public class IgniteServerImpl implements IgniteServer {
         }
 
         LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, "Apache Ignite ver. " + version);
+    }
+
+    private static void logAvailableResources() {
+        LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
+        LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
+    }
+
+    private static void logOsInfo() {
+        Long jvmPid = null;
+
+        try {
+            jvmPid = ProcessHandle.current().pid();
+        } catch (Throwable ignore) {
+            // No-op.
+        }
+
+        String osName = System.getProperty("os.name");
+        String osVersion = System.getProperty("os.version");
+        String osArch = System.getProperty("os.arch");
+        String osUser = System.getProperty("user.name");
+
+        LOG.info(
+                "OS: [name={}, version={}, arch={}, user={}, pid={}]",
+                osName, osVersion, osArch, osUser, (jvmPid == null ? "N/A" : jvmPid)
+        );
+    }
+
+    private static void logVmInfo() {
+        String jreName = System.getProperty("java.runtime.name");
+        String jreVersion = System.getProperty("java.runtime.version");
+        String jvmVendor = System.getProperty("java.vm.vendor");
+        String jvmName = System.getProperty("java.vm.name");
+        String jvmVersion = System.getProperty("java.vm.version");
+
+        LOG.info(
+                "VM: [jreName={}, jreVersion={}, jvmVendor={}, jvmName={}, jvmVersion={}]",
+                jreName, jreVersion, jvmVendor, jvmName, jvmVersion
+        );
+    }
+
+    private static void ackRemoteManagement() {
+        if (LOG.isInfoEnabled()) {
+            boolean jmxEnabled = System.getProperty("com.sun.management.jmxremote") != null;
+
+            if (jmxEnabled) {
+                String jmxMessage = "Remote management[JMX (remote: on, port: {}, auth: {}, ssl: {})]";
+
+                String port = System.getProperty("com.sun.management.jmxremote.port", "<n/a>");
+                boolean authEnabled = Boolean.getBoolean("com.sun.management.jmxremote.authenticate");
+                // By default SSL is enabled, that's why additional check for null is needed.
+                // https://docs.oracle.com/en/java/javase/11/management/monitoring-and-management-using-jmx-technology.html
+                boolean sslEnabled = Boolean.getBoolean("com.sun.management.jmxremote.ssl")
+                        || (System.getProperty("com.sun.management.jmxremote.ssl") == null);
+
+                LOG.info(IgniteStringFormatter.format(jmxMessage, port, onOff(authEnabled), onOff(sslEnabled)));
+            } else {
+                LOG.info("Remote management[JMX (remote: off)]");
+            }
+        }
+    }
+
+    /**
+     * Gets "on" or "off" string for given boolean value.
+     *
+     * @param b Boolean value to convert.
+     * @return Result string.
+     */
+    private static String onOff(boolean b) {
+        return b ? "on" : "off";
     }
 
     private static void sync(CompletableFuture<Void> future) {

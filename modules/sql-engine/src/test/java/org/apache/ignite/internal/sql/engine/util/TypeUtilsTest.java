@@ -26,10 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -255,33 +257,41 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     /**
      * Checks that conversions to and from internal types is consistent.
      *
-     * @see TypeUtils#toInternal(Object, Type) to internal.
-     * @see TypeUtils#fromInternal(Object, Type) from internal.
+     * @see TypeUtils#toInternal(Object, ColumnType) to internal.
+     * @see TypeUtils#fromInternal(Object, ColumnType) from internal.
      */
     @ParameterizedTest
     @MethodSource("valueAndType")
-    public void testToFromInternalMatch(Object value, Class<?> type) {
+    public void testToFromInternalMatch(Object value, ColumnType type) {
         Object internal = TypeUtils.toInternal(value, type);
         assertNotNull(internal, "Conversion to internal has produced null");
 
         Object original = TypeUtils.fromInternal(internal, type);
-        assertEquals(value, original, "toInternal -> fromInternal");
         assertNotNull(original, "Conversion from internal has produced null");
+
+        if (value instanceof byte[]) {
+            assertArrayEquals((byte[]) value, (byte[]) original, "toInternal -> fromInternal");
+        } else {
+            assertEquals(value, original, "toInternal -> fromInternal");
+        }
     }
 
     private static Stream<Arguments> valueAndType() {
         return Stream.of(
-                Arguments.of((byte) 1, Byte.class),
-                Arguments.of((short) 1, Short.class),
-                Arguments.of(1, Integer.class),
-                Arguments.of(1L, Long.class),
-                Arguments.of(1.0F, Float.class),
-                Arguments.of(1.0D, Double.class),
-                Arguments.of("hello", String.class),
-                Arguments.of(LocalDate.of(1970, 1, 1), LocalDate.class),
-                Arguments.of(LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0), LocalDateTime.class),
-                Arguments.of(LocalTime.NOON, LocalTime.class),
-                Arguments.of(new UUID(1, 1), UUID.class)
+                Arguments.of((byte) 1, ColumnType.INT8),
+                Arguments.of((short) 1, ColumnType.INT16),
+                Arguments.of(1, ColumnType.INT32),
+                Arguments.of(1L, ColumnType.INT64),
+                Arguments.of(1.0F, ColumnType.FLOAT),
+                Arguments.of(1.0D, ColumnType.DOUBLE),
+                Arguments.of("hello", ColumnType.STRING),
+                Arguments.of(new byte[]{1, 2, 3}, ColumnType.BYTE_ARRAY),
+                Arguments.of(LocalDate.of(1970, 1, 1), ColumnType.DATE),
+                Arguments.of(LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0), ColumnType.DATETIME),
+                Arguments.of(Instant.now().truncatedTo(ChronoUnit.MILLIS), ColumnType.TIMESTAMP),
+                Arguments.of(LocalTime.NOON, ColumnType.TIME),
+                Arguments.of(new UUID(1, 1), ColumnType.UUID),
+                Arguments.of(BigDecimal.valueOf(1.001), ColumnType.DECIMAL)
         );
     }
 

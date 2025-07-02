@@ -33,10 +33,6 @@ import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
@@ -68,12 +64,10 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Determines if key should be ignored. */
     private final KeyIgnorer keyIgnorer;
 
-    private final ConfigurationType configurationType;
-
     /** Constructor. */
     @TestOnly
     public ConfigurationRegistry(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
@@ -85,7 +79,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * Constructor.
      */
     public ConfigurationRegistry(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator,
@@ -105,12 +99,10 @@ public class ConfigurationRegistry implements IgniteComponent {
                 keyIgnorer
         ) {
             @Override
-            public InnerNode createRootNode(RootKey<?, ?> rootKey) {
+            public InnerNode createRootNode(RootKey<?, ?, ?> rootKey) {
                 return generator.instantiateNode(rootKey.schemaClass());
             }
         };
-
-        this.configurationType = storage.type();
 
         rootKeys.forEach(rootKey -> {
             DynamicConfiguration<?, ?> cfg = generator.instantiateCfg(rootKey, changer);
@@ -119,21 +111,16 @@ public class ConfigurationRegistry implements IgniteComponent {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         changer.start();
 
-        // Initialize local configuration on start so that it can be read and modified during component start.
-        // Distributed configuration will be initialized during the "notifyCurrentConfigurationListeners" call.
-        if (configurationType == ConfigurationType.LOCAL) {
-            configs.values().forEach(ConfigurationUtil::touch);
-        }
+        // Initialize configuration so that it can be read and modified during other components' start.
+        configs.values().forEach(ConfigurationUtil::touch);
 
         return nullCompletedFuture();
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         changer.stop();
@@ -168,7 +155,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param <T> Configuration tree type.
      * @return Public configuration tree.
      */
-    public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
+    public <V, C extends V, T extends ConfigurationTree<? super V, ? super C>> T getConfiguration(RootKey<T, V, C> rootKey) {
         return (T) configs.get(rootKey.key());
     }
 
@@ -266,18 +253,6 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Determines if key should be ignored. */
     public KeyIgnorer keyIgnorer() {
         return keyIgnorer;
-    }
-
-    /**
-     * Notifies all listeners of the current configuration.
-     *
-     * <p>{@link ConfigurationListener#onUpdate} and {@link ConfigurationNamedListListener#onCreate} will be called and the value will
-     * only be in {@link ConfigurationNotificationEvent#newValue}.
-     *
-     * @return Future that must signify when processing is completed.
-     */
-    public CompletableFuture<Void> notifyCurrentConfigurationListeners() {
-        return changer.notifyCurrentConfigurationListeners();
     }
 
     /**

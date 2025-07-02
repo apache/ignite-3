@@ -61,13 +61,14 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
@@ -93,8 +94,15 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     private static PageIoRegistry ioRegistry;
 
-    @InjectConfiguration("mock : {checkpointThreads=1, intervalMillis=1000, intervalDeviationPercent=0}")
-    private PageMemoryCheckpointConfiguration checkpointConfig;
+    private final AtomicLong intervalMillis = new AtomicLong(1_000L);
+
+    private final AtomicInteger intervalDeviationPercent = new AtomicInteger(0);
+
+    private final CheckpointConfiguration checkpointConfig = CheckpointConfiguration.builder()
+            .checkpointThreads(1)
+            .intervalMillis(intervalMillis::get)
+            .intervalDeviationPercent(intervalDeviationPercent::get)
+            .build();
 
     @BeforeAll
     static void beforeAll() {
@@ -247,7 +255,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testWaitCheckpointEvent() throws Exception {
-        checkpointConfig.intervalMillis().update(200L).get(100, MILLISECONDS);
+        intervalMillis.set(200L);
 
         Checkpointer checkpointer = new Checkpointer(
                 "test",
@@ -277,7 +285,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCheckpointBody() throws Exception {
-        checkpointConfig.intervalMillis().update(100L).get(100, MILLISECONDS);
+        intervalMillis.set(100L);
 
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
@@ -292,11 +300,11 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(LogSyncer.class)
         ));
 
-        ((CheckpointProgressImpl) checkpointer.scheduledProgress())
+        checkpointer.scheduledProgress()
                 .futureFor(FINISHED)
                 .whenComplete((unused, throwable) -> {
                     try {
-                        checkpointConfig.intervalMillis().update(10_000L).get(100, MILLISECONDS);
+                        intervalMillis.set(10_000L);
 
                         verify(checkpointer, times(1)).doCheckpoint();
 
@@ -441,25 +449,24 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         );
 
         // Checks case 0 deviation.
+        intervalDeviationPercent.set(0);
 
-        checkpointConfig.intervalDeviationPercent().update(0).get(100, MILLISECONDS);
-
-        checkpointConfig.intervalMillis().update(1_000L).get(100, MILLISECONDS);
+        intervalMillis.set(1_000L);
         assertEquals(1_000, checkpointer.nextCheckpointInterval());
 
-        checkpointConfig.intervalMillis().update(2_000L).get(100, MILLISECONDS);
+        intervalMillis.set(2_000L);
         assertEquals(2_000, checkpointer.nextCheckpointInterval());
 
         // Checks for non-zero deviation.
 
-        checkpointConfig.intervalDeviationPercent().update(10).get(100, MILLISECONDS);
+        intervalDeviationPercent.set(10);
 
         assertThat(
                 checkpointer.nextCheckpointInterval(),
                 allOf(greaterThanOrEqualTo(1_900L), lessThanOrEqualTo(2_100L))
         );
 
-        checkpointConfig.intervalDeviationPercent().update(20).get(100, MILLISECONDS);
+        intervalDeviationPercent.set(20);
 
         assertThat(
                 checkpointer.nextCheckpointInterval(),
@@ -513,7 +520,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         return new CheckpointDirtyPages(List.of(createDirtyPagesAndPartitions(pageMemory, pageIds)));
     }
 
-    private CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
+    private static CheckpointWorkflow createCheckpointWorkflow(CheckpointDirtyPages dirtyPages) throws Exception {
         CheckpointWorkflow mock = mock(CheckpointWorkflow.class);
 
         when(mock.markCheckpointBegin(

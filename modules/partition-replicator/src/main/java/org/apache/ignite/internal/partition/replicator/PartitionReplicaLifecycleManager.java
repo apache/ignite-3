@@ -45,7 +45,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
@@ -92,6 +91,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescr
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -192,6 +192,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final FailureProcessor failureProcessor;
 
+    private final NodeProperties nodeProperties;
+
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
 
@@ -288,6 +290,7 @@ public class PartitionReplicaLifecycleManager extends
             TopologyService topologyService,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -309,6 +312,7 @@ public class PartitionReplicaLifecycleManager extends
                 topologyService,
                 lowWatermark,
                 failureProcessor,
+                nodeProperties,
                 ioExecutor,
                 rebalanceScheduler,
                 partitionOperationsExecutor,
@@ -340,6 +344,7 @@ public class PartitionReplicaLifecycleManager extends
             TopologyService topologyService,
             LowWatermark lowWatermark,
             FailureProcessor failureProcessor,
+            NodeProperties nodeProperties,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -359,6 +364,7 @@ public class PartitionReplicaLifecycleManager extends
         this.topologyService = topologyService;
         this.lowWatermark = lowWatermark;
         this.failureProcessor = failureProcessor;
+        this.nodeProperties = nodeProperties;
         this.ioExecutor = ioExecutor;
         this.rebalanceScheduler = rebalanceScheduler;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
@@ -387,7 +393,7 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        if (!enabledColocation()) {
+        if (!nodeProperties.colocationEnabled()) {
             return nullCompletedFuture();
         }
 
@@ -713,6 +719,7 @@ public class PartitionReplicaLifecycleManager extends
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
                                                 failureProcessor,
+                                                nodeProperties,
                                                 topologyService.localMember(),
                                                 zonePartitionId
                                         );
@@ -782,7 +789,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
-        return new PartitionMover(busyLock, () -> {
+        return new PartitionMover(busyLock, rebalanceScheduler, () -> {
             CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
             if (replicaFut == null) {
                 return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
@@ -1214,7 +1221,8 @@ public class PartitionReplicaLifecycleManager extends
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
-        Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
+        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
+        Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
@@ -1387,6 +1395,7 @@ public class PartitionReplicaLifecycleManager extends
                     }
 
                     assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
+                            + ", groupId=" + replicaGrpId
                             + ", stable=" + stableAssignments
                             + ", pending=" + pendingAssignments
                             + ", localName=" + localNode().name() + "].";
@@ -1559,7 +1568,7 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        if (!enabledColocation()) {
+        if (!nodeProperties.colocationEnabled()) {
             return nullCompletedFuture();
         }
 

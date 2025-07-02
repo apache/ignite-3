@@ -478,6 +478,9 @@ public class ErrorGroups {
 
         /** Stopping replica exception code. */
         public static final int REPLICA_STOPPING_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 8);
+
+        /** Replication group overloaded exception code. */
+        public static final int GROUP_OVERLOADED_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 9);
     }
 
     /** Storage error group. */

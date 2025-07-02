@@ -26,9 +26,7 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -72,6 +70,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
@@ -112,6 +111,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -196,6 +196,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private final FailureManager failureManager;
 
+    private final NodeProperties nodeProperties;
+
+    private final SystemViewManager systemViewManager;
+
     /**
      * Map of operations, triggered by local node, that have not yet been processed by {@link #watchListener}. Values in the map are the
      * futures, returned from the {@link #processNewRequest(DisasterRecoveryRequest)}, they are completed by
@@ -218,7 +222,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             TableManager tableManager,
             MetricManager metricManager,
             FailureManager failureManager,
-            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
+            NodeProperties nodeProperties,
+            SystemViewManager systemViewManager
     ) {
         this.threadPool = threadPool;
         this.messagingService = messagingService;
@@ -231,6 +237,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.metricManager = metricManager;
         this.failureManager = failureManager;
         this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
+        this.nodeProperties = nodeProperties;
+        this.systemViewManager = systemViewManager;
 
         watchListener = event -> {
             handleTriggerKeyUpdate(event);
@@ -242,11 +250,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        systemViewManager.register(this);
+
         messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 
-        if (!enabledColocation()) {
+        if (!nodeProperties.colocationEnabled()) {
             dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onHaZoneTablePartitionTopologyReduce);
         } else {
             dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onHaZonePartitionTopologyReduce);
@@ -274,7 +284,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     @Override
     public List<SystemView<?>> systemViews() {
-        if (enabledColocation()) {
+        if (nodeProperties.colocationEnabled()) {
             return List.of(
                     createGlobalZonePartitionStatesSystemView(this),
                     createLocalZonePartitionStatesSystemView(this),
@@ -302,9 +312,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         Catalog catalog = catalogManager.activeCatalog(timestamp);
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
-        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalog);
         Map<Integer, Set<Integer>> tablePartitionsToReset = new HashMap<>();
-        for (CatalogTableDescriptor table : tables) {
+        for (CatalogTableDescriptor table : catalog.tables(zoneId)) {
             Set<Integer> partitionsToReset = new HashSet<>();
             for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
                 TablePartitionId partitionId = new TablePartitionId(table.id(), partId);
@@ -643,7 +652,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Set<Integer> partitionIds
     ) {
         try {
-            assert enabledColocation() : "Zone based replication is unavailable use localTablePartitionStates";
+            assert nodeProperties.colocationEnabled() : "Zone based replication is unavailable use localTablePartitionStates";
 
             Catalog catalog = catalogLatestVersion();
 
@@ -671,7 +680,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Set<Integer> partitionIds
     ) {
         try {
-            assert enabledColocation() : "Zone based replication is unavailable use globalTablePartitionStates";
+            assert nodeProperties.colocationEnabled() : "Zone based replication is unavailable use globalTablePartitionStates";
 
             Catalog catalog = catalogLatestVersion();
 
@@ -770,7 +779,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         try {
             Catalog catalog = catalogLatestVersion();
 
-            if (enabledColocation()) {
+            if (nodeProperties.colocationEnabled()) {
                 return localPartitionStatesInternal(
                         zoneNames,
                         nodeNames,
@@ -809,7 +818,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         try {
             Catalog catalog = catalogLatestVersion();
 
-            if (enabledColocation()) {
+            if (nodeProperties.colocationEnabled()) {
                 return localPartitionStatesInternal(
                         zoneNames,
                         Set.of(),

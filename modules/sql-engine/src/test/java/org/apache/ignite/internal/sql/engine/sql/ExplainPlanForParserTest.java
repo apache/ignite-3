@@ -39,6 +39,18 @@ public class ExplainPlanForParserTest extends AbstractParserTest {
     }
 
     @Test
+    public void explainPlanWithMapping() {
+        IgniteSqlExplain explain = parseExplain("EXPLAIN MAPPING FOR select 1");
+
+        assertEquals(0, explain.getDynamicParamCount());
+
+        expectUnparsed(explain, "EXPLAIN MAPPING FOR" + System.lineSeparator() + "SELECT 1");
+
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Non-query expression encountered in illegal context. At line 1, column 9",
+                () -> parse("explain MAPPINGGG FOR plan select 1"));
+    }
+
+    @Test
     public void explainPlanFullWithDynParam() {
         IgniteSqlExplain explain = parseExplain("EXPLAIN PLAN FOR select ?");
 

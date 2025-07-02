@@ -5,7 +5,7 @@
 # group: [explain]
 
 # single tuple Values node
-plan
+explain plan
 SELECT 1, 2;
 ----
 Values
@@ -14,7 +14,7 @@ Values
     est: (rows=1)
 
 # single tuple Values node with renamed fields
-plan
+explain plan
 SELECT 1 AS first_val, 2 AS second_val;
 ----
 Values
@@ -23,7 +23,7 @@ Values
     est: (rows=1)
 
 # multiple tuples Values node
-plan
+explain plan
 SELECT * FROM (VALUES (1), (2), (3), (4)) v(x)
 ----
 Values
@@ -32,7 +32,7 @@ Values
     est: (rows=4)
 
 # multiple tuples with multiple values inside Values node
-plan
+explain plan
 SELECT * FROM (VALUES (1, 1), (2, 2), (3, 3), (4, 4)) v(x, y)
 ----
 Values
@@ -41,7 +41,7 @@ Values
     est: (rows=4)
 
 # simple Project node 
-plan
+explain plan
 SELECT x * 2 FROM (VALUES (1)) v(x);
 ----
 Project
@@ -54,7 +54,7 @@ Project
       est: (rows=1)
 
 # similar test case but with different filed name of input node
-plan
+explain plan
 SELECT y * 2 FROM (VALUES (1)) v(y);
 ----
 Project
@@ -67,7 +67,7 @@ Project
       est: (rows=1)
 
 # simple Project node with rename
-plan
+explain plan
 SELECT x * 2 AS doubled_x FROM (VALUES (1)) v(x);
 ----
 Project
@@ -80,7 +80,7 @@ Project
       est: (rows=1)
 
 # projection with computed field
-plan
+explain plan
 SELECT CURRENT_DATE, x * 2 AS doubled_x FROM (VALUES (1)) v(x);
 ----
 Project
@@ -93,7 +93,7 @@ Project
       est: (rows=1)
 
 # simple Filter node
-plan
+explain plan
 SELECT x FROM (VALUES (1)) v(x) WHERE EXTRACT(YEAR FROM CURRENT_DATE) > 2000;
 ----
 Filter
@@ -105,7 +105,7 @@ Filter
       est: (rows=1)
 
 # Filter node with predicate based on input
-plan
+explain plan
 SELECT x FROM (VALUES (1)) v(x) WHERE x != 0 AND EXTRACT(YEAR FROM CURRENT_DATE) > 2000;
 ----
 Filter

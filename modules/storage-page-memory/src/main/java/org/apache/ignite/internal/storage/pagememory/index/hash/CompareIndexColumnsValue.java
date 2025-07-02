@@ -46,7 +46,7 @@ public class CompareIndexColumnsValue implements PageMemoryTraversal<ByteBuffer>
 
         int oldLimit = other.limit();
 
-        cmp = buffer.compareTo(other.position(pos).limit(pos + buffer.limit()));
+        cmp = buffer.compareTo(other.position(pos).limit(Math.min(oldLimit, pos + buffer.limit())));
 
         other.limit(oldLimit);
 

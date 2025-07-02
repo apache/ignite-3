@@ -56,7 +56,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -96,6 +95,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -156,7 +157,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
         lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
-        JobClassLoader classLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
+        JobClassLoader classLoader = new JobClassLoader(List.of(), getClass().getClassLoader());
         JobContext jobContext = new JobContext(classLoader, ignored -> {});
         lenient().when(jobContextManager.acquireClassLoader(anyList()))
                 .thenReturn(completedFuture(jobContext));
@@ -167,7 +168,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         }).when(messagingService).addMessageHandler(eq(ComputeMessageTypes.class), any());
 
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, INSTANCE_NAME);
-        ComputeExecutor computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration, topologyService);
+        ComputeExecutor computeExecutor = new ComputeExecutorImpl(
+                ignite, stateMachine, computeConfiguration, topologyService, new TestClockService(new HybridClockImpl()));
 
         computeComponent = new ComputeComponentImpl(
                 INSTANCE_NAME,

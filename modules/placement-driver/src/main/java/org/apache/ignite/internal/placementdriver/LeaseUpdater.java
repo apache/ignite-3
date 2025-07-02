@@ -21,7 +21,6 @@ import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -408,7 +407,7 @@ public class LeaseUpdater {
                 try {
                     Thread.sleep(UPDATE_LEASE_MS);
                 } catch (InterruptedException e) {
-                    LOG.warn("Lease updater is interrupted");
+                    LOG.info("Lease updater is interrupted");
                 }
             }
         }
@@ -474,14 +473,6 @@ public class LeaseUpdater {
 
                     if (lease.isProlongable() && agreement.isAccepted()) {
                         Lease negotiatedLease = agreement.getLease();
-
-                        // Lease information is taken from lease tracker, where it appears on meta storage watch updates, so it can
-                        // contain stale leases, if watch processing was delayed for some reason. It is ok: negotiated lease is
-                        // guaranteed to be already written to meta storage before negotiation begins, and in this case its start time
-                        // would be greater than lease's.
-                        assert negotiatedLease.getStartTime().longValue() >= lease.getStartTime().longValue()
-                                : format("Can't publish the lease that was not negotiated [groupId={}, startTime={}, "
-                                + "agreementLeaseStartTime={}].", grpId, lease.getStartTime(), agreement.getLease().getStartTime());
 
                         publishLease(grpId, negotiatedLease, renewedLeases, leaseExpirationInterval);
 

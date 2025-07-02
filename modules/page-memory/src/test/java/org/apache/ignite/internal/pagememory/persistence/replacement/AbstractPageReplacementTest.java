@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
@@ -47,17 +46,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestSimpleValuePageIo;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.CheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.PersistentDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.ReplacementMode;
 import org.apache.ignite.internal.pagememory.persistence.FakePartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -69,7 +66,6 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -99,18 +95,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
     private static final int MAX_MEMORY_SIZE = PAGE_COUNT * PAGE_SIZE;
 
-    @InjectConfiguration("mock.checkpointThreads = 1")
-    private PageMemoryCheckpointConfiguration checkpointConfig;
-
-    @InjectConfiguration(
-            polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
-            value = "mock = {"
-                    + "engine=aipersist, "
-                    + "sizeBytes=" + MAX_MEMORY_SIZE
-                    + "}"
-    )
-    private StorageProfileConfiguration storageProfileCfg;
-
     private FilePageStoreManager filePageStoreManager;
 
     private PartitionMetaManager partitionMetaManager;
@@ -122,7 +106,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     @InjectExecutorService
     private ExecutorService executorService;
 
-    protected abstract String replacementMode();
+    protected abstract ReplacementMode replacementMode();
 
     @BeforeEach
     void setUp() throws Exception {
@@ -148,7 +132,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 NODE_NAME,
                 null,
                 failureManager,
-                checkpointConfig,
+                CheckpointConfiguration.builder().checkpointThreads(1).build(),
                 filePageStoreManager,
                 partitionMetaManager,
                 dataRegionList,
@@ -158,14 +142,9 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 PAGE_SIZE
         );
 
-        CompletableFuture<Void> changeFuture = storageProfileCfg.change(change -> change
-                .convert(PersistentPageMemoryProfileChange.class)
-                .changeReplacementMode(replacementMode()));
-
-        assertThat(changeFuture, willCompleteSuccessfully());
-
         pageMemory = new PersistentPageMemory(
-                (PersistentPageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
+                PersistentDataRegionConfiguration.builder()
+                        .pageSize(PAGE_SIZE).size(MAX_MEMORY_SIZE).replacementMode(replacementMode()).build(),
                 new PersistentPageMemoryMetricSource("test"),
                 ioRegistry,
                 new long[]{MAX_MEMORY_SIZE},
@@ -173,7 +152,6 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 filePageStoreManager,
                 checkpointManager::writePageToDeltaFilePageStore,
                 checkpointManager.checkpointTimeoutLock(),
-                PAGE_SIZE,
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
 

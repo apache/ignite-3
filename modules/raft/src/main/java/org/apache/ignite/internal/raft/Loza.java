@@ -109,6 +109,10 @@ public class Loza implements RaftManager {
 
     private final MetricManager metricManager;
 
+    private final ThrottlingContextHolder partitionThrottlingContextHolder;
+
+    private final ThrottlingContextHolder systemGroupsThrottlingContextHolder;
+
     /** Constructor using no-op group storages destruction intents. */
     @TestOnly
     public Loza(
@@ -163,6 +167,13 @@ public class Loza implements RaftManager {
 
         this.opts = options;
 
+        double maxInflightOverflowRate = raftConfiguration.maxInflightOverflowRate().value();
+
+        partitionThrottlingContextHolder = new ThrottlingContextHolderImpl(raftConfiguration, maxInflightOverflowRate);
+
+        // Throttler for system groups doesn't limit requests, but may adapt the request timeout if needed.
+        systemGroupsThrottlingContextHolder = new ThrottlingContextHolderImpl(raftConfiguration, Integer.MAX_VALUE);
+
         this.raftServer = new JraftServerImpl(
                 clusterNetSvc,
                 options,
@@ -210,9 +221,10 @@ public class Loza implements RaftManager {
 
         opts.setRaftMetrics(stripeSource);
         opts.setRpcInstallSnapshotTimeout(raftConfig.installSnapshotTimeoutMillis());
-        opts.setStripes(raftConfig.stripes());
-        opts.setLogStripesCount(raftConfig.logStripesCount());
+        opts.setStripes(raftConfig.disruptor().stripes());
+        opts.setLogStripesCount(raftConfig.disruptor().logManagerStripes());
         opts.setLogYieldStrategy(raftConfig.logYieldStrategy());
+        opts.getRaftOptions().setDisruptorBufferSize(raftConfig.disruptor().queueSize());
 
         opts.getRaftOptions().setSync(raftConfig.fsync());
 
@@ -342,7 +354,7 @@ public class Loza implements RaftManager {
     }
 
     @Override
-    public RaftGroupService startRaftGroupService(ReplicationGroupId groupId, PeersAndLearners configuration)
+    public RaftGroupService startRaftGroupService(ReplicationGroupId groupId, PeersAndLearners configuration, boolean isSystemGroup)
             throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -354,7 +366,8 @@ public class Loza implements RaftManager {
                     groupId,
                     configuration,
                     opts.getCommandsMarshaller(),
-                    StoppingExceptionFactories.indicateComponentStop()
+                    StoppingExceptionFactories.indicateComponentStop(),
+                    isSystemGroup
             );
         } finally {
             busyLock.leaveBusy();
@@ -367,7 +380,8 @@ public class Loza implements RaftManager {
             PeersAndLearners configuration,
             RaftServiceFactory<T> factory,
             @Nullable Marshaller commandsMarshaller,
-            ExceptionFactory stoppingExceptionFactory
+            ExceptionFactory stoppingExceptionFactory,
+            boolean isSystemGroup
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -378,13 +392,18 @@ public class Loza implements RaftManager {
                 commandsMarshaller = opts.getCommandsMarshaller();
             }
 
+            ThrottlingContextHolder throttlingContextHolder = isSystemGroup
+                    ? systemGroupsThrottlingContextHolder
+                    : partitionThrottlingContextHolder;
+
             return factory.startRaftGroupService(
                     groupId,
                     configuration,
                     raftConfiguration,
                     executor,
                     commandsMarshaller,
-                    stoppingExceptionFactory
+                    stoppingExceptionFactory,
+                    throttlingContextHolder
             );
         } finally {
             busyLock.leaveBusy();
@@ -454,15 +473,26 @@ public class Loza implements RaftManager {
         Marshaller cmdMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), opts.getCommandsMarshaller());
 
         if (raftServiceFactory == null) {
-            return (T) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller, stoppingExceptionFactory);
+            return (T) startRaftGroupServiceInternal(
+                    nodeId.groupId(),
+                    configuration,
+                    cmdMarshaller,
+                    stoppingExceptionFactory,
+                    groupOptions.isSystemGroup()
+            );
         } else {
+            ThrottlingContextHolder throttlingContextHolder = groupOptions.isSystemGroup()
+                    ? systemGroupsThrottlingContextHolder
+                    : partitionThrottlingContextHolder;
+
             return raftServiceFactory.startRaftGroupService(
                     nodeId.groupId(),
                     configuration,
                     raftConfiguration,
                     executor,
                     cmdMarshaller,
-                    stoppingExceptionFactory
+                    stoppingExceptionFactory,
+                    throttlingContextHolder
             );
         }
     }
@@ -492,8 +522,13 @@ public class Loza implements RaftManager {
             ReplicationGroupId grpId,
             PeersAndLearners membersConfiguration,
             Marshaller commandsMarshaller,
-            ExceptionFactory stoppingExceptionFactory
+            ExceptionFactory stoppingExceptionFactory,
+            boolean isSystemGroup
     ) {
+        ThrottlingContextHolder throttlingContextHolder = isSystemGroup
+                ? systemGroupsThrottlingContextHolder
+                : partitionThrottlingContextHolder;
+
         return RaftGroupServiceImpl.start(
                 grpId,
                 clusterNetSvc,
@@ -502,7 +537,8 @@ public class Loza implements RaftManager {
                 membersConfiguration,
                 executor,
                 commandsMarshaller,
-                stoppingExceptionFactory
+                stoppingExceptionFactory,
+                throttlingContextHolder
         );
     }
 

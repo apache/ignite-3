@@ -347,7 +347,7 @@ private:
      *
      * @return Operation result.
      */
-    void init_socket();
+    [[nodiscard]] sql_result init_socket();
 
     /**
      * Establish connection to ODBC server.

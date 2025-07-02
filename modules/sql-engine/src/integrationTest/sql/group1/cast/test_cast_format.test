@@ -162,15 +162,21 @@ SELECT cast('18-12-03' as date format 'YY-MM-DD')
 ----
 2018-12-03
 
-query T
+statement error: Unexpected element <MON>
 SELECT cast('JUN 30, 2018' as date format 'MON DD, YYYY')
-----
-2018-06-30
+
+statement error: Invalid format. Expected both fields: 12-hour / am pm
+SELECT cast('17:30' as time format 'HH12:MI')
 
 query T
-SELECT cast('17:30' as time format 'HH12:MI')
+SELECT cast('07:30 A.M.' as time format 'HH12:MI A.M.')
 ----
-17:30:00
+07:30:00
+
+query T
+SELECT cast('07:30 P.M.' as time format 'HH12:MI P.M.')
+----
+19:30:00
 
 query T
 SELECT cast('01:05:07.161' as time format 'HH24:MI:SS.FF4')
@@ -183,17 +189,14 @@ SELECT cast('2017-05-12' as timestamp format 'YYYY-MM-DD')
 2017-05-12 00:00:00
 
 query T
-SELECT cast('2020.06.03 12:42:53' as timestamp format 'YYYY.MM.DD HH:MI:SS')
+SELECT cast('2020.06.03 12:42:53' as timestamp format 'YYYY.MM.DD HH24:MI:SS')
 ----
 2020-06-03 12:42:53
 
-# Seems will be supported after resolve CALCITE_6367
-statement error: Invalid format: 'YYYY.MM.DD HH24:MI:SSTZH:TZM' for datetime string: '2020.06.03 00:00:53+06:30'
+query T
 SELECT cast('2020.06.03 00:00:53+06:30' as timestamp format 'YYYY.MM.DD HH24:MI:SSTZH:TZM')
-
-# Seems will be supported after resolve CALCITE_6367
-statement error: Invalid format: 'HH:MI P.M.' for datetime string: '03:30 P.M.'
-SELECT cast('03:30 P.M.' as time format 'HH:MI P.M.')
+----
+2020-06-02 17:30:53
 
 # Seems will be supported after resolve CALCITE_6270
 statement error: Cast function cannot convert value of type BINARY(5) to type VARCHAR

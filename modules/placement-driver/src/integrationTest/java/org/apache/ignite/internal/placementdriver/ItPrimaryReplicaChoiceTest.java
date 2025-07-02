@@ -21,14 +21,18 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
+import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -63,7 +67,6 @@ import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSc
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
@@ -83,7 +86,6 @@ import org.junit.jupiter.api.Test;
  * TODO: IGNITE-20485 Configure the lease interval as less as possible to decrease the duration of tests.
  * The test class checks invariant of a primary replica choice.
  */
-@SuppressWarnings("resource")
 public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
@@ -150,13 +152,13 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             return falseCompletedFuture();
         });
 
-        NodeUtils.transferPrimary(cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()), tblReplicationGrp);
+        transferPrimary(cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()), tblReplicationGrp);
 
         assertTrue(waitForCondition(primaryChanged::get, 10_000));
     }
 
     private static ReplicationGroupId partitionReplicationGroupId(TableViewInternal tbl) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return new ZonePartitionId(tbl.internalTable().zoneId(), PART_ID);
         } else {
             return new TablePartitionId(tbl.tableId(), PART_ID);
@@ -181,20 +183,24 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         String primary = primaryReplicaFut.get().getLeaseholder();
 
+        assertThat(primary, is(notNullValue()));
+
+        log.info("Primary replica is: " + primary);
+
         IgniteImpl ignite = node(primary);
 
         CompletableFuture<Boolean> primaryChangedHandling = new CompletableFuture<>();
 
+        // Block event processing.
         ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> primaryChangedHandling);
-
-        log.info("Primary replica is: " + primary);
 
         Collection<IgniteImpl> nodes = cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet());
 
-        NodeUtils.transferPrimary(nodes, tblReplicationGrp);
+        CompletableFuture<String> primaryChangeTask = IgniteTestUtils.runAsync(() -> {
+            transferPrimary(nodes, tblReplicationGrp);
 
-        CompletableFuture<String> primaryChangeTask =
-                IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(nodes, tblReplicationGrp, primary));
+            return transferPrimary(nodes, tblReplicationGrp, primary);
+        });
 
         waitForLeaderCache(node, tbl);
 
@@ -202,9 +208,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         primaryChangedHandling.complete(false);
 
-        assertThat(primaryChangeTask, willCompleteSuccessfully());
-
-        assertEquals(primary, primaryChangeTask.get());
+        assertThat(primaryChangeTask, willBe(primary));
     }
 
     /**
@@ -276,7 +280,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         assertTrue(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
 
-        NodeUtils.transferPrimary(cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()), tblReplicationGrp);
+        transferPrimary(cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()), tblReplicationGrp);
 
         assertTrue(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
@@ -331,7 +335,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
-            ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
+            ClusterNode primaryNode = node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             if (idxId == null) {
                 publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
@@ -360,7 +364,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             UUID primaryId = primaryReplicaFut.get().getLeaseholderId();
 
-            ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
+            ClusterNode primaryNode = node(0).cluster().nodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             publisher = unwrappedTable.internalTable().lookup(
                     PART_ID,
@@ -418,7 +422,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     private static void waitForLeaderCache(IgniteImpl node, TableViewInternal tbl) throws InterruptedException {
         RaftGroupService raftSrvc = ReplicaTestUtils.getRaftClient(
                         node,
-                        enabledColocation() ? tbl.internalTable().zoneId() : tbl.tableId(),
+                        colocationEnabled() ? tbl.internalTable().zoneId() : tbl.tableId(),
                         0
                 )
                 .orElseThrow(AssertionError::new);

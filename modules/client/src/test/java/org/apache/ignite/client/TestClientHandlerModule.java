@@ -52,6 +52,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -226,6 +227,8 @@ public class TestClientHandlerModule implements IgniteComponent {
             features.set(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB.featureId());
             features.set(ProtocolBitmaskFeature.TX_DELAYED_ACKS.featureId());
             features.set(ProtocolBitmaskFeature.TX_PIGGYBACK.featureId());
+            features.set(ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST.featureId());
+            features.set(ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME.featureId());
         } else {
             features = new BitSet(ProtocolBitmaskFeature.values().length);
             for (int i = this.features.nextSetBit(0); i != -1; i = this.features.nextSetBit(i + 1)) {
@@ -261,7 +264,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                                 catalogService,
                                                 clockService,
                                                 new AlwaysSyncedSchemaSyncService(),
-                                                new TestLowWatermark()
+                                                new TestLowWatermark(),
+                                                new SystemPropertiesNodeProperties()
                                         ),
                                         Runnable::run,
                                         features,

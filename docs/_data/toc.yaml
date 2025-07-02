@@ -36,6 +36,8 @@
       url: quick-start/explore-sql
     - title: Persist Your Data
       url: quick-start/persist-data
+    - title: Use Java API
+      url: quick-start/java-api
 - title: Embedded Mode
   url: quick-start/embedded-mode
 - title: Ignite CLI Tool
@@ -162,7 +164,12 @@
     - title: Data Types
       url: sql-reference/data-types
 - title: SQL Performance Tuning
-  url: sql-tuning
+  url: sql-tuning/sql-tuning
+  items:
+    - title: SQL Performance Tuning
+      url: sql-tuning/sql-tuning
+    - title: Improving Queries
+      url: sql-tuning/using-explain
 - title: General Configuration Tips
   url: general-tips
 - title: Glossary

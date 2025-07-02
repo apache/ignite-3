@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Base class for testing the placement driver. */
 abstract class BasePlacementDriverTest extends IgniteAbstractTest {
-    protected final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+    protected final boolean enabledColocation = IgniteSystemProperties.colocationEnabled();
 
     protected PartitionGroupId targetReplicationGroupId(int tableOrZoneId, int partId) {
         return enabledColocation ? new ZonePartitionId(tableOrZoneId, partId) : new TablePartitionId(tableOrZoneId, partId);
@@ -83,7 +81,7 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
     }
 
     protected static @Nullable Lease leaseFromBytes(byte[] bytes, ReplicationGroupId groupId) {
-        LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(bytes).order(LITTLE_ENDIAN));
+        LeaseBatch leaseBatch = LeaseBatch.fromBytes(bytes);
 
         return leaseBatch.leases().stream()
                 .filter(l -> l.replicationGroupId().equals(groupId))

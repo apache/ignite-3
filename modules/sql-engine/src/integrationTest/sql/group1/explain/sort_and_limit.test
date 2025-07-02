@@ -5,7 +5,7 @@
 # group: [explain]
 
 # simple fetch
-plan
+explain plan
 SELECT * FROM system_range(1, 10) LIMIT 5;
 ----
 Limit
@@ -17,7 +17,7 @@ Limit
       est: (rows=100)
 
 # simple offset
-plan
+explain plan
 SELECT * FROM system_range(1, 10) OFFSET 5;
 ----
 Limit
@@ -29,7 +29,7 @@ Limit
       est: (rows=100)
 
 # offset + fetch
-plan
+explain plan
 SELECT * FROM system_range(1, 10) OFFSET 5 ROWS FETCH FIRST 30 ROWS ONLY;
 ----
 Limit
@@ -42,7 +42,7 @@ Limit
       est: (rows=100)
 
 # simple sort
-plan
+explain plan
 SELECT * 
   FROM (SELECT x AS c1, x::varchar AS c2 FROM system_range(1, 10))
  ORDER BY c1 DESC NULLS FIRST, c2 ASC NULLS FIRST;
@@ -60,30 +60,27 @@ Sort
         est: (rows=100)
 
 # sort + limit
-plan
+explain plan
 SELECT * 
   FROM (SELECT x AS c1, x::varchar AS c2 FROM system_range(1, 10))
  ORDER BY c1, c2
  FETCH FIRST 5 ROWS ONLY;
 ----
-Limit
+Sort
+    collation: [C1 ASC, C2 ASC]
     fetch: 5
     est: (rows=5)
-  Sort
-      collation: [C1 ASC, C2 ASC]
-      fetch: 5
-      est: (rows=5)
-    Project
-        fieldNames: [C1, C2]
-        projection: [X, CAST(X):VARCHAR CHARACTER SET "UTF-8" NOT NULL]
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, CAST(X):VARCHAR CHARACTER SET "UTF-8" NOT NULL]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
         est: (rows=100)
-      TableFunctionScan
-          fieldNames: [X]
-          invocation: SYSTEM_RANGE(1, 10)
-          est: (rows=100)
 
 # sort + offset
-plan
+explain plan
 SELECT * 
   FROM (SELECT x AS c1, x::varchar AS c2 FROM system_range(1, 10))
  ORDER BY c1, c2
@@ -105,27 +102,23 @@ Limit
           est: (rows=100)
 
 # sort + offset + limit
-plan
+explain plan
 SELECT * 
   FROM (SELECT x AS c1, x::varchar AS c2 FROM system_range(1, 10))
  ORDER BY c1, c2
 OFFSET 5 ROWS
  FETCH FIRST 30 ROWS ONLY;
 ----
-Limit
+Sort
+    collation: [C1 ASC, C2 ASC]
     offset: 5
     fetch: 30
     est: (rows=30)
-  Sort
-      collation: [C1 ASC, C2 ASC]
-      offset: 5
-      fetch: 30
-      est: (rows=35)
-    Project
-        fieldNames: [C1, C2]
-        projection: [X, CAST(X):VARCHAR CHARACTER SET "UTF-8" NOT NULL]
+  Project
+      fieldNames: [C1, C2]
+      projection: [X, CAST(X):VARCHAR CHARACTER SET "UTF-8" NOT NULL]
+      est: (rows=100)
+    TableFunctionScan
+        fieldNames: [X]
+        invocation: SYSTEM_RANGE(1, 10)
         est: (rows=100)
-      TableFunctionScan
-          fieldNames: [X]
-          invocation: SYSTEM_RANGE(1, 10)
-          est: (rows=100)

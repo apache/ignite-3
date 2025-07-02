@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -177,7 +177,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
                 Set<String> nodeNames = new HashSet<>();
 
                 for (int j = 0; j < partCount; j++) {
-                    PartitionGroupId replicationGroupId = enabledColocation()
+                    PartitionGroupId replicationGroupId = colocationEnabled()
                             ? new ZonePartitionId(tableImpl.zoneId(), j)
                             : new TablePartitionId(tableImpl.tableId(), j);
 
@@ -196,7 +196,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
             Set<String> nodeNames = new HashSet<>();
 
             for (int j = 0; j < partCount; j++) {
-                PartitionGroupId replicationGroupId = enabledColocation()
+                PartitionGroupId replicationGroupId = colocationEnabled()
                         ? new ZonePartitionId(tableImpl.zoneId(), j)
                         : new TablePartitionId(tableImpl.tableId(), j);
 
@@ -244,7 +244,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
             Set<String> nodeNames = new HashSet<>();
 
             for (int j = 0; j < partCount; j++) {
-                PartitionGroupId replicationGroupId = enabledColocation()
+                PartitionGroupId replicationGroupId = colocationEnabled()
                         ? new ZonePartitionId(tableImpl.zoneId(), j)
                         : new TablePartitionId(tableImpl.tableId(), j);
 

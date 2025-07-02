@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CursorUtils.emptyCursor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -34,6 +35,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
+import org.apache.ignite.internal.raft.ThrottlingContextHolderImpl;
 import org.apache.ignite.internal.raft.client.AbstractTopologyAwareGroupServiceTest;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -109,14 +112,15 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
         var mockRaftMgr = mock(Loza.class);
 
         try {
-            when(mockRaftMgr.startRaftGroupService(any(), any(), any(), any(), any())).then(invocation ->
+            when(mockRaftMgr.startRaftGroupService(any(), any(), any(), any(), any(), anyBoolean())).then(invocation ->
                     raftGroupServiceFactory.startRaftGroupService(
                             GROUP_ID,
                             peersAndLearners,
                             raftConfiguration,
                             executor,
                             null,
-                            StoppingExceptionFactories.indicateComponentStop()
+                            StoppingExceptionFactories.indicateComponentStop(),
+                            new ThrottlingContextHolderImpl(raftConfiguration)
                     )
             );
         } catch (NodeStoppingException e) {
@@ -134,6 +138,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 raftGroupServiceFactory,
                 new TestClockService(new HybridClockImpl()),
                 mock(FailureProcessor.class),
+                new SystemPropertiesNodeProperties(),
                 replicationConfiguration
         );
 

@@ -20,9 +20,16 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
+import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -30,15 +37,22 @@ import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.LongMetric;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -56,24 +70,25 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
+    @InjectConfiguration("mock.profiles.default.engine = aipersist")
+    private StorageConfiguration storageConfig;
+
     private PersistentPageMemoryStorageEngine engine;
 
     @InjectExecutorService
-    ExecutorService executorService;
+    private ExecutorService executorService;
+
+    private final TestMetricManager metricManager = new TestMetricManager();
 
     @BeforeEach
-    void setUp(
-            @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.profiles.default.engine = aipersist")
-            StorageConfiguration storageConfig
-    ) {
+    void setUp(@WorkDirectory Path workDir) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
-                mock(MetricManager.class),
+                metricManager,
                 storageConfig,
                 null,
                 ioRegistry,
@@ -87,6 +102,8 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         engine.start();
 
+        assertThat(metricManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
         initialize();
     }
 
@@ -95,13 +112,16 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     protected void tearDown() throws Exception {
         super.tearDown();
 
-        IgniteUtils.closeAllManually(engine == null ? null : engine::stop);
+        IgniteUtils.closeAllManually(
+                () -> assertThat(metricManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
+                engine == null ? null : engine::stop
+        );
     }
 
     @Override
     protected MvTableStorage createMvTableStorage() {
         return engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
+                new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
                 indexDescriptorSupplier
         );
     }
@@ -142,5 +162,109 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                     () -> assertThat(engine.checkpointManager().forceCheckpoint("test").futureFor(FINISHED), willCompleteSuccessfully())
             );
         }
+    }
+
+    @Test
+    void testMaxSizeMetric() {
+        LongMetric metric = (LongMetric) metricManager.metric(defaultProfileMetricSourceName(), "MaxSize");
+
+        assertNotNull(metric);
+        assertEquals(defaultProfileConfig().sizeBytes().value(), metric.value());
+    }
+
+    @Test
+    void testMaxSizeMetricAfterChangeConfig() {
+        PersistentPageMemoryProfileConfiguration defaultProfileConfig = defaultProfileConfig();
+
+        Long sizeBytesBeforeChange = defaultProfileConfig.sizeBytes().value();
+        assertThat(defaultProfileConfig.sizeBytes().update(2 * sizeBytesBeforeChange), willCompleteSuccessfully());
+
+        LongMetric metric = (LongMetric) metricManager.metric(defaultProfileMetricSourceName(), "MaxSize");
+
+        assertNotNull(metric);
+        assertEquals(sizeBytesBeforeChange, metric.value());
+    }
+
+    @Test
+    void testTotalAllocatedSize() {
+        LongMetric metric = (LongMetric) metricManager.metric(defaultProfileMetricSourceName(), "TotalAllocatedSize");
+
+        assertNotNull(metric);
+        assertEquals(0L, metric.value());
+
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        assertThat(metric.value(), allOf(greaterThan(0L), equalTo(totalAllocatedSizeInBytes(PARTITION_ID))));
+
+        addWriteCommitted(mvPartitionStorage);
+        assertThat(metric.value(), allOf(greaterThan(0L), equalTo(totalAllocatedSizeInBytes(PARTITION_ID))));
+    }
+
+    @Test
+    void testTotalUsedSize() {
+        LongMetric metric = (LongMetric) metricManager.metric(defaultProfileMetricSourceName(), "TotalUsedSize");
+
+        assertNotNull(metric);
+        assertEquals(0L, metric.value());
+
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        assertThat(metric.value(), allOf(greaterThan(0L), equalTo(totalUsedSizeInBytes(PARTITION_ID))));
+
+        addWriteCommitted(mvPartitionStorage);
+        assertThat(metric.value(), allOf(greaterThan(0L), equalTo(totalUsedSizeInBytes(PARTITION_ID))));
+    }
+
+    private PersistentPageMemoryProfileConfiguration defaultProfileConfig() {
+        StorageProfileConfiguration config = storageConfig.profiles().get(DEFAULT_STORAGE_PROFILE);
+
+        assertNotNull(config);
+        assertInstanceOf(PersistentPageMemoryProfileConfiguration.class, config);
+
+        return (PersistentPageMemoryProfileConfiguration) config;
+    }
+
+    private String defaultProfileMetricSourceName() {
+        return "storage." + ENGINE_NAME + "." + defaultProfileConfig().name().value();
+    }
+
+    private long pageSize() {
+        return engine.configuration().pageSizeBytes().value();
+    }
+
+    private long filePageStorePageCount(int partitionId) {
+        PersistentPageMemoryTableStorage tableStorage = (PersistentPageMemoryTableStorage) this.tableStorage;
+
+        FilePageStore store = tableStorage.dataRegion().filePageStoreManager().getStore(new GroupPartitionId(TABLE_ID, partitionId));
+
+        return store == null ? 0 : store.pages();
+    }
+
+    private long freeListEmptyPageCount(int partitionId) {
+        PersistentPageMemoryTableStorage tableStorage = (PersistentPageMemoryTableStorage) this.tableStorage;
+
+        PersistentPageMemoryMvPartitionStorage storage = (PersistentPageMemoryMvPartitionStorage) tableStorage.getMvPartition(partitionId);
+
+        return storage == null ? 0L : storage.emptyDataPageCountInFreeList();
+    }
+
+    private long totalAllocatedSizeInBytes(int partitionId) {
+        return pageSize() * filePageStorePageCount(partitionId);
+    }
+
+    private long totalUsedSizeInBytes(int partitionId) {
+        return pageSize() * (filePageStorePageCount(partitionId) - freeListEmptyPageCount(partitionId));
+    }
+
+    private void addWriteCommitted(MvPartitionStorage storage) {
+        var rowId = new RowId(PARTITION_ID);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+
+        storage.runConsistently(locker -> {
+            locker.lock(rowId);
+
+            storage.addWriteCommitted(rowId, binaryRow, clock.now());
+
+            return null;
+        });
     }
 }

@@ -51,7 +51,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -220,58 +219,6 @@ public class TypeUtils {
         }
 
         return false;
-    }
-
-    /**
-     * Converts the given value to its presentation used by the execution engine.
-     */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-25037: Drop this method.
-    @Deprecated(forRemoval = true)
-    public static @Nullable Object toInternal(@Nullable Object val, Type storageType) {
-        if (val == null) {
-            return null;
-        } else if (storageType == LocalDate.class) {
-            return (int) ((LocalDate) val).toEpochDay();
-        } else if (storageType == LocalTime.class) {
-            return (int) (TimeUnit.NANOSECONDS.toMillis(((LocalTime) val).toNanoOfDay()));
-        } else if (storageType == LocalDateTime.class) {
-            var dt = (LocalDateTime) val;
-
-            return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
-        } else if (storageType == Instant.class) {
-            var timeStamp = (Instant) val;
-
-            return timeStamp.toEpochMilli();
-        } else if (storageType == Duration.class) {
-            return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
-                    + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
-        } else if (storageType == Period.class) {
-            return (int) ((Period) val).toTotalMonths();
-        } else if (storageType == byte[].class) {
-            if (val instanceof String) {
-                return new ByteString(((String) val).getBytes(StandardCharsets.UTF_8));
-            } else if (val instanceof byte[]) {
-                return new ByteString((byte[]) val);
-            } else {
-                assert val instanceof ByteString : "Expected ByteString but got " + val + ", type=" + val.getClass().getTypeName();
-                return val;
-            }
-        } else if (val instanceof Number && storageType != val.getClass()) {
-            // For dynamic parameters we don't know exact parameter type in compile time. To avoid casting errors in
-            // runtime we should convert parameter value to expected type.
-            Number num = (Number) val;
-
-            return Byte.class.equals(storageType) || byte.class.equals(storageType) ? SqlFunctions.toByte(num) :
-                    Short.class.equals(storageType) || short.class.equals(storageType) ? SqlFunctions.toShort(num) :
-                            Integer.class.equals(storageType) || int.class.equals(storageType) ? SqlFunctions.toInt(num) :
-                                    Long.class.equals(storageType) || long.class.equals(storageType) ? SqlFunctions.toLong(num) :
-                                            Float.class.equals(storageType) || float.class.equals(storageType) ? SqlFunctions.toFloat(num) :
-                                                    Double.class.equals(storageType) || double.class.equals(storageType)
-                                                            ? SqlFunctions.toDouble(num) :
-                                                            BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
-        } else {
-            return val;
-        }
     }
 
     /**

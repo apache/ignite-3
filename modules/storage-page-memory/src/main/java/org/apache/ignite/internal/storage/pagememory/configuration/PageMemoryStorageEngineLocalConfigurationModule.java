@@ -24,14 +24,14 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionChange;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileChange;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 
 /**
@@ -64,7 +64,7 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
 
     @Override
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
-        StorageExtensionChange storageExtensionChange = (StorageExtensionChange) rootChange.changeRoot(StorageExtensionConfiguration.KEY);
+        StorageExtensionChange storageExtensionChange = rootChange.changeRoot(StorageExtensionConfiguration.KEY);
         NamedListChange<StorageProfileView, StorageProfileChange> profiles = storageExtensionChange.changeStorage().changeProfiles();
 
         if (profiles.get(DEFAULT_PROFILE_NAME) == null) {

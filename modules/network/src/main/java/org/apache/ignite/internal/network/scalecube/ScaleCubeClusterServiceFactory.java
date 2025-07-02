@@ -181,11 +181,11 @@ public class ScaleCubeClusterServiceFactory {
                 var transport = new ScaleCubeDirectMarshallerTransport(
                         scalecubeLocalAddress,
                         messagingService,
-                        topologyService,
                         messageFactory
                 );
 
                 ClusterConfig clusterConfig = clusterConfig(configView.membership());
+
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(
                         configView.nodeFinder(),
                         nodeName(),

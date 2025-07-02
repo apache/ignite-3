@@ -26,7 +26,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_DELETE;
@@ -69,6 +69,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -125,6 +126,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -145,7 +147,6 @@ import org.apache.ignite.internal.partition.replicator.network.command.CatalogVe
 import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
-import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommandImpl;
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
@@ -665,7 +666,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 txManager,
                 lockManager,
                 Runnable::run,
-                enabledColocation() ? new ZonePartitionId(tableDescriptor.zoneId(), PART_ID) : new TablePartitionId(TABLE_ID, PART_ID),
+                colocationEnabled() ? new ZonePartitionId(tableDescriptor.zoneId(), PART_ID) : new TablePartitionId(TABLE_ID, PART_ID),
                 TABLE_ID,
                 () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
                 pkStorageSupplier,
@@ -690,7 +691,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2),
                 indexMetaStorage,
                 lowWatermark,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new SystemPropertiesNodeProperties()
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -746,7 +748,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void testTxStateReplicaRequestEmptyState() throws Exception {
         doAnswer(invocation -> {
             UUID txId = invocation.getArgument(5);
@@ -778,7 +780,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void testTxStateReplicaRequestCommitState() throws Exception {
         UUID txId = newTxId();
 
@@ -817,6 +819,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void testEnsureReplicaIsPrimaryThrowsPrimaryReplicaMissIfEnlistmentConsistencyTokenDoesNotMatchTheOneInLease() {
         localLeader = false;
 
@@ -832,6 +835,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void testEnsureReplicaIsPrimaryThrowsPrimaryReplicaMissIfNodeIdDoesNotMatchTheLeaseholder() {
         localLeader = false;
 
@@ -1555,7 +1559,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void testWriteIntentOnPrimaryReplicaSingleUpdate() {
         UUID txId = newTxId();
         AtomicInteger counter = new AtomicInteger();
@@ -1586,7 +1590,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void testWriteIntentOnPrimaryReplicaUpdateAll() {
         UUID txId = newTxId();
         AtomicInteger counter = new AtomicInteger();
@@ -1718,9 +1722,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         cleanup(tx0);
 
         raftClientFutureClosure = partitionCommand -> {
-            assertTrue(partitionCommand instanceof UpdateCommandImpl);
+            assertInstanceOf(UpdateCommand.class, partitionCommand);
 
-            UpdateCommandImpl impl = (UpdateCommandImpl) partitionCommand;
+            UpdateCommand impl = (UpdateCommand) partitionCommand;
 
             assertNotNull(impl.messageRowToUpdate());
             assertNotNull(impl.messageRowToUpdate().binaryRow());
@@ -1736,7 +1740,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     void writeIntentSwitchForCompactedCatalogTimestampWorks(boolean commit) {
         int earliestVersion = 999;
         Catalog mockEarliestCatalog = mock(Catalog.class);
@@ -1870,7 +1874,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void abortsSuccessfully() {
         AtomicReference<Boolean> committed = interceptFinishTxCommand();
 
@@ -1912,7 +1916,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void commitsOnSameSchemaSuccessfully() {
         when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
@@ -1976,7 +1980,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void commitsOnCompatibleSchemaChangeSuccessfully() {
         when(validationSchemasSource.tableSchemaVersionsBetween(anyInt(), any(), any(HybridTimestamp.class)))
                 .thenReturn(List.of(
@@ -1996,7 +2000,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     public void abortsCommitOnIncompatibleSchema() {
         simulateForwardIncompatibleSchemaChange(CURRENT_SCHEMA_VERSION, FUTURE_SCHEMA_VERSION);
 
@@ -2231,7 +2235,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<?> doRwScanCloseRequest(UUID targetTxId) {
-        ReplicationGroupIdMessage serializedMsg = enabledColocation()
+        ReplicationGroupIdMessage serializedMsg = colocationEnabled()
                 ? zonePartitionIdMessage(new ZonePartitionId(tableDescriptor.zoneId(), grpId.partitionId()))
                 : tablePartitionIdMessage(grpId);
 
@@ -2724,14 +2728,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     void commitRequestFailsIfCommitPartitionTableWasDropped() {
         testCommitRequestIfTableWasDropped(grpId, Map.of(grpId, localNode.name()), grpId.tableId());
     }
 
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test when zone colocation will be the only implementation.
     void commitRequestFailsIfNonCommitPartitionTableWasDropped() {
         TablePartitionId anotherPartitionId = new TablePartitionId(ANOTHER_TABLE_ID, 0);
 
@@ -3039,7 +3043,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         txManager.updateTxMeta(txId, old -> new TxStateMeta(newTxState, UUID.randomUUID(), commitPartitionId, commitTsOrNull, null, null));
 
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             lockManager.releaseAll(txId);
             partitionReplicaListener.cleanupLocally(txId, commit, commitTs);
         } else {

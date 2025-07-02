@@ -31,8 +31,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
+import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -124,8 +123,8 @@ public class VolatilePageMemory implements PageMemory {
     /** Direct memory allocator. */
     private final DirectMemoryProvider directMemoryProvider;
 
-    /** Data region configuration view. */
-    private final VolatilePageMemoryProfileView storageProfileView;
+    /** Data region configuration. */
+    private final VolatileDataRegionConfiguration dataRegionConfiguration;
 
     /** Head of the singly linked list of free pages. */
     private final AtomicLong freePageListHead = new AtomicLong(INVALID_REL_PTR);
@@ -159,29 +158,26 @@ public class VolatilePageMemory implements PageMemory {
     /**
      * Constructor.
      *
-     * @param storageProfileConfiguration Storage profile configuration.
+     * @param dataRegionConfiguration Data region configuration.
      * @param ioRegistry IO registry.
-     * @param pageSize Page size in bytes.
      * @param rwLock Read-write lock for pages.
      */
     public VolatilePageMemory(
-            VolatilePageMemoryProfileConfiguration storageProfileConfiguration,
+            VolatileDataRegionConfiguration dataRegionConfiguration,
             PageIoRegistry ioRegistry,
-            // TODO: IGNITE-17017 Move to common config
-            int pageSize,
             OffheapReadWriteLock rwLock
     ) {
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
-        this.storageProfileView = (VolatilePageMemoryProfileView) storageProfileConfiguration.value();
+        this.dataRegionConfiguration = dataRegionConfiguration;
 
         directMemoryProvider = new UnsafeMemoryProvider(null);
 
-        sysPageSize = pageSize + PAGE_OVERHEAD;
+        sysPageSize = dataRegionConfiguration.pageSize() + PAGE_OVERHEAD;
 
         assert sysPageSize % 8 == 0 : sysPageSize;
 
-        totalPages = (int) (this.storageProfileView.maxSizeBytes() / sysPageSize);
+        totalPages = (int) (this.dataRegionConfiguration.maxSizeBytes() / sysPageSize);
 
         this.rwLock = rwLock;
     }
@@ -195,8 +191,8 @@ public class VolatilePageMemory implements PageMemory {
 
             started = true;
 
-            long startSize = storageProfileView.initSizeBytes();
-            long maxSize = storageProfileView.maxSizeBytes();
+            long startSize = dataRegionConfiguration.initSizeBytes();
+            long maxSize = dataRegionConfiguration.maxSizeBytes();
 
             long[] chunks = new long[SEG_CNT];
 
@@ -291,11 +287,11 @@ public class VolatilePageMemory implements PageMemory {
 
         if (relPtr == INVALID_REL_PTR) {
             IgniteOutOfMemoryException oom = new IgniteOutOfMemoryException("Out of memory in data region ["
-                    + "name=" + storageProfileView.name()
-                    + ", initSize=" + IgniteUtils.readableSize(storageProfileView.initSizeBytes(), false)
-                    + ", maxSize=" + IgniteUtils.readableSize(storageProfileView.maxSizeBytes(), false)
+                    + "name=" + dataRegionConfiguration.name()
+                    + ", initSize=" + IgniteUtils.readableSize(dataRegionConfiguration.initSizeBytes(), false)
+                    + ", maxSize=" + IgniteUtils.readableSize(dataRegionConfiguration.maxSizeBytes(), false)
                     + ", persistence=false] Try the following:" + lineSeparator()
-                    + "  ^-- Increase maximum off-heap memory size (VolatilePageMemoryProfileConfigurationSchema.maxSize)"
+                    + "  ^-- Increase maximum off-heap memory size"
                     + lineSeparator()
                     + "  ^-- Use persistence" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
@@ -642,7 +638,7 @@ public class VolatilePageMemory implements PageMemory {
             if (oldRef != null) {
                 if (LOG.isInfoEnabled()) {
                     LOG.info("Allocated next memory segment for region [name={}, size={}]",
-                            storageProfileView.name(), IgniteUtils.readableSize(region.size(), true));
+                            dataRegionConfiguration.name(), IgniteUtils.readableSize(region.size(), true));
                 }
             }
 

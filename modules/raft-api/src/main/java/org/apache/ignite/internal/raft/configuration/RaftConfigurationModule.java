@@ -21,6 +21,7 @@ import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 
 /**
@@ -44,5 +45,33 @@ public class RaftConfigurationModule implements ConfigurationModule {
                 UnlimitedBudgetConfigurationSchema.class,
                 EntryCountBudgetConfigurationSchema.class
         );
+    }
+
+    @Override
+    public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
+        RaftExtensionChange raftExtensionChange = superRootChange.changeRoot(RaftExtensionConfiguration.KEY);
+        RaftExtensionView raftExtensionView = superRootChange.viewRoot(RaftExtensionConfiguration.KEY);
+
+        RaftChange raftChange = raftExtensionChange.changeRaft();
+        RaftView raftView = raftExtensionView.raft();
+
+        changeDisruptorStripesIfNeeded(raftView, raftChange);
+        changeDisruptorLogManagerStripesIfNeeded(raftView, raftChange);
+    }
+
+    private static void changeDisruptorStripesIfNeeded(RaftView view, RaftChange change) {
+        int stripes = view.stripes();
+
+        if (stripes != DisruptorConfigurationSchema.DEFAULT_STRIPES_COUNT) {
+            change.changeDisruptor().changeStripes(stripes);
+        }
+    }
+
+    private static void changeDisruptorLogManagerStripesIfNeeded(RaftView view, RaftChange change) {
+        int logStripesCount = view.logStripesCount();
+
+        if (logStripesCount != DisruptorConfigurationSchema.DEFAULT_LOG_MANAGER_STRIPES_COUNT) {
+            change.changeDisruptor().changeLogManagerStripes(logStripesCount);
+        }
     }
 }

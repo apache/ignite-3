@@ -30,13 +30,11 @@ dependencies {
     annotationProcessor libs.auto.service
 
     testImplementation libs.compileTesting
-    testImplementation libs.hamcrest.core
     testImplementation libs.spoon.core
 
     integrationTestImplementation project(':ignite-configuration-api')
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.compileTesting
-    integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation libs.spoon.core
     integrationTestImplementation libs.javapoet
 }
