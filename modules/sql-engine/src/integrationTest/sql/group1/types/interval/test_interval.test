@@ -197,10 +197,11 @@ SELECT INTERVAL '2:3.1' MINUTE TO SECOND
 ----
 PT2M3.1S
 
+# When not the first field, SECOND has a precision of 2 places before the decimal point.
 query T
-SELECT INTERVAL '2:3.1' MINUTE TO SECOND(1)
+SELECT INTERVAL '2:11.1' MINUTE TO SECOND(1)
 ----
-PT2M3.1S
+PT2M11.1S
 
 # Invalid interval fractional formats
 
@@ -211,6 +212,10 @@ SELECT INTERVAL '11.1' SECOND(1)
 # The fractional seconds precision exceeds that defined explicitly.
 statement error: Illegal interval literal format '1.11' for INTERVAL SECOND(2, 1)
 SELECT INTERVAL '1.11' SECOND(2, 1)
+
+# When not the first field, SECOND has a precision of 2 places before the decimal point.
+statement error: Illegal interval literal format '2:123.123' for INTERVAL MINUTE TO SECOND(3)
+SELECT INTERVAL '2:123.123' MINUTE TO SECOND(3)
 
 # The leading field precision exceeds that defined implicitly (10).
 statement error: Interval field value 12,345,678,901 exceeds precision of SECOND(10) field
