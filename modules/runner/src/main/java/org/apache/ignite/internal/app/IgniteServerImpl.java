@@ -492,7 +492,7 @@ public class IgniteServerImpl implements IgniteServer {
         String vmVersion = System.getProperty("java.vm.version");
 
         LOG.info(
-                "VM: [jdkName={}, jdkVersion={}, vmVendor={}, vmName={}, vmVersion={}]",
+                "VM: [jreName={}, jreVersion={}, jvmVendor={}, jvmName={}, jvmVersion={}]",
                 runtimeName, runtimeVersion, vmVendor, vmName, vmVersion
         );
     }
