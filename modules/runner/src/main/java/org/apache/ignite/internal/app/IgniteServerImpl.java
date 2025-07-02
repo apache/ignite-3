@@ -397,6 +397,8 @@ public class IgniteServerImpl implements IgniteServer {
 
         logOsInfo();
 
+        logVmInfo();
+
         ackRemoteManagement();
 
         return instance.startAsync().handle((result, throwable) -> {
@@ -479,6 +481,19 @@ public class IgniteServerImpl implements IgniteServer {
         LOG.info(
                 "OS: [name={}, version={}, arch={}, user={}, pid={}]",
                 osName, osVersion, osArch, osUser, (jvmPid == null ? "N/A" : jvmPid)
+        );
+    }
+
+    private static void logVmInfo() {
+        String runtimeName = System.getProperty("java.runtime.name");
+        String runtimeVersion = System.getProperty("java.runtime.version");
+        String vmVendor = System.getProperty("java.vm.vendor");
+        String vmName = System.getProperty("java.vm.name");
+        String vmVersion = System.getProperty("java.vm.version");
+
+        LOG.info(
+                "VM: [jdkName={}, jdkVersion={}, vmVendor={}, vmName={}, vmVersion={}]",
+                runtimeName, runtimeVersion, vmVendor, vmName, vmVersion
         );
     }
 
