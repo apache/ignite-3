@@ -155,12 +155,6 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
     testFixturesImplementation libs.awaitility
-
-    constraints {
-        api('com.google.protobuf:protobuf-java:4.31.1'){
-            because 'previous versions have a CVE'
-        }
-    }
 }
 
 integrationTest {

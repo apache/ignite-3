@@ -59,7 +59,7 @@ public class PendingAssignmentsCalculator {
         assert stable != null;
         assert target != null;
 
-        if (target.force()) {
+        if (target.force() || target.fromReset()) {
             return new AssignmentsQueue(target);
         }
 

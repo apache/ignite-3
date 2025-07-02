@@ -418,42 +418,20 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            var tasks = new List<Task>(_endpoints.Count);
-
             while (!_disposed)
             {
-                tasks.Clear();
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(_endpoints.Count);
+                }
+
+                int failed = 0;
 
                 foreach (var endpoint in _endpoints)
                 {
                     try
                     {
-                        var connectTask = ConnectAsync(endpoint);
-                        if (connectTask.IsCompleted)
-                        {
-                            continue;
-                        }
-
-                        tasks.Add(connectTask.AsTask());
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
-                    }
-                }
-
-                if (_logger.IsEnabled(LogLevel.Debug))
-                {
-                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(tasks.Count);
-                }
-
-                // Await every task separately instead of using WhenAll to capture exceptions and avoid extra allocations.
-                int failed = 0;
-                foreach (var task in tasks)
-                {
-                    try
-                    {
-                        await task.ConfigureAwait(false);
+                        await ConnectAsync(endpoint).ConfigureAwait(false);
                     }
                     catch (Exception e)
                     {
@@ -464,7 +442,7 @@ namespace Apache.Ignite.Internal
 
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.LogSecondaryConnectionsEstablishedDebug(tasks.Count - failed, failed);
+                    _logger.LogSecondaryConnectionsEstablishedDebug(_endpoints.Count - failed, failed);
                 }
 
                 if (Configuration.Configuration.ReconnectInterval <= TimeSpan.Zero)

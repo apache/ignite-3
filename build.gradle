@@ -145,6 +145,12 @@ allprojects {
     tasks.withType(Test).configureEach {
         outputs.upToDateWhen { false }
     }
+
+    configurations.configureEach {
+        resolutionStrategy {
+            force libs.protobuf.java
+        }
+    }
 }
 
 subprojects {

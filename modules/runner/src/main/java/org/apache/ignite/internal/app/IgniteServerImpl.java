@@ -395,6 +395,10 @@ public class IgniteServerImpl implements IgniteServer {
 
         logAvailableResources();
 
+        logOsInfo();
+
+        logVmInfo();
+
         ackRemoteManagement();
 
         return instance.startAsync().handle((result, throwable) -> {
@@ -458,6 +462,39 @@ public class IgniteServerImpl implements IgniteServer {
     private static void logAvailableResources() {
         LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
         LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
+    }
+
+    private static void logOsInfo() {
+        Long jvmPid = null;
+
+        try {
+            jvmPid = ProcessHandle.current().pid();
+        } catch (Throwable ignore) {
+            // No-op.
+        }
+
+        String osName = System.getProperty("os.name");
+        String osVersion = System.getProperty("os.version");
+        String osArch = System.getProperty("os.arch");
+        String osUser = System.getProperty("user.name");
+
+        LOG.info(
+                "OS: [name={}, version={}, arch={}, user={}, pid={}]",
+                osName, osVersion, osArch, osUser, (jvmPid == null ? "N/A" : jvmPid)
+        );
+    }
+
+    private static void logVmInfo() {
+        String jreName = System.getProperty("java.runtime.name");
+        String jreVersion = System.getProperty("java.runtime.version");
+        String jvmVendor = System.getProperty("java.vm.vendor");
+        String jvmName = System.getProperty("java.vm.name");
+        String jvmVersion = System.getProperty("java.vm.version");
+
+        LOG.info(
+                "VM: [jreName={}, jreVersion={}, jvmVendor={}, jvmName={}, jvmVersion={}]",
+                jreName, jreVersion, jvmVendor, jvmName, jvmVersion
+        );
     }
 
     private static void ackRemoteManagement() {

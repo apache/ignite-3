@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
@@ -103,11 +104,21 @@ class JumpToExecutorByConsistentIdAfterSendTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void switchesResponseHandlingToPoolAfterSendToAnotherMemberByConstantId() {
+    void switchesResponseHandlingToPoolAfterSendToAnotherMemberByConsistentId() {
         testSwitchesResponseHandlingToPoolAfterSendToAnotherMember(
                 sendFuture -> when(messagingService.send(RECIPIENT_CONSISTENT_ID, ChannelType.DEFAULT, message)).thenReturn(sendFuture),
                 () -> wrapper.send(RECIPIENT_CONSISTENT_ID, ChannelType.DEFAULT, message)
         );
+    }
+
+    @Test
+    void switchesResponseHandlingToPoolAfterSendToAnotherMemberByAddress() {
+        UnsupportedOperationException ex = assertThrows(
+                UnsupportedOperationException.class,
+                () -> wrapper.send(recipient.address(), ChannelType.DEFAULT, message)
+        );
+
+        assertThat(ex.getMessage(), is("Sending by network address is not supported by this implementation."));
     }
 
     @Test

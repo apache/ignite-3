@@ -14,10 +14,7 @@ CREATE TABLE timestamp_t(t TIMESTAMP WITH LOCAL TIME ZONE)
 statement error: Illegal TIMESTAMP WITH LOCAL TIME ZONE literal 'blabla': not in format 'yyyy-MM-dd HH:mm:ss'
 INSERT INTO timestamp_t VALUES (TIMESTAMP WITH LOCAL TIME ZONE 'blabla')
 
-# statement error: Invalid DATE value, 'blabla'
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-25255
-statement error: begin 0, end -1, length 19
+statement error: Illegal TIMESTAMP WITH LOCAL TIME ZONE literal 'blabla Europe/Paris': not in format 'yyyy-MM-dd HH:mm:ss'
 INSERT INTO timestamp_t VALUES ('blabla'::TIMESTAMP WITH LOCAL TIME ZONE)
 
 statement error: Illegal TIMESTAMP WITH LOCAL TIME ZONE literal '1993-20-14 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
