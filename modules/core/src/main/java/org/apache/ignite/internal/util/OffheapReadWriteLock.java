@@ -270,6 +270,10 @@ public class OffheapReadWriteLock {
         return lockCount(GridUnsafe.getLongVolatile(null, lock)) > 0;
     }
 
+    public int getReadHoldCount(long lock) {
+        return Math.max(0, lockCount(GridUnsafe.getLongVolatile(null, lock)));
+    }
+
     /**
      * Releases write lock.
      *
@@ -514,7 +518,7 @@ public class OffheapReadWriteLock {
      * @return Lock monitor object that corresponds to the stripe for this lock address.
      */
     private int lockIndex(long lock) {
-        return IgniteUtils.safeAbs(IgniteUtils.hash(lock)) & monitorsMask;
+        return monitorsMask == 0 ? 0 : IgniteUtils.safeAbs(IgniteUtils.hash(lock)) & monitorsMask;
     }
 
     /**
