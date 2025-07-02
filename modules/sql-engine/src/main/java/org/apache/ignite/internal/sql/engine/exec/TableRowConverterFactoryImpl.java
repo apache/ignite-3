@@ -20,8 +20,9 @@ package org.apache.ignite.internal.sql.engine.exec;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import java.util.BitSet;
 import java.util.function.IntFunction;
+import java.util.stream.IntStream;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
@@ -37,7 +38,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     private final SchemaRegistry schemaRegistry;
     private final SchemaDescriptor schemaDescriptor;
     private final TableRowConverter fullRowConverter;
-    private final BitSet tableColumnSet;
+    private final int[] tableColumnSet;
     private final Int2ObjectArrayMap<IntFunction<VirtualColumn>> virtualColumnsFactory = new Int2ObjectArrayMap<>();
 
     /**
@@ -62,8 +63,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 schemaDescriptor
         );
 
-        tableColumnSet = new BitSet();
-        tableColumnSet.set(0, tableDescriptor.columnsCount());
+        tableColumnSet = IntStream.range(0, tableDescriptor.columnsCount()).toArray();
 
         addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME));
         addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME_LEGACY));
@@ -82,43 +82,58 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     }
 
     @Override
-    public TableRowConverter create(@Nullable BitSet requiredColumns) {
-        // TODO: IGNITE-22823 fix this. UpdatableTable must pass the bitset with updatable columns.
-        if (requiredColumns == null) {
+    public TableRowConverter create(@Nullable ImmutableIntList projection) {
+        // TODO: IGNITE-22823 fix this. UpdatableTable must pass the project with updatable columns.
+        if (projection == null) {
             return fullRowConverter;
         }
 
-        return create(requiredColumns, -1);
+        return create(projection, -1);
     }
 
     @Override
-    public TableRowConverter create(@Nullable BitSet requiredColumns, int partId) {
-        if (requiredColumns == null) {
-            requiredColumns = tableColumnSet;
-        }
+    public TableRowConverter create(@Nullable ImmutableIntList projection, int partId) {
+        int[] mapping = projection == null
+                ? tableColumnSet
+                : projection.toIntArray();
 
-        boolean requireVirtualColumn = requiredColumns.nextSetBit(schemaDescriptor.length()) != -1;
+        Int2ObjectMap<VirtualColumn> extraColumns = createVirtualColumns(mapping, partId);
 
-        if (!requireVirtualColumn && requiredColumns.cardinality() == schemaDescriptor.length()) {
+        // TODO: IGNITE-22703 Ensure this check is correct.
+        if (extraColumns.isEmpty() && isFullIdentityMapping(mapping)) {
             return fullRowConverter;
         }
 
         return new ProjectedTableRowConverterImpl(
                 schemaRegistry,
                 schemaDescriptor,
-                requiredColumns,
-                requireVirtualColumn ? createVirtualColumns(requiredColumns, partId) : Int2ObjectMaps.emptyMap()
+                mapping,
+                extraColumns
         );
     }
 
-    private Int2ObjectMap<VirtualColumn> createVirtualColumns(BitSet requiredColumns, int partId) {
+    private boolean isFullIdentityMapping(int[] mapping) {
+        if (mapping.length != schemaDescriptor.length()) {
+            return false;
+        }
+        for (int i = 0; i < mapping.length; i++) {
+            if (mapping[i] != i) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Int2ObjectMap<VirtualColumn> createVirtualColumns(int[] requiredColumns, int partId) {
+        if (virtualColumnsFactory.isEmpty()) {
+            return Int2ObjectMaps.emptyMap();
+        }
+
         Int2ObjectMap<VirtualColumn> columnsMap = new Int2ObjectArrayMap<>(virtualColumnsFactory.size());
 
-        for (int i = requiredColumns.nextSetBit(schemaDescriptor.length()); i >= 0; i = requiredColumns.nextSetBit(i + 1)) {
-            columnsMap.put(i, virtualColumnsFactory.get(i).apply(partId));
-
-            if (i == Integer.MAX_VALUE) {
-                break; // Avoid overflow.
+        for (int i : requiredColumns) {
+            if (i >= schemaDescriptor.length()) {
+                columnsMap.put(i, virtualColumnsFactory.get(i).apply(partId));
             }
         }
 

@@ -33,7 +33,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -152,8 +152,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
 
     /** {@inheritDoc} */
     @Override
-    public RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns) {
-        if (usedColumns == null || usedColumns.cardinality() == descriptors.length) {
+    public RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableIntList usedColumns) {
+        // TODO: IGNITE-22703 recheck if this can be optimized.
+        if (usedColumns == null) {
             return rowType;
         } else {
             Builder builder = new Builder(factory);

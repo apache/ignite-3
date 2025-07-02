@@ -443,7 +443,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
         ImmutableBitSet requiredColumns = rel.requiredColumns();
-        RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
+
+        ImmutableIntList requiredColumns0 = requiredColumns == null ? null : ImmutableIntList.copyOf(requiredColumns.asList());
+        RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns0);
         ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
 
         IgniteIndex idx = tbl.indexes().get(rel.indexName());
@@ -529,7 +531,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ranges,
                 filters,
                 prj,
-                requiredColumns == null ? null : requiredColumns.toBitSet()
+                requiredColumns0
         );
     }
 
@@ -545,13 +547,28 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 
-        RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
+        ImmutableIntList requiredColumns0 = requiredColumns == null ? null : ImmutableIntList.copyOf(requiredColumns.asList());
+        RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns0);
 
         Predicate<RowT> filters = null;
         if (condition != null) {
             SqlPredicate<RowT> sqlPredicate = expressionFactory.predicate(condition, rowType);
             filters = row -> sqlPredicate.test(ctx, row);
         }
+        // TODO IGNITE-22703 revisit commented code
+//
+//        ImmutableIntList requiredColumnsMapping;
+//        if (projects != null) {
+//            int[] columnIndexes = new int[projects.size()];
+//            for (int i = 0; i < projects.size(); i++) {
+//                columnIndexes[i] = ((RexLocalRef) projects.get(i)).getIndex();
+//            }
+//            requiredColumnsMapping = ImmutableIntList.of(columnIndexes);
+//
+//            projects = null;
+//        } else {
+//            requiredColumnsMapping = requiredColumns0;
+//        }
 
         Function<RowT, RowT> prj = null;
         if (projects != null) {
@@ -581,7 +598,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 partitionProvider,
                 filters,
                 prj,
-                requiredColumns == null ? null : requiredColumns.toBitSet()
+                requiredColumns0
         );
     }
 
@@ -599,7 +616,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 
-        RelDataType rowType = igniteDataSource.getRowType(typeFactory, requiredColumns);
+        ImmutableIntList requiredColumns0 = requiredColumns == null ? null : ImmutableIntList.copyOf(requiredColumns.asList());
+        RelDataType rowType = igniteDataSource.getRowType(typeFactory, requiredColumns0);
 
         Predicate<RowT> filters = null;
         if (condition != null) {

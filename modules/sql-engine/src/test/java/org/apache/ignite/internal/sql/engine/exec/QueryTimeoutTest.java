@@ -23,13 +23,13 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.lang.reflect.Proxy;
-import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
@@ -217,26 +217,27 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
         return new ScannableTable() {
             @Override
             public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns) {
+                    RowFactory<RowT> rowFactory, @Nullable ImmutableIntList requiredColumns) {
                 return SubscriptionUtils.fromIterable(new CompletableFuture<>());
             }
 
             @Override
             public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                     RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                    @Nullable BitSet requiredColumns) {
+                    @Nullable ImmutableIntList requiredColumns) {
                 return SubscriptionUtils.fromIterable(new CompletableFuture<>());
             }
 
             @Override
             public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable ImmutableIntList requiredColumns) {
                 return SubscriptionUtils.fromIterable(new CompletableFuture<>());
             }
 
             @Override
             public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx,
-                    @Nullable InternalTransaction explicitTx, RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                    @Nullable InternalTransaction explicitTx, RowFactory<RowT> rowFactory, RowT key,
+                    @Nullable ImmutableIntList requiredColumns) {
                 return new CompletableFuture<>();
             }
 

@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -45,7 +45,7 @@ public interface ScannableTable {
             ExecutionContext<RowT> ctx,
             PartitionWithConsistencyToken partWithConsistencyToken,
             RowFactory<RowT> rowFactory,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     );
 
     /**
@@ -68,7 +68,7 @@ public interface ScannableTable {
             int indexId,
             List<String> columns,
             @Nullable RangeCondition<RowT> cond,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     );
 
     /**
@@ -91,7 +91,7 @@ public interface ScannableTable {
             int indexId,
             List<String> columns,
             RowT key,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     );
 
     /**
@@ -114,7 +114,7 @@ public interface ScannableTable {
             @Nullable InternalTransaction explicitTx,
             RowFactory<RowT> rowFactory,
             RowT key,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     );
 
     /** Returns the number of rows in this table. */

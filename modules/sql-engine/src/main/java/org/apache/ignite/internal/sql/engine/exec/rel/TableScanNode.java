@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -46,7 +46,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final RowFactory<RowT> rowFactory;
 
-    private final @Nullable BitSet requiredColumns;
+    private final @Nullable ImmutableIntList requiredColumns;
 
     /**
      * Constructor.
@@ -67,7 +67,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             PartitionProvider<RowT> partitionProvider,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(ctx, filters, rowTransformer);
 

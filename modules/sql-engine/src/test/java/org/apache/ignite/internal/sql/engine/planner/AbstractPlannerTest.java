@@ -78,6 +78,7 @@ import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
 import org.apache.calcite.util.Util;
@@ -855,7 +856,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns) {
+        public RelDataType rowType(IgniteTypeFactory factory, ImmutableIntList usedColumns) {
             return rowType;
         }
 

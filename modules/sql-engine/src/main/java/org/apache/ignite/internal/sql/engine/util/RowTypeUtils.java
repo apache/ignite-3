@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.BitSet;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -46,24 +46,30 @@ public final class RowTypeUtils {
      * @return Stored rows count.
      */
     public static int storedRowsCount(TableDescriptor tableDescriptor) {
-        return storedColumns(tableDescriptor).cardinality();
+        int count = 0;
+        for (ColumnDescriptor descriptor : tableDescriptor) {
+            count += descriptor.virtual() ? 0 : 1;
+        }
+        return count;
     }
 
-    private static ImmutableBitSet storedColumns(TableDescriptor tableDescriptor) {
-        BitSet virtualColumns = new BitSet();
+    private static ImmutableIntList storedColumns(TableDescriptor tableDescriptor) {
+        IntArrayList storedColumns = new IntArrayList(tableDescriptor.columnsCount());
+
+        // TODO: IGNITE-22703 Let's add a flag to descriptor and run this check only once.
+        boolean virtualColumnFound = false;
         for (ColumnDescriptor descriptor : tableDescriptor) {
-            if (descriptor.virtual()) {
-                virtualColumns.set(descriptor.logicalIndex());
+            if (!descriptor.virtual()) {
+                storedColumns.add(descriptor.logicalIndex());
+            } else {
+                virtualColumnFound = true;
             }
         }
-        ImmutableBitSet storedColumns;
-        if (virtualColumns.isEmpty()) {
-            storedColumns = ImmutableBitSet.range(tableDescriptor.columnsCount());
-        } else {
-            virtualColumns.flip(0, tableDescriptor.columnsCount());
-            storedColumns = ImmutableBitSet.fromBitSet(virtualColumns);
+
+        if (virtualColumnFound) {
+            return ImmutableIntList.of(storedColumns.toIntArray());
         }
 
-        return storedColumns;
+        return null;
     }
 }

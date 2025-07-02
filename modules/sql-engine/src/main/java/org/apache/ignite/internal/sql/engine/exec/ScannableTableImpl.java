@@ -21,10 +21,10 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
 
-import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -56,7 +56,7 @@ public class ScannableTableImpl implements ScannableTable {
     /** {@inheritDoc} */
     @Override
     public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-            RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns) {
+            RowFactory<RowT> rowFactory,  ImmutableIntList requiredColumns) {
 
         Publisher<BinaryRow> pub;
         TxAttributes txAttributes = ctx.txAttributes();
@@ -101,7 +101,7 @@ public class ScannableTableImpl implements ScannableTable {
             int indexId,
             List<String> columns,
             @Nullable RangeCondition<RowT> cond,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         TxAttributes txAttributes = ctx.txAttributes();
         RowHandler<RowT> handler = rowFactory.handler();
@@ -140,7 +140,7 @@ public class ScannableTableImpl implements ScannableTable {
                     lower,
                     upper,
                     flags,
-                    requiredColumns,
+                    null,
                     txAttributes.coordinatorId()
             );
         } else {
@@ -154,7 +154,7 @@ public class ScannableTableImpl implements ScannableTable {
                     lower,
                     upper,
                     flags,
-                    requiredColumns
+                    null
             );
         }
 
@@ -172,7 +172,7 @@ public class ScannableTableImpl implements ScannableTable {
             int indexId,
             List<String> columns,
             RowT key,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         TxAttributes txAttributes = ctx.txAttributes();
         RowHandler<RowT> handler = rowFactory.handler();
@@ -224,7 +224,7 @@ public class ScannableTableImpl implements ScannableTable {
             InternalTransaction tx,
             RowFactory<RowT> rowFactory,
             RowT key,
-            BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         assert tx != null;
 

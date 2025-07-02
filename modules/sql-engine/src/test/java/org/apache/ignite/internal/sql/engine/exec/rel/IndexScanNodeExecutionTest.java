@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +42,7 @@ import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -310,7 +310,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 ExecutionContext<RowT> ctx,
                 PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory,
-                @Nullable BitSet requiredColumns
+                @Nullable ImmutableIntList requiredColumns
         ) {
 
             throw new UnsupportedOperationException("Not supported");
@@ -320,7 +320,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         @Override
         public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns,
-                @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
+                @Nullable RangeCondition<RowT> cond, @Nullable ImmutableIntList requiredColumns) {
 
             List<T> list = partitionedData.get(partWithConsistencyToken.partId());
             return new ScanPublisher<>(list, ctx, rowFactory);
@@ -329,14 +329,14 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         @Override
         public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns,
-                RowT key, @Nullable BitSet requiredColumns) {
+                RowT key, @Nullable ImmutableIntList requiredColumns) {
 
             return newPublisher(ctx, partWithConsistencyToken, rowFactory);
         }
 
         @Override
         public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
-                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                RowFactory<RowT> rowFactory, RowT key, @Nullable ImmutableIntList requiredColumns) {
             throw new UnsupportedOperationException();
         }
 

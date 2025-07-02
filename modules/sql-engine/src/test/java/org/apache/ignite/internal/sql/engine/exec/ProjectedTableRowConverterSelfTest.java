@@ -90,7 +90,7 @@ public class ProjectedTableRowConverterSelfTest extends BaseIgniteAbstractTest {
         ProjectedTableRowConverterImpl converter = new ProjectedTableRowConverterImpl(
                 schemaRegistry,
                 schema,
-                BitSets.of(1, 3),
+                new int[]{1, 3},
                 Int2ObjectMaps.emptyMap()
         );
 

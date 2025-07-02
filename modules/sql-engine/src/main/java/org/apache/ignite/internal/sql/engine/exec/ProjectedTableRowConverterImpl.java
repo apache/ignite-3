@@ -45,27 +45,13 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
     ProjectedTableRowConverterImpl(
             SchemaRegistry schemaRegistry,
             SchemaDescriptor schemaDescriptor,
-            BitSet requiredColumns,
+            int[] requiredColumns,
             Int2ObjectMap<VirtualColumn> extraColumns
     ) {
         super(schemaRegistry, schemaDescriptor);
 
+        this.requiredColumnsMapping = requiredColumns;
         this.virtualColumns = extraColumns;
-
-        int size = requiredColumns.cardinality();
-
-        requiredColumnsMapping = new int[size];
-
-        int requiredIndex = 0;
-        for (Column column : schemaDescriptor.columns()) {
-            if (requiredColumns.get(column.positionInRow())) {
-                requiredColumnsMapping[requiredIndex++] = column.positionInRow();
-            }
-        }
-
-        for (VirtualColumn col : extraColumns.values()) {
-            requiredColumnsMapping[requiredIndex++] = col.columnIndex();
-        }
     }
 
     @Override

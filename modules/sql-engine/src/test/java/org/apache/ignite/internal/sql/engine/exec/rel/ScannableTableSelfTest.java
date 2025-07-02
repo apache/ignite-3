@@ -53,6 +53,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -263,8 +264,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
+        tester.requiredFields = ImmutableIntList.of(1);
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -289,7 +289,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     nullable(BinaryTuplePrefix.class),
                     nullable(BinaryTuplePrefix.class),
                     anyInt(),
-                    eq(tester.requiredFields),
+                    isNull(),
                     eq(tx.coordinatorId())
             );
         } else {
@@ -305,7 +305,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     nullable(BinaryTuplePrefix.class),
                     nullable(BinaryTuplePrefix.class),
                     anyInt(),
-                    eq(tester.requiredFields)
+                    isNull()
             );
         }
 
@@ -326,8 +326,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
+        tester.requiredFields = ImmutableIntList.of(1);
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -411,7 +410,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     prefix.capture(),
                     nullable(BinaryTuplePrefix.class),
                     anyInt(),
-                    eq(tester.requiredFields),
+                    isNull(),
                     eq(tx.coordinatorId())
             );
         } else {
@@ -427,7 +426,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                     prefix.capture(),
                     nullable(BinaryTuplePrefix.class),
                     anyInt(),
-                    eq(tester.requiredFields)
+                    isNull()
             );
         }
 
@@ -501,8 +500,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = new BitSet();
-        tester.requiredFields.set(1);
+        tester.requiredFields = ImmutableIntList.of(1);
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -586,7 +584,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final RowCollectingTableRowConverter rowConverter;
 
-        BitSet requiredFields;
+        ImmutableIntList requiredFields;
 
         Tester(TestInput input) {
             this.input = input;
@@ -696,7 +694,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         any(ClusterNode.class),
                         any(Integer.class),
                         nullable(BinaryTuple.class),
-                        nullable(BitSet.class),
+                        isNull(),
                         any(UUID.class));
             } else {
                 doAnswer(i -> input.publisher).when(internalTable).lookup(
@@ -707,7 +705,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                         any(PrimaryReplica.class),
                         any(Integer.class),
                         nullable(BinaryTuple.class),
-                        nullable(BitSet.class));
+                        isNull());
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;

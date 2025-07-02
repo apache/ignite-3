@@ -35,6 +35,8 @@ import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
@@ -160,8 +162,8 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 throw new RuntimeException(e);
             }
             // Call original method.
-            return igniteTable.getRowType(inv.getArgument(0), inv.getArgument(1));
-        }).when(spyTable).getRowType(any(), any());
+            return igniteTable.getRowType(inv.getArgument(0), (ImmutableIntList) inv.getArgument(1));
+        }).when(spyTable).getRowType(any(), any(ImmutableIntList.class));
 
         return spyTable;
     }

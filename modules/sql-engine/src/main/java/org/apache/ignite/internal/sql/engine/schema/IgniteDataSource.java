@@ -23,7 +23,9 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.Wrapper;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base interface for data sources such as tables and views.
@@ -61,7 +63,8 @@ public interface IgniteDataSource extends TranslatableTable, Wrapper {
     /** {@inheritDoc} */
     @Override
     default RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        return getRowType(typeFactory, null);
+        // TODO IGNITE-22703 remove cast
+        return getRowType(typeFactory, (ImmutableIntList) null);
     }
 
     /**
@@ -70,7 +73,16 @@ public interface IgniteDataSource extends TranslatableTable, Wrapper {
      * @param typeFactory     Factory.
      * @param requiredColumns Used columns enumeration.
      */
-    RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns);
+    // TODO: IGNITE-22703 should this method be removed?
+    RelDataType getRowType(RelDataTypeFactory typeFactory, @Nullable ImmutableIntList requiredColumns);
+
+    @Deprecated
+    default RelDataType getRowType(RelDataTypeFactory typeFactory, @Nullable ImmutableBitSet requiredColumns) {
+        if (requiredColumns == null) {
+            return getRowType(typeFactory, (ImmutableIntList) null);
+        }
+        return getRowType(typeFactory, ImmutableIntList.copyOf(requiredColumns.asList()));
+    }
 
     /**
      * Returns distribution of this data source.
