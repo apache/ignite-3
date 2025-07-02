@@ -17,8 +17,8 @@ package org.apache.ignite.raft.jraft.util;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Set;import java.util.WeakHashMap;
-import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Queue;import java.util.Set;import java.util.WeakHashMap;
+import java.util.concurrent.ArrayBlockingQueue;import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -29,8 +29,8 @@ import org.apache.ignite.internal.logger.Loggers;
  *
  * @param <T> the type of the pooled object
  */
-public abstract class Recyclers0<T> {
-    private static final IgniteLogger LOG = Loggers.forClass(Recyclers0.class);
+public abstract class Recyclers2<T> {
+    private static final IgniteLogger LOG = Loggers.forClass(Recyclers2.class);
 
     private static final AtomicInteger idGenerator = new AtomicInteger(Integer.MIN_VALUE);
 
@@ -66,7 +66,7 @@ public abstract class Recyclers0<T> {
 
         @Override
         protected Stack<T> initialValue() {
-            Stack<T> tStack = new Stack<>(Recyclers0.this, Thread.currentThread(), maxCapacityPerThread);
+            Stack<T> tStack = new Stack<>(Recyclers2.this, Thread.currentThread(), maxCapacityPerThread);
 
             STACKS.add(tStack);
 
@@ -74,11 +74,11 @@ public abstract class Recyclers0<T> {
         }
     };
 
-    protected Recyclers0() {
+    protected Recyclers2() {
         this(MAX_CAPACITY_PER_THREAD);
     }
 
-    protected Recyclers0(int maxCapacityPerThread) {
+    protected Recyclers2(int maxCapacityPerThread) {
         this.maxCapacityPerThread = Math.min(MAX_CAPACITY_PER_THREAD, Math.max(0, maxCapacityPerThread));
     }
 
@@ -154,21 +154,19 @@ public abstract class Recyclers0<T> {
                 throw new IllegalStateException("recycled already");
             }
 
-            if (thread == stack.thread) {
-                stack.push(this);
-                return;
-            }
+            this.stackOrigin.queue.offer(this);
+
             // we don't want to have a ref to the queue as the value in our weak map
             // so we null it out; to ensure there are no races with restoring it later
             // we impose a memory ordering here (no-op on x86)
-            Map<Stack<?>, WeakOrderQueue> delayedRecycled = Recyclers0.delayedRecycled.get();
-            WeakOrderQueue queue = delayedRecycled.get(stack);
-            if (queue == null) {
-                delayedRecycled.put(stack, queue = new WeakOrderQueue(stack, thread));
-
-                WEAK_ORDER_QUEUES.add(queue);
-            }
-            queue.add(this);
+            //Map<Stack<?>, WeakOrderQueue> delayedRecycled = Recyclers.delayedRecycled.get();
+            //WeakOrderQueue queue = delayedRecycled.get(stack);
+            //if (queue == null) {
+            //    delayedRecycled.put(stack, queue = new WeakOrderQueue(stack, thread));
+            //
+            //    WEAK_ORDER_QUEUES.add(queue);
+            //}
+            //queue.add(this);
         }
     }
 
@@ -299,7 +297,7 @@ public abstract class Recyclers0<T> {
         // than the stack owner recycles: when we run out of items in our stack we iterate this collection
         // to scavenge those that can be reused. this permits us to incur minimal thread synchronisation whilst
         // still recycling all items.
-        public final Recyclers0<T> parent;
+        public final Recyclers2<T> parent;
         public final Thread thread;
         private DefaultHandle[] elements;
         private final int maxCapacity;
@@ -312,11 +310,15 @@ public abstract class Recyclers0<T> {
 
         public final AtomicLong newWeakOrderQueueCount = new AtomicLong();
 
-        Stack(Recyclers0<T> parent, Thread thread, int maxCapacity) {
+        public final Queue<DefaultHandle> queue;
+
+        Stack(Recyclers2<T> parent, Thread thread, int maxCapacity) {
             this.parent = parent;
             this.thread = thread;
             this.maxCapacity = maxCapacity;
             elements = new DefaultHandle[Math.min(INITIAL_CAPACITY, maxCapacity)];
+
+            queue = new ArrayBlockingQueue<>(maxCapacity);
         }
 
         int increaseCapacity(int expectedCapacity) {
@@ -336,6 +338,14 @@ public abstract class Recyclers0<T> {
         }
 
         DefaultHandle pop() {
+            if (!queue.isEmpty()) {
+                return queue.poll();
+            }
+
+            return null;
+        }
+
+        DefaultHandle pop0() {
             int size = this.size;
             if (size == 0) {
                 if (!scavenge()) {
@@ -417,6 +427,10 @@ public abstract class Recyclers0<T> {
         }
 
         void push(DefaultHandle item) {
+            item.stackOrigin.queue.offer(item);
+        }
+
+        void push0(DefaultHandle item) {
             if ((item.recycleId | item.lastRecycledId) != 0) {
                 throw new IllegalStateException("recycled already");
             }

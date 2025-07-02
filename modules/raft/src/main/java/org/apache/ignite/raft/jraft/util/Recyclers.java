@@ -17,8 +17,8 @@ package org.apache.ignite.raft.jraft.util;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Queue;import java.util.Set;import java.util.WeakHashMap;
-import java.util.concurrent.ArrayBlockingQueue;import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Set;import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 
@@ -154,19 +154,21 @@ public abstract class Recyclers<T> {
                 throw new IllegalStateException("recycled already");
             }
 
-            this.stackOrigin.queue.offer(this);
-
+            if (thread == stack.thread) {
+                stack.push(this);
+                return;
+            }
             // we don't want to have a ref to the queue as the value in our weak map
             // so we null it out; to ensure there are no races with restoring it later
             // we impose a memory ordering here (no-op on x86)
-            //Map<Stack<?>, WeakOrderQueue> delayedRecycled = Recyclers.delayedRecycled.get();
-            //WeakOrderQueue queue = delayedRecycled.get(stack);
-            //if (queue == null) {
-            //    delayedRecycled.put(stack, queue = new WeakOrderQueue(stack, thread));
-            //
-            //    WEAK_ORDER_QUEUES.add(queue);
-            //}
-            //queue.add(this);
+            Map<Stack<?>, WeakOrderQueue> delayedRecycled = Recyclers.delayedRecycled.get();
+            WeakOrderQueue queue = delayedRecycled.get(stack);
+            if (queue == null) {
+                delayedRecycled.put(stack, queue = new WeakOrderQueue(stack, thread));
+
+                WEAK_ORDER_QUEUES.add(queue);
+            }
+            queue.add(this);
         }
     }
 
@@ -310,15 +312,11 @@ public abstract class Recyclers<T> {
 
         public final AtomicLong newWeakOrderQueueCount = new AtomicLong();
 
-        public final Queue<DefaultHandle> queue;
-
         Stack(Recyclers<T> parent, Thread thread, int maxCapacity) {
             this.parent = parent;
             this.thread = thread;
             this.maxCapacity = maxCapacity;
             elements = new DefaultHandle[Math.min(INITIAL_CAPACITY, maxCapacity)];
-
-            queue = new ArrayBlockingQueue<>(maxCapacity);
         }
 
         int increaseCapacity(int expectedCapacity) {
@@ -338,14 +336,6 @@ public abstract class Recyclers<T> {
         }
 
         DefaultHandle pop() {
-            if (!queue.isEmpty()) {
-                return queue.poll();
-            }
-
-            return null;
-        }
-
-        DefaultHandle pop0() {
             int size = this.size;
             if (size == 0) {
                 if (!scavenge()) {
@@ -427,10 +417,6 @@ public abstract class Recyclers<T> {
         }
 
         void push(DefaultHandle item) {
-            item.stackOrigin.queue.offer(item);
-        }
-
-        void push0(DefaultHandle item) {
             if ((item.recycleId | item.lastRecycledId) != 0) {
                 throw new IllegalStateException("recycled already");
             }
