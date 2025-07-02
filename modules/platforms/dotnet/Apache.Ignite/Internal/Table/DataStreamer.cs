@@ -379,7 +379,7 @@ internal static class DataStreamer
 
                 foreach (var batch in batches.Values)
                 {
-                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushInterval.Ticks)
+                    if (batch is { Count: > 0, Task.IsCompleted: true } && ts - batch.LastFlush > options.AutoFlushInterval.Ticks)
                     {
                         await SendAsync(batch).ConfigureAwait(false);
                     }
