@@ -395,6 +395,8 @@ public class IgniteServerImpl implements IgniteServer {
 
         logAvailableResources();
 
+        logOsInfo();
+
         ackRemoteManagement();
 
         return instance.startAsync().handle((result, throwable) -> {
@@ -458,6 +460,26 @@ public class IgniteServerImpl implements IgniteServer {
     private static void logAvailableResources() {
         LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
         LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
+    }
+
+    private static void logOsInfo() {
+        Long jvmPid = null;
+
+        try {
+            jvmPid = ProcessHandle.current().pid();
+        } catch (Throwable ignore) {
+            // No-op.
+        }
+
+        String osName = System.getProperty("os.name");
+        String osVersion = System.getProperty("os.version");
+        String osArch = System.getProperty("os.arch");
+        String osUser = System.getProperty("user.name");
+
+        LOG.info(
+                "OS: [name={}, version={}, arch={}, user={}, pid={}]",
+                osName, osVersion, osArch, osUser, (jvmPid == null ? "N/A" : jvmPid)
+        );
     }
 
     private static void ackRemoteManagement() {
