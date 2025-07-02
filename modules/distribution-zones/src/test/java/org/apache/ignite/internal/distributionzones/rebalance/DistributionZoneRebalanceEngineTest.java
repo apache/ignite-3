@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
@@ -132,7 +133,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     private final DistributionZoneManager distributionZoneManager = mock(DistributionZoneManager.class);
 
-    private DistributionZoneRebalanceEngine rebalanceEngine;
+    private DistributionZoneRebalanceEngineService rebalanceEngine;
 
     private WatchListener watchListener;
 
@@ -489,13 +490,22 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     }
 
     private void createRebalanceEngine(MetaStorageManager metaStorageManager) {
-        rebalanceEngine = new DistributionZoneRebalanceEngine(
-                new IgniteSpinBusyLock(),
-                metaStorageManager,
-                distributionZoneManager,
-                catalogManager,
-                new SystemPropertiesNodeProperties()
-        );
+        if (colocationEnabled()) {
+            rebalanceEngine = new DistributionZoneRebalanceEngineV2(
+                    new IgniteSpinBusyLock(),
+                    metaStorageManager,
+                    distributionZoneManager,
+                    catalogManager
+            );
+        } else {
+            rebalanceEngine = new DistributionZoneRebalanceEngine(
+                    new IgniteSpinBusyLock(),
+                    metaStorageManager,
+                    distributionZoneManager,
+                    catalogManager,
+                    new SystemPropertiesNodeProperties()
+            );
+        }
     }
 
     private void checkAssignments(Map<Integer, Set<String>> zoneNodes, Function<TablePartitionId, ByteArray> assignmentFunction) {
