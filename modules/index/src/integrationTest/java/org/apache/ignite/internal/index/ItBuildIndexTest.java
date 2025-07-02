@@ -109,12 +109,12 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        sql("DROP TABLE IF EXISTS " + TABLE_NAME);
+
         if (tableCount > 0) {
             for (int i = 0; i < tableCount; i++) {
                 sql("DROP TABLE IF EXISTS " + TABLE_NAME + i);
             }
-        } else {
-            sql("DROP TABLE IF EXISTS " + TABLE_NAME);
         }
 
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
