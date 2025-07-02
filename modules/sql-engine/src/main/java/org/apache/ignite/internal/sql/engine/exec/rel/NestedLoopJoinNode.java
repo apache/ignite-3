@@ -223,9 +223,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             rightIdx = 0;
 
                             // Allow others to do their job.
-                            execute(this::join);
+                            if (leftInBuf.isEmpty()) {
+                                execute(this::join);
 
-                            return;
+                                return;
+                            }
                         }
                     }
                 } finally {
@@ -326,9 +328,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                                 rightIdx = 0;
 
                                 // Allow others to do their job.
-                                execute(this::join);
+                                if (leftInBuf.isEmpty()) {
+                                    execute(this::join);
 
-                                return;
+                                    return;
+                                }
                             }
                         }
 
@@ -608,9 +612,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                                 rightIdx = 0;
 
                                 // Allow others to do their job.
-                                execute(this::join);
+                                if (leftInBuf.isEmpty()) {
+                                    execute(this::join);
 
-                                return;
+                                    return;
+                                }
                             }
                         }
 
@@ -736,9 +742,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         rightIdx = 0;
 
                         // Allow others to do their job.
-                        execute(this::join);
+                        if (leftInBuf.isEmpty()) {
+                            execute(this::join);
 
-                        return;
+                            return;
+                        }
                     }
                 }
             }
@@ -803,7 +811,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         left = null;
                         rightIdx = 0;
 
-                        if (rightMaterialized.isEmpty() && processed++ >= inBufSize) {
+                        if ((rightMaterialized.isEmpty() && processed++ >= inBufSize) || leftInBuf.isEmpty()) {
                             // Allow others to do their job.
                             execute(this::join);
 
