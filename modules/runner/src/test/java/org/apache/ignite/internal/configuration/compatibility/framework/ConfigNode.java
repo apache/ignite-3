@@ -25,6 +25,8 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -184,10 +186,14 @@ public class ConfigNode {
     }
 
     String digest() {
+        // Avoid actual class name from being compared for non-value nodes.
+        Predicate<Entry<String, String>> filter = isValue()
+                ? e -> true
+                : e  -> !e.getKey().equals(Attributes.CLASS);
+
         String attributes = this.attributes.entrySet().stream()
-                // Avoid actual class name from being compared.
-                .filter(e -> !e.getKey().equals(Attributes.CLASS))
-                .map(Map.Entry::toString)
+                .filter(filter)
+                .map(Entry::toString)
                 .collect(Collectors.joining(", "));
 
         return path() + ": ["
