@@ -38,6 +38,7 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -257,9 +258,9 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
         kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        assertFalse(kvView.remove(null, tupleKey(2L)));
-        assertTrue(kvView.remove(null, tupleKey(1L)));
-        assertFalse(kvView.remove(null, tupleKey(1L)));
+        assertFalse(kvView.remove((Transaction) null, tupleKey(2L)));
+        assertTrue(kvView.remove((Transaction) null, tupleKey(1L)));
+        assertFalse(kvView.remove((Transaction) null, tupleKey(1L)));
         assertFalse(kvView.contains(null, tupleKey(1L)));
     }
 
@@ -295,8 +296,8 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         KeyValueView<Tuple, Tuple> kvView = defaultTable().keyValueView();
         kvView.put(null, tupleKey(1L), tupleVal("1"));
 
-        assertFalse(kvView.replace(null, tupleKey(3L), tupleVal("3")));
-        assertTrue(kvView.replace(null, tupleKey(1L), tupleVal("2")));
+        assertFalse(kvView.replace((Transaction) null, tupleKey(3L), tupleVal("3")));
+        assertTrue(kvView.replace((Transaction) null, tupleKey(1L), tupleVal("2")));
         assertEquals("2", kvView.get(null, tupleKey(1L)).stringValue(0));
     }
 
@@ -362,7 +363,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple nonExistingKey = tupleKey(-1L);
 
         kvView.put(null, existingKey, Tuple.create());
-        kvView.remove(null, nonExistingKey);
+        kvView.remove((Transaction) null, nonExistingKey);
 
         NullableValue<Tuple> emptyTuple = kvView.getNullable(null, existingKey);
         NullableValue<Tuple> missingVal = kvView.getNullable(null, nonExistingKey);
@@ -384,7 +385,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple nonExistingKey = tupleKey(-1L);
 
         kvView.put(null, existingKey, Tuple.create());
-        kvView.remove(null, nonExistingKey);
+        kvView.remove((Transaction) null, nonExistingKey);
 
         NullableValue<Tuple> emptyTuple = kvView.getNullableAndPut(null, existingKey, tupleVal(DEFAULT_NAME));
         NullableValue<Tuple> missingVal = kvView.getNullableAndPut(null, nonExistingKey, tupleVal(DEFAULT_NAME));
@@ -409,7 +410,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple nonExistingKey = tupleKey(-1L);
 
         kvView.put(null, existingKey, Tuple.create());
-        kvView.remove(null, nonExistingKey);
+        kvView.remove((Transaction) null, nonExistingKey);
 
         NullableValue<Tuple> emptyTuple = kvView.getNullableAndRemove(null, existingKey);
         NullableValue<Tuple> missingVal = kvView.getNullableAndRemove(null, nonExistingKey);
@@ -433,7 +434,7 @@ public class ClientKeyValueBinaryViewTest extends AbstractClientTableTest {
         Tuple nonExistingKey = tupleKey(-1L);
 
         kvView.put(null, existingKey, Tuple.create());
-        kvView.remove(null, nonExistingKey);
+        kvView.remove((Transaction) null, nonExistingKey);
 
         NullableValue<Tuple> emptyTuple = kvView.getNullableAndReplace(null, existingKey, tupleVal(DEFAULT_NAME));
         NullableValue<Tuple> missingVal = kvView.getNullableAndReplace(null, nonExistingKey, tupleVal(DEFAULT_NAME));
