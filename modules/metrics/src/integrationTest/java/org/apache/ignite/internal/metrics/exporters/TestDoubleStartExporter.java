@@ -25,14 +25,14 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.MetricProvider;
-import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 
 /**
  * Simple metrics exporter for test purposes.
  * It has a trivial API to receive all available metrics as map: (sourceName -> [(metricName -> metricValue), ...])
  */
 @AutoService(MetricExporter.class)
-public class TestDoubleStartExporter extends BasicMetricExporter<TestDoubleStartExporterView> {
+public class TestDoubleStartExporter extends BasicMetricExporter {
     /** Exporter name. */
     static final String EXPORTER_NAME = "doubleStart";
 
@@ -49,35 +49,25 @@ public class TestDoubleStartExporter extends BasicMetricExporter<TestDoubleStart
     }
 
     @Override
-    public void start(MetricProvider metricsProvider, TestDoubleStartExporterView configuration, Supplier<UUID> clusterIdSupplier,
+    public void start(MetricProvider metricsProvider, ExporterView configuration, Supplier<UUID> clusterIdSupplier,
             String nodeName) {
         super.start(metricsProvider, configuration, clusterIdSupplier, nodeName);
 
         START_COUNTER.incrementAndGet();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() {
         // No-op
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public void reconfigure(ExporterView newValue) {
+    }
+
     @Override
     public String name() {
         return EXPORTER_NAME;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addMetricSet(MetricSet metricSet) {
-        // No-op
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removeMetricSet(String metricSetName) {
-        // No-op
     }
 
     /**

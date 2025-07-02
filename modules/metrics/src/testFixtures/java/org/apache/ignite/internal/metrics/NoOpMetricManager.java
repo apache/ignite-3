@@ -50,7 +50,7 @@ public class NoOpMetricManager implements MetricManager {
     }
 
     @Override
-    public void start(Iterable<MetricExporter<?>> exporters) {
+    public void start(Iterable<MetricExporter> exporters) {
     }
 
     @Override
