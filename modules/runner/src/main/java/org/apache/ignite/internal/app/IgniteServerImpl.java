@@ -485,15 +485,15 @@ public class IgniteServerImpl implements IgniteServer {
     }
 
     private static void logVmInfo() {
-        String runtimeName = System.getProperty("java.runtime.name");
-        String runtimeVersion = System.getProperty("java.runtime.version");
-        String vmVendor = System.getProperty("java.vm.vendor");
-        String vmName = System.getProperty("java.vm.name");
-        String vmVersion = System.getProperty("java.vm.version");
+        String jreName = System.getProperty("java.runtime.name");
+        String jreVersion = System.getProperty("java.runtime.version");
+        String jvmVendor = System.getProperty("java.vm.vendor");
+        String jvmName = System.getProperty("java.vm.name");
+        String jvmVersion = System.getProperty("java.vm.version");
 
         LOG.info(
                 "VM: [jreName={}, jreVersion={}, jvmVendor={}, jvmName={}, jvmVersion={}]",
-                runtimeName, runtimeVersion, vmVendor, vmName, vmVersion
+                jreName, jreVersion, jvmVendor, jvmName, jvmVersion
         );
     }
 
