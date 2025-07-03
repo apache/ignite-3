@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rest.recovery;
 
 import static java.util.Collections.emptySet;
 import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.toList;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Body;
@@ -112,21 +111,6 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                         partitionIds.orElse(Set.of())
                 )
                 .thenApply(DisasterRecoveryController::convertGlobalStates);
-    }
-
-    private static GlobalPartitionStatesResponse toTableGlobalStates(GlobalZonePartitionStatesResponse zoneStates) {
-        List<GlobalPartitionStateResponse> states = zoneStates.states().stream()
-                .map(state -> new GlobalPartitionStateResponse(
-                        state.zoneName(),
-                        "",
-                        -1,
-                        "",
-                        state.partitionId(),
-                        state.state()
-                ))
-                .collect(toList());
-
-        return new GlobalPartitionStatesResponse(states);
     }
 
     @Override
