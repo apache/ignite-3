@@ -1048,18 +1048,20 @@ public class IgniteUtils {
      * @throws MalformedObjectNameException Thrown in case of any errors.
      */
     public static ObjectName makeMbeanName(
-            String nodeName,
+            @Nullable String nodeName,
             @Nullable String type,
             @Nullable String group,
             String name
     ) throws MalformedObjectNameException {
         var sb = new StringBuilder(JMX_MBEAN_PACKAGE + ':');
 
-        sb.append("nodeName=").append(nodeName).append(',');
+        if (nodeName != null && !nodeName.isEmpty()) {
+            sb.append("nodeName=").append(nodeName).append(',');
+        }
 
         sb.append("type=").append(escapeObjectNameValue(type)).append(',');
 
-        if (group != null) {
+        if (group != null && !group.isEmpty()) {
             sb.append("group=").append(escapeObjectNameValue(group)).append(',');
 
             if (name.startsWith(group)) {
