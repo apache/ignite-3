@@ -43,15 +43,13 @@ public class ClientRunner {
                             .withIsolationLevel(IsolationLevel.FULL)
                             .addWhitelistedClassPredicate(new GlobMatcher("java*"))
                             .addWhitelistedClassPredicate(new GlobMatcher("com*"))
+                            .addWhitelistedClassPredicate(cls -> cls.equals(IgniteClient.class.getName()))
                             .build())
                     .build();
 
-            Class<?> clientClass = loader.loadClass(IgniteClient.class.getName());
-            var clientBuilder = clientClass.getDeclaredMethod("builder").invoke(null);
+            Class<?> clientBuilderClass = loader.loadClass(IgniteClient.Builder.class.getName());
+            var clientBuilder = clientBuilderClass.getDeclaredConstructor().newInstance();
 
-            // TODO: We can build the client, but we can't access it as IgniteClient due to the classloader isolation.
-            // 1. Whitelist the API interfaces.
-            // 2. Somehow run tests within the isolated classloader.
             System.out.println(clientBuilder);
 
             clientBuilder.getClass().getDeclaredMethod("addresses", String[].class)
@@ -60,9 +58,9 @@ public class ClientRunner {
             clientBuilder.getClass().getDeclaredMethod("connectTimeout", long.class)
                     .invoke(clientBuilder, 3000L);
 
-            Object client = clientBuilder.getClass().getDeclaredMethod("build").invoke(clientBuilder);
-        } catch (IOException | InvocationTargetException | IllegalAccessException | NoSuchMethodException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
+            IgniteClient client = (IgniteClient) clientBuilder.getClass().getDeclaredMethod("build").invoke(clientBuilder);
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
         }
     }
 }
