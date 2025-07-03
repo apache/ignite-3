@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metrics.sources;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource.THREAD_POOLS_GROUP_NAME;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,19 +28,40 @@ import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.jetbrains.annotations.Nullable;
 
 /** Metric source for monitoring of {@link org.apache.ignite.internal.thread.StripedThreadPoolExecutor}. */
 public class StripedThreadPoolMetricSource extends AbstractMetricSource<StripedThreadPoolMetricSource.Holder> {
     private final StripedThreadPoolExecutor exec;
 
     /**
-     * Creates a metric source for monitoring of {@link StripedThreadPoolExecutor}.
+     * Creates a new thread pool metric source with the given {@code name} to monitor the provided striped executor {@code exec},
+     * using the default {@link ThreadPoolMetricSource#THREAD_POOLS_GROUP_NAME} group.
      *
      * @param name Metric source name.
+     * @param description Metric source description.
+     * @param exec Striped thread pool executor to monitor.
+     * @see StripedThreadPoolExecutor
+     */
+    public StripedThreadPoolMetricSource(String name, @Nullable String description, StripedThreadPoolExecutor exec) {
+        this(name, null, THREAD_POOLS_GROUP_NAME, exec);
+    }
+
+    /**
+     * Creates a new thread pool metric source with the given {@code name} to monitor the provided executor {@code exec}.
+     *
+     * @param name Metric source name.
+     * @param description Metric source description.
+     * @param group Metric source group.
      * @param exec Striped thread pool executor to monitor.
      */
-    public StripedThreadPoolMetricSource(String name, StripedThreadPoolExecutor exec) {
-        super(name);
+    public StripedThreadPoolMetricSource(
+            String name,
+            @Nullable String description,
+            @Nullable String group,
+            StripedThreadPoolExecutor exec
+    ) {
+        super(name, description, group);
 
         this.exec = exec;
     }

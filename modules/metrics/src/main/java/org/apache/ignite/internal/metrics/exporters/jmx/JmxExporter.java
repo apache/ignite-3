@@ -25,11 +25,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
-import javax.management.InstanceAlreadyExistsException;
 import javax.management.JMException;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricProvider;
@@ -48,8 +46,8 @@ public class JmxExporter extends BasicMetricExporter {
     /** Exporter name. Must be the same for configuration and exporter itself. */
     public static final String JMX_EXPORTER_NAME = "jmx";
 
-    /** Group attribute of {@link ObjectName} shared for all metric MBeans. */
-    public static final String JMX_METRIC_GROUP = "metrics";
+    /** Type attribute of {@link ObjectName} shared for all metric MBeans. */
+    public static final String JMX_METRIC_GROUP_TYPE = "metrics";
 
     /** Logger. */
     private final IgniteLogger log;
@@ -74,7 +72,7 @@ public class JmxExporter extends BasicMetricExporter {
     ) {
         super.start(metricsProvider, configuration, clusterIdSupplier, nodeName);
 
-        for (MetricSet metricSet : metricsProvider.metrics().get1().values()) {
+        for (MetricSet metricSet : metricsProvider.snapshot().metrics().values()) {
             register(metricSet);
         }
     }
@@ -111,7 +109,7 @@ public class JmxExporter extends BasicMetricExporter {
      * <p>Unregister MBean for removed metric set.
      */
     @Override
-    public void removeMetricSet(String metricSet) {
+    public void removeMetricSet(MetricSet metricSet) {
         unregister(metricSet);
     }
 
@@ -127,40 +125,33 @@ public class JmxExporter extends BasicMetricExporter {
             ObjectName mbean = ManagementFactory.getPlatformMBeanServer()
                     .registerMBean(
                             metricSetMbean,
-                            makeMbeanName(JMX_METRIC_GROUP, metricSet.name()))
+                            makeMbeanName(nodeName(), JMX_METRIC_GROUP_TYPE, metricSet.group(), metricSet.name()))
                     .getObjectName();
 
             mbeans.add(mbean);
         } catch (JMException e) {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-25526 - remove this if.
-            if (!(e instanceof InstanceAlreadyExistsException) || !ignoreDuplicateJmsMbeansError()) {
-                log.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
-            }
+            log.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
         }
-    }
-
-    private static boolean ignoreDuplicateJmsMbeansError() {
-        return IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNORE_DUPLICATE_JMX_MBEANS_ERROR, false);
     }
 
     /**
      * Unregister MBean for specific metric set.
      *
-     * @param metricSetName Metric set name.
+     * @param metricSet Named metric set.
      */
-    private void unregister(String metricSetName) {
+    private void unregister(MetricSet metricSet) {
         try {
-            ObjectName mbeanName = makeMbeanName(JMX_METRIC_GROUP, metricSetName);
+            ObjectName mbeanName = makeMbeanName(nodeName(), JMX_METRIC_GROUP_TYPE, metricSet.group(), metricSet.name());
 
             boolean rmv = mbeans.remove(mbeanName);
 
             if (rmv) {
                 unregBean(mbeanName);
             } else {
-                log.warn("Tried to unregister the MBean for non-registered metric set " + metricSetName);
+                log.warn("Tried to unregister the MBean for non-registered metric set [name=" + metricSet.name() + ']');
             }
         } catch (MalformedObjectNameException e) {
-            log.error("MBean for metric set " + metricSetName + " can't be unregistered.", e);
+            log.error("MBean for metric set can't be unregistered [name=" + metricSet.name() + ", err=" + e.getMessage() + ']', e);
         }
     }
 
@@ -173,7 +164,7 @@ public class JmxExporter extends BasicMetricExporter {
         try {
             ManagementFactory.getPlatformMBeanServer().unregisterMBean(bean);
         } catch (JMException e) {
-            log.error("Failed to unregister MBean: " + bean, e);
+            log.error("Failed to unregister MBean [bean=" + bean + ", err=" + e.getMessage() + ']', e);
         }
     }
 }

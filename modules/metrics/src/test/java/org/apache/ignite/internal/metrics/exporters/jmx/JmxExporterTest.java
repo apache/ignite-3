@@ -63,6 +63,7 @@ import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.MetricSnapshot;
 import org.apache.ignite.internal.metrics.StringGauge;
 import org.apache.ignite.internal.metrics.UuidGauge;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
@@ -93,9 +94,9 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
     private static final UUID uuid = UUID.randomUUID();
 
-    /**
-     * Metric set with all available metric types.
-     */
+    private static final String nodeName = "nodeName";
+
+    /** Metric set with all available metric types. */
     private static final MetricSet metricSet =
             new MetricSet(
                     SRC_NAME,
@@ -129,7 +130,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
     void setUp() throws MalformedObjectNameException {
         jmxExporterConf = (JmxExporterView) metricConfiguration.exporters().get("jmx").value();
 
-        mbeanName = IgniteUtils.makeMbeanName("metrics", SRC_NAME);
+        mbeanName = IgniteUtils.makeMbeanName(nodeName, "metrics", metricSet.group(), metricSet.name());
 
         jmxExporter = new JmxExporter(Loggers.forClass(JmxExporter.class));
 
@@ -149,18 +150,18 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
     public void testStart() throws ReflectionException, AttributeNotFoundException, MBeanException {
         Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
 
-        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
+        when(metricsProvider.snapshot()).thenReturn(new MetricSnapshot(metrics, 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, nodeName);
 
         assertThatMbeanAttributeAndMetricValuesAreTheSame();
     }
 
     @Test
     public void testAddMetric() throws ReflectionException, AttributeNotFoundException, MBeanException {
-        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(new HashMap<>(), 1L));
+        when(metricsProvider.snapshot()).thenReturn(new MetricSnapshot(new HashMap<>(), 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, nodeName);
 
         assertThrows(
                 InstanceNotFoundException.class,
@@ -176,13 +177,13 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
     public void testRemoveMetric() throws ReflectionException, AttributeNotFoundException, MBeanException {
         Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
 
-        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
+        when(metricsProvider.snapshot()).thenReturn(new MetricSnapshot(metrics, 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, nodeName);
 
         assertThatMbeanAttributeAndMetricValuesAreTheSame();
 
-        jmxExporter.removeMetricSet("testSource");
+        jmxExporter.removeMetricSet(metricSet);
 
         assertThrows(InstanceNotFoundException.class, this::getMbeanInfo,
                 "Expected that mbean won't find, but it was");
@@ -194,9 +195,9 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
         MetricSet metricSet = new MetricSet(SRC_NAME, Map.of(MTRC_NAME, intMetric));
 
-        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(Map.of(metricSet.name(), metricSet), 1L));
+        when(metricsProvider.snapshot()).thenReturn(new MetricSnapshot(Map.of(metricSet.name(), metricSet), 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, nodeName);
 
         assertEquals(0, mbean().getAttribute(MTRC_NAME));
 
@@ -222,9 +223,9 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
                 doubleMetricName, doubleMetric
         ));
 
-        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(Map.of(metricSet.name(), metricSet), 1L));
+        when(metricsProvider.snapshot()).thenReturn(new MetricSnapshot(Map.of(metricSet.name(), metricSet), 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, nodeName);
 
         assertEquals(42, mbean().getAttribute(intMetricName));
         assertEquals(42L, mbean().getAttribute(longMetricName));
@@ -237,9 +238,9 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
         MetricSet metricSet = new MetricSet(SRC_NAME, Map.of(MTRC_NAME, metric));
 
-        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(Map.of(metricSet.name(), metricSet), 1L));
+        when(metricsProvider.snapshot()).thenReturn(new MetricSnapshot(Map.of(metricSet.name(), metricSet), 1L));
 
-        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
+        jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, nodeName);
 
         assertEquals(metric.getValueAsString(), mbean().getAttribute(MTRC_NAME));
     }

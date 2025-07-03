@@ -66,6 +66,7 @@ import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
@@ -86,7 +87,6 @@ import org.jetbrains.annotations.Nullable;
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
-
     /** The moment will be used as a start monotonic time. */
     private static final long BEGINNING_OF_TIME = System.nanoTime();
 
@@ -98,6 +98,9 @@ public class IgniteUtils {
 
     /** Indicates that assertions are enabled. */
     private static final boolean assertionsEnabled = IgniteUtils.class.desiredAssertionStatus();
+
+    /** Alphanumeric with underscore regexp pattern. */
+    private static final Pattern ALPHANUMERIC_UNDERSCORE_PATTERN = Pattern.compile("^[a-zA-Z_0-9]+$");
 
     /**
      * Gets the current monotonic time in milliseconds. This is the amount of milliseconds which passed from an arbitrary moment in the
@@ -1035,15 +1038,60 @@ public class IgniteUtils {
     }
 
     /**
-     * Produce new MBean name according to received group and name.
+     * Constructs JMX object name with the given properties.
      *
-     * @param group pkg:group=value part of MBean name.
-     * @param name pkg:name=value part of MBean name.
-     * @return new ObjectName.
-     * @throws MalformedObjectNameException if MBean name can't be formed from the received arguments.
+     * @param nodeName Ignite node name.
+     * @param group Name of the group.
+     * @param name Name of mbean.
+     *
+     * @return JMX object name.
+     * @throws MalformedObjectNameException Thrown in case of any errors.
      */
-    public static ObjectName makeMbeanName(String group, String name) throws MalformedObjectNameException {
-        return new ObjectName(String.format("%s:group=%s,name=%s", JMX_MBEAN_PACKAGE, group, name));
+    public static ObjectName makeMbeanName(
+            String nodeName,
+            @Nullable String type,
+            @Nullable String group,
+            String name
+    ) throws MalformedObjectNameException {
+        var sb = new StringBuilder(JMX_MBEAN_PACKAGE + ':');
+
+        sb.append("nodeName=").append(nodeName).append(',');
+
+        sb.append("type=").append(escapeObjectNameValue(type)).append(',');
+
+        if (group != null) {
+            sb.append("group=").append(escapeObjectNameValue(group)).append(',');
+
+            if (name.startsWith(group)) {
+                name = name.substring(group.length() + 1);
+            }
+        }
+
+        sb.append("name=").append(escapeObjectNameValue(name));
+
+        return new ObjectName(sb.toString());
+    }
+
+    /**
+     * Escapes the given string to be used as a value in the ObjectName syntax.
+     *
+     * @param s A string to be escape.
+     * @return An escaped string.
+     */
+    private static String escapeObjectNameValue(String s) {
+        if (alphanumericUnderscore(s)) {
+            return s;
+        }
+
+        return '\"' + s.replaceAll("[\\\\\"?*]", "\\\\$0") + '\"';
+    }
+
+    /**
+     * @param s String to check.
+     * @return {@code true} if given string contains only alphanumeric and underscore symbols.
+     */
+    public static boolean alphanumericUnderscore(String s) {
+        return ALPHANUMERIC_UNDERSCORE_PATTERN.matcher(s).matches();
     }
 
     /**

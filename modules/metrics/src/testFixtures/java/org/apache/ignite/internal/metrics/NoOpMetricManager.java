@@ -89,8 +89,8 @@ public class NoOpMetricManager implements MetricManager {
     }
 
     @Override
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
-        return new IgniteBiTuple<>(Collections.emptyMap(), 1L);
+    public MetricSnapshot metricSnapshot() {
+        return new MetricSnapshot(Collections.emptyMap(), 1L);
     }
 
     @Override

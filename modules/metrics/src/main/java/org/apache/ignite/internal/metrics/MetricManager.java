@@ -115,7 +115,7 @@ public interface MetricManager extends IgniteComponent {
      *
      * @return Metrics snapshot.
      */
-    IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot();
+    MetricSnapshot metricSnapshot();
 
     /**
      * Gets a collection of metric sources.
