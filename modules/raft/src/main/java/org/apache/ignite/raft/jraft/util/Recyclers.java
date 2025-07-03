@@ -16,7 +16,7 @@ package org.apache.ignite.raft.jraft.util;
 
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
-import java.util.Map;
+import java.util.Collections;import java.util.Map;
 import java.util.Set;import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;import org.apache.ignite.internal.logger.IgniteLogger;
@@ -34,11 +34,11 @@ public abstract class Recyclers<T> {
 
     private static final AtomicInteger idGenerator = new AtomicInteger(Integer.MIN_VALUE);
 
-    public static final Set<Stack<?>> STACKS = ConcurrentHashMap.newKeySet();
+    public static final Set<Stack<?>> STACKS = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
 
-    public static final Set<WeakOrderQueue> WEAK_ORDER_QUEUES = ConcurrentHashMap.newKeySet();
+    public static final Map<Stack<?>, Set<WeakOrderQueue>> WEAK_ORDER_QUEUES = Collections.synchronizedMap(new WeakHashMap<>());
 
-    public static final Set<DefaultHandle> DEFAULT_HANDLES = ConcurrentHashMap.newKeySet();
+    public static final Map<Stack<?>, Set<DefaultHandle>> DEFAULT_HANDLES = Collections.synchronizedMap(new WeakHashMap<>());
 
     private static final int OWN_THREAD_ID = idGenerator.getAndIncrement();
     private static final int DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD = 4 * 1024; // Use 4k instances as default.
@@ -166,7 +166,7 @@ public abstract class Recyclers<T> {
             if (queue == null) {
                 delayedRecycled.put(stack, queue = new WeakOrderQueue(stack, thread));
 
-                WEAK_ORDER_QUEUES.add(queue);
+                WEAK_ORDER_QUEUES.computeIfAbsent(stack, stack1 -> ConcurrentHashMap.newKeySet()).add(queue);
             }
             queue.add(this);
         }
@@ -438,7 +438,7 @@ public abstract class Recyclers<T> {
         DefaultHandle newHandle() {
             DefaultHandle defaultHandle = new DefaultHandle(this);
 
-            DEFAULT_HANDLES.add(defaultHandle);
+            DEFAULT_HANDLES.computeIfAbsent(defaultHandle.stackOrigin, stack -> ConcurrentHashMap.newKeySet()).add(defaultHandle);
 
             return defaultHandle;
         }

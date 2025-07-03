@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.lang.Thread.State;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -74,7 +75,7 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
         var arguments = new ArrayList<Arguments>();
 
         arguments.add(Arguments.arguments("origin", 1, 1, 1_000));
-//        arguments.add(Arguments.arguments("origin", 1, 25, 10_000));
+        arguments.add(Arguments.arguments("origin", 1, 25, 10_000));
 //        arguments.add(Arguments.arguments("origin", 1, 25, 20_000));
 //
 //        arguments.add(Arguments.arguments("origin", 10, 1, 1_000));
@@ -203,8 +204,10 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
     }
 
     private static String byteBufferCollectorSizes(String nodeName) {
-        List<ByteBufferCollector> collect = Recyclers.DEFAULT_HANDLES.stream()
+        List<ByteBufferCollector> collect = Recyclers.DEFAULT_HANDLES.values().stream()
+                .flatMap(Collection::stream)
                 .filter(h -> h.value instanceof ByteBufferCollector)
+                .filter(h -> h.stackOrigin.thread.getState() != State.TERMINATED)
                 .filter(h -> h.stackOrigin.thread.getName().contains(nodeName))
                 .map(h -> (ByteBufferCollector) h.value)
                 .sorted(Comparator.comparingInt(ByteBufferCollector::capacity).reversed())
@@ -225,13 +228,15 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
     }
 
     private static long weakOrderQueuesSize(Predicate<WeakOrderQueue> filter) {
-        return Recyclers.WEAK_ORDER_QUEUES.stream()
+        return Recyclers.WEAK_ORDER_QUEUES.values().stream()
+                .flatMap(Collection::stream)
                 .filter(filter)
                 .count();
     }
 
     private static long defaultHandlesSize(Predicate<DefaultHandle> filter) {
-        return Recyclers.DEFAULT_HANDLES.stream()
+        return Recyclers.DEFAULT_HANDLES.values().stream()
+                .flatMap(Collection::stream)
                 .filter(filter)
                 .count();
     }
@@ -273,7 +278,7 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
     }
 
     private static Predicate<Stack<?>> byteBufferCollectorOnlyStackFilter() {
-        return s -> s.parent.getClass().getName().contains("ByteBufferCollector");
+        return s -> s.thread.getState() != State.TERMINATED && s.parent.getClass().getName().contains("ByteBufferCollector");
     }
 
     private static Predicate<Stack<?>> byteBufferCollectorOnlyForNodeStackFilter(String nodeName) {
