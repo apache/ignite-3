@@ -1,5 +1,9 @@
 package org.apache.ignite.internal;
 
+import static org.mockito.Answers.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
+
 import com.linkedin.cytodynamics.matcher.GlobMatcher;
 import com.linkedin.cytodynamics.nucleus.DelegateRelationshipBuilder;
 import com.linkedin.cytodynamics.nucleus.IsolationLevel;
@@ -13,9 +17,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
+import org.mockito.Mockito;
 
 public class ClientRunner {
     public static void runClient(String igniteVersion) {
@@ -43,9 +49,14 @@ public class ClientRunner {
                             .withIsolationLevel(IsolationLevel.FULL)
                             .addWhitelistedClassPredicate(new GlobMatcher("java*"))
                             .addWhitelistedClassPredicate(new GlobMatcher("com*"))
-                            .addWhitelistedClassPredicate(cls -> cls.equals(IgniteClient.class.getName()))
+                            .addWhitelistedClassPredicate(new GlobMatcher("jdk*"))
                             .build())
                     .build();
+
+            System.out.println("Starting client...");
+            loader.loadClass(IgniteClient.class.getName());
+            loader.loadClass(Ignite.class.getName());
+            System.out.println("Loaded class: " + IgniteClient.class.getName());
 
             Class<?> clientBuilderClass = loader.loadClass(IgniteClient.Builder.class.getName());
             var clientBuilder = clientBuilderClass.getDeclaredConstructor().newInstance();
@@ -58,7 +69,14 @@ public class ClientRunner {
             clientBuilder.getClass().getDeclaredMethod("connectTimeout", long.class)
                     .invoke(clientBuilder, 3000L);
 
-            IgniteClient client = (IgniteClient) clientBuilder.getClass().getDeclaredMethod("build").invoke(clientBuilder);
+            Object client = clientBuilder.getClass().getDeclaredMethod("build").invoke(clientBuilder);
+
+            Object ign = Mockito.<Object>mock((Class) client.getClass(), withSettings()
+                                     .spiedInstance(client)
+                                     .defaultAnswer(CALLS_REAL_METHODS));
+
+            // ign.tables().tables();
+            System.out.println(ign);
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }
