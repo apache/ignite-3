@@ -1575,7 +1575,7 @@ public class IgniteImpl implements Ignite {
 
                     LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
 
-                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
+                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture(joinExecutor));
                 }, joinExecutor)
                 .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), joinExecutor)
                 // Signal that local recovery is complete and the node is ready to join the cluster.

@@ -145,6 +145,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
     void testDoStableKeySwitchWhenPendingQueueIsGreaterThanOne() {
         createZoneAndTable(4, 2);
 
@@ -277,7 +278,8 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @RepeatedTest(30)
-    void testNodeRestartDuringQueueProcessing() throws InterruptedException {
+//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
+    void testNodeRestartDuringQueueProcessing() {
         createZoneAndTable(4, 2);
 
         assertTrue(waitForCondition(() -> stablePartitionAssignments(TABLE_NAME).size() == 4, 10_000));

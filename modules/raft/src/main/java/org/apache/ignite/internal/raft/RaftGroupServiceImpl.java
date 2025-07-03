@@ -124,6 +124,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    private final AtomicBoolean stopped = new AtomicBoolean(false);
+
     private static final Supplier<String> NO_DESCRIPTION = () -> null;
 
     private final ThrottlingContextHolder throttlingContextHolder;
@@ -558,6 +560,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     // TODO: IGNITE-18636 Shutdown raft services on components' stop.
     @Override
     public void shutdown() {
+        if (!stopped.compareAndSet(false, true)) {
+            return;
+        }
+
         busyLock.block();
 
         clusterService().topologyService().removeEventHandler(topologyEventHandler);
