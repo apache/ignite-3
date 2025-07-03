@@ -1087,6 +1087,8 @@ public class IgniteUtils {
     }
 
     /**
+     * Returns {@code true} when the given string contains only alphanumeric and underscore symbols, {@code false} otherwise.
+     *
      * @param s String to check.
      * @return {@code true} if given string contains only alphanumeric and underscore symbols.
      */
