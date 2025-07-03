@@ -173,8 +173,11 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
     ) {
         disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
             ReplicationGroupId replicationGroupId = raftNodeId.groupId();
+
             CatalogManager catalogManager = disasterRecoveryManager.catalogManager;
+
             Catalog catalog = catalogManager.activeCatalog(timestamp.longValue());
+
             CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
             if (replicationGroupId instanceof TablePartitionId) {
