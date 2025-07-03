@@ -120,18 +120,25 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
                 + "time1_col TIME(1), "
                 + "time2_col TIME(2), "
                 + "time3_col TIME(3), "
+                + "time_nullable TIME(0) NULL, "
+                + "time_not_nullable TIME(0) NOT NULL, "
 
                 + "timestamp0_col TIMESTAMP(0), "
                 + "timestamp1_col TIMESTAMP(1), "
                 + "timestamp2_col TIMESTAMP(2), "
                 + "timestamp3_col TIMESTAMP(3), "
+                + "timestamp_nullable TIMESTAMP(0) NULL, "
+                + "timestamp_not_nullable TIMESTAMP(0) NOT NULL, "
 
                 + "timestamp_with_local_time_zone0_col TIMESTAMP(0) WITH LOCAL TIME ZONE, "
                 + "timestamp_with_local_time_zone1_col TIMESTAMP(1) WITH LOCAL TIME ZONE, "
                 + "timestamp_with_local_time_zone2_col TIMESTAMP(2) WITH LOCAL TIME ZONE, "
-                + "timestamp_with_local_time_zone3_col TIMESTAMP(3) WITH LOCAL TIME ZONE "
+                + "timestamp_with_local_time_zone3_col TIMESTAMP(3) WITH LOCAL TIME ZONE, "
+                + "timestamp_with_local_time_zone_nullable TIMESTAMP(0) WITH LOCAL TIME ZONE NULL, "
+                + "timestamp_with_local_time_zone_not_nullable TIMESTAMP(0) WITH LOCAL TIME ZONE NOT NULL "
                 + ")");
-        sql("INSERT INTO datetime_cols (id) VALUES (1)");
+        sql("INSERT INTO datetime_cols (id, time_not_nullable, timestamp_not_nullable, timestamp_with_local_time_zone_not_nullable)"
+                + " VALUES (1, TIME '00:00:00', TIMESTAMP '1970-01-01 00:00:00', TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00')");
     }
 
     /**
@@ -792,6 +799,62 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
                         Arguments.of("TIMESTAMP WITH LOCAL TIME ZONE '1970-01-01 00:00:00.001' - INTERVAL '1:1' MINUTE TO SECOND(1)",
                                 instant("1969-12-31 23:58:59.001"), TIMESTAMP, 3)
                 )
+        );
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("testDatetimePlusMinusIntervalNullabilityArgs")
+    public void testDatetimePlusMinusIntervalNullability(String colNamePrefix, Temporal inputValue) {
+        String nullableColName = format("{}_nullable", colNamePrefix);
+        String notNullableColName = format("{}_not_nullable", colNamePrefix);
+
+        assertQuery(format("UPDATE datetime_cols SET {}=?, {}=?", nullableColName, notNullableColName))
+                .withParams(inputValue, inputValue)
+                .withTimeZoneId(ZoneOffset.UTC)
+                .check();
+
+        // NULLABLE
+        {
+            assertQuery(format("SELECT {} + INTERVAL '0.1' SECOND(1, 1) from datetime_cols", nullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(true))
+                    .returns(inputValue.plus(100, ChronoUnit.MILLIS))
+                    .check();
+
+            assertQuery(format("SELECT INTERVAL '0.1' SECOND(1, 1) + {} from datetime_cols", nullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(true))
+                    .returns(inputValue.plus(100, ChronoUnit.MILLIS))
+                    .check();
+
+            assertQuery(format("SELECT {} - INTERVAL '0.1' SECOND(1, 1) from datetime_cols", nullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(true))
+                    .returns(inputValue.minus(100, ChronoUnit.MILLIS))
+                    .check();
+        }
+
+        // NOT NULLABLE
+        {
+            assertQuery(format("SELECT {} + INTERVAL '0.1' SECOND(1, 1) from datetime_cols", notNullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(false))
+                    .returns(inputValue.plus(100, ChronoUnit.MILLIS))
+                    .check();
+
+            assertQuery(format("SELECT INTERVAL '0.1' SECOND(1, 1) + {} from datetime_cols", notNullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(false))
+                    .returns(inputValue.plus(100, ChronoUnit.MILLIS))
+                    .check();
+
+            assertQuery(format("SELECT {} - INTERVAL '0.1' SECOND(1, 1) from datetime_cols", notNullableColName))
+                    .columnMetadata(new MetadataMatcher().precision(1).nullable(false))
+                    .returns(inputValue.minus(100, ChronoUnit.MILLIS))
+                    .check();
+        }
+    }
+
+    private static Stream<Arguments> testDatetimePlusMinusIntervalNullabilityArgs() {
+        return Stream.of(
+                Arguments.of("TIME", time("00:00:00")),
+                Arguments.of("TIMESTAMP", dateTime("1970-01-01 00:00:00")),
+                Arguments.of("TIMESTAMP_WITH_LOCAL_TIME_ZONE", instant("1970-01-01 00:00:00"))
         );
     }
 

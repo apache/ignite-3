@@ -403,10 +403,13 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             RelDataType intervalType,
             boolean nullable
     ) {
+        assert SqlTypeUtil.isDatetime(datetimeType) : "not datetime: " + datetimeType;
+        assert SqlTypeUtil.isInterval(intervalType) : "not interval: " + intervalType;
+
         if (datetimeType.getSqlTypeName().allowsPrecScale(true, false)
                 && intervalType.getScale() > datetimeType.getPrecision()) {
             // Using a fraction of a second from an interval as the precision of the expression.
-            return typeFactory.createSqlType(datetimeType.getSqlTypeName(), intervalType.getScale());
+            datetimeType = typeFactory.createSqlType(datetimeType.getSqlTypeName(), intervalType.getScale());
         }
 
         return typeFactory.createTypeWithNullability(datetimeType, nullable);
