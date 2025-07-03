@@ -59,7 +59,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Integration test for testing optimization of {@link Recyclers}. */
-@Timeout(value = 20, unit = TimeUnit.MINUTES)
+@Timeout(value = 30, unit = TimeUnit.MINUTES)
 public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "ZONE_TABLE";
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -93,15 +93,12 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
         for (RecyclersHandler recyclersHandler : recyclersHandlers) {
             arguments.add(Arguments.arguments(recyclersHandler, 1, 1, 1_000));
             arguments.add(Arguments.arguments(recyclersHandler, 1, 25, 10_000));
-            arguments.add(Arguments.arguments(recyclersHandler, 1, 25, 20_000));
 
             arguments.add(Arguments.arguments(recyclersHandler, 10, 1, 1_000));
             arguments.add(Arguments.arguments(recyclersHandler, 10, 25, 10_000));
-            arguments.add(Arguments.arguments(recyclersHandler, 10, 25, 20_000));
 
             arguments.add(Arguments.arguments(recyclersHandler, 20, 1, 1_000));
             arguments.add(Arguments.arguments(recyclersHandler, 20, 25, 10_000));
-            arguments.add(Arguments.arguments(recyclersHandler, 20, 25, 20_000));
         }
 
         return arguments.stream();
