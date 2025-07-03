@@ -40,10 +40,12 @@ public abstract class Recyclers<T> {
 
     public static final Map<Stack<?>, Set<DefaultHandle>> DEFAULT_HANDLES = Collections.synchronizedMap(new WeakHashMap<>());
 
+    public static volatile RecyclersHandler RECYCLERS_HANDLER = RecyclersHandlerOrigin.INSTANCE;
+
     private static final int OWN_THREAD_ID = idGenerator.getAndIncrement();
     private static final int DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD = 4 * 1024; // Use 4k instances as default.
     private static final int MAX_CAPACITY_PER_THREAD;
-    private static final int INITIAL_CAPACITY;
+    protected static final int INITIAL_CAPACITY;
 
     static {
         int maxCapacityPerThread = SystemPropertyUtil.getInt("jraft.recyclers.maxCapacityPerThread", DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD);
@@ -66,7 +68,7 @@ public abstract class Recyclers<T> {
 
         @Override
         protected Stack<T> initialValue() {
-            Stack<T> tStack = new Stack<>(Recyclers.this, Thread.currentThread(), maxCapacityPerThread);
+            Stack<T> tStack = RECYCLERS_HANDLER.newStack(Recyclers.this, Thread.currentThread(), maxCapacityPerThread);
 
             STACKS.add(tStack);
 
@@ -87,7 +89,7 @@ public abstract class Recyclers<T> {
             return newObject(NOOP_HANDLE);
         }
         Stack<T> stack = threadLocal.get();
-        DefaultHandle handle = stack.pop();
+        DefaultHandle handle = RECYCLERS_HANDLER.stackPop(stack);
         if (handle == null) {
             handle = stack.newHandle();
             handle.value = newObject(handle);
@@ -154,25 +156,11 @@ public abstract class Recyclers<T> {
                 throw new IllegalStateException("recycled already");
             }
 
-            if (thread == stack.thread) {
-                stack.push(this);
-                return;
-            }
-            // we don't want to have a ref to the queue as the value in our weak map
-            // so we null it out; to ensure there are no races with restoring it later
-            // we impose a memory ordering here (no-op on x86)
-            Map<Stack<?>, WeakOrderQueue> delayedRecycled = Recyclers.delayedRecycled.get();
-            WeakOrderQueue queue = delayedRecycled.get(stack);
-            if (queue == null) {
-                delayedRecycled.put(stack, queue = new WeakOrderQueue(stack, thread));
-
-                WEAK_ORDER_QUEUES.computeIfAbsent(stack, stack1 -> ConcurrentHashMap.newKeySet()).add(queue);
-            }
-            queue.add(this);
+            RECYCLERS_HANDLER.recycle(thread, stack, this);
         }
     }
 
-    private static final ThreadLocal<Map<Stack<?>, WeakOrderQueue>> delayedRecycled = ThreadLocal.withInitial(WeakHashMap::new);
+    static final ThreadLocal<Map<Stack<?>, WeakOrderQueue>> delayedRecycled = ThreadLocal.withInitial(WeakHashMap::new);
 
     // a queue that makes only moderate guarantees about visibility: items are seen in the correct order,
     // but we aren't absolutely guaranteed to ever see anything at all, thereby keeping the queue cheap to maintain
@@ -293,7 +281,7 @@ public abstract class Recyclers<T> {
         }
     }
 
-    public static final class Stack<T> {
+    public static class Stack<T> {
 
         // we keep a queue of per-thread queues, which is appended to once only, each time a new thread other
         // than the stack owner recycles: when we run out of items in our stack we iterate this collection
@@ -301,7 +289,7 @@ public abstract class Recyclers<T> {
         // still recycling all items.
         public final Recyclers<T> parent;
         public final Thread thread;
-        private DefaultHandle[] elements;
+        protected DefaultHandle[] elements;
         private final int maxCapacity;
         public volatile int size;
 
@@ -316,7 +304,6 @@ public abstract class Recyclers<T> {
             this.parent = parent;
             this.thread = thread;
             this.maxCapacity = maxCapacity;
-            elements = new DefaultHandle[Math.min(INITIAL_CAPACITY, maxCapacity)];
         }
 
         int increaseCapacity(int expectedCapacity) {
