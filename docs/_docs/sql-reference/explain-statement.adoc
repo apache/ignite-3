@@ -57,7 +57,7 @@ EXPLAIN MAPPING FOR SELECT * FROM lineitem;
 
 == Understanding The Output
 
-Each query plan is represented as a tree-like structure composed of **relational operators**.
+Each query plan is represented as a tree-like structure composed of link:sql-reference/explain-operators-list[**relational operators**].
 
 A node in the plan includes:
 
@@ -98,11 +98,11 @@ Sort                             // Sort rows
 The operator name reflects the specific algorithm or strategy used.
 For example:
 
-- `TableScan` – Full scan of a base table
-- `IndexScan` – Access via index, possibly sorted
-- `Sort` – Explicit sorting step
-- `HashJoin`, `MergeJoin`, `NestedLoopJoin` – Types of join algorithms
-- `Limit`, `Project`, `Exchange` – Execution-related transformations and controls
+- `TableScan` – Full scan of a base table.
+- `IndexScan` – Access via index, possibly sorted.
+- `Sort` – Explicit sorting step.
+- `HashJoin`, `MergeJoin`, `NestedLoopJoin` – Types of join algorithms.
+- `Limit`, `Project`, `Exchange` – Execution-related transformations and controls.
 
 === Hierarchical Plan Structure
 
@@ -165,6 +165,31 @@ Project
           fieldNames: [USERID, USERNAME]
           est: (rows=10000)
 ----
+
+This execution plan represents a query that joins three tables: `USERS`, `REVIEWS`, and `PRODUCTS`, and selects four fields after filtering by product name.
+
+* **Project** (root node):
+Outputs the final selected fields — `USERNAME`, `PRODUCTNAME`, `REVIEWTEXT`, and `RATING`.
+
+* **HashJoins** (two levels):
+Perform the inner joins.
+** The first (bottom-most) joins `REVIEWS` with `PRODUCTS` on `PRODUCTID`.
+** The second joins the result with `USERS` on `USERID`.
+
+* **TableScans**:
+Each table is scanned:
+** `REVIEWS` is fully scanned.
+** `PRODUCTS` is scanned with a filter on `PRODUCTNAME`.
+** `USERS` is fully scanned.
+
+* **Exchange** nodes:
+Indicate data redistribution between operators.
+
+Each node includes:
+
+- `fieldNames`: Output columns at that stage.
+- `predicate`: Join or filter condition.
+- `est`: Estimated number of rows at that point in the plan.
 
 === Query Mapping
 
@@ -252,6 +277,18 @@ where:
 - **Fragment#0** means fragment with id=0
 - A **root** marks a fragment which is considered as root fragment, i.e. a fragment which represents user's cursor
 - A **distribution** attribute provides an insight into which mapping strategy was applied to this particular fragment
-- A **executionNodes** attribute provides a lis t of nodes this fragment will be executed on
+- A **executionNodes** attribute provides a list of nodes this fragment will be executed on
 - A **partitions** attribute provides an insight into which partitions of which tables will be read from which nodes
 - A **tree** attribute specifies which part of the relational tree corresponds to this fragment
+
+The output above shows how the query is broken into multiple execution fragments and distributed across the cluster. It gives insight into both the logical execution plan and how it maps to the physical topology.
+
+The query starts execution in *Fragment#0*, which serves as the root of the plan — this is where the final result is produced. It runs on a single node (`node_1`) and contains the main logic of the query, including the projection and two nested hash joins. Instead of scanning tables directly, it receives data from other fragments through `Receiver` operators. These incoming streams correspond to the `REVIEWS`, `PRODUCTS`, and `USERS` tables.
+
+The actual table scans happen in *Fragments 1 through 3*, each responsible for one of the involved tables. These fragments operate in parallel across the cluster. Each performs a scan on its respective table and then sends the results back to Fragment#0.
+
+- *Fragment#1* handles the `REVIEWS` table. It runs on all nodes and uses a random distribution strategy. Data is partitioned across nodes, and after scanning the table, results are sent upstream.
+- *Fragment#2* is in charge of the `PRODUCTS` table. It also spans all nodes but follows a zone-based distribution linked to the table's partitioning. There's a filter applied to `PRODUCTNAME`, which limits the amount of data sent to the root.
+- *Fragment#3* covers the `USERS` table. Like the others, it’s distributed and reads from table partitions spread across the cluster.
+
+Each fragment includes metadata such as the nodes it's executed on, how data is partitioned, and how results are sent between fragments. This layout provides a clear view of not only how the query is logically processed, but also how the workload is split and coordinated in a distributed environment.
