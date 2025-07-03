@@ -42,7 +42,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -94,7 +94,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     public RocksDbClusterStateStorage(Path dbPath, String nodeName) {
         this.dbPath = dbPath;
         this.snapshotExecutor = Executors.newSingleThreadExecutor(
-                NamedThreadFactory.create(nodeName, "cluster-state-snapshot-executor", LOG)
+                IgniteThreadFactory.create(nodeName, "cluster-state-snapshot-executor", LOG)
         );
     }
 

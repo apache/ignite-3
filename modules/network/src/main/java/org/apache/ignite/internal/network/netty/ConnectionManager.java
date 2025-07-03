@@ -71,7 +71,7 @@ import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeMan
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
@@ -247,7 +247,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 1,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "connection-maintenance", LOG)
+                IgniteThreadFactory.create(nodeName, "connection-maintenance", LOG)
         );
         maintenanceExecutor.allowCoreThreadTimeOut(true);
 

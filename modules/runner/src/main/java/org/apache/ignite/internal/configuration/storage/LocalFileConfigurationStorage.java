@@ -70,7 +70,7 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationDuplicat
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -138,7 +138,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         this.module = module;
 
         notificationsThreadPool = Executors.newFixedThreadPool(
-                2, NamedThreadFactory.create(nodeName, "cfg-file", LOG)
+                2, IgniteThreadFactory.create(nodeName, "cfg-file", LOG)
         );
 
         checkAndRestoreConfigFile();

@@ -46,7 +46,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.serialization.NetworkAddressesSerializer;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -124,7 +124,7 @@ public class MulticastNodeFinder implements NodeFinder {
         this.addressesToAdvertise = addressesToAdvertise;
         this.nodeName = nodeName;
 
-        this.listenerThreadPool = Executors.newSingleThreadExecutor(NamedThreadFactory.create(nodeName, "multicast-listener", LOG));
+        this.listenerThreadPool = Executors.newSingleThreadExecutor(IgniteThreadFactory.create(nodeName, "multicast-listener", LOG));
     }
 
     @Override
@@ -136,7 +136,7 @@ public class MulticastNodeFinder implements NodeFinder {
 
         ExecutorService executor = Executors.newFixedThreadPool(
                 sockets.size(),
-                NamedThreadFactory.create(nodeName, "multicast-node-finder", LOG)
+                IgniteThreadFactory.create(nodeName, "multicast-node-finder", LOG)
         );
 
         try {

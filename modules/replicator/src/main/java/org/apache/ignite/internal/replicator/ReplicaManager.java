@@ -118,7 +118,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteStripedBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -289,7 +289,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         // This pool MUST be single-threaded to make sure idle safe time propagation attempts are not reordered on it.
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
-                NamedThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
+                IgniteThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
         );
 
         throttledLogExecutor = new ThreadPoolExecutor(
@@ -298,7 +298,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 30,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "throttled-log-replica-manager", LOG)
+                IgniteThreadFactory.create(nodeName, "throttled-log-replica-manager", LOG)
         );
         throttledLogExecutor.allowCoreThreadTimeOut(true);
 

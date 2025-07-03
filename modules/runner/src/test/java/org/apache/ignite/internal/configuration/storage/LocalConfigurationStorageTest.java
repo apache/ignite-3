@@ -51,6 +51,6 @@ public class LocalConfigurationStorageTest extends ConfigurationStorageTest {
     /** {@inheritDoc} */
     @Override
     public ConfigurationStorage getStorage() {
-        return new LocalConfigurationStorage(vaultManager);
+        return new LocalConfigurationStorage("test-node-name", vaultManager);
     }
 }

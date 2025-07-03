@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 
 /**
  * Cleans entries after TTL is expired.
@@ -56,7 +56,7 @@ public class Cleaner<T> {
      */
     public void start(Consumer<UUID> clean, long ttlMillis, String nodeName) {
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "compute-execution-cleanup", true, LOG)
+                IgniteThreadFactory.create(nodeName, "compute-execution-cleanup", true, LOG)
         );
 
         executor.scheduleAtFixedRate(() -> {
