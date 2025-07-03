@@ -306,7 +306,7 @@ public class IgniteCluster {
         }
     }
 
-    private static File constructArgFile(ProjectConnection connection, String dependencyNotation) throws IOException {
+    public static File constructArgFile(ProjectConnection connection, String dependencyNotation) throws IOException {
         File argFilePath = File.createTempFile("argFilePath", "");
         argFilePath.deleteOnExit();
 

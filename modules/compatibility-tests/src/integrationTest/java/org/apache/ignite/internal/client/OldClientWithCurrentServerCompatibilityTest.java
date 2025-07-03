@@ -22,10 +22,7 @@ import org.junit.jupiter.api.Test;
 public class OldClientWithCurrentServerCompatibilityTest {
     @Test
     public void test() {
-        // TODO: Create a folder with Gradle project that starts old Ignite client.
-        // Copy gradlew
-        // Set dependency version dynamically
-
-        // OR second option - create separate module with old client dependency
+        // 1. Use constructArgFile to resolve dependencies of a given client version.
+        // 2. Use Cytodynamics to run the client with the constructed arg file in an isolated classloader.
     }
 }

@@ -42,6 +42,7 @@ dependencies {
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
     }
+    testFixturesImplementation group: 'com.linkedin.cytodynamics', name: 'cytodynamics-nucleus', version: '0.2.0'
 
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
