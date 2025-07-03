@@ -79,7 +79,7 @@ private def resolveAllDependencies(String dependencyNotation, String... addition
 }
 
 def resolveIgniteVersions() {
-    def versionsFile = file("src/testFixtures/resources/igniteVersions.json")
+    def versionsFile = file('src/testFixtures/resources/igniteVersions.json')
     def versionsJson = new JsonSlurper().parseText(versionsFile.text)
     versionsJson.versions.each { version ->
         versionsJson.artifacts.each { artifact ->
