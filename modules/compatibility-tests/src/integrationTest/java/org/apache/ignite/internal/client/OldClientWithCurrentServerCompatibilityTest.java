@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import org.apache.ignite.internal.ClientRunner;
 import org.junit.jupiter.api.Test;
 
 public class OldClientWithCurrentServerCompatibilityTest {
@@ -24,5 +25,6 @@ public class OldClientWithCurrentServerCompatibilityTest {
     public void test() {
         // 1. Use constructArgFile to resolve dependencies of a given client version.
         // 2. Use Cytodynamics to run the client with the constructed arg file in an isolated classloader.
+        ClientRunner.runClient("3.0.0");
     }
 }

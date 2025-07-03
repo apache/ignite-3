@@ -99,9 +99,15 @@ tasks.register('constructArgFile') {
         def jars = resolveAllDependencies(depNotation)
         def classPath = files(jars).asPath
         def classPathFilePath = project.property('argFilePath')
+        def classPathOnly = project.property('classPathOnly')?.toBoolean() ?: false
 
         def classPathFile = file(classPathFilePath)
         classPathFile.withPrintWriter {
+            if (classPathOnly) {
+                it.println classPath
+                return
+            }
+
             it.println '-classpath'
             // Java argfile quote rules are weird. It's enough to quote spaces.
             it.println classPath.replace(" ", "\" \"")
