@@ -26,7 +26,9 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -108,9 +110,17 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     @MethodSource("getSnapshots")
     void testConfigurationCompatibility(String fileName) throws IOException {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
+        Set<ConfigurationModule> allModules = allModules();
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + fileName);
 
-        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata);
+        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata, allModules);
+    }
+
+    private static Set<ConfigurationModule> allModules() {
+        var modulesProvider = new ServiceLoaderModulesProvider();
+        List<ConfigurationModule> modules = modulesProvider.modules(ConfigurationCompatibilityTest.class.getClassLoader());
+
+        return new HashSet<>(modules);
     }
 
     private static List<ConfigNode> loadCurrentConfiguration() {

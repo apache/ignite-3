@@ -24,8 +24,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.KeyIgnorer;
 
 /**
  * Compares two configuration trees (snapshot and current).
@@ -34,8 +37,12 @@ public class ConfigurationTreeComparator {
     /**
      * Validates the current configuration is compatible with the snapshot.
      */
-    public static void ensureCompatible(List<ConfigNode> snapshotTrees, List<ConfigNode> actualTrees) {
-        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees));
+    public static void ensureCompatible(
+            List<ConfigNode> snapshotTrees,
+            List<ConfigNode> actualTrees,
+            Set<ConfigurationModule> configModules
+    ) {
+        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees, configModules));
 
         for (ConfigNode tree : snapshotTrees) {
             tree.accept(shuttle);
@@ -74,9 +81,12 @@ public class ConfigurationTreeComparator {
      */
     private static class Validator implements Consumer<ConfigNode> {
         private final List<ConfigNode> roots;
+        private final Set<ConfigurationModule> configModules;
+        private Collection<KeyIgnorer> deletedItems;
 
-        private Validator(List<ConfigNode> roots) {
+        private Validator(List<ConfigNode> roots, Set<ConfigurationModule> configModules) {
             this.roots = roots;
+            this.configModules = configModules;
         }
 
         @Override
@@ -92,7 +102,6 @@ public class ConfigurationTreeComparator {
             }
         }
 
-
         /**
          * Return first node from candidates collection that matches the given node.
          *
@@ -103,6 +112,22 @@ public class ConfigurationTreeComparator {
                 if (match(node, candidate)) {
                     return candidate;
                 }
+            }
+
+            if (deletedItems == null) {
+                deletedItems = new ArrayList<>(configModules.size());
+
+                for (ConfigurationModule module : configModules) {
+                    KeyIgnorer keyIgnorer = KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
+
+                    deletedItems.add(keyIgnorer);
+                }
+            }
+
+            boolean deleted = deletedItems.stream().anyMatch(i -> i.shouldIgnore(node.path()));
+
+            if (deleted) {
+                return ConfigNode.INSTANCE;
             }
 
             throw new IllegalStateException("No match found for node: " + node + " in candidates: \n\t"
@@ -130,11 +155,17 @@ public class ConfigurationTreeComparator {
      */
     private static boolean match(ConfigNode node, ConfigNode candidate) {
         return Objects.equals(candidate.kind(), node.kind())
-                && Objects.equals(candidate.name(), node.name())
+                && (Objects.equals(candidate.name(), node.name())
+                    || (node.isValue() && candidate.isValue() && compareUsingLegacyNames(candidate, node)))
                 && validateFlags(candidate, node)
-                && (!node.isValue() || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
+                && (!node.isValue() || (node.isValue() && candidate.isValue() && compareUsingLegacyNames(candidate, node))
+                    || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
                 // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
                 && candidate.annotations().containsAll(node.annotations()); // Annotations can't be removed.
+    }
+
+    private static boolean compareUsingLegacyNames(ConfigNode candidate, ConfigNode node) {
+        return candidate.legacyPropertyNames().contains(node.name());
     }
 
     private static boolean validateFlags(ConfigNode candidate, ConfigNode node) {

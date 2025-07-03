@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -41,15 +42,19 @@ public class ConfigNode {
     @JsonProperty
     private List<ConfigAnnotation> annotations = new ArrayList<>();
     @JsonProperty
-    private Map<String, ConfigNode> childNodeMap = new LinkedHashMap<>();
+    private final Map<String, ConfigNode> childNodeMap = new LinkedHashMap<>();
     @JsonProperty
     private String flagsHexString;
+    @JsonProperty
+    private Set<String> legacyPropertyNames;
 
     // Non-serializable fields.
     @JsonIgnore
-    private ConfigNode parent;
+    @Nullable private ConfigNode parent;
     @JsonIgnore
     private EnumSet<Flags> flags;
+
+    public static final ConfigNode INSTANCE = new ConfigNode();
 
     ConfigNode() {
         // Default constructor for Jackson deserialization.
@@ -58,12 +63,19 @@ public class ConfigNode {
     /**
      * Constructor is used when node is created in the code.
      */
-    ConfigNode(ConfigNode parent, Map<String, String> attributes, List<ConfigAnnotation> annotations, EnumSet<Flags> flags) {
+    public ConfigNode(
+            @Nullable ConfigNode parent,
+            Map<String, String> attributes,
+            List<ConfigAnnotation> annotations,
+            EnumSet<Flags> flags,
+            Set<String> legacyPropertyNames
+    ) {
         this.parent = parent;
         this.attributes = attributes;
         this.annotations = annotations;
         this.flags = flags;
         this.flagsHexString = Flags.toHexString(flags);
+        this.legacyPropertyNames = legacyPropertyNames;
     }
 
     /**
@@ -80,7 +92,7 @@ public class ConfigNode {
             flags.add(Flags.IS_INTERNAL);
         }
 
-        return new ConfigNode(null, attrs, List.of(), flags);
+        return new ConfigNode(null, attrs, List.of(), flags, Set.of());
     }
 
     /**
@@ -121,7 +133,7 @@ public class ConfigNode {
     /**
      * Returns the parent node of this node.
      */
-    public ConfigNode getParent() {
+    public @Nullable ConfigNode getParent() {
         return parent;
     }
 
@@ -182,9 +194,16 @@ public class ConfigNode {
     }
 
     /**
+     * Returns node legacy names.
+     */
+    Set<String> legacyPropertyNames() {
+        return legacyPropertyNames;
+    }
+
+    /**
      * Constructs the full path of this node in the configuration tree.
      */
-    private String path() {
+    String path() {
         String name = name();
 
         return parent == null ? name : parent.path() + '.' + name;
