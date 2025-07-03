@@ -640,7 +640,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 dataSource,
                 filters,
                 prj,
-                requiredColumns == null ? null : requiredColumns.toBitSet()
+                requiredColumns0
         );
     }
 
