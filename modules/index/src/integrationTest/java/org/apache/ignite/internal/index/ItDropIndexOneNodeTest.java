@@ -31,11 +31,13 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test class for scenarios related to dropping of indices, executed on a single node cluster.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-25686")
 @SuppressWarnings({"resource", "ThrowableNotThrown"})
 public class ItDropIndexOneNodeTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "TEST";

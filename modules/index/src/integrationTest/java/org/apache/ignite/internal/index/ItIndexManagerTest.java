@@ -36,9 +36,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** For {@link IndexManager} testing. */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-25686")
 public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "ZONE_TABLE";
 

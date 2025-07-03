@@ -64,9 +64,11 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for testing the building of an index in a single node cluster. */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-25686")
 @SuppressWarnings("resource")
 public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";

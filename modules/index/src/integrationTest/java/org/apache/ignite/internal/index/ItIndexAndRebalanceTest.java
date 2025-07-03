@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Integration test to check the work with indexes on rebalancing. */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-25686")
 public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 

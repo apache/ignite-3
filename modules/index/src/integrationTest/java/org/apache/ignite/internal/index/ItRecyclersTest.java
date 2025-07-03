@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.lang.Thread.State;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -112,6 +113,8 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
     @ParameterizedTest(name = "h={0}, tableCount={1}, perTablePartitionCount={2}, perTableInsertCount={3}")
     @MethodSource("testArguments")
     void test(RecyclersHandler handler, int tableCount, int partitionCount, int insertCount) {
+        long startNanos = System.nanoTime();
+
         int batchSize = 250;
         int nameLength = 20_000;
 
@@ -186,10 +189,12 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
                 testMethodName, type, byteBufferCollectorSizes(nodeName)
         );
 
+        Duration duration = Duration.ofNanos(System.nanoTime() - startNanos);
+
         log.info(
                 ">>>>> {} finish: "
-                        + "[type={}, tableCount={}, partitionCount={}, totalPartitionCount={}, replicas={}]",
-                testMethodName, type, tableCount, partitionCount, (tableCount * partitionCount), initialNodes()
+                        + "[type={}, tableCount={}, partitionCount={}, totalPartitionCount={}, replicas={}, duration={}]",
+                testMethodName, type, tableCount, partitionCount, (tableCount * partitionCount), initialNodes(), duration
         );
     }
 

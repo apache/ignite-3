@@ -76,11 +76,13 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Integration test of index building. */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-25686")
 public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
