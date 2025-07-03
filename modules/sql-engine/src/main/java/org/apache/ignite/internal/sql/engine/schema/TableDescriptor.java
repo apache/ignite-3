@@ -64,4 +64,14 @@ public interface TableDescriptor extends InitializerExpressionFactory, Iterable<
      * @return Actual count of columns.
      */
     int columnsCount();
+
+    /**
+     * Returns {@code true} if table has hidden columns, {@code false} otherwise.
+     */
+    boolean hasHiddenColumns();
+
+    /**
+     * Returns {@code true} if table has virtual columns, {@code false} otherwise.
+     */
+    boolean hasVirtualColumns();
 }

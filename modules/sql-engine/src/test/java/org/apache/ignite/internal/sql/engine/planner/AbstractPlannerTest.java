@@ -891,6 +891,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             return rowType.getFieldCount();
         }
 
+        @Override
+        public boolean hasHiddenColumns() {
+            return false;
+        }
+
+        @Override
+        public boolean hasVirtualColumns() {
+            return false;
+        }
+
         /** {@inheritDoc} */
         @Override
         public boolean isGeneratedAlways(RelOptTable table, int idxColumn) {

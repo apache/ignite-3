@@ -32,7 +32,6 @@ import java.time.Clock;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -1712,13 +1711,6 @@ public class TestBuilders {
         return builder.build();
     }
 
-    @Deprecated
-    private static Object[] project(Object[] row, @Nullable BitSet requiredElements) {
-        if (requiredElements == null) {
-            return row;
-        }
-        return project(row, ImmutableIntList.copyOf(requiredElements.stream().iterator()));
-    }
     private static Object[] project(Object[] row, @Nullable ImmutableIntList requiredElements) {
         if (requiredElements == null) {
             return row;

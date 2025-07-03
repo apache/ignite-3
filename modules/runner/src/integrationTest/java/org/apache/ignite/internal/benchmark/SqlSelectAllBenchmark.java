@@ -85,7 +85,7 @@ public class SqlSelectAllBenchmark extends AbstractTpcBenchmark {
     }
 
     @Param({
-            "IDENTITY", "RESHUFFLING"
+            "IDENTITY", "TRIMMING", "RESHUFFLING"
     })
     private Projection projection;
 
@@ -110,6 +110,13 @@ public class SqlSelectAllBenchmark extends AbstractTpcBenchmark {
         new Runner(opt).run();
     }
 
+    /**
+     * Projection types for the benchmark.
+     *
+     * <p>IDENTITY - selects all columns in the original order.
+     * TRIMMING - selects all columns except few ones (preserving related order).
+     * RESHUFFLING - selects all columns in a different order.
+     */
     public enum Projection {
         IDENTITY {
             @Override

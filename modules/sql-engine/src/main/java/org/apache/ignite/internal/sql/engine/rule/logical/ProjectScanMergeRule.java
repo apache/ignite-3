@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntLinkedOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
@@ -148,7 +146,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         }
 
         // TODO: IGNITE-22703 revisit required columns usage.
-        if (RexUtils.isIdentity(projects, tbl.getRowType(typeFactory, requiredColumns), true)) {
+        if (RexUtils.isIdentity(projects, tbl.getRowType(typeFactory, requiredColumns))) {
             projects = null;
         }
 

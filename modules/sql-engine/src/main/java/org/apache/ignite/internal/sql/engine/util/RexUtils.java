@@ -162,16 +162,15 @@ public class RexUtils {
     }
 
     /** Returns whether a list of expressions projects the incoming fields. */
-    public static boolean isIdentity(List<? extends RexNode> projects, RelDataType inputRowType, boolean local) {
+    public static boolean isIdentity(List<? extends RexNode> projects, RelDataType inputRowType) {
         if (inputRowType.getFieldCount() != projects.size()) {
             return false;
         }
 
-        final List<RelDataTypeField> fields = inputRowType.getFieldList();
-        Class<? extends RexSlot> clazz = local ? RexLocalRef.class : RexInputRef.class;
+        List<RelDataTypeField> fields = inputRowType.getFieldList();
 
         for (int i = 0; i < fields.size(); i++) {
-            if (!clazz.isInstance(projects.get(i))) {
+            if (!(projects.get(i) instanceof RexLocalRef)) {
                 return false;
             }
 

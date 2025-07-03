@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.Spliterators;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;

@@ -97,12 +97,12 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 ? tableColumnSet
                 : projection.toIntArray();
 
-        Int2ObjectMap<VirtualColumn> extraColumns = createVirtualColumns(mapping, partId);
-
-        // TODO: IGNITE-22703 Ensure this check is correct.
-        if (extraColumns.isEmpty() && isFullIdentityMapping(mapping)) {
+        // TODO: IGNITE-22703 Can we opmitimize this?
+        if (Commons.isIdentityMapping(mapping, schemaDescriptor.length())) {
             return fullRowConverter;
         }
+
+        Int2ObjectMap<VirtualColumn> extraColumns = createVirtualColumns(mapping, partId);
 
         return new ProjectedTableRowConverterImpl(
                 schemaRegistry,
@@ -110,18 +110,6 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 mapping,
                 extraColumns
         );
-    }
-
-    private boolean isFullIdentityMapping(int[] mapping) {
-        if (mapping.length != schemaDescriptor.length()) {
-            return false;
-        }
-        for (int i = 0; i < mapping.length; i++) {
-            if (mapping[i] != i) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private Int2ObjectMap<VirtualColumn> createVirtualColumns(int[] requiredColumns, int partId) {
