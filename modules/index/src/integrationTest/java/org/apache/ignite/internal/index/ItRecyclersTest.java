@@ -45,6 +45,8 @@ import org.apache.ignite.raft.jraft.util.Recyclers;
 import org.apache.ignite.raft.jraft.util.Recyclers.DefaultHandle;
 import org.apache.ignite.raft.jraft.util.Recyclers.Stack;
 import org.apache.ignite.raft.jraft.util.Recyclers.WeakOrderQueue;
+import org.apache.ignite.raft.jraft.util.RecyclersHandler;
+import org.apache.ignite.raft.jraft.util.RecyclersHandlerOrigin;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -71,11 +73,16 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
         return 3;
     }
 
+    @Override
+    protected boolean startClusterInBeforeEach() {
+        return false;
+    }
+
     private static Stream<Arguments> testArguments() {
         var arguments = new ArrayList<Arguments>();
 
-        arguments.add(Arguments.arguments("origin", 1, 1, 1_000));
-        arguments.add(Arguments.arguments("origin", 1, 25, 10_000));
+        arguments.add(Arguments.arguments(RecyclersHandlerOrigin.INSTANCE, 1, 1, 1_000));
+        arguments.add(Arguments.arguments(RecyclersHandlerOrigin.INSTANCE, 1, 25, 10_000));
 //        arguments.add(Arguments.arguments("origin", 1, 25, 20_000));
 //
 //        arguments.add(Arguments.arguments("origin", 10, 1, 1_000));
@@ -91,9 +98,15 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("testArguments")
-    void test(String type, int tableCount, int partitionCount, int insertCount) {
+    void test(RecyclersHandler handler, int tableCount, int partitionCount, int insertCount) {
         int batchSize = 250;
         int nameLength = 20_000;
+
+        String type = handler.name();
+
+        Recyclers.RECYCLERS_HANDLER = handler;
+
+        startAndInitCluster();
 
         log.info(
                 ">>>>> {} before create tables: "
