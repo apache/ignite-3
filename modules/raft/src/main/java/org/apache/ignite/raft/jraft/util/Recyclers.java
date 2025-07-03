@@ -290,7 +290,7 @@ public abstract class Recyclers<T> {
         public final Recyclers<T> parent;
         public final Thread thread;
         protected DefaultHandle[] elements;
-        private final int maxCapacity;
+        protected final int maxCapacity;
         public volatile int size;
 
         private volatile WeakOrderQueue head;

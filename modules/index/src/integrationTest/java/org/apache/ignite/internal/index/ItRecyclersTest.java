@@ -47,7 +47,10 @@ import org.apache.ignite.raft.jraft.util.Recyclers.Stack;
 import org.apache.ignite.raft.jraft.util.Recyclers.WeakOrderQueue;
 import org.apache.ignite.raft.jraft.util.RecyclersHandler;
 import org.apache.ignite.raft.jraft.util.RecyclersHandlerOrigin;
+import org.apache.ignite.raft.jraft.util.RecyclersHandlerSharedQueueOnly;
+import org.apache.ignite.raft.jraft.util.RecyclersHandlerTwoQueue;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -81,19 +84,32 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
     private static Stream<Arguments> testArguments() {
         var arguments = new ArrayList<Arguments>();
 
-        arguments.add(Arguments.arguments(RecyclersHandlerOrigin.INSTANCE, 1, 1, 1_000));
-        arguments.add(Arguments.arguments(RecyclersHandlerOrigin.INSTANCE, 1, 25, 10_000));
-//        arguments.add(Arguments.arguments("origin", 1, 25, 20_000));
-//
-//        arguments.add(Arguments.arguments("origin", 10, 1, 1_000));
-//        arguments.add(Arguments.arguments("origin", 10, 25, 10_000));
-//        arguments.add(Arguments.arguments("origin", 10, 25, 20_000));
-//
-//        arguments.add(Arguments.arguments("origin", 20, 1, 1_000));
-//        arguments.add(Arguments.arguments("origin", 20, 25, 10_000));
-//        arguments.add(Arguments.arguments("origin", 20, 25, 20_000));
+        List<RecyclersHandler> recyclersHandlers = List.of(
+                RecyclersHandlerOrigin.INSTANCE,
+                RecyclersHandlerTwoQueue.INSTANCE,
+                RecyclersHandlerSharedQueueOnly.INSTANCE
+        );
+
+        for (RecyclersHandler recyclersHandler : recyclersHandlers) {
+            arguments.add(Arguments.arguments(recyclersHandler, 1, 1, 1_000));
+            arguments.add(Arguments.arguments(recyclersHandler, 1, 25, 10_000));
+            arguments.add(Arguments.arguments(recyclersHandler, 1, 25, 20_000));
+
+            arguments.add(Arguments.arguments(recyclersHandler, 10, 1, 1_000));
+            arguments.add(Arguments.arguments(recyclersHandler, 10, 25, 10_000));
+            arguments.add(Arguments.arguments(recyclersHandler, 10, 25, 20_000));
+
+            arguments.add(Arguments.arguments(recyclersHandler, 20, 1, 1_000));
+            arguments.add(Arguments.arguments(recyclersHandler, 20, 25, 10_000));
+            arguments.add(Arguments.arguments(recyclersHandler, 20, 25, 20_000));
+        }
 
         return arguments.stream();
+    }
+
+    @AfterAll
+    static void afterAll() {
+        Recyclers.RECYCLERS_HANDLER = RecyclersHandlerOrigin.INSTANCE;
     }
 
     @ParameterizedTest
