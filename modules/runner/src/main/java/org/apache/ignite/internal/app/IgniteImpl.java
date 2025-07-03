@@ -1195,6 +1195,11 @@ public class IgniteImpl implements Ignite {
 
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker, threadPoolsManager.commonScheduler());
 
+        ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
+        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
+        ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
+                this, stateMachine, computeCfg, clusterSvc.topologyService(), clockService);
+
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
                 new DeploymentUnitStoreImpl(metaStorageMgr),
@@ -1202,14 +1207,10 @@ public class IgniteImpl implements Ignite {
                 workDir,
                 nodeConfigRegistry.getConfiguration(DeploymentExtensionConfiguration.KEY).deployment(),
                 cmgMgr,
-                name
+                name,
+                computeExecutor::onUnitRemoving // TODO IGNITE-25759 cleaner platform unit removal.
         );
         deploymentManager = deploymentManagerImpl;
-
-        ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
-        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
-        ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
-                this, stateMachine, computeCfg, clusterSvc.topologyService(), clockService);
 
         computeComponent = new ComputeComponentImpl(
                 name,
@@ -1574,7 +1575,7 @@ public class IgniteImpl implements Ignite {
 
                     LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
 
-                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
+                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture(joinExecutor));
                 }, joinExecutor)
                 .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), joinExecutor)
                 // Signal that local recovery is complete and the node is ready to join the cluster.

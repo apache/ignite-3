@@ -55,7 +55,9 @@ import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
@@ -808,5 +810,23 @@ public final class Commons {
         }
 
         return firstFoundError;
+    }
+
+    /**
+     * Creates a {@link JoinInfo join condition} that treats {@code IS NOT DISTINCT FROM} as an equijoin condition.
+     *
+     * @param join Logical join.
+     * @return Join condition.
+     */
+    public static JoinInfo getNonStrictEquiJoinCondition(LogicalJoin join) {
+        JoinInfo joinInfo = join.analyzeCondition();
+
+        // Already an equijoin condition, do nothing.
+        if (joinInfo.isEqui()) {
+            return joinInfo;
+        }
+
+        // Create a non-strict equijoin condition that treats IS NOT DISTINCT_FROM as an equi join condition.
+        return JoinInfo.of(join.getLeft(), join.getRight(), join.getCondition());
     }
 }

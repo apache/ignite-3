@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rest.recovery;
 
 import static java.util.Collections.emptySet;
 import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.toList;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Body;
@@ -56,6 +55,7 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.TableState;
 import org.apache.ignite.table.QualifiedName;
 
 /**
@@ -82,7 +82,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             // The table response is actually a superset of the zone response, so should be fine to convert it.
             CompletableFuture<LocalZonePartitionStatesResponse> zoneStates =
                     getZoneLocalPartitionStates(zoneNames, nodeNames, partitionIds);
-            return zoneStates.thenApply(DisasterRecoveryController::toTableLocalStates);
+            return zoneStates.thenApply(zoneResponse -> convertLocalZoneToTableStates(zoneResponse, disasterRecoveryManager));
         }
 
         return disasterRecoveryManager.localTablePartitionStates(
@@ -91,22 +91,6 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                         partitionIds.orElse(Set.of())
                 )
                 .thenApply(DisasterRecoveryController::convertLocalTableStates);
-    }
-
-    private static LocalPartitionStatesResponse toTableLocalStates(LocalZonePartitionStatesResponse zoneResponse) {
-        List<LocalPartitionStateResponse> states = zoneResponse.states().stream()
-                .map(state -> new LocalPartitionStateResponse(
-                        state.nodeName(),
-                        state.zoneName(),
-                        "",
-                        -1,
-                        "",
-                        state.partitionId(),
-                        state.state(),
-                        state.estimatedRows()
-                ))
-                .collect(toList());
-        return new LocalPartitionStatesResponse(states);
     }
 
     @Override
@@ -119,7 +103,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
             CompletableFuture<GlobalZonePartitionStatesResponse> zoneStates =
                     getZoneGlobalPartitionStates(zoneNames, partitionIds);
-            return zoneStates.thenApply(DisasterRecoveryController::toTableGlobalStates);
+            return zoneStates.thenApply(zoneResponse -> convertGlobalZoneToTableStates(zoneResponse, disasterRecoveryManager));
         }
 
         return disasterRecoveryManager.globalTablePartitionStates(
@@ -127,21 +111,6 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                         partitionIds.orElse(Set.of())
                 )
                 .thenApply(DisasterRecoveryController::convertGlobalStates);
-    }
-
-    private static GlobalPartitionStatesResponse toTableGlobalStates(GlobalZonePartitionStatesResponse zoneStates) {
-        List<GlobalPartitionStateResponse> states = zoneStates.states().stream()
-                .map(state -> new GlobalPartitionStateResponse(
-                        state.zoneName(),
-                        "",
-                        -1,
-                        "",
-                        state.partitionId(),
-                        state.state()
-                ))
-                .collect(toList());
-
-        return new GlobalPartitionStatesResponse(states);
     }
 
     @Override
@@ -223,6 +192,28 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         ).thenApply(DisasterRecoveryController::convertGlobalZoneStates);
     }
 
+    private static LocalPartitionStatesResponse convertLocalZoneToTableStates(
+            LocalZonePartitionStatesResponse zoneResponse,
+            DisasterRecoveryManager manager) {
+        List<LocalPartitionStateResponse> states = new ArrayList<>();
+
+        for (LocalZonePartitionStateResponse zoneState : zoneResponse.states()) {
+            for (TableState tableState : manager.zoneTablesStates(zoneState.zoneName())) {
+                states.add(new LocalPartitionStateResponse(
+                        zoneState.nodeName(),
+                        zoneState.zoneName(),
+                        tableState.schemaName,
+                        tableState.tableId,
+                        tableState.tableName,
+                        zoneState.partitionId(),
+                        zoneState.state(),
+                        zoneState.estimatedRows()
+                ));
+            }
+        }
+        return createLocalPartitionStatesResponse(states);
+    }
+
     private static LocalPartitionStatesResponse convertLocalTableStates(Map<TablePartitionId, LocalTablePartitionStateByNode> localStates) {
         List<LocalPartitionStateResponse> states = new ArrayList<>();
 
@@ -244,6 +235,10 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             }
         }
 
+        return createLocalPartitionStatesResponse(states);
+    }
+
+    private static LocalPartitionStatesResponse createLocalPartitionStatesResponse(List<LocalPartitionStateResponse> states) {
         // Sort the output conveniently.
         states.sort(comparing(LocalPartitionStateResponse::schemaName)
                 .thenComparing(LocalPartitionStateResponse::tableName)
@@ -292,6 +287,31 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             ));
         }
 
+        return createGlobalPartitionStatesResponse(states);
+    }
+
+    private static GlobalPartitionStatesResponse convertGlobalZoneToTableStates(
+            GlobalZonePartitionStatesResponse zoneResponse,
+            DisasterRecoveryManager manager
+    ) {
+        List<GlobalPartitionStateResponse> states = new ArrayList<>();
+
+        for (GlobalZonePartitionStateResponse zoneState : zoneResponse.states()) {
+            for (TableState tableState : manager.zoneTablesStates(zoneState.zoneName())) {
+                states.add(new GlobalPartitionStateResponse(
+                        zoneState.zoneName(),
+                        tableState.schemaName,
+                        tableState.tableId,
+                        tableState.tableName,
+                        zoneState.partitionId(),
+                        zoneState.state()
+                ));
+            }
+        }
+        return createGlobalPartitionStatesResponse(states);
+    }
+
+    private static GlobalPartitionStatesResponse createGlobalPartitionStatesResponse(List<GlobalPartitionStateResponse> states) {
         // Sort the output conveniently.
         states.sort(comparing(GlobalPartitionStateResponse::schemaName)
                 .thenComparing(GlobalPartitionStateResponse::tableName)

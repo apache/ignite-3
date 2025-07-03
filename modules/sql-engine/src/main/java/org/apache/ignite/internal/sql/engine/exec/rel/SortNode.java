@@ -126,6 +126,12 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         assert rowsCnt > 0 && requested == 0;
         assert waiting <= 0;
 
+        if (fetch == 0) {
+            downstream().end();
+
+            return;
+        }
+
         requested = rowsCnt;
 
         if (waiting == 0) {

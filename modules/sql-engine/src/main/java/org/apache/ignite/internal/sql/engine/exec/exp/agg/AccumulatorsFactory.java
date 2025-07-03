@@ -51,7 +51,6 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
-import org.apache.ignite.internal.sql.engine.exec.exp.SqlScalar;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
@@ -270,8 +269,6 @@ public class AccumulatorsFactory<RowT> {
 
         private final boolean literalAgg;
 
-        private final Object preOperand;
-
         private final int filterArg;
 
         private final boolean ignoreNulls;
@@ -298,15 +295,6 @@ public class AccumulatorsFactory<RowT> {
             filterArg = call.hasFilter() ? call.filterArg : -1;
 
             argList = distinct && call.getArgList().isEmpty() ? SINGLE_ARG_LIST : new IntArrayList(call.getArgList());
-
-            if (literalAgg) {
-                assert call.getArgList().isEmpty() : "LiteralAgg should have no operands: " + call;
-
-                SqlScalar<RowT, Object> litAggArg = ctx.expressionFactory().scalar(call.rexList.get(0));
-                preOperand = litAggArg.get(ctx);
-            } else {
-                preOperand = null;
-            }
         }
 
         @Override
@@ -326,7 +314,8 @@ public class AccumulatorsFactory<RowT> {
             }
 
             if (literalAgg) {
-                return new Object[]{preOperand};
+                // LiteralAgg has a constant as its argument.
+                return new Object[]{null};
             }
 
             if (IgniteUtils.assertionsEnabled() && argList == SINGLE_ARG_LIST) {
