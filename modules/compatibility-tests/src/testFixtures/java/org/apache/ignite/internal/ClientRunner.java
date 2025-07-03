@@ -41,7 +41,8 @@ public class ClientRunner {
                     .withOriginRestriction(OriginRestriction.allowByDefault())
                     .withParentRelationship(DelegateRelationshipBuilder.builder()
                             .withIsolationLevel(IsolationLevel.FULL)
-                            .addWhitelistedClassPredicate(new GlobMatcher("java.*"))
+                            .addWhitelistedClassPredicate(new GlobMatcher("java*"))
+                            .addWhitelistedClassPredicate(new GlobMatcher("com*"))
                             .build())
                     .build();
 
@@ -52,6 +53,14 @@ public class ClientRunner {
             // 1. Whitelist the API interfaces.
             // 2. Somehow run tests within the isolated classloader.
             System.out.println(clientBuilder);
+
+            clientBuilder.getClass().getDeclaredMethod("addresses", String[].class)
+                    .invoke(clientBuilder, (Object) new String[]{"localhost:10800"});
+
+            clientBuilder.getClass().getDeclaredMethod("connectTimeout", long.class)
+                    .invoke(clientBuilder, 3000L);
+
+            Object client = clientBuilder.getClass().getDeclaredMethod("build").invoke(clientBuilder);
         } catch (IOException | InvocationTargetException | IllegalAccessException | NoSuchMethodException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }

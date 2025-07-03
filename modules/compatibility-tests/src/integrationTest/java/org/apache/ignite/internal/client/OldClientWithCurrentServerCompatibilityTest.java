@@ -17,14 +17,26 @@
 
 package org.apache.ignite.internal.client;
 
+import java.nio.file.Path;
 import org.apache.ignite.internal.ClientRunner;
+import org.apache.ignite.internal.CompatibilityTestBase;
+import org.apache.ignite.internal.IgniteCluster;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(WorkDirectoryExtension.class)
 public class OldClientWithCurrentServerCompatibilityTest {
+    @WorkDirectory
+    private Path workDir;
+
     @Test
-    public void test() {
-        // 1. Use constructArgFile to resolve dependencies of a given client version.
-        // 2. Use Cytodynamics to run the client with the constructed arg file in an isolated classloader.
+    public void test(TestInfo testInfo) {
+        IgniteCluster cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
+        cluster.startEmbedded(1);
+
         ClientRunner.runClient("3.0.0");
     }
 }

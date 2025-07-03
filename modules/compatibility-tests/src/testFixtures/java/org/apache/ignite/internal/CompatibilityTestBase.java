@@ -84,13 +84,9 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     void startCluster(String baseVersion, TestInfo testInfo) {
         log.info("Starting nodes for base version: {}", baseVersion);
 
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
-                .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
-                .build();
+        cluster = createCluster(testInfo, workDir);
 
         int nodesCount = nodesCount();
-
-        cluster = new IgniteCluster(clusterConfiguration);
         cluster.start(baseVersion, nodesCount);
 
         cluster.init(this::configureInitParameters);
@@ -104,6 +100,14 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
 
             cluster.startEmbedded(nodesCount);
         }
+    }
+
+    public static IgniteCluster createCluster(TestInfo testInfo, Path workDir) {
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
+                .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
+                .build();
+
+        return new IgniteCluster(clusterConfiguration);
     }
 
     @SuppressWarnings("unused")
