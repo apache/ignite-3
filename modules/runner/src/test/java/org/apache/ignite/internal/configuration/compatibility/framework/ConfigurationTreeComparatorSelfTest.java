@@ -25,7 +25,6 @@ import java.util.Map;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -171,7 +170,7 @@ public class ConfigurationTreeComparatorSelfTest {
         assertIncompatible(root2, root1);
     }
 
-    private static @NotNull ConfigNode createRoot(String name) {
+    private static ConfigNode createRoot(String name) {
         return ConfigNode.createRoot(name, Object.class, ConfigurationType.LOCAL, true);
     }
 
