@@ -599,29 +599,26 @@ public class SqlTestUtils {
      * Trims milliseconds of a source temporal-type object to the target precision.
      *
      * @param type Source type.
-     * @param sourcePrecision Source precision.
-     * @param sourceObject Source object.
-     * @param targetPrecision Target precision.
-     * @return Adjusted number of nanoseconds.
+     * @param source Source temporal object.
+     * @param precision Target precision.
+     * @return Temporal object with the adjusted number of nanoseconds.
      */
-    public static Temporal adjustTemporalPrecision(ColumnType type, int sourcePrecision, Temporal sourceObject, int targetPrecision) {
-        int precision = Math.min(sourcePrecision, targetPrecision);
-
+    public static Temporal adjustTemporalPrecision(ColumnType type, Temporal source, int precision) {
         switch (type) {
             case TIME: {
-                LocalTime time = (LocalTime) sourceObject;
+                LocalTime time = (LocalTime) source;
 
                 return time.withNano(adjustNanos(time.getNano(), precision));
             }
 
             case DATETIME: {
-                LocalDateTime dt = (LocalDateTime) sourceObject;
+                LocalDateTime dt = (LocalDateTime) source;
 
                 return dt.withNano(adjustNanos(dt.getNano(), precision));
             }
 
             case TIMESTAMP: {
-                Instant dt = (Instant) sourceObject;
+                Instant dt = (Instant) source;
 
                 return dt.with(ChronoField.NANO_OF_SECOND, adjustNanos(dt.getNano(), precision));
             }
@@ -633,6 +630,8 @@ public class SqlTestUtils {
 
     /**
      * Trims number of nanoseconds according to the specified precision.
+     *
+     * <p>Note: the maximum supported precision is 3.
      *
      * @param nanos Number of nanoseconds.
      * @param precision Desired precision.

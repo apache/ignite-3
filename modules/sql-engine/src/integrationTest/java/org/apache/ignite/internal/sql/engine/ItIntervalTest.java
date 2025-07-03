@@ -572,7 +572,7 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
             assertQuery(format("SELECT {}{}_col FROM datetime_cols", columnPrefix, columnPrecision))
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expType).precision(columnPrecision))
-                    .returns(SqlTestUtils.adjustTemporalPrecision(expType, expPrecision, expected, columnPrecision))
+                    .returns(SqlTestUtils.adjustTemporalPrecision(expType, expected, Math.min(expPrecision, columnPrecision)))
                     .check();
         };
 

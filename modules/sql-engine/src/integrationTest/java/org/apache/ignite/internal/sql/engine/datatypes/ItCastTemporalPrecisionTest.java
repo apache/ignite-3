@@ -481,7 +481,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
         DmlArgs(SelectArgs args, int sourcePrecision) {
             super(args.sourceType, args.literal, args.targetType, args.targetPrecision,
                     SqlTestUtils.adjustTemporalPrecision(TypeUtils.columnType(Commons.typeFactory().createSqlType(args.targetType)),
-                            sourcePrecision, args.expected, args.targetPrecision));
+                            args.expected, Math.min(sourcePrecision, args.targetPrecision)));
 
             this.sourcePrecision = sourcePrecision;
         }
