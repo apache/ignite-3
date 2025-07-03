@@ -15,11 +15,13 @@
 
 package org.apache.ignite.raft.jraft.util;
 
-import java.util.Queue;import java.util.concurrent.ArrayBlockingQueue;import org.apache.ignite.raft.jraft.util.Recyclers.DefaultHandle;
+import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
+import org.apache.ignite.raft.jraft.util.Recyclers.DefaultHandle;
 import org.apache.ignite.raft.jraft.util.Recyclers.Stack;
-import org.apache.ignite.raft.jraft.util.RecyclersHandlerTwoQueue.StackTwoQueue;import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
-public class RecyclersHandlerSharedQueueOnly implements RecyclersHandler {
+public class RecyclersHandlerSharedQueueOnly extends RecyclersHandler {
     public static final RecyclersHandlerSharedQueueOnly INSTANCE = new RecyclersHandlerSharedQueueOnly();
 
     public static class StackOnlySharedQueueOnly<T> extends Stack<T> {

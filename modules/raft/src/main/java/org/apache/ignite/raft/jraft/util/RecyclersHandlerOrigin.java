@@ -22,7 +22,7 @@ import org.apache.ignite.raft.jraft.util.Recyclers.Stack;
 import org.apache.ignite.raft.jraft.util.Recyclers.WeakOrderQueue;
 import org.jetbrains.annotations.Nullable;
 
-public class RecyclersHandlerOrigin implements RecyclersHandler {
+public class RecyclersHandlerOrigin extends RecyclersHandler {
     public static final RecyclersHandlerOrigin INSTANCE = new RecyclersHandlerOrigin();
 
     public static class StackOrigin<T> extends Stack<T> {

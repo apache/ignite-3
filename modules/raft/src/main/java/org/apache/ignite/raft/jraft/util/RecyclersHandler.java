@@ -19,12 +19,17 @@ import org.apache.ignite.raft.jraft.util.Recyclers.DefaultHandle;
 import org.apache.ignite.raft.jraft.util.Recyclers.Stack;
 import org.jetbrains.annotations.Nullable;
 
-public interface RecyclersHandler {
-    String name();
+public abstract class RecyclersHandler {
+    public abstract String name();
 
-    void recycle(Thread t, Stack<?> s, DefaultHandle h);
+    abstract void recycle(Thread t, Stack<?> s, DefaultHandle h);
 
-    @Nullable DefaultHandle stackPop(Stack<?> s);
+    abstract @Nullable DefaultHandle stackPop(Stack<?> s);
 
-    <T> Stack<T> newStack(Recyclers<T> parent, Thread thread, int maxCapacity);
+    abstract <T> Stack<T> newStack(Recyclers<T> parent, Thread thread, int maxCapacity);
+
+    @Override
+    public String toString() {
+        return name();
+    }
 }

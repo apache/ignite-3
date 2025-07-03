@@ -23,7 +23,7 @@ import org.apache.ignite.raft.jraft.util.Recyclers.DefaultHandle;
 import org.apache.ignite.raft.jraft.util.Recyclers.Stack;
 import org.jetbrains.annotations.Nullable;
 
-public class RecyclersHandlerTwoQueue implements RecyclersHandler {
+public class RecyclersHandlerTwoQueue extends RecyclersHandler {
     public static final RecyclersHandlerTwoQueue INSTANCE = new RecyclersHandlerTwoQueue();
 
     public static class StackTwoQueue<T> extends Stack<T> {
