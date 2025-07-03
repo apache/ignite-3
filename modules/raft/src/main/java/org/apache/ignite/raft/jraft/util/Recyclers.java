@@ -42,6 +42,14 @@ public abstract class Recyclers<T> {
 
     public static volatile RecyclersHandler RECYCLERS_HANDLER = RecyclersHandlerOrigin.INSTANCE;
 
+    public static void setRecyclersHandler(RecyclersHandler h) {
+        RECYCLERS_HANDLER = h;
+
+        STACKS.clear();
+        WEAK_ORDER_QUEUES.clear();
+        DEFAULT_HANDLES.clear();
+    }
+
     private static final int OWN_THREAD_ID = idGenerator.getAndIncrement();
     private static final int DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD = 4 * 1024; // Use 4k instances as default.
     private static final int MAX_CAPACITY_PER_THREAD;

@@ -106,10 +106,10 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
 
     @AfterAll
     static void afterAll() {
-        Recyclers.RECYCLERS_HANDLER = RecyclersHandlerOrigin.INSTANCE;
+        Recyclers.setRecyclersHandler(RecyclersHandlerOrigin.INSTANCE);
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "h={0}, tableCount={1}, perTablePartitionCount={2}, perTableInsertCount={3}")
     @MethodSource("testArguments")
     void test(RecyclersHandler handler, int tableCount, int partitionCount, int insertCount) {
         int batchSize = 250;
@@ -117,7 +117,7 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
 
         String type = handler.name();
 
-        Recyclers.RECYCLERS_HANDLER = handler;
+        Recyclers.setRecyclersHandler(handler);
 
         startAndInitCluster();
 
