@@ -106,7 +106,7 @@ public class IgniteCluster {
      *
      * @param nodesCount Number of nodes in the cluster.
      */
-    public void startEmbedded(int nodesCount) {
+    public void startEmbedded(int nodesCount, boolean initCluster) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -117,6 +117,10 @@ public class IgniteCluster {
         List<ServerRegistration> nodeRegistrations = new ArrayList<>();
         for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
             nodeRegistrations.add(startEmbeddedNode(nodeIndex));
+        }
+
+        if (initCluster) {
+            init(x -> {});
         }
 
         for (ServerRegistration registration : nodeRegistrations) {

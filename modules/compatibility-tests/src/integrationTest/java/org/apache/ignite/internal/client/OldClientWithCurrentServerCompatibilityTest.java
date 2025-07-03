@@ -35,7 +35,7 @@ public class OldClientWithCurrentServerCompatibilityTest {
     @Test
     public void test(TestInfo testInfo) {
         IgniteCluster cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
-        cluster.startEmbedded(1);
+        cluster.startEmbedded(1, true);
 
         ClientRunner.runClient("3.0.0");
     }
