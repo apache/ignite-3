@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.counting;
-import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -41,11 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -53,8 +46,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiPredicate;
-import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.TestWrappers;
@@ -64,7 +55,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -81,26 +71,16 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
-import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
-import org.apache.ignite.raft.jraft.util.Recyclers;
-import org.apache.ignite.raft.jraft.util.Recyclers.DefaultHandle;
-import org.apache.ignite.raft.jraft.util.Recyclers.Stack;
-import org.apache.ignite.raft.jraft.util.Recyclers.WeakOrderQueue;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Integration test of index building. */
-@Timeout(value = 20, unit = MINUTES)
 public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
@@ -110,355 +90,12 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
     private static final String INDEX_NAME = "TEST_INDEX";
 
-    private int tableCount = 0;
-
     @AfterEach
     void tearDown() {
         sql("DROP TABLE IF EXISTS " + TABLE_NAME);
-
-        if (tableCount > 0) {
-            for (int i = 0; i < tableCount; i++) {
-                sql("DROP TABLE IF EXISTS " + TABLE_NAME + i);
-            }
-
-            tableCount = 0;
-        }
-
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
 
         CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(IgniteImpl::stopDroppingMessages);
-    }
-
-    private static Stream<Arguments> testArguments() {
-        var arguments = new ArrayList<Arguments>();
-
-        arguments.add(Arguments.arguments("origin", 1, 1, 1_000));
-        arguments.add(Arguments.arguments("origin", 1, 25, 10_000));
-        arguments.add(Arguments.arguments("origin", 1, 25, 20_000));
-
-        arguments.add(Arguments.arguments("origin", 10, 1, 1_000));
-        arguments.add(Arguments.arguments("origin", 10, 25, 10_000));
-        arguments.add(Arguments.arguments("origin", 10, 25, 20_000));
-
-        arguments.add(Arguments.arguments("origin", 20, 1, 1_000));
-        arguments.add(Arguments.arguments("origin", 20, 25, 10_000));
-        arguments.add(Arguments.arguments("origin", 20, 25, 20_000));
-
-        return arguments.stream();
-    }
-
-    @ParameterizedTest
-    @MethodSource("testArguments")
-    void test(String type, int tableCount, int partitionCount, int insertCount) {
-        this.tableCount = tableCount;
-        int batchSize = 250;
-        int nameLength = 20_000;
-
-        log.info(
-                ">>>>> ItBuildIndexTest#test {} before create tables: "
-                        + "[tableCount={}, partitionCount={}, totalPartitionCount={}, replicas={}]",
-                type, tableCount, partitionCount, (tableCount * partitionCount), initialNodes()
-        );
-
-        for (int i = 0; i < tableCount; i++) {
-            createZoneAndTable(ZONE_NAME, TABLE_NAME + i, partitionCount, initialNodes());
-        }
-
-        log.info(">>>>> ItBuildIndexTest#test {} after create tables", type);
-
-        var batchInserter = new TableBatchInserter(log, batchSize, type);
-
-        for (int ti = 0; ti < tableCount; ti++) {
-            batchInserter.tableName(TABLE_NAME + ti);
-
-            for (int pi = 0; pi < insertCount; pi++) {
-                batchInserter.add(new Person(pi, bigPersonName(nameLength, pi), pi));
-
-                batchInserter.insertIfFilled();
-            }
-
-            batchInserter.insertIfNotEmpty();
-        }
-
-        log.info(">>>>> ItBuildIndexTest#test {} after fill tables", type);
-
-        String nodeName = CLUSTER.runningNodes()
-                .map(Ignite::name)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("No node nome"));
-
-        log.info(">>>>> ItBuildIndexTest#test {} node name: {}", type, nodeName);
-
-        log.info(
-                ">>>>> ItBuildIndexTest#test {} newHandleCount by stack ordered: {}",
-                type, newHandleCountByStackOrdered(byteBufferCollectorOnlyForNodeStackFilter(nodeName))
-        );
-
-        log.info(
-                ">>>>> ItBuildIndexTest#test {} weakOrderQueues by stack ordered: {}",
-                type, weakOrderQueuesByStackOrdered(byteBufferCollectorOnlyForNodeStackFilter(nodeName))
-        );
-
-        log.info(
-                ">>>>> ItBuildIndexTest#test {} stacks size: {}",
-                type, stackSizesOrdered(byteBufferCollectorOnlyForNodeStackFilter(nodeName))
-        );
-
-        log.info(
-                ">>>>> ItBuildIndexTest#test {} weakOrderQueues size: {}",
-                type, weakOrderQueuesSize(byteBufferCollectorOnlyForNodeQueueFilter(nodeName))
-        );
-
-        log.info(
-                ">>>>> ItBuildIndexTest#test {} defaultHandles size: {}",
-                type, defaultHandlesSize(byteBufferCollectorOnlyForNodeHandleFilter(nodeName))
-        );
-
-        log.info(
-                ">>>>> ItBuildIndexTest#test {} ByteBufferCollector sizes ordered: {}",
-                type, byteBufferCollectorSizes(nodeName)
-        );
-
-        log.info(
-                ">>>>> ItBuildIndexTest#test {} finish: "
-                        + "[tableCount={}, partitionCount={}, totalPartitionCount={}, replicas={}]",
-                type, tableCount, partitionCount, (tableCount * partitionCount), initialNodes()
-        );
-    }
-
-    private static String byteBufferCollectorSizes(String nodeName) {
-        List<ByteBufferCollector> collect = Recyclers.DEFAULT_HANDLES.stream()
-                .filter(h -> h.value instanceof ByteBufferCollector)
-                .filter(h -> h.stackOrigin.thread.getName().contains(nodeName))
-                .map(h -> (ByteBufferCollector) h.value)
-                .sorted(Comparator.comparingInt(ByteBufferCollector::capacity).reversed())
-                .collect(toList());
-
-        long totalCapacity = collect.stream()
-                .mapToLong(ByteBufferCollector::capacity)
-                .sum();
-
-        Map<String, Long> groupedCapacities = collect.stream()
-                .map(c -> "capacity=" + IgniteUtils.readableSize(c.capacity(), false))
-                .collect(groupingBy(Function.identity(), LinkedHashMap::new, counting()));
-
-        return "[totalCapacity=" + IgniteUtils.readableSize(totalCapacity, false)
-                + ", capacityCount=" + collect.size()
-                + ", capacities=" + groupedCapacities
-                + ']';
-    }
-
-    private static long weakOrderQueuesSize(Predicate<WeakOrderQueue> filter) {
-        return Recyclers.WEAK_ORDER_QUEUES.stream()
-                .filter(filter)
-                .count();
-    }
-
-    private static long defaultHandlesSize(Predicate<DefaultHandle> filter) {
-        return Recyclers.DEFAULT_HANDLES.stream()
-                .filter(filter)
-                .count();
-    }
-
-    private Predicate<DefaultHandle> byteBufferCollectorOnlyForNodeHandleFilter(String nodeName) {
-        return h -> byteBufferCollectorOnlyForNodeStackFilter(nodeName).test(h.stackOrigin);
-    }
-
-    private Predicate<WeakOrderQueue> byteBufferCollectorOnlyForNodeQueueFilter(String nodeName) {
-        return q -> byteBufferCollectorOnlyForNodeStackFilter(nodeName).test(q.stack);
-    }
-
-    private static String newHandleCountByStackOrdered(Predicate<Stack<?>> filter) {
-        return countByStackOrdered(filter, CountByStack::newHandleCount);
-    }
-
-    private static String weakOrderQueuesByStackOrdered(Predicate<Stack<?>> filter) {
-        return countByStackOrdered(filter, CountByStack::newWeakOrderQueueCount);
-    }
-
-    private static String stackSizesOrdered(Predicate<Stack<?>> filter) {
-        return countByStackOrdered(filter, CountByStack::stackSize);
-    }
-
-    private static String countByStackOrdered(
-            Predicate<Stack<?>> filter,
-            Function<Stack<?>, CountByStack> toCountByStackFunction
-    ) {
-        Map<String, List<CountByStack>> byParentName = Recyclers.STACKS.stream()
-                .filter(filter)
-                .map(toCountByStackFunction)
-                .collect(groupingBy(o -> o.parentName));
-
-        var res = new HashMap<String, CollectionCountByStack>();
-
-        byParentName.forEach((s, list) -> res.put(s, CollectionCountByStack.toSortedList(list)));
-
-        return res.toString();
-    }
-
-    private static Predicate<Stack<?>> byteBufferCollectorOnlyStackFilter() {
-        return s -> s.parent.getClass().getName().contains("ByteBufferCollector");
-    }
-
-    private static Predicate<Stack<?>> byteBufferCollectorOnlyForNodeStackFilter(String nodeName) {
-        return byteBufferCollectorOnlyStackFilter().and(s -> s.thread.getName().contains(nodeName));
-    }
-
-    private static String bigPersonName(int length, int personIndex) {
-        var sb = new StringBuilder(length + 100);
-
-        for (int i = 0; i < length; i++) {
-            sb.append('a');
-        }
-
-        return sb.append(personIndex).toString();
-    }
-
-    private static final class TableBatchInserter {
-        private final IgniteLogger log;
-
-        private final int bathSize;
-
-        private final String type;
-
-        private final List<Person> batch;
-
-        private String tableName;
-
-        private int batchCount;
-
-        private int insertCount;
-
-        private int insertTotalCount;
-
-        private TableBatchInserter(IgniteLogger log, int batchSize, String type) {
-            this.log = log;
-            this.bathSize = batchSize;
-            this.type = type;
-
-            batch = new ArrayList<>(batchSize);
-        }
-
-        private void add(Person p) {
-            batch.add(p);
-        }
-
-        private void tableName(String tableName) {
-            this.tableName = tableName;
-
-            insertCount = 0;
-        }
-
-        private void insertIfFilled() {
-            if (batch.size() == bathSize) {
-                insertIfNotEmpty();
-            }
-        }
-
-        private void insertIfNotEmpty() {
-            if (!batch.isEmpty()) {
-                insertPeople(tableName, batch.toArray(Person[]::new));
-
-                insertCount += batch.size();
-                insertTotalCount += batch.size();
-
-                batch.clear();
-
-                if (++batchCount % 10 == 0) {
-                    log.info(
-                            ">>>>> ItBuildIndexTest#test {} insert batch to table: "
-                                    + "[tableName={}, insertCount={}, insertTotalCount={}]",
-                            type, tableName, insertCount, insertTotalCount
-                    );
-                }
-            }
-        }
-    }
-
-    private static final class CountByStack implements Comparable<CountByStack> {
-        private final long count;
-
-        private final String parentName;
-
-        private final String threadName;
-
-        private CountByStack(Stack<?> stack, long count) {
-            this.count = count;
-            parentName = stack.parent.getClass().getName();
-            threadName = stack.thread.getName();
-        }
-
-        static CountByStack newHandleCount(Stack<?> stack) {
-            return new CountByStack(stack, stack.newHandleCount.get());
-        }
-
-        static CountByStack newWeakOrderQueueCount(Stack<?> stack) {
-            return new CountByStack(stack, stack.newWeakOrderQueueCount.get());
-        }
-
-        static CountByStack stackSize(Stack<?> stack) {
-            return new CountByStack(stack, stack.size);
-        }
-
-        @Override
-        public int compareTo(CountByStack o) {
-            int cmp = Long.compare(count, o.count);
-
-            if (cmp != 0) {
-                return cmp;
-            }
-
-            cmp = o.parentName.compareTo(o.parentName);
-
-            if (cmp != 0) {
-                return cmp;
-            }
-
-            return o.threadName.compareTo(o.threadName);
-        }
-
-        @Override
-        public String toString() {
-            return  "[thread=" + threadName + ", count=" + count + "]";
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            return o instanceof CountByStack && compareTo((CountByStack) o) == 0;
-        }
-
-        @Override
-        public int hashCode() {
-            int result = (int) (count ^ (count >>> 32));
-            result = 31 * result + parentName.hashCode();
-            result = 31 * result + threadName.hashCode();
-            return result;
-        }
-    }
-
-    private static final class CollectionCountByStack {
-        private final Collection<CountByStack> collection;
-
-        private final long totalCount;
-
-        private CollectionCountByStack(Collection<CountByStack> collection) {
-            this.collection = collection;
-
-            totalCount = collection.stream()
-                    .mapToLong(o -> o.count)
-                    .sum();
-        }
-
-        static CollectionCountByStack toSortedList(List<CountByStack> list) {
-            list.sort(Comparator.reverseOrder());
-
-            return new CollectionCountByStack(list);
-        }
-
-        @Override
-        public String toString() {
-            return "[totalCount=" + totalCount + ", collection=" + collection + "]";
-        }
     }
 
     @ParameterizedTest(name = "replicas : {0}")

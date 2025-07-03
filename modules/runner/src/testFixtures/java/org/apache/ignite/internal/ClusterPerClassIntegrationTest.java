@@ -533,12 +533,12 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * Class for updating table in {@link #insertPeople(String, Person...)}, {@link #updatePeople(String, Person...)}. You can use
      * {@link #deletePeople(String, int...)} to remove people.
      */
-    protected static class Person {
-        final int id;
+    public static class Person {
+        public final int id;
 
-        final String name;
+        public final String name;
 
-        final double salary;
+        public final double salary;
 
 
         /**
