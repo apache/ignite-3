@@ -41,4 +41,9 @@ public class TpcdsColocatedQueryPlannerTest extends TpcdsQueryPlannerTest {
     static String getQueryPlan(String queryId) {
         return TpcdsQueryPlannerTest.getQueryPlan(queryId);
     }
+
+    @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
+    static void updateQueryPlan(String queryId, String newPlan) {
+        TpcdsQueryPlannerTest.updateQueryPlan(queryId, newPlan);
+    }
 }

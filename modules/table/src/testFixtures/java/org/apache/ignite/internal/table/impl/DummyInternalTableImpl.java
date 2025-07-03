@@ -753,6 +753,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             throw new UnsupportedOperationException("Not implemented yet");
         }
 
+        @Override
+        public CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg) {
+            throw new UnsupportedOperationException("Not implemented yet");
+        }
+
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
