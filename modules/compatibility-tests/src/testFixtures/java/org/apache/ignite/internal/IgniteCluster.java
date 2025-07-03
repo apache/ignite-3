@@ -293,7 +293,7 @@ public class IgniteCluster {
             BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
 
             File javaHome = environment.getJava().getJavaHome();
-            File argFile = constructArgFile(connection, "org.apache.ignite:ignite-runner:" + igniteVersion);
+            File argFile = constructArgFile(connection, "org.apache.ignite:ignite-runner:" + igniteVersion, false);
 
             List<RunnerNode> result = new ArrayList<>();
             for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
@@ -306,7 +306,10 @@ public class IgniteCluster {
         }
     }
 
-    public static File constructArgFile(ProjectConnection connection, String dependencyNotation) throws IOException {
+    public static File constructArgFile(
+            ProjectConnection connection,
+            String dependencyNotation,
+            boolean classPathOnly) throws IOException {
         File argFilePath = File.createTempFile("argFilePath", "");
         argFilePath.deleteOnExit();
 
@@ -316,7 +319,8 @@ public class IgniteCluster {
                     .forTasks(":ignite-compatibility-tests:constructArgFile")
                     .withArguments(
                             "-PdependencyNotation=" + dependencyNotation,
-                            "-PargFilePath=" + argFilePath
+                            "-PargFilePath=" + argFilePath,
+                            "-PclassPathOnly=" + classPathOnly
                     )
                     .setStandardOutput(baos)
                     .setStandardError(baos)

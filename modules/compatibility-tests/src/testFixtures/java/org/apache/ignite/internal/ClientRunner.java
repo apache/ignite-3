@@ -3,16 +3,20 @@ package org.apache.ignite.internal;
 import com.linkedin.cytodynamics.nucleus.DelegateRelationshipBuilder;
 import com.linkedin.cytodynamics.nucleus.IsolationLevel;
 import com.linkedin.cytodynamics.nucleus.LoaderBuilder;
+import com.linkedin.cytodynamics.nucleus.OriginRestriction;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.ignite.client.IgniteClient;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
-import org.gradle.tooling.model.build.BuildEnvironment;
 
 public class ClientRunner {
-    public static void runClient(String igniteVersion) {
+    public static void runClient(String igniteVersion) throws ClassNotFoundException {
         // 1. Use constructArgFile to resolve dependencies of a given client version.
         // 2. Use Cytodynamics to run the client with the constructed arg file in an isolated classloader.
         try (ProjectConnection connection = GradleConnector.newConnector()
@@ -20,27 +24,26 @@ public class ClientRunner {
                 .forProjectDirectory(Path.of("..", "..").normalize().toFile())
                 .connect()
         ) {
-            BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
-
-            File javaHome = environment.getJava().getJavaHome();
-
             // TODO: Move constructArgFile to a utility class or method.
-            File argFile = IgniteCluster.constructArgFile(connection, "org.apache.ignite:ignite-client:" + igniteVersion);
+            File argFile = IgniteCluster.constructArgFile(connection, "org.apache.ignite:ignite-client:" + igniteVersion, true);
 
-            System.out.println(argFile.getAbsolutePath());
+            List<String> classpathLines = Files.readAllLines(argFile.toPath());
+
+            List<URI> classpath = classpathLines.stream()
+                    .map(path -> new File(path).toURI())
+                    .collect(Collectors.toList());
 
             ClassLoader loader = LoaderBuilder
                     .anIsolatingLoader()
-                    .withClasspath(List.of(argFile.toURI()))
+                    .withClasspath(classpath)
+                    .withOriginRestriction(OriginRestriction.allowByDefault())
                     .withParentRelationship(DelegateRelationshipBuilder.builder()
                             .withIsolationLevel(IsolationLevel.FULL)
                             .build())
                     .build();
 
-//            MyApi myApiImpl = (MyApi) loader.loadClass("com.myapi.MyApiImpl").newInstance();
-//
-//            myApiImpl.doIt();
-//
+            var clientClass = loader.loadClass(IgniteClient.class.getName());
+            System.out.println(clientClass);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

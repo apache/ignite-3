@@ -97,14 +97,15 @@ tasks.register('constructArgFile') {
     doLast {
         def depNotation = project.property('dependencyNotation')
         def jars = resolveAllDependencies(depNotation)
-        def classPath = files(jars).asPath
+        def jarFiles = files(jars)
+        def classPath = jarFiles.asPath
         def classPathFilePath = project.property('argFilePath')
         def classPathOnly = project.property('classPathOnly')?.toBoolean() ?: false
 
         def classPathFile = file(classPathFilePath)
         classPathFile.withPrintWriter {
             if (classPathOnly) {
-                it.println classPath
+                jarFiles.forEach {f -> it.println(f.absolutePath) }
                 return
             }
 
