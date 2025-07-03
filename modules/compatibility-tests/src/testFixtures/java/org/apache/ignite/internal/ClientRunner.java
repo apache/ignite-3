@@ -1,11 +1,13 @@
 package org.apache.ignite.internal;
 
+import com.linkedin.cytodynamics.matcher.GlobMatcher;
 import com.linkedin.cytodynamics.nucleus.DelegateRelationshipBuilder;
 import com.linkedin.cytodynamics.nucleus.IsolationLevel;
 import com.linkedin.cytodynamics.nucleus.LoaderBuilder;
 import com.linkedin.cytodynamics.nucleus.OriginRestriction;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,7 +18,7 @@ import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 
 public class ClientRunner {
-    public static void runClient(String igniteVersion) throws ClassNotFoundException {
+    public static void runClient(String igniteVersion) {
         // 1. Use constructArgFile to resolve dependencies of a given client version.
         // 2. Use Cytodynamics to run the client with the constructed arg file in an isolated classloader.
         try (ProjectConnection connection = GradleConnector.newConnector()
@@ -39,12 +41,18 @@ public class ClientRunner {
                     .withOriginRestriction(OriginRestriction.allowByDefault())
                     .withParentRelationship(DelegateRelationshipBuilder.builder()
                             .withIsolationLevel(IsolationLevel.FULL)
+                            .addWhitelistedClassPredicate(new GlobMatcher("java.*"))
                             .build())
                     .build();
 
-            var clientClass = loader.loadClass(IgniteClient.class.getName());
-            System.out.println(clientClass);
-        } catch (IOException e) {
+            Class<?> clientClass = loader.loadClass(IgniteClient.class.getName());
+            var clientBuilder = clientClass.getDeclaredMethod("builder").invoke(null);
+
+            // TODO: We can build the client, but we can't access it as IgniteClient due to the classloader isolation.
+            // 1. Whitelist the API interfaces.
+            // 2. Somehow run tests within the isolated classloader.
+            System.out.println(clientBuilder);
+        } catch (IOException | InvocationTargetException | IllegalAccessException | NoSuchMethodException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
