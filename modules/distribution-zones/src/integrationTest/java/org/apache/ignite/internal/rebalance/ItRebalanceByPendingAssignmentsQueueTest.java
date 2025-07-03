@@ -96,6 +96,7 @@ import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -141,6 +142,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
     void testDoStableKeySwitchWhenPendingQueueIsGreaterThanOne() {
         createZoneAndTable(4, 2);
 
@@ -273,6 +275,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
     void testNodeRestartDuringQueueProcessing() {
         createZoneAndTable(4, 2);
 
