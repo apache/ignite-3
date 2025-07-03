@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
@@ -92,10 +93,14 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Integration test of index building. */
+@Timeout(value = 20, unit = MINUTES)
 public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
@@ -115,6 +120,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             for (int i = 0; i < tableCount; i++) {
                 sql("DROP TABLE IF EXISTS " + TABLE_NAME + i);
             }
+
+            tableCount = 0;
         }
 
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
@@ -122,26 +129,44 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).forEach(IgniteImpl::stopDroppingMessages);
     }
 
-    @Test
-    void test() {
-        tableCount = 10;
-        int partitionCount = 25;
-        int insertCount = 20_000;
-        int batchSize = 100;
+    private static Stream<Arguments> testArguments() {
+        var arguments = new ArrayList<Arguments>();
+
+        arguments.add(Arguments.arguments("origin", 1, 1, 1_000));
+        arguments.add(Arguments.arguments("origin", 1, 25, 10_000));
+        arguments.add(Arguments.arguments("origin", 1, 25, 20_000));
+
+        arguments.add(Arguments.arguments("origin", 10, 1, 1_000));
+        arguments.add(Arguments.arguments("origin", 10, 25, 10_000));
+        arguments.add(Arguments.arguments("origin", 10, 25, 20_000));
+
+        arguments.add(Arguments.arguments("origin", 20, 1, 1_000));
+        arguments.add(Arguments.arguments("origin", 20, 25, 10_000));
+        arguments.add(Arguments.arguments("origin", 20, 25, 20_000));
+
+        return arguments.stream();
+    }
+
+    @ParameterizedTest
+    @MethodSource("testArguments")
+    void test(String type, int tableCount, int partitionCount, int insertCount) {
+        this.tableCount = tableCount;
+        int batchSize = 250;
         int nameLength = 20_000;
 
         log.info(
-                ">>>>> ItBuildIndexTest#test before create tables: [tableCount={}, totalPartitionCount={}, replicas={}]",
-                tableCount, (tableCount * partitionCount), initialNodes()
+                ">>>>> ItBuildIndexTest#test {} before create tables: "
+                        + "[tableCount={}, partitionCount={}, totalPartitionCount={}, replicas={}]",
+                type, tableCount, partitionCount, (tableCount * partitionCount), initialNodes()
         );
 
         for (int i = 0; i < tableCount; i++) {
             createZoneAndTable(ZONE_NAME, TABLE_NAME + i, partitionCount, initialNodes());
         }
 
-        log.info(">>>>> ItBuildIndexTest#test after create tables");
+        log.info(">>>>> ItBuildIndexTest#test {} after create tables", type);
 
-        var batchInserter = new TableBatchInserter(log, batchSize);
+        var batchInserter = new TableBatchInserter(log, batchSize, type);
 
         for (int ti = 0; ti < tableCount; ti++) {
             batchInserter.tableName(TABLE_NAME + ti);
@@ -155,41 +180,50 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             batchInserter.insertIfNotEmpty();
         }
 
-        log.info(">>>>> ItBuildIndexTest#test after fill tables");
+        log.info(">>>>> ItBuildIndexTest#test {} after fill tables", type);
 
-        String nodeName = "3344";
+        String nodeName = CLUSTER.runningNodes()
+                .map(Ignite::name)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No node nome"));
+
+        log.info(">>>>> ItBuildIndexTest#test {} node name: {}", type, nodeName);
 
         log.info(
-                ">>>>> ItBuildIndexTest#test newHandleCount by stack ordered: {}",
-                newHandleCountByStackOrdered(byteBufferCollectorOnlyForNodeStackFilter(nodeName))
+                ">>>>> ItBuildIndexTest#test {} newHandleCount by stack ordered: {}",
+                type, newHandleCountByStackOrdered(byteBufferCollectorOnlyForNodeStackFilter(nodeName))
         );
 
         log.info(
-                ">>>>> ItBuildIndexTest#test weakOrderQueues by stack ordered: {}",
-                weakOrderQueuesByStackOrdered(byteBufferCollectorOnlyForNodeStackFilter(nodeName))
+                ">>>>> ItBuildIndexTest#test {} weakOrderQueues by stack ordered: {}",
+                type, weakOrderQueuesByStackOrdered(byteBufferCollectorOnlyForNodeStackFilter(nodeName))
         );
 
         log.info(
-                ">>>>> ItBuildIndexTest#test stacks size: {}",
-                stackSizesOrdered(byteBufferCollectorOnlyForNodeStackFilter(nodeName))
+                ">>>>> ItBuildIndexTest#test {} stacks size: {}",
+                type, stackSizesOrdered(byteBufferCollectorOnlyForNodeStackFilter(nodeName))
         );
 
         log.info(
-                ">>>>> ItBuildIndexTest#test weakOrderQueues size: {}",
-                weakOrderQueuesSize(byteBufferCollectorOnlyForNodeQueueFilter(nodeName))
+                ">>>>> ItBuildIndexTest#test {} weakOrderQueues size: {}",
+                type, weakOrderQueuesSize(byteBufferCollectorOnlyForNodeQueueFilter(nodeName))
         );
 
         log.info(
-                ">>>>> ItBuildIndexTest#test defaultHandles size: {}",
-                defaultHandlesSize(byteBufferCollectorOnlyForNodeHandleFilter(nodeName))
+                ">>>>> ItBuildIndexTest#test {} defaultHandles size: {}",
+                type, defaultHandlesSize(byteBufferCollectorOnlyForNodeHandleFilter(nodeName))
         );
 
         log.info(
-                ">>>>> ItBuildIndexTest#test ByteBufferCollector sizes ordered: {}",
-                byteBufferCollectorSizes(nodeName)
+                ">>>>> ItBuildIndexTest#test {} ByteBufferCollector sizes ordered: {}",
+                type, byteBufferCollectorSizes(nodeName)
         );
 
-        log.info(">>>>> ItBuildIndexTest#test finish");
+        log.info(
+                ">>>>> ItBuildIndexTest#test {} finish: "
+                        + "[tableCount={}, partitionCount={}, totalPartitionCount={}, replicas={}]",
+                type, tableCount, partitionCount, (tableCount * partitionCount), initialNodes()
+        );
     }
 
     private static String byteBufferCollectorSizes(String nodeName) {
@@ -285,6 +319,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         private final int bathSize;
 
+        private final String type;
+
         private final List<Person> batch;
 
         private String tableName;
@@ -295,9 +331,10 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         private int insertTotalCount;
 
-        private TableBatchInserter(IgniteLogger log, int batchSize) {
+        private TableBatchInserter(IgniteLogger log, int batchSize, String type) {
             this.log = log;
             this.bathSize = batchSize;
+            this.type = type;
 
             batch = new ArrayList<>(batchSize);
         }
@@ -329,8 +366,9 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
                 if (++batchCount % 10 == 0) {
                     log.info(
-                            ">>>>> ItBuildIndexTest#test insert batch to table: [tableName={}, insertCount={}, insertTotalCount={}]",
-                            tableName, insertCount, insertTotalCount
+                            ">>>>> ItBuildIndexTest#test {} insert batch to table: "
+                                    + "[tableName={}, insertCount={}, insertTotalCount={}]",
+                            type, tableName, insertCount, insertTotalCount
                     );
                 }
             }
