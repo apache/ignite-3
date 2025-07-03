@@ -19,20 +19,27 @@ package org.apache.ignite.internal.streamer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 class StreamerBuffer<T> {
     private final int capacity;
 
-    private final Consumer<List<T>> flusher;
+    private final Function<List<T>, CompletableFuture<?>> flusher;
 
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
     private boolean closed;
 
-    StreamerBuffer(int capacity, Consumer<List<T>> flusher) {
+    /** Last flush completion timestamp, in nanoseconds. */
+    private long lastFlushNanos = System.nanoTime();
+
+    private CompletableFuture<?> flushFut;
+
+    StreamerBuffer(int capacity, Function<List<T>, CompletableFuture<?>> flusher) {
         this.capacity = capacity;
         this.flusher = flusher;
         buf = new ArrayList<>(capacity);
@@ -56,6 +63,7 @@ class StreamerBuffer<T> {
             if (buf.size() >= capacity) {
                 bufToFlush = buf;
                 buf = new ArrayList<>(capacity);
+                lastFlushNanos = System.nanoTime();
             }
         }
 
@@ -78,7 +86,7 @@ class StreamerBuffer<T> {
         flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
     }
 
-    void flush() {
+    void autoFlush(long intervalNanos) {
         List<T> bufToFlush;
 
         synchronized (this) {
@@ -86,8 +94,19 @@ class StreamerBuffer<T> {
                 return;
             }
 
+            if (flushFut != null && !flushFut.isDone()) {
+                // Flush in progress.
+                return;
+            }
+
+            if (System.nanoTime() - lastFlushNanos < intervalNanos) {
+                // Not enough time has passed since the last flush.
+                return;
+            }
+
             bufToFlush = buf;
             buf = new ArrayList<>(capacity);
+            lastFlushNanos = System.nanoTime();
         }
 
         flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
@@ -106,6 +125,10 @@ class StreamerBuffer<T> {
             return;
         }
 
-        flusher.accept(bufToFlush);
+        CompletableFuture<?> fut = flusher.apply(bufToFlush);
+
+        synchronized (this) {
+            flushFut = fut;
+        }
     }
 }
