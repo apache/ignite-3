@@ -29,6 +29,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
@@ -331,6 +332,9 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                                 LOG.debug("New client connection [connectionId=" + connectionId
                                         + ", remoteAddress=" + ch.remoteAddress() + ']');
                             }
+
+                            ch.pipeline().addFirst(new FlushConsolidationHandler(
+                                    FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
 
                             if (configuration.idleTimeoutMillis() > 0) {
                                 IdleStateHandler idleStateHandler = new IdleStateHandler(
