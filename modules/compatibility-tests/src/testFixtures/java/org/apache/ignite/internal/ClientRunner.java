@@ -75,7 +75,7 @@ public class ClientRunner {
                                      .spiedInstance(client)
                                      .defaultAnswer(CALLS_REAL_METHODS));
 
-            // ign.tables().tables();
+            // TODO: Use @ExtendWith to run tests in the context of the client classloader.
             System.out.println(ign);
         } catch (Throwable t) {
             throw new RuntimeException(t);
