@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;

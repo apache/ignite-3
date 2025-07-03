@@ -92,6 +92,7 @@ import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Sarg;
@@ -313,7 +314,7 @@ public class RexUtils {
             RelCollation collation,
             @Nullable RexNode condition,
             RelDataType rowType,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         if (condition == null) {
             return null;
@@ -348,7 +349,8 @@ public class RexUtils {
         Mappings.TargetMapping mapping = null;
 
         if (requiredColumns != null) {
-            mapping = Commons.trimmingMapping(types.size(), requiredColumns);
+            // TODO: IGNITE-22703 recheck required columns usage.
+            mapping = Commons.projectedMapping(types.size(), requiredColumns);
         }
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
@@ -405,7 +407,7 @@ public class RexUtils {
             RelCollation collation,
             RexNode condition,
             RelDataType rowType,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         if (condition == null) {
             return null;
@@ -425,7 +427,8 @@ public class RexUtils {
 
         Mappings.TargetMapping toTrimmedRowMapping = null;
         if (requiredColumns != null) {
-            toTrimmedRowMapping = Commons.trimmingMapping(types.size(), requiredColumns);
+            // TODO: IGNITE-22703 recheck required columns usage.
+            toTrimmedRowMapping = Commons.projectedMapping(types.size(), requiredColumns);
         }
 
         List<RelFieldCollation> fieldCollations = collation.getFieldCollations();

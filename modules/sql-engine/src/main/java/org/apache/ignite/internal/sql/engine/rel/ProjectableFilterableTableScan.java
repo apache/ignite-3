@@ -44,7 +44,7 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ControlFlowException;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
@@ -66,7 +66,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     protected final @Nullable List<String> names;
 
     /** Participating columns. */
-    protected final ImmutableBitSet requiredColumns;
+    protected final ImmutableIntList requiredColumns;
 
     protected ProjectableFilterableTableScan(
             RelOptCluster cluster,
@@ -76,7 +76,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
             @Nullable List<String> names,
             @Nullable List<RexNode> projects,
             @Nullable RexNode condition,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(cluster, traitSet, hints, table);
 
@@ -91,7 +91,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         condition = input.getExpression("filters");
         names = input.get("names") == null ? null : input.getStringList("names");
         projects = input.get("projects") == null ? null : input.getExpressionList("projects");
-        requiredColumns = input.get("requiredColumns") == null ? null : input.getBitSet("requiredColumns");
+
+        List<Integer> requiredColumns0 = input.getIntegerList("requiredColumns");
+        requiredColumns = requiredColumns0 == null ? null : ImmutableIntList.copyOf(requiredColumns0);
     }
 
     /** Returns field names explicitly passed during object creation, if any. */
@@ -116,7 +118,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     /**
      * Get participating columns.
      */
-    public ImmutableBitSet requiredColumns() {
+    public ImmutableIntList requiredColumns() {
         return requiredColumns;
     }
 
@@ -244,7 +246,8 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
 
         if (condition != null || projects != null) {
             RelDataType rowType = getTable().getRowType();
-            if (requiredColumns != null && requiredColumns.cardinality() < rowType.getFieldCount()) {
+            // TODO IGNITE-22703 check requiredColumns usage
+            if (requiredColumns != null && requiredColumns.size() < rowType.getFieldCount()) {
                 RelDataTypeFactory tf = getCluster().getTypeFactory();
                 IgniteDataSource dataSource = getTable().unwrap(IgniteDataSource.class);
 

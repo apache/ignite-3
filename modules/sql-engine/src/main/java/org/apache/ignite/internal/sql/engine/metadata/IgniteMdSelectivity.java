@@ -37,7 +37,6 @@ import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
@@ -197,9 +196,10 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
 
         // sys view is possible here
         if (table != null) {
+            // TODO: IGNITE-27703 recheck required columns usage.
             int colCount = table.getRowType(Commons.typeFactory()).getFieldCount();
-            ImmutableBitSet requiredCols = rel.requiredColumns() == null ? ImmutableBitSet.range(colCount) : rel.requiredColumns();
-            columnMapping = Commons.trimmingMapping(colCount, requiredCols);
+            ImmutableIntList requiredCols = rel.requiredColumns() == null ? ImmutableIntList.identity(colCount) : rel.requiredColumns();
+            columnMapping = Commons.projectedMapping(colCount, requiredCols);
 
             keyColumns = table.keyColumns();
             primaryKeys = new BitSet();

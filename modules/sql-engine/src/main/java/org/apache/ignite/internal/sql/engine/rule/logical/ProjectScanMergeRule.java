@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
@@ -28,7 +30,7 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
@@ -65,7 +67,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
             List<String> names,
             List<RexNode> projections,
             RexNode cond,
-            ImmutableBitSet requiredColumns
+            ImmutableIntList requiredColumns
     );
 
     /**
@@ -86,7 +88,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         List<String> names = relProject.getRowType().getFieldNames();
         List<RexNode> projects = relProject.getProjects();
         RexNode cond = scan.condition();
-        ImmutableBitSet requiredColumns = scan.requiredColumns();
+        ImmutableIntList requiredColumns = scan.requiredColumns();
         List<RexNode> scanProjects = scan.projects();
 
         // Set default traits, real traits will be calculated for physical node.
@@ -95,28 +97,29 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         IgniteDataSource tbl = scan.getTable().unwrap(IgniteDataSource.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
 
+        // TODO: IGNITE-27703 revisit required columns usage.
         if (requiredColumns == null) {
             assert scanProjects == null;
 
-            ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
+            IntList refs = new IntArrayList();
 
             new RexShuttle() {
                 @Override public RexNode visitInputRef(RexInputRef ref) {
-                    builder.set(ref.getIndex());
+                    refs.add(ref.getIndex());
                     return ref;
                 }
             }.apply(projects);
 
             new RexShuttle() {
                 @Override public RexNode visitLocalRef(RexLocalRef inputRef) {
-                    builder.set(inputRef.getIndex());
+                    refs.add(inputRef.getIndex());
                     return inputRef;
                 }
             }.apply(cond);
 
-            requiredColumns = builder.build();
+            requiredColumns = ImmutableIntList.copyOf(refs.toIntArray());
 
-            Mappings.TargetMapping targetMapping = Commons.trimmingMapping(
+            Mappings.TargetMapping targetMapping = Commons.projectedMapping(
                     tbl.getRowType(typeFactory).getFieldCount(), requiredColumns);
 
             projects = new RexShuttle() {
@@ -172,7 +175,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
                 List<String> names,
                 List<RexNode> projections,
                 RexNode cond,
-                ImmutableBitSet requiredColumns
+                ImmutableIntList requiredColumns
         ) {
             return IgniteLogicalTableScan.create(
                     cluster,
@@ -205,7 +208,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
                 List<String> names,
                 List<RexNode> projections,
                 RexNode cond,
-                ImmutableBitSet requiredColumns
+                ImmutableIntList requiredColumns
         ) {
             return IgniteLogicalIndexScan.create(
                 cluster,
@@ -237,7 +240,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
                 List<String> names,
                 List<RexNode> projections,
                 RexNode cond,
-                ImmutableBitSet requiredColumns
+                ImmutableIntList requiredColumns
         ) {
             return IgniteLogicalSystemViewScan.create(
                     cluster,

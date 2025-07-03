@@ -25,7 +25,7 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
@@ -73,7 +73,7 @@ public class IgniteKeyValueGet extends ProjectableFilterableTableScan implements
             @Nullable List<String> names,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(cluster, traits, hints, table, names, proj, cond, requiredColumns);
 

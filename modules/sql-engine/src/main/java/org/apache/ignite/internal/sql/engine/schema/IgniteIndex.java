@@ -33,7 +33,7 @@ import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -151,7 +151,7 @@ public class IgniteIndex {
             @Nullable List<String> names,
             List<RexNode> proj,
             RexNode condition,
-            ImmutableBitSet requiredCols
+            ImmutableIntList requiredCols
     ) {
         RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
                 .replace(tableDistribution)

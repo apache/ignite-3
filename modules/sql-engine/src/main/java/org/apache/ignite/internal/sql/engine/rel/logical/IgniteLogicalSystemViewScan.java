@@ -24,7 +24,7 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,7 +42,7 @@ public class IgniteLogicalSystemViewScan extends ProjectableFilterableTableScan 
             @Nullable List<String> names,
             @Nullable List<RexNode> projections,
             @Nullable RexNode condition,
-            @Nullable ImmutableBitSet reqColumns
+            @Nullable ImmutableIntList reqColumns
     ) {
         super(cluster, traitSet, hints, table, names, projections, condition, reqColumns);
     }
@@ -66,7 +66,7 @@ public class IgniteLogicalSystemViewScan extends ProjectableFilterableTableScan 
             @Nullable List<String> names,
             @Nullable List<RexNode> projections,
             @Nullable RexNode condition,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         return new IgniteLogicalSystemViewScan(cluster, traits, hints, table, names, projections, condition, requiredColumns);
     }
