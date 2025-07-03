@@ -132,6 +132,7 @@ public class ConfigurationTreeComparator {
         return Objects.equals(candidate.kind(), node.kind())
                 && Objects.equals(candidate.name(), node.name())
                 && validateFlags(candidate, node)
+                && (!node.isValue() || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
                 // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
                 && candidate.annotations().containsAll(node.annotations()); // Annotations can't be removed.
     }

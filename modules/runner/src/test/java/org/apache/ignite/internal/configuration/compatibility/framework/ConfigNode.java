@@ -30,6 +30,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Tree node that describes a configuration tree item.
@@ -105,6 +106,11 @@ public class ConfigNode {
         return attributes.get(Attributes.KIND);
     }
 
+    /** Returns value node type. */
+    public String type() {
+        return attributes.get(Attributes.CLASS);
+    }
+
     /**
      * Returns the child nodes of this node.
      */
@@ -120,10 +126,20 @@ public class ConfigNode {
     }
 
     /**
-     * Returns the child nodes of this node.
+     * Add the child nodes to this node.
      */
     void addChildNodes(Collection<ConfigNode> childNodes) {
+        assert !flags.contains(Flags.IS_VALUE) : "Value node can't have children.";
+
         childNodes.forEach(e -> childNodeMap.put(e.name(), e));
+    }
+
+    /**
+     * Shortcut to {@link #addChildNodes(Collection)}.
+     */
+    @TestOnly
+    void addChildNodes(ConfigNode... childNodes) {
+        addChildNodes(List.of(childNodes));
     }
 
     /**

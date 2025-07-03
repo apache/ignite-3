@@ -35,6 +35,10 @@ public class ConfigAnnotation {
         // Default constructor for Jackson deserialization.
     }
 
+    ConfigAnnotation(String name) {
+        this(name, Map.of());
+    }
+
     ConfigAnnotation(String name, Map<String, String> properties) {
         this.name = name;
         this.properties = properties;

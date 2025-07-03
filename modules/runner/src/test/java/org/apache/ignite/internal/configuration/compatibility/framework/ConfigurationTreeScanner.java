@@ -137,7 +137,7 @@ public class ConfigurationTreeScanner {
         return Arrays.stream(field.getDeclaredAnnotations())
                 .map(Annotation::annotationType)
                 .filter(not(SUPPORTED_FIELD_ANNOTATIONS::contains))
-                .map(a -> new ConfigAnnotation(a.getName(), null))
+                .map(a -> new ConfigAnnotation(a.getName()))
                 .collect(Collectors.toList());
     }
 
