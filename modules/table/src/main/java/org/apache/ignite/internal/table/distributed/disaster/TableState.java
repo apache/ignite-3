@@ -30,7 +30,7 @@ public class TableState {
     public final String schemaName;
     public final String tableName;
 
-    public TableState(int tableId, String tableName, int schemaId, String schemaName) {
+    TableState(int tableId, String tableName, int schemaId, String schemaName) {
         this.schemaId = schemaId;
         this.tableId = tableId;
         this.schemaName = schemaName;
