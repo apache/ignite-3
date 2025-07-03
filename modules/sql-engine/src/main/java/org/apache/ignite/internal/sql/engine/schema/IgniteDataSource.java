@@ -62,8 +62,7 @@ public interface IgniteDataSource extends TranslatableTable, Wrapper {
     /** {@inheritDoc} */
     @Override
     default RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        // TODO IGNITE-22703 remove cast
-        return getRowType(typeFactory, (ImmutableIntList) null);
+        return getRowType(typeFactory, null);
     }
 
     /**

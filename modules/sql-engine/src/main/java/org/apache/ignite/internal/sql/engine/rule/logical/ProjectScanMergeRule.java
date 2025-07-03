@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
@@ -97,11 +99,10 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         IgniteDataSource tbl = scan.getTable().unwrap(IgniteDataSource.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
 
-        // TODO: IGNITE-27703 revisit required columns usage.
         if (requiredColumns == null) {
             assert scanProjects == null;
 
-            IntList refs = new IntArrayList();
+            IntSet refs = new IntLinkedOpenHashSet();
 
             new RexShuttle() {
                 @Override public RexNode visitInputRef(RexInputRef ref) {
@@ -146,6 +147,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
             }.apply(projects);
         }
 
+        // TODO: IGNITE-22703 revisit required columns usage.
         if (RexUtils.isIdentity(projects, tbl.getRowType(typeFactory, requiredColumns), true)) {
             projects = null;
         }

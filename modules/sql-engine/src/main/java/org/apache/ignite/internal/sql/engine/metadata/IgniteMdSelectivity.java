@@ -40,6 +40,7 @@ import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mapping;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -196,10 +197,10 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
 
         // sys view is possible here
         if (table != null) {
-            // TODO: IGNITE-27703 recheck required columns usage.
             int colCount = table.getRowType(Commons.typeFactory()).getFieldCount();
-            ImmutableIntList requiredCols = rel.requiredColumns() == null ? ImmutableIntList.identity(colCount) : rel.requiredColumns();
-            columnMapping = Commons.projectedMapping(colCount, requiredCols);
+            columnMapping = rel.requiredColumns() == null
+                    ? Mappings.createIdentity(colCount)
+                    : Commons.projectedMapping(colCount, rel.requiredColumns());
 
             keyColumns = table.keyColumns();
             primaryKeys = new BitSet();

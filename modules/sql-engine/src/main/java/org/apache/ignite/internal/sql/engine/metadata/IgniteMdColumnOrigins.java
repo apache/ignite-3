@@ -99,7 +99,6 @@ public class IgniteMdColumnOrigins implements MetadataHandler<ColumnOrigin> {
 
         ImmutableIntList requiredColumns = scan.requiredColumns();
         if (requiredColumns != null) {
-            // TODO: IGNITE-27703 check required columns usage.
             Mapping trimming = Commons.projectedMapping(table.getRowType().getFieldCount(), requiredColumns);
 
             outputColumn = trimming.getSourceOpt(outputColumn);

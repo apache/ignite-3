@@ -246,8 +246,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
 
         if (condition != null || projects != null) {
             RelDataType rowType = getTable().getRowType();
-            // TODO IGNITE-22703 check requiredColumns usage
-            if (requiredColumns != null && requiredColumns.size() < rowType.getFieldCount()) {
+            if (requiredColumns != null) {
                 RelDataTypeFactory tf = getCluster().getTypeFactory();
                 IgniteDataSource dataSource = getTable().unwrap(IgniteDataSource.class);
 

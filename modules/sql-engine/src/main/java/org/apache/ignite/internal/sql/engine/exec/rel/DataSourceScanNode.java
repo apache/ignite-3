@@ -63,7 +63,6 @@ public class DataSourceScanNode<RowT> extends StorageScanNode<RowT> {
 
         this.dataSource = dataSource;
 
-        // TODO: IGNITE-22703 Revisit. Can we rely on columns count here? and always use compatible schema? and drop isFullIdentityMapping?
         if (requiredColumns == null || isFullIdentityMapping(requiredColumns, schema)) {
             converter = rowFactory::create;
         } else {

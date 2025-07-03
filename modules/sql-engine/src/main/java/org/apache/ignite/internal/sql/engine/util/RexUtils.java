@@ -346,12 +346,9 @@ public class RexUtils {
 
         List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
 
-        Mappings.TargetMapping mapping = null;
-
-        if (requiredColumns != null) {
-            // TODO: IGNITE-22703 recheck required columns usage.
-            mapping = Commons.projectedMapping(types.size(), requiredColumns);
-        }
+        Mappings.TargetMapping mapping = requiredColumns == null
+                ? Mappings.createIdentity(types.size())
+                : Commons.projectedMapping(types.size(), requiredColumns);
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
         boolean boundsEmpty = true;
@@ -368,9 +365,7 @@ public class RexUtils {
                 break;
             }
 
-            if (mapping != null) {
-                collFldIdx = mapping.getSourceOpt(collFldIdx);
-            }
+            collFldIdx = mapping.getSourceOpt(collFldIdx);
 
             SearchBounds fldBounds = createBounds(fieldCollation, collFldPreds, cluster, types.get(collFldIdx), prevComplexity);
 
@@ -425,11 +420,9 @@ public class RexUtils {
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
 
-        Mappings.TargetMapping toTrimmedRowMapping = null;
-        if (requiredColumns != null) {
-            // TODO: IGNITE-22703 recheck required columns usage.
-            toTrimmedRowMapping = Commons.projectedMapping(types.size(), requiredColumns);
-        }
+        Mappings.TargetMapping targetMapping = requiredColumns == null
+                ? Mappings.createIdentity(types.size())
+                : Commons.projectedMapping(types.size(), requiredColumns);
 
         List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
         for (int i = 0; i < fieldCollations.size(); i++) {
@@ -449,9 +442,7 @@ public class RexUtils {
                 return null; // Non-equality conditions are not expected.
             }
 
-            if (toTrimmedRowMapping != null) {
-                collFldIdx = toTrimmedRowMapping.getSourceOpt(collFldIdx);
-            }
+            collFldIdx = targetMapping.getSourceOpt(collFldIdx);
 
             bounds.set(i, createBounds(null, Collections.singletonList(columnPred), cluster, types.get(collFldIdx), 1));
         }

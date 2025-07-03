@@ -153,7 +153,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     /** {@inheritDoc} */
     @Override
     public RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableIntList usedColumns) {
-        // TODO: IGNITE-22703 recheck if this can be optimized.
         if (usedColumns == null) {
             return rowType;
         } else {
