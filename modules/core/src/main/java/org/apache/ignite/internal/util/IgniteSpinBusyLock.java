@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @see IgniteSpinReadWriteLock
  */
-public class IgniteSpinBusyLock {
+public class IgniteSpinBusyLock implements IgniteBusyLock {
     /** Underlying read-write lock. */
     private final IgniteSpinReadWriteLock lock = new IgniteSpinReadWriteLock();
 
@@ -41,6 +41,7 @@ public class IgniteSpinBusyLock {
      *
      * @return {@code true} if entered to busy state.
      */
+    @Override
     public boolean enterBusy() {
         return !lock.writeLockedByCurrentThread() && lock.tryReadLock();
     }
@@ -57,6 +58,7 @@ public class IgniteSpinBusyLock {
     /**
      * Leaves "busy" state.
      */
+    @Override
     public void leaveBusy() {
         lock.readUnlock();
     }

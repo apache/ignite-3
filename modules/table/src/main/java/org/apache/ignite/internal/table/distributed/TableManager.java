@@ -2286,7 +2286,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         };
     }
 
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(
+    protected CompletableFuture<Void> handleChangePendingAssignmentEvent(
             Entry pendingAssignmentsEntry,
             long revision,
             boolean isRecovery
@@ -2460,11 +2460,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }));
                     }), ioExecutor);
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
-                assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
-
-                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
-            }), ioExecutor);
+            localServicesStartFuture = replicaMgr.resetWithRetry(replicaGrpId, computedStableAssignments, () ->
+            // TODO: extract pending assignments reading to a utility method.
+            metaStorageMgr.get(pendingPartAssignmentsQueueKey(replicaGrpId))
+                    .thenApply(RebalanceUtil::readPendingAssignments)
+                    .thenApply(actualPending ->
+                            (actualPending != null && actualPending.force() && localAssignment(actualPending) != null)
+                                    ? actualPending
+                                    : null
+                    )
+            );
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
