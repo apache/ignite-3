@@ -43,9 +43,11 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Testing RW transactions and indexes. */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-25686")
 @SuppressWarnings("resource")
 public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";

@@ -23,8 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import java.time.Duration;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-25686")
 class ItIndexRegistrationAndRebalanceConcurrencyTest extends ClusterPerTestIntegrationTest {
     private static final String TEST_ZONE_NAME = "test_zone";
     private static final String TEST_TABLE_NAME = "test_table";

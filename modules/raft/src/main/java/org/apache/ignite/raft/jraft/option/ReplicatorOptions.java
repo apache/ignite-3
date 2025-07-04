@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.option;
 
+import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.raft.jraft.core.BallotBox;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -26,6 +27,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.RaftClientService;
 import org.apache.ignite.raft.jraft.storage.LogManager;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.Copiable;
 
 /**
@@ -220,5 +222,9 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
      */
     public ExecutorService getCommonExecutor() {
         return getNode().getOptions().getCommonExecutor();
+    }
+
+    public Queue<ByteBufferCollector> getAppendEntriesByteBufferCollectorQueue() {
+        return getNode().getOptions().getAppendEntriesByteBufferCollectorQueue();
     }
 }
