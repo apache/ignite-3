@@ -642,6 +642,22 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
+     * Returns current term of raft node.
+     *
+     * @param nodeId ID of the Raft node.
+     * @return Current term.
+     */
+    public long currentTerm(RaftNodeId nodeId) {
+        RaftGroupService service = nodes.get(nodeId);
+
+        if (service == null) {
+            throw new IgniteInternalException("No raft node found: " + nodeId);
+        }
+
+        return service.getRaftNode().getCurrentTerm();
+    }
+
+    /**
      * Performs a {@code resetPeers} operation on raft node.
      *
      * @param raftNodeId Raft node ID.

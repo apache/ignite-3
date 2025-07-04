@@ -122,7 +122,6 @@ import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
-import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -364,7 +363,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         doReturn(completedFuture(mock(Replica.class, RETURNS_DEEP_STUBS))).when(replicaMgr).replica(any());
         when(replicaMgr.resetPeers(any(), any(), anyLong()))
                 .thenThrow(IllegalStateException.class).thenReturn(false).thenReturn(true);
-        when(replicaMgr.currentTerm(any())).thenReturn(new IndexWithTerm(1, 1));
+        when(replicaMgr.currentTerm(any())).thenReturn(1L);
 
         // This is to wait until handleChangePendingAssignments is finished.
         CompletableFuture<Void> assignmentsHandled = new CompletableFuture<>();

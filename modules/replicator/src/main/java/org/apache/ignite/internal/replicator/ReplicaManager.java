@@ -88,7 +88,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
-import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -792,15 +791,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group id.
      * @return Current term.
      */
-    public @Nullable IndexWithTerm currentTerm(ReplicationGroupId replicaGrpId) {
+    public long currentTerm(ReplicationGroupId replicaGrpId) {
         Loza loza = (Loza) raftManager;
-        try {
-            return loza.raftNodeIndex(new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId)));
-        } catch (NodeStoppingException e) {
-            // TODO: properly handle node stopping.
-            LOG.debug("Node is stopping.", e);
-            return null;
-        }
+
+        return loza.currentTerm(new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId)));
     }
 
     /**
@@ -823,13 +817,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param peersAndLearners New node configuration.
      */
     boolean resetPeers(ReplicationGroupId replicaGrpId, PeersAndLearners peersAndLearners) {
-        IndexWithTerm indexWithTerm = currentTerm(replicaGrpId);
-        if (indexWithTerm == null) {
-            // TODO: This is not handled in reset either.
-            return false;
-        }
-
-        return resetPeers(replicaGrpId, peersAndLearners, indexWithTerm.term());
+        return resetPeers(replicaGrpId, peersAndLearners, currentTerm(replicaGrpId));
     }
 
     /**
@@ -845,13 +833,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) {
         var result = new CompletableFuture<Void>();
 
-        IndexWithTerm indexWithTerm = currentTerm(replicaGrpId);
+        long term;
 
-        if (indexWithTerm == null) {
-            return failedFuture(new IllegalStateException("The local node is outside of the replication group: " + replicaGrpId));
+        try {
+            term = currentTerm(replicaGrpId);
+        } catch (Exception e) {
+            return failedFuture(e);
         }
 
-        resetWithRetry(replicaGrpId, assignments, indexWithTerm.term(), result, 1, retryOperation);
+        resetWithRetry(replicaGrpId, assignments, term, result, 1, retryOperation);
 
         return result;
     }
@@ -872,7 +862,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .whenComplete((resetSuccessful, ex) -> {
                     if (ex != null) {
                         if (isRetriable(ex)) {
-                            LOG.error("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
+                            LOG.error("Failed to reset peers. Retrying [groupId={}]. ", ex, replicaGrpId);
 
                             resetWithRetryThrottling(replicaGrpId, result, iteration, retryOperation);
                         } else {
@@ -898,19 +888,28 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 () -> {
                     retryOperation.get().whenComplete((actualPending, err) -> {
                         if (err != null) {
+                            LOG.error("Failed to check the invariant for reset peers. [groupId={}]. ", err, replicaGrpId);
                             result.completeExceptionally(err);
                         } else if (actualPending == null) {
+                            LOG.error("No longer eligible to reset peers. [groupId={}]. ", replicaGrpId);
                             result.completeExceptionally(
                                     new IllegalStateException("Local node is no longer in pending for: " + replicaGrpId));
                         } else {
-                            IndexWithTerm indexWithTerm = currentTerm(replicaGrpId);
+                            long term;
 
-                            if (indexWithTerm == null) {
+                            try {
+                                term = currentTerm(replicaGrpId);
+                            } catch (Exception e) {
+                                LOG.error("Failed to get current term. [groupId={}]. ", replicaGrpId);
                                 result.completeExceptionally(new IllegalStateException("Failed to get current term: " + replicaGrpId));
                                 return;
                             }
 
-                            resetWithRetry(replicaGrpId, actualPending, indexWithTerm.term(), result, iteration + 1, retryOperation);
+                            LOG.info("Reset peers retrying [groupId={}, pending={}, term={}]",
+                                    replicaGrpId, actualPending, term);
+
+
+                            resetWithRetry(replicaGrpId, actualPending, term, result, iteration + 1, retryOperation);
                         }
                     });
                 },

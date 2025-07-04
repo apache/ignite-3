@@ -460,6 +460,16 @@ public class Loza implements RaftManager {
         }
     }
 
+    /**
+     * Returns current term of the node or throws an exception if the node is not running.
+     *
+     * @param nodeId ID of the Raft node.
+     * @return Current term.
+     */
+    public long currentTerm(RaftNodeId nodeId) {
+        return raftServer.currentTerm(nodeId);
+    }
+
     private <T extends RaftGroupService> T startRaftGroupNodeInternal(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
