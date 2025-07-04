@@ -96,7 +96,6 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 ? tableColumnSet
                 : projection;
 
-        // TODO: IGNITE-22703 Can we opmitimize this?
         if (Commons.isIdentityMapping(mapping, schemaDescriptor.length())) {
             return fullRowConverter;
         }

@@ -41,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.immutables.value.Value;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Rule that pushes filters and projections into a scan operation. This rule also prunes unused columns from a scan operator.
@@ -65,8 +66,8 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
             T scan,
             RelTraitSet traits,
             List<String> names,
-            List<RexNode> projections,
-            RexNode cond,
+            @Nullable List<RexNode> projections,
+            @Nullable RexNode cond,
             ImmutableIntList requiredColumns
     );
 
@@ -145,7 +146,6 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
             }.apply(projects);
         }
 
-        // TODO: IGNITE-22703 revisit required columns usage.
         if (RexUtils.isIdentity(projects, tbl.getRowType(typeFactory, requiredColumns))) {
             projects = null;
         }

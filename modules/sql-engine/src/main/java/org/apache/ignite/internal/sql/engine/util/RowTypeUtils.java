@@ -23,6 +23,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Row type utils class.
@@ -53,23 +54,19 @@ public final class RowTypeUtils {
         return count;
     }
 
-    private static ImmutableIntList storedColumns(TableDescriptor tableDescriptor) {
+    private static @Nullable ImmutableIntList storedColumns(TableDescriptor tableDescriptor) {
+        if (!tableDescriptor.hasVirtualColumns()) {
+            return null;
+        }
+
         IntArrayList storedColumns = new IntArrayList(tableDescriptor.columnsCount());
 
-        // TODO: IGNITE-22703 Let's add a flag to descriptor and run this check only once.
-        boolean virtualColumnFound = false;
         for (ColumnDescriptor descriptor : tableDescriptor) {
             if (!descriptor.virtual()) {
                 storedColumns.add(descriptor.logicalIndex());
-            } else {
-                virtualColumnFound = true;
             }
         }
 
-        if (virtualColumnFound) {
-            return ImmutableIntList.of(storedColumns.toIntArray());
-        }
-
-        return null;
+        return ImmutableIntList.of(storedColumns.toIntArray());
     }
 }
