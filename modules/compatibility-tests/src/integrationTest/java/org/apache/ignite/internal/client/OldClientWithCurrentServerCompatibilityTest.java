@@ -28,6 +28,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(OldClientTestInstanceFactory.class)
 public class OldClientWithCurrentServerCompatibilityTest {
     @WorkDirectory
     private Path workDir;
