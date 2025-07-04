@@ -1523,6 +1523,31 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return catalog;
     }
 
+    /**
+     * A helper method to get table states for the specified zone when colocation is enabled.
+     *
+     * @param zoneName Zone name.
+     * @return A collection of table states.
+     */
+    public Collection<TableState> zoneTablesStates(String zoneName) {
+        Catalog catalog = catalogLatestVersion();
+        int zoneId = zoneDescriptor(catalog, zoneName).id();
+
+        return tableManager.zoneTables(zoneId).stream()
+                .map(table -> {
+                    CatalogTableDescriptor tableDescriptor = catalog.table(table.tableId());
+                    String schemaName = catalog.schema(tableDescriptor.schemaId()).name();
+
+                    return new TableState(
+                            table.tableId(),
+                            table.qualifiedName().objectName(),
+                            tableDescriptor.schemaId(),
+                            schemaName
+                    );
+                })
+                .collect(toList());
+    }
+
     private static CatalogTableDescriptor tableDescriptor(Catalog catalog, String schemaName, String tableName) {
         CatalogTableDescriptor tableDescriptor = catalog.table(schemaName, tableName);
 
