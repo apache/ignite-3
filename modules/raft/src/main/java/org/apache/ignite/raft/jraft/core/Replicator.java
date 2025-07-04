@@ -171,6 +171,11 @@ public class Replicator implements ThreadId.OnError {
         this.rpcService = replicatorOptions.getRaftRpcService();
         this.metricName = getReplicatorMetricName(replicatorOptions);
         setState(State.Created);
+
+        BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.put(
+                replicatorOptions.getNode().getNodeId().getPeerId().getConsistentId(),
+                replicatorOptions.getAppendEntriesByteBufferCollectorQueue()
+        );
     }
 
     /**
@@ -1956,6 +1961,8 @@ public class Replicator implements ThreadId.OnError {
 
     public static final Set<ByteBufferCollector> BYTE_BUFFER_COLLECTORS = ConcurrentHashMap.newKeySet();
 
+    public static final Map<String, Queue<ByteBufferCollector>> BYTE_BUFFER_COLLECTORS_BY_NODE_NAME = new ConcurrentHashMap<>();
+
     private ByteBufferCollector allocateShared(int capacity) {
         Queue<ByteBufferCollector> q = options.getAppendEntriesByteBufferCollectorQueue();
 
@@ -1984,5 +1991,6 @@ public class Replicator implements ThreadId.OnError {
         USE_SHARED_BYTE_BUFFERS = useSharedByteBuffers;
 
         BYTE_BUFFER_COLLECTORS.clear();
+        BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.clear();
     }
 }

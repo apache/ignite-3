@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -223,6 +224,11 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
                 testMethodName, type, byteBufferCollectorSizes(nodeName, true)
         );
 
+        log.info(
+                ">>>>> {} ByteBufferCollector queses sizes ordered shared only: [type={}, info={}]",
+                testMethodName, type, byteBufferCollectorQueueSizes(nodeName)
+        );
+
         Duration duration = Duration.ofNanos(System.nanoTime() - startNanos);
 
         log.info(
@@ -268,6 +274,17 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
         return sb.append(personIndex).toString();
     }
 
+    private static String byteBufferCollectorQueueSizes(String nodeName) {
+        List<ByteBufferCollector> collect = Replicator.BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.entrySet().stream()
+                .filter(e -> e.getKey().contains(nodeName))
+                .map(Entry::getValue)
+                .flatMap(Collection::stream)
+                .sorted(Comparator.comparingInt(ByteBufferCollector::capacity).reversed())
+                .collect(toList());
+
+        return byteBufferColletorsSummury(collect);
+    }
+
     private static String byteBufferCollectorSizes(String nodeName, boolean sharedOnly) {
         Stream<ByteBufferCollector> stream0 = Recyclers.DEFAULT_HANDLES.values().stream()
                 .flatMap(Collection::stream)
@@ -283,6 +300,10 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
                 .sorted(Comparator.comparingInt(ByteBufferCollector::capacity).reversed())
                 .collect(toList());
 
+        return byteBufferColletorsSummury(collect);
+    }
+
+    private static String byteBufferColletorsSummury(List<ByteBufferCollector> collect) {
         long totalCapacity = collect.stream()
                 .mapToLong(ByteBufferCollector::capacity)
                 .sum();
