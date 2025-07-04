@@ -375,11 +375,11 @@ internal static class DataStreamer
             while (!flushCt.IsCancellationRequested)
             {
                 await Task.Delay(options.AutoFlushInterval, flushCt).ConfigureAwait(false);
-                var ts = Stopwatch.GetTimestamp();
 
                 foreach (var batch in batches.Values)
                 {
-                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushInterval.Ticks)
+                    if (batch is { Count: > 0, Task.IsCompleted: true } &&
+                        Stopwatch.GetElapsedTime(batch.LastFlush) > options.AutoFlushInterval)
                     {
                         await SendAsync(batch).ConfigureAwait(false);
                     }

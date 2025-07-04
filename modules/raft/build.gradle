@@ -35,7 +35,6 @@ pmdTest {
     ]
 }
 
-
 dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
@@ -107,6 +106,7 @@ dependencies {
     integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-sql-engine')
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.dropwizard.metrics
     integrationTestImplementation libs.disruptor
 }
