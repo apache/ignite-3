@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -54,18 +53,17 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
         var loader = OldClientLoader.getClientClassloader("3.0.0");
 
-        System.out.println("Starting client...");
-        Class<?> clientClass = loader.loadClass(IgniteClient.class.getName());
-        Object clientBuilder = clientClass.getDeclaredMethod("builder").invoke(null);
 
-        // Create test instance and pass the builder.
-        // TODO: Load tests in isolated classloader.
-        Class<?> testClass = loader.loadClass("org.apache.ignite.internal.client.OldClientWithCurrentServerCompatibilityTest");
+        // Load test class in the old client classloader.
+        Class<?> testClass = loader.loadClass(OldClientWithCurrentServerCompatibilityTest.class.getName());
         Object testInstance = testClass.getDeclaredConstructor().newInstance();
+
+        // TODO: Use an interface for this?
+        Object clientBuilder = loader.loadClass(IgniteClient.class.getName()).getDeclaredMethod("builder").invoke(null);
         testClass.getMethod("initClient", clientBuilder.getClass()).invoke(testInstance, clientBuilder);
 
-        // Run tests. TODO cast to CliClientCompatibilityTests.
-        testClass.getMethod("testSqlColumnMeta").invoke(testInstance);
+        ClientCompatibilityTests compatibilityTests = proxy(ClientCompatibilityTests.class, testInstance);
+        compatibilityTests.testSqlColumnMeta();
     }
 
     @Override
@@ -78,18 +76,10 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
         return idGen;
     }
 
-    private static <T> T wrapAs(Class<T> iface, Object obj) {
-        if (!iface.isInterface()) {
-            return (T) obj;
-        }
-
-        return (T) Proxy.newProxyInstance(iface.getClassLoader(), new Class[]{iface}, (proxy, method, args) -> {
-            Method delegateMethod = obj.getClass().getMethod(method.getName(), method.getParameterTypes());
-
-            delegateMethod.setAccessible(true);
-            Object res = delegateMethod.invoke(obj, args);
-
-            return wrapAs(method.getReturnType(), res);
-        });
+    private static <T> T proxy(Class<T> iface, Object obj) {
+        return (T) Proxy.newProxyInstance(
+                iface.getClassLoader(),
+                new Class[]{iface},
+                (proxy, method, args) -> obj.getClass().getMethod(method.getName(), method.getParameterTypes()).invoke(obj, args));
     }
 }
