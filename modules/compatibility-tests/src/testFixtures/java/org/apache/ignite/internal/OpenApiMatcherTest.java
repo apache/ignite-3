@@ -176,6 +176,21 @@ class OpenApiMatcherTest {
     }
 
     @Test
+    void differentComponentsSchemaAdditionalType() {
+        PathItem pathItem = new PathItem().get(new Operation().addParametersItem(new Parameter().name("param")
+                .schema(new Schema().$ref("#/components/schemas/testSchema"))));
+        OpenAPI baseApi = new OpenAPI().path("test", pathItem)
+                .components(new Components().addSchemas("testSchema", new Schema().type("object")
+                        .additionalProperties(new Schema().type("object"))));
+        OpenAPI currentApi = new OpenAPI().path("test", pathItem)
+                .components(new Components().addSchemas("testSchema", new Schema().type("object")
+                        .additionalProperties(new Schema().type("string"))));
+
+        assertThatMismatchedWithDescription(baseApi, currentApi, "operation <GET> at path \"test\" has incompatible schemas of "
+                + "parameter \"param\" : Schema \"#/components/schemas/testSchema/additionalProperties\" has different type");
+    }
+
+    @Test
     void differentComponentsSchemaInnerType() {
         PathItem pathItem = new PathItem().get(new Operation().addParametersItem(new Parameter().name("param")
                 .schema(new Schema().$ref("#/components/schemas/testSchema"))));

@@ -390,7 +390,24 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
                     }
                 }
 
-                return compareProperties(path + "/object", mismatchDescription, baseSchema.getProperties(), currentSchema.getProperties());
+                Map<String, Schema> baseProperties = ofNullable(baseSchema.getProperties()).orElse(Map.of());
+                Map<String, Schema> currentProperties = ofNullable(currentSchema.getProperties()).orElse(Map.of());
+                if (!compareProperties(path + "/object", mismatchDescription, baseProperties, currentProperties)) {
+                    return false;
+                }
+
+                Object baseAdditionalProperties = baseSchema.getAdditionalProperties();
+                Object currentAdditionalProperties = currentSchema.getAdditionalProperties();
+                if (baseAdditionalProperties instanceof Schema && currentAdditionalProperties instanceof Schema) {
+                    return compareSchema(
+                            path + "/additionalProperties",
+                            mismatchDescription,
+                            ((Schema) baseAdditionalProperties),
+                            ((Schema) currentAdditionalProperties)
+                    );
+                }
+
+                return true;
             }
 
             return true;
@@ -408,7 +425,10 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
         ) {
             for (Entry<String, Schema> entry : baseProperties.entrySet()) {
                 String schemaName = entry.getKey();
-                if (!compareSchema(path + "/" + schemaName, mismatchDescription, entry.getValue(), currentProperties.get(schemaName))) {
+                Schema baseSchema = entry.getValue();
+                Schema currentSchema = currentProperties.get(schemaName);
+                // If property was required, we will detect it earlier. If it was optional and was removed, skip comparing.
+                if (currentSchema != null && !compareSchema(path + "/" + schemaName, mismatchDescription, baseSchema, currentSchema)) {
                     return false;
                 }
             }
