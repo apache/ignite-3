@@ -118,13 +118,13 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
 
         for (boolean useSharedByteBuffers : new boolean[] {false, true}) {
             arguments.add(Arguments.arguments(useSharedByteBuffers, 1, 1, 1_000));
-//            arguments.add(Arguments.arguments(useSharedByteBuffers, 1, 25, 10_000));
-//
-//            arguments.add(Arguments.arguments(useSharedByteBuffers, 10, 1, 1_000));
-//            arguments.add(Arguments.arguments(useSharedByteBuffers, 10, 25, 10_000));
-//
-//            arguments.add(Arguments.arguments(useSharedByteBuffers, 20, 1, 1_000));
-//            arguments.add(Arguments.arguments(useSharedByteBuffers, 20, 25, 10_000));
+            arguments.add(Arguments.arguments(useSharedByteBuffers, 1, 25, 10_000));
+
+            arguments.add(Arguments.arguments(useSharedByteBuffers, 10, 1, 1_000));
+            arguments.add(Arguments.arguments(useSharedByteBuffers, 10, 25, 10_000));
+
+            arguments.add(Arguments.arguments(useSharedByteBuffers, 20, 1, 1_000));
+            arguments.add(Arguments.arguments(useSharedByteBuffers, 20, 25, 10_000));
         }
 
         return arguments.stream();
