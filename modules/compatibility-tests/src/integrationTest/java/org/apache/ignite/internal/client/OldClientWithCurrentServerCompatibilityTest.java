@@ -84,6 +84,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @Test
     @Override
     public void testSqlColumnMeta() {
+        // TODO: Use some Junit magic to use the delegate.
         if (delegate != null) {
             delegate.testSqlColumnMeta();
         } else {
