@@ -55,7 +55,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -124,10 +123,6 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("nativeTypes")
     public void testLiteralValue(NativeType nativeType) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
-        //  because it allows to support CAST('uuid-str' AS UUID) expressions.
-        Assumptions.assumeFalse(nativeType.spec() == ColumnType.UUID);
-
         // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Ignite doesn't support precision more than 3 for temporal types.
         if (nativeType instanceof TemporalNativeType) {
             TemporalNativeType temporalNativeType = (TemporalNativeType) nativeType;
@@ -196,7 +191,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     private static void expectPartitionsNotPruned(
             IgniteTable table,
             PartitionPruningColumns pruningColumns,
-            Object[] dynamicParameters, 
+            Object[] dynamicParameters,
             ColocationGroup group
     ) {
 
