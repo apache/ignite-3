@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -286,6 +287,48 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         assertThat(notificationFuture, willThrow(NodeStoppingException.class));
 
         verify(failureManager, never()).process(any());
+    }
+
+    @Test
+    void eventNotificationUpdatesMetastoreSafeTimeAfterNotifyingWatchListeners() {
+        CompletableFuture<Void> listenerFuture = new CompletableFuture<>();
+        WatchListener listener = mock(WatchListener.class);
+        when(listener.onUpdate(any())).thenReturn(listenerFuture);
+
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        HybridTimestamp ts = new HybridTimestamp(1, 2);
+
+        watchProcessor.notifyWatches(1, List.of(entry1), ts);
+
+        verify(watchEventHandlingCallback, timeout(100).times(0)).onSafeTimeAdvanced(any());
+
+        listenerFuture.complete(null);
+
+        verify(watchEventHandlingCallback, timeout(SECONDS.toMillis(10))).onSafeTimeAdvanced(ts);
+    }
+
+    @Test
+    void metastoreSafeTimeGetsAdvancedAfterPreviousNotificationChainMembesAreFinished() {
+        CompletableFuture<Void> listenerFuture = new CompletableFuture<>();
+        WatchListener listener = mock(WatchListener.class);
+        when(listener.onUpdate(any())).thenReturn(listenerFuture);
+
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        HybridTimestamp entryTs = new HybridTimestamp(1, 2);
+        HybridTimestamp laterTs = entryTs.addPhysicalTime(10);
+
+        watchProcessor.notifyWatches(1, List.of(entry1), entryTs);
+        watchProcessor.advanceSafeTime(() -> {}, laterTs);
+
+        verify(watchEventHandlingCallback, timeout(100).times(0)).onSafeTimeAdvanced(laterTs);
+
+        listenerFuture.complete(null);
+
+        verify(watchEventHandlingCallback, timeout(SECONDS.toMillis(10))).onSafeTimeAdvanced(laterTs);
     }
 
     private static WatchListener mockListener() {
