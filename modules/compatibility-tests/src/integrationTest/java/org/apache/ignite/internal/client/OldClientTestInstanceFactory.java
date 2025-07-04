@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.client;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.ignite.client.IgniteClient;
@@ -30,7 +31,7 @@ public class OldClientTestInstanceFactory implements TestInstanceFactory {
         }
     }
 
-    private static Object createInstance(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext)
+    private static ClientCompatibilityTests createInstance(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext)
             throws Exception {
         TestInfo testInfo = new TestInfo() {
             @Override
@@ -69,6 +70,13 @@ public class OldClientTestInstanceFactory implements TestInstanceFactory {
         Object clientBuilder = loader.loadClass(IgniteClient.class.getName()).getDeclaredMethod("builder").invoke(null);
         testClass.getMethod("initClient", clientBuilder.getClass()).invoke(testInstance, clientBuilder);
 
-        return testInstance;
+        return proxy(ClientCompatibilityTests.class, testInstance);
+    }
+
+    private static <T> T proxy(Class<T> iface, Object obj) {
+        return (T) Proxy.newProxyInstance(
+                iface.getClassLoader(),
+                new Class[]{iface},
+                (proxy, method, args) -> obj.getClass().getMethod(method.getName(), method.getParameterTypes()).invoke(obj, args));
     }
 }
