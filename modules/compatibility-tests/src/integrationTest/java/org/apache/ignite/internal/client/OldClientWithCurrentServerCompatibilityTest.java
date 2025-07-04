@@ -27,7 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
     private final AtomicInteger idGen = new AtomicInteger(1000);
 
-    private ClientCompatibilityTests delegate = this;
+    private ClientCompatibilityTests delegate;
 
     private IgniteClient client;
 
@@ -70,13 +70,21 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @Test
     @Override
     public void testTables() {
-        delegate.testTables();
+        if (delegate != null) {
+            delegate.testTables();
+        } else {
+            ClientCompatibilityTests.super.testTables();
+        }
     }
 
     @Test
     @Override
     public void testSqlColumnMeta() {
-        delegate.testSqlColumnMeta();
+        if (delegate != null) {
+            delegate.testSqlColumnMeta();
+        } else {
+            ClientCompatibilityTests.super.testSqlColumnMeta();
+        }
     }
 
     @Test
@@ -154,6 +162,10 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @Test
     @Override
     public void testStreamerWithReceiver() {
-        delegate.testStreamerWithReceiver();
+        if (delegate != null) {
+            delegate.testStreamerWithReceiver();
+        } else {
+            ClientCompatibilityTests.super.testStreamerWithReceiver();
+        }
     }
 }
