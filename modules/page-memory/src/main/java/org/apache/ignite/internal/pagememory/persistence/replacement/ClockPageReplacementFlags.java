@@ -60,7 +60,7 @@ public class ClockPageReplacementFlags {
                 curIdx = 0;
             }
 
-            long ptr = flagsPtr + ((curIdx >> 3) & (~7L));
+            long ptr = getPointer(curIdx);
 
             long flags = getLong(ptr);
 
@@ -95,12 +95,22 @@ public class ClockPageReplacementFlags {
     }
 
     /**
+     * Returns a pointer to the bitset that corresponds to provided page index.
+     *
+     * <p>Matches {@code this.flagsPtr + (pageIdx >> log2(Long.SIZE) << log2(Byte.SIZE))}, i.e. points to a {@code long} value, among which
+     * there's a bit that identifies given {@code pageIdx}.
+     */
+    private long getPointer(int pageIdx) {
+        return flagsPtr + ((pageIdx >> 3) & (~7L));
+    }
+
+    /**
      * Get page hit flag.
      *
      * @param pageIdx Page index.
      */
     boolean getFlag(int pageIdx) {
-        long flags = getLong(flagsPtr + ((pageIdx >> 3) & (~7L)));
+        long flags = getLong(getPointer(pageIdx));
 
         return (flags & (1L << pageIdx)) != 0L;
     }
@@ -111,7 +121,7 @@ public class ClockPageReplacementFlags {
      * @param pageIdx Page index.
      */
     public void clearFlag(int pageIdx) {
-        long ptr = flagsPtr + ((pageIdx >> 3) & (~7L));
+        long ptr = getPointer(pageIdx);
 
         long oldFlags;
         long newFlags;
@@ -133,7 +143,7 @@ public class ClockPageReplacementFlags {
      * @param pageIdx Page index.
      */
     public void setFlag(int pageIdx) {
-        long ptr = flagsPtr + ((pageIdx >> 3) & (~7L));
+        long ptr = getPointer(pageIdx);
 
         long oldFlags;
         long newFlags;
