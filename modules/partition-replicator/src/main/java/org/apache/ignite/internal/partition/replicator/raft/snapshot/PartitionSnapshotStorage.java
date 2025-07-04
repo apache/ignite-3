@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.synchronize;
-import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -187,9 +187,7 @@ public class PartitionSnapshotStorage {
 
                 return nullCompletedFuture();
             } else {
-                CompletableFuture<?>[] operationsFutures = ongoingSnapshotOperations.values().toArray(CompletableFuture[]::new);
-
-                return allOf(operationsFutures).thenCompose(v -> removeMvPartition(tableId));
+                return allOf(ongoingSnapshotOperations.values()).thenCompose(v -> removeMvPartition(tableId));
             }
         }
     }
@@ -267,7 +265,10 @@ public class PartitionSnapshotStorage {
 
     private void startSnapshotOperation(UUID snapshotId) {
         synchronized (snapshotOperationLock) {
-            ongoingSnapshotOperations.put(snapshotId, new CompletableFuture<>());
+            CompletableFuture<Void> previousFuture = ongoingSnapshotOperations.put(snapshotId, new CompletableFuture<>());
+
+            assert previousFuture == null :
+                    String.format("Snapshot already in progress [partitionId=%s, snapshotId=%s]", partitionKey, snapshotId);
         }
     }
 
