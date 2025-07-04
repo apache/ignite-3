@@ -40,6 +40,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -238,6 +239,8 @@ public class ClientSqlTest extends AbstractClientTableTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 8, 16})
     void partitionAwarenessMetadataCacheOverflow(int size) throws InterruptedException {
+        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE, 1);
+
         try (IgniteClient client = createClientWithPaCacheOfSize(size)) {
             IgniteSql sql = client.sql();
 

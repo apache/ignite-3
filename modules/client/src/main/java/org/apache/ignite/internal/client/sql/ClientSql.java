@@ -312,7 +312,12 @@ public class ClientSql implements IgniteSql {
         };
 
         PayloadReader<AsyncResultSet<T>> payloadReader = r -> {
-            ClientAsyncResultSet<T> rs = new ClientAsyncResultSet<>(r.clientChannel(), marshallers, r.in(), mapper);
+            boolean tryUnpackPaMeta = partitionAwarenessEnabled 
+                    && r.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS);
+
+            ClientAsyncResultSet<T> rs = new ClientAsyncResultSet<>(
+                    r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta
+            );
 
             ClientPartitionAwarenessMetadata partitionAwarenessMetadata = rs.partitionAwarenessMetadata();
 
