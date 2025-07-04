@@ -60,36 +60,42 @@ public class ClientRunner {
                     .build();
 
             System.out.println("Starting client...");
-            loader.loadClass(IgniteClient.class.getName());
-            loader.loadClass(Ignite.class.getName());
-            System.out.println("Loaded class: " + IgniteClient.class.getName());
+            Class<?> clientClass = loader.loadClass(IgniteClient.class.getName());
+            Object clientBuilder = clientClass.getDeclaredMethod("builder").invoke(null);
 
-            Class<?> clientBuilderClass = loader.loadClass(IgniteClient.Builder.class.getName());
-            var clientBuilder = clientBuilderClass.getDeclaredConstructor().newInstance();
+            // Create test instance and pass the builder.
+            // TODO: Load tests in isolated classloader.
+            Class<?> testClass = loader.loadClass("org.apache.ignite.internal.client.OldClientWithCurrentServerCompatibilityTest");
+            Object testInstance = testClass.getDeclaredConstructor().newInstance();
+            testClass.getMethod("initClient", IgniteClient.Builder.class).invoke(testInstance, clientBuilder);
 
-            System.out.println(clientBuilder);
-
-            clientBuilder.getClass().getDeclaredMethod("addresses", String[].class)
-                    .invoke(clientBuilder, (Object) new String[]{"localhost:10800"});
-
-            clientBuilder.getClass().getDeclaredMethod("connectTimeout", long.class)
-                    .invoke(clientBuilder, 3000L);
-
-            Object clientObj = clientBuilder.getClass().getDeclaredMethod("build").invoke(clientBuilder);
-
-            Ignite ignite = wrapAs(Ignite.class, clientObj);
-
-            ignite.sql().executeScript("CREATE TABLE IF NOT EXISTS test_table (id INT PRIMARY KEY, name VARCHAR)");
-
-            IgniteTables tables = ignite.tables();
-
-            List<Table> tablesList = tables.tables();
-
-            System.out.println("Connected to Ignite server. Available tables:");
-
-            for (Table table : tablesList) {
-                System.out.println(" - " + table.name());
-            }
+//
+//            Class<?> clientBuilderClass = loader.loadClass(IgniteClient.Builder.class.getName());
+//            var clientBuilder = clientBuilderClass.getDeclaredConstructor().newInstance();
+//
+//            System.out.println(clientBuilder);
+//
+//            clientBuilder.getClass().getDeclaredMethod("addresses", String[].class)
+//                    .invoke(clientBuilder, (Object) new String[]{"localhost:10800"});
+//
+//            clientBuilder.getClass().getDeclaredMethod("connectTimeout", long.class)
+//                    .invoke(clientBuilder, 3000L);
+//
+//            Object clientObj = clientBuilder.getClass().getDeclaredMethod("build").invoke(clientBuilder);
+//
+//            Ignite ignite = wrapAs(Ignite.class, clientObj);
+//
+//            ignite.sql().executeScript("CREATE TABLE IF NOT EXISTS test_table (id INT PRIMARY KEY, name VARCHAR)");
+//
+//            IgniteTables tables = ignite.tables();
+//
+//            List<Table> tablesList = tables.tables();
+//
+//            System.out.println("Connected to Ignite server. Available tables:");
+//
+//            for (Table table : tablesList) {
+//                System.out.println(" - " + table.name());
+//            }
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }

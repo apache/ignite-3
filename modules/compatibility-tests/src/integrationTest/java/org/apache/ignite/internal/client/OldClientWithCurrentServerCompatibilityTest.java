@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.client;
 
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClientRunner;
 import org.apache.ignite.internal.CompatibilityTestBase;
 import org.apache.ignite.internal.IgniteCluster;
@@ -29,9 +31,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(OldClientTestInstanceFactory.class)
-public class OldClientWithCurrentServerCompatibilityTest {
+public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
+    private final AtomicInteger idGen = new AtomicInteger(1000);
+
+    private IgniteClient client;
+
     @WorkDirectory
     private Path workDir;
+
+    public void initClient(IgniteClient.Builder builder) {
+        client = builder.build();
+    }
 
     @Test
     public void test(TestInfo testInfo) {
@@ -39,5 +49,15 @@ public class OldClientWithCurrentServerCompatibilityTest {
         cluster.startEmbedded(1, true);
 
         ClientRunner.runClient("3.0.0");
+    }
+
+    @Override
+    public IgniteClient client() {
+        return null;
+    }
+
+    @Override
+    public AtomicInteger idGen() {
+        return null;
     }
 }
