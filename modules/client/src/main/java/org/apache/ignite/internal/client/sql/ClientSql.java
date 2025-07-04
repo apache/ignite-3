@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.PayloadReader;
 import org.apache.ignite.internal.client.PayloadWriter;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
@@ -56,6 +58,8 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -74,19 +78,32 @@ public class ClientSql implements IgniteSql {
     /** Marshallers provider. */
     private final MarshallersProvider marshallers;
 
-    private final Cache<PaCacheKey, ClientPartitionAwarenessMetadata> cache;
+    private final boolean partitionAwarenessEnabled;
+    private final Cache<PaCacheKey, PartitionMappingProvider> mappingProviderCache;
+    private final Cache<Integer, ClientTable> tableCache;
 
     /**
      * Constructor.
      *
      * @param ch Channel.
      * @param marshallers Marshallers provider.
+     * @param sqlPartitionAwarenessMetadataCacheSize Size of the cache for partition awareness-related metadata. If not positive, then 
+     *      partition awareness will be disabled.
      */
-    public ClientSql(ReliableChannel ch, MarshallersProvider marshallers, int sqlPartitionAwarenessMetadataCacheSize) {
+    public ClientSql(
+            ReliableChannel ch,
+            MarshallersProvider marshallers,
+            int sqlPartitionAwarenessMetadataCacheSize
+    ) {
         this.ch = ch;
         this.marshallers = marshallers;
 
-        cache = Caffeine.newBuilder()
+        partitionAwarenessEnabled = sqlPartitionAwarenessMetadataCacheSize > 0;
+
+        mappingProviderCache = Caffeine.newBuilder()
+                .maximumSize(sqlPartitionAwarenessMetadataCacheSize)
+                .build();
+        tableCache = Caffeine.newBuilder()
                 .maximumSize(sqlPartitionAwarenessMetadataCacheSize)
                 .build();
     }
@@ -285,8 +302,8 @@ public class ClientSql implements IgniteSql {
             w.out().packLong(ch.observableTimestamp().get().longValue());
 
             if (w.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS)) {
-                // Let's always request PA metadata from server. Later we might introduce some throttling.
-                w.out().packBoolean(true);
+                // Let's always request PA metadata from server, if enabled. Later we might introduce some throttling.
+                w.out().packBoolean(partitionAwarenessEnabled);
             }
 
             if (cancellationToken != null) {
@@ -299,8 +316,30 @@ public class ClientSql implements IgniteSql {
 
             ClientPartitionAwarenessMetadata partitionAwarenessMetadata = rs.partitionAwarenessMetadata();
 
-            if (partitionAwarenessMetadata != null) {
-                cache.put(new PaCacheKey(statement.defaultSchema(), statement.query()), partitionAwarenessMetadata);
+            if (partitionAwarenessEnabled && partitionAwarenessMetadata != null) {
+                int tableId = partitionAwarenessMetadata.tableId();
+
+                // The table being created is fake and used only to reuse code to derive table's schema and partition assignment.
+                // Yet the name of the table may appear in error messages and/or logs, therefore let's put some meaning
+                // in the fake name.
+                QualifiedName tableName = QualifiedNameHelper.fromNormalized("DUMMY", String.valueOf(tableId));
+
+                ClientTable table = tableCache.get(tableId, id -> new ClientTable(
+                        ch,
+                        marshallers,
+                        tableId,
+                        tableName,
+                        0
+                ));
+
+                assert table != null;
+
+                mappingProviderCache.put(
+                        new PaCacheKey(statement),
+                        PartitionMappingProvider.create(
+                                table, partitionAwarenessMetadata
+                        )
+                );
             }
 
             return rs;
@@ -317,7 +356,21 @@ public class ClientSql implements IgniteSql {
             }
         }
 
-        return ch.serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+        PartitionMappingProvider mappingProvider = mappingProviderCache.getIfPresent(new PaCacheKey(statement));
+
+        PartitionMapping mapping = null;
+        if (mappingProvider != null) {
+            mapping = mappingProvider.get(arguments);
+        }
+
+        return ch.serviceAsync(
+                ClientOp.SQL_EXEC,
+                payloadWriter,
+                payloadReader,
+                mapping != null ? mapping.nodeConsistentId() : null,
+                null,
+                false
+        );
     }
 
     /** {@inheritDoc} */
@@ -479,6 +532,10 @@ public class ClientSql implements IgniteSql {
         private final String query;
         private final int hash;
 
+        private PaCacheKey(Statement statement) {
+            this(statement.defaultSchema(), statement.query());
+        }
+
         private PaCacheKey(String defaultSchema, String query) {
             this.defaultSchema = defaultSchema;
             this.query = query;
@@ -508,7 +565,7 @@ public class ClientSql implements IgniteSql {
     }
 
     @TestOnly
-    public List<ClientPartitionAwarenessMetadata> partitionAwarenessCachedMetas() {
-        return List.copyOf(cache.asMap().values());
+    public List<PartitionMappingProvider> partitionAwarenessCachedMetas() {
+        return List.copyOf(mappingProviderCache.asMap().values());
     }
 }
