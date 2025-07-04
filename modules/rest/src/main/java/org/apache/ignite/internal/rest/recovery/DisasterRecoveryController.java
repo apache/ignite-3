@@ -202,9 +202,9 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                 states.add(new LocalPartitionStateResponse(
                         zoneState.nodeName(),
                         zoneState.zoneName(),
-                        tableState.schemaName,
-                        tableState.tableId,
-                        tableState.tableName,
+                        tableState.schemaName(),
+                        tableState.tableId(),
+                        tableState.tableName(),
                         zoneState.partitionId(),
                         zoneState.state(),
                         zoneState.estimatedRows()
@@ -300,9 +300,9 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             for (TableState tableState : manager.zoneTablesStates(zoneState.zoneName())) {
                 states.add(new GlobalPartitionStateResponse(
                         zoneState.zoneName(),
-                        tableState.schemaName,
-                        tableState.tableId,
-                        tableState.tableName,
+                        tableState.schemaName(),
+                        tableState.tableId(),
+                        tableState.tableName(),
                         zoneState.partitionId(),
                         zoneState.state()
                 ));
