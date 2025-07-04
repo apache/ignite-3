@@ -61,6 +61,7 @@ public class ClientRunner {
                             .addWhitelistedClassPredicate(new GlobMatcher("jdk*"))
                             .addWhitelistedClassPredicate(new GlobMatcher("org.mock*"))
                             .addWhitelistedClassPredicate(new GlobMatcher("org.junit*"))
+                            .addWhitelistedClassPredicate(new GlobMatcher("org.ham*"))
                             .build())
                     .build();
 

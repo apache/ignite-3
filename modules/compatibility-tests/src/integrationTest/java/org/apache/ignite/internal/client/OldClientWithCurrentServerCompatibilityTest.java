@@ -45,8 +45,10 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
     @Test
     public void test(TestInfo testInfo) {
+        // TODO: Resource management.
         IgniteCluster cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
         cluster.startEmbedded(1, true);
+        createDefaultTables(cluster.createClient());
 
         ClientRunner.runClient("3.0.0");
     }
