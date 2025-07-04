@@ -40,7 +40,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     private Path workDir;
 
     public void initClient(IgniteClient.Builder builder) {
-        client = builder.build();
+        client = builder.addresses("127.0.0.1:10800").build();
     }
 
     @Test
