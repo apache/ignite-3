@@ -1,12 +1,18 @@
 package org.apache.ignite.internal.client;
 
+import java.lang.reflect.Method;
 import java.util.Optional;
+import java.util.Set;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.CompatibilityTestBase;
+import org.apache.ignite.internal.IgniteCluster;
+import org.apache.ignite.internal.OldClientLoader;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstanceFactory;
 import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
-
-import static org.junit.platform.commons.util.ReflectionUtils.newInstance;
 
 public class OldClientTestInstanceFactory implements TestInstanceFactory {
     @Override
@@ -15,19 +21,54 @@ public class OldClientTestInstanceFactory implements TestInstanceFactory {
         try {
             Optional<Object> outerInstance = factoryContext.getOuterInstance();
             Class<?> testClass = factoryContext.getTestClass();
-            if (outerInstance.isPresent()) {
-                System.out.println("createTestInstance() called for inner class: "
-                        + testClass.getSimpleName());
-                return newInstance(testClass, outerInstance.get());
-            }
-            else {
-                System.out.println("createTestInstance() called for outer class: "
-                        + testClass.getSimpleName());
-                return newInstance(testClass);
-            }
+            assert outerInstance.isEmpty() : "Unexpected outer instance for test class: " + testClass.getSimpleName();
+
+            return createInstance(factoryContext, extensionContext);
         }
         catch (Exception e) {
             throw new TestInstantiationException(e.getMessage(), e);
         }
+    }
+
+    private static Object createInstance(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext)
+            throws Exception {
+        TestInfo testInfo = new TestInfo() {
+            @Override
+            public String getDisplayName() {
+                return factoryContext.getTestClass().getSimpleName();
+            }
+
+            @Override
+            public Set<String> getTags() {
+                return Set.of();
+            }
+
+            @Override
+            public Optional<Class<?>> getTestClass() {
+                return Optional.of(factoryContext.getTestClass());
+            }
+
+            @Override
+            public Optional<Method> getTestMethod() {
+                return Optional.empty();
+            }
+        };
+
+        // TODO: Resource management.
+        var workDir = WorkDirectoryExtension.createWorkDir(extensionContext);
+
+        IgniteCluster cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
+        cluster.startEmbedded(1, true);
+
+        var loader = OldClientLoader.getClientClassloader("3.0.0");
+
+        // Load test class in the old client classloader.
+        Class<?> testClass = loader.loadClass(OldClientWithCurrentServerCompatibilityTest.class.getName());
+        Object testInstance = testClass.getDeclaredConstructor().newInstance();
+
+        Object clientBuilder = loader.loadClass(IgniteClient.class.getName()).getDeclaredMethod("builder").invoke(null);
+        testClass.getMethod("initClient", clientBuilder.getClass()).invoke(testInstance, clientBuilder);
+
+        return testInstance;
     }
 }

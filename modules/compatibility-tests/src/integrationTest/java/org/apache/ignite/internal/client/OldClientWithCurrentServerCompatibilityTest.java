@@ -17,53 +17,19 @@
 
 package org.apache.ignite.internal.client;
 
-import java.lang.reflect.Proxy;
-import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.OldClientLoader;
-import org.apache.ignite.internal.CompatibilityTestBase;
-import org.apache.ignite.internal.IgniteCluster;
-import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(OldClientTestInstanceFactory.class)
 public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
     private final AtomicInteger idGen = new AtomicInteger(1000);
 
     private IgniteClient client;
 
-    @WorkDirectory
-    private Path workDir;
-
     public void initClient(IgniteClient.Builder builder) {
         client = builder.addresses("127.0.0.1:10800").build();
-    }
-
-    @Test
-    public void test(TestInfo testInfo) throws Exception {
-        // TODO: Resource management.
-        IgniteCluster cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
-        cluster.startEmbedded(1, true);
-        createDefaultTables(cluster.createClient());
-
-        var loader = OldClientLoader.getClientClassloader("3.0.0");
-
-
-        // Load test class in the old client classloader.
-        Class<?> testClass = loader.loadClass(OldClientWithCurrentServerCompatibilityTest.class.getName());
-        Object testInstance = testClass.getDeclaredConstructor().newInstance();
-
-        // TODO: Use an interface for this?
-        Object clientBuilder = loader.loadClass(IgniteClient.class.getName()).getDeclaredMethod("builder").invoke(null);
-        testClass.getMethod("initClient", clientBuilder.getClass()).invoke(testInstance, clientBuilder);
-
-        ClientCompatibilityTests compatibilityTests = proxy(ClientCompatibilityTests.class, testInstance);
-        compatibilityTests.testSqlColumnMeta();
     }
 
     @Override
@@ -74,12 +40,5 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @Override
     public AtomicInteger idGen() {
         return idGen;
-    }
-
-    private static <T> T proxy(Class<T> iface, Object obj) {
-        return (T) Proxy.newProxyInstance(
-                iface.getClassLoader(),
-                new Class[]{iface},
-                (proxy, method, args) -> obj.getClass().getMethod(method.getName(), method.getParameterTypes()).invoke(obj, args));
     }
 }
