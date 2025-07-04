@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.BitSet;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -57,19 +57,31 @@ public class DataSourceScanNode<RowT> extends StorageScanNode<RowT> {
             ScannableDataSource dataSource,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(ctx, filters, rowTransformer);
 
         this.dataSource = dataSource;
 
-        if (requiredColumns == null || requiredColumns.cardinality() == schema.elementCount()) {
+        if (requiredColumns == null || isFullIdentityMapping(requiredColumns, schema)) {
             converter = rowFactory::create;
         } else {
-            int[] mapping = requiredColumns.stream().toArray();
+            int[] mapping = requiredColumns.toIntArray();
 
             converter = tuple -> rowFactory.create(new FieldDeserializingProjectedTuple(schema, tuple, mapping));
         }
+    }
+
+    private static boolean isFullIdentityMapping(ImmutableIntList requiredColumns, BinaryTupleSchema schema) {
+        if (requiredColumns.size() != schema.elementCount()) {
+            return false;
+        }
+        for (int i = 0; i < requiredColumns.size(); i++) {
+            if (requiredColumns.getInt(i) != schema.columnIndex(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** {@inheritDoc} */

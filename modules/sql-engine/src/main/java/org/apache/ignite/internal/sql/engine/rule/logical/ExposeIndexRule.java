@@ -39,7 +39,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
@@ -83,7 +83,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         List<String> names = scan.fieldNames();
         List<RexNode> proj = scan.projects();
         RexNode condition = scan.condition();
-        ImmutableBitSet requiredCols = scan.requiredColumns();
+        ImmutableIntList requiredCols = scan.requiredColumns();
 
         List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().values().stream()
                 .map(idx -> idx.toRel(cluster, optTable, names, proj, condition, requiredCols))

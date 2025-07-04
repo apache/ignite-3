@@ -829,4 +829,19 @@ public final class Commons {
         // Create a non-strict equijoin condition that treats IS NOT DISTINCT_FROM as an equi join condition.
         return JoinInfo.of(join.getLeft(), join.getRight(), join.getCondition());
     }
+
+    /**
+     * Checks whether the given mapping is an identity mapping.
+     */
+    public static boolean isIdentityMapping(int[] mapping, int length) {
+        if (mapping.length != length) {
+            return false;
+        }
+        for (int i = 0; i < mapping.length; i++) {
+            if (mapping[i] != i) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

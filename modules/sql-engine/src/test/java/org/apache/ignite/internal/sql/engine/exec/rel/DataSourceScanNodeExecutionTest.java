@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Spliterator;
@@ -38,7 +37,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -106,7 +105,7 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
     void scanWithRequiredFields() {
         ExecutionContext<RowWrapper> context = executionContext();
         RowHandler<RowWrapper> handler = context.rowHandler();
-        List<RowWrapper> rows = initScanAndGetResults(context, null, null, ImmutableBitSet.of(1, 3, 4).toBitSet());
+        List<RowWrapper> rows = initScanAndGetResults(context, null, null, ImmutableIntList.of(1, 3, 4));
 
         assertThat(rows, notNullValue());
 
@@ -189,9 +188,9 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
         ExecutionContext<RowWrapper> context = executionContext();
         RowHandler<RowWrapper> handler = context.rowHandler();
 
-        BitSet requiredFields = ImmutableBitSet.of(1, 3, 4).toBitSet();
+        ImmutableIntList requiredFields = ImmutableIntList.of(1, 3, 4);
 
-        RowFactory<RowWrapper> factory = handler.factory(project(ROW_SCHEMA, requiredFields.stream().toArray()));
+        RowFactory<RowWrapper> factory = handler.factory(project(ROW_SCHEMA, requiredFields.toIntArray()));
 
         // predicate matching goes before projection transformation, thus this predicate is valid
         Predicate<RowWrapper> onlyEven = row -> ((Long) handler.get(0, row)) % 2 == 0;
@@ -265,12 +264,12 @@ public class DataSourceScanNodeExecutionTest extends AbstractExecutionTest<RowWr
             ExecutionContext<RowWrapper> context,
             @Nullable Predicate<RowWrapper> predicate,
             @Nullable Function<RowWrapper, RowWrapper> projection,
-            @Nullable BitSet requiredFields
+            @Nullable ImmutableIntList requiredFields
     ) {
         RowHandler<RowWrapper> handler = context.rowHandler();
         RowFactory<RowWrapper> factory;
         if (requiredFields != null) {
-            factory = handler.factory(project(ROW_SCHEMA, requiredFields.stream().toArray()));
+            factory = handler.factory(project(ROW_SCHEMA, requiredFields.toIntArray()));
         } else {
             factory = handler.factory(ROW_SCHEMA);
         }

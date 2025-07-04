@@ -35,7 +35,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
@@ -264,12 +263,10 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         List<BinaryTupleMessage> rows0 = new ArrayList<>(rows.size());
 
         for (RowT row : rows) {
-            BinaryTuple tuple = handler.toBinaryTuple(row);
-
             rows0.add(
                     TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                            .elementCount(tuple.elementCount())
-                            .tuple(tuple.byteBuffer())
+                            .elementCount(handler.columnCount(row))
+                            .tuple(handler.toByteBuffer(row))
                             .build()
             );
         }

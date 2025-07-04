@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -310,7 +309,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 ExecutionContext<RowT> ctx,
                 PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory,
-                @Nullable BitSet requiredColumns
+                int @Nullable [] requiredColumns
         ) {
 
             throw new UnsupportedOperationException("Not supported");
@@ -318,25 +317,42 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns,
-                @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
+        public <RowT> Publisher<RowT> indexRangeScan(
+                ExecutionContext<RowT> ctx,
+                PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory,
+                int indexId,
+                List<String> columns,
+                @Nullable RangeCondition<RowT> cond,
+                int @Nullable [] requiredColumns
+        ) {
 
             List<T> list = partitionedData.get(partWithConsistencyToken.partId());
             return new ScanPublisher<>(list, ctx, rowFactory);
         }
 
         @Override
-        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns,
-                RowT key, @Nullable BitSet requiredColumns) {
+        public <RowT> Publisher<RowT> indexLookup(
+                ExecutionContext<RowT> ctx,
+                PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory,
+                int indexId,
+                List<String> columns,
+                RowT key,
+                int @Nullable [] requiredColumns
+        ) {
 
             return newPublisher(ctx, partWithConsistencyToken, rowFactory);
         }
 
         @Override
-        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
-                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(
+                ExecutionContext<RowT> ctx,
+                InternalTransaction explicitTx,
+                RowFactory<RowT> rowFactory,
+                RowT key,
+                int @Nullable [] requiredColumns
+        ) {
             throw new UnsupportedOperationException();
         }
 

@@ -67,7 +67,11 @@ public class BinaryTupleParser {
     /** Starting position of variable-length values. */
     private final int valueBase;
 
+    /** ByteBuffer accessor for reading data from the underlying buffer. */
     private final ByteBufferAccessor byteBufferAccessor;
+
+    /** Reader for reading offsets from offset table in the buffer. */
+    private final OffsetTableReader offsetTableReader;
 
     /** Binary tuple. */
     protected final ByteBuffer buffer;
@@ -101,6 +105,8 @@ public class BinaryTupleParser {
         entryBase = BinaryTupleCommon.HEADER_SIZE;
         entrySize = 1 << (flags & BinaryTupleCommon.VARSIZE_MASK);
         valueBase = entryBase + entrySize * numElements;
+
+        offsetTableReader = OffsetTableReader.fromEntrySize(entrySize);
     }
 
     /**
@@ -595,23 +601,7 @@ public class BinaryTupleParser {
      * @return Entry value.
      */
     private int getOffset(int index) {
-        switch (entrySize) {
-            case Byte.BYTES:
-                return Byte.toUnsignedInt(byteBufferAccessor.get(index));
-            case Short.BYTES:
-                return Short.toUnsignedInt(byteBufferAccessor.getShort(index));
-            case Integer.BYTES: {
-                int offset = byteBufferAccessor.getInt(index);
-                if (offset < 0) {
-                    throw new BinaryTupleFormatException("Unsupported offset table size");
-                }
-                return offset;
-            }
-            case Long.BYTES:
-                throw new BinaryTupleFormatException("Unsupported offset table size");
-            default:
-                throw new BinaryTupleFormatException("Invalid offset table size");
-        }
+        return offsetTableReader.read(byteBufferAccessor, index);
     }
 
     /**
@@ -644,17 +634,23 @@ public class BinaryTupleParser {
         long time = Integer.toUnsignedLong(byteBufferAccessor.getInt(offset));
 
         int nanos;
-        if (length == 4) {
-            nanos = ((int) time & ((1 << 10) - 1)) * 1000 * 1000;
-            time >>>= 10;
-        } else if (length == 5) {
-            time |= Byte.toUnsignedLong(byteBufferAccessor.get(offset + 4)) << 32;
-            nanos = ((int) time & ((1 << 20) - 1)) * 1000;
-            time >>>= 20;
-        } else {
-            time |= Short.toUnsignedLong(byteBufferAccessor.getShort(offset + 4)) << 32;
-            nanos = ((int) time & ((1 << 30) - 1));
-            time >>>= 30;
+        switch (length) {
+            case 4:
+                nanos = ((int) time & ((1 << 10) - 1)) * 1000 * 1000;
+                time >>>= 10;
+                break;
+            case 5:
+                time |= Byte.toUnsignedLong(byteBufferAccessor.get(offset + 4)) << 32;
+                nanos = ((int) time & ((1 << 20) - 1)) * 1000;
+                time >>>= 20;
+                break;
+            case 6:
+                time |= Short.toUnsignedLong(byteBufferAccessor.getShort(offset + 4)) << 32;
+                nanos = ((int) time & ((1 << 30) - 1));
+                time >>>= 30;
+                break;
+            default:
+                throw new BinaryTupleFormatException("Invalid length for a tuple element: " + length);
         }
 
         int second = ((int) time) & 63;
@@ -710,4 +706,49 @@ public class BinaryTupleParser {
             return buffer.capacity();
         }
     }
+
+    private enum OffsetTableReader {
+        BYTE_ENTRY {
+            @Override
+            int read(ByteBufferAccessor bufferAccessor, int index) {
+                return Byte.toUnsignedInt(bufferAccessor.get(index));
+            }
+        },
+
+        SHORT_ENTRY {
+            @Override
+            int read(ByteBufferAccessor bufferAccessor, int index) {
+                return Short.toUnsignedInt(bufferAccessor.getShort(index));
+            }
+        },
+
+        INTEGER_ENTRY {
+            @Override
+            int read(ByteBufferAccessor bufferAccessor, int index) {
+                int offset = bufferAccessor.getInt(index);
+                if (offset < 0) {
+                    throw new BinaryTupleFormatException("Unsupported offset table size");
+                }
+                return offset;
+            }
+        };
+
+        static OffsetTableReader fromEntrySize(int size) {
+            switch (size) {
+                case Byte.BYTES:
+                    return BYTE_ENTRY;
+                case Short.BYTES:
+                    return SHORT_ENTRY;
+                case Integer.BYTES: {
+                    return INTEGER_ENTRY;
+                }
+                case Long.BYTES:
+                    throw new BinaryTupleFormatException("Unsupported offset table size");
+                default:
+                    throw new BinaryTupleFormatException("Invalid offset table size");
+            }
+        }
+
+        abstract int read(ByteBufferAccessor bufferAccessor, int index);
+    } 
 }
