@@ -510,19 +510,27 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** {@inheritDoc} */
     @Override
     public boolean truncateSuffix(long lastIndexKept) {
+        Long lastLogIndex = null;
+
         this.useLock.lock();
         try {
-            try {
-                onTruncateSuffix(lastIndexKept);
-            } finally {
-                this.db.deleteRange(this.dataHandle, this.writeOptions, createKey(lastIndexKept + 1),
-                        createKey(getLastLogIndex() + 1));
-                this.db.deleteRange(this.confHandle, this.writeOptions, createKey(lastIndexKept + 1),
-                        createKey(getLastLogIndex() + 1));
+            onTruncateSuffix(lastIndexKept);
+
+            lastLogIndex = getLastLogIndex();
+
+            if (lastLogIndex > lastIndexKept) {
+                byte[] beginKey = createKey(lastIndexKept + 1);
+                byte[] endKey = createKey(lastLogIndex + 1);
+
+                this.db.deleteRange(this.dataHandle, this.writeOptions, beginKey, endKey);
+                this.db.deleteRange(this.confHandle, this.writeOptions, beginKey, endKey);
+
+                return true;
+            } else {
+                LOG.info("Skip truncateSuffix: [lastIndexKept={}, lastLogIndex={}]", lastIndexKept, lastLogIndex);
             }
-            return true;
         } catch (RocksDBException | IOException e) {
-            LOG.error("Fail to truncateSuffix {}.", e, lastIndexKept);
+            LOG.error("Fail to truncateSuffix: [lastIndexKept={}, lastLogIndex={}]", e, lastIndexKept, lastLogIndex);
         } finally {
             this.useLock.unlock();
         }
@@ -653,7 +661,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
                 this.db.deleteRange(this.dataHandle, startKey, endKey);
                 this.db.deleteRange(this.confHandle, startKey, endKey);
             } catch (RocksDBException | IOException e) {
-                LOG.error("Fail to truncatePrefix {}.", e, firstIndexKept);
+                LOG.error("Fail to truncatePrefix: [startIndex={}, firstIndexKept={}].", e, startIndex, firstIndexKept);
             } finally {
                 this.useLock.unlock();
             }
