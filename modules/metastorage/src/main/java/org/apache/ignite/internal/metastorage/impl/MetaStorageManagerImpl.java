@@ -83,6 +83,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStorageFactory;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.metastorage.server.NotificationEnqueuedListener;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker.TrackingToken;
 import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
@@ -341,6 +342,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     /** Adds new listener to notify with election events. */
     public void addElectionListener(ElectionListener listener) {
         electionListeners.add(listener);
+    }
+
+    /** Registers a notification enqueued listener. */
+    public void registerNotificationEnqueuedListener(NotificationEnqueuedListener listener) {
+        storage.registerNotificationEnqueuedListener(listener);
     }
 
     private CompletableFuture<?> recover(MetaStorageService service) {

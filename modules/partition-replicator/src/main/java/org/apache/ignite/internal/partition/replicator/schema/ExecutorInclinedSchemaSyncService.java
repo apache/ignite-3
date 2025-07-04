@@ -41,10 +41,20 @@ public class ExecutorInclinedSchemaSyncService implements SchemaSyncService {
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
         CompletableFuture<Void> future = schemaSyncService.waitForMetadataCompleteness(ts);
+        return switchThreadIfNeeded(future);
+    }
+
+    private CompletableFuture<Void> switchThreadIfNeeded(CompletableFuture<Void> future) {
         if (future.isDone()) {
             return future;
         }
 
         return future.thenApplyAsync(identity(), completionExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Void> waitForMetadataCompletenessConservatively(HybridTimestamp ts) {
+        CompletableFuture<Void> future = schemaSyncService.waitForMetadataCompletenessConservatively(ts);
+        return switchThreadIfNeeded(future);
     }
 }

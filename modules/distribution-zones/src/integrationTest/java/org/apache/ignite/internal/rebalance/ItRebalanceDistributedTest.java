@@ -222,6 +222,7 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
@@ -1214,6 +1215,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final SchemaManager schemaManager;
 
+        private final SchemaSafeTimeTrackerImpl schemaSafeTimeTracker;
+
         private final CatalogManager catalogManager;
 
         final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
@@ -1551,7 +1554,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             schemaManager = new SchemaManager(registry, catalogManager);
 
-            schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
+            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl();
+
+            schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
             SystemDistributedConfiguration systemDistributedConfiguration =
                     clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
@@ -1724,6 +1729,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     replicaManager,
                     txManager,
                     dataStorageMgr,
+                    schemaSafeTimeTracker,
                     schemaManager,
                     sharedTxStateStorage,
                     partitionReplicaLifecycleManager,

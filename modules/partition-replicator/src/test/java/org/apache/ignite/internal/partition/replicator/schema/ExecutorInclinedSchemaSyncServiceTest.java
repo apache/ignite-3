@@ -140,6 +140,70 @@ class ExecutorInclinedSchemaSyncServiceTest extends BaseIgniteAbstractTest {
         );
     }
 
+    @Test
+    void delegatesWaitForMetadataCompletenessConservatively() {
+        CompletableFuture<Void> originalFuture = new CompletableFuture<>();
+
+        when(schemaSyncService.waitForMetadataCompletenessConservatively(timestamp)).thenReturn(originalFuture);
+
+        CompletableFuture<Void> finalFuture = decorator.waitForMetadataCompletenessConservatively(timestamp);
+
+        assertThat(finalFuture, not(completedFuture()));
+
+        originalFuture.complete(null);
+
+        assertThat(finalFuture, willCompleteSuccessfully());
+
+        verify(schemaSyncService).waitForMetadataCompletenessConservatively(timestamp);
+    }
+
+    /**
+     * Makes sure that, if the schema sync future is completed right from its creation, its dependant
+     * is completed either in the supplied executor or the current thread.
+     */
+    @Test
+    void completesFuturesInGivenExecutorOrCurrentThreadForCompletedFutureConservatively() {
+        when(schemaSyncService.waitForMetadataCompletenessConservatively(timestamp)).thenReturn(completedFuture(null));
+
+        AtomicReference<Thread> threadReference = new AtomicReference<>();
+
+        CompletableFuture<Void> finalFuture = decorator.waitForMetadataCompletenessConservatively(timestamp)
+                .whenComplete((res, ex) -> threadReference.set(Thread.currentThread()));
+
+        assertThat(finalFuture, willCompleteSuccessfully());
+
+        assertThat(
+                threadReference.get(),
+                either(instanceOf(TestThread.class))
+                        .or(is(Thread.currentThread()))
+        );
+    }
+
+    /**
+     * Makes sure that, even if the schema sync future gets completed asynchronously in another thread,
+     * its dependant is completed either in the supplied executor or the current thread.
+     */
+    @Test
+    void completesFuturesInGivenExecutorAfterCompletionOfUpstreamInDifferentThreadConservatively() {
+        CompletableFuture<Void> originalFuture = new CompletableFuture<>();
+        when(schemaSyncService.waitForMetadataCompletenessConservatively(timestamp)).thenReturn(originalFuture);
+
+        AtomicReference<Thread> threadReference = new AtomicReference<>();
+
+        CompletableFuture<Void> finalFuture = decorator.waitForMetadataCompletenessConservatively(timestamp)
+                .whenComplete((res, ex) -> threadReference.set(Thread.currentThread()));
+
+        anotherExecutor.submit(() -> originalFuture.complete(null));
+
+        assertThat(finalFuture, willCompleteSuccessfully());
+
+        assertThat(
+                threadReference.get(),
+                either(instanceOf(TestThread.class))
+                        .or(is(Thread.currentThread()))
+        );
+    }
+
     @SuppressWarnings("ClassExplicitlyExtendsThread")
     private static class TestThread extends Thread {
         private TestThread(Runnable target) {
