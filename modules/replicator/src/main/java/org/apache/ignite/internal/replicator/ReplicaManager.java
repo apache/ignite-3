@@ -838,7 +838,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicaGrpId Replication group ID.
      * @param assignments New assignments.
      */
-    public CompletableFuture<Void> resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments) {
+    public CompletableFuture<Void> resetWithRetry(
+            ReplicationGroupId replicaGrpId,
+            Assignments assignments,
+            Supplier<CompletableFuture<Assignments>> retryOperation
+    ) {
         var result = new CompletableFuture<Void>();
 
         IndexWithTerm indexWithTerm = currentTerm(replicaGrpId);
@@ -847,13 +851,19 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return failedFuture(new IllegalStateException("The local node is outside of the replication group: " + replicaGrpId));
         }
 
-        resetWithRetry(replicaGrpId, assignments, indexWithTerm.term(), result, 1);
+        resetWithRetry(replicaGrpId, assignments, indexWithTerm.term(), result, 1, retryOperation);
 
         return result;
     }
 
-    private void resetWithRetry(ReplicationGroupId replicaGrpId, Assignments assignments, long term, CompletableFuture<Void> result,
-            int iteration) {
+    private void resetWithRetry(
+            ReplicationGroupId replicaGrpId,
+            Assignments assignments,
+            long term,
+            CompletableFuture<Void> result,
+            int iteration,
+            Supplier<CompletableFuture<Assignments>> retryOperation
+    ) {
         if (iteration % 1000 == 0) {
             LOG.info("Retrying reset [iter={}, groupId={}, assignments={}]", iteration, replicaGrpId, assignments);
         }
@@ -864,14 +874,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (isRetriable(ex)) {
                             LOG.error("Failed to reset peers. Retrying [groupId={}]. ", replicaGrpId, ex);
 
-                            resetWithRetryThrottling(replicaGrpId, assignments, term, result, iteration);
+                            resetWithRetryThrottling(replicaGrpId, result, iteration, retryOperation);
                         } else {
                             result.completeExceptionally(ex);
                         }
                     } else if (!resetSuccessful) {
                         LOG.error("Reset peers unsuccessful. Retrying [groupId={}]. ", replicaGrpId);
 
-                        resetWithRetryThrottling(replicaGrpId, assignments, term, result, iteration);
+                        resetWithRetryThrottling(replicaGrpId, result, iteration, retryOperation);
                     } else {
                         result.complete(null);
                     }
@@ -880,25 +890,30 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private void resetWithRetryThrottling(
             ReplicationGroupId replicaGrpId,
-            Assignments assignments,
-            long term,
             CompletableFuture<Void> result,
-            int iteration
+            int iteration,
+            Supplier<CompletableFuture<Assignments>> retryOperation
     ) {
-        if (term == IndexWithTerm.UNSET_TERM) {
-            IndexWithTerm indexWithTerm = currentTerm(replicaGrpId);
-
-            if (indexWithTerm == null) {
-                result.completeExceptionally(new IllegalStateException("Failed to get current term: " + replicaGrpId));
-                return;
-            }
-
-            term = indexWithTerm.term();
-        }
-
-        long finalTerm = term;
         replicaLifecycleExecutor.schedule(
-                () -> resetWithRetry(replicaGrpId, assignments, finalTerm, result, iteration + 1),
+                () -> {
+                    retryOperation.get().whenComplete((actualPending, err) -> {
+                        if (err != null) {
+                            result.completeExceptionally(err);
+                        } else if (actualPending == null) {
+                            result.completeExceptionally(
+                                    new IllegalStateException("Local node is no longer in pending for: " + replicaGrpId));
+                        } else {
+                            IndexWithTerm indexWithTerm = currentTerm(replicaGrpId);
+
+                            if (indexWithTerm == null) {
+                                result.completeExceptionally(new IllegalStateException("Failed to get current term: " + replicaGrpId));
+                                return;
+                            }
+
+                            resetWithRetry(replicaGrpId, actualPending, indexWithTerm.term(), result, iteration + 1, retryOperation);
+                        }
+                    });
+                },
                 500,
                 TimeUnit.MILLISECONDS
         );
@@ -909,7 +924,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         return !(exception instanceof NodeStoppingException
                 || exception instanceof AssertionError
-                // || exception instanceof MismatchingTermException
             );
     }
 

@@ -802,4 +802,18 @@ public class RebalanceUtil {
 
         return e != null ? AssignmentsChain.fromBytes(e.value()) : null;
     }
+
+    /**
+     * Unpacks pending assignments from the meta storage entry.
+     *
+     * @param pendingAssignmentsEntry Pending assignments entry.
+     * @return Pending assignments.
+     */
+    public static Assignments readPendingAssignments(Entry pendingAssignmentsEntry) {
+        byte[] pendingAssignmentsFromMetaStorage = pendingAssignmentsEntry.value();
+
+        return pendingAssignmentsFromMetaStorage == null
+                ? Assignments.EMPTY
+                : AssignmentsQueue.fromBytes(pendingAssignmentsFromMetaStorage).poll();
+    }
 }

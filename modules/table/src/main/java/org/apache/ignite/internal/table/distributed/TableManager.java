@@ -2460,7 +2460,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }));
                     }), ioExecutor);
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
-            localServicesStartFuture = replicaMgr.resetWithRetry(replicaGrpId, computedStableAssignments);
+            localServicesStartFuture = replicaMgr.resetWithRetry(replicaGrpId, computedStableAssignments, () ->
+            // TODO: extract pending assignments reading to a utility method.
+            metaStorageMgr.get(pendingPartAssignmentsQueueKey(replicaGrpId))
+                    .thenApply(RebalanceUtil::readPendingAssignments)
+                    .thenApply(actualPending ->
+                            (actualPending != null && actualPending.force() && localAssignment(actualPending) != null)
+                                    ? actualPending
+                                    : null
+                    )
+            );
         } else {
             localServicesStartFuture = nullCompletedFuture();
         }
