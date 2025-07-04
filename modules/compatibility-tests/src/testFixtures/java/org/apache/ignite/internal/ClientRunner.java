@@ -46,6 +46,10 @@ public class ClientRunner {
                     .map(path -> new File(path).toURI())
                     .collect(Collectors.toList());
 
+            // Add tests to the classpath.
+            classpath.add(Path.of("build", "classes", "java", "testFixtures").toUri());
+            classpath.add(Path.of("build", "classes", "java", "integrationTest").toUri());
+
             ClassLoader loader = LoaderBuilder
                     .anIsolatingLoader()
                     .withClasspath(classpath)
@@ -67,7 +71,7 @@ public class ClientRunner {
             // TODO: Load tests in isolated classloader.
             Class<?> testClass = loader.loadClass("org.apache.ignite.internal.client.OldClientWithCurrentServerCompatibilityTest");
             Object testInstance = testClass.getDeclaredConstructor().newInstance();
-            testClass.getMethod("initClient", IgniteClient.Builder.class).invoke(testInstance, clientBuilder);
+            testClass.getMethod("initClient", clientBuilder.getClass()).invoke(testInstance, clientBuilder);
 
 //
 //            Class<?> clientBuilderClass = loader.loadClass(IgniteClient.Builder.class.getName());
