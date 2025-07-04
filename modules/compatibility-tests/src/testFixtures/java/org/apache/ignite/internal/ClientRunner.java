@@ -74,6 +74,9 @@ public class ClientRunner {
             Object testInstance = testClass.getDeclaredConstructor().newInstance();
             testClass.getMethod("initClient", clientBuilder.getClass()).invoke(testInstance, clientBuilder);
 
+            // Run tests. TODO cast to CliClientCompatibilityTests.
+            testClass.getMethod("testSqlColumnMeta").invoke(testInstance);
+
 //
 //            Class<?> clientBuilderClass = loader.loadClass(IgniteClient.Builder.class.getName());
 //            var clientBuilder = clientBuilderClass.getDeclaredConstructor().newInstance();

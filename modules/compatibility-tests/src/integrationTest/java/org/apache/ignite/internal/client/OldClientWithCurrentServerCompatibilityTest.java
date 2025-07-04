@@ -53,11 +53,11 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
     @Override
     public IgniteClient client() {
-        return null;
+        return client;
     }
 
     @Override
     public AtomicInteger idGen() {
-        return null;
+        return idGen;
     }
 }
