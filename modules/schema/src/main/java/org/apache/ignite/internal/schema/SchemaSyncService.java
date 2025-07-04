@@ -23,15 +23,37 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 /**
  * Implements Schema Synchronization wait logic as defined in IEP-98.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface SchemaSyncService {
     /**
      * Waits till metadata (like table/index schemas) is complete for the given timestamp. The 'complete' here means
      * that no metadata change can arrive later that would change how a table/index/etc looks at the given timestamp.
+     *
+     * <p>This also means that all listeners that react to all metadata changes up to the point of interest have completed
+     * their execution.
+     *
+     * <p>In contract with {@link #waitForMetadataCompletenessConservatively(HybridTimestamp)}, this method does NOT provide any guarantees
+     * about whether listeners reacting to other types of events (which are not schema changes) have completed their execution.
      *
      * @param ts Timestamp of interest.
      * @return Future that completes when it is safe to query the Catalog at the given timestamp (as its data will
      *     remain unchanged for the timestamp).
      */
     CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts);
+
+    /**
+     * Waits till metadata (like table/index schemas) is complete for the given timestamp. The 'complete' here means
+     * that no metadata change can arrive later that would change how a table/index/etc looks at the given timestamp.
+     *
+     * <p>This also means that all listeners that react to all metadata changes up to the point of interest have completed
+     * their execution.
+     *
+     * <p>In contract with {@link #waitForMetadataCompleteness(HybridTimestamp)}, this method also guarantees
+     * that listeners reacting to other types of events (which are not schema changes) preceeding the schema update events
+     * of interest have completed their execution as well.
+     *
+     * @param ts Timestamp of interest.
+     * @return Future that completes when it is safe to query the Catalog at the given timestamp (as its data will
+     *     remain unchanged for the timestamp).
+     */
+    CompletableFuture<Void> waitForMetadataCompletenessConservatively(HybridTimestamp ts);
 }

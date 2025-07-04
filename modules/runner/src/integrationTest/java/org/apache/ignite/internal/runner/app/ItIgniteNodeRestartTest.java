@@ -195,6 +195,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
@@ -723,7 +724,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             }
         };
 
-        var schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
+        var catalogSafeTimeTracker = new SchemaSafeTimeTrackerImpl();
+
+        var schemaSyncService = new SchemaSyncServiceImpl(
+                catalogSafeTimeTracker,
+                metaStorageMgr.clusterTime(),
+                delayDurationMsSupplier
+        );
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
@@ -889,6 +896,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockWaiter,
                 catalogManager,
                 indexMetaStorage,
+                catalogSafeTimeTracker,
                 schemaManager,
                 distributionZoneManager,
                 sharedTxStateStorage,

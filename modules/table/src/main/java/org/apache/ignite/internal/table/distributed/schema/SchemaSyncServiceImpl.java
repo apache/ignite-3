@@ -21,12 +21,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTracker;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
  * A default implementation of {@link SchemaSyncService}.
  */
 public class SchemaSyncServiceImpl implements SchemaSyncService {
+    private final SchemaSafeTimeTracker schemaSafeTimeTracker;
+
     private final ClusterTime clusterTime;
 
     private final LongSupplier delayDurationMs;
@@ -34,13 +37,27 @@ public class SchemaSyncServiceImpl implements SchemaSyncService {
     /**
      * Constructor.
      */
-    public SchemaSyncServiceImpl(ClusterTime clusterTime, LongSupplier delayDurationMs) {
+    public SchemaSyncServiceImpl(
+            SchemaSafeTimeTracker schemaSafeTimeTracker,
+            ClusterTime clusterTime,
+            LongSupplier delayDurationMs
+    ) {
+        this.schemaSafeTimeTracker = schemaSafeTimeTracker;
         this.clusterTime = clusterTime;
         this.delayDurationMs = delayDurationMs;
     }
 
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        return clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
+        return schemaSafeTimeTracker.waitFor(metastoreSafeTimeToWait(ts));
+    }
+
+    private HybridTimestamp metastoreSafeTimeToWait(HybridTimestamp ts) {
+        return ts.subtractPhysicalTime(delayDurationMs.getAsLong());
+    }
+
+    @Override
+    public CompletableFuture<Void> waitForMetadataCompletenessConservatively(HybridTimestamp ts) {
+        return clusterTime.waitFor(metastoreSafeTimeToWait(ts));
     }
 }

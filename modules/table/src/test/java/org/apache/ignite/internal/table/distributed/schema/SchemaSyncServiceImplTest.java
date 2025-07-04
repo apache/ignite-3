@@ -30,6 +30,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTracker;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,9 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
     @Mock
     private ClusterTime clusterTime;
 
+    @Mock
+    private SchemaSafeTimeTracker schemaSafeTimeTracker;
+
     private final LongSupplier delayDurationMs = () -> DELAY_DURATION;
 
     private SchemaSyncServiceImpl schemaSyncService;
@@ -52,18 +56,34 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void createSchemaSyncService() {
-        schemaSyncService = new SchemaSyncServiceImpl(clusterTime, delayDurationMs);
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, clusterTime, delayDurationMs);
     }
 
     @Test
-    void waitsTillSchemaCompletenessSubtractingDelayDuration() {
+    void waitsOnSchemaSafeTimeTillSchemaCompletenessSubtractingDelayDuration() {
+        HybridTimestamp ts = clock.now();
+        CompletableFuture<Void> safeTimeFuture = new CompletableFuture<>();
+
+        HybridTimestamp tsMinusDelayDuration = ts.subtractPhysicalTime(delayDurationMs.getAsLong());
+        when(schemaSafeTimeTracker.waitFor(tsMinusDelayDuration)).thenReturn(safeTimeFuture);
+
+        CompletableFuture<Void> waitFuture = schemaSyncService.waitForMetadataCompleteness(ts);
+
+        assertThat(waitFuture, is(not(completedFuture())));
+
+        safeTimeFuture.complete(null);
+        assertThat(waitFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void waitsConvervativelyOnClusterTimeTillSchemaCompletenessSubtractingDelayDuration() {
         HybridTimestamp ts = clock.now();
         CompletableFuture<Void> clusterTimeFuture = new CompletableFuture<>();
 
         HybridTimestamp tsMinusDelayDuration = ts.subtractPhysicalTime(delayDurationMs.getAsLong());
         when(clusterTime.waitFor(tsMinusDelayDuration)).thenReturn(clusterTimeFuture);
 
-        CompletableFuture<Void> waitFuture = schemaSyncService.waitForMetadataCompleteness(ts);
+        CompletableFuture<Void> waitFuture = schemaSyncService.waitForMetadataCompletenessConservatively(ts);
 
         assertThat(waitFuture, is(not(completedFuture())));
 

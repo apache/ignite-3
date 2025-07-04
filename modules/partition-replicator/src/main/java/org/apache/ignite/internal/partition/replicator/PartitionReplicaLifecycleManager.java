@@ -1487,8 +1487,8 @@ public class PartitionReplicaLifecycleManager extends
         return assignments.stream().anyMatch(isLocalNodeAssignment);
     }
 
-    private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
-        return executorInclinedSchemaSyncService.waitForMetadataCompleteness(hybridTimestamp(ts));
+    private CompletableFuture<Void> waitForMetadataCompletenessConservatively(long ts) {
+        return executorInclinedSchemaSyncService.waitForMetadataCompletenessConservatively(hybridTimestamp(ts));
     }
 
     /**
@@ -1735,7 +1735,7 @@ public class PartitionReplicaLifecycleManager extends
 
             assert stableAssignments != null : "zonePartitionId=" + zonePartitionId + ", revision=" + revision;
 
-            return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
+            return waitForMetadataCompletenessConservatively(assignmentsTimestamp).thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
                 Assignment localAssignment = localAssignment(stableAssignments);
 
                 if (localAssignment == null) {

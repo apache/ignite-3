@@ -691,8 +691,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
-        return executorInclinedSchemaSyncService.waitForMetadataCompleteness(hybridTimestamp(ts));
+    private CompletableFuture<Void> waitForMetadataCompletenessConservatively(long ts) {
+        return executorInclinedSchemaSyncService.waitForMetadataCompletenessConservatively(hybridTimestamp(ts));
     }
 
     private CompletableFuture<Boolean> beforeZoneReplicaStarted(LocalPartitionReplicaEventParameters parameters) {
@@ -2446,18 +2446,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
                         );
 
-                        return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(ignored -> inBusyLock(busyLock, () -> {
-                            assert localAssignmentInPending != null : "Local member assignment";
+                        return waitForMetadataCompletenessConservatively(assignmentsTimestamp)
+                                .thenCompose(ignored -> inBusyLock(busyLock, () -> {
+                                    assert localAssignmentInPending != null : "Local member assignment";
 
-                            return startPartitionAndStartClient(
-                                    tbl,
-                                    replicaGrpId.partitionId(),
-                                    localAssignmentInPending,
-                                    computedStableAssignments,
-                                    isRecovery,
-                                    assignmentsTimestamp
-                            );
-                        }));
+                                    return startPartitionAndStartClient(
+                                            tbl,
+                                            replicaGrpId.partitionId(),
+                                            localAssignmentInPending,
+                                            computedStableAssignments,
+                                            isRecovery,
+                                            assignmentsTimestamp
+                                    );
+                                }));
                     }), ioExecutor);
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
             localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
@@ -3301,23 +3302,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
 
-                return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
-                    Assignment localAssignment = localAssignment(stableAssignments);
+                return waitForMetadataCompletenessConservatively(assignmentsTimestamp)
+                        .thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
+                            Assignment localAssignment = localAssignment(stableAssignments);
 
-                    if (localAssignment == null) {
-                        // (0) in case if node not in the assignments
-                        return nullCompletedFuture();
-                    }
+                            if (localAssignment == null) {
+                                // (0) in case if node not in the assignments
+                                return nullCompletedFuture();
+                            }
 
-                    return startPartitionAndStartClient(
-                            table,
-                            tablePartitionId.partitionId(),
-                            localAssignment,
-                            stableAssignments,
-                            false,
-                            assignmentsTimestamp
-                    );
-                }));
+                            return startPartitionAndStartClient(
+                                    table,
+                                    tablePartitionId.partitionId(),
+                                    localAssignment,
+                                    stableAssignments,
+                                    false,
+                                    assignmentsTimestamp
+                            );
+                        }));
             }, ioExecutor);
         }), ioExecutor));
     }
