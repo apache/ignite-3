@@ -169,7 +169,8 @@ public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRu
                 collation,
                 condition,
                 rowType,
-                requiredColumns
+                requiredColumns,
+                false
         );
     }
 

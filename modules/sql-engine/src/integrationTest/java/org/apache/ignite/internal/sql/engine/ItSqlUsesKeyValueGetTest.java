@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -109,6 +112,24 @@ public class ItSqlUsesKeyValueGetTest extends BaseSqlIntegrationTest {
                 .withParams(key)
                 .returns(key, key * 10)
                 .check();
+    }
+
+    @Test
+    void lookupNotUsesSaturatedValues() {
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
+
+        try {
+            sql(tx, "INSERT INTO simple_key VALUES (2147483647, 2147483647);");
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25768
+            assertThrowsSqlException(
+                    RUNTIME_ERR,
+                    "INTEGER out of range",
+                    () -> sql(tx, "SELECT val FROM simple_key WHERE id = 2147483648")
+            );
+        } finally {
+            tx.rollback();
+        }
     }
 
     private static int randomKey() {
