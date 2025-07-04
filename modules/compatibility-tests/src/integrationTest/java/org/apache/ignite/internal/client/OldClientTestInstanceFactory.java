@@ -1,5 +1,6 @@
 package org.apache.ignite.internal.client;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Optional;
@@ -24,10 +25,13 @@ public class OldClientTestInstanceFactory implements TestInstanceFactory {
             Class<?> testClass = factoryContext.getTestClass();
             assert outerInstance.isEmpty() : "Unexpected outer instance for test class: " + testClass.getSimpleName();
 
-            ClientCompatibilityTests delegate = createInstance(factoryContext, extensionContext);
+            // TODO: Resource management.
+            IgniteCluster igniteCluster = startCluster(factoryContext, extensionContext);
+            ClientCompatibilityTests delegate = createInstance();
 
             var testInstance = new OldClientWithCurrentServerCompatibilityTest();
             testInstance.setDelegate(delegate);
+            testInstance.createDefaultTables(igniteCluster.createClient());
 
             return testInstance;
         }
@@ -36,8 +40,7 @@ public class OldClientTestInstanceFactory implements TestInstanceFactory {
         }
     }
 
-    private static ClientCompatibilityTests createInstance(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext)
-            throws Exception {
+    private static IgniteCluster startCluster(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext) throws IOException {
         TestInfo testInfo = new TestInfo() {
             @Override
             public String getDisplayName() {
@@ -60,11 +63,16 @@ public class OldClientTestInstanceFactory implements TestInstanceFactory {
             }
         };
 
-        // TODO: Resource management.
         var workDir = WorkDirectoryExtension.createWorkDir(extensionContext);
 
         IgniteCluster cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
         cluster.startEmbedded(1, true);
+
+        return cluster;
+    }
+
+    private static ClientCompatibilityTests createInstance()
+            throws Exception {
 
         var loader = OldClientLoader.getClientClassloader("3.0.0");
 

@@ -20,10 +20,14 @@ package org.apache.ignite.internal.client;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(OldClientTestInstanceFactory.class)
+@TestInstance(Lifecycle.PER_CLASS)
 public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
     private final AtomicInteger idGen = new AtomicInteger(1000);
 
