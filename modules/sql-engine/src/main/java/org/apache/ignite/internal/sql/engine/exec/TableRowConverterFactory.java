@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import org.apache.calcite.util.ImmutableIntList;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,9 +25,9 @@ import org.jetbrains.annotations.Nullable;
  */
 @FunctionalInterface
 public interface TableRowConverterFactory {
-    TableRowConverter create(@Nullable ImmutableIntList projection);
+    TableRowConverter create(int @Nullable [] projection);
 
-    default TableRowConverter create(@Nullable ImmutableIntList projection, int partId) {
+    default TableRowConverter create(int @Nullable [] projection, int partId) {
         return create(projection);
     }
 }

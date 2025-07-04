@@ -57,7 +57,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     private final PartitionProvider<RowT> partitionProvider;
 
     /** Participating columns. */
-    private final @Nullable ImmutableIntList requiredColumns;
+    private final int @Nullable [] requiredColumns;
 
     private final @Nullable RangeIterable<RowT> rangeConditions;
 
@@ -96,7 +96,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
         this.schemaIndex = schemaIndex;
         this.table = table;
         this.partitionProvider = partitionProvider;
-        this.requiredColumns = requiredColumns;
+        this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
         this.rangeConditions = rangeConditions;
         this.comp = comp;
         this.factory = rowFactory;

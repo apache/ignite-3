@@ -22,7 +22,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
@@ -82,7 +81,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     }
 
     @Override
-    public TableRowConverter create(@Nullable ImmutableIntList projection) {
+    public TableRowConverter create(int @Nullable [] projection) {
         // TODO: IGNITE-22823 fix this. UpdatableTable must pass the project with updatable columns.
         if (projection == null) {
             return fullRowConverter;
@@ -92,10 +91,10 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     }
 
     @Override
-    public TableRowConverter create(@Nullable ImmutableIntList projection, int partId) {
+    public TableRowConverter create(int @Nullable [] projection, int partId) {
         int[] mapping = projection == null
                 ? tableColumnSet
-                : projection.toIntArray();
+                : projection;
 
         // TODO: IGNITE-22703 Can we opmitimize this?
         if (Commons.isIdentityMapping(mapping, schemaDescriptor.length())) {

@@ -38,7 +38,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
@@ -79,7 +78,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
                 ExecutionContext<RowT> ctx,
                 PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory,
-                @Nullable ImmutableIntList requiredColumns
+                int @Nullable [] requiredColumns
         ) {
 
             return new TransformingPublisher<>(
@@ -94,7 +93,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         @Override
         public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                @Nullable ImmutableIntList requiredColumns) {
+
+                int @Nullable [] requiredColumns) {
 
             return new TransformingPublisher<>(
                     SubscriptionUtils.fromIterable(
@@ -107,7 +107,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         @Override
         public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable ImmutableIntList requiredColumns) {
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key,
+                int @Nullable [] requiredColumns) {
 
             return new TransformingPublisher<>(
                     SubscriptionUtils.fromIterable(
@@ -120,7 +121,8 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         @Override
         public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
-                RowFactory<RowT> rowFactory, RowT key, @Nullable ImmutableIntList requiredColumns) {
+                RowFactory<RowT> rowFactory, RowT key,
+                int @Nullable [] requiredColumns) {
             return CompletableFuture.completedFuture(rowFactory.create());
         }
 

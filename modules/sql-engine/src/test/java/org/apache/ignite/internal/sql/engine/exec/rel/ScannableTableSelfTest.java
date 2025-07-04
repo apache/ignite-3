@@ -264,7 +264,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = ImmutableIntList.of(1);
+        tester.requiredFields = ImmutableIntList.of(1).toIntArray();
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -326,7 +326,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = ImmutableIntList.of(1);
+        tester.requiredFields = ImmutableIntList.of(1).toIntArray();
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -500,7 +500,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         input.addRow(binaryRow);
 
         Tester tester = new Tester(input);
-        tester.requiredFields = ImmutableIntList.of(1);
+        tester.requiredFields = ImmutableIntList.of(1).toIntArray();
 
         int partitionId = 1;
         long consistencyToken = 2;
@@ -584,7 +584,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final RowCollectingTableRowConverter rowConverter;
 
-        ImmutableIntList requiredFields;
+        int[] requiredFields;
 
         Tester(TestInput input) {
             this.input = input;

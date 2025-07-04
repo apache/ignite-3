@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_O
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -56,7 +55,7 @@ public class ScannableTableImpl implements ScannableTable {
     /** {@inheritDoc} */
     @Override
     public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-            RowFactory<RowT> rowFactory,  ImmutableIntList requiredColumns) {
+            RowFactory<RowT> rowFactory,  int[] requiredColumns) {
 
         Publisher<BinaryRow> pub;
         TxAttributes txAttributes = ctx.txAttributes();
@@ -101,7 +100,7 @@ public class ScannableTableImpl implements ScannableTable {
             int indexId,
             List<String> columns,
             @Nullable RangeCondition<RowT> cond,
-            @Nullable ImmutableIntList requiredColumns
+            int @Nullable [] requiredColumns
     ) {
         TxAttributes txAttributes = ctx.txAttributes();
         RowHandler<RowT> handler = rowFactory.handler();
@@ -172,7 +171,7 @@ public class ScannableTableImpl implements ScannableTable {
             int indexId,
             List<String> columns,
             RowT key,
-            @Nullable ImmutableIntList requiredColumns
+            int @Nullable [] requiredColumns
     ) {
         TxAttributes txAttributes = ctx.txAttributes();
         RowHandler<RowT> handler = rowFactory.handler();
@@ -224,7 +223,7 @@ public class ScannableTableImpl implements ScannableTable {
             InternalTransaction tx,
             RowFactory<RowT> rowFactory,
             RowT key,
-            @Nullable ImmutableIntList requiredColumns
+            int @Nullable [] requiredColumns
     ) {
         assert tx != null;
 

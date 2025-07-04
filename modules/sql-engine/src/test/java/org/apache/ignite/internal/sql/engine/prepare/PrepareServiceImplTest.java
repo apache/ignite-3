@@ -303,8 +303,8 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 throw new RuntimeException(e);
             }
             // Call original method.
-            return igniteTable.getRowType(inv.getArgument(0), (ImmutableIntList) inv.getArgument(1));
-        }).when(spyTable).getRowType(any(), any(ImmutableIntList.class));
+            return igniteTable.getRowType(inv.getArgument(0), inv.getArgument(1));
+        }).when(spyTable).getRowType(any(), any());
 
         IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(igniteTable));
         Cache<Object, Object> cache = CaffeineCacheFactory.INSTANCE.create(100);

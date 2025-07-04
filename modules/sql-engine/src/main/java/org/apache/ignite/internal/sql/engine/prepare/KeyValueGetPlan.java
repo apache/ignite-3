@@ -200,7 +200,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final RowHandler<RowT> rowHandler;
         private final RowFactory<RowT> tableRowFactory;
         private final SqlRowProvider<RowT> keySupplier;
-        private final ImmutableIntList requiredColumns;
+        private final int[] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
         private SimpleLookupExecution(
@@ -215,7 +215,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
             this.rowHandler = rowHandler;
             this.tableRowFactory = tableRowFactory;
             this.keySupplier = keySupplier;
-            this.requiredColumns = requiredColumns;
+            this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
             this.internalTypeConverter = internalTypeConverter;
         }
 
@@ -239,7 +239,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final SqlRowProvider<RowT> keySupplier;
         private final @Nullable SqlPredicate<RowT> filter;
         private final @Nullable SqlProjection<RowT> projection;
-        private final @Nullable ImmutableIntList requiredColumns;
+        private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
         private FilterableProjectableLookupExecution(
@@ -258,7 +258,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
             this.keySupplier = keySupplier;
             this.filter = filter;
             this.projection = projection;
-            this.requiredColumns = requiredColumns;
+            this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
             this.internalTypeConverter = internalTypeConverter;
         }
 

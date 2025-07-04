@@ -25,29 +25,20 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -214,66 +205,10 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
     }
 
     private static ScannableTable neverReplyingScannableTable() {
-        return new ScannableTable() {
-            @Override
-            public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, @Nullable ImmutableIntList requiredColumns) {
-                return SubscriptionUtils.fromIterable(new CompletableFuture<>());
-            }
-
-            @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                    @Nullable ImmutableIntList requiredColumns) {
-                return SubscriptionUtils.fromIterable(new CompletableFuture<>());
-            }
-
-            @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable ImmutableIntList requiredColumns) {
-                return SubscriptionUtils.fromIterable(new CompletableFuture<>());
-            }
-
-            @Override
-            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx,
-                    @Nullable InternalTransaction explicitTx, RowFactory<RowT> rowFactory, RowT key,
-                    @Nullable ImmutableIntList requiredColumns) {
-                return new CompletableFuture<>();
-            }
-
-            @Override
-            public CompletableFuture<Long> estimatedSize() {
-                return new CompletableFuture<>();
-            }
-        };
+        return new DummyScannableTable();
     }
 
     private static UpdatableTable neverReplyingUpdatableTable() {
-        return new UpdatableTable() {
-            @Override
-            public TableDescriptor descriptor() {
-                throw new UnsupportedOperationException("UpdatableTable#descriptor");
-            }
-
-            @Override
-            public <RowT> CompletableFuture<?> insertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
-                return new CompletableFuture<>();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<Void> insert(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT row) {
-                return new CompletableFuture<>();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
-                return new CompletableFuture<>();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
-                return new CompletableFuture<>();
-            }
-        };
+        return new DummyUpdatableTable();
     }
 }

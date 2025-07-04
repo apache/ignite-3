@@ -46,7 +46,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final RowFactory<RowT> rowFactory;
 
-    private final @Nullable ImmutableIntList requiredColumns;
+    private final @Nullable int[] requiredColumns;
 
     /**
      * Constructor.
@@ -74,7 +74,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
         this.table = table;
         this.partitionProvider = partitionProvider;
         this.rowFactory = rowFactory;
-        this.requiredColumns = requiredColumns;
+        this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
     }
 
     /** {@inheritDoc} */
