@@ -26,17 +26,19 @@ import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEve
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -45,7 +47,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -62,13 +63,14 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Class tracks cluster leases in memory.
- * At first, the class state recoveries from Vault, then updates on watch's listener.
+ * Class that tracks cluster leases in memory.
  */
 public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
         LeasePlacementDriver {
@@ -135,7 +137,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
         busyLock.block();
 
-        primaryReplicaWaiters.forEach((groupId, pendingTracker) -> pendingTracker.close());
+        primaryReplicaWaiters.values().forEach(PendingComparableValuesTracker::close);
         primaryReplicaWaiters.clear();
 
         msManager.unregisterWatch(updateListener);
@@ -255,28 +257,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         }
     }
 
-    private void awaitPrimaryReplica(
-            ReplicationGroupId groupId,
-            HybridTimestamp timestamp,
-            CompletableFuture<ReplicaMeta> resultFuture
-    ) {
-        inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
-                .thenAccept(replicaMeta -> {
-                    ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
-
-                    if (leaseholderNode == null && !resultFuture.isDone()) {
-                        awaitPrimaryReplica(
-                                groupId,
-                                replicaMeta.getExpirationTime().tick(),
-                                resultFuture
-                        );
-                    } else {
-                        resultFuture.complete(replicaMeta);
-                    }
-                })
-        );
-    }
-
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
             ReplicationGroupId groupId,
@@ -284,32 +264,72 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-        try {
+        return inBusyLockAsync(busyLock, () -> {
             ReplicaMeta currentMeta = getCurrentPrimaryReplica(groupId, timestamp);
 
             if (currentMeta != null && clusterNodeResolver.getById(currentMeta.getLeaseholderId()) != null) {
                 return completedFuture(currentMeta);
             }
-        } finally {
-            busyLock.leaveBusy();
-        }
 
-        CompletableFuture<ReplicaMeta> future = new CompletableFuture<>();
+            return awaitPrimaryReplicaImpl(groupId, timestamp, timeout, unit);
+        });
+    }
 
-        awaitPrimaryReplica(groupId, timestamp, future);
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaImpl(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        var resultFuture = new CompletableFuture<ReplicaMeta>().orTimeout(timeout, unit);
 
-        return future
-                .orTimeout(timeout, unit)
+        awaitPrimaryReplicaImpl(groupId, timestamp, resultFuture)
+                .whenComplete(copyStateTo(resultFuture));
+
+        return resultFuture
                 .exceptionally(e -> {
                     if (e instanceof TimeoutException) {
                         throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp, leases.leaseByGroupId().get(groupId), e);
+                    } else if (hasCause(e, TrackerClosedException.class)) {
+                        // TrackerClosedException is thrown when trackers are closed on node stop.
+                        throw new CompletionException(new NodeStoppingException(e));
+                    } else {
+                        throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
                     }
-
-                    throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
                 });
+    }
+
+    /**
+     * Returns a future that completes when the target primary replica appears.
+     *
+     * <p>{@code timeoutFuture} here is not used for storing the operation result, but rather works in conjunction with the
+     * {@link #awaitPrimaryReplicaImpl(ReplicationGroupId, HybridTimestamp, long, TimeUnit)} method which passes a future that timeouts
+     * after a configurable amount of time. This future is therefore used to stop waiting if the timeout has been reached.
+     */
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaImpl(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            CompletableFuture<?> timeoutFuture
+    ) {
+        return inBusyLockAsync(busyLock, () -> {
+            PendingComparableValuesTracker<HybridTimestamp, ReplicaMeta> tracker = getOrCreatePrimaryReplicaWaiter(groupId);
+
+            return tracker.waitFor(timestamp)
+                    .thenCompose(replicaMeta -> inBusyLockAsync(busyLock, () -> {
+                        UUID leaseholderId = replicaMeta.getLeaseholderId();
+
+                        assert leaseholderId != null : replicaMeta;
+
+                        ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
+
+                        // timeoutFuture can timeout, use this a condition to stop further processing.
+                        if (leaseholderNode == null && !timeoutFuture.isDone()) {
+                            return awaitPrimaryReplicaImpl(groupId, replicaMeta.getExpirationTime().tick(), timeoutFuture);
+                        } else {
+                            return completedFuture(replicaMeta);
+                        }
+                    }));
+        });
     }
 
     @Override
@@ -348,8 +368,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     /**
-     * Helper method that checks whether tracker for given groupId is present in {@code primaryReplicaWaiters} map, whether it's empty
-     * and removes it if it's true.
+     * Helper method that checks whether tracker for given groupId is present in {@code primaryReplicaWaiters} map, whether it's empty and
+     * removes it if it's true.
      *
      * @param groupId Replication group id.
      */
