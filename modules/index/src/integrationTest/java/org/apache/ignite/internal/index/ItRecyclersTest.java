@@ -41,6 +41,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest.Person;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.Recyclers;
 import org.apache.ignite.raft.jraft.util.Recyclers.DefaultHandle;
@@ -53,6 +54,7 @@ import org.apache.ignite.raft.jraft.util.RecyclersHandlerTwoQueue;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -105,11 +107,44 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
         return arguments.stream();
     }
 
+    private static Stream<Arguments> test1Arguments() {
+        var arguments = new ArrayList<Arguments>();
+
+        List<RecyclersHandler> recyclersHandlers = List.of(
+                RecyclersHandlerOrigin.INSTANCE,
+                RecyclersHandlerTwoQueue.INSTANCE,
+                RecyclersHandlerSharedQueueOnly.INSTANCE
+        );
+
+        for (boolean useSharedByteBuffers : new boolean[] {false, true}) {
+            arguments.add(Arguments.arguments(useSharedByteBuffers, 1, 1, 1_000));
+//            arguments.add(Arguments.arguments(useSharedByteBuffers, 1, 25, 10_000));
+//
+//            arguments.add(Arguments.arguments(useSharedByteBuffers, 10, 1, 1_000));
+//            arguments.add(Arguments.arguments(useSharedByteBuffers, 10, 25, 10_000));
+//
+//            arguments.add(Arguments.arguments(useSharedByteBuffers, 20, 1, 1_000));
+//            arguments.add(Arguments.arguments(useSharedByteBuffers, 20, 25, 10_000));
+        }
+
+        return arguments.stream();
+    }
+
     @AfterAll
     static void afterAll() {
         Recyclers.setRecyclersHandler(RecyclersHandlerOrigin.INSTANCE);
+        Replicator.useSharedByteBuffers(false);
     }
 
+    @ParameterizedTest(name = "useSharedBB={0}, tableCount={1}, perTablePartitionCount={2}, perTableInsertCount={3}")
+    @MethodSource("test1Arguments")
+    void test1(boolean useSharedByteBuffers, int tableCount, int partitionCount, int insertCount) {
+        Replicator.useSharedByteBuffers(useSharedByteBuffers);
+
+        test(RecyclersHandlerOrigin.INSTANCE, tableCount, partitionCount, insertCount);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25686")
     @ParameterizedTest(name = "h={0}, tableCount={1}, perTablePartitionCount={2}, perTableInsertCount={3}")
     @MethodSource("testArguments")
     void test(RecyclersHandler handler, int tableCount, int partitionCount, int insertCount) {
@@ -186,7 +221,12 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
 
         log.info(
                 ">>>>> {} ByteBufferCollector sizes ordered: [type={}, info={}]",
-                testMethodName, type, byteBufferCollectorSizes(nodeName)
+                testMethodName, type, byteBufferCollectorSizes(nodeName, false)
+        );
+
+        log.info(
+                ">>>>> {} ByteBufferCollector sizes ordered shared only: [type={}, info={}]",
+                testMethodName, type, byteBufferCollectorSizes(nodeName, true)
         );
 
         Duration duration = Duration.ofNanos(System.nanoTime() - startNanos);
@@ -234,13 +274,18 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
         return sb.append(personIndex).toString();
     }
 
-    private static String byteBufferCollectorSizes(String nodeName) {
-        List<ByteBufferCollector> collect = Recyclers.DEFAULT_HANDLES.values().stream()
+    private static String byteBufferCollectorSizes(String nodeName, boolean sharedOnly) {
+        Stream<ByteBufferCollector> stream0 = Recyclers.DEFAULT_HANDLES.values().stream()
                 .flatMap(Collection::stream)
                 .filter(h -> h.value instanceof ByteBufferCollector)
                 .filter(h -> h.stackOrigin.thread.getState() != State.TERMINATED)
                 .filter(h -> h.stackOrigin.thread.getName().contains(nodeName))
-                .map(h -> (ByteBufferCollector) h.value)
+                .map(h -> (ByteBufferCollector) h.value);
+
+        Stream<ByteBufferCollector> stream1 = Replicator.BYTE_BUFFER_COLLECTORS.stream()
+                .filter(c -> c.nodeName.contains(nodeName));
+
+        List<ByteBufferCollector> collect = (sharedOnly ? stream1 : Stream.concat(stream0, stream1))
                 .sorted(Comparator.comparingInt(ByteBufferCollector::capacity).reversed())
                 .collect(toList());
 

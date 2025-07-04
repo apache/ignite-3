@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.Set;
+import java.util.Queue;import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -1678,7 +1678,12 @@ public class Replicator implements ThreadId.OnError {
                 return false;
             }
             if (byteBufList.getCapacity() > 0) {
-                dataBuf = ByteBufferCollector.allocateByRecyclers(byteBufList.getCapacity());
+                if (!USE_SHARED_BYTE_BUFFERS) {
+                    dataBuf = ByteBufferCollector.allocateByRecyclers(byteBufList.getCapacity());
+                } else {
+                    dataBuf = allocateShared(byteBufList.getCapacity());
+                }
+
                 for (final ByteBuffer b : byteBufList) {
                     dataBuf.put(b);
                 }
@@ -1719,7 +1724,11 @@ public class Replicator implements ThreadId.OnError {
                             // TODO: recycle on send success, not response received IGNITE-14832.
                             // Also, this closure can be executed when rpcFuture was cancelled, but the request was not sent (meaning
                             // it's too early to recycle byte buffer)
-                            RecycleUtil.recycle(recyclable);
+                            if (!USE_SHARED_BYTE_BUFFERS) {
+                                RecycleUtil.recycle(recyclable);
+                            } else {
+                                recycleShared((ByteBufferCollector) recyclable);
+                            }
                         }
                         onRpcReturned(Replicator.this.id, RequestType.AppendEntries, status, request, getResponse(),
                             seq, v, monotonicSendTimeMs);
@@ -1945,4 +1954,31 @@ public class Replicator implements ThreadId.OnError {
         this.id.unlock();
     }
 
+    public static final Set<ByteBufferCollector> BYTE_BUFFER_COLLECTORS = ConcurrentHashMap.newKeySet();
+
+    private ByteBufferCollector allocateShared(int capacity) {
+        Queue<ByteBufferCollector> q = options.getAppendEntriesByteBufferCollectorQueue();
+
+        ByteBufferCollector collector = q.poll();
+
+        if (collector == null || collector.capacity() < capacity) {
+            collector = ByteBufferCollector.allocate(capacity, options.getNode().getNodeId().getPeerId().getConsistentId());
+
+            BYTE_BUFFER_COLLECTORS.add(collector);
+        }
+
+        return collector;
+    }
+
+    private void recycleShared(ByteBufferCollector c) {
+        if (c != null) {
+            options.getAppendEntriesByteBufferCollectorQueue().offer(c);
+        }
+    }
+
+    private static volatile boolean USE_SHARED_BYTE_BUFFERS = false;
+
+    public static void useSharedByteBuffers(boolean useSharedByteBuffers) {
+        USE_SHARED_BYTE_BUFFERS = useSharedByteBuffers;
+    }
 }

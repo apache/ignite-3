@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -37,6 +38,7 @@ import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.Copiable;
 import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -300,6 +302,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * If the group is declared as a system group, certain threads are dedicated specifically for that one.
      */
     private boolean isSystemGroup = false;
+
+    private Queue<ByteBufferCollector> appendEntriesByteBufferCollectorQueue;
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
@@ -779,6 +783,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setLogStripesCount(this.getLogStripesCount());
         nodeOptions.setLogYieldStrategy(this.isLogYieldStrategy());
         nodeOptions.setNodeManager(this.getNodeManager());
+        nodeOptions.setAppendEntriesByteBufferCollectorQueue(this.getAppendEntriesByteBufferCollectorQueue());
 
         return nodeOptions;
     }
@@ -834,5 +839,13 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setExternallyEnforcedConfigIndex(@Nullable Long index) {
         this.externallyEnforcedConfigIndex = index;
+    }
+
+    public void setAppendEntriesByteBufferCollectorQueue(Queue<ByteBufferCollector> appendEntriesQueue) {
+        this.appendEntriesByteBufferCollectorQueue = appendEntriesQueue;
+    }
+
+    public Queue<ByteBufferCollector> getAppendEntriesByteBufferCollectorQueue() {
+        return appendEntriesByteBufferCollectorQueue;
     }
 }
