@@ -42,6 +42,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
     final List<RowT> rightMaterialized = new ArrayList<>(inBufSize);
 
+    int processed = 0;
+
     /**
      * Creates NestedLoopJoinNode.
      *
@@ -173,7 +175,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
         @Override
         protected void pushLeft(RowT row) throws Exception {
-            // Prefent fetching left if right is empty.
+            // Prevent fetching left if right is empty.
             if (waitingRight == NOT_WAITING && rightMaterialized.isEmpty()) {
                 waitingLeft--;
 
@@ -194,18 +196,14 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
-                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
                             left = leftInBuf.remove();
                         }
-
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
-                            if (processed++ > inBufSize) {
+                            if (rescheduleJoin()) {
                                 // Allow others to do their job.
-                                execute(this::join);
-
                                 return;
                             }
 
@@ -221,6 +219,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         if (rightIdx == rightMaterialized.size()) {
                             left = null;
                             rightIdx = 0;
+                        }
+
+                        if (rightMaterialized.isEmpty() && rescheduleJoin()) {
+                            // Allow others to do their job.
+                            return;
                         }
                     }
                 } finally {
@@ -276,7 +279,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
-                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
@@ -286,10 +288,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         }
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
-                            if (processed++ > inBufSize) {
+                            if (rescheduleJoin()) {
                                 // Allow others to do their job.
-                                execute(this::join);
-
                                 return;
                             }
 
@@ -312,8 +312,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                                 wasPushed = true;
 
                                 downstream().push(outputProjection.project(context(), left, rightRowFactory.create()));
-
-                                processed++;
                             }
 
                             if (matched || wasPushed) {
@@ -322,10 +320,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             }
                         }
 
-                        if (processed > inBufSize) {
+                        if (rightMaterialized.isEmpty() && rescheduleJoin()) {
                             // Allow others to do their job.
-                            execute(this::join);
-
                             return;
                         }
                     }
@@ -381,7 +377,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
         @Override
         protected void pushLeft(RowT row) throws Exception {
-            // Prefent fetching left if right is empty.
+            // Prevent fetching left if right is empty.
             if (waitingRight == NOT_WAITING && rightMaterialized.isEmpty()) {
                 waitingLeft--;
 
@@ -409,7 +405,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 }
 
                 inLoop = true;
-                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
@@ -417,10 +412,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         }
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
-                            if (processed++ > inBufSize) {
+                            if (rescheduleJoin()) {
                                 // Allow others to do their job.
-                                execute(this::join);
-
                                 return;
                             }
 
@@ -441,6 +434,12 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             left = null;
                             rightIdx = 0;
                         }
+
+                        // Allow others to do their job.
+                        if (rightMaterialized.isEmpty() && rescheduleJoin()) {
+                            // Allow others to do their job.
+                            return;
+                        }
                     }
                 } finally {
                     inLoop = false;
@@ -454,10 +453,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                     inLoop = true;
                     try {
                         while (requested > 0 && rightNotMatchedIt.hasNext()) {
-                            if (processed++ > inBufSize) {
+                            if (rescheduleJoin()) {
                                 // Allow others to do their job.
-                                execute(this::join);
-
                                 return;
                             }
 
@@ -544,7 +541,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 }
 
                 inLoop = true;
-                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
@@ -554,10 +550,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         }
 
                         while (requested > 0 && rightIdx < rightMaterialized.size()) {
-                            if (processed++ > inBufSize) {
+                            if (rescheduleJoin()) {
                                 // Allow others to do their job.
-                                execute(this::join);
-
                                 return;
                             }
 
@@ -583,7 +577,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                                 wasPushed = true;
 
                                 downstream().push(outputProjection.project(context(), left, rightRowFactory.create()));
-                                processed++;
                             }
 
                             if (leftMatched || wasPushed) {
@@ -592,10 +585,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             }
                         }
 
-                        if (processed >= inBufSize) {
+                        if (rightMaterialized.isEmpty() && rescheduleJoin()) {
                             // Allow others to do their job.
-                            execute(this::join);
-
                             return;
                         }
                     }
@@ -617,10 +608,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             requested--;
                             downstream().push(row);
 
-                            if (processed++ >= inBufSize) {
+                            if (rescheduleJoin()) {
                                 // Allow others to do their job.
-                                execute(this::join);
-
                                 return;
                             }
                         }
@@ -662,7 +651,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
         @Override
         protected void pushLeft(RowT row) throws Exception {
-            // Prefent fetching left if right is empty.
+            // Prevent fetching left if right is empty.
             if (waitingRight == NOT_WAITING && rightMaterialized.isEmpty()) {
                 waitingLeft--;
 
@@ -690,12 +679,9 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     boolean matched = false;
 
-                    int processed = 0;
                     while (!matched && requested > 0 && rightIdx < rightMaterialized.size()) {
-                        if (processed++ > inBufSize) {
+                        if (rescheduleJoin()) {
                             // Allow others to do their job.
-                            execute(this::join);
-
                             return;
                         }
 
@@ -712,6 +698,11 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                     if (matched || rightIdx == rightMaterialized.size()) {
                         left = null;
                         rightIdx = 0;
+                    }
+
+                    if (rightMaterialized.isEmpty() && rescheduleJoin()) {
+                        // Allow others to do their job.
+                        return;
                     }
                 }
             }
@@ -745,7 +736,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
                 inLoop = true;
-                int processed = 0;
                 try {
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
@@ -755,10 +745,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         boolean matched = false;
 
                         while (rightIdx < rightMaterialized.size()) {
-                            if (processed++ > inBufSize) {
+                            if (rescheduleJoin()) {
                                 // Allow others to do their job.
-                                execute(this::join);
-
                                 return;
                             }
 
@@ -776,10 +764,8 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                         left = null;
                         rightIdx = 0;
 
-                        if (rightMaterialized.isEmpty() && processed++ >= inBufSize) {
+                        if (rightMaterialized.isEmpty() && rescheduleJoin()) {
                             // Allow others to do their job.
-                            execute(this::join);
-
                             return;
                         }
                     }
@@ -810,5 +796,20 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
     protected boolean endOfRight() {
         return waitingRight == NOT_WAITING;
+    }
+
+    /**
+     * The method is called to break down the execution of the long join process into smaller chunks, to allow other tasks do their job.
+     *
+     * @return {@code true} if the next {@link #join()} task was enqueued to executor, {@code false} otherwise.
+     */
+    protected boolean rescheduleJoin() {
+        if (processed++ > inBufSize) {
+            execute(this::join);
+            processed = 0;
+
+            return true;
+        }
+        return false;
     }
 }
