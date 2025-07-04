@@ -24,7 +24,12 @@ public class OldClientTestInstanceFactory implements TestInstanceFactory {
             Class<?> testClass = factoryContext.getTestClass();
             assert outerInstance.isEmpty() : "Unexpected outer instance for test class: " + testClass.getSimpleName();
 
-            return createInstance(factoryContext, extensionContext);
+            ClientCompatibilityTests delegate = createInstance(factoryContext, extensionContext);
+
+            var testInstance = new OldClientWithCurrentServerCompatibilityTest();
+            testInstance.setDelegate(delegate);
+
+            return testInstance;
         }
         catch (Exception e) {
             throw new TestInstantiationException(e.getMessage(), e);

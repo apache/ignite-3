@@ -20,13 +20,20 @@ package org.apache.ignite.internal.client;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(OldClientTestInstanceFactory.class)
 public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
     private final AtomicInteger idGen = new AtomicInteger(1000);
 
+    private ClientCompatibilityTests delegate = this;
+
     private IgniteClient client;
+
+    public void setDelegate(ClientCompatibilityTests delegate) {
+        this.delegate = delegate;
+    }
 
     public void initClient(IgniteClient.Builder builder) {
         client = builder.addresses("127.0.0.1:10800").build();
@@ -40,5 +47,113 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @Override
     public AtomicInteger idGen() {
         return idGen;
+    }
+
+    @Test
+    @Override
+    public void testClusterNodes() {
+        delegate.testClusterNodes();
+    }
+
+    @Test
+    @Override
+    public void testTableByName() {
+        delegate.testTableByName();
+    }
+
+    @Test
+    @Override
+    public void testTableByQualifiedName() {
+        delegate.testTableByQualifiedName();
+    }
+
+    @Test
+    @Override
+    public void testTables() {
+        delegate.testTables();
+    }
+
+    @Test
+    @Override
+    public void testSqlColumnMeta() {
+        delegate.testSqlColumnMeta();
+    }
+
+    @Test
+    @Override
+    public void testSqlSelectAllColumnTypes() {
+        delegate.testSqlSelectAllColumnTypes();
+    }
+
+    @Test
+    @Override
+    public void testSqlMultiplePages() {
+        delegate.testSqlMultiplePages();
+    }
+
+    @Test
+    @Override
+    public void testSqlScript() {
+        delegate.testSqlScript();
+    }
+
+    @Test
+    @Override
+    public void testSqlBatch() {
+        delegate.testSqlBatch();
+    }
+
+    @Test
+    @Override
+    public void testRecordViewOperations() {
+        delegate.testRecordViewOperations();
+    }
+
+    @Test
+    @Override
+    public void testKvViewOperations() {
+        delegate.testKvViewOperations();
+    }
+
+    @Test
+    @Override
+    public void testRecordViewAllColumnTypes() {
+        delegate.testRecordViewAllColumnTypes();
+    }
+
+    @Test
+    @Override
+    public void testTxCommit() {
+        delegate.testTxCommit();
+    }
+
+    @Test
+    @Override
+    public void testTxRollback() {
+        delegate.testTxRollback();
+    }
+
+    @Test
+    @Override
+    public void testTxReadOnly() {
+        delegate.testTxReadOnly();
+    }
+
+    @Test
+    @Override
+    public void testComputeMissingJob() {
+        delegate.testComputeMissingJob();
+    }
+
+    @Test
+    @Override
+    public void testStreamer() {
+        delegate.testStreamer();
+    }
+
+    @Test
+    @Override
+    public void testStreamerWithReceiver() {
+        delegate.testStreamerWithReceiver();
     }
 }
