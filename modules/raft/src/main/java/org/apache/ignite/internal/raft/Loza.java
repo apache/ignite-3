@@ -599,6 +599,12 @@ public class Loza implements RaftManager {
 
         Status status = raftServer.resetPeers(raftNodeId, peersAndLearners, term);
 
+        if (status.getRaftError() == org.apache.ignite.raft.jraft.error.RaftError.ESTALE) {
+            throw new MismatchingTermException(status.getErrorMsg());
+        }
+
+        LOG.info("RRR-Reset peers for raft group {}, status is {}", raftNodeId, status);
+
         return status.isOk();
     }
 

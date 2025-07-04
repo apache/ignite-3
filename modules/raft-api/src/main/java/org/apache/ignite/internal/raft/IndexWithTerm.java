@@ -21,6 +21,8 @@ package org.apache.ignite.internal.raft;
  * Raft index with the corresponding term.
  */
 public class IndexWithTerm implements Comparable<IndexWithTerm> {
+    public static final long UNSET_TERM = -1L;
+
     private final long index;
     private final long term;
 

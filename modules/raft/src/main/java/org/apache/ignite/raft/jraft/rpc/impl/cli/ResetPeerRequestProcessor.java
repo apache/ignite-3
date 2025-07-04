@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.internal.raft.IndexWithTerm;import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -64,7 +64,7 @@ public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeer
 
         LOG.info("Receive ResetPeerRequest to {} from {}, new conf is {}, term is {}", ctx.node.getNodeId(), done.getRpcCtx()
             .getRemoteAddress(), newConf, term);
-        final Status st = ctx.node.resetPeers(newConf, term==null? 0L : term);
+        Status st = ctx.node.resetPeers(newConf, term==null? IndexWithTerm.UNSET_TERM : term);
         return RaftRpcFactory.DEFAULT //
             .newResponse(msgFactory(), st);
     }
