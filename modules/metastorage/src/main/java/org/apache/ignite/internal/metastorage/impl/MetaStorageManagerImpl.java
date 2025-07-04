@@ -1168,17 +1168,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                 Loza loza = (Loza) raftMgr;
 
-                IndexWithTerm indexWithTerm;
-                try {
-                    indexWithTerm = raftMgr.raftNodeIndex(raftNodeId);
-                } catch (NodeStoppingException e) {
-                    throw new IgniteInternalException(INTERNAL_ERR, e);
-                }
-
-                assert indexWithTerm != null
-                        : "Attempt to get index and term when Raft node is not started yet or already stopped): " + raftNodeId;
-
-                loza.resetPeers(raftNodeId, newConfiguration, indexWithTerm.term());
+                loza.resetPeers(raftNodeId, newConfiguration, IndexWithTerm.UNSET_TERM);
             }
         });
     }
