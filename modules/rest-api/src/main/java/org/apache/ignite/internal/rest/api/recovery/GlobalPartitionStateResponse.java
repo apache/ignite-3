@@ -21,7 +21,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
 /**
  * Global partition state schema class.
@@ -30,11 +29,8 @@ import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 public class GlobalPartitionStateResponse {
     private final int partitionId;
     private final String zoneName;
-    @Schema(requiredMode = RequiredMode.NOT_REQUIRED)
     private final int tableId;
-    @Schema(requiredMode = RequiredMode.NOT_REQUIRED)
     private final String schemaName;
-    @Schema(requiredMode = RequiredMode.NOT_REQUIRED)
     private final String tableName;
     private final String state;
 
