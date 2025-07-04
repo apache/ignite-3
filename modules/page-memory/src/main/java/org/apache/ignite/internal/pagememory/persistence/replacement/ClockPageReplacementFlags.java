@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 
-import java.util.function.LongUnaryOperator;
-
 /**
  * Clock page replacement algorithm implementation.
  */
@@ -113,7 +111,20 @@ public class ClockPageReplacementFlags {
      * @param pageIdx Page index.
      */
     public void clearFlag(int pageIdx) {
-        compareAndSwapFlag(pageIdx, flags -> flags & ~(1L << pageIdx));
+        long ptr = flagsPtr + ((pageIdx >> 3) & (~7L));
+
+        long oldFlags;
+        long newFlags;
+        long mask = ~(1L << pageIdx);
+
+        do {
+            oldFlags = getLong(ptr);
+            newFlags = oldFlags & mask;
+
+            if (oldFlags == newFlags) {
+                return;
+            }
+        } while (!compareAndSwapLong(null, ptr, oldFlags, newFlags));
     }
 
     /**
@@ -122,24 +133,15 @@ public class ClockPageReplacementFlags {
      * @param pageIdx Page index.
      */
     public void setFlag(int pageIdx) {
-        compareAndSwapFlag(pageIdx, flags -> flags | (1L << pageIdx));
-    }
-
-    /**
-     * CAS page hit flag value.
-     *
-     * @param pageIdx Page index.
-     * @param func Function to apply to flags.
-     */
-    private void compareAndSwapFlag(int pageIdx, LongUnaryOperator func) {
         long ptr = flagsPtr + ((pageIdx >> 3) & (~7L));
 
         long oldFlags;
         long newFlags;
+        long mask = 1L << pageIdx;
 
         do {
             oldFlags = getLong(ptr);
-            newFlags = func.applyAsLong(oldFlags);
+            newFlags = oldFlags | mask;
 
             if (oldFlags == newFlags) {
                 return;
