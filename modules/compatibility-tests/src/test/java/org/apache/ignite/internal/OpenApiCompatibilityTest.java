@@ -40,7 +40,7 @@ class OpenApiCompatibilityTest {
 
     @ParameterizedTest
     @MethodSource("versions")
-    void compareSpec(String version) {
+    void compareCurrentSpecWith(String version) {
         String s = version.replace('.', '_');
         URL baseSpec = getClass().getResource("/versions/" + s + "/openapi.yaml");
         URL currentSpec = getClass().getResource("/openapi.yaml");
