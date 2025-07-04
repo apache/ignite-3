@@ -1971,7 +1971,9 @@ public class Replicator implements ThreadId.OnError {
     }
 
     private void recycleShared(ByteBufferCollector c) {
-        if (c != null) {
+        if (c != null && c.capacity() <= ByteBufferCollector.MAX_CAPACITY_TO_RECYCLE) {
+            c.clear();
+
             options.getAppendEntriesByteBufferCollectorQueue().offer(c);
         }
     }
@@ -1980,5 +1982,7 @@ public class Replicator implements ThreadId.OnError {
 
     public static void useSharedByteBuffers(boolean useSharedByteBuffers) {
         USE_SHARED_BYTE_BUFFERS = useSharedByteBuffers;
+
+        BYTE_BUFFER_COLLECTORS.clear();
     }
 }

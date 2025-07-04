@@ -110,12 +110,6 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
     private static Stream<Arguments> test1Arguments() {
         var arguments = new ArrayList<Arguments>();
 
-        List<RecyclersHandler> recyclersHandlers = List.of(
-                RecyclersHandlerOrigin.INSTANCE,
-                RecyclersHandlerTwoQueue.INSTANCE,
-                RecyclersHandlerSharedQueueOnly.INSTANCE
-        );
-
         for (boolean useSharedByteBuffers : new boolean[] {false, true}) {
             arguments.add(Arguments.arguments(useSharedByteBuffers, 1, 1, 1_000));
             arguments.add(Arguments.arguments(useSharedByteBuffers, 1, 25, 10_000));
