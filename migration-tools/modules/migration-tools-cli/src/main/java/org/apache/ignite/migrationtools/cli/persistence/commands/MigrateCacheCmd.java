@@ -24,6 +24,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.ignite.migrationtools.cli.exceptions.IgniteClientConnectionExceptionHandler;
 import org.apache.ignite.migrationtools.cli.persistence.calls.MigrateCacheCall;
 import org.apache.ignite.migrationtools.cli.persistence.calls.RetriableMigrateCacheCall;
+import org.apache.ignite.migrationtools.cli.persistence.params.IgniteClientAuthenticatorParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.MigrateCacheParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.RetrieableMigrateCacheParams;
 import org.apache.ignite3.internal.cli.commands.BaseCommand;
@@ -45,6 +46,9 @@ public class MigrateCacheCmd extends BaseCommand implements Callable<Integer> {
     @CommandLine.Mixin
     private RetrieableMigrateCacheParams retryParams;
 
+    @CommandLine.Mixin
+    private IgniteClientAuthenticatorParams clientAuthenticatorParams;
+
     @Override
     public Integer call() throws Exception {
         var migrateCacheCall = new MigrateCacheCall();
@@ -52,7 +56,12 @@ public class MigrateCacheCmd extends BaseCommand implements Callable<Integer> {
         return runPipeline(
                 CallExecutionPipeline.builder(call)
                         .exceptionHandler(new IgniteClientConnectionExceptionHandler())
-                        .inputProvider(() -> new RetriableMigrateCacheCall.Input(parent.params(), migrateCacheParams, retryParams))
+                        .inputProvider(() -> new RetriableMigrateCacheCall.Input(
+                                parent.params(),
+                                migrateCacheParams,
+                                retryParams,
+                                clientAuthenticatorParams)
+                        )
                         .decorator(ouput -> () -> {
                             List<String> parts = new ArrayList<>(2);
                             if (StringUtils.isNotBlank(ouput.getMsg())) {

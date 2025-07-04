@@ -17,6 +17,7 @@
 
 package org.apache.ignite.migrationtools.cli.persistence.calls;
 
+import org.apache.ignite.migrationtools.cli.persistence.params.IgniteClientAuthenticatorParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.MigrateCacheParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.PersistenceParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.RetrieableMigrateCacheParams;
@@ -40,8 +41,8 @@ public class RetriableMigrateCacheCall implements Call<RetriableMigrateCacheCall
 
     @Override
     public CallOutput<MigrateCacheCall.Ouput> execute(Input i) {
-        int retryLimit = i.retryParms().retryLimit();
-        int retryBackoffSeconds = i.retryParms().retryBackoffSeconds();
+        int retryLimit = i.retryParams().retryLimit();
+        int retryBackoffSeconds = i.retryParams().retryBackoffSeconds();
 
         if (retryLimit < 0) {
             LOGGER.error("retryLimit must be >= 0 times, but was {}", retryLimit);
@@ -63,7 +64,7 @@ public class RetriableMigrateCacheCall implements Call<RetriableMigrateCacheCall
         int atempt = 0;
         while (atempt < retryLimit) {
             CallOutput<MigrateCacheCall.Ouput> status = migrateCacheCall.execute(
-                    new MigrateCacheCall.Input(i.persistenceParams(), migrateCacheParams));
+                    new MigrateCacheCall.Input(i.persistenceParams(), migrateCacheParams, i.clientAuthenticatorParams()));
             if (status.errorCause() == null || !status.errorCause().getMessage().equals("Error while migrating persistence folder")) {
                 return status;
             }
@@ -95,7 +96,7 @@ public class RetriableMigrateCacheCall implements Call<RetriableMigrateCacheCall
         }
 
         CallOutput<MigrateCacheCall.Ouput> lastStatus = migrateCacheCall.execute(
-                new MigrateCacheCall.Input(i.persistenceParams(), migrateCacheParams));
+                new MigrateCacheCall.Input(i.persistenceParams(), migrateCacheParams, i.clientAuthenticatorParams()));
 
         return lastStatus;
     }
@@ -108,6 +109,8 @@ public class RetriableMigrateCacheCall implements Call<RetriableMigrateCacheCall
 
         private final RetrieableMigrateCacheParams retryParms;
 
+        private final IgniteClientAuthenticatorParams clientAuthenticatorParams;
+
         /**
          * Constructor.
          *
@@ -115,22 +118,32 @@ public class RetriableMigrateCacheCall implements Call<RetriableMigrateCacheCall
          * @param migrateCacheParams Migrate cache parameters.
          * @param retryParms Retry parameters.
          */
-        public Input(PersistenceParams persistenceParams, MigrateCacheParams migrateCacheParams, RetrieableMigrateCacheParams retryParms) {
+        public Input(
+                PersistenceParams persistenceParams,
+                MigrateCacheParams migrateCacheParams,
+                RetrieableMigrateCacheParams retryParms,
+                IgniteClientAuthenticatorParams clientAuthenticatorParams
+        ) {
             this.persistenceParams = persistenceParams;
             this.migrateCacheParams = migrateCacheParams;
             this.retryParms = retryParms;
+            this.clientAuthenticatorParams = clientAuthenticatorParams;
         }
 
-        public PersistenceParams persistenceParams() {
+        PersistenceParams persistenceParams() {
             return persistenceParams;
         }
 
-        public MigrateCacheParams migrateCacheParams() {
+        MigrateCacheParams migrateCacheParams() {
             return migrateCacheParams;
         }
 
-        public RetrieableMigrateCacheParams retryParms() {
+        RetrieableMigrateCacheParams retryParams() {
             return retryParms;
+        }
+
+        IgniteClientAuthenticatorParams clientAuthenticatorParams() {
+            return clientAuthenticatorParams;
         }
     }
 
