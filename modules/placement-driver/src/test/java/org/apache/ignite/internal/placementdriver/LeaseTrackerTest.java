@@ -22,6 +22,8 @@ import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.awaitility.Awaitility.await;
@@ -29,15 +31,18 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -52,14 +57,21 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests for lease tracker.
  */
+@ExtendWith(MockitoExtension.class)
 public class LeaseTrackerTest extends BaseIgniteAbstractTest {
     private MetaStorageManager msManager;
 
     private LeaseTracker leaseTracker;
+
+    @Mock
+    private ClusterNodeResolver clusterNodeResolver;
 
     @BeforeEach
     void setUp() {
@@ -69,7 +81,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
 
         leaseTracker = new LeaseTracker(
                 msManager,
-                mock(ClusterNodeResolver.class),
+                clusterNodeResolver,
                 new TestClockService(clock)
         );
 
@@ -90,7 +102,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testLeaseCleanup() {
+    void testLeaseCleanup() {
         AtomicReference<PrimaryReplicaEventParameters> parametersRef = new AtomicReference<>();
 
         leaseTracker.listen(PRIMARY_REPLICA_EXPIRED, p -> {
@@ -188,5 +200,55 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         await().until(() -> events, hasSize(3));
 
         assertThat(events, contains(PRIMARY_REPLICA_ELECTED, PRIMARY_REPLICA_EXPIRED, PRIMARY_REPLICA_ELECTED));
+    }
+
+    @Test
+    void awaitPrimaryReplicaPropagatesExceptions() {
+        when(clusterNodeResolver.getById(any())).thenThrow(new RuntimeException("test"));
+
+        var groupId = new TablePartitionId(0, 0);
+
+        CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
+                groupId,
+                HybridTimestamp.MAX_VALUE,
+                30,
+                TimeUnit.SECONDS
+        );
+
+        var lease = new Lease("test", randomUUID(), new HybridTimestamp(1, 0), HybridTimestamp.MAX_VALUE, groupId)
+                .acceptLease(HybridTimestamp.MAX_VALUE);
+
+        assertThat(
+                msManager.put(PLACEMENTDRIVER_LEASES_KEY, new LeaseBatch(List.of(lease)).bytes()),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(future, willThrowWithCauseOrSuppressed(RuntimeException.class, "test"));
+    }
+
+    @Test
+    void awaitPrimaryReplicaPropagatesExceptionsOnStop() {
+        CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
+                new TablePartitionId(0, 0),
+                HybridTimestamp.MAX_VALUE,
+                30,
+                TimeUnit.SECONDS
+        );
+
+        leaseTracker.stopTrack();
+
+        assertThat(future, willThrow(NodeStoppingException.class));
+    }
+
+    @Test
+    void awaitPrimaryReplicaThrowsOnTimeout() {
+        CompletableFuture<?> future = leaseTracker.awaitPrimaryReplica(
+                new TablePartitionId(0, 0),
+                HybridTimestamp.MAX_VALUE,
+                1,
+                TimeUnit.MILLISECONDS
+        );
+
+        assertThat(future, willThrow(PrimaryReplicaAwaitTimeoutException.class));
     }
 }
