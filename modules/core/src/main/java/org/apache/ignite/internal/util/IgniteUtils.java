@@ -126,10 +126,11 @@ public class IgniteUtils {
     /** Class cache. */
     private static final ConcurrentMap<ClassLoader, ConcurrentMap<String, Class<?>>> classCache = new ConcurrentHashMap<>();
 
-    /**
-     * Root package for JMX MBeans.
-     */
+    /** Root package for JMX MBeans. */
     private static final String JMX_MBEAN_PACKAGE = "org.apache.ignite";
+
+    /** Type attribute of {@link ObjectName} shared for all metric MBeans. */
+    public static final String JMX_METRIC_GROUP_TYPE = "metrics";
 
     /**
      * Get JDK version.
@@ -1049,7 +1050,6 @@ public class IgniteUtils {
      */
     public static ObjectName makeMbeanName(
             @Nullable String nodeName,
-            @Nullable String type,
             @Nullable String group,
             String name
     ) throws MalformedObjectNameException {
@@ -1059,7 +1059,7 @@ public class IgniteUtils {
             sb.append("nodeName=").append(nodeName).append(',');
         }
 
-        sb.append("type=").append(escapeObjectNameValue(type)).append(',');
+        sb.append("type=").append(JMX_METRIC_GROUP_TYPE).append(',');
 
         if (group != null && !group.isEmpty()) {
             sb.append("group=").append(escapeObjectNameValue(group)).append(',');

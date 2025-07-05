@@ -19,7 +19,6 @@ package org.apache.ignite.internal.disaster;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter.JMX_METRIC_GROUP_TYPE;
 import static org.apache.ignite.internal.util.IgniteUtils.makeMbeanName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
@@ -108,7 +107,7 @@ public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
     }
 
     private DynamicMBean metricSourceMbean(String nodeName, String metricSourceName) throws Exception {
-        ObjectName mbeanName = makeMbeanName(nodeName, JMX_METRIC_GROUP_TYPE, null, metricSourceName);
+        ObjectName mbeanName = makeMbeanName(nodeName, null, metricSourceName);
 
         return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, DynamicMBean.class, false);
     }

@@ -53,6 +53,8 @@ public class MetricSet implements Iterable<Metric> {
      * Creates an instance of a metrics set with given name and metrics.
      *
      * @param name Metrics set name.
+     * @param description Description.
+     * @param group Optional group name.
      * @param metrics Metrics.
      */
     public MetricSet(String name, @Nullable String description, @Nullable String group, Map<String, Metric> metrics) {

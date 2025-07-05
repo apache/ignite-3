@@ -36,6 +36,7 @@ public class ThreadPoolMetricSource extends AbstractMetricSource<Holder> {
     /** Default prefix source name for a thread pools. */
     public static final String THREAD_POOLS_METRICS_SOURCE_NAME = "thread.pools.";
 
+    /** Thread pool to be monitored. */
     private final ThreadPoolExecutor exec;
 
     /**

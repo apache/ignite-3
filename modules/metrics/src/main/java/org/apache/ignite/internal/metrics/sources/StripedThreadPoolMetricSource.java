@@ -30,8 +30,9 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.jetbrains.annotations.Nullable;
 
-/** Metric source for monitoring of {@link org.apache.ignite.internal.thread.StripedThreadPoolExecutor}. */
+/** Metric source for monitoring of {@link StripedThreadPoolExecutor}. */
 public class StripedThreadPoolMetricSource extends AbstractMetricSource<StripedThreadPoolMetricSource.Holder> {
+    /** Striped thread pool to be monitored. */
     private final StripedThreadPoolExecutor exec;
 
     /**

@@ -46,9 +46,6 @@ public class JmxExporter extends BasicMetricExporter {
     /** Exporter name. Must be the same for configuration and exporter itself. */
     public static final String JMX_EXPORTER_NAME = "jmx";
 
-    /** Type attribute of {@link ObjectName} shared for all metric MBeans. */
-    public static final String JMX_METRIC_GROUP_TYPE = "metrics";
-
     /** Logger. */
     private final IgniteLogger log;
 
@@ -125,12 +122,12 @@ public class JmxExporter extends BasicMetricExporter {
             ObjectName mbean = ManagementFactory.getPlatformMBeanServer()
                     .registerMBean(
                             metricSetMbean,
-                            makeMbeanName(nodeName(), JMX_METRIC_GROUP_TYPE, metricSet.group(), metricSet.name()))
+                            makeMbeanName(nodeName(), metricSet.group(), metricSet.name()))
                     .getObjectName();
 
             mbeans.add(mbean);
         } catch (JMException e) {
-            log.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
+            log.error("MBean for metric set can't be created [name={}].", e, metricSet.name());
         }
     }
 
@@ -141,17 +138,17 @@ public class JmxExporter extends BasicMetricExporter {
      */
     private void unregister(MetricSet metricSet) {
         try {
-            ObjectName mbeanName = makeMbeanName(nodeName(), JMX_METRIC_GROUP_TYPE, metricSet.group(), metricSet.name());
+            ObjectName mbeanName = makeMbeanName(nodeName(), metricSet.group(), metricSet.name());
 
             boolean rmv = mbeans.remove(mbeanName);
 
             if (rmv) {
                 unregBean(mbeanName);
             } else {
-                log.warn("Tried to unregister the MBean for non-registered metric set [name=" + metricSet.name() + ']');
+                log.warn("Tried to unregister the MBean for non-registered metric set [name={}].", metricSet.name());
             }
         } catch (MalformedObjectNameException e) {
-            log.error("MBean for metric set can't be unregistered [name=" + metricSet.name() + ", err=" + e.getMessage() + ']', e);
+            log.error("MBean for metric set can't be unregistered [name={}].", e, metricSet.name());
         }
     }
 
@@ -164,7 +161,7 @@ public class JmxExporter extends BasicMetricExporter {
         try {
             ManagementFactory.getPlatformMBeanServer().unregisterMBean(bean);
         } catch (JMException e) {
-            log.error("Failed to unregister MBean [bean=" + bean + ", err=" + e.getMessage() + ']', e);
+            log.error("Failed to unregister MBean [bean={}].", e, bean);
         }
     }
 }

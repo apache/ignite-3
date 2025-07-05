@@ -130,7 +130,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
     void setUp() throws MalformedObjectNameException {
         jmxExporterConf = (JmxExporterView) metricConfiguration.exporters().get("jmx").value();
 
-        mbeanName = IgniteUtils.makeMbeanName(nodeName, "metrics", metricSet.group(), metricSet.name());
+        mbeanName = IgniteUtils.makeMbeanName(nodeName, metricSet.group(), metricSet.name());
 
         jmxExporter = new JmxExporter(Loggers.forClass(JmxExporter.class));
 
