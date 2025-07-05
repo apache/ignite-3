@@ -116,7 +116,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
     }
 
     /**
-     * Used for query with aggregates checks, disables other aggregate rules for executing exact agregate algo.
+     * Used for query with aggregates checks, disables other aggregate rules for executing exact aggregate algo.
      *
      * @param qry Query for check.
      * @param aggregateType Type of aggregate algo.
