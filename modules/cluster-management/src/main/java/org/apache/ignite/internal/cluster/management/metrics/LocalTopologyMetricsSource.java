@@ -43,7 +43,7 @@ public class LocalTopologyMetricsSource extends AbstractMetricSource<LocalTopolo
      * @param physicalTopology Physical topology.
      */
     public LocalTopologyMetricsSource(TopologyService physicalTopology) {
-        super(SOURCE_NAME);
+        super(SOURCE_NAME, "Local topology metrics.", "topology");
 
         this.physicalTopology = physicalTopology;
     }

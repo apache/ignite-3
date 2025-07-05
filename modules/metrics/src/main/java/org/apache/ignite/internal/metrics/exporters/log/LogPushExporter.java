@@ -46,7 +46,7 @@ public class LogPushExporter extends PushMetricExporter {
 
     @Override
     public void report() {
-        Collection<MetricSet> metricSets = metrics().get1().values();
+        Collection<MetricSet> metricSets = snapshot().metrics().values();
 
         if (CollectionUtils.nullOrEmpty(metricSets)) {
             return;

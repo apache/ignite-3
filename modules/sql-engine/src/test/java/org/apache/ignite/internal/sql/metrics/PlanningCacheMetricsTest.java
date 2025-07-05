@@ -94,7 +94,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
         await(prepareService.prepareAsync(parsedResult, ctx));
 
-        MetricSet metricSet = metricManager.metricSnapshot().get1().get(SqlPlanCacheMetricSource.NAME);
+        MetricSet metricSet = metricManager.metricSnapshot().metrics().get(SqlPlanCacheMetricSource.NAME);
 
         assertEquals(String.valueOf(hits), metricSet.get("Hits").getValueAsString(), "Hits");
         assertEquals(String.valueOf(misses), metricSet.get("Misses").getValueAsString(), "Misses");

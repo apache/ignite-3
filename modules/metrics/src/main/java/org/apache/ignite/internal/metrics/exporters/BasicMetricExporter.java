@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
-import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.metrics.MetricProvider;
-import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.MetricSnapshot;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 
 /**
@@ -53,8 +51,8 @@ public abstract class BasicMetricExporter implements MetricExporter {
      *
      * @return map of metrics
      */
-    protected final IgniteBiTuple<Map<String, MetricSet>, Long> metrics() {
-        return metricsProvider.metrics();
+    protected final MetricSnapshot snapshot() {
+        return metricsProvider.snapshot();
     }
 
     /**

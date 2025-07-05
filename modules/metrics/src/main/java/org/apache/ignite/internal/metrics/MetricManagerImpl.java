@@ -40,7 +40,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -214,24 +213,28 @@ public class MetricManagerImpl implements MetricManager {
     @Override
     public void disable(MetricSource src) {
         inBusyLock(busyLock, () -> {
+            MetricSet metricSet = registry.snapshot().metrics().get(src.name());
+
             registry.disable(src);
 
-            enabledMetricExporters.values().forEach(e -> e.removeMetricSet(src.name()));
+            enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
         });
     }
 
     @Override
     public void disable(String srcName) {
         inBusyLock(busyLock, () -> {
+            MetricSet metricSet = registry.snapshot().metrics().get(srcName);
+
             registry.disable(srcName);
 
-            enabledMetricExporters.values().forEach(e -> e.removeMetricSet(srcName));
+            enabledMetricExporters.values().forEach(e -> e.removeMetricSet(metricSet));
         });
     }
 
     @Override
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
-        return inBusyLock(busyLock, registry::metrics);
+    public MetricSnapshot metricSnapshot() {
+        return inBusyLock(busyLock, registry::snapshot);
     }
 
     @Override

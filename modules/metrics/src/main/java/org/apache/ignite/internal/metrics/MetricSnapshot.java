@@ -17,15 +17,39 @@
 
 package org.apache.ignite.internal.metrics;
 
+import java.util.Collections;
+import java.util.Map;
+
 /**
- * Read-only metrics registry.
+ * Represents a collection of metric sets with a version.
  */
-@FunctionalInterface
-public interface MetricProvider {
+public class MetricSnapshot {
+    /** Mapping of source name to the corresponding metric set. */
+    private final Map<String, MetricSet> metrics;
+
+    /** Snapshot version. */
+    private final long version;
+
+    public MetricSnapshot(Map<String, MetricSet> metrics, long version) {
+        this.metrics = Collections.unmodifiableMap(metrics);
+        this.version = version;
+    }
+
     /**
-     * Returns a map of (metricSetName -> metricSet) pairs with available metrics from {@link MetricRegistry}.
+     * Returns a collection of metrics sets included into this snapshot.
      *
-     * @return Metrics snapshot.
+     * @return Collection of metrics sets included into this snapshot.
      */
-    MetricSnapshot snapshot();
+    public Map<String, MetricSet> metrics() {
+        return metrics;
+    }
+
+    /**
+     * Returns version of this snapshot.
+     *
+     * @return Snapshot version.
+     */
+    public long version() {
+        return version;
+    }
 }

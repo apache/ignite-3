@@ -98,6 +98,7 @@ public class ThreadPoolsManager implements IgniteComponent {
         metricSources.add(
                 new ThreadPoolMetricSource(
                         THREAD_POOLS_METRICS_SOURCE_NAME + "partitions-executor",
+                        "The partitions-executor pool handles all the table related operations.",
                         (ThreadPoolExecutor) partitionOperationsExecutor)
         );
     }

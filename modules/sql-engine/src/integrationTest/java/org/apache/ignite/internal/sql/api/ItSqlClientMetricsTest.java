@@ -116,7 +116,7 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     }
 
     private void assertMetricValue(String metricName, Object expectedValue) throws InterruptedException {
-        MetricSet metricSet = metricManager.metricSnapshot().get1().get(SqlClientMetricSource.NAME);
+        MetricSet metricSet = metricManager.metricSnapshot().metrics().get(SqlClientMetricSource.NAME);
 
         assertTrue(
                 waitForCondition(

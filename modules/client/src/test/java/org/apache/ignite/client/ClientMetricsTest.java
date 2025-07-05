@@ -307,13 +307,13 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().metricsEnabled(metricsEnabled).build();
         client.tables().tables();
 
-        String beanName = "org.apache.ignite:group=metrics,name=client";
+        String beanName = "org.apache.ignite:type=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         ObjectName objName = new ObjectName(beanName);
         boolean registered = mbeanSrv.isRegistered(objName);
 
-        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + "]");
+        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
 
         if (!metricsEnabled) {
             return;
