@@ -370,7 +370,7 @@ public class RexUtils {
                 collFldIdx = mapping.getSourceOpt(collFldIdx);
             }
 
-            SearchBounds fldBounds = createBounds(fieldCollation, collFldPreds, cluster, types.get(collFldIdx), prevComplexity);
+            SearchBounds fldBounds = createBounds(fieldCollation, collFldPreds, cluster, types.get(collFldIdx), prevComplexity, true);
 
             if (fldBounds == null) {
                 break;
@@ -405,7 +405,8 @@ public class RexUtils {
             RelCollation collation,
             RexNode condition,
             RelDataType rowType,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableBitSet requiredColumns,
+            boolean saturatedBoundsAllowed
     ) {
         if (condition == null) {
             return null;
@@ -450,7 +451,7 @@ public class RexUtils {
                 collFldIdx = toTrimmedRowMapping.getSourceOpt(collFldIdx);
             }
 
-            bounds.set(i, createBounds(null, Collections.singletonList(columnPred), cluster, types.get(collFldIdx), 1));
+            bounds.set(i, createBounds(null, Collections.singletonList(columnPred), cluster, types.get(collFldIdx), 1, saturatedBoundsAllowed));
         }
 
         return bounds;
@@ -507,7 +508,7 @@ public class RexUtils {
                     fldIdx = fld.getIntKey();
                 }
 
-                RexNode casted = addCast(cluster, pred.operands.get(1), types.get(fldIdx));
+                RexNode casted = addCast(cluster, pred.operands.get(1), types.get(fldIdx), false);
                 bounds.set(fldIdx, new ExactBounds(pred, casted));
             }
         }
@@ -521,7 +522,8 @@ public class RexUtils {
             List<RexCall> collFldPreds,
             RelOptCluster cluster,
             RelDataType fldType,
-            int prevComplexity
+            int prevComplexity,
+            boolean saturatedBoundsAllowed
     ) {
         RexBuilder builder = builder(cluster);
 
@@ -551,7 +553,7 @@ public class RexUtils {
             RexNode ref = pred.getOperands().get(0);
 
             if (isBinaryComparison(pred)) {
-                val = addCast(cluster, pred.operands.get(1), fldType);
+                val = addCast(cluster, pred.operands.get(1), fldType, saturatedBoundsAllowed);
             }
 
             SqlOperator op = pred.getOperator();
@@ -568,7 +570,7 @@ public class RexUtils {
 
                 for (RexNode operand : pred.getOperands()) {
                     SearchBounds opBounds = createBounds(fc, Collections.singletonList((RexCall) operand),
-                            cluster, fldType, prevComplexity);
+                            cluster, fldType, prevComplexity, saturatedBoundsAllowed);
 
                     if (opBounds instanceof MultiBounds) {
                         curComplexity += ((MultiBounds) opBounds).bounds().size();
@@ -737,7 +739,7 @@ public class RexUtils {
                 }
             }
 
-            bounds.add(createBounds(fc, calls, cluster, fldType, complexity));
+            bounds.add(createBounds(fc, calls, cluster, fldType, complexity, true));
         }
 
         return bounds;
@@ -1153,13 +1155,13 @@ public class RexUtils {
         }
     }
 
-    private static RexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type) {
+    private static RexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type, boolean saturatedBoundsAllowed) {
         RexNode node = removeCast(condition);
 
         assert idxOpSupports(node) : "Unsupported RexNode in index condition: " + node;
 
         RexBuilder builder = cluster.getRexBuilder();
-        RexNode saturated = toSaturatedValue(builder, node, type);
+        RexNode saturated = saturatedBoundsAllowed ? toSaturatedValue(builder, node, type) : null;
 
         if (saturated != null) {
             return saturated;
@@ -1174,7 +1176,7 @@ public class RexUtils {
      * If the given node is a numeric literal, checks whether its cast to {@code type} overflows and in that case
      * performs {@code saturated cast}, converting a value of that literal to the largest value of that type.
      *
-     * <p>If overflow does can not occur, returns a literal wrapped in a cast to {@code type}, because values search bounds
+     * <p>If overflow does not occur, returns a literal wrapped in a cast to {@code type}, because values search bounds
      * in index lookups/scans should exactly match to types of database columns.
      *
      * <p>Otherwise returns {@code null}.

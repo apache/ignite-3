@@ -153,7 +153,8 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                 collation,
                 cond,
                 table.getRowType(Commons.typeFactory(cluster)),
-                requiredColumns
+                requiredColumns,
+                true
         );
     }
 
