@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -42,6 +43,9 @@ import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Check calculation hash by colocation columns specified at the schema.
@@ -93,6 +97,42 @@ public class ColocationHashCalculationTest {
 
         assertEquals(hashCalc.hash(), colocationHash(r));
         assertEquals(hashCalc.hash(), HashCalculator.combinedHash(hashes));
+    }
+
+    @ParameterizedTest
+    @MethodSource("allTypesArgs")
+    public void partialCombination(NativeType type) {
+        Object[] vals = {
+                SchemaTestUtils.generateRandomValue(rnd, type),
+                SchemaTestUtils.generateRandomValue(rnd, type),
+                SchemaTestUtils.generateRandomValue(rnd, type),
+        };
+
+        var calculator = new HashCalculator();
+
+        for (Object val : vals) {
+            calculator.append(val, scaleOrElse(type, -1), precisionOrElse(type, -1));
+        }
+
+        int expected = calculator.hash();
+
+        for (int i = 0; i < vals.length; i++) {
+            calculator.reset();
+
+            for (int j = 0; j < vals.length; j++) {
+                if (i == j) {
+                    calculator.combine(HashCalculator.hashValue(vals[j], scaleOrElse(type, -1), precisionOrElse(type, -1)));
+                } else {
+                    calculator.append(vals[j], scaleOrElse(type, -1), precisionOrElse(type, -1));
+                }
+            }
+
+            assertEquals(expected, calculator.hash());
+        }
+    }
+
+    private static Stream<Arguments> allTypesArgs() {
+        return SchemaTestUtils.ALL_TYPES.stream().map(Arguments::of);
     }
 
     @Test
@@ -202,5 +242,25 @@ public class ColocationHashCalculationTest {
         }
 
         return hashCalc.hash();
+    }
+
+    private static int precisionOrElse(NativeType type, int another) {
+        if (type instanceof TemporalNativeType) {
+            return ((TemporalNativeType) type).precision();
+        }
+
+        if (type instanceof DecimalNativeType) {
+            return ((DecimalNativeType) type).precision();
+        }
+
+        return another;
+    }
+
+    private static int scaleOrElse(NativeType type, int another) {
+        if (type instanceof DecimalNativeType) {
+            return ((DecimalNativeType) type).scale();
+        }
+
+        return another;
     }
 }

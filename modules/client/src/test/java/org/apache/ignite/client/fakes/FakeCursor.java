@@ -112,6 +112,10 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
             paMeta = new PartitionAwarenessMetadata(1, new int[] {0, -1, -2, 2}, new int[] {100, 500});
             rows.add(getRow(1));
             columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
+        } else if ("SELECT SINGLE COLUMN PA".equals(qry)) {
+            paMeta = new PartitionAwarenessMetadata(100500, new int[] {0}, new int[0]);
+            rows.add(getRow(1));
+            columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
         } else {
             paMeta = null;
             rows.add(getRow(1));

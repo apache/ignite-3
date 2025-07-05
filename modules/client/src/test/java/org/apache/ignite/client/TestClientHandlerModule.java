@@ -248,7 +248,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                 new ClientInboundMessageHandler(
                                         (IgniteTablesInternal) ignite.tables(),
                                         ((FakeIgnite) ignite).txManager(),
-                                        new FakeIgniteQueryProcessor(),
+                                        new FakeIgniteQueryProcessor(ignite.name()),
                                         configuration,
                                         compute,
                                         clusterService,

@@ -40,8 +40,9 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.internal.client.sql.ClientPartitionAwarenessMetadata;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
@@ -225,10 +226,10 @@ public class ClientSqlTest extends AbstractClientTableTest {
         sql.execute(null, statement1);
         sql.execute(null, statement2);
 
-        List<ClientPartitionAwarenessMetadata> metas = ((ClientSql) sql).partitionAwarenessCachedMetas();
+        List<PartitionMappingProvider> metas = ((ClientSql) sql).partitionAwarenessCachedMetas();
         assertThat(metas.size(), CoreMatchers.is(2));
 
-        for (ClientPartitionAwarenessMetadata meta : metas) {
+        for (PartitionMappingProvider meta : metas) {
             assertThat(meta.tableId(), CoreMatchers.is(1));
             assertThat(meta.indexes(), CoreMatchers.is(new int[] {0, -1, -2, 2}));
             assertThat(meta.hash(), CoreMatchers.is(new int[] {100, 500}));
@@ -238,6 +239,8 @@ public class ClientSqlTest extends AbstractClientTableTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 8, 16})
     void partitionAwarenessMetadataCacheOverflow(int size) throws InterruptedException {
+        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE, 1);
+
         try (IgniteClient client = createClientWithPaCacheOfSize(size)) {
             IgniteSql sql = client.sql();
 

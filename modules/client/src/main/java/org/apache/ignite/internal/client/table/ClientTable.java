@@ -199,7 +199,14 @@ public class ClientTable implements Table {
         return new PublicApiClientKeyValueView<>(new ClientKeyValueBinaryView(this, sql));
     }
 
-    CompletableFuture<ClientSchema> getLatestSchema() {
+    /**
+     * Returns latest known schema.
+     *
+     * <p>If latest schema is not known and/or not available locally, request the schema from server.
+     *
+     * @return A schema which is considered to be latest. 
+      */
+    public CompletableFuture<ClientSchema> getLatestSchema() {
         // latestSchemaVer can be -1 (unknown) or a valid version.
         // In case of unknown version, we request latest from the server and cache it with -1 key
         // to avoid duplicate requests for latest schema.
