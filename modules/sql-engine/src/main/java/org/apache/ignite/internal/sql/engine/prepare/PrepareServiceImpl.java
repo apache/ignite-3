@@ -48,6 +48,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -152,13 +153,14 @@ public class PrepareServiceImpl implements PrepareService {
             MetricManager metricManager,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
-            SqlSchemaManager schemaManager
+            SqlSchemaManager schemaManager,
+            LogicalTopologyService logicalTopologyService
     ) {
         return new PrepareServiceImpl(
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
-                new DdlSqlToCommandConverter(),
+                new DdlSqlToCommandConverter(logicalTopologyService),
                 clusterCfg.planner().maxPlanningTimeMillis().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager,

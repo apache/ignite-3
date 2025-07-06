@@ -52,7 +52,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -112,6 +114,9 @@ import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
@@ -162,10 +167,13 @@ public class DdlSqlToCommandConverter {
     /** Zone options set. */
     private final Set<String> knownZoneOptionNames;
 
+    /** Logical topology service for cluster wide storage profiles resolution. */
+    private final LogicalTopologyService logicalTopologyService;
+
     /**
      * Constructor.
      */
-    public DdlSqlToCommandConverter() {
+    public DdlSqlToCommandConverter(LogicalTopologyService logicalTopologyService) {
         knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
                 .stream()
                 .map(Enum::name)
@@ -206,6 +214,8 @@ public class DdlSqlToCommandConverter {
         ));
 
         alterReplicasOptionInfo = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::replicas);
+
+        this.logicalTopologyService = logicalTopologyService;
     }
 
     /**
@@ -723,9 +733,76 @@ public class DdlSqlToCommandConverter {
 
         List<StorageProfileParams> profiles = extractProfiles(createZoneNode.storageProfiles());
 
+        checkStorageProfilesArePresentedAmongCluster(profiles);
+
         builder.storageProfilesParams(profiles);
 
         return builder.build();
+    }
+
+    private void checkStorageProfilesArePresentedAmongCluster(List<StorageProfileParams> storageProfiles) {
+        // Optimistic case.
+        LogicalTopologySnapshot localLogicalTopologySnapshot = logicalTopologyService.localLogicalTopology();
+
+        String notPresentedStorageProfileName = findStorageProfileNotPresentedInLogicalTopologySnapshot(
+                storageProfiles,
+                localLogicalTopologySnapshot
+        );
+
+        if (notPresentedStorageProfileName == null) {
+            return;
+        }
+
+        // Pessimistic case.
+        try {
+            notPresentedStorageProfileName = logicalTopologyService.logicalTopologyOnLeader()
+                    .thenApply(topologySnapshot -> findStorageProfileNotPresentedInLogicalTopologySnapshot(
+                            storageProfiles,
+                            topologySnapshot
+                    )).get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            String msg = format(
+                    "Storage profile {} doesn't exist in local topology snapshot with profiles [{}], and distributed refresh failed.",
+                    notPresentedStorageProfileName,
+                    localLogicalTopologySnapshot.nodes().stream().map(LogicalNode::storageProfiles).collect(Collectors.toSet())
+            );
+
+            throw new SqlException(STMT_VALIDATION_ERR, msg, e);
+        }
+
+        if (notPresentedStorageProfileName != null) {
+            throw new SqlException(STMT_VALIDATION_ERR, "Storage profile [" + notPresentedStorageProfileName + "] doesn't exist.");
+        }
+    }
+
+    private static @Nullable String findStorageProfileNotPresentedInLogicalTopologySnapshot(
+            List<StorageProfileParams> storageProfiles,
+            LogicalTopologySnapshot snapshot
+    ) {
+        Set<String> topologyWideProfiles = extractStorageProfileNamesFromLogicalTopologySnapshot(snapshot);
+
+        for (StorageProfileParams profile : storageProfiles) {
+            String storageProfileName = profile.storageProfile();
+
+            if (!topologyWideProfiles.contains(storageProfileName)) {
+                return storageProfileName;
+            }
+        }
+
+        return null;
+    }
+
+    private static Set<String> extractStorageProfileNamesFromLogicalTopologySnapshot(LogicalTopologySnapshot snapshot) {
+        Set<LogicalNode> logicalNodes = snapshot.nodes();
+
+        // Assume default persistent + rocks + aimem profiles on each node in average.
+        Set<String> topologyWideProfiles = new HashSet<>(logicalNodes.size() * 3);
+
+        for (LogicalNode logicalNode : logicalNodes) {
+            topologyWideProfiles.addAll(logicalNode.storageProfiles());
+        }
+
+        return topologyWideProfiles;
     }
 
     /**

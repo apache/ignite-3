@@ -288,7 +288,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 metricManager,
                 clusterCfg,
                 nodeCfg,
-                sqlSchemaManager
+                sqlSchemaManager,
+                logicalTopologyService
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
