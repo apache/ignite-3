@@ -22,10 +22,12 @@
 #include "py_string.h"
 #include "utils.h"
 
-#include <ignite/common/detail/defer.h>
+#include "ignite/protocol/protocol_context.h"
+
+#include "ignite/common/detail/defer.h"
+#include "ignite/common/detail/string_utils.h"
 
 #include <Python.h>
-#include <detail/string_utils.h>
 
 namespace {
 
@@ -36,7 +38,7 @@ namespace {
  */
 [[nodiscard]] std::optional<ignite::end_point> parse_address_with_error_handling(const py_string &item_str) noexcept {
     try {
-        return ignite::parse_single_address(item_str.get_data(), 10800);
+        return ignite::parse_single_address(item_str.get_data(), ignite::protocol::protocol_context::DEFAULT_TCP_PORT);
     } catch (const ignite::ignite_error& err) {
         PyErr_SetString(py_get_module_interface_error_class(), err.what());
     }
@@ -158,7 +160,7 @@ static PyMethodDef methods[] = {
     {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 
-static struct PyModuleDef module_def = {
+static PyModuleDef module_def = {
     PyModuleDef_HEAD_INIT,
     EXT_MODULE_NAME,
     nullptr,                /* m_doc */
