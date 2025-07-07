@@ -241,7 +241,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
-        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
+        // Pass null as logical topology service because zone creation isn't a test target there and will be never called.
+        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(null);
 
         testCluster = new TestCluster();
         executionServices = nodeNames.stream()
