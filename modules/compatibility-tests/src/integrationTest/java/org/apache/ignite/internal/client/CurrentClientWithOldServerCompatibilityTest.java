@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.Ignite;
@@ -25,10 +26,12 @@ import org.apache.ignite.internal.CompatibilityTestBase;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests that current Java client can work with all older server versions.
  */
+@MethodSource("serverVersions")
 public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTestBase implements ClientCompatibilityTests {
     private final AtomicInteger idGen = new AtomicInteger(1000);
 
@@ -71,5 +74,9 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
     @Override
     public AtomicInteger idGen() {
         return idGen;
+    }
+
+    private static List<String> serverVersions() {
+        return baseVersions(Integer.MAX_VALUE);
     }
 }
