@@ -83,12 +83,12 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
     @Override
     public IgniteClient client() {
-        return delegate.client();
+        throw new UnsupportedOperationException("Do not use. When adding new tests, override via delegate field.");
     }
 
     @Override
     public AtomicInteger idGen() {
-        return delegate.idGen();
+        throw new UnsupportedOperationException("Do not use. When adding new tests, override via delegate field.");
     }
 
     @Test
