@@ -193,6 +193,7 @@ To be able to cancel a compute job, you first create a cancel handler and retrie
 [tabs]
 --
 tab:Java[]
+[source, java]
 ----
 CancelHandle cancelHandle = CancelHandle.create();
 CancellationToken cancelToken = cancelHandle.token();
@@ -201,7 +202,21 @@ CompletableFuture<Void> execution = client.compute().executeAsync(JobTarget.anyN
 
 cancelHandle.cancel();
 ----
+tab:.NET[]
+[source, csharp]
+----
+var cts = new CancellationTokenSource();
+CancellationToken cancelToken = cts.Token;
+
+var execution = client.Compute.ExecuteAsync(
+JobTarget.AnyNode(await client.GetClusterNodesAsync()),
+new JobDescriptor(typeof(NodeNameJob)),
+cancelToken);
+
+cts.Cancel();
+----
 --
+
 
 Another way to cancel jobs is by using the SQL link:sql-reference/operational-commands#kill-compute[KILL COMPUTE] command. The job id can be retrieved via the `COMPUTE_JOBS` link:administrators-guide/metrics/system-views[system view].
 
