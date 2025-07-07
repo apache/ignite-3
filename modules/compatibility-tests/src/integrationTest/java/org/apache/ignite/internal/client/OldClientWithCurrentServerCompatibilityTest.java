@@ -30,6 +30,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.CompatibilityTestBase;
 import org.apache.ignite.internal.IgniteCluster;
 import org.apache.ignite.internal.OldClientLoader;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -54,7 +55,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @TestInstance(Lifecycle.PER_CLASS)
 @ParameterizedClass
 @MethodSource("clientVersions")
-public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
+public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstractTest implements ClientCompatibilityTests {
     @Parameter
     private String clientVersion;
 
