@@ -156,10 +156,6 @@ public class DistributionZoneRebalanceEngineV2 {
 
             int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES);
 
-            if (zoneId != 0 && dataNodes.size() == 4) {
-                System.out.println("!_!_! V2 createDistributionZonesDataNodesListener " + dataNodes);
-            }
-
             // It is safe to get the latest version of the catalog as we are in the metastore thread.
             // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
             //  in the catalog. Better to store this version when writing datanodes.
@@ -256,9 +252,6 @@ public class DistributionZoneRebalanceEngineV2 {
     ) {
         return distributionZoneManager.dataNodes(timestamp, catalogVersion, zoneDescriptor.id())
                 .thenCompose(dataNodes -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
-                    if (zoneDescriptor.id() != 0) {
-                        System.out.println("!!! V2 recalculateAssignmentsAndTriggerZonePartitionsRebalance " + dataNodes);
-                    }
                     if (dataNodes.isEmpty()) {
                         return nullCompletedFuture();
                     }

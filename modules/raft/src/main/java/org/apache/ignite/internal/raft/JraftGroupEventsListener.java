@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft;
 
 import java.util.Collection;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 
 /**
@@ -29,8 +30,16 @@ public interface JraftGroupEventsListener {
      * Invoked, when a new leader is elected (if it is the first leader of group ever - will be invoked too).
      *
      * @param term Raft term of the current leader.
+     * @param configurationTerm Term on which the current configuration was applied.
+     * @param configurationIndex Index on which the current configuration was applied.
+     * @param configuration Raft configuration on the moment of leader election.
      */
-    void onLeaderElected(long term);
+    void onLeaderElected(
+            long term,
+            long configurationTerm,
+            long configurationIndex,
+            Configuration configuration
+    );
 
     /**
      * Invoked on the leader, when new peers' configuration applied to raft group.

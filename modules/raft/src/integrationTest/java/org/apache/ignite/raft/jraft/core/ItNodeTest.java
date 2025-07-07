@@ -3679,19 +3679,34 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                any(Configuration.class)
+        );
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                any(Configuration.class)
+        );
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                any(Configuration.class)
+        );
     }
 
     @Test

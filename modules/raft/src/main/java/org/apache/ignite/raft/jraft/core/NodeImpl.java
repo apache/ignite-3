@@ -2692,7 +2692,13 @@ public class NodeImpl implements Node, RaftServerService {
                 onConfigurationChangeDone(this.term);
                 if (this.leaderStart) {
                     if (getOptions().getRaftGrpEvtsLsnr() != null) {
-                        options.getRaftGrpEvtsLsnr().onLeaderElected(term);
+
+                        options.getRaftGrpEvtsLsnr().onLeaderElected(
+                                term,
+                                conf.getId().getTerm(),
+                                conf.getId().getIndex(),
+                                conf.getConf()
+                                );
                     }
                     getOptions().getFsm().onLeaderStart(this.term);
                 }

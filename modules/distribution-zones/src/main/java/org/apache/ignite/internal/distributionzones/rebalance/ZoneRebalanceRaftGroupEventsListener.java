@@ -174,7 +174,12 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
     /** {@inheritDoc} */
     @Override
-    public void onLeaderElected(long term) {
+    public void onLeaderElected(
+            long term,
+            long configurationTerm,
+            long configurationIndex,
+            PeersAndLearners configuration
+    ) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -188,10 +193,21 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 try {
                     rebalanceAttempts.set(0);
 
-                    byte[] pendingAssignmentsBytes = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId)).value();
+                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsQueueKey(zonePartitionId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
                         Set<Assignment> pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsBytes).poll().nodes();
+
+                        // TODO sanpwc Explain, why it's needed.
+                        if (PeersAndLearners.fromAssignments(pendingAssignments).equals(configuration)) {
+                            doStableKeySwitch(
+                                    pendingAssignments,
+                                    zonePartitionId,
+                                    configurationTerm,
+                                    configurationIndex,
+                                    calculateAssignmentsFn
+                            );
+                        }
 
                         var peers = new HashSet<String>();
                         var learners = new HashSet<String>();

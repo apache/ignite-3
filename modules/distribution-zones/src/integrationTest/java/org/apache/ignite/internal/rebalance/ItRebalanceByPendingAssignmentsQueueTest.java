@@ -144,8 +144,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         });
     }
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
+    @RepeatedTest(30)
     void testDoStableKeySwitchWhenPendingQueueIsGreaterThanOne() {
         createZoneAndTable(4, 2);
 
@@ -278,13 +277,11 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @RepeatedTest(30)
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
-    void testNodeRestartDuringQueueProcessing() {
+    void testNodeRestartDuringQueueProcessing() throws InterruptedException {
         createZoneAndTable(4, 2);
 
         assertTrue(waitForCondition(() -> stablePartitionAssignments(TABLE_NAME).size() == 4, 10_000));
 
-        System.out.println("stablePartitionAssignments " + stablePartitionAssignments(TABLE_NAME));
         Set<Assignment> stableAssignments = stablePartitionAssignments(TABLE_NAME);
 
         AssignmentsQueue expectedPendingAssignmentsQueue = assignmentsPromoteDemote(stableAssignments);
@@ -295,9 +292,8 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
                 .map(Assignment::consistentId).filter(name -> !name.equals(leaseholder)).findFirst().orElseThrow();
 
         putPendingAssignments(raftLeader(TABLE_NAME), TABLE_NAME, expectedPendingAssignmentsQueue);
-        System.out.println(">>> Before start " + restartNode + " expectedPendingAssignmentsQueue " + expectedPendingAssignmentsQueue);
+
         cluster.restartNode(cluster.nodeIndex(restartNode));
-        System.out.println(">>> After start");
 
         await().atMost(60, SECONDS).untilAsserted(() -> {
             assertThat(dataNodes(TABLE_NAME), hasSize(4));
@@ -312,7 +308,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         });
     }
 
-    @Test
+    @RepeatedTest(30)
     void testRaftLeaderChangedDuringAssignmentsQueueProcessing() {
         createZoneAndTable(4, 2);
 

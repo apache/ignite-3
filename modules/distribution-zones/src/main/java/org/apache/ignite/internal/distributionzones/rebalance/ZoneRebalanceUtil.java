@@ -235,7 +235,6 @@ public class ZoneRebalanceUtil {
             targetAssignmentSet = calculatedAssignments;
         }
 
-        System.out.println("OOO updatePendingAssignmentsKeys " + calculatedAssignments );
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(targetAssignmentSet);
 
         Assignments targetAssignments = Assignments.of(targetAssignmentSet, assignmentsTimestamp);
@@ -306,7 +305,6 @@ public class ZoneRebalanceUtil {
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal()));
 
         return metaStorageMgr.invoke(iif).thenAccept(sr -> {
-            System.out.println("<><><> " + sr.getAsInt());
             switch (UpdateStatus.valueOf(sr.getAsInt())) {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
