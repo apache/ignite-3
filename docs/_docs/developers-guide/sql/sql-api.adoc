@@ -127,7 +127,6 @@ NOTE: Execution of each statement is considered complete when the first page is 
 
 === Query Cancellation
 
-NOTE: Currently, query cancellation is only supported in embedded mode and Java thin client. Support for cancellation from other clients will be added in an upcoming release.
 
 By default, a submitted query cannot be cancelled until it succeeds or fails. For large queries, you may want an option to cancel them halfway. To perform a cancellable query, first create a `CancellationToken` object, and then pass it to the `executeAsync` method:
 
