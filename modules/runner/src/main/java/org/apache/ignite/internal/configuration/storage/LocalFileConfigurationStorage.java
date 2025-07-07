@@ -87,6 +87,8 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /** Path to temporary configuration storage. */
     private final Path tempConfigPath;
 
+    private boolean readOnly = false;
+
     /** R/W lock to guard the latest configuration and config file. */
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -298,6 +300,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     }
 
     private void saveConfigFile() {
+        if (readOnly) {
+            return;
+        }
+
         try {
             Files.write(
                     tempConfigPath,
@@ -365,6 +371,13 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             } catch (IOException e) {
                 throw new NodeConfigWriteException("Failed to restore config file.", e);
             }
+        } else if (!Files.isWritable(configPath)) {
+            readOnly = true;
+
+            LOG.warn(
+                    "Configuration file '{}' is read-only. All dynamic configuration updates will be lost after node restart.",
+                    configPath
+            );
         }
     }
 
