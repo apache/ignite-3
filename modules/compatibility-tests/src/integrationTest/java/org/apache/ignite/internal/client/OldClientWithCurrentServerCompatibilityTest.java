@@ -174,16 +174,6 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
         delegate.testStreamer();
     }
 
-    @Test
-    @Override
-    public void testStreamerWithReceiver() {
-        if (delegate != null) {
-            delegate.testStreamerWithReceiver();
-        } else {
-            ClientCompatibilityTests.super.testStreamerWithReceiver();
-        }
-    }
-
     private static ClientCompatibilityTests createTestInstanceWithOldClient(String igniteVersion)
             throws Exception {
         var loader = OldClientLoader.getClientClassloader(igniteVersion);
