@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -47,6 +49,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests that old Java client can work with the current server version.
  */
+@SuppressWarnings("ThrowableNotThrown")
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
 @ParameterizedClass
@@ -93,6 +96,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     public void testClusterNodes() {
         if ("3.0.0".equals(clientVersion)) {
             // 3.0.0 client does not have cluster.nodes() method.
+            assertThrowsWithCause(() -> delegate.testClusterNodes(), NoSuchMethodError.class);
             return;
         }
 
@@ -117,6 +121,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     public void testTableByQualifiedName() {
         if ("3.0.0".equals(clientVersion)) {
             // 3.0.0 client does not have qualified names.
+            assertThrowsWithCause(() -> delegate.testTableByQualifiedName(), NoSuchMethodError.class);
             return;
         }
 
