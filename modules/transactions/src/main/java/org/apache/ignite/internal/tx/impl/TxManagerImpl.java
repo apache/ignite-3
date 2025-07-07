@@ -650,7 +650,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         assert !updatedTxState.tx().isReadOnly();
 
         if (updatedTxState != null && updatedTxState.tx() != null) {
-            txMetrics.readWriteTxFinish(txId, ts, finalState == COMMITTED, updatedTxState.tx().implicit(), !timeoutExceeded);
+            txMetrics.readWriteTxFinish(txId, finalState == COMMITTED, updatedTxState.tx().implicit(), !timeoutExceeded);
         }
 
         decrementRwTxCount(txId);
@@ -698,7 +698,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             if (updatedTxStateMeta != null && updatedTxStateMeta.tx() != null) {
                 txMetrics.readWriteTxFinish(
                         txId,
-                        updatedTxStateMeta.commitTimestamp(),
                         commitIntent,
                         updatedTxStateMeta.tx().implicit(),
                         false);
@@ -752,14 +751,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 )
         ).thenAccept(unused -> {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
-//                LOG.warn(">>>>> finish 2");
+//                LOG.warn(">>>>> finish 2 [finishingStateMeta="
+//                        + finishingStateMeta.tx() + ", stateMeta=" + stateMeta.tx()
+//                        + ", txMeta=" + txMeta.tx()
+//                        + ']');
 //                ThreadUtils.dumpStack(LOG, ">>>>> finish 2");
 
                 txMetrics.readWriteTxFinish(
                         txId,
-                        stateMeta.commitTimestamp(),
                         commitIntent,
-                        stateMeta.tx().implicit(),
+                        txMeta.tx().implicit(),
                         false);
 
                 decrementRwTxCount(txId);
@@ -1211,7 +1212,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         txMetrics.readOnlyTxFinish(
                 txIdAndTimestamp.getTxId(),
-                commit ? clockService.current() : null,
                 commit,
                 implicit,
                 !timeoutExceeded);

@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
@@ -32,7 +31,6 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource.Holder;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * TODO.
@@ -70,16 +68,20 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     /**
      * Updates read-write related metrics.
      *
-     * @param txId Transaction identifier.
-     * @param commitTimestamp Commit timestamp. {@code null} when the transaction is rolled back.
+     * @param transactionId Transaction identifier.
      * @param commit {@code true} if a transaction was committed, and {@code false} otherwise.
      * @param implicit {@code true} if a transaction is implicit, and {@code false} otherwise.
      * @param user {@code true} if a transaction was rolled back by the user.
      */
-    public void readWriteTxFinish(UUID txId, @Nullable HybridTimestamp commitTimestamp, boolean commit, boolean implicit, boolean user) {
+    public void readWriteTxFinish(UUID transactionId, boolean commit, boolean implicit, boolean user) {
         Holder holder = holder();
 
         if (holder != null) {
+            // beginTimestamp(transactionId).getPhysical() == transactionId.getMostSignificantBits()
+            long duration = clockService.currentLong() - beginTimestamp(transactionId).getPhysical();
+
+            holder.rwDuration.add(duration);
+
             if (commit) {
                 holder.totalCommits.increment();
 
@@ -88,14 +90,6 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
                 } else {
                     holder.rwExplicitCommits.increment();
                 }
-
-                assert commitTimestamp != null :
-                        "Commit timestamp must not be null [txId=" + txId + ", commit=" + commit + ", implicit=" + implicit + ']';
-
-                // beginTimestamp(txId).getPhysical() == transactionId.getMostSignificantBits()
-                long duration = commitTimestamp.getPhysical() - beginTimestamp(txId).getPhysical();
-
-                holder.rwDuration.add(duration);
             } else {
                 holder.totalRollbacks.increment();
 
@@ -110,10 +104,6 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
                 } else {
                     holder.rwExplicitRollbacks.increment();
                 }
-
-                long duration = clockService.current().getPhysical() - beginTimestamp(txId).getPhysical();
-
-                holder.rwDuration.add(duration);
             }
         }
     }
@@ -121,16 +111,20 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     /**
      * Updates read-only related metrics.
      *
-     * @param txId Transaction identifier.
-     * @param commitTimestamp Commit timestamp. {@code null} when the transaction is rolled back.
+     * @param transactionId Transaction identifier.
      * @param commit {@code true} if a transaction was committed, and {@code false} otherwise.
      * @param implicit {@code true} if a transaction is implicit, and {@code false} otherwise.
      * @param user {@code true} if a transaction was rolled back by the user.
      */
-    public void readOnlyTxFinish(UUID txId, @Nullable HybridTimestamp commitTimestamp, boolean commit, boolean implicit, boolean user) {
+    public void readOnlyTxFinish(UUID transactionId, boolean commit, boolean implicit, boolean user) {
         Holder holder = holder();
 
         if (holder != null) {
+            // beginTimestamp(txId).getPhysical() == transactionId.getMostSignificantBits()
+            long duration = clockService.currentLong() - beginTimestamp(transactionId).getPhysical();
+
+            holder.roDuration.add(duration);
+
             if (commit) {
                 holder.totalCommits.increment();
 
@@ -140,13 +134,6 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
                     holder.roExplicitCommits.increment();
                 }
 
-                assert commitTimestamp != null :
-                        "Commit timestamp must not be null [txId=" + txId + ", commit=" + commit + ", implicit=" + implicit + ']';
-
-                // beginTimestamp(txId).getPhysical() == transactionId.getMostSignificantBits()
-                long duration = commitTimestamp.getPhysical() - beginTimestamp(txId).getPhysical();
-
-                holder.roDuration.add(duration);
             } else {
                 holder.totalRollbacks.increment();
 
@@ -161,10 +148,6 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
                 } else {
                     holder.roExplicitRollbacks.increment();
                 }
-
-                long duration = clockService.current().getPhysical() - beginTimestamp(txId).getPhysical();
-
-                holder.roDuration.add(duration);
             }
         }
     }
