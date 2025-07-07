@@ -94,7 +94,6 @@ class CMakeBuild(build_ext):
                 f'-DCMAKE_BUILD_TYPE={cfg}',
                 f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={ext_dir}',
                 f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_{cfg.upper()}={self.build_temp}',
-                f'-DPYTHON_EXECUTABLE={sys.executable}',
                 f'-DEXTENSION_FILENAME={ext_file}',
                 f'-DIGNITE_VERSION={cmake_project_version(version)}',
             ]

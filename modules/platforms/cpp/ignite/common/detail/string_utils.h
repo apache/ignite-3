@@ -17,10 +17,14 @@
 
 #pragma once
 
+#include "ignite/common/end_point.h"
+#include "ignite/common/ignite_error.h"
+
 #include <algorithm>
 #include <functional>
 #include <sstream>
 #include <string_view>
+#include <optional>
 
 #include <cctype>
 
@@ -158,5 +162,49 @@ T1 lexical_cast(const T2 &val) {
     std::transform(value.begin(), value.end(), value.begin(), ::toupper);
     return value;
 }
+
+/**
+ * Parse a single address.
+ *
+ * @throw ignite_error On parsing error.
+ * @param value End pont in the string format.
+ * @param default_port Default port to use if there is no port included in the address.
+ */
+[[nodiscard]] end_point parse_single_address(std::string_view value, std::uint16_t default_port);
+
+/**
+ * Parse integer value.
+ *
+ * @param value String value to parse.
+ * @return @c Int value on success and std::nullopt on failure.
+ */
+[[nodiscard]] std::optional<std::int64_t> parse_int64(std::string_view value);
+
+/**
+ * Parse integer value.
+ *
+ * @param value String value to parse.
+ * @return @c Int value on success and std::nullopt on failure.
+ */
+template<typename T>
+[[nodiscard]] std::optional<T> parse_int(std::string_view value) {
+    auto i64 = parse_int64(value);
+    if (!i64)
+        return std::nullopt;
+
+    if (*i64 > std::numeric_limits<T>::max() || *i64 < std::numeric_limits<T>::min())
+        return std::nullopt;
+
+    return T(*i64);
+}
+
+/**
+ * Parse single network port.
+ *
+ * @throw ignite_error On parsing error.
+ * @param value String value to parse.
+ * @return @c Port value on success.
+ */
+[[nodiscard]] std::uint16_t parse_port(std::string_view value);
 
 } // namespace ignite
