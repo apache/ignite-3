@@ -1541,7 +1541,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     return new TableState(
                             table.tableId(),
                             table.qualifiedName().objectName(),
-                            tableDescriptor.schemaId(),
                             schemaName
                     );
                 })

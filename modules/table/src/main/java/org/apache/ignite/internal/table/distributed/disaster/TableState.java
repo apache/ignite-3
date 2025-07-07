@@ -24,21 +24,18 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class TableState {
 
-    public final int schemaId;
-    public final int tableId;
+    private final int tableId;
+    private final String schemaName;
+    private final String tableName;
 
-    public final String schemaName;
-    public final String tableName;
-
-    TableState(int tableId, String tableName, int schemaId, String schemaName) {
-        this.schemaId = schemaId;
+    TableState(int tableId, String tableName, String schemaName) {
         this.tableId = tableId;
         this.schemaName = schemaName;
         this.tableName = tableName;
     }
 
-    public int schemaId() {
-        return schemaId;
+    public int tableId() {
+        return tableId;
     }
 
     public String schemaName() {
