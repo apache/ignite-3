@@ -18,8 +18,6 @@
 #pragma once
 
 #include "ignite/odbc/common_types.h"
-#include "ignite/odbc/utility.h"
-#include "ignite/protocol/protocol_version.h"
 
 #include "ignite/common/ignite_type.h"
 #include "ignite/protocol/reader.h"
@@ -65,7 +63,7 @@ public:
     /**
      * Convert attribute ID to string containing its name.
      * Debug function.
-     * @param type Attribute ID.
+     * @param id Attribute ID.
      * @return Null-terminated string containing attribute name.
      */
     static const char *attr_id_to_string(std::uint16_t id);

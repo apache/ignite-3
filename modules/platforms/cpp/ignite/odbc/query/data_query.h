@@ -283,13 +283,13 @@ private:
     /** Query ID, nullopt when closed on server. */
     std::optional<std::int64_t> m_query_id;
 
-    /** Indicate whether result set is available. */
+    /** Indicate whether a result set is available. */
     bool m_has_rowset{false};
 
-    /** Indicate whether there are more pages available on server side. */
+    /** Indicate whether there are more pages available on the server side. */
     bool m_has_more_pages{false};
 
-    /** Indicate whether query was applied. */
+    /** Indicate whether the query was applied. */
     bool m_was_applied{false};
 
     /** Number of rows affected. */
