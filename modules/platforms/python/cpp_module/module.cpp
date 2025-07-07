@@ -45,9 +45,7 @@ namespace {
     return {};
 }
 
-}
-
-static PyObject* make_connection()
+PyObject* make_connection()
 {
     py_object conn_class(py_get_module_class("Connection"));
     if (!conn_class)
@@ -58,7 +56,7 @@ static PyObject* make_connection()
     return PyObject_Call(conn_class.get(), args.get(), kwargs.get());
 }
 
-static PyObject* make_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity, const char* secret,
+PyObject* make_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity, const char* secret,
     int page_size, int timeout, bool autocommit) {
     auto py_conn = make_py_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit);
     if (!py_conn)
@@ -74,7 +72,7 @@ static PyObject* make_connection(std::vector<ignite::end_point> addresses, const
     return conn_obj;
 }
 
-static PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
+PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
     static char *kwlist[] = {
         const_cast<char*>("address"),
         const_cast<char*>("identity"),
@@ -155,12 +153,12 @@ static PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwa
     return make_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit != 0, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
 }
 
-static PyMethodDef methods[] = {
+PyMethodDef methods[] = {
     {"connect", PyCFunction(pyignite_dbapi_connect), METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 
-static PyModuleDef module_def = {
+PyModuleDef module_def = {
     PyModuleDef_HEAD_INIT,
     EXT_MODULE_NAME,
     nullptr,                /* m_doc */
@@ -171,6 +169,8 @@ static PyModuleDef module_def = {
     nullptr,                /* m_clear */
     nullptr,                /* m_free */
 };
+
+} // anonymous namespace
 
 PyMODINIT_FUNC PyInit__pyignite_dbapi_extension(void) { // NOLINT(*-reserved-identifier)
     PyObject *mod = PyModule_Create(&module_def);
