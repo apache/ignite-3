@@ -160,8 +160,8 @@ public interface TxManager extends IgniteComponent {
      *         updated with commit timestamp of every committed transaction. Not null on commit.
      * @param txId Transaction id.
      * @param ts The timestamp which is associated to txn completion.
-     * @param commit {@code True} if a commit requested.
-     * @param timeoutExceeded {@code True} if a timeout exceeded. 'commit' and timeout must not be {@code} True at the same time.
+     * @param commit {@code true} if a commit requested.
+     * @param timeoutExceeded {@code true} if a timeout exceeded. 'commit' and timeout must not be {@code} True at the same time.
      */
     void finishFull(
             HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit, boolean timeoutExceeded

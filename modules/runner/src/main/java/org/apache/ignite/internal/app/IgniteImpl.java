@@ -1042,7 +1042,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureManager,
-                nodeProperties
+                nodeProperties,
+                metricManager
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(

@@ -17,19 +17,27 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 
+import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -37,9 +45,13 @@ import org.junit.jupiter.api.Test;
 /** Set of tests to make sure thin client uses suitable {@link HybridTimestampTracker} for sql. */
 @SuppressWarnings("ConcatenationWithEmptyString")
 public class ItClientObservableTimeTest extends ClusterPerClassIntegrationTest {
+    private static final String ZONE_NAME = "TEST_ZONE_Z";
+
+    private static final String TABLE_NAME = "TEST_TABLE_Z";
+
     @Override
     protected int initialNodes() {
-        return 1;
+        return 1; //2;
     }
 
     @BeforeAll
@@ -62,6 +74,73 @@ public class ItClientObservableTimeTest extends ClusterPerClassIntegrationTest {
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         builder.clusterConfiguration(TestIgnitionManager.PRODUCTION_CLUSTER_CONFIG_STRING);
+    }
+
+    //@Test
+    void testAAA() throws Exception {
+        //"CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) ZONE \"{}\"",
+
+        TableImpl table = unwrapTableImpl(createZoneAndTable(ZONE_NAME, TABLE_NAME, 2, 1, DEFAULT_TEST_PROFILE_NAME));
+
+        Thread.sleep(5_000);
+
+        for (int i = 0; i < initialNodes(); ++i) {
+            log.warn(">>>>> node ids: " + i + ", " + node(i).cluster().localNode().id());
+        }
+        Ignite ignite = node(1);
+        KeyValueView<Tuple, Tuple> kv = ignite.tables().table(TABLE_NAME).keyValueView();
+
+        Tuple key = Tuple.create().set("id", 12);
+        Tuple value = Tuple.create().set("name", "test-name").set("salary", 1.0);
+
+        log.warn(">>>>> implicit rw tx");
+        kv.put(null, key, value);
+
+        log.warn(">>>>> explicit rw tx");
+        Transaction tx = ignite.transactions().begin();
+        kv.put(tx, key, value);
+        tx.commit();
+
+        log.warn(">>>>> empty explicit rw tx");
+        tx = ignite.transactions().begin();
+        tx.commit();
+
+        log.warn(">>>>> run in tx");
+        ignite.transactions().runInTransaction(txx -> {
+            kv.put(txx, key, value);
+        });
+
+        log.warn(">>>>> explicit ro tx");
+        tx = ignite.transactions().begin(new TransactionOptions().readOnly(true));
+        kv.get(tx, key);
+        tx.commit();
+
+        log.warn(">>>>> empty explicit ro tx");
+        tx = ignite.transactions().begin(new TransactionOptions().readOnly(true));
+        tx.commit();
+
+        log.warn(">>>>> implicit ro tx");
+        kv.get(null, key);
+
+        log.warn(">>>>> rollback explicit ro tx");
+        tx = ignite.transactions().begin(new TransactionOptions().readOnly(true));
+        kv.get(tx, key);
+        tx.rollback();
+
+        try (IgniteClient client1 = newClient(1)) {
+            KeyValueView<Tuple, Tuple> kv2 = client1.tables().table(TABLE_NAME).keyValueView();
+
+            log.warn(">>>>> client explicit rw tx");
+            Transaction txclient = client1.transactions().begin();
+            kv2.put(txclient, key, value);
+            txclient.commit();
+
+            log.warn(">>>>> client explicit ro tx");
+            txclient = client1.transactions().begin(new TransactionOptions().readOnly(true));
+            kv2.get(txclient, key);
+            txclient.commit();
+        }
+        Thread.sleep(30_000);
     }
 
     @Test
@@ -96,6 +175,11 @@ public class ItClientObservableTimeTest extends ClusterPerClassIntegrationTest {
     private static IgniteClient newClient() {
         return IgniteClient.builder()
                 .addresses("localhost:" + Wrappers.unwrap(CLUSTER.aliveNode(), IgniteImpl.class).clientAddress().port())
+                .build();
+    }
+    private static IgniteClient newClient(int i) {
+        return IgniteClient.builder()
+                .addresses("localhost:" + Wrappers.unwrap(CLUSTER.node(i), IgniteImpl.class).clientAddress().port())
                 .build();
     }
 }

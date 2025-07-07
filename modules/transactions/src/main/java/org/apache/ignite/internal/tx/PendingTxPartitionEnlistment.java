@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Partition enlistement information in a pending transaction. It stores information needed before commit timestamp is generated.
+ * Partition enlistment information in a pending transaction. It stores information needed before commit timestamp is generated.
  */
 public class PendingTxPartitionEnlistment extends PartitionEnlistment {
     private final long consistencyToken;
@@ -65,4 +65,6 @@ public class PendingTxPartitionEnlistment extends PartitionEnlistment {
     public long consistencyToken() {
         return consistencyToken;
     }
+
+    // TODO toString() в базом классе есть, а тут нет. выглядит странно.
 }

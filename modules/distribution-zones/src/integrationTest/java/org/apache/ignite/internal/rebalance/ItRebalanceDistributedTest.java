@@ -1514,7 +1514,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     transactionInflights,
                     lowWatermark,
-                    commonScheduledExecutorService
+                    commonScheduledExecutorService,
+                    metricManager
             );
 
             rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,

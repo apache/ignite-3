@@ -33,6 +33,7 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -40,6 +41,8 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Build
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -60,7 +63,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
     @Override
     protected int initialNodes() {
-        return 1;
+        return 1; // 2
     }
 
     @AfterEach
@@ -78,6 +81,36 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
         return indexStorage;
     }
+
+    //@Test
+    void testAAA() throws Exception {
+        //"CREATE TABLE IF NOT EXISTS {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) ZONE \"{}\"",
+
+        TableImpl table = unwrapTableImpl(createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, DEFAULT_TEST_PROFILE_NAME));
+
+        Thread.sleep(5_000);
+
+        for (int i = 0; i < initialNodes(); ++i) {
+            log.warn(">>>>> node ids: " + i + ", " + node(i).cluster().localNode().id());
+        }
+        Ignite ignite = node(1);
+        KeyValueView<Tuple, Tuple> kv = ignite.tables().table(TABLE_NAME).keyValueView();
+
+        Tuple key = Tuple.create().set("id", 12);
+        Tuple value = Tuple.create().set("name", "test-name").set("salary", 1.0);
+
+        kv.put(null, key, value);
+
+        /*
+         */
+        Thread.sleep(30_000);
+    }
+
+//    private static IgniteClient newClient() {
+//        return IgniteClient.builder()
+//                .addresses("localhost:" + Wrappers.unwrap(CLUSTER.aliveNode(), IgniteImpl.class).clientAddress().port())
+//                .build();
+//    }
 
     @Test
     void testDropIndexInsideRwTransaction() {
