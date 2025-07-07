@@ -79,4 +79,10 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
     private static List<String> serverVersions() {
         return baseVersions(Integer.MAX_VALUE);
     }
+
+    @Override
+    public String tableNamePrefix() {
+        // TODO IGNITE-25846 Remove this method, table name should be the same across versions.
+        return "PUBLIC.";
+    }
 }

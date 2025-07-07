@@ -35,7 +35,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
@@ -112,7 +111,6 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
 
     @Test
     @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25846")
     public void testTableByName() {
         delegate.testTableByName();
     }
@@ -131,7 +129,6 @@ public class OldClientWithCurrentServerCompatibilityTest extends BaseIgniteAbstr
 
     @Test
     @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25846")
     public void testTables() {
         delegate.testTables();
     }

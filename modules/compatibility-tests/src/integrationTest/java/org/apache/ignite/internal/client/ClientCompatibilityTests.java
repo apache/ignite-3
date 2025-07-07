@@ -83,6 +83,11 @@ public interface ClientCompatibilityTests {
 
     AtomicInteger idGen();
 
+    default String tableNamePrefix() {
+        // TODO IGNITE-25846 Remove this method, table name should be the same across versions.
+        return "";
+    }
+
     @Test
     default void testClusterNodes() {
         Collection<ClusterNode> nodes = client().cluster().nodes();
@@ -101,7 +106,7 @@ public interface ClientCompatibilityTests {
         Table testTable = client().tables().table(TABLE_NAME_TEST);
         assertNotNull(testTable);
 
-        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().objectName());
+        assertEquals(tableNamePrefix() + TABLE_NAME_TEST, testTable.name());
     }
 
     @Test
@@ -117,10 +122,12 @@ public interface ClientCompatibilityTests {
         List<Table> tables = client().tables().tables();
 
         List<String> tableNames = tables.stream()
-                .map(t -> t.qualifiedName().objectName())
+                .map(Table::name)
                 .collect(Collectors.toList());
 
-        assertThat(tableNames, Matchers.containsInAnyOrder(TABLE_NAME_TEST, TABLE_NAME_ALL_COLUMNS));
+        assertThat(
+                tableNames,
+                Matchers.containsInAnyOrder(tableNamePrefix() + TABLE_NAME_TEST, tableNamePrefix() + TABLE_NAME_ALL_COLUMNS));
     }
 
     @Test
