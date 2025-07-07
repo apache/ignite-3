@@ -161,7 +161,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      * @param numLatest Number of latest versions to take by default.
      * @return A list of base versions for a test.
      */
-    protected static List<String> baseVersions(int numLatest) {
+    public static List<String> baseVersions(int numLatest) {
         List<String> versions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).collect(Collectors.toList());
         if (System.getProperty("testAllVersions") != null) {
             return versions;

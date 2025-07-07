@@ -22,6 +22,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.CompatibilityTestBase;
@@ -39,12 +40,20 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.Parameter;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * Tests that old Java client can work with the current server version.
+ */
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
+@ParameterizedClass
+@MethodSource("clientVersions")
 public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
-    // TODO: Parametrize the version.
-    private String igniteVersion = "3.0.0";
+    @Parameter
+    private String clientVersion;
 
     private IgniteCluster cluster;
 
@@ -57,7 +66,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
         createDefaultTables(cluster.node(0));
 
-        delegate = createTestInstanceWithOldClient(igniteVersion);
+        delegate = createTestInstanceWithOldClient(clientVersion);
     }
 
     @AfterAll
@@ -80,7 +89,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @Test
     @Override
     public void testClusterNodes() {
-        if ("3.0.0".equals(igniteVersion)) {
+        if ("3.0.0".equals(clientVersion)) {
             // 3.0.0 client does not have cluster.nodes() method.
             return;
         }
@@ -104,7 +113,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @Test
     @Override
     public void testTableByQualifiedName() {
-        if ("3.0.0".equals(igniteVersion)) {
+        if ("3.0.0".equals(clientVersion)) {
             // 3.0.0 client does not have qualified names.
             return;
         }
@@ -220,6 +229,10 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
                     targetMethod.setAccessible(true);
                     return targetMethod.invoke(obj, args);
                 });
+    }
+
+    private static List<String> clientVersions() {
+        return CompatibilityTestBase.baseVersions(Integer.MAX_VALUE);
     }
 
     private static class Delegate implements ClientCompatibilityTests {
