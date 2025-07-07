@@ -75,7 +75,7 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
         try {
             config = ConfigFactory.parseString(cfgUpdate);
         } catch (ConfigException.Parse e) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException(e));
+            return CompletableFuture.failedFuture(e);
         }
 
         return registry.change(HoconConverter.hoconSource(config.root(), registry.keyIgnorer()))

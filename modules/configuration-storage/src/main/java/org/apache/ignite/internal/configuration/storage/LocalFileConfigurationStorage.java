@@ -298,6 +298,16 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     }
 
     private void saveConfigFile() {
+        if (!Files.isWritable(configPath)) {
+            NodeConfigWriteException e = new NodeConfigWriteException(
+                    "The configuration file is read-only, so changes cannot be applied. "
+                            + "Check your system configuration. "
+                            + "If you are using containerization, such as Kubernetes, "
+                            + "the file can only be modified through native Kubernetes methods."
+            );
+            LOG.warn("The config file " + configPath + " is not writable", e);
+            throw e;
+        }
         try {
             Files.write(
                     tempConfigPath,
