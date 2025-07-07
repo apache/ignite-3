@@ -749,30 +749,26 @@ public class DdlSqlToCommandConverter {
                 localLogicalTopologySnapshot
         );
 
-        if (notPresentedStorageProfileName == null) {
-            return;
-        }
-
-        // Pessimistic case.
-        try {
-            notPresentedStorageProfileName = logicalTopologyService.logicalTopologyOnLeader()
-                    .thenApply(topologySnapshot -> findStorageProfileNotPresentedInLogicalTopologySnapshot(
-                            storageProfiles,
-                            topologySnapshot
-                    )).get(10, TimeUnit.SECONDS);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            String msg = format(
-                    "Storage profile {} doesn't exist in local topology snapshot with profiles [{}], and distributed refresh failed.",
-                    notPresentedStorageProfileName,
-                    localLogicalTopologySnapshot.nodes().stream().map(LogicalNode::storageProfiles).collect(Collectors.toSet())
-            );
-
-            throw new SqlException(STMT_VALIDATION_ERR, msg, e);
-        }
-
         if (notPresentedStorageProfileName != null) {
             throw new SqlException(STMT_VALIDATION_ERR, "Storage profile [" + notPresentedStorageProfileName + "] doesn't exist.");
         }
+
+        // Pessimistic case.
+        // try {
+        //     notPresentedStorageProfileName = logicalTopologyService.logicalTopologyOnLeader()
+        //             .thenApply(topologySnapshot -> findStorageProfileNotPresentedInLogicalTopologySnapshot(
+        //                     storageProfiles,
+        //                     topologySnapshot
+        //             )).get(10, TimeUnit.SECONDS);
+        // } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        //     String msg = format(
+        //             "Storage profile {} doesn't exist in local topology snapshot with profiles [{}], and distributed refresh failed.",
+        //             notPresentedStorageProfileName,
+        //             localLogicalTopologySnapshot.nodes().stream().map(LogicalNode::storageProfiles).collect(Collectors.toSet())
+        //     );
+        //
+        //     throw new SqlException(STMT_VALIDATION_ERR, msg, e);
+        // }
     }
 
     private static @Nullable String findStorageProfileNotPresentedInLogicalTopologySnapshot(
