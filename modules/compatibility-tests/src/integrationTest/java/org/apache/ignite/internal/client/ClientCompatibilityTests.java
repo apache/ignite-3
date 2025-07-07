@@ -591,6 +591,10 @@ public interface ClientCompatibilityTests {
                 + "?, true, X'01020304')", Instant.ofEpochSecond(1714946523L));
     }
 
+    default void close() {
+        // No-op by default.
+    }
+
     private @Nullable List<SqlRow> sql(String sql, Object... arguments) {
         return sql(client(), sql, arguments);
     }

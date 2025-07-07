@@ -25,7 +25,6 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.CompatibilityTestBase;
 import org.apache.ignite.internal.IgniteCluster;
 import org.apache.ignite.internal.OldClientLoader;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -58,7 +57,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @AfterAll
     public void afterAll() throws Exception {
         IgniteUtils.closeAllManually(
-                () -> proxy(ManuallyCloseable.class, delegate).close(),
+                () -> delegate.close(),
                 () -> cluster.stop());
     }
 
@@ -205,7 +204,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
                 (proxy, method, args) -> obj.getClass().getMethod(method.getName(), method.getParameterTypes()).invoke(obj, args));
     }
 
-    private static class Delegate implements ClientCompatibilityTests, ManuallyCloseable {
+    private static class Delegate implements ClientCompatibilityTests {
         private final AtomicInteger idGen = new AtomicInteger(1000);
 
         private final IgniteClient client;
