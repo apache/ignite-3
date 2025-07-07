@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -201,7 +202,11 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
         return (T) Proxy.newProxyInstance(
                 iface.getClassLoader(),
                 new Class[]{iface},
-                (proxy, method, args) -> obj.getClass().getMethod(method.getName(), method.getParameterTypes()).invoke(obj, args));
+                (proxy, method, args) -> {
+                    Method targetMethod = obj.getClass().getMethod(method.getName(), method.getParameterTypes());
+                    targetMethod.setAccessible(true);
+                    return targetMethod.invoke(obj, args);
+                });
     }
 
     private static class Delegate implements ClientCompatibilityTests {
