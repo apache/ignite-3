@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import com.linkedin.cytodynamics.matcher.GlobMatcher;
 import com.linkedin.cytodynamics.nucleus.DelegateRelationshipBuilder;
 import com.linkedin.cytodynamics.nucleus.IsolationLevel;
 import com.linkedin.cytodynamics.nucleus.LoaderBuilder;
@@ -60,13 +59,7 @@ public class OldClientClassLoader {
                     .withOriginRestriction(OriginRestriction.allowByDefault())
                     .withParentRelationship(DelegateRelationshipBuilder.builder()
                             .withIsolationLevel(IsolationLevel.FULL)
-                            .addWhitelistedClassPredicate(new GlobMatcher("java*"))
-                            .addWhitelistedClassPredicate(new GlobMatcher("com*"))
-                            .addWhitelistedClassPredicate(new GlobMatcher("jdk*"))
-                            .addWhitelistedClassPredicate(new GlobMatcher("org.mock*"))
-                            .addWhitelistedClassPredicate(new GlobMatcher("org.junit*"))
-                            .addWhitelistedClassPredicate(new GlobMatcher("org.ham*"))
-                            .addWhitelistedClassPredicate(new GlobMatcher("org.jetbrains*"))
+                            .addWhitelistedClassPredicate(x -> !x.startsWith("org.apache.ignite."))
                             .build())
                     .build();
         }
