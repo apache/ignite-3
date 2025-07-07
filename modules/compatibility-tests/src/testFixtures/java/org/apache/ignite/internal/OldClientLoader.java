@@ -49,6 +49,7 @@ public class OldClientLoader {
                             .addWhitelistedClassPredicate(new GlobMatcher("org.mock*"))
                             .addWhitelistedClassPredicate(new GlobMatcher("org.junit*"))
                             .addWhitelistedClassPredicate(new GlobMatcher("org.ham*"))
+                            .addWhitelistedClassPredicate(new GlobMatcher("org.jetbrains*"))
                             .build())
                     .build();
         }
