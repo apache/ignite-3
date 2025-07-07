@@ -106,7 +106,7 @@ public class IgniteCluster {
      *
      * @param nodesCount Number of nodes in the cluster.
      */
-    public void startEmbedded(int nodesCount) {
+    public void startEmbedded(int nodesCount, boolean initCluster) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -117,6 +117,10 @@ public class IgniteCluster {
         List<ServerRegistration> nodeRegistrations = new ArrayList<>();
         for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
             nodeRegistrations.add(startEmbeddedNode(nodeIndex));
+        }
+
+        if (initCluster) {
+            init(x -> {});
         }
 
         for (ServerRegistration registration : nodeRegistrations) {
@@ -293,7 +297,7 @@ public class IgniteCluster {
             BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
 
             File javaHome = environment.getJava().getJavaHome();
-            File argFile = constructArgFile(connection, "org.apache.ignite:ignite-runner:" + igniteVersion);
+            File argFile = constructArgFile(connection, "org.apache.ignite:ignite-runner:" + igniteVersion, false);
 
             List<RunnerNode> result = new ArrayList<>();
             for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
@@ -306,7 +310,10 @@ public class IgniteCluster {
         }
     }
 
-    private static File constructArgFile(ProjectConnection connection, String dependencyNotation) throws IOException {
+    static File constructArgFile(
+            ProjectConnection connection,
+            String dependencyNotation,
+            boolean classPathOnly) throws IOException {
         File argFilePath = File.createTempFile("argFilePath", "");
         argFilePath.deleteOnExit();
 
@@ -316,7 +323,8 @@ public class IgniteCluster {
                     .forTasks(":ignite-compatibility-tests:constructArgFile")
                     .withArguments(
                             "-PdependencyNotation=" + dependencyNotation,
-                            "-PargFilePath=" + argFilePath
+                            "-PargFilePath=" + argFilePath,
+                            "-PclassPathOnly=" + classPathOnly
                     )
                     .setStandardOutput(baos)
                     .setStandardError(baos)
