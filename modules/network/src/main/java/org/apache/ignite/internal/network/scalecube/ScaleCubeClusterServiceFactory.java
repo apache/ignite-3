@@ -181,7 +181,6 @@ public class ScaleCubeClusterServiceFactory {
                 var transport = new ScaleCubeDirectMarshallerTransport(
                         scalecubeLocalAddress,
                         messagingService,
-                        topologyService,
                         messageFactory
                 );
 

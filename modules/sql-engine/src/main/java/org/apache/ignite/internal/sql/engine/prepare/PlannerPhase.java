@@ -45,7 +45,6 @@ import org.apache.calcite.rel.rules.ProjectFilterTransposeRule;
 import org.apache.calcite.rel.rules.ProjectMergeRule;
 import org.apache.calcite.rel.rules.ProjectRemoveRule;
 import org.apache.calcite.rel.rules.PruneEmptyRules;
-import org.apache.calcite.rel.rules.SortRemoveRule;
 import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
@@ -63,6 +62,8 @@ import org.apache.ignite.internal.sql.engine.rule.SetOpConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortAggregateConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortExchangeTransposeRule;
+import org.apache.ignite.internal.sql.engine.rule.SortMergeRule;
+import org.apache.ignite.internal.sql.engine.rule.SortRemoveRule;
 import org.apache.ignite.internal.sql.engine.rule.TableFunctionScanConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
@@ -87,7 +88,7 @@ public enum PlannerPhase {
             "Heuristic phase to convert subqueries into correlates",
             CoreRules.FILTER_SUB_QUERY_TO_CORRELATE,
             CoreRules.PROJECT_SUB_QUERY_TO_CORRELATE,
-            // revert into CoreRules.JOIN_SUB_QUERY_TO_CORRELATE after https://issues.apache.org/jira/browse/IGNITE-25255
+            // revert into CoreRules.JOIN_SUB_QUERY_TO_CORRELATE after https://issues.apache.org/jira/browse/IGNITE-25801
             IgniteSubQueryRemoveRule.INSTANCE
     ) {
         /** {@inheritDoc} */
@@ -224,10 +225,8 @@ public enum PlannerPhase {
 
             CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES_TO_JOIN,
 
-            SortRemoveRule.Config.DEFAULT
-                    .withOperandSupplier(b ->
-                            b.operand(LogicalSort.class)
-                                    .anyInputs()).toRule(),
+            SortRemoveRule.INSTANCE,
+            SortMergeRule.INSTANCE,
 
             SortExchangeTransposeRule.INSTANCE,
 

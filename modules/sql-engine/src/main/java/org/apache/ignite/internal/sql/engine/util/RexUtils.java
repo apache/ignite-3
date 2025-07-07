@@ -56,6 +56,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.tree.Primitive;
@@ -1246,7 +1247,7 @@ public class RexUtils {
      * @param type The target type for conversion.
      * @return The converted literal value, or {@code null} if the literal value is {@code null}.
      */
-    public static @Nullable Object literalValue(ExecutionContext<?> context, RexLiteral literal, Class<?> type) {
+    public static @Nullable Object literalValue(DataContext context, RexLiteral literal, Class<?> type) {
         RelDataType dataType = literal.getType();
 
         if (literal.isNull()) {

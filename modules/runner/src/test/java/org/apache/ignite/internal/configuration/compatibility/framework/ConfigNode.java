@@ -19,27 +19,37 @@ package org.apache.ignite.internal.configuration.compatibility.framework;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Map.Entry;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Tree node that describes a configuration tree item.
  */
 public class ConfigNode {
-    private ConfigNode parent;
     @JsonProperty
     private Map<String, String> attributes;
     @JsonProperty
+    private List<ConfigAnnotation> annotations = new ArrayList<>();
+    @JsonProperty
     private Map<String, ConfigNode> childNodeMap = new LinkedHashMap<>();
     @JsonProperty
-    private boolean deprecated;
-    @JsonProperty
-    private boolean value;
+    private String flagsHexString;
+
+    // Non-serializable fields.
+    @JsonIgnore
+    private ConfigNode parent;
+    @JsonIgnore
+    private EnumSet<Flags> flags;
 
     ConfigNode() {
         // Default constructor for Jackson deserialization.
@@ -48,11 +58,12 @@ public class ConfigNode {
     /**
      * Constructor is used when node is created in the code.
      */
-    ConfigNode(ConfigNode parent, Map<String, String> attributes, EnumSet<Flags> flags) {
+    ConfigNode(ConfigNode parent, Map<String, String> attributes, List<ConfigAnnotation> annotations, EnumSet<Flags> flags) {
         this.parent = parent;
         this.attributes = attributes;
-        this.value = flags.contains(Flags.IS_VALUE);
-        this.deprecated = flags.contains(Flags.IS_DEPRECATED);
+        this.annotations = annotations;
+        this.flags = flags;
+        this.flagsHexString = Flags.toHexString(flags);
     }
 
     /**
@@ -62,10 +73,25 @@ public class ConfigNode {
         Map<String, String> attrs = new LinkedHashMap<>();
         attrs.put(Attributes.NAME, rootName);
         attrs.put(Attributes.CLASS, className.getCanonicalName());
-        attrs.put("TYPE", type.toString());
-        attrs.put("INTERNAL", String.valueOf(internal));
+        attrs.put(Attributes.KIND, type.toString());
 
-        return new ConfigNode(null, attrs, EnumSet.of(Flags.IS_ROOT));
+        EnumSet<Flags> flags = EnumSet.of(Flags.IS_ROOT);
+        if (internal) {
+            flags.add(Flags.IS_INTERNAL);
+        }
+
+        return new ConfigNode(null, attrs, List.of(), flags);
+    }
+
+    /**
+     * Initialize node after deserialization.
+     *
+     * @param parent Parent node to links with.
+     */
+    public void init(@Nullable ConfigNode parent) {
+        this.parent = parent;
+
+        this.flags = Flags.parseFlags(flagsHexString);
     }
 
     /**
@@ -75,9 +101,12 @@ public class ConfigNode {
         return attributes.get(Attributes.NAME);
     }
 
-    /**
-     * Returns the type (class name) of this node.
-     */
+    /** Returns root node type. */
+    public String kind() {
+        return attributes.get(Attributes.KIND);
+    }
+
+    /** Returns value node type. */
     public String type() {
         return attributes.get(Attributes.CLASS);
     }
@@ -89,15 +118,28 @@ public class ConfigNode {
         return childNodeMap.values();
     }
 
-    public void setParent(ConfigNode parent) {
-        this.parent = parent;
+    /**
+     * Returns the parent node of this node.
+     */
+    public ConfigNode getParent() {
+        return parent;
     }
 
     /**
-     * Returns the child nodes of this node.
+     * Add the child nodes to this node.
      */
     void addChildNodes(Collection<ConfigNode> childNodes) {
+        assert !flags.contains(Flags.IS_VALUE) : "Value node can't have children.";
+
         childNodes.forEach(e -> childNodeMap.put(e.name(), e));
+    }
+
+    /**
+     * Shortcut to {@link #addChildNodes(Collection)}.
+     */
+    @TestOnly
+    void addChildNodes(ConfigNode... childNodes) {
+        addChildNodes(List.of(childNodes));
     }
 
     /**
@@ -111,28 +153,38 @@ public class ConfigNode {
     /**
      * Returns {@code true} if this node represents a value, {@code false} otherwise.
      */
+    @JsonIgnore
     public boolean isValue() {
-        return value;
+        return flags.contains(Flags.IS_VALUE);
+    }
+
+    /**
+     * Returns {@code true} if this node represents internal part of configuration, {@code false} otherwise.
+     */
+    @JsonIgnore
+    public boolean isInternal() {
+        return flags.contains(Flags.IS_INTERNAL);
     }
 
     /**
      * Returns {@code true} if this node is marked as deprecated, {@code false} otherwise.
      */
+    @JsonIgnore
     public boolean isDeprecated() {
-        return deprecated;
+        return flags.contains(Flags.IS_DEPRECATED);
     }
 
     /**
-     * Returns the raw attributes of this node. This method is used for serialization purposes.
+     * Returns node annotations.
      */
-    public Map<String, String> rawAttributes() {
-        return attributes;
+    public List<ConfigAnnotation> annotations() {
+        return annotations;
     }
 
     /**
      * Constructs the full path of this node in the configuration tree.
      */
-    public final String path() {
+    private String path() {
         String name = name();
 
         return parent == null ? name : parent.path() + '.' + name;
@@ -149,24 +201,31 @@ public class ConfigNode {
         }
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        return toString().equals(o.toString());
-    }
+    String digest() {
+        // Avoid actual class name from being compared for non-value nodes.
+        Predicate<Entry<String, String>> filter = isValue()
+                ? e -> true
+                : e  -> !e.getKey().equals(Attributes.CLASS);
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(name(), type());
+        String attributes = this.attributes.entrySet().stream()
+                .filter(filter)
+                .map(Entry::toString)
+                .collect(Collectors.joining(", "));
+
+        return path() + ": ["
+                + attributes
+                + ", annotations=" + annotations().stream().map(ConfigAnnotation::toString).collect(Collectors.joining(",", "[", "]"))
+                + ", flags=" + flagsHexString
+                + (childNodeMap.isEmpty() ? "" : ", children=" + childNodeMap.size())
+                + ']';
     }
 
     @Override
     public final String toString() {
-        return path() + ": [" + attributes.entrySet().stream()
-                .map((e) -> e.getKey() + "=" + e.getValue())
-                .collect(Collectors.joining(", "))
+        return path() + ": ["
+                + attributes.entrySet().stream().map(Map.Entry::toString).collect(Collectors.joining(","))
+                + ", annotations=" + annotations().stream().map(ConfigAnnotation::toString).collect(Collectors.joining(",", "[", "]"))
+                + ", flags=" + flags
                 + (childNodeMap.isEmpty() ? "" : ", children=" + childNodeMap.size())
                 + ']';
     }
@@ -177,7 +236,8 @@ public class ConfigNode {
     enum Flags {
         IS_ROOT(1),
         IS_VALUE(1 << 1),
-        IS_DEPRECATED(1 << 2);
+        IS_DEPRECATED(1 << 2),
+        IS_INTERNAL(1 << 3);
 
         private final int mask;
 
@@ -185,7 +245,7 @@ public class ConfigNode {
             this.mask = mask;
         }
 
-        public int mask() {
+        int mask() {
             return mask;
         }
 
@@ -195,7 +255,7 @@ public class ConfigNode {
             }
             int mask = Integer.parseInt(hex, 16);
             EnumSet<Flags> result = EnumSet.noneOf(Flags.class);
-            for (Flags flag : Flags.values()) {
+            for (Flags flag : values()) {
                 if ((mask & flag.mask()) != 0) {
                     result.add(flag);
                 }
@@ -213,8 +273,7 @@ public class ConfigNode {
      */
     static class Attributes {
         static String NAME = "name";
+        static String KIND = "kind";
         static String CLASS = "class";
-        static String FLAGS = "flags";
-        static String ANNOTATIONS = "annotations";
     }
 }

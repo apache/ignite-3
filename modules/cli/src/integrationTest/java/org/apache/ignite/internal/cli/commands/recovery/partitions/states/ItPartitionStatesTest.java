@@ -64,10 +64,6 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     private static final String LOCAL_PARTITION_STATE_FIELDS = "Node name\t" + GLOBAL_PARTITION_STATE_FIELDS;
 
-    private static final String GLOBAL_ZONE_PARTITION_STATE_FIELDS = "Zone name\tPartition ID\tState" + System.lineSeparator();
-
-    private static final String LOCAL_ZONE_PARTITION_STATE_FIELDS = "Node name\t" + GLOBAL_ZONE_PARTITION_STATE_FIELDS;
-
     private static Set<String> nodeNames;
 
     @BeforeAll
@@ -256,21 +252,12 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
 
-        if (colocationEnabled()) {
-            assertOutputMatches(String.format(
-                    "%1$s%2$s\t1\t(HEALTHY|AVAILABLE)%3$s",
-                    GLOBAL_ZONE_PARTITION_STATE_FIELDS,
-                    zoneName,
-                    System.lineSeparator()
-            ));
-        } else {
-            assertOutputMatches(String.format(
-                    "%1$s%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)%3$s",
-                    GLOBAL_PARTITION_STATE_FIELDS,
-                    zoneName,
-                    System.lineSeparator()
-            ));
-        }
+        assertOutputMatches(String.format(
+                "%1$s%2$s\tPUBLIC\t[0-9]+\t%2$s_table\t1\t(HEALTHY|AVAILABLE)%3$s",
+                GLOBAL_PARTITION_STATE_FIELDS,
+                zoneName,
+                System.lineSeparator()
+        ));
     }
 
     @Test
@@ -288,32 +275,18 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
 
-        if (colocationEnabled()) {
-            assertOutputMatches(String.format(
-                    "%1$s(%2$s)\t%3$s\t1\t(HEALTHY|AVAILABLE)%4$s",
-                    LOCAL_ZONE_PARTITION_STATE_FIELDS,
-                    possibleNodeNames,
-                    zoneName,
-                    System.lineSeparator()
-            ));
-        } else {
-            assertOutputMatches(String.format(
-                    "%1$s(%2$s)\t%3$s\tPUBLIC\t[0-9]+\t%3$s_table\t1\t(HEALTHY|AVAILABLE)%4$s",
-                    LOCAL_PARTITION_STATE_FIELDS,
-                    possibleNodeNames,
-                    zoneName,
-                    System.lineSeparator()
-            ));
-        }
+        assertOutputMatches(String.format(
+                "%1$s(%2$s)\t%3$s\tPUBLIC\t[0-9]+\t%3$s_table\t1\t(HEALTHY|AVAILABLE)%4$s",
+                LOCAL_PARTITION_STATE_FIELDS,
+                possibleNodeNames,
+                zoneName,
+                System.lineSeparator()
+        ));
     }
 
     private void checkOutput(boolean global, Set<String> zoneNames, Set<String> nodes, int partitions) {
         assertErrOutputIsEmpty();
-        if (colocationEnabled()) {
-            assertOutputStartsWith(global ? GLOBAL_ZONE_PARTITION_STATE_FIELDS : LOCAL_ZONE_PARTITION_STATE_FIELDS);
-        } else {
-            assertOutputStartsWith(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
-        }
+        assertOutputStartsWith(global ? GLOBAL_PARTITION_STATE_FIELDS : LOCAL_PARTITION_STATE_FIELDS);
 
         if (!global) {
             if (!nodes.isEmpty()) {
