@@ -1,6 +1,7 @@
 package org.apache.ignite.internal.client;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Optional;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.extension.TestInstanceFactory;
 import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 
+// TODO: Move to BeforeAll and AfterAll methods and init a delegate there.
 public class OldClientTestInstanceFactory implements TestInstanceFactory {
     @Override
     public Object createTestInstance(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext)
@@ -77,11 +79,11 @@ public class OldClientTestInstanceFactory implements TestInstanceFactory {
         var loader = OldClientLoader.getClientClassloader("3.0.0");
 
         // Load test class in the old client classloader.
-        Class<?> testClass = loader.loadClass(OldClientWithCurrentServerCompatibilityTest.class.getName());
-        Object testInstance = testClass.getDeclaredConstructor().newInstance();
-
         Object clientBuilder = loader.loadClass(IgniteClient.class.getName()).getDeclaredMethod("builder").invoke(null);
-        testClass.getMethod("initClient", clientBuilder.getClass()).invoke(testInstance, clientBuilder);
+        Class<?> testClass = loader.loadClass(OldClientWithCurrentServerCompatibilityTest.class.getName() + "$Delegate");
+        Constructor<?> declaredConstructor = testClass.getDeclaredConstructor(clientBuilder.getClass());
+        declaredConstructor.setAccessible(true);
+        Object testInstance = declaredConstructor.newInstance(clientBuilder);
 
         return proxy(ClientCompatibilityTests.class, testInstance);
     }

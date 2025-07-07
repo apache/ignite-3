@@ -19,8 +19,7 @@ package org.apache.ignite.internal.client;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
@@ -29,28 +28,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(OldClientTestInstanceFactory.class)
 @TestInstance(Lifecycle.PER_CLASS)
 public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
-    private final AtomicInteger idGen = new AtomicInteger(1000);
-
     private ClientCompatibilityTests delegate;
 
-    private IgniteClient client;
-
-    public void setDelegate(ClientCompatibilityTests delegate) {
+    void setDelegate(ClientCompatibilityTests delegate) {
         this.delegate = delegate;
-    }
-
-    public void initClient(IgniteClient.Builder builder) {
-        client = builder.addresses("127.0.0.1:10800").build();
     }
 
     @Override
     public IgniteClient client() {
-        return client;
+        return delegate.client();
     }
 
     @Override
     public AtomicInteger idGen() {
-        return idGen;
+        return delegate.idGen();
     }
 
     @Test
@@ -74,22 +65,13 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @Test
     @Override
     public void testTables() {
-        if (delegate != null) {
-            delegate.testTables();
-        } else {
-            ClientCompatibilityTests.super.testTables();
-        }
+        delegate.testTables();
     }
 
     @Test
     @Override
     public void testSqlColumnMeta() {
-        // TODO: Use some Junit magic to use the delegate.
-        if (delegate != null) {
-            delegate.testSqlColumnMeta();
-        } else {
-            ClientCompatibilityTests.super.testSqlColumnMeta();
-        }
+        delegate.testSqlColumnMeta();
     }
 
     @Test
@@ -171,6 +153,26 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
             delegate.testStreamerWithReceiver();
         } else {
             ClientCompatibilityTests.super.testStreamerWithReceiver();
+        }
+    }
+
+    private static class Delegate implements ClientCompatibilityTests {
+        private final AtomicInteger idGen = new AtomicInteger(1000);
+
+        private final IgniteClient client;
+
+        public Delegate(IgniteClient.Builder client) {
+            this.client = client.addresses("localhost:10800").build();
+        }
+
+        @Override
+        public IgniteClient client() {
+            return client;
+        }
+
+        @Override
+        public AtomicInteger idGen() {
+            return idGen;
         }
     }
 }
