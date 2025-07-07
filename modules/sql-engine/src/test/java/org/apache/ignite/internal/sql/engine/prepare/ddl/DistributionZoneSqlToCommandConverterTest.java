@@ -58,6 +58,7 @@ import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -87,6 +88,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     @BeforeAll
     public static void setUp() {
+        assertThat(ZoneOptionEnum.values().length, is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
+    }
+
+    @BeforeEach
+    void prepareLogicalTopologyServiceMock() {
         LogicalNode node = new LogicalNode(
                 new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("127.0.0.1", 40000)),
                 Map.of(),
@@ -95,7 +101,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         );
 
         when(logicalTopologyService.localLogicalTopology()).thenReturn(new LogicalTopologySnapshot(0, Set.of(node)));
-        assertThat(ZoneOptionEnum.values().length, is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
     }
 
     @ParameterizedTest(name = "with syntax = {0}")

@@ -45,7 +45,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
  * Common methods for {@link DdlSqlToCommandConverter} testing.
  */
 class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
-    final static LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
+    final LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
 
     /** DDL SQL to command converter. */
     final DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(logicalTopologyService);
