@@ -24,9 +24,26 @@
 
 #include <ignite/common/detail/defer.h>
 
-#include <sstream>
-
 #include <Python.h>
+#include <detail/string_utils.h>
+
+namespace {
+
+/**
+ * Parse a string into the address and properly set the error if there is any.
+ * @param item_str String item.
+ * @return An end point if parsed successfully, and @c std::nullopt otherwise.
+ */
+[[nodiscard]] std::optional<ignite::end_point> parse_address_with_error_handling(const py_string &item_str) noexcept {
+    try {
+        return ignite::parse_single_address(item_str.get_data(), 10800);
+    } catch (const ignite::ignite_error& err) {
+        PyErr_SetString(py_get_module_interface_error_class(), err.what());
+    }
+    return {};
+}
+
+}
 
 static PyObject* make_connection()
 {
@@ -109,11 +126,11 @@ static PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwa
                 return nullptr;
             }
 
-            ignite::end_point ep;
-            address_builder << *item_str;
-            if ((idx + 1) < size) {
-                address_builder << ',';
+            auto addr = parse_address_with_error_handling(item_str);
+            if (!addr) {
+                return nullptr;
             }
+            addresses.push_back(*addr);
         }
     } else if (PyUnicode_Check(address)) {
         auto item_str = py_string::try_from_py_utf8(address);
@@ -121,14 +138,19 @@ static PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwa
             PyErr_SetString(py_get_module_interface_error_class(), "Can not convert address string to UTF-8");
             return nullptr;
         }
-        address_builder << *item_str;
+
+        auto addr = parse_address_with_error_handling(item_str);
+        if (!addr) {
+            return nullptr;
+        }
+        addresses.push_back(*addr);
     } else {
         PyErr_SetString(py_get_module_interface_error_class(),
             "Only a string or a list of strings are allowed in 'address' parameter");
         return nullptr;
     }
 
-    return make_connection(address_builder.str(), schema, identity, secret, page_size, timeout, autocommit != 0, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
+    return make_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit != 0, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
 }
 
 static PyMethodDef methods[] = {

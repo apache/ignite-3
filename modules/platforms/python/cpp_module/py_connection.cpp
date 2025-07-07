@@ -65,10 +65,7 @@ int py_connection_init(py_connection *self, PyObject *, PyObject *)
  */
 void py_connection_dealloc(py_connection *self)
 {
-    delete self->m_connection;
-
-    self->m_connection = nullptr;
-
+    self->m_connection.reset();
     Py_TYPE(self)->tp_free(self);
 }
 
@@ -76,9 +73,7 @@ static PyObject* py_connection_close(py_connection* self, PyObject*)
 {
     if (self->m_connection) {
         self->m_connection->close();
-
-        delete self->m_connection;
-        self->m_connection = nullptr;
+        self->m_connection.reset();
     }
 
     Py_RETURN_NONE;
