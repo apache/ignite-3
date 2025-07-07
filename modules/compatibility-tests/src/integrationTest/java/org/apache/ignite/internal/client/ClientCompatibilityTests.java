@@ -83,9 +83,10 @@ public interface ClientCompatibilityTests {
 
     AtomicInteger idGen();
 
+    @SuppressWarnings("deprecation")
     @Test
     default void testClusterNodes() {
-        Collection<ClusterNode> nodes = client().cluster().nodes();
+        Collection<ClusterNode> nodes = client().clusterNodes();
         assertThat(nodes, Matchers.hasSize(1));
     }
 

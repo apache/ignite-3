@@ -31,6 +31,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
@@ -80,18 +81,21 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
     @Test
     @Override
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25846")
     public void testTableByName() {
         delegate.testTableByName();
     }
 
     @Test
     @Override
+    @Disabled("No qualified names in old client")
     public void testTableByQualifiedName() {
         delegate.testTableByQualifiedName();
     }
 
     @Test
     @Override
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25846")
     public void testTables() {
         delegate.testTables();
     }
