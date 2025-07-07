@@ -83,9 +83,15 @@ public interface ClientCompatibilityTests {
 
     AtomicInteger idGen();
 
-    @SuppressWarnings("deprecation")
     @Test
     default void testClusterNodes() {
+        Collection<ClusterNode> nodes = client().cluster().nodes();
+        assertThat(nodes, Matchers.hasSize(1));
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    default void testClusterNodesDeprecated() {
         Collection<ClusterNode> nodes = client().clusterNodes();
         assertThat(nodes, Matchers.hasSize(1));
     }
@@ -166,7 +172,7 @@ public interface ClientCompatibilityTests {
         assertEquals(LocalDateTime.of(2023, 1, 1, 12, 0, 0), row.datetimeValue("ts"));
         assertEquals(Instant.ofEpochSecond(1714946523), row.timestampValue("tstz"));
         assertTrue(row.booleanValue("bool"));
-        assertArrayEquals(new byte[]{1, 2, 3, 4}, row.bytesValue("bytes"));
+        assertArrayEquals(new byte[]{1, 2, 3, 4}, row.value("bytes"));
     }
 
     @Test
@@ -506,7 +512,7 @@ public interface ClientCompatibilityTests {
 
     @Test
     default void testComputeMissingJob() {
-        JobTarget target = JobTarget.anyNode(client().cluster().nodes());
+        JobTarget target = JobTarget.anyNode(clusterNodes());
         JobDescriptor<Object, Object> desc = JobDescriptor.builder("test").build();
 
         var ex = assertThrows(ComputeException.class, () ->  client().compute().execute(target, desc, null));
@@ -594,6 +600,10 @@ public interface ClientCompatibilityTests {
 
     default void close() {
         // No-op by default.
+    }
+
+    default Collection<ClusterNode> clusterNodes() {
+        return client().cluster().nodes();
     }
 
     private @Nullable List<SqlRow> sql(String sql, Object... arguments) {

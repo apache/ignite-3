@@ -21,6 +21,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.CompatibilityTestBase;
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.OldClientLoader;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -41,6 +43,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
 public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
+    // TODO: Parametrize the version.
+    private String igniteVersion = "3.0.0";
+
     private IgniteCluster cluster;
 
     private ClientCompatibilityTests delegate;
@@ -52,8 +57,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
         createDefaultTables(cluster.node(0));
 
-        // TODO: Parametrize the version.
-        delegate = createTestInstanceWithOldClient("3.0.0");
+        delegate = createTestInstanceWithOldClient(igniteVersion);
     }
 
     @AfterAll
@@ -76,7 +80,18 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @Test
     @Override
     public void testClusterNodes() {
+        if ("3.0.0".equals(igniteVersion)) {
+            // 3.0.0 client does not have cluster.nodes() method.
+            return;
+        }
+
         delegate.testClusterNodes();
+    }
+
+    @Test
+    @Override
+    public void testClusterNodesDeprecated() {
+        delegate.testClusterNodesDeprecated();
     }
 
     @Test
@@ -88,8 +103,12 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
     @Test
     @Override
-    @Disabled("No qualified names in old client")
     public void testTableByQualifiedName() {
+        if ("3.0.0".equals(igniteVersion)) {
+            // 3.0.0 client does not have qualified names.
+            return;
+        }
+
         delegate.testTableByQualifiedName();
     }
 
@@ -225,6 +244,12 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
         @Override
         public void close() {
             client.close();
+        }
+
+        @SuppressWarnings("deprecation") // Old client uses deprecated method.
+        @Override
+        public Collection<ClusterNode> clusterNodes() {
+            return client.clusterNodes();
         }
     }
 }
