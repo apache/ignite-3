@@ -32,14 +32,14 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.AfterParameterizedClassInvocation;
+import org.junit.jupiter.params.BeforeParameterizedClassInvocation;
 import org.junit.jupiter.params.Parameter;
 import org.junit.jupiter.params.ParameterizedClass;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -59,8 +59,10 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
     private ClientCompatibilityTests delegate;
 
-    @BeforeAll
-    public void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
+    @BeforeParameterizedClassInvocation
+    public void beforeAll(String clientVer, TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
+        clientVersion = clientVer;
+
         cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
         cluster.startEmbedded(1, true);
 
@@ -69,7 +71,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
         delegate = createTestInstanceWithOldClient(clientVersion);
     }
 
-    @AfterAll
+    @AfterParameterizedClassInvocation
     public void afterAll() throws Exception {
         IgniteUtils.closeAllManually(
                 () -> delegate.close(),
