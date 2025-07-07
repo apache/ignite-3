@@ -17,21 +17,51 @@
 
 package org.apache.ignite.internal.client;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Proxy;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.internal.CompatibilityTestBase;
+import org.apache.ignite.internal.IgniteCluster;
+import org.apache.ignite.internal.OldClientLoader;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(OldClientTestInstanceFactory.class)
+@ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
 public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
+    @WorkDirectory
+    private Path workDir;
+
+    private IgniteCluster cluster;
+
     private ClientCompatibilityTests delegate;
 
-    void setDelegate(ClientCompatibilityTests delegate) {
-        this.delegate = delegate;
+    @BeforeAll
+    public void beforeAll(TestInfo testInfo) throws Exception {
+        cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
+        cluster.startEmbedded(1, true);
+
+        createDefaultTables(cluster.node(0));
+
+        // TODO: Parametrize the version.
+        delegate = createTestInstanceWithOldClient("3.0.0");
+    }
+
+    @AfterAll
+    public void afterAll() throws Exception {
+        IgniteUtils.closeAllManually(
+                () -> delegate.client().close(),
+                () -> cluster.stop());
     }
 
     @Override
@@ -156,12 +186,33 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
         }
     }
 
+    private static ClientCompatibilityTests createTestInstanceWithOldClient(String igniteVersion)
+            throws Exception {
+        var loader = OldClientLoader.getClientClassloader(igniteVersion);
+
+        // Load test class instance in the old client classloader.
+        Object clientBuilder = loader.loadClass(IgniteClient.class.getName()).getDeclaredMethod("builder").invoke(null);
+        Constructor<?> testCtor = loader.loadClass(Delegate.class.getName()).getDeclaredConstructor(clientBuilder.getClass());
+        testCtor.setAccessible(true);
+        Object testInstance = testCtor.newInstance(clientBuilder);
+
+        // Wrap the test instance from another classloader using the interface from the current classloader.
+        return proxy(ClientCompatibilityTests.class, testInstance);
+    }
+
+    private static <T> T proxy(Class<T> iface, Object obj) {
+        return (T) Proxy.newProxyInstance(
+                iface.getClassLoader(),
+                new Class[]{iface},
+                (proxy, method, args) -> obj.getClass().getMethod(method.getName(), method.getParameterTypes()).invoke(obj, args));
+    }
+
     private static class Delegate implements ClientCompatibilityTests {
         private final AtomicInteger idGen = new AtomicInteger(1000);
 
         private final IgniteClient client;
 
-        public Delegate(IgniteClient.Builder client) {
+        private Delegate(IgniteClient.Builder client) {
             this.client = client.addresses("localhost:10800").build();
         }
 
