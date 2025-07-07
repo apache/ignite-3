@@ -9,11 +9,11 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -66,11 +66,7 @@ public class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         cluster.startNode(1);
 
         assertTrue(waitForCondition(
-                () -> {
-                    IgniteImpl node1 = unwrapIgniteImpl(node(1));
-
-                    return node1.logicalTopologyService().localLogicalTopology().nodes().size() == 2;
-                },
+                () -> unwrapIgniteImpl(node(1)).logicalTopologyService().localLogicalTopology().nodes().size() == 2,
                 10_000
         ));
 
@@ -87,6 +83,18 @@ public class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(1)).startInhibit();
 
         cluster.startNode(2, NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_EXTRA_PROFILE);
+
+        assertTrue(waitForCondition(
+                () -> unwrapIgniteImpl(node(0)).logicalTopologyService().localLogicalTopology().nodes().size() == 3,
+                10_000
+        ));
+
+        assertTrue(waitForCondition(
+                () -> unwrapIgniteImpl(node(2)).logicalTopologyService().localLogicalTopology().nodes().size() == 3,
+                10_000
+        ));
+
+        assertEquals(2, unwrapIgniteImpl(node(1)).logicalTopologyService().localLogicalTopology().nodes().size());
 
         assertThrowsWithCause(
                 () -> createZoneQuery(1, EXTRA_PROFILE_NAME),

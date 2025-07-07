@@ -91,7 +91,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("127.0.0.1", 40000)),
                 Map.of(),
                 Map.of(),
-                List.of(DEFAULT_STORAGE_PROFILE)
+                List.of(DEFAULT_STORAGE_PROFILE, "lru_rocks", "segmented_aipersist")
         );
 
         when(logicalTopologyService.localLogicalTopology()).thenReturn(new LogicalTopologySnapshot(0, Set.of(node)));

@@ -805,15 +805,16 @@ public class TestBuilders {
                         List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
                         NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
                         LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr);
+                        List<String> storageProfiles = List.of("Default");
 
                         if (systemViewForNode.isEmpty()) {
-                            return logicalNode;
+                            return new LogicalNode(logicalNode, Map.of(), Map.of(), storageProfiles);
                         } else {
                             String attrName = SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
                             String nodeNameSep = SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
                             String nodeNamesString = String.join(nodeNameSep, systemViewForNode);
 
-                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), List.of());
+                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), storageProfiles);
                         }
                     })
                     .collect(Collectors.toList());

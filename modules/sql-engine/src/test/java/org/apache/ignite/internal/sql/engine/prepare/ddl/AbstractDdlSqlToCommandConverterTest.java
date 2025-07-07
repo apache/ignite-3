@@ -48,9 +48,9 @@ class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     final static LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
 
     /** DDL SQL to command converter. */
-    final static DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(logicalTopologyService);
+    final DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(logicalTopologyService);
 
-    final static Catalog catalog = mock(Catalog.class);
+    final Catalog catalog = mock(Catalog.class);
 
     /**
      * Parses a given statement and returns a resulting AST.
