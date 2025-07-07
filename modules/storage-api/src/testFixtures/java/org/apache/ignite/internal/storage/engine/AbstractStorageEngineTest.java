@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -64,6 +65,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -111,11 +114,14 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
 
         createMvTableWithPartitionAndFill(tableId, lastAppliedIndex, lastAppliedTerm);
 
-        // Restart.
-        stopEngineAfterTest();
-        createEngineBeforeTest();
+        restartEngine();
 
         checkMvTableStorageWithPartitionAfterRestart(tableId, lastAppliedIndex, lastAppliedTerm);
+    }
+
+    private void restartEngine() {
+        stopEngineAfterTest();
+        createEngineBeforeTest();
     }
 
     /**
@@ -135,21 +141,19 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
     }
 
     @Test
-    void testDropMvTableOnRecovery() throws Exception {
+    void testDestroyMvTableOnRecovery() throws Exception {
         assumeFalse(storageEngine.isVolatile());
 
         int tableId = 1;
 
         // Table does not exist.
-        assertDoesNotThrow(() -> storageEngine.dropMvTable(tableId));
+        assertDoesNotThrow(() -> storageEngine.destroyMvTable(tableId));
 
         createMvTableWithPartitionAndFill(tableId, 10, 20);
 
-        // Restart.
-        stopEngineAfterTest();
-        createEngineBeforeTest();
+        restartEngine();
 
-        assertDoesNotThrow(() -> storageEngine.dropMvTable(tableId));
+        assertDoesNotThrow(() -> storageEngine.destroyMvTable(tableId));
 
         checkMvTableStorageWithPartitionAfterRestart(tableId, 0, 0);
     }
@@ -258,9 +262,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
             }
         }
 
-        // Restart.
-        stopEngineAfterTest();
-        createEngineBeforeTest();
+        restartEngine();
 
         // Re-create the tables.
         tableStorages = IntStream.range(0, numTables)
@@ -389,5 +391,32 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
                 assertEquals(expLastAppliedTerm, mvPartitionStorage.lastAppliedTerm());
             }
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    protected void remembersCreatedTableIdsAsNonDestroyed(boolean restart) {
+        assumeFalse(storageEngine.isVolatile());
+
+        createTableStorageWithPartitionStorage(1);
+        createTableStorageWithPartitionStorage(3);
+
+        if (restart) {
+            restartEngine();
+        }
+
+        assertThat(storageEngine.nonDestroyedTableIds(), containsInAnyOrder(1, 3));
+    }
+
+    private void createTableStorageWithPartitionStorage(int tableId) {
+        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_STORAGE_PROFILE);
+        StorageIndexDescriptorSupplier indexSupplier = mock(StorageIndexDescriptorSupplier.class);
+
+        MvTableStorage tableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
+
+        CompletableFuture<MvPartitionStorage> partitionStorageFuture = tableStorage.createMvPartition(0);
+        assertThat(partitionStorageFuture, willCompleteSuccessfully());
+
+        assertThat(partitionStorageFuture.join().flush(), willCompleteSuccessfully());
     }
 }

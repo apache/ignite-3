@@ -89,4 +89,10 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
             assertThat(((RocksDbProfileView) view).sizeBytes(), is(12345L));
         }
     }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25854 - remove the override.
+    @Override
+    protected void remembersCreatedTableIdsAsNonDestroyed(boolean restart) {
+        // No-op.
+    }
 }

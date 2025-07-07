@@ -21,6 +21,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.delete;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -32,9 +33,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -53,6 +57,7 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -154,7 +159,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             if (tmpDir != null && this.dbDir.startsWith(tmpDir)) {
                 LOG.warn("Persistence store directory is in the temp directory and may be cleaned. "
-                        + "To avoid this change location of persistence directories [currentDir={}]", this.dbDir);
+                        + "To avoid this, change location of persistence directories [currentDir={}]", this.dbDir);
             }
         }
 
@@ -499,5 +504,33 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
     private Path groupDir(int groupId) {
         return dbDir.resolve(GROUP_DIR_PREFIX + groupId);
+    }
+
+    /**
+     * Scans the working directory to find IDs of all groups for which directories still remain.
+     *
+     * @return IDs of groups.
+     */
+    public Set<Integer> allGroupIdsOnFs() {
+        try (Stream<Path> tableDirs = Files.find(dbDir, 1, isTableDir())) {
+            return tableDirs.map(FilePageStoreManager::extractTableId).collect(toUnmodifiableSet());
+        } catch (IOException e) {
+            throw new IgniteInternalException(Common.INTERNAL_ERR, "Cannot scan for groupIDs", e);
+        }
+    }
+
+    private BiPredicate<Path, BasicFileAttributes> isTableDir() {
+        return (path, attrs) -> {
+            return attrs.isDirectory() && !dbDir.startsWith(path) && path.getFileName().toString().startsWith(GROUP_DIR_PREFIX);
+        };
+    }
+
+    private static int extractTableId(Path tableDir) {
+        Path fileName = tableDir.getFileName();
+
+        assert fileName.toString().startsWith(GROUP_DIR_PREFIX) : tableDir;
+
+        String idString = fileName.toString().substring(GROUP_DIR_PREFIX.length());
+        return Integer.parseInt(idString);
     }
 }

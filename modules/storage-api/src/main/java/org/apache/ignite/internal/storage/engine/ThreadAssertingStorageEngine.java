@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
+import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
+
+import java.util.Set;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.worker.ThreadAssertions;
@@ -61,7 +65,16 @@ public class ThreadAssertingStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTable(int tableId) {
-        storageEngine.dropMvTable(tableId);
+    public void destroyMvTable(int tableId) {
+        assertThreadAllowsToWrite();
+
+        storageEngine.destroyMvTable(tableId);
+    }
+
+    @Override
+    public Set<Integer> nonDestroyedTableIds() {
+        assertThreadAllowsToRead();
+
+        return storageEngine.nonDestroyedTableIds();
     }
 }
