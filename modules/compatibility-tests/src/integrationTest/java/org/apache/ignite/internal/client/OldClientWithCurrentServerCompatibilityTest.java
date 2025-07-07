@@ -25,6 +25,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.CompatibilityTestBase;
 import org.apache.ignite.internal.IgniteCluster;
 import org.apache.ignite.internal.OldClientLoader;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -39,15 +40,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
 public class OldClientWithCurrentServerCompatibilityTest implements ClientCompatibilityTests {
-    @WorkDirectory
-    private Path workDir;
-
     private IgniteCluster cluster;
 
     private ClientCompatibilityTests delegate;
 
     @BeforeAll
-    public void beforeAll(TestInfo testInfo) throws Exception {
+    public void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
         cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
         cluster.startEmbedded(1, true);
 
@@ -60,7 +58,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     @AfterAll
     public void afterAll() throws Exception {
         IgniteUtils.closeAllManually(
-                () -> delegate.client().close(),
+                () -> proxy(ManuallyCloseable.class, delegate).close(),
                 () -> cluster.stop());
     }
 
@@ -207,7 +205,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
                 (proxy, method, args) -> obj.getClass().getMethod(method.getName(), method.getParameterTypes()).invoke(obj, args));
     }
 
-    private static class Delegate implements ClientCompatibilityTests {
+    private static class Delegate implements ClientCompatibilityTests, ManuallyCloseable {
         private final AtomicInteger idGen = new AtomicInteger(1000);
 
         private final IgniteClient client;
@@ -224,6 +222,11 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
         @Override
         public AtomicInteger idGen() {
             return idGen;
+        }
+
+        @Override
+        public void close() {
+            client.close();
         }
     }
 }
