@@ -34,7 +34,7 @@ import org.gradle.tooling.ProjectConnection;
 /**
  * Class loader for old Ignite client versions.
  */
-public class OldClientClassLoader {
+public class OldClientLoader {
     /**
      * Creates a classloader for the specified Ignite client version.
      *
@@ -43,7 +43,7 @@ public class OldClientClassLoader {
      *
      * @throws IOException In case of an I/O error while constructing the classpath.
      */
-    public static ClassLoader get(String igniteVersion) throws IOException {
+    public static ClassLoader getIsolatedClassLoader(String igniteVersion) throws IOException {
         // 1. Use constructArgFile to resolve dependencies of a given client version.
         // 2. Use Cytodynamics to run the client with the constructed arg file in an isolated classloader.
         try (ProjectConnection connection = GradleConnector.newConnector()

@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.CompatibilityTestBase;
 import org.apache.ignite.internal.IgniteCluster;
-import org.apache.ignite.internal.OldClientClassLoader;
+import org.apache.ignite.internal.OldClientLoader;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -215,7 +215,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
 
     private static ClientCompatibilityTests createTestInstanceWithOldClient(String igniteVersion)
             throws Exception {
-        var loader = OldClientClassLoader.get(igniteVersion);
+        var loader = OldClientLoader.getIsolatedClassLoader(igniteVersion);
 
         // Load test class instance in the old client classloader.
         Object clientBuilder = loader.loadClass(IgniteClient.class.getName()).getDeclaredMethod("builder").invoke(null);
