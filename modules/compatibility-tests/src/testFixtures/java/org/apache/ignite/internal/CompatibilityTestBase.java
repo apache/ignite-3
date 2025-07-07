@@ -102,6 +102,13 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         }
     }
 
+    /**
+     * Creates a cluster with the given test info and work directory.
+     *
+     * @param testInfo Test information.
+     * @param workDir Work directory.
+     * @return A new instance of {@link IgniteCluster}.
+     */
     public static IgniteCluster createCluster(TestInfo testInfo, Path workDir) {
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)

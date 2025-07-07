@@ -310,7 +310,7 @@ public class IgniteCluster {
         }
     }
 
-    public static File constructArgFile(
+    static File constructArgFile(
             ProjectConnection connection,
             String dependencyNotation,
             boolean classPathOnly) throws IOException {

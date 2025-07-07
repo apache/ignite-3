@@ -63,7 +63,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     private ClientCompatibilityTests delegate;
 
     @BeforeParameterizedClassInvocation
-    public void beforeAll(String clientVer, TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
+    void beforeAll(String clientVer, TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
         clientVersion = clientVer;
 
         cluster = CompatibilityTestBase.createCluster(testInfo, workDir);
@@ -75,7 +75,7 @@ public class OldClientWithCurrentServerCompatibilityTest implements ClientCompat
     }
 
     @AfterParameterizedClassInvocation
-    public void afterAll() throws Exception {
+    void afterAll() throws Exception {
         IgniteUtils.closeAllManually(
                 () -> delegate.close(),
                 () -> cluster.stop());
