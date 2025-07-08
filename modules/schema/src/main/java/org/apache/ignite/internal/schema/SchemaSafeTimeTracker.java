@@ -24,9 +24,15 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  * Allows to work with schema safe time. This safe time stems from Metastorage safe time (as schemas are delivered using Metastorage),
  * but it might grow faster as it only concerns schema-related (currently, it means Catalog-related) Metastorage updates.
  *
- * <p>If latest schema update happened in revision N and all listeners' notifications for that revision (including Catalog listeners)
- * have been completed, then a new Metastorage event which does not relate to schemas (i.e. it's not a Catalog update) will advance
- * schema safe time immediately.
+ * <p>If latest schema update happened in revision N and notifications of all watch listeners for that revision
+ * (including Catalog listeners) have been completed, then a subsequent Metastorage event (that is, a revision event for some revision M
+ * where M > N, or an idle safe time event with timestamp above the timestamp of revision N)
+ * <ul>
+ * <li>which does not relate to schemas (i.e. it's not a Catalog update) will advance schema safe time immediately (without waiting
+ * for completion of futures of its watch listeners);</li>
+ * <li>which relates to schemas (i.e. it's a Catalog update) will advance schema safe time only after the completion of futures
+ * of its watch listeners).
+ * </ul>
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface SchemaSafeTimeTracker {
