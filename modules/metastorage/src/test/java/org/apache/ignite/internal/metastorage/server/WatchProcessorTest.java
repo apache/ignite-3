@@ -298,7 +298,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
 
         var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
-        HybridTimestamp ts = new HybridTimestamp(1, 2);
+        var ts = new HybridTimestamp(1, 2);
 
         watchProcessor.notifyWatches(1, List.of(entry1), ts);
 
@@ -311,7 +311,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
     @Test
     void metastoreSafeTimeGetsAdvancedAfterPreviousNotificationChainMembesAreFinished() {
-        CompletableFuture<Void> listenerFuture = new CompletableFuture<>();
+        var listenerFuture = new CompletableFuture<Void>();
         WatchListener listener = mock(WatchListener.class);
         when(listener.onUpdate(any())).thenReturn(listenerFuture);
 
