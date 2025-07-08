@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 class SchemaSafeTimeTrackerImplTest {
     @Test
     void closureCompletesFuturesWithNodeStoppingException() {
-        SchemaSafeTimeTrackerImpl tracker = new SchemaSafeTimeTrackerImpl();
+        var tracker = new SchemaSafeTimeTrackerImpl();
         assertThat(tracker.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Void> future = tracker.waitFor(HybridTimestamp.MAX_VALUE);
