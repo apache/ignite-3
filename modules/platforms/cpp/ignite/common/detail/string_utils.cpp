@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-#include "ignite/common/detail/string_utils.h"
+#include "string_utils.h"
 
 #include <algorithm>
-#include <sstream>
 
 namespace ignite {
 

@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "ignite/common/end_point.h"
-#include "ignite/common/ignite_error.h"
+#include "end_point.h"
+#include "ignite_error.h"
 
 #include <algorithm>
 #include <functional>
