@@ -142,8 +142,8 @@ public class WatchProcessor implements ManuallyCloseable {
 
         ThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, "metastorage-watch-executor", LOG, NOTHING_ALLOWED);
         this.watchExecutor = new ThreadPoolExecutor(
-                4,
-                4,
+                1,
+                1,
                 0L,
                 MILLISECONDS,
                 new LinkedBlockingQueue<>(),
