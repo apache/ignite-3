@@ -17,16 +17,18 @@
 
 #pragma once
 
-#include "ignite/odbc/query/result_page.h"
 #include "ignite/protocol/sql/column_meta.h"
+#include "result_page.h"
 
 #include <memory>
 
 #include <cstdint>
 
-
-namespace ignite {
-
+/**
+ * Cursor.
+ *
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-25744 Probably needs to be moved to the protocol library.
+ */
 class cursor {
 public:
     // Delete
@@ -48,7 +50,7 @@ public:
      *
      * @return False if data update required or no more data.
      */
-    bool next(const protocol::column_meta_vector &columns) {
+    bool next(const ignite::protocol::column_meta_vector &columns) {
         if (!has_data())
             return false;
 
@@ -62,12 +64,12 @@ public:
         auto row_data = m_current_page->get_row(m_page_pos);
 
         auto columns_cnt = columns.size();
-        binary_tuple_parser parser(std::int32_t(columns_cnt), row_data);
+        ignite::binary_tuple_parser parser(std::int32_t(columns_cnt), row_data);
 
         m_row.clear();
         for (size_t i = 0; i < columns_cnt; ++i) {
             auto &column = columns[i];
-            m_row.push_back(protocol::read_next_column(parser, column.get_data_type(), column.get_scale()));
+            m_row.push_back(ignite::protocol::read_next_column(parser, column.get_data_type(), column.get_scale()));
         }
 
         return true;
@@ -98,7 +100,7 @@ public:
      *
      * @return  Row.
      */
-    [[nodiscard]] const std::vector<primitive> &get_row() const { return m_row; }
+    [[nodiscard]] const std::vector<ignite::primitive> &get_row() const { return m_row; }
 
     /**
      * Get the current position in the result set.
@@ -118,7 +120,5 @@ private:
     std::int32_t m_result_set_pos{0};
 
     /** Current row. */
-    std::vector<primitive> m_row;
+    std::vector<ignite::primitive> m_row;
 };
-
-} // namespace ignite

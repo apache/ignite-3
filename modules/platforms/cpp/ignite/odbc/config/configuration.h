@@ -21,10 +21,12 @@
 #include "ignite/odbc/config/value_with_default.h"
 #include "ignite/odbc/ssl_mode.h"
 
+#include "ignite/protocol/protocol_context.h"
 #include "ignite/common/end_point.h"
 
 #include <cstdint>
 #include <string>
+
 
 namespace ignite {
 
@@ -42,7 +44,7 @@ public:
         static inline const std::string host{"localhost"};
 
         /** Default value for TCP port attribute. */
-        static inline const std::uint16_t port{10800};
+        static inline const std::uint16_t port{protocol::protocol_context::DEFAULT_TCP_PORT};
 
         /** Default value for Address attribute. */
         static inline const std::vector<end_point> address{{host, port}};
