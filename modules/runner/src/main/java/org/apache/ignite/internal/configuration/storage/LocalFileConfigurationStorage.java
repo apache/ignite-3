@@ -368,7 +368,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                     saveConfigFile();
                 }
             } catch (FileAlreadyExistsException e) {
-                throw new NodeConfigCreateException("Failed to re-create config file", e);
+                throw new NodeConfigCreateException("Failed to re-create config file.", e);
             } catch (IOException e) {
                 throw new NodeConfigWriteException("Failed to restore config file.", e);
             }
