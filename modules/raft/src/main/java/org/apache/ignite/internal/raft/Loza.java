@@ -20,15 +20,18 @@ package org.apache.ignite.internal.raft;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -66,6 +69,7 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -166,7 +170,7 @@ public class Loza implements RaftManager {
         options.setClock(clock);
         options.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(clusterNetSvc.serializationRegistry()));
         // TODO: IGNITE-25686 For new POC
-        options.setAppendEntriesByteBufferCollectorQueue(new ArrayBlockingQueue<>(256));
+        options.setAppendEntriesByteBufferCollectorQueue(createAppendEntriesByteBufferCollectorQueue());
 
         this.opts = options;
 
@@ -661,5 +665,35 @@ public class Loza implements RaftManager {
     @TestOnly
     public Set<RaftNodeId> localNodes() {
         return raftServer.localNodes();
+    }
+
+    private static Queue<ByteBufferCollector> createAppendEntriesByteBufferCollectorQueue() {
+        int maxSize = 256;
+        var lock = new ReentrantLock();
+
+        return new PriorityBlockingQueue<>(
+                256,
+                Comparator.comparingInt(ByteBufferCollector::capacity).reversed()
+        ) {
+            @Override
+            public @Nullable ByteBufferCollector poll() {
+                lock.lock();
+                try {
+                    return super.poll();
+                } finally {
+                    lock.unlock();
+                }
+            }
+
+            @Override
+            public boolean offer(ByteBufferCollector c) {
+                lock.lock();
+                try {
+                    return size() < maxSize && super.offer(c);
+                } finally {
+                    lock.unlock();
+                }
+            }
+        };
     }
 }

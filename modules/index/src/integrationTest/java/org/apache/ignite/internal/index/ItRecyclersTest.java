@@ -54,6 +54,7 @@ import org.apache.ignite.raft.jraft.util.RecyclersHandlerSharedQueueOnly;
 import org.apache.ignite.raft.jraft.util.RecyclersHandlerTwoQueue;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
@@ -128,7 +129,16 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
     @AfterAll
     static void afterAll() {
         Recyclers.setRecyclersHandler(RecyclersHandlerOrigin.INSTANCE);
+        Recyclers.collectStatistics(false);
+
         Replicator.useSharedByteBuffers(false);
+        Replicator.collectStatistics(false);
+    }
+
+    @BeforeAll
+    static void beforeAll() {
+        Recyclers.collectStatistics(true);
+        Replicator.collectStatistics(true);
     }
 
     @ParameterizedTest(name = "useSharedBB={0}, tableCount={1}, perTablePartitionCount={2}, perTableInsertCount={3}")

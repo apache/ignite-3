@@ -172,10 +172,12 @@ public class Replicator implements ThreadId.OnError {
         this.metricName = getReplicatorMetricName(replicatorOptions);
         setState(State.Created);
 
-        BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.put(
-                replicatorOptions.getNode().getNodeId().getPeerId().getConsistentId(),
-                replicatorOptions.getAppendEntriesByteBufferCollectorQueue()
-        );
+        if (COLLECT_STATISTICS) {
+            BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.put(
+                    replicatorOptions.getNode().getNodeId().getPeerId().getConsistentId(),
+                    replicatorOptions.getAppendEntriesByteBufferCollectorQueue()
+            );
+        }
     }
 
     /**
@@ -1969,9 +1971,14 @@ public class Replicator implements ThreadId.OnError {
         ByteBufferCollector collector = q.poll();
 
         if (collector == null || collector.capacity() < capacity) {
-            collector = ByteBufferCollector.allocate(capacity, options.getNode().getNodeId().getPeerId().getConsistentId());
+            collector = ByteBufferCollector.allocate(
+                    (int) (capacity + (capacity * 0.15)), 
+                    options.getNode().getNodeId().getPeerId().getConsistentId()
+            );
 
-            BYTE_BUFFER_COLLECTORS.add(collector);
+            if (COLLECT_STATISTICS) {
+                BYTE_BUFFER_COLLECTORS.add(collector);
+            }
         }
 
         return collector;
@@ -1987,8 +1994,17 @@ public class Replicator implements ThreadId.OnError {
 
     private static volatile boolean USE_SHARED_BYTE_BUFFERS = false;
 
+    private static volatile boolean COLLECT_STATISTICS = false;
+
     public static void useSharedByteBuffers(boolean useSharedByteBuffers) {
         USE_SHARED_BYTE_BUFFERS = useSharedByteBuffers;
+
+        BYTE_BUFFER_COLLECTORS.clear();
+        BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.clear();
+    }
+
+    public static void collectStatistics(boolean collectStatistics) {
+        COLLECT_STATISTICS = collectStatistics;
 
         BYTE_BUFFER_COLLECTORS.clear();
         BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.clear();

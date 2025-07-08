@@ -53,7 +53,9 @@ public class RecyclersHandlerOrigin extends RecyclersHandler {
         if (queue == null) {
             delayedRecycled.put(s, queue = new WeakOrderQueue(s, t));
 
-            Recyclers.WEAK_ORDER_QUEUES.computeIfAbsent(s, stack1 -> ConcurrentHashMap.newKeySet()).add(queue);
+            if (Recyclers.COLLECT_STATISTICS) {
+                Recyclers.WEAK_ORDER_QUEUES.computeIfAbsent(s, stack1 -> ConcurrentHashMap.newKeySet()).add(queue);
+            }
         }
         queue.add(h);
     }

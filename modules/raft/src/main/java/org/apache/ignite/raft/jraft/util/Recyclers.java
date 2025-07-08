@@ -40,7 +40,17 @@ public abstract class Recyclers<T> {
 
     public static final Map<Stack<?>, Set<DefaultHandle>> DEFAULT_HANDLES = Collections.synchronizedMap(new WeakHashMap<>());
 
-    public static volatile RecyclersHandler RECYCLERS_HANDLER = RecyclersHandlerOrigin.INSTANCE;
+    private static volatile RecyclersHandler RECYCLERS_HANDLER = RecyclersHandlerOrigin.INSTANCE;
+
+    static volatile boolean COLLECT_STATISTICS = false;
+
+    public static void collectStatistics(boolean collectStatistics) {
+        COLLECT_STATISTICS = collectStatistics;
+
+        STACKS.clear();
+        WEAK_ORDER_QUEUES.clear();
+        DEFAULT_HANDLES.clear();
+    }
 
     public static void setRecyclersHandler(RecyclersHandler h) {
         RECYCLERS_HANDLER = h;
@@ -78,7 +88,9 @@ public abstract class Recyclers<T> {
         protected Stack<T> initialValue() {
             Stack<T> tStack = RECYCLERS_HANDLER.newStack(Recyclers.this, Thread.currentThread(), maxCapacityPerThread);
 
-            STACKS.add(tStack);
+            if (COLLECT_STATISTICS) {
+                STACKS.add(tStack);
+            }
 
             return tStack;
         }
@@ -433,7 +445,9 @@ public abstract class Recyclers<T> {
         DefaultHandle newHandle() {
             DefaultHandle defaultHandle = new DefaultHandle(this);
 
-            DEFAULT_HANDLES.computeIfAbsent(defaultHandle.stackOrigin, stack -> ConcurrentHashMap.newKeySet()).add(defaultHandle);
+            if (COLLECT_STATISTICS) {
+                DEFAULT_HANDLES.computeIfAbsent(defaultHandle.stackOrigin, stack -> ConcurrentHashMap.newKeySet()).add(defaultHandle);
+            }
 
             return defaultHandle;
         }
