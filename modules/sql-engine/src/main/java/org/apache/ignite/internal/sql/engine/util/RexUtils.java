@@ -507,11 +507,11 @@ public class RexUtils {
                     fldIdx = fld.getIntKey();
                 }
 
-                SaturatedLiteral saturatedLiteral =
-                        toSaturatedValue(cluster.getRexBuilder(), pred.operands.get(1), types.get(fldIdx));
+                RexNode uncastedOperand = removeCast(pred.operands.get(1));
+                SaturatedLiteral saturatedLiteral = toSaturatedValue(cluster.getRexBuilder(), uncastedOperand, types.get(fldIdx));
 
                 RexNode result = saturatedLiteral == null
-                        ? addCast(cluster, pred.operands.get(1), types.get(fldIdx))
+                        ? addCast(cluster, uncastedOperand, types.get(fldIdx))
                         : saturatedLiteral.value;
 
                 bounds.set(fldIdx, new ExactBounds(pred, result));
@@ -558,10 +558,11 @@ public class RexUtils {
             boolean saturatedLookup = false;
 
             if (isBinaryComparison(pred)) {
-                SaturatedLiteral saturatedLiteral = toSaturatedValue(builder, pred.operands.get(1), fldType);
+                RexNode uncastedOperand = removeCast(pred.operands.get(1));
+                SaturatedLiteral saturatedLiteral = toSaturatedValue(builder, uncastedOperand, fldType);
 
                 if (saturatedLiteral == null) {
-                    val = addCast(cluster, pred.operands.get(1), fldType);
+                    val = addCast(cluster, uncastedOperand, fldType);
                 } else {
                     val = saturatedLiteral.value;
 
@@ -1170,9 +1171,7 @@ public class RexUtils {
         }
     }
 
-    private static RexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type) {
-        RexNode node = removeCast(condition);
-
+    private static RexNode addCast(RelOptCluster cluster, RexNode node, RelDataType type) {
         assert idxOpSupports(node) : "Unsupported RexNode in index condition: " + node;
 
         RexBuilder builder = cluster.getRexBuilder();
