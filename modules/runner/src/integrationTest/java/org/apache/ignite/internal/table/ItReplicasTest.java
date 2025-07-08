@@ -26,17 +26,14 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
-import static org.apache.ignite.internal.table.ItReplicasTest.ReplicaRequests.readOnlyMultiRowPkReplicaRequest;
-import static org.apache.ignite.internal.table.ItReplicasTest.ReplicaRequests.readOnlyScanRetrieveBatchReplicaRequest;
-import static org.apache.ignite.internal.table.ItReplicasTest.ReplicaRequests.readOnlySingleRowPkReplicaRequest;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.table.QualifiedName.DEFAULT_SCHEMA_NAME;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -53,14 +50,15 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlySingleRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
@@ -86,6 +84,8 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.thread.PublicApiThreading.ApiEntryRole;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
@@ -93,6 +93,11 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 class ItReplicasTest extends ClusterPerTestIntegrationTest {
+
+    @Override
+    protected int initialNodes() {
+        return 4;
+    }
 
     @Test
     void testLearnerReplicaCreatedAfterStartingNewNode() {
@@ -141,60 +146,36 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void testLearnerReplicaReadOnlyRequestCanReadData() {
+        PublicApiThreading.setThreadRole(ApiEntryRole.SYNC_PUBLIC_API);
         executeSql("CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS ALL, QUORUM SIZE 2) STORAGE PROFILES ['default']");
         executeSql("CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
-        executeSql("INSERT INTO TEST VALUES (0, 0)");
+        executeSql("INSERT INTO TEST VALUES (1, 2)");
 
-        cluster.startNode((int) cluster.runningNodes().count()); // starting a new node adds a learner
+        // 4 nodes, 2 quorum = 3 consensus + 1 learner
         AtomicReference<IgniteImpl> learnerRef = new AtomicReference<>();
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
             Set<Assignment> stableAssignments = stablePartitionAssignments(cluster.node(0), "TEST");
             String learner = stableAssignments.stream().filter(a -> !a.isPeer()).map(Assignment::consistentId).findFirst().orElse(null);
             assertTrue(learner != null && !learner.isBlank(), "learners found after staring new node");
-            learnerRef.set(findNode(node -> node.name().equals(learner)));
+            IgniteImpl learnerNode = findNode(node -> node.name().equals(learner));
+            assertTrue(equalsPeersAndLearners(stableAssignments).test(toRaftClient("TEST").apply(learnerNode)),
+                    "learner raft client peers and learners equal to stable assignments");
+            learnerRef.set(learnerNode);
         });
 
-        IgniteImpl learner = learnerRef.get();
-        ReplicaListener replicaListener = of(learnerRef.get()).map(toReplicaListener("TEST_ZONE", "TEST", 0)).orElseThrow();
-        ClusterNode learnerClusterNode = learner.clusterService().topologyService().localMember();
-        SchemaDescriptor schema = unwrapTableViewInternal(learner.tables().table("TEST")).schemaView().lastKnownSchema();
-        KvMarshaller<Integer, Integer> marshaller = new ReflectionMarshallerFactory().create(schema, Integer.class, Integer.class);
-        Row pk = marshaller.marshal(0);
+        var r = new ReplicaRequests<>(learnerRef.get(), "TEST_ZONE", "TEST", 0, Integer.class, Integer.class);
 
-        CompletableFuture<ReplicaResult> singleRowResult = replicaListener.invoke(
-                readOnlySingleRowPkReplicaRequest(learner, "TEST_ZONE", "TEST", 0, pk),
-                learnerClusterNode.id()
-        );
-        assertThat(singleRowResult, willCompleteSuccessfully());
-        Row singleRow = Row.wrapBinaryRow(schema, (BinaryRow) singleRowResult.join().result());
-        assertThat(marshaller.unmarshalKey(singleRow), equalTo(0));
-        assertThat(marshaller.unmarshalValue(singleRow), equalTo(0));
+        var expected = new IgniteBiTuple<>(1, 2);
+        assertEquals(expected, r.readOnlySingleRowPkReplicaRequest(1).invokeAndGetFirstRow());
+        assertEquals(expected, r.readOnlyMultiRowPkReplicaRequest(1).invokeAndGetFirstRow());
+        assertEquals(expected, r.readOnlyScanRetrieveBatchReplicaRequest().invokeAndGetFirstRow());
 
-        CompletableFuture<ReplicaResult> multiRowResult = replicaListener.invoke(
-                readOnlyMultiRowPkReplicaRequest(learner, "TEST_ZONE", "TEST", 0, pk),
-                learnerClusterNode.id()
-        );
-        assertThat(multiRowResult, willCompleteSuccessfully());
-        Row multiRow = Row.wrapBinaryRow(schema, ((List<BinaryRow>) multiRowResult.join().result()).get(0));
-        assertThat(marshaller.unmarshalKey(multiRow), equalTo(0));
-        assertThat(marshaller.unmarshalValue(multiRow), equalTo(0));
-
-        CompletableFuture<ReplicaResult> scanResult = replicaListener.invoke(
-                readOnlyScanRetrieveBatchReplicaRequest(learner, "TEST_ZONE", "TEST", 0),
-                learnerClusterNode.id()
-        );
-        assertThat(scanResult, willCompleteSuccessfully());
-        Row scanRow = Row.wrapBinaryRow(schema, ((List<BinaryRow>) scanResult.join().result()).get(0));
-        assertThat(marshaller.unmarshalKey(scanRow), equalTo(0));
-        assertThat(marshaller.unmarshalValue(scanRow), equalTo(0));
-    }
-
-    private IgniteImpl findNode(Predicate<? super Ignite> predicate) {
-        return cluster.runningNodes().filter(predicate)
-                .findFirst()
-                .map(TestWrappers::unwrapIgniteImpl)
-                .orElseThrow(() -> new AssertionError("node not found"));
+        executeSql("INSERT INTO TEST VALUES (2, 3)");
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            assertEquals(new IgniteBiTuple<>(2, 3), r.readOnlySingleRowPkReplicaRequest(2).invokeAndGetFirstRow(),
+                    "inserted value replicated eventually");
+        });
     }
 
     private static Set<Assignment> stablePartitionAssignments(Ignite node, String tableName) {
@@ -303,66 +284,73 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         };
     }
 
-    static class ReplicaRequests {
+    static class ReplicaRequests<K, V> {
+        private final IgniteImpl node;
+        private final SchemaDescriptor schema;
+        private final String zoneName;
+        private final String tableName;
+        private final int partId;
+        private final KvMarshaller<K, V> marshaller;
+        private final ReplicaListener replicaListener;
 
-        static ReadOnlySingleRowPkReplicaRequest readOnlySingleRowPkReplicaRequest(
-                IgniteImpl node,
-                String zoneName,
-                String tableName,
-                int partId,
-                Row pk
-        ) {
+        ReplicaRequests(IgniteImpl node, String zoneName, String tableName, int partId, Class<K> keyClass, Class<V> valClass) {
+            this.node = node;
+            this.zoneName = zoneName;
+            this.tableName = tableName;
+            this.partId = partId;
+            this.schema = unwrapTableViewInternal(node.tables().table("TEST")).schemaView().lastKnownSchema();
+            this.marshaller = new ReflectionMarshallerFactory().create(schema, keyClass, valClass);
+            this.replicaListener = of(node).map(toReplicaListener(zoneName, tableName, partId)).orElseThrow();
+        }
+
+        Request readOnlySingleRowPkReplicaRequest(K pk) {
             ClusterNode clusterNode = node.clusterService().topologyService().localMember();
             TableViewInternal table = unwrapTableViewInternal(node.tables().table(tableName));
             InternalTransaction tx = node.txManager().beginImplicitRo(node.observableTimeTracker());
+            Row pkRow = marshaller.marshal(pk);
 
-            return new PartitionReplicationMessagesFactory().readOnlySingleRowPkReplicaRequest()
+            ReadOnlySingleRowPkReplicaRequest request = new PartitionReplicationMessagesFactory()
+                    .readOnlySingleRowPkReplicaRequest()
                     .groupId(groupIdMessage(node, zoneName, tableName, partId))
                     .tableId(table.tableId())
                     .readTimestamp(node.clock().now())
-                    .schemaVersion(pk.schemaVersion())
-                    .primaryKey(pk.tupleSlice())
+                    .schemaVersion(pkRow.schemaVersion())
+                    .primaryKey(pkRow.tupleSlice())
                     .transactionId(tx.id())
                     .coordinatorId(clusterNode.id())
                     .requestType(RequestType.RO_GET)
                     .build();
+            return new Request(request);
         }
 
-        static ReadOnlyMultiRowPkReplicaRequest readOnlyMultiRowPkReplicaRequest(
-                IgniteImpl node,
-                String zoneName,
-                String tableName,
-                int partId,
-                Row... pk
-        ) {
+        Request readOnlyMultiRowPkReplicaRequest(K... pk) {
             ClusterNode clusterNode = node.clusterService().topologyService().localMember();
             TableViewInternal table = unwrapTableViewInternal(node.tables().table(tableName));
             InternalTransaction tx = node.txManager().beginImplicitRo(node.observableTimeTracker());
-            List<ByteBuffer> buffers = Arrays.stream(pk).map(BinaryRow::tupleSlice).collect(Collectors.toList());
+            List<ByteBuffer> buffers = Arrays.stream(pk).map(marshaller::marshal).map(BinaryRow::tupleSlice).collect(Collectors.toList());
+            Row pkRow = marshaller.marshal(pk[0]);
 
-            return new PartitionReplicationMessagesFactory().readOnlyMultiRowPkReplicaRequest()
+            ReadOnlyMultiRowPkReplicaRequest request = new PartitionReplicationMessagesFactory()
+                    .readOnlyMultiRowPkReplicaRequest()
                     .groupId(groupIdMessage(node, zoneName, tableName, partId))
                     .tableId(table.tableId())
                     .readTimestamp(node.clock().now())
-                    .schemaVersion(pk[0].schemaVersion())
+                    .schemaVersion(pkRow.schemaVersion())
                     .primaryKeys(buffers)
                     .transactionId(tx.id())
                     .coordinatorId(clusterNode.id())
                     .requestType(RO_GET_ALL)
                     .build();
+            return new Request(request);
         }
 
-        static ReadOnlyScanRetrieveBatchReplicaRequest readOnlyScanRetrieveBatchReplicaRequest(
-                IgniteImpl node,
-                String zoneName,
-                String tableName,
-                int partId
-        ) {
+        Request readOnlyScanRetrieveBatchReplicaRequest() {
             ClusterNode clusterNode = node.clusterService().topologyService().localMember();
             TableViewInternal table = unwrapTableViewInternal(node.tables().table(tableName));
             InternalTransaction tx = node.txManager().beginImplicitRo(node.observableTimeTracker());
 
-            return new PartitionReplicationMessagesFactory().readOnlyScanRetrieveBatchReplicaRequest()
+            ReadOnlyScanRetrieveBatchReplicaRequest request = new PartitionReplicationMessagesFactory()
+                    .readOnlyScanRetrieveBatchReplicaRequest()
                     .groupId(groupIdMessage(node, zoneName, tableName, partId))
                     .tableId(table.tableId())
                     .readTimestamp(node.clock().now())
@@ -371,6 +359,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
                     .transactionId(tx.id())
                     .coordinatorId(clusterNode.id())
                     .build();
+            return new Request(request);
         }
 
         private static ReplicationGroupIdMessage groupIdMessage(IgniteImpl node, String zoneName, String tableName, int partId) {
@@ -379,6 +368,36 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
             return colocationEnabled()
                     ? ReplicaMessageUtils.toZonePartitionIdMessage(replicaMessagesFactory, ((ZonePartitionId) partitionGroupId))
                     : ReplicaMessageUtils.toTablePartitionIdMessage(replicaMessagesFactory, ((TablePartitionId) partitionGroupId));
+        }
+
+        class Request {
+            private final ReadOnlyReplicaRequest request;
+
+            Request(ReadOnlyReplicaRequest request) {
+                this.request = request;
+            }
+
+            IgniteBiTuple<K, V> invokeAndGetFirstRow() {
+                ClusterNode sender = node.clusterService().topologyService().localMember();
+                CompletableFuture<ReplicaResult> fut = replicaListener.invoke(request, sender.id());
+
+                assertThat(fut, willCompleteSuccessfully());
+
+                Row row;
+                if (request instanceof ReadOnlySingleRowPkReplicaRequest) {
+                    row = Row.wrapBinaryRow(schema, (BinaryRow) fut.join().result());
+                } else if (request instanceof ReadOnlyMultiRowPkReplicaRequest) {
+                    row = Row.wrapBinaryRow(schema, ((List<BinaryRow>) fut.join().result()).get(0));
+                } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
+                    row = Row.wrapBinaryRow(schema, ((List<BinaryRow>) fut.join().result()).get(0));
+                } else {
+                    throw new AssertionError("Unknown request type: " + request.getClass());
+                }
+
+                K k = marshaller.unmarshalKey(row);
+                V v = marshaller.unmarshalValue(row);
+                return new IgniteBiTuple<>(k, v);
+            }
         }
 
     }
