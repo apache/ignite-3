@@ -58,7 +58,7 @@ class SchemaSyncServiceImplTest extends BaseIgniteAbstractTest {
     @Test
     void waitsOnSchemaSafeTimeTillSchemaCompletenessSubtractingDelayDuration() {
         HybridTimestamp ts = clock.now();
-        CompletableFuture<Void> safeTimeFuture = new CompletableFuture<>();
+        var safeTimeFuture = new CompletableFuture<Void>();
 
         HybridTimestamp tsMinusDelayDuration = ts.subtractPhysicalTime(delayDurationMs.getAsLong());
         when(schemaSafeTimeTracker.waitFor(tsMinusDelayDuration)).thenReturn(safeTimeFuture);
