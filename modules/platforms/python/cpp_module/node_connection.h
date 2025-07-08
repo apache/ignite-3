@@ -45,7 +45,7 @@
  */
 class node_connection final {
 public:
-    static constexpr std::int32_t DEFAULT_TIMEOUT_SECONDS = 5;
+    static constexpr std::int32_t DEFAULT_TIMEOUT_SECONDS = 30;
 
     /**
      * Destructor.
