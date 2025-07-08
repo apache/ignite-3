@@ -30,7 +30,9 @@ public interface NotificationEnqueuedListener {
     /**
      * Notifies this listener that {@link WatchProcessor}'s internal notification chain future is updated.
      *
-     * <p>This must always be run under the same lock under which the notification future is updated.
+     * <p>This will always be run under the same lock under which the notification future is updated.
+     *
+     * <p>This must not do any I/O or block for a long time.
      *
      * @param newNotificationFuture New notification future.
      * @param entries Entries corresponding to the update (empty if the notification is not about a new revision,
