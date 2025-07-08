@@ -282,7 +282,7 @@ public class ItSqlQueryExecutionMetricsTest extends BaseSqlIntegrationTest {
 
     private synchronized MetricSet metrics() {
         if (metricsSet == null) {
-            metricsSet = unwrapIgniteImpl(node(0)).metricManager().metricSnapshot().get1().get(SqlQueryMetricSource.NAME);
+            metricsSet = unwrapIgniteImpl(node(0)).metricManager().metricSnapshot().metrics().get(SqlQueryMetricSource.NAME);
         }
         return metricsSet;
     }

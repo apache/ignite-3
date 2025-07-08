@@ -49,7 +49,7 @@ public class ClusterTopologyMetricsSource extends AbstractMetricSource<ClusterTo
      * @param clusterTagSupplier Supplier of the cluster's tag.
      */
     public ClusterTopologyMetricsSource(LogicalTopology logicalTopology, Supplier<ClusterTag> clusterTagSupplier) {
-        super(SOURCE_NAME);
+        super(SOURCE_NAME, "Cluster topology metrics.", "topology");
 
         this.logicalTopology = logicalTopology;
         this.clusterTagSupplier = clusterTagSupplier;

@@ -46,6 +46,7 @@ dependencies {
         //So, exclude asm-core transitive dependency to protect of jar-hell.
         exclude group: 'org.ow2.asm', module: 'asm'
     }
+    testFixturesImplementation libs.cytodynamics.nucleus
 
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
@@ -100,11 +101,18 @@ tasks.register('constructArgFile') {
     doLast {
         def depNotation = project.property('dependencyNotation')
         def jars = resolveAllDependencies(depNotation)
-        def classPath = files(jars).asPath
+        def jarFiles = files(jars)
+        def classPath = jarFiles.asPath
         def classPathFilePath = project.property('argFilePath')
+        def classPathOnly = project.property('classPathOnly')?.toBoolean() ?: false
 
         def classPathFile = file(classPathFilePath)
         classPathFile.withPrintWriter {
+            if (classPathOnly) {
+                jarFiles.forEach {f -> it.println(f.absolutePath) }
+                return
+            }
+
             it.println '-classpath'
             // Java argfile quote rules are weird. It's enough to quote spaces.
             it.println classPath.replace(" ", "\" \"")
