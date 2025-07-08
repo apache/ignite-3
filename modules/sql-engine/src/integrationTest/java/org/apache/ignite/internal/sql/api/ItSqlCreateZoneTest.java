@@ -77,49 +77,6 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         assertDoesNotThrow(() -> createZoneQuery(0, EXTRA_PROFILE_NAME));
     }
 
-    // @Test
-    void testCreateZoneSucceedWithCorrectStorageProfileOnDifferentNodeWithDistributedLogicalTopologyUpdate() throws InterruptedException {
-        // Node 0 is CMG leader and Node 1 is a laggy query executor
-        cluster.startNode(1);
-
-        assertTrue(waitForCondition(
-                () -> unwrapIgniteImpl(node(1)).logicalTopologyService().localLogicalTopology().nodes().size() == 2,
-                10_000
-        ));
-
-        cluster.transferLeadershipTo(0, CmgGroupId.INSTANCE);
-        cluster.transferLeadershipTo(0, MetastorageGroupId.INSTANCE);
-
-        assertThrowsWithCause(
-                () -> createZoneQuery(1, EXTRA_PROFILE_NAME),
-                SqlException.class,
-                "Storage profile [" + EXTRA_PROFILE_NAME + "] doesn't exist."
-        );
-
-        // Node 1 won't see Node 2 joined with extra profile
-        WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(1)).startInhibit();
-
-        cluster.startNode(2, NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_EXTRA_PROFILE);
-
-        assertTrue(waitForCondition(
-                () -> unwrapIgniteImpl(node(0)).logicalTopologyService().localLogicalTopology().nodes().size() == 3,
-                10_000
-        ));
-
-        assertTrue(waitForCondition(
-                () -> unwrapIgniteImpl(node(2)).logicalTopologyService().localLogicalTopology().nodes().size() == 3,
-                10_000
-        ));
-
-        assertEquals(2, unwrapIgniteImpl(node(1)).logicalTopologyService().localLogicalTopology().nodes().size());
-
-        assertThrowsWithCause(
-                () -> createZoneQuery(1, EXTRA_PROFILE_NAME),
-                SqlException.class,
-                "Storage profile " + EXTRA_PROFILE_NAME + " doesn't exist in local topology snapshot with profiles"
-        );
-    }
-
     @Test
     void testCreateZoneFailedWithoutCorrectStorageProfileInCluster() {
         assertThrowsWithCause(
