@@ -15,14 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.impl;
+package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.internal.storage.engine.AbstractVolatileStorageEngineTest;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class TestStorageEngineTest extends AbstractVolatileStorageEngineTest {
-    @Override
-    protected StorageEngine createEngine() {
-        return new TestStorageEngine();
+import org.junit.jupiter.api.Test;
+
+/**
+ * Tests basic functionality of volatile storage engines.
+ */
+public abstract class AbstractVolatileStorageEngineTest extends AbstractStorageEngineTest {
+    @Test
+    void isVolatile() {
+        assertTrue(storageEngine.isVolatile());
+    }
+
+    @Test
+    void doesNotHaveNonDestroyedTables() {
+        assertThat(storageEngine.nonDestroyedTableIds(), is(empty()));
     }
 }
