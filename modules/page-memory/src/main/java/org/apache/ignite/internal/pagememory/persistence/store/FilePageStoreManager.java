@@ -33,12 +33,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -512,17 +510,13 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @return IDs of groups.
      */
     public Set<Integer> allGroupIdsOnFs() {
-        try (Stream<Path> tableDirs = Files.find(dbDir, 1, isTableDir())) {
-            return tableDirs.map(FilePageStoreManager::extractTableId).collect(toUnmodifiableSet());
+        try (Stream<Path> tableDirs = Files.list(dbDir)) {
+            return tableDirs
+                    .filter(path -> Files.isDirectory(path) && path.getFileName().toString().startsWith(GROUP_DIR_PREFIX))
+                    .map(FilePageStoreManager::extractTableId).collect(toUnmodifiableSet());
         } catch (IOException e) {
             throw new IgniteInternalException(Common.INTERNAL_ERR, "Cannot scan for groupIDs", e);
         }
-    }
-
-    private BiPredicate<Path, BasicFileAttributes> isTableDir() {
-        return (path, attrs) -> {
-            return attrs.isDirectory() && !dbDir.startsWith(path) && path.getFileName().toString().startsWith(GROUP_DIR_PREFIX);
-        };
     }
 
     private static int extractTableId(Path tableDir) {
