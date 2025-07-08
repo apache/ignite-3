@@ -231,7 +231,6 @@ void statement::process_affected_rows(const std::vector<std::int64_t> &affected_
     for (auto &ar : affected_rows) {
         m_rows_affected += ar;
     }
-    params.set_params_processed(m_rows_affected);
 
     m_executed = true;
 }

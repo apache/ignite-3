@@ -80,13 +80,6 @@ public:
         return std::int32_t(m_size);
     }
 
-    /**
-     * Set the number of parameters processed in batch.
-     *
-     * @param processed Processed.
-     */
-    void set_params_processed(std::size_t processed) { m_processed = processed; }
-
 private:
     /**
      * Write rows of the param set in the interval [begin, end) using the provided writer.
@@ -106,10 +99,6 @@ private:
 
     /** Python sequence of parameters. */
     PyObject *m_params{nullptr};
-
-    /// TODO: Remove
-    /** Processed params. */
-    std::size_t m_processed{0};
 };
 
 /**
