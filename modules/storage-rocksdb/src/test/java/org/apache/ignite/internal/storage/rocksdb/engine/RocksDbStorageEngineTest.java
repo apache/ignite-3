@@ -27,6 +27,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
+import org.apache.ignite.internal.storage.engine.AbstractPersistentStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -43,7 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
+public class RocksDbStorageEngineTest extends AbstractPersistentStorageEngineTest {
     @InjectConfiguration("mock.profiles.default.engine = rocksdb")
     StorageConfiguration storageConfiguration;
 
@@ -88,5 +89,17 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
         for (StorageProfileView view : storageConfig.profiles().value()) {
             assertThat(((RocksDbProfileView) view).sizeBytes(), is(12345L));
         }
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25854 - remove the override.
+    @Override
+    protected void remembersCreatedTableIdsOnDisk(boolean restart) {
+        // No-op.
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25854 - remove the override.
+    @Override
+    protected void tableIdsOnDiskGoAfterDestruction(boolean restart) {
+        // No-op.
     }
 }

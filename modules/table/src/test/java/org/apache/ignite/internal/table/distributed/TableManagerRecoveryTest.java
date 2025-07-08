@@ -255,7 +255,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         verify(txStateStorage, never()).getOrCreatePartitionStorage(anyInt());
 
         // Let's check that the table was deleted.
-        verify(dsm.engineByStorageProfile(DEFAULT_STORAGE_PROFILE)).dropMvTable(eq(tableId));
+        verify(dsm.engineByStorageProfile(DEFAULT_STORAGE_PROFILE)).destroyMvTable(eq(tableId));
     }
 
     @Test
