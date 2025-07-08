@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
@@ -96,8 +95,8 @@ public class TestMetricManager implements MetricManager {
     }
 
     @Override
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
-        return registry.metrics();
+    public MetricSnapshot metricSnapshot() {
+        return registry.snapshot();
     }
 
     @Override
@@ -112,9 +111,9 @@ public class TestMetricManager implements MetricManager {
 
     /** Returns the metric for the arguments if it exists. */
     public @Nullable Metric metric(String sourceName, String metricName) {
-        IgniteBiTuple<Map<String, MetricSet>, Long> snapshot = metricSnapshot();
+        MetricSnapshot snapshot = metricSnapshot();
 
-        MetricSet metrics = snapshot.get1().get(sourceName);
+        MetricSet metrics = snapshot.metrics().get(sourceName);
 
         return metrics == null ? null : metrics.get(metricName);
     }
