@@ -21,9 +21,10 @@
 
 #include <cstdint>
 
-namespace ignite {
 /**
  * Query result page.
+ *
+ * TODO: https://issues.apache.org/jira/browse/IGNITE-25744 Probably needs to be moved to the protocol library.
  */
 class result_page {
     enum { DEFAULT_ALLOCATED_MEMORY = 1024 };
@@ -42,7 +43,7 @@ public:
      * @param data Page data.
      * @param rows Result rows.
      */
-    result_page(network::data_buffer_owning &&data, std::vector<bytes_view> &&rows)
+    result_page(ignite::network::data_buffer_owning &&data, std::vector<ignite::bytes_view> &&rows)
         : m_data(std::move(data))
         , m_rows(std::move(rows)) {}
 
@@ -58,7 +59,7 @@ public:
      *
      * @return Page data.
      */
-    network::data_buffer_owning &get_data() { return m_data; }
+    ignite::network::data_buffer_owning &get_data() { return m_data; }
 
     /**
      * Get the row.
@@ -66,16 +67,14 @@ public:
      * @param idx Row index.
      * @return Row data.
      */
-    [[nodiscard]] bytes_view get_row(std::uint32_t idx) const {
+    [[nodiscard]] ignite::bytes_view get_row(std::uint32_t idx) const {
         return m_rows.at(idx);
     }
 
 private:
     /** Memory that contains current row page data. */
-    network::data_buffer_owning m_data;
+    ignite::network::data_buffer_owning m_data;
 
     /** Rows data. */
-    std::vector<bytes_view> m_rows;
+    std::vector<ignite::bytes_view> m_rows;
 };
-
-} // namespace ignite

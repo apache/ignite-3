@@ -25,6 +25,7 @@ set(SOURCES
     module.cpp
     py_connection.cpp
     py_cursor.cpp
+    statement.cpp
     utils.cpp
 )
 
@@ -33,7 +34,6 @@ set(LIBRARIES
     ignite-tuple
     ignite-network
     ignite-protocol
-    ignite3-odbc-obj
 )
 
 if(APPLE)

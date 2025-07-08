@@ -45,7 +45,7 @@ enum class response_flag : std::int32_t {
 };
 
 /**
- * Test whether flag is set.
+ * Test whether the flag is set.
  *
  * @param flags Flags.
  * @param to_test A specific flag to test.

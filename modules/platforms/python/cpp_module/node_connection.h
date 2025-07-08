@@ -24,6 +24,8 @@
 #include "ignite/protocol/client_operation.h"
 #include "ignite/protocol/protocol_version.h"
 #include "ignite/protocol/messages.h"
+#include "ignite/protocol/reader.h"
+#include "ignite/protocol/writer.h"
 
 #include <atomic>
 #include <cstdint>
@@ -47,6 +49,27 @@ public:
     ~node_connection() {
         close();
     }
+
+    /**
+     * Get schema.
+     *
+     * @return Schema.
+     */
+    [[nodiscard]] const std::string &get_schema() const { return m_schema; }
+
+    /**
+     * Get page size.
+     *
+     * @return Page size.
+     */
+    [[nodiscard]] std::int32_t get_page_size() const { return m_page_size; }
+
+    /**
+     * Get timeout.
+     *
+     * @return Timeout.
+     */
+    [[nodiscard]] std::int32_t get_timeout() const { return m_timeout; }
 
     /**
      * Constructor.
@@ -149,6 +172,58 @@ public:
      * @return Observable timestamp.
      */
     std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
+
+    /**
+     * Mark transaction non-empty.
+     *
+     * After this call connection assumes there is at least one operation performed with this transaction.
+     */
+    void mark_transaction_non_empty() { m_transaction_empty = false; }
+
+    /**
+     * Start a new transaction.
+     */
+    void transaction_start() {
+        ignite::network::data_buffer_owning response =
+            sync_request(ignite::protocol::client_operation::TX_BEGIN, [&](ignite::protocol::writer &writer) {
+                writer.write_bool(false); // read_only.
+                writer.write(std::int64_t(0)); // timeout_millis.
+                writer.write(get_observable_timestamp());
+            });
+
+        ignite::protocol::reader reader(response.get_bytes_view());
+        m_transaction_id = reader.read_int64();
+    }
+
+    /**
+     * Is auto commit.
+     *
+     * @return @c true if the auto commit is enabled.
+     */
+    [[nodiscard]] bool is_auto_commit() const { return m_auto_commit; }
+
+    /**
+     * Get transaction ID.
+     *
+     * @return Transaction ID.
+     */
+    [[nodiscard]] std::optional<std::int64_t> get_transaction_id() const { return m_transaction_id; }
+
+    /**
+     * Make a synchronous request and get a response.
+     *
+     * @param op Operation.
+     * @param wr Payload writing function.
+     * @return Response and error.
+     */
+    std::pair<ignite::network::data_buffer_owning, std::optional<ignite::ignite_error>> sync_request_nothrow(
+        ignite::protocol::client_operation op, const std::function<void(ignite::protocol::writer &)> &wr) {
+        auto req_id = generate_next_req_id();
+        auto request = make_request(req_id, op, wr);
+
+        send_message(request, m_timeout);
+        return receive_message_nothrow(req_id, m_timeout);
+    }
 
 private:
     /**
@@ -475,21 +550,6 @@ private:
 
         m_transaction_empty = true;
         m_auto_commit = false;
-    }
-
-    /**
-     * Start a new transaction.
-     */
-    void transaction_start() {
-        ignite::network::data_buffer_owning response =
-            sync_request(ignite::protocol::client_operation::TX_BEGIN, [&](ignite::protocol::writer &writer) {
-                writer.write_bool(false); // read_only.
-                writer.write(std::int64_t(0)); // timeout_millis.
-                writer.write(get_observable_timestamp());
-            });
-
-        ignite::protocol::reader reader(response.get_bytes_view());
-        m_transaction_id = reader.read_int64();
     }
 
     /**

@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <common_types.h>
 #include <ignite_error.h>
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_date.h>
@@ -40,25 +39,6 @@
 namespace ignite {
 enum class sql_result;
 class diagnosable;
-}
-
-/**
- * Check an ODBC object for errors, and set a proper Python exception, if there are.
- *
- * @param ret Return code of the previous operation.
- * @param diag Diagnosable object instance.
- * @return @c true if there is no error, and @c false, if there is an error.
- */
-bool check_errors(ignite::sql_result ret, ignite::diagnosable& diag);
-
-/**
- * Check an ODBC object for errors, and set a proper Python exception, if there are.
- *
- * @param diag Diagnosable object instance.
- * @return @c true if there is no error, and @c false, if there is an error.
- */
-inline bool check_errors(ignite::diagnosable& diag) {
-    return check_errors(ignite::sql_result::AI_SUCCESS, diag);
 }
 
 /**

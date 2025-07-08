@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-#include <ignite/odbc/sql_statement.h>
-
-#include "module.h"
-#include "utils.h"
 #include "node_connection.h"
+#include "statement.h"
 #include "py_connection.h"
 #include "py_cursor.h"
+#include "module.h"
+#include "utils.h"
 
 #include <Python.h>
 
@@ -64,19 +63,17 @@ PyObject* py_connection_close(py_connection* self, PyObject*)
 
 PyObject* py_connection_cursor(py_connection* self, PyObject*)
 {
-    // if (self->m_connection) {
-    //     std::unique_ptr<ignite::sql_statement> statement{self->m_connection->create_statement()};
-    //     if (!check_errors(*self->m_connection))
-    //         return nullptr;
-    //
-    //     auto py_cursor = make_py_cursor(std::move(statement));
-    //     if (!py_cursor)
-    //         return nullptr;
-    //
-    //     auto py_cursor_obj = reinterpret_cast<PyObject *>(py_cursor);
-    //     Py_INCREF(py_cursor_obj);
-    //     return py_cursor_obj;
-    // }
+    if (self->m_connection) {
+        std::unique_ptr<statement> stmt = std::make_unique<statement>(*self->m_connection);
+
+        auto py_cursor = make_py_cursor(std::move(stmt));
+        if (!py_cursor)
+            return nullptr;
+
+        auto py_cursor_obj = reinterpret_cast<PyObject *>(py_cursor);
+        Py_INCREF(py_cursor_obj);
+        return py_cursor_obj;
+    }
 
     Py_RETURN_NONE;
 }

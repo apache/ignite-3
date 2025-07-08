@@ -18,7 +18,6 @@
 #include "module.h"
 #include "utils.h"
 
-#include <ignite/odbc/diagnostic/diagnosable.h>
 #include <ignite/common/detail/defer.h>
 
 #include <Python.h>
@@ -29,125 +28,6 @@
         instance = py_get_module_class(class_name); \
     return instance
 
-
-bool check_errors(ignite::sql_result ret, ignite::diagnosable& diag) {
-    auto &records = diag.get_diagnostic_records();
-    if ((ret == ignite::sql_result::AI_SUCCESS || ret == ignite::sql_result::AI_SUCCESS_WITH_INFO)
-        && diag.get_diagnostic_records().is_successful()) {
-        return true;
-    }
-
-    auto error_class = py_get_module_interface_error_class();
-    std::string err_msg;
-
-    switch (records.get_return_code()) {
-        case SQL_INVALID_HANDLE:
-            err_msg = "Invalid object handle";
-            break;
-
-        case SQL_NO_DATA:
-            err_msg = "No data available";
-            break;
-
-        case SQL_ERROR:
-        default:
-            if (records.get_status_records_number() == 0) {
-                err_msg = "Unknown error";
-                break;
-            }
-
-            auto record = records.get_status_record(1);
-            err_msg = record.get_message_text();
-
-            using ignite::sql_state;
-
-            switch (record.get_sql_state_internal()) {
-                case sql_state::SHY000_GENERAL_ERROR: {
-                    error_class = py_get_module_database_error_class();
-                    break;
-                }
-
-                case sql_state::S01S02_OPTION_VALUE_CHANGED:
-                case sql_state::S01004_DATA_TRUNCATED: {
-                    error_class = py_get_module_warning_class();
-                    break;
-                }
-
-                case sql_state::SHY003_INVALID_APPLICATION_BUFFER_TYPE:
-                case sql_state::SHY009_INVALID_USE_OF_NULL_POINTER:
-                case sql_state::SHY010_SEQUENCE_ERROR:
-                case sql_state::SHY092_OPTION_TYPE_OUT_OF_RANGE:
-                case sql_state::SHY097_COLUMN_TYPE_OUT_OF_RANGE:
-                case sql_state::SHY105_INVALID_PARAMETER_TYPE:
-                case sql_state::SHY106_FETCH_TYPE_OUT_OF_RANGE:
-                case sql_state::S07009_INVALID_DESCRIPTOR_INDEX:
-                case sql_state::S40001_SERIALIZATION_FAILURE:
-                case sql_state::SHY090_INVALID_STRING_OR_BUFFER_LENGTH:
-                case sql_state::S22026_DATA_LENGTH_MISMATCH:
-                case sql_state::S22002_INDICATOR_NEEDED:
-                case sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE: {
-                    error_class = py_get_module_interface_error_class();
-                    break;
-                }
-
-                case sql_state::S01S01_ERROR_IN_ROW:
-                case sql_state::S01S07_FRACTIONAL_TRUNCATION: {
-                    error_class = py_get_module_data_error_class();
-                    break;
-                }
-
-                case sql_state::S07006_RESTRICTION_VIOLATION:
-                case sql_state::S23000_INTEGRITY_CONSTRAINT_VIOLATION: {
-                    error_class = py_get_module_integrity_error_class();
-                    break;
-                }
-
-                case sql_state::S24000_INVALID_CURSOR_STATE:
-                case sql_state::S25000_INVALID_TRANSACTION_STATE: {
-                    error_class = py_get_module_internal_error_class();
-                    break;
-                }
-
-                case sql_state::S08001_CANNOT_CONNECT:
-                case sql_state::S08002_ALREADY_CONNECTED:
-                case sql_state::S08003_NOT_CONNECTED:
-                case sql_state::S08004_CONNECTION_REJECTED:
-                case sql_state::S08S01_LINK_FAILURE:
-                case sql_state::SHYT00_TIMEOUT_EXPIRED:
-                case sql_state::SHYT01_CONNECTION_TIMEOUT: {
-                    error_class = py_get_module_operational_error_class();
-                    break;
-                }
-
-                case sql_state::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION:
-                case sql_state::S42S01_TABLE_OR_VIEW_ALREADY_EXISTS:
-                case sql_state::S42S02_TABLE_OR_VIEW_NOT_FOUND:
-                case sql_state::S42S11_INDEX_ALREADY_EXISTS:
-                case sql_state::S42S12_INDEX_NOT_FOUND:
-                case sql_state::S42S21_COLUMN_ALREADY_EXISTS:
-                case sql_state::S42S22_COLUMN_NOT_FOUND:
-                case sql_state::SHY001_MEMORY_ALLOCATION:
-                case sql_state::S3F000_INVALID_SCHEMA_NAME: {
-                    error_class = py_get_module_programming_error_class();
-                    break;
-                }
-
-                case sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED:
-                case sql_state::SIM001_FUNCTION_NOT_SUPPORTED:{
-                    error_class = py_get_module_not_supported_error_class();
-                    break;
-                }
-
-                default:
-                    break;
-            }
-            break;
-    }
-
-    PyErr_SetString(error_class, err_msg.c_str());
-
-    return false;
-}
 
 void set_error(const ignite::ignite_error &error) {
     auto error_class = py_get_module_interface_error_class();

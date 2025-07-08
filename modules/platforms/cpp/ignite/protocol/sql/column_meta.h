@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include "ignite/odbc/common_types.h"
-
 #include "ignite/common/ignite_type.h"
 #include "ignite/protocol/reader.h"
 
@@ -26,7 +24,7 @@
 #include <string>
 #include <utility>
 
-namespace ignite {
+namespace ignite::protocol {
 
 /**
  * Nullability type.
@@ -46,14 +44,6 @@ enum class nullability {
  * @return Nullability.
  */
 [[nodiscard]] nullability nullability_from_int(std::int8_t int_value);
-
-/**
- * Convert to SQL constant.
- *
- * @param value Nullability.
- * @return SQL constant.
- */
-[[nodiscard]] SQLLEN nullability_to_sql(nullability value);
 
 /**
  * Column metadata.
@@ -148,24 +138,6 @@ public:
      * @return Column nullability.
      */
     [[nodiscard]] nullability get_nullability() const { return m_nullability; }
-
-    /**
-     * Try to get attribute of a string type.
-     *
-     * @param field_id Field ID.
-     * @param value Output attribute value.
-     * @return True if the attribute supported and false otherwise.
-     */
-    bool get_attribute(std::uint16_t field_id, std::string &value) const;
-
-    /**
-     * Try to get attribute of a integer type.
-     *
-     * @param field_id Field ID.
-     * @param value Output attribute value.
-     * @return True if the attribute supported and false otherwise.
-     */
-    bool get_attribute(std::uint16_t field_id, SQLLEN &value) const;
 
 private:
     /** Schema name. */
