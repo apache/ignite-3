@@ -45,7 +45,7 @@ public class ThreadPoolMetricSourceTest {
 
         try {
             // Metrics source for thread pool
-            ThreadPoolMetricSource src = new ThreadPoolMetricSource("example.thread_pool.ExamplePool", exec);
+            ThreadPoolMetricSource src = new ThreadPoolMetricSource("example.thread_pool.ExamplePool", "description", exec);
 
             // Register source after the component created.
             registry.registerSource(src);
