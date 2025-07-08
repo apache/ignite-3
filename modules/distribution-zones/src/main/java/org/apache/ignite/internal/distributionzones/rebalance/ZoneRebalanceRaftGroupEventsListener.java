@@ -193,6 +193,11 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 try {
                     rebalanceAttempts.set(0);
 
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-23633
+                    // First of all, it's required to reread pending assignments and recheck whether it's still needed to perform the
+                    // rebalance. Worth mentioning that one of legitimate cases of metaStorageMgr.get() timeout is MG unavailability
+                    // in that cases it's required to retry the request. However it's important to handle local node stopping intent,
+                    // meaning that busyLock should be handled properly with though of a throttle to provide an ability for node to stop.
                     byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsQueueKey(zonePartitionId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
@@ -241,7 +246,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
-                    if (!hasCause(e, NodeStoppingException.class)) {
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove "!hasCause(e, TimeoutException.class)"
+                    if (!hasCause(e, NodeStoppingException.class) || !hasCause(e, TimeoutException.class)) {
                         String errorMessage = String.format(
                                 "Unable to start rebalance [zonePartitionId=%s, term=%s]",
                                 zonePartitionId,
