@@ -254,9 +254,6 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
                         partitionMover.movePartition(peersAndLearners, term)
                                 .whenComplete((unused, ex) -> {
-                                    if (ex != null) {
-                                        LOG.info("!!! Fnable to start rebalance [zonePartitionId=%s, term=%s]", ex);
-                                    }
                                     // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove !hasCause(ex, TimeoutException.class)
                                     if (ex != null && !hasCause(ex, NodeStoppingException.class) && !hasCause(ex, TimeoutException.class)) {
                                         String errorMessage = String.format(
@@ -269,7 +266,6 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                                 });
                     }
                 } catch (Exception e) {
-                    LOG.info("!!! 2 Fnable to start rebalance [zonePartitionId=%s, term=%s]", e);
                     // TODO: IGNITE-14693
                     // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove !hasCause(e, TimeoutException.class)
                     if (!hasCause(e, NodeStoppingException.class) && !hasCause(e, TimeoutException.class)) {
