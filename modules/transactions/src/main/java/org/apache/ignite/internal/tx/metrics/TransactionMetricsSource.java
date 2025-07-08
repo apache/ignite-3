@@ -70,40 +70,20 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
      *
      * @param transactionId Transaction identifier.
      * @param commit {@code true} if a transaction was committed, and {@code false} otherwise.
-     * @param implicit {@code true} if a transaction is implicit, and {@code false} otherwise.
-     * @param user {@code true} if a transaction was rolled back by the user.
      */
-    public void readWriteTxFinish(UUID transactionId, boolean commit, boolean implicit, boolean user) {
+    public void readWriteTxFinish(UUID transactionId, boolean commit) {
         Holder holder = holder();
 
+//        log.warn(">>>>> readWriteTxFinish [enabled=" + (holder != null));
         if (holder != null) {
-            // beginTimestamp(transactionId).getPhysical() == transactionId.getMostSignificantBits()
-            long duration = clockService.currentLong() - beginTimestamp(transactionId).getPhysical();
-
-            holder.rwDuration.add(duration);
+            holder.rwDuration.add(calculateTransactionDuration(transactionId));
 
             if (commit) {
                 holder.totalCommits.increment();
-
-                if (implicit) {
-                    holder.rwImplicitCommits.increment();
-                } else {
-                    holder.rwExplicitCommits.increment();
-                }
+                holder.rwCommits.increment();
             } else {
                 holder.totalRollbacks.increment();
-
-                if (user) {
-                    holder.userRollbacks.increment();
-                } else {
-                    holder.abnormalRollbacks.increment();
-                }
-
-                if (implicit) {
-                    holder.rwImplicitRollbacks.increment();
-                } else {
-                    holder.rwExplicitRollbacks.increment();
-                }
+                holder.rwRollbacks.increment();
             }
         }
     }
@@ -113,41 +93,20 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
      *
      * @param transactionId Transaction identifier.
      * @param commit {@code true} if a transaction was committed, and {@code false} otherwise.
-     * @param implicit {@code true} if a transaction is implicit, and {@code false} otherwise.
-     * @param user {@code true} if a transaction was rolled back by the user.
      */
-    public void readOnlyTxFinish(UUID transactionId, boolean commit, boolean implicit, boolean user) {
+    public void readOnlyTxFinish(UUID transactionId, boolean commit) {
         Holder holder = holder();
 
+//        log.warn(">>>>> readOnlyTxFinish [enabled=" + (holder != null));
         if (holder != null) {
-            // beginTimestamp(txId).getPhysical() == transactionId.getMostSignificantBits()
-            long duration = clockService.currentLong() - beginTimestamp(transactionId).getPhysical();
-
-            holder.roDuration.add(duration);
+            holder.roDuration.add(calculateTransactionDuration(transactionId));
 
             if (commit) {
                 holder.totalCommits.increment();
-
-                if (implicit) {
-                    holder.roImplicitCommits.increment();
-                } else {
-                    holder.roExplicitCommits.increment();
-                }
-
+                holder.roCommits.increment();
             } else {
                 holder.totalRollbacks.increment();
-
-                if (user) {
-                    holder.userRollbacks.increment();
-                } else {
-                    holder.abnormalRollbacks.increment();
-                }
-
-                if (implicit) {
-                    holder.roImplicitRollbacks.increment();
-                } else {
-                    holder.roExplicitRollbacks.increment();
-                }
+                holder.roRollbacks.increment();
             }
         }
     }
@@ -157,79 +116,54 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
         return new Holder();
     }
 
+    private long calculateTransactionDuration(UUID transactionId) {
+        // beginTimestamp(transactionId).getPhysical() == transactionId.getMostSignificantBits()
+        return clockService.currentLong() - beginTimestamp(transactionId).getPhysical();
+    }
+
     /** Holder. */
-    protected class Holder implements AbstractMetricSource.Holder<Holder> {
-        private final LongAdderMetric totalCommits = new LongAdderMetric(
+    public class Holder implements AbstractMetricSource.Holder<Holder> {
+        public final LongAdderMetric totalCommits = new LongAdderMetric(
                 "TotalCommits",
                 "Total number of commits.");
 
-        private final LongAdderMetric totalRollbacks = new LongAdderMetric(
+        public final LongAdderMetric totalRollbacks = new LongAdderMetric(
                 "TotalRollbacks",
                 "Total number of rollbacks.");
 
-        private final LongAdderMetric userRollbacks = new LongAdderMetric(
-                "UserRollbacks",
-                "Total number of rolled-back transactions by the user.");
+        public final LongAdderMetric rwCommits = new LongAdderMetric(
+                "RwCommits",
+                "Total number of read-write transaction commits.");
 
-        private final LongAdderMetric abnormalRollbacks = new LongAdderMetric(
-                "AbnormalRollbacks",
-                "Total number of rolled-back transactions due to error, timeout, etc.");
+        public final LongAdderMetric roCommits = new LongAdderMetric(
+                "RoCommits",
+                "Total number of read-only transaction commits.");
 
-        private final LongAdderMetric rwExplicitCommits = new LongAdderMetric(
-                "RwExplicitCommits",
-                "Total number of commits for explicit read-write transactions.");
+        public final LongAdderMetric rwRollbacks = new LongAdderMetric(
+                "RwRollbacks",
+                "Total number of rolled-back read-write transactions.");
 
-        private final LongAdderMetric rwImplicitCommits = new LongAdderMetric(
-                "RwImplicitCommits",
-                "Total number of commits for implicit read-write transactions.");
+        public final LongAdderMetric roRollbacks = new LongAdderMetric(
+                "RoRollbacks",
+                "Total number of rolled-back read-only transactions.");
 
-        private final LongAdderMetric roExplicitCommits = new LongAdderMetric(
-                "RoExplicitCommits",
-                "Total number of commits for explicit read-only transactions.");
-
-        private final LongAdderMetric roImplicitCommits = new LongAdderMetric(
-                "RoImplicitCommits",
-                "Total number of commits for implicit read-only transactions.");
-
-        private final LongAdderMetric rwExplicitRollbacks = new LongAdderMetric(
-                "RwExplicitRollbacks",
-                "Total number of rolled-back explicit read-write transactions.");
-
-        private final LongAdderMetric rwImplicitRollbacks = new LongAdderMetric(
-                "RwImplicitRollbacks",
-                "Total number of rolled-back implicit read-write transactions.");
-
-        private final LongAdderMetric roExplicitRollbacks = new LongAdderMetric(
-                "RoExplicitRollbacks",
-                "Total number of rolled back explicit read-only transactions.");
-
-        private final LongAdderMetric roImplicitRollbacks = new LongAdderMetric(
-                "RoImplicitRollbacks",
-                "Total number of rolled back implicit read-only transactions.");
-
-        private final DistributionMetric rwDuration = new DistributionMetric(
+        public final DistributionMetric rwDuration = new DistributionMetric(
                 "RwDuration",
                 ".",
                 HISTOGRAM_BUCKETS);
 
-        private final DistributionMetric roDuration = new DistributionMetric(
+        public final DistributionMetric roDuration = new DistributionMetric(
                 "RoDuration",
                 ".",
                 HISTOGRAM_BUCKETS);
 
         private final List<Metric> metrics = List.of(
                 totalCommits,
+                rwCommits,
+                roCommits,
                 totalRollbacks,
-                userRollbacks,
-                abnormalRollbacks,
-                rwExplicitCommits,
-                rwImplicitCommits,
-                roExplicitCommits,
-                roImplicitCommits,
-                rwExplicitRollbacks,
-                rwImplicitRollbacks,
-                roExplicitRollbacks,
-                roImplicitRollbacks,
+                rwRollbacks,
+                roRollbacks,
                 rwDuration,
                 roDuration);
 

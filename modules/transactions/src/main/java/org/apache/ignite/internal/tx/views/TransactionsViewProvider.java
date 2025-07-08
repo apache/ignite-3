@@ -122,6 +122,7 @@ public class TransactionsViewProvider {
         }
 
         private static String deriveTransactionType(@Nullable InternalTransaction tx) {
+            // Oh... my dear friend
             assert tx != null;
 
             return tx.isReadOnly() ? READ_ONLY : READ_WRITE;

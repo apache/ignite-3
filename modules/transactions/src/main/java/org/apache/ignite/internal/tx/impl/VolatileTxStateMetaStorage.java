@@ -35,6 +35,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -50,6 +51,9 @@ public class VolatileTxStateMetaStorage {
 
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
+
+    public String localNodeName;
+    public volatile UUID localNodeId;
 
     /**
      * Starts the storage.
@@ -73,7 +77,6 @@ public class VolatileTxStateMetaStorage {
     public void initialize(InternalTransaction tx) {
         TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx, null));
 
-
         assert previous == null : "Transaction state has already defined [txId=" + tx.id() + ", state=" + previous.txState() + ']';
     }
 
@@ -85,6 +88,7 @@ public class VolatileTxStateMetaStorage {
      * @return Updated transaction state.
      */
     public @Nullable <T extends TxStateMeta> T updateMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater) {
+//        LOG.warn(">>>>> updating tx state meta [txid=" + txId + ']');
         return (T) txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
@@ -93,6 +97,17 @@ public class VolatileTxStateMetaStorage {
             }
 
             TxState oldState = oldMeta == null ? null : oldMeta.txState();
+
+//            LOG.warn(">>>>> updating tx state meta [txId=" + txId
+//                    + ", old=" + ((oldMeta == null) ? "N/A" : oldMeta.tx() != null)
+//                    + ", new=" + (newMeta.tx() != null)
+//                    + ", state=" + newMeta.txState()
+//                    + ", checkTransitionCorrectness=" + checkTransitionCorrectness(oldState, newMeta.txState()));
+//
+//            if (oldMeta != null && oldMeta.tx() != null && newMeta.tx() == null) {
+//                ThreadUtils.dumpStack(LOG, ">>>>> updateMeta [txid=" + txId + ", localNodeName=" + localNodeName
+//                        + ", state=" + newMeta.txState() + ']');
+//            }
 
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
         });

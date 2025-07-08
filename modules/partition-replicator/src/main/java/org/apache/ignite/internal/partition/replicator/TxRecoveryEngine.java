@@ -24,6 +24,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
@@ -34,6 +36,8 @@ import org.apache.ignite.network.ClusterNode;
  * Transaction recovery logic.
  */
 public class TxRecoveryEngine {
+    IgniteLogger log = Loggers.forClass(TxRecoveryEngine.class);
+
     private final TxManager txManager;
     private final ClusterNodeResolver clusterNodeResolver;
 
@@ -63,6 +67,7 @@ public class TxRecoveryEngine {
         // If the transaction state is pending, then the transaction should be rolled back,
         // meaning that the state is changed to aborted and a corresponding cleanup request
         // is sent in a common durable manner to a partition that has initiated recovery.
+        log.warn(">>>>> triggerTxRecovery [txid=" + txId + ']');
         return txManager.finish(
                         HybridTimestampTracker.emptyTracker(),
                         // Tx recovery is executed on the commit partition.

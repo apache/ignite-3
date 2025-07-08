@@ -219,7 +219,7 @@ public class FakeTxManager implements TxManager {
     public CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             ReplicationGroupId commitPartition,
-            boolean commit,
+            boolean commitIntent,
             boolean timeoutExceeded,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId

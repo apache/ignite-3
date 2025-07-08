@@ -173,7 +173,7 @@ public interface TxManager extends IgniteComponent {
      * @param timestampTracker Observable timestamp tracker is used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state. {@code null} if nothing was enlisted into the transaction.
-     * @param commit {@code true} if a commit requested.
+     * @param commitIntent {@code true} if a commit requested.
      * @param timeoutExceeded {@code true} if a timeout exceeded.
      * @param enlistedGroups Map of enlisted partitions.
      * @param txId Transaction id.
@@ -181,7 +181,7 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             @Nullable ReplicationGroupId commitPartition,
-            boolean commit,
+            boolean commitIntent,
             boolean timeoutExceeded,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId

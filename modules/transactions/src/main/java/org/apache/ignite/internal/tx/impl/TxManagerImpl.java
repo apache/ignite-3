@@ -252,7 +252,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final MetricManager metricsManager;
 
-    private final TransactionMetricsSource txMetrics;
+    public final TransactionMetricsSource txMetrics;
 
     /**
      * Test-only constructor.
@@ -411,6 +411,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
 
         txMetrics = new TransactionMetricsSource(clockService);
+
+//        ThreadUtils.dumpStack(LOG, ">>>>> creating a new instance of TxManagerImpl...");
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(
@@ -483,6 +485,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
 
         txStateVolatileStorage.initialize(tx);
+
+//        LOG.warn(">>>>> starting a new transaction [txId=" + tx.id() + ", stateMeta=" + (stateMeta(tx.id()).tx() != null) + ']');
 
         return tx;
     }
@@ -643,15 +647,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         timeoutExceeded
                 ));
 
-//        LOG.warn(">>>>> finishFull !!! [txSate=" + updatedTxState + ']');
+//        LOG.warn(">>>>> finishFull !!! [txId=" + txId + ", txSate=" + updatedTxState + ']');
 //        ThreadUtils.dumpStack(LOG, ">>>>> finishFull !!!");
         assert updatedTxState != null;
         assert updatedTxState.tx() != null;
         assert !updatedTxState.tx().isReadOnly();
 
-        if (updatedTxState != null && updatedTxState.tx() != null) {
-            txMetrics.readWriteTxFinish(txId, finalState == COMMITTED, updatedTxState.tx().implicit(), !timeoutExceeded);
-        }
+//        if (updatedTxState != null && updatedTxState.tx() != null) {
+        txMetrics.readWriteTxFinish(txId, finalState == COMMITTED);
+//        }
 
         decrementRwTxCount(txId);
     }
@@ -695,14 +699,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             decrementRwTxCount(txId);
 
-            if (updatedTxStateMeta != null && updatedTxStateMeta.tx() != null) {
+            if (updatedTxStateMeta != null && localNodeId.equals(updatedTxStateMeta.txCoordinatorId())) {
                 txMetrics.readWriteTxFinish(
                         txId,
-                        commitIntent,
-                        updatedTxStateMeta.tx().implicit(),
-                        false);
+                        commitIntent);
             }
-//            LOG.warn(">>>>> finish 1");
+//            LOG.warn(">>>>> finish 1 [txId=" + txId + ']');
 //            ThreadUtils.dumpStack(LOG, ">>>>> finish 1");
 
             return nullCompletedFuture();
@@ -751,19 +753,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 )
         ).thenAccept(unused -> {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
-//                LOG.warn(">>>>> finish 2 [finishingStateMeta="
+//                LOG.warn(">>>>> finish 2 [txId=" + txId + ", finishingStateMeta="
 //                        + finishingStateMeta.tx() + ", stateMeta=" + stateMeta.tx()
-//                        + ", txMeta=" + txMeta.tx()
+//                        + ", txMeta=" + (txMeta != null)
+//                        + ", txMetsTx=" + ((txMeta != null) ? txMeta.tx() != null : "null txmeta")
+//                        //+ ", implicit=" + implicit
+//                        + ", reread=" + stateMeta(txId)
 //                        + ']');
 //                ThreadUtils.dumpStack(LOG, ">>>>> finish 2");
 
                 txMetrics.readWriteTxFinish(
                         txId,
-                        commitIntent,
-                        txMeta.tx().implicit(),
-                        false);
+                        commitIntent);
 
                 decrementRwTxCount(txId);
+            } else {
+//                LOG.warn(">>>>> finish 2 [txId=" + txId
+//                        + ", localNodeId=" + localNodeId + ", txCoordinatorId=" + finishingStateMeta.txCoordinatorId()
+//                        + ", implicit=" + implicit)
+//                        ;
             }
         }).whenComplete((unused, throwable) -> transactionInflights.removeTxContext(txId));
     }
@@ -1041,6 +1049,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             lockManager.start(deadlockPreventionPolicy);
 
             localNodeId = topologyService.localMember().id();
+            txStateVolatileStorage.localNodeId = localNodeId;
+            txStateVolatileStorage.localNodeName = topologyService.localMember().name();
 
             messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
@@ -1072,8 +1082,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             lockRetryCount = toIntExact(longProperty(systemCfg, LOCK_RETRY_COUNT_PROP, LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE));
 
+//            LOG.warn(">>>>> enabling transaction metric source... [class=" + metricsManager.getClass().getName() + ']');
             metricsManager.registerSource(txMetrics);
             metricsManager.enable(txMetrics);
+//            LOG.warn(">>>>> enabling transaction metric source... (2) enabled=" + (txMetrics.holder() != null) + ", enabled=" + txMetrics.enabled() + ']');
 
             return nullCompletedFuture();
         });
@@ -1210,11 +1222,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     ) {
         finishedTxs.add(1);
 
-        txMetrics.readOnlyTxFinish(
-                txIdAndTimestamp.getTxId(),
-                commit,
-                implicit,
-                !timeoutExceeded);
+        txMetrics.readOnlyTxFinish(txIdAndTimestamp.getTxId(), commit);
 
 //        ThreadUtils.dumpStack(LOG, ">>>>> completeReadOnlyTransactionFuture [timeoutExceeded=" + timeoutExceeded + ']');
 //
