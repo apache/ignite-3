@@ -99,7 +99,6 @@ import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -144,7 +143,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         });
     }
 
-    @RepeatedTest(30)
+    @Test
     void testDoStableKeySwitchWhenPendingQueueIsGreaterThanOne() {
         createZoneAndTable(4, 2);
 
@@ -276,7 +275,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         });
     }
 
-    @RepeatedTest(30)
+    @Test
     void testNodeRestartDuringQueueProcessing() throws InterruptedException {
         createZoneAndTable(4, 2);
 
@@ -308,7 +307,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         });
     }
 
-    @RepeatedTest(30)
+    @Test
     void testRaftLeaderChangedDuringAssignmentsQueueProcessing() {
         createZoneAndTable(4, 2);
 

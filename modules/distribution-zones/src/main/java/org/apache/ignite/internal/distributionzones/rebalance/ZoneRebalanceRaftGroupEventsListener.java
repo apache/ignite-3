@@ -198,6 +198,14 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     // rebalance. Worth mentioning that one of legitimate cases of metaStorageMgr.get() timeout is MG unavailability
                     // in that cases it's required to retry the request. However it's important to handle local node stopping intent,
                     // meaning that busyLock should be handled properly with though of a throttle to provide an ability for node to stop.
+
+                    // It's required to read pending assignments from MS leader instead of local MS in order not to catch-up stale pending
+                    // ones:
+                    // Let's say that node A has processed configurations С1 and C2 and therefore moved the raft to configuration C2 for
+                    // partition P1.
+                    // Node B was elected as partition P1 leader, however locally Node B is a bit outdated within MS timeline, thus it has
+                    // C1 as pending assignments. If it'll propose C1 as "new" configuration and then fall, raft will stuck on old
+                    // configuration and won't do further progress.
                     byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsQueueKey(zonePartitionId)).get().value();
 
                     if (pendingAssignmentsBytes != null) {
@@ -246,7 +254,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
                         partitionMover.movePartition(peersAndLearners, term)
                                 .whenComplete((unused, ex) -> {
-                                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                                    // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove !hasCause(ex, TimeoutException.class)
+                                    if (ex != null && !hasCause(ex, NodeStoppingException.class) && !hasCause(ex, TimeoutException.class)) {
                                         String errorMessage = String.format(
                                                 "Unable to start rebalance [zonePartitionId=%s, term=%s]",
                                                 zonePartitionId,
@@ -258,8 +267,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove "!hasCause(e, TimeoutException.class)"
-                    if (!hasCause(e, NodeStoppingException.class) || !hasCause(e, TimeoutException.class)) {
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove !hasCause(e, TimeoutException.class)
+                    if (!hasCause(e, NodeStoppingException.class) && !hasCause(e, TimeoutException.class)) {
                         String errorMessage = String.format(
                                 "Unable to start rebalance [zonePartitionId=%s, term=%s]",
                                 zonePartitionId,
