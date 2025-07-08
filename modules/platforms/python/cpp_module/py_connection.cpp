@@ -206,13 +206,10 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
         identity ? identity : "",
         secret ? secret : "",
         page_size ? page_size : 1024,
-        timeout);
+        timeout,
+        autocommit);
 
     try {
-        if (!autocommit) {
-            node_connection->set_autocommit(false);
-        }
-
         node_connection->establish();
     } catch (ignite::ignite_error& err) {
         set_error(err);

@@ -99,7 +99,7 @@ void py_parameter_set::write(ignite::protocol::writer &writer) const {
 
     if (!is_batch_query()) {
         // m_params - is a sequence of parameters.
-        constexpr std::int32_t size = 1;
+        auto size = std::int32_t(m_row_size);
 
         writer.write(size);
         write_row(writer, m_params, size);
@@ -146,7 +146,7 @@ void statement::close() noexcept {
     m_params_meta_available = false;
     m_result_meta_available = false;
     m_result_meta.clear();
-    m_query_id = -1;
+    m_query_id = std::nullopt;
     m_has_rowset = false;
     m_has_more_pages = false;
     m_was_applied = false;
