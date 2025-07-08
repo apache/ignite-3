@@ -65,17 +65,17 @@ int main(int argc, char **argv) {
     else
         std::cout << "Tests run in a multi-node mode." << std::endl;
 
-    // ignite_runner runner;
-    // set_process_abort_handler([&](int signal) {
-    //     std::cout << "Caught signal " << signal << " during tests" << std::endl;
-    //
-    //     runner.stop();
-    // });
-    //
-    // if (!check_test_node_connectable(std::chrono::seconds(5))) {
-    //     runner.start();
-    //     ensure_node_connectable(std::chrono::seconds(60));
-    // }
+    ignite_runner runner;
+    set_process_abort_handler([&](int signal) {
+        std::cout << "Caught signal " << signal << " during tests" << std::endl;
+
+        runner.stop();
+    });
+
+    if (!check_test_node_connectable(std::chrono::seconds(5))) {
+        runner.start();
+        ensure_node_connectable(std::chrono::seconds(60));
+    }
 
     try {
         ::testing::InitGoogleTest(&argc, argv);
