@@ -367,7 +367,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 if (!latest.isEmpty()) {
                     saveConfigFile();
                 }
-            } catch (FileAlreadyExistsException e){
+            } catch (FileAlreadyExistsException e) {
                 throw new NodeConfigCreateException("Failed to re-create config file");
             } catch (IOException e) {
                 throw new NodeConfigWriteException("Failed to restore config file.", e);
