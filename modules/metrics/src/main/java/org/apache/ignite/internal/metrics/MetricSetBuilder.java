@@ -32,8 +32,14 @@ public class MetricSetBuilder {
     /** Metrics set name. */
     private final String name;
 
+    /** Metrics set description. */
+    private final String description;
+
+    /** Metrics set group name. */
+    private final String group;
+
     /** Registered metrics. */
-    private Map<String, Metric> metrics = new LinkedHashMap<>();
+    private @Nullable Map<String, Metric> metrics = new LinkedHashMap<>();
 
     /**
      *  Creates a new instance of metrics set builder with given name.
@@ -41,8 +47,20 @@ public class MetricSetBuilder {
      * @param name Name of metrics set. Can't be null.
      */
     public MetricSetBuilder(String name) {
+        this(name, null, null);
+    }
+
+    /**
+     *  Creates a new instance of metrics set builder with given name.
+     *
+     * @param name Name of metrics set. Can't be null.
+     */
+    public MetricSetBuilder(String name, @Nullable String description, @Nullable String group) {
         Objects.requireNonNull(name, "Metrics set name can't be null");
+
         this.name = name;
+        this.description = description;
+        this.group = group;
     }
 
     /**
@@ -55,7 +73,7 @@ public class MetricSetBuilder {
             throw new IllegalStateException("Builder can't be used twice.");
         }
 
-        MetricSet reg = new MetricSet(name, metrics);
+        MetricSet reg = new MetricSet(name, description, group, metrics);
 
         metrics = null;
 
