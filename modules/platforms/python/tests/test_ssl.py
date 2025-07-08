@@ -51,14 +51,14 @@ def test_connection_unknown_2():
     with pytest.raises(pyignite_dbapi.OperationalError) as err:
         ssl_cfg = create_ssl_param(True, 'client_unknown.pem', 'client_unknown.pem', 'ca.pem')
         pyignite_dbapi.connect(address=server_addresses_ssl_client_auth, timeout=1, **ssl_cfg)
-    assert err.match('Failed to (send|get) handshake (request|response)')
+    assert err.match('Can not (send|receive) a message')
 
 
 def test_connection_reject():
     with pytest.raises(pyignite_dbapi.OperationalError) as err:
         ssl_cfg = create_ssl_param(False, 'client.pem', 'client.pem', 'ca.pem')
         pyignite_dbapi.connect(address=server_addresses_ssl_basic, timeout=1, **ssl_cfg)
-    assert err.match('Failed to (send|get) handshake (request|response)')
+    assert err.match('Can not (send|receive) a message')
 
 
 def test_connection_reject_2():
@@ -72,7 +72,7 @@ def test_connection_no_certs():
     with pytest.raises(pyignite_dbapi.OperationalError) as err:
         ssl_cfg = create_ssl_param(True, None, None, 'ca.pem')
         pyignite_dbapi.connect(address=server_addresses_ssl_client_auth, timeout=1, **ssl_cfg)
-    assert err.match('Failed to (send|get) handshake (request|response)')
+    assert err.match('Can not (send|receive) a message')
 
 
 def test_connection_non_existing_ca():

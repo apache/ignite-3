@@ -19,6 +19,7 @@
 
 #include "ignite/common/end_point.h"
 #include "ignite/common/detail/bytes.h"
+#include "ignite/common/detail/utils.h"
 #include "ignite/network/socket_client.h"
 #include "ignite/network/network.h"
 #include "ignite/protocol/client_operation.h"
@@ -35,6 +36,7 @@
 #include <string>
 
 #include "ssl_config.h"
+#include "type_conversion.h"
 
 
 /**
@@ -444,6 +446,24 @@ private:
     void try_restore_connection() {
         if (!m_socket) {
             if (m_ssl_config.m_enabled) {
+                try
+                {
+                    ignite::network::ensure_ssl_loaded();
+                }
+                catch (const ignite::ignite_error &err)
+                {
+                    auto openssl_home = ignite::detail::get_env("OPENSSL_HOME");
+                    std::string openssl_home_str{"OPENSSL_HOME"};
+                    if (openssl_home.has_value()) {
+                        openssl_home_str += "='" + openssl_home.value() + '\'';
+                    } else {
+                        openssl_home_str += " is not set";
+                    }
+
+                    throw ignite::ignite_error(ignite::error::code::CLIENT_SSL_CONFIGURATION,
+                        "Can not load OpenSSL library. [" + openssl_home_str + "]");
+                }
+
                 ignite::network::secure_configuration cfg;
                 cfg.key_path = m_ssl_config.m_ssl_keyfile;
                 cfg.cert_path = m_ssl_config.m_ssl_certfile;
@@ -462,16 +482,18 @@ private:
             const ignite::end_point &address = m_addresses[idx];
 
             try {
-                connected = m_socket->connect(address.host.c_str(), address.port, m_timeout);
-                if (!connected) {
+                bool success = m_socket->connect(address.host.c_str(), address.port, m_timeout);
+                if (!success) {
                     continue;
                 }
             } catch (const ignite::ignite_error &err) {
                 msgs << "Error while trying connect to " << address.host << ":" << address.port << ", " << err.what_str();
+                continue;
             }
 
             try {
                 make_request_handshake();
+                connected = true;
                 break;
             } catch (const ignite::ignite_error &err) {
                 msgs << "Error during handshake with " << address.host << ":" << address.port << ", " << err.what_str();
@@ -481,7 +503,7 @@ private:
         if (!connected) {
             close();
             throw ignite::ignite_error(ignite::error::code::CONNECTION,
-                "Failed to establish connection with the host: " + msgs.str());
+                "Failed to establish connection with the cluster: " + msgs.str());
         }
     }
 
