@@ -14,7 +14,7 @@
 // limitations under the License.
 = List Of Operators
 
-This section enumerates all operators with their semantic and supported attributes.
+This section enumerates all operators for the `EXPLAIN` statement with their semantic and supported attributes.
 
 == ColocatedHashAggregate
 
@@ -26,12 +26,12 @@ The output rows are composed as follow: first come columns participated in group
 Attributes:
 
 - `group`: Set of grouping columns.
+- `aggregation`: List of accumulators.
+- `est`: Estimated number of output rows.
 - `groupSets`: List of group key definitions for advanced grouping, like CUBE or ROLLUP.
 Optional.
-- `aggregation`: List of accumulators.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == ColocatedSortAggregate
 
@@ -43,13 +43,13 @@ The output rows are composed as follow: first come columns participated in group
 Attributes:
 
 - `group`: Set of grouping columns.
-- `groupSets`: List of group key definitions for advanced grouping, like CUBE or ROLLUP.
-Optional.
 - `aggregation`: List of accumulators.
 - `collation`: List of columns and expected order of sorting this operator is rely on.
+- `est`: Estimated number of output rows.
+- `groupSets`: List of group key definitions for advanced grouping, like CUBE or ROLLUP.
+Optional.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == MapHashAggregate
 
@@ -62,12 +62,12 @@ The output rows are composed as follow: first come columns participated in group
 Attributes:
 
 - `group`: Set of grouping columns.
+- `aggregation`: List of accumulators.
+- `est`: Estimated number of output rows.
 - `groupSets`: List of group key definitions for advanced grouping, like CUBE or ROLLUP.
 Optional.
-- `aggregation`: List of accumulators.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == ReduceHashAggregate
 
@@ -80,12 +80,12 @@ The output rows are composed as follow: first come columns participated in group
 Attributes:
 
 - `group`: Set of grouping columns.
+- `aggregation`: List of accumulators.
+- `est`: Estimated number of output rows.
 - `groupSets`: List of group key definitions for advanced grouping, like CUBE or ROLLUP.
 Optional.
-- `aggregation`: List of accumulators.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == MapSortAggregate
 
@@ -98,13 +98,13 @@ The output rows are composed as follow: first come columns participated in group
 Attributes:
 
 - `group`: Set of grouping columns.
-- `groupSets`: List of group key definitions for advanced grouping, like CUBE or ROLLUP.
-Optional.
 - `aggregation`: List of accumulators.
 - `collation`: List of columns and expected order of sorting this operator is rely on.
+- `est`: Estimated number of output rows.
+- `groupSets`: List of group key definitions for advanced grouping, like CUBE or ROLLUP.
+Optional.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == ReduceSortAggregate
 
@@ -117,13 +117,13 @@ The output rows are composed as follow: first come columns participated in group
 Attributes:
 
 - `group`: Set of grouping columns.
-- `groupSets`: List of group key definitions for advanced grouping, like CUBE or ROLLUP.
-Optional.
 - `aggregation`: List of accumulators.
 - `collation`: List of columns and expected order of sorting this operator is rely on.
+- `est`: Estimated number of output rows.
+- `groupSets`: List of group key definitions for advanced grouping, like CUBE or ROLLUP.
+Optional.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == ColocatedIntersect
 
@@ -134,9 +134,9 @@ Otherwise duplicates are eliminated.
 Attributes:
 
 - `all`: If `true`, then output may contains duplicates.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == ColocatedMinus
 
@@ -147,9 +147,9 @@ Otherwise duplicates are eliminated.
 Attributes:
 
 - `all`: If `true`, then output may contain duplicates.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == MapIntersect
 
@@ -160,9 +160,9 @@ During first phase, data is pre-aggregated, and result is sent to the where REDU
 Attributes:
 
 - `all`: If `true`, then output may contain duplicates.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == ReduceIntersect
 
@@ -175,9 +175,9 @@ Otherwise duplicates are eliminated.
 Attributes:
 
 - `all`: If `true`, then output may contain duplicates.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == MapMinus
 
@@ -188,9 +188,9 @@ During first phase, data is pre-aggregated, and result is sent to the where REDU
 Attributes:
 
 - `all`: If `true`, then output may contain duplicates.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == ReduceMinus
 
@@ -203,9 +203,9 @@ Otherwise duplicates are eliminated.
 Attributes:
 
 - `all`: If `true`, then output may contain duplicates.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == UnionAll
 
@@ -213,9 +213,9 @@ Concatenates results from multiple inputs without removing duplicates.
 
 Attributes:
 
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == Exchange
 
@@ -266,9 +266,9 @@ Attributes:
 
 - `predicate`: A boolean condition that describes whether each row from the left set “match” the row from the right set.
 - `type`: Type of the join (like INNER, LEFT, SEMI, etc).
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == MergeJoin
 
@@ -280,9 +280,9 @@ Attributes:
 
 - `predicate`: A boolean condition that describes whether each row from the left set “match” the row from the right set.
 - `type`: Type of the join (like INNER, LEFT, SEMI, etc).
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == NestedLoopJoin
 
@@ -293,9 +293,9 @@ Attributes:
 
 - `predicate`: A boolean condition that describes whether each row from the left set “match” the row from the right set.
 - `type`: Type of the join (like INNER, LEFT, SEMI, etc).
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == CorrelatedNestedLoopJoin
 
@@ -307,9 +307,9 @@ Attributes:
 - `correlates`: Set of correlated variables which are set by current relational operator.
 - `predicate`: A boolean condition that describes whether each row from the left set “match” the row from the right set.
 - `type`: Type of the join (like INNER, LEFT, SEMI, etc).
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == IndexScan
 
@@ -323,13 +323,13 @@ Attributes:
 
 - `table`: Table being accessed.
 - `searchBounds`: List of bounds representing boundaries of the range scan or point look up Optional.
+- `est`: Estimated number of output rows.
 - `predicate`: Filtering condition.
 Optional.
 - `projection`: List of expressions to evaluate.
 Optional.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == TableScan
 
@@ -340,13 +340,13 @@ If `projection` is not specified, then `fieldNames` enumerates columns returned 
 Attributes:
 
 - `table`: Table being accessed.
+- `est`: Estimated number of output rows.
 - `predicate`: Filtering condition.
 Optional.
 - `projection`: List of expressions to evaluate.
 Optional.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == KeyValueGet
 
@@ -356,13 +356,13 @@ Attributes:
 
 - `table`: Table being accessed.
 - `key`: Key expression to do look up.
+- `est`: Estimated number of output rows.
 - `predicate`: Filtering condition.
 Optional.
 - `projection`: List of expressions to evaluate.
 Optional.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == KeyValueModify
 
@@ -373,9 +373,9 @@ Attributes:
 - `table`: Table being accessed.
 - `sourceExpression`: Source expressions used for row computations.
 - `type`: Type of data modification operation (e.g., INSERT, UPDATE, DELETE).
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == Limit
 
@@ -383,11 +383,11 @@ Limits the number of returned rows, with optional offset.
 
 Attributes:
 
+- `est`: Estimated number of output rows.
 - `fetch`: Maximum number of rows to return.
 Optional.
 - `offset`: Number of rows to skip.
 Optional.
-- `est`: Estimated number of output rows.
 
 == Project
 
@@ -395,9 +395,9 @@ Projects specified expressions or columns from the input.
 
 Attributes:
 - `projection`: List of expressions to evaluate.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == Receiver
 
@@ -406,9 +406,9 @@ Receives data sent by a `Sender` during distributed query execution.
 Attributes:
 
 - `sourceFragmentId`: An identifier of source fragment, indicating the origin of a data flow edge between fragments.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == Sender
 
@@ -435,9 +435,9 @@ Attributes:
 
 - `table`: Table being accessed.
 - `projection`: List of expressions to evaluate.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == Sort
 
@@ -447,11 +447,11 @@ If `fetch` attribute is provided, then `Sort` node implements Top-N semantic, im
 Attributes:
 
 - `collation`: List of one or more fields to sort by.
+- `est`: Estimated number of output rows.
 - `fetch`: Maximum number of rows to return.
 Optional.
 - `offset`: Number of rows to skip.
 Optional.
-- `est`: Estimated number of output rows.
 
 == SystemViewScan
 
@@ -462,13 +462,13 @@ If `projection` is not specified, then `fieldNames` enumerates columns returned 
 Attributes:
 
 - `table`: System view being accessed.
+- `est`: Estimated number of output rows.
 - `predicate`: Filtering condition.
 Optional.
 - `projection`: List of expressions to evaluate.
 Optional.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == TableFunctionScan
 
@@ -477,9 +477,9 @@ Scans over a function producing result set.
 Attributes:
 
 - `invocation`: Name of the function producing source result set.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == TableModify
 
@@ -489,9 +489,9 @@ Attributes:
 
 - `table`: Table being accessed.
 - `type`: Type of data modification operation (e.g., INSERT, UPDATE, DELETE).
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.
 
 == Values
 
@@ -500,6 +500,6 @@ Produces literal in-memory rows as input (e.g., `VALUES (1), (2)`).
 Attributes:
 
 - `tuples`: List of literal tuples to return.
+- `est`: Estimated number of output rows.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
-- `est`: Estimated number of output rows.

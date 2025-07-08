@@ -14,7 +14,7 @@
 // limitations under the License.
 = EXPLAIN Command
 
-The `EXPLAIN` command is used to display the execution plan of a SQL query, showing how the query will be processed by the sql engine.
+The `EXPLAIN` command is used to display the execution plan of an SQL query, showing how the query will be processed by the sql engine.
 It provides insights into the relational operators used, their configuration, and the estimated number of rows processed at each step.
 This information is essential for diagnosing performance bottlenecks and understanding query optimization decisions.
 
@@ -112,11 +112,14 @@ The plan is structured as a **tree**, where:
 - **Internal nodes** represent data transformations (e.g., `Join`, `Sort`)
 - **The root node** (topmost) is the final operator that produces the result
 
+== Examples
+
 === Example: Complex Join
 
 [source,sql]
 ----
-EXPLAIN SELECT 
+EXPLAIN PLAN FOR
+ SELECT 
       U.UserName, P.ProductName, R.ReviewText, R.Rating
    FROM Users U, Reviews R, Products P
   WHERE U.UserID = R.UserID
@@ -191,9 +194,23 @@ Each node includes:
 - `predicate`: Join or filter condition.
 - `est`: Estimated number of rows at that point in the plan.
 
-=== Query Mapping
+=== Example: Query Mapping
 
-A result of EXPLAIN MAPPING command includes additional metadata providing insight at how the query is mapped on cluster topology:
+A result of EXPLAIN MAPPING command includes additional metadata providing insight at how the query is mapped on cluster topology.
+So, for the command like below:
+
+[source,sql]
+----
+EXPLAIN MAPPING FOR
+ SELECT 
+      U.UserName, P.ProductName, R.ReviewText, R.Rating
+   FROM Users U, Reviews R, Products P
+  WHERE U.UserID = R.UserID
+    AND R.ProductID = P.ProductID
+    AND P.ProductName = 'Product_' || ?::varchar
+----
+
+The resulting output is:
 
 [example]
 ----
