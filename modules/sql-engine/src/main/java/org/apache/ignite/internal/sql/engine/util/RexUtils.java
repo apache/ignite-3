@@ -559,7 +559,7 @@ public class RexUtils {
             if (op.kind == EQUALS || op.kind == IS_NOT_DISTINCT_FROM) {
                 assert val != null;
 
-                return new ExactBounds(pred, val);
+                return new ExactBounds(builder.makeCall(op, ref, val), val);
             } else if (op.kind == IS_NULL) {
                 return new ExactBounds(pred, nullValue);
             } else if (op.kind == OR) {

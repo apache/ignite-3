@@ -192,6 +192,47 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
         assertEmptyCondition((KeyValueGetPlan) plan);
     }
 
+    @Test
+    void optimizedGetWithOutOfRangeKey() {
+        node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
+
+        // Out of range: INT_MAX + 1.
+        {
+            QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = 2147483648");
+
+            assertThat(plan, instanceOf(KeyValueGetPlan.class));
+            assertKeyExpressions((KeyValueGetPlan) plan, "2147483647");
+            assertCondition((KeyValueGetPlan) plan, "=(CAST($t0):BIGINT NOT NULL, 2147483648)");
+        }
+
+        // Out of range: INT_MIN - 1.
+        {
+            QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = -2147483649");
+
+            assertThat(plan, instanceOf(KeyValueGetPlan.class));
+            assertKeyExpressions((KeyValueGetPlan) plan, "-2147483648");
+            assertCondition((KeyValueGetPlan) plan, "=(CAST($t0):BIGINT NOT NULL, -2147483649)");
+        }
+
+        // INT_MAX - no predicate expected.
+        {
+            QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = 2147483647");
+
+            assertThat(plan, instanceOf(KeyValueGetPlan.class));
+            assertKeyExpressions((KeyValueGetPlan) plan, "2147483647");
+            assertEmptyCondition((KeyValueGetPlan) plan);
+        }
+
+        // INT_MIN - no predicate expected.
+        {
+            QueryPlan plan = node.prepare("SELECT * FROM test WHERE id = -2147483648");
+
+            assertThat(plan, instanceOf(KeyValueGetPlan.class));
+            assertKeyExpressions((KeyValueGetPlan) plan, "-2147483648");
+            assertEmptyCondition((KeyValueGetPlan) plan);
+        }
+    }
+
     private static void assertKeyExpressions(KeyValueGetPlan plan, String... expectedExpressions) {
         List<String> keyExpressions = (plan.getRel()).keyExpressions().stream()
                 .map(RexNode::toString)
