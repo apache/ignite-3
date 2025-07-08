@@ -216,7 +216,7 @@ public class WorkDirectoryExtension
     /**
      * Creates a temporary folder for the given test method.
      */
-    private static Path createWorkDir(ExtensionContext context) throws IOException {
+    public static Path createWorkDir(ExtensionContext context) throws IOException {
         Path existingDir = context.getStore(NAMESPACE).get(context.getUniqueId(), Path.class);
 
         if (existingDir != null) {
