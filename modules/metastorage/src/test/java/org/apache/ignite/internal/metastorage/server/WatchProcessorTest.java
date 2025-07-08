@@ -305,7 +305,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         watchProcessor.notifyWatches(1, List.of(entry1), ts);
 
-        verify(watchEventHandlingCallback, timeout(100).times(0)).onSafeTimeAdvanced(any());
+        verify(watchEventHandlingCallback, timeout(250).times(0)).onSafeTimeAdvanced(any());
 
         listenerFuture.complete(null);
 
@@ -327,7 +327,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         watchProcessor.notifyWatches(1, List.of(entry1), entryTs);
         watchProcessor.advanceSafeTime(() -> {}, laterTs);
 
-        verify(watchEventHandlingCallback, timeout(100).times(0)).onSafeTimeAdvanced(laterTs);
+        verify(watchEventHandlingCallback, timeout(250).times(0)).onSafeTimeAdvanced(laterTs);
 
         listenerFuture.complete(null);
 
