@@ -21,6 +21,7 @@
 #include "py_object.h"
 #include "py_string.h"
 #include "utils.h"
+#include "ssl_config.h"
 
 #include "ignite/protocol/protocol_context.h"
 
@@ -57,8 +58,8 @@ PyObject* make_connection()
 }
 
 PyObject* make_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity, const char* secret,
-    int page_size, int timeout, bool autocommit) {
-    auto py_conn = make_py_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit);
+    int page_size, int timeout, bool autocommit, ssl_config &&ssl_cfg) {
+    auto py_conn = make_py_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit, std::move(ssl_cfg));
     if (!py_conn)
         return nullptr;
 
@@ -154,7 +155,9 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
         return nullptr;
     }
 
-    return make_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit != 0, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
+    ssl_config ssl_cfg(use_ssl != 0, ssl_keyfile, ssl_certfile, ssl_ca_certfile);
+
+    return make_connection(std::move(addresses), schema, identity, secret, page_size, timeout, autocommit != 0, std::move(ssl_cfg));
 }
 
 PyMethodDef methods[] = {

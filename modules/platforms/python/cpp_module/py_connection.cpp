@@ -193,8 +193,8 @@ int register_py_connection_type(PyObject* mod) {
     return res;
 }
 
-PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity, const char* secret,
-    int page_size, int timeout, bool autocommit) {
+PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity,
+    const char* secret, int page_size, int timeout, bool autocommit, ssl_config &&ssl_cfg) {
     if (addresses.empty()) {
         PyErr_SetString(py_get_module_interface_error_class(), "No addresses provided to connect");
         return nullptr;
@@ -207,7 +207,8 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
         secret ? secret : "",
         page_size ? page_size : 1024,
         timeout,
-        autocommit);
+        autocommit,
+        std::move(ssl_cfg));
 
     try {
         node_connection->establish();

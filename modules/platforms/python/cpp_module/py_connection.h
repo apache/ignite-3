@@ -23,6 +23,8 @@
 
 #include <Python.h>
 
+#include "ssl_config.h"
+
 
 /**
  * Create a new instance of py_connection python class.
@@ -34,10 +36,11 @@
  * @param page_size Page size.
  * @param timeout Timeout.
  * @param autocommit Autocommit flag.
+ * @param ssl_cfg SSL Config.
  * @return A new connection class instance.
  */
 PyObject* make_py_connection(std::vector<ignite::end_point> addresses, const char* schema, const char* identity,
-    const char* secret, int page_size, int timeout, bool autocommit);
+    const char* secret, int page_size, int timeout, bool autocommit, ssl_config &&ssl_cfg);
 
 /**
  * Prepare PyConnection type for registration.

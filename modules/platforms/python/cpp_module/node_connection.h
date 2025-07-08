@@ -34,6 +34,8 @@
 #include <random>
 #include <string>
 
+#include "ssl_config.h"
+
 
 /**
  * A single node connection.
@@ -81,9 +83,10 @@ public:
      * @param page_size Page size.
      * @param timeout Timeout.
      * @param auto_commit Auto commit flag.
+     * @param ssl_cfg SSL Configuration.
      */
     node_connection(std::vector<ignite::end_point> addresses, std::string schema, std::string auth_identity,
-                    std::string auth_secret, std::int32_t page_size, std::int32_t timeout, bool auto_commit)
+            std::string auth_secret, std::int32_t page_size, std::int32_t timeout, bool auto_commit, ssl_config ssl_cfg)
         : m_addresses(std::move(addresses))
         , m_schema(schema.empty() ? "PUBLIC" : std::move(schema))
         , m_auth_identity(std::move(auth_identity))
@@ -91,6 +94,7 @@ public:
         , m_page_size(page_size > 0 ? page_size : 1024)
         , m_timeout(timeout > 0 ? timeout : DEFAULT_TIMEOUT_SECONDS)
         , m_auto_commit(auto_commit)
+        , m_ssl_config(std::move(ssl_cfg))
     {
         std::random_device device;
         std::mt19937 generator(device());
@@ -438,8 +442,18 @@ private:
      * @return @c true on success and @c false on failure.
      */
     void try_restore_connection() {
-        if (!m_socket)
-            m_socket = ignite::network::make_tcp_socket_client();
+        if (!m_socket) {
+            if (m_ssl_config.m_enabled) {
+                ignite::network::secure_configuration cfg;
+                cfg.key_path = m_ssl_config.m_ssl_keyfile;
+                cfg.cert_path = m_ssl_config.m_ssl_certfile;
+                cfg.ca_path = m_ssl_config.m_ssl_ca_certfile;
+
+                m_socket = ignite::network::make_secure_socket_client(std::move(cfg));
+            } else {
+                m_socket = ignite::network::make_tcp_socket_client();
+            }
+        }
 
         std::stringstream msgs;
         bool connected = false;
@@ -615,4 +629,7 @@ private:
 
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
+
+    /** SSL Configuration. */
+    const ssl_config m_ssl_config;
 };
