@@ -333,10 +333,6 @@ public class DistributionZoneRebalanceEngine {
             Collection<CatalogTableDescriptor> tableDescriptors,
             long assignmentsTimestamp
     ) {
-//        if (zoneDescriptor.id() != 0) {
-//            System.out.println("!!! triggerPartitionsRebalanceForAllTables " + dataNodes);
-//        }
-
         List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
 
         Set<String> aliveNodes = nodeNames(distributionZoneManager.logicalTopology(revision));

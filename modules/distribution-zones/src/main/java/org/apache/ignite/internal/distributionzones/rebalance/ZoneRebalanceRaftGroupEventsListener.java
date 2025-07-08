@@ -203,7 +203,19 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     if (pendingAssignmentsBytes != null) {
                         Set<Assignment> pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsBytes).poll().nodes();
 
-                        // TODO sanpwc Explain, why it's needed.
+                        // The race is possible between doStableSwitch processing on the node colocated with former leader
+                        // and onLeaderElected of the new leader:
+                        // 1. Node A that was colocated with former leader successfully moved raft from C0 to C1, however did not receive
+                        // onNewPeersConfigurationApplied yet and thus didn't do doStableSwitch.
+                        // 2. New node B occurred to be collocated with new leader and thus received onLeaderElected, checked pending
+                        // assignments in meta storage and retried changePeersAndLearnersAsync(C1).
+                        // 3. At the very same moment Node A performs doStableSwitch, meaning that it switches assignments pending from
+                        // C1 to C2.
+                        // 4.Node B gets meta storage notification about new pending C2 and sends changePeersAndLearnersAsync(C2)
+                        // changePeersAndLearnersAsync(C1) and changePeersAndLearnersAsync(C2) from Node B may reorder.
+                        // In order to eliminate this we may check raft configuration on leader election and if it matches the one in
+                        // current global pending assignments call doStableSwitch instead of changePeersAndLearners since raft already on
+                        // required configuration.
                         if (PeersAndLearners.fromAssignments(pendingAssignments).equals(configuration)) {
                             doStableKeySwitch(
                                     pendingAssignments,
