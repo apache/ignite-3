@@ -167,14 +167,16 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         var r = new ReplicaRequests<>(learnerRef.get(), "TEST_ZONE", "TEST", 0, Integer.class, Integer.class);
 
         var expected = new IgniteBiTuple<>(1, 2);
-        assertEquals(expected, r.readOnlySingleRowPkReplicaRequest(1).invokeAndGetFirstRow());
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            assertEquals(expected, r.readOnlySingleRowPkReplicaRequest(1).invokeAndGetFirstRow());
+        });
         assertEquals(expected, r.readOnlyMultiRowPkReplicaRequest(1).invokeAndGetFirstRow());
         assertEquals(expected, r.readOnlyScanRetrieveBatchReplicaRequest().invokeAndGetFirstRow());
 
         executeSql("INSERT INTO TEST VALUES (2, 3)");
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
             assertEquals(new IgniteBiTuple<>(2, 3), r.readOnlySingleRowPkReplicaRequest(2).invokeAndGetFirstRow(),
-                    "inserted value replicated eventually");
+                    "new inserted value replicated eventually");
         });
     }
 
