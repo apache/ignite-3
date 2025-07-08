@@ -291,7 +291,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
     @Test
     void eventNotificationUpdatesMetastoreSafeTimeAfterNotifyingWatchListeners() {
-        CompletableFuture<Void> listenerFuture = new CompletableFuture<>();
+        var listenerFuture = new CompletableFuture<Void>();
         WatchListener listener = mock(WatchListener.class);
         when(listener.onUpdate(any())).thenReturn(listenerFuture);
 
