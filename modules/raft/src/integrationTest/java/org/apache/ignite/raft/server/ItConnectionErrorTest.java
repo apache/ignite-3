@@ -26,8 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
@@ -41,11 +44,13 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.ReplicatorGroupImpl;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.server.counter.CounterListener;
+import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,8 +65,12 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
 
     private List<LogInspector> logInspectors;
 
+    private final Map<Class<?>, Map<String, AtomicInteger>> perClassCounters = new ConcurrentHashMap<>();
+
     @BeforeEach
     public void setUp() throws Exception {
+        perClassCounters.clear();
+
         startCluster();
 
         logInspectors = startLogInspectors();
@@ -122,15 +131,17 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         // Wait for some time for log spam.
         Thread.sleep(3_000);
 
-        for (LogInspector logInspector : logInspectors) {
-            assertTrue(
-                    logInspector.timesMatched().min().orElseThrow() < 2,
-                    logInspector.loggerName() + " has written to the log more than 1 time."
-            );
-        }
+        perClassCounters.forEach((cls, instances) -> {
+            boolean correct = instances.values().stream()
+                    .filter(v -> v.get() > 1)
+                    .findAny()
+                    .isEmpty();
+
+            assertTrue(correct, cls.getName()  + " has been written to the log more than 1 time.");
+        });
     }
 
-    private static List<LogInspector> startLogInspectors() {
+    private List<LogInspector> startLogInspectors() {
         List<LogInspector> logInspectors = new ArrayList<>();
 
         logInspectors.add(logInspector(ReplicatorGroupImpl.class, "Fail to check replicator connection"));
@@ -145,8 +156,22 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
         return logInspectors;
     }
 
-    private static LogInspector logInspector(Class<?> cls, String msg) {
-        return new LogInspector(cls.getName(), evt -> evt.getMessage().getFormattedMessage().contains(msg));
+    private LogInspector logInspector(Class<?> cls, String msg) {
+        var instanceCounters = new ConcurrentHashMap<String, AtomicInteger>();
+
+        perClassCounters.put(cls, instanceCounters);
+
+        Predicate<LogEvent> pred = event -> {
+            if (event.getMessage().getFormattedMessage().contains(msg)) {
+                assertTrue(event.getThreadName().startsWith("%"));
+                String instanceName = event.getThreadName().split("%")[1];
+                instanceCounters.computeIfAbsent(instanceName, k -> new AtomicInteger()).incrementAndGet();
+            }
+
+            return false;
+        };
+
+        return new LogInspector(cls.getName(), new Handler(pred, () -> {}));
     }
 
     private static void stopLogInspectors(List<LogInspector> logInspectors) {
