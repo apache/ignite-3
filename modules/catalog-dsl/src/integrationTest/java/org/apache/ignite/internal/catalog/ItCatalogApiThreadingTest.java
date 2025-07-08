@@ -22,23 +22,36 @@ import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.POJO_RECORD_TABLE_NAME;
 import static org.apache.ignite.internal.catalog.ItCatalogDslTest.ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -49,10 +62,47 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
         return 1;
     }
 
+    @BeforeAll
+    void waitForDefaultZoneStabilization() throws InterruptedException {
+        if (colocationEnabled()) {
+            awaitAssignmentsStabilization(node(0));
+        }
+    }
+
     @AfterEach
     void clearDatabase() {
         dropAllTables();
         dropAllZonesExceptDefaultOne();
+    }
+
+    /**
+     * Returns a future that completes when the Default Zone's primary replicas have been elected.
+     */
+    // TODO: remove this method after https://issues.apache.org/jira/browse/IGNITE-25283 has been fixed.
+    private static void awaitAssignmentsStabilization(Ignite node) throws InterruptedException {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
+
+        Catalog catalog = igniteImpl.catalogManager().catalog(igniteImpl.catalogManager().latestCatalogVersion());
+
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+
+        assertTrue(waitForCondition(() -> {
+            HybridTimestamp timestamp = igniteImpl.clock().now();
+
+            int totalPartitionSize = 0;
+
+            // Within given test default zone is used.
+            for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
+                CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver()
+                        .getAssignments(new ZonePartitionId(defaultZone.id(), p), timestamp);
+
+                assertThat(assignmentsFuture, willCompleteSuccessfully());
+
+                totalPartitionSize += assignmentsFuture.join().nodes().size();
+            }
+
+            return totalPartitionSize == defaultZone.partitions() * defaultZone.replicas();
+        }, 10_000));
     }
 
     @ParameterizedTest
@@ -94,7 +144,7 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(CatalogOperationProvidingTable.class)
-    void tableFuturesFromCatalogAreProtectedAgainstThreadHijacking(CatalogOperationProvidingTable operation) throws Exception {
+    void tableFuturesFromCatalogAreProtectedFromThreadHijacking(CatalogOperationProvidingTable operation) throws Exception {
         Table table = operation.executeOn(catalogForPublicUse());
 
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(

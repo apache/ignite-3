@@ -20,6 +20,7 @@ project(ignite-protocol)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
+    sql/column_meta.cpp sql/column_meta.h
     bitset_span.h
     buffer_adapter.cpp buffer_adapter.h
     extension_types.h

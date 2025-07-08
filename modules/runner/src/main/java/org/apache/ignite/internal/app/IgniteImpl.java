@@ -233,6 +233,7 @@ import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.recovery.system.SystemDisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.sql.SqlQueryRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
@@ -420,6 +421,8 @@ public class IgniteImpl implements Ignite {
 
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
+
+    private final SchemaSafeTimeTrackerImpl schemaSafeTimeTracker;
 
     /** Schema manager. */
     private final SchemaManager schemaManager;
@@ -962,7 +965,10 @@ public class IgniteImpl implements Ignite {
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
-        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl();
+        metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
@@ -1547,6 +1553,7 @@ public class IgniteImpl implements Ignite {
                                 indexNodeFinishedRwTransactionsChecker,
                                 txManager,
                                 dataStorageMgr,
+                                schemaSafeTimeTracker,
                                 schemaManager,
                                 outgoingSnapshotsManager,
                                 sharedTxStateStorage,
@@ -2130,6 +2137,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public NodeProperties nodeProperties() {
         return nodeProperties;
+    }
+
+    @TestOnly
+    public SchemaSafeTimeTrackerImpl schemaSafeTimeTracker() {
+        return schemaSafeTimeTracker;
     }
 
     /** Triggers dumping node components state. This method is used for debugging purposes only. */

@@ -19,20 +19,27 @@ package org.apache.ignite.internal.configuration.compatibility.framework;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * Compares two configuration trees (snapshot and current).
  */
 public class ConfigurationTreeComparator {
     /**
-     * Validates the current configuration tree is compatible with the snapshot.
+     * Validates the current configuration is compatible with the snapshot.
      */
-    public static void ensureCompatible(List<ConfigNode> snapshot, List<ConfigNode> current) {
-        // TODO: add more sophisticated comparison logic here
-        String currentDump = dumpTree(current);
-        String snapshotDump = dumpTree(snapshot);
-        assertEquals(currentDump, snapshotDump, "Configuration metadata is incompatible");
+    public static void ensureCompatible(List<ConfigNode> snapshotTrees, List<ConfigNode> actualTrees) {
+        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees));
+
+        for (ConfigNode tree : snapshotTrees) {
+            tree.accept(shuttle);
+        }
     }
 
     /**
@@ -42,6 +49,99 @@ public class ConfigurationTreeComparator {
         String dump1 = dumpTree(tree1);
         String dump2 = dumpTree(tree2);
         assertEquals(dump1, dump2, "Configuration metadata mismatch");
+    }
+
+    /**
+     * Traverses the tree and triggers validation for leaf nodes.
+     */
+    private static class LeafNodesVisitor implements ConfigShuttle {
+        private final Consumer<ConfigNode> validator;
+
+        private LeafNodesVisitor(Consumer<ConfigNode> validator) {
+            this.validator = validator;
+        }
+
+        @Override
+        public void visit(ConfigNode node) {
+            if (node.isValue()) {
+                validator.accept(node);
+            }
+        }
+    }
+
+    /**
+     * Validates value nodes.
+     */
+    private static class Validator implements Consumer<ConfigNode> {
+        private final List<ConfigNode> roots;
+
+        private Validator(List<ConfigNode> roots) {
+            this.roots = roots;
+        }
+
+        @Override
+        public void accept(ConfigNode leafNode) {
+            List<ConfigNode> path = getPath(leafNode);
+
+            // Validate path starting from the root.
+            Collection<ConfigNode> candidates = roots;
+
+            for (ConfigNode node : path) {
+                ConfigNode found = find(node, candidates);
+                candidates = found.childNodes();
+            }
+        }
+
+
+        /**
+         * Return first node from candidates collection that matches the given node.
+         *
+         * @throws IllegalStateException If no match found.
+         */
+        private ConfigNode find(ConfigNode node, Collection<ConfigNode> candidates) {
+            for (ConfigNode candidate : candidates) {
+                if (match(node, candidate)) {
+                    return candidate;
+                }
+            }
+
+            throw new IllegalStateException("No match found for node: " + node + " in candidates: \n\t"
+                    + candidates.stream().map(ConfigNode::toString).collect(Collectors.joining("\n\t")));
+        }
+    }
+
+    /**
+     * Builds value node path.
+     */
+    private static List<ConfigNode> getPath(ConfigNode node) {
+        List<ConfigNode> path = new ArrayList<>();
+        while (node != null) {
+            path.add(node);
+            node = node.getParent();
+        }
+
+        Collections.reverse(path);
+
+        return path;
+    }
+
+    /**
+     * Returns {@code true} if given node is compatible with candidate node, {@code false} otherwise.
+     */
+    private static boolean match(ConfigNode node, ConfigNode candidate) {
+        return Objects.equals(candidate.kind(), node.kind())
+                && Objects.equals(candidate.name(), node.name())
+                && validateFlags(candidate, node)
+                && (!node.isValue() || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
+                // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
+                && candidate.annotations().containsAll(node.annotations()); // Annotations can't be removed.
+    }
+
+    private static boolean validateFlags(ConfigNode candidate, ConfigNode node) {
+        return node.isRoot() == candidate.isRoot()
+                && node.isValue() == candidate.isValue()
+                && (!candidate.isInternal() || node.isInternal()) // Public property\tree can't be hidden.
+                && (!node.isDeprecated() || candidate.isDeprecated()); // Deprecation shouldn't be removed.
     }
 
     private static String dumpTree(List<ConfigNode> nodes) {
@@ -58,7 +158,7 @@ public class ConfigurationTreeComparator {
 
         @Override
         public void visit(ConfigNode node) {
-            sb.append(node.toString());
+            sb.append(node.digest()).append('\n');
         }
 
         @Override

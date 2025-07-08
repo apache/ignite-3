@@ -211,7 +211,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         return completionFut;
     }
 
-    private void enlistBatch(P partition, List<E> batch) {
+    private CompletableFuture<Collection<R>> enlistBatch(P partition, List<E> batch) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
         assert partition != null : "Partition must not be null.";
@@ -219,7 +219,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         inFlightItemCount.addAndGet(batchSize);
         metrics.streamerBatchesActiveAdd(1);
 
-        pendingRequests.compute(
+        return pendingRequests.compute(
                 partition,
                 // Chain existing futures to preserve request order.
                 (part, fut) -> fut == null
@@ -411,12 +411,15 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             return;
         }
 
-        flushTask = flushExecutor.scheduleAtFixedRate(this::flushBuffers, interval, interval, TimeUnit.MILLISECONDS);
+        flushTask = flushExecutor.scheduleWithFixedDelay(this::onAutoFlushInterval, interval, interval, TimeUnit.MILLISECONDS);
     }
 
-    private void flushBuffers() {
-        // TODO IGNITE-25509 Data Streamer ignores backpressure in flush timer.
-        buffers.values().forEach(StreamerBuffer::flush);
+    private void onAutoFlushInterval() {
+        long intervalNanos = TimeUnit.MILLISECONDS.toNanos(options.autoFlushInterval());
+
+        for (StreamerBuffer<E> buf : buffers.values()) {
+            buf.autoFlush(intervalNanos);
+        }
     }
 
     private static StreamerMetricSink getMetrics(@Nullable StreamerMetricSink metrics) {

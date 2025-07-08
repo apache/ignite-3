@@ -30,11 +30,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoField;
 import java.time.temporal.Temporal;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -45,6 +43,7 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.ListOfListsMatcher;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.BaseMatcher;
@@ -481,7 +480,8 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
 
         DmlArgs(SelectArgs args, int sourcePrecision) {
             super(args.sourceType, args.literal, args.targetType, args.targetPrecision,
-                    adjustPrecision(args.targetType, sourcePrecision, args.targetPrecision, args.expected));
+                    SqlTestUtils.adjustTemporalPrecision(TypeUtils.columnType(Commons.typeFactory().createSqlType(args.targetType)),
+                            args.expected, Math.min(sourcePrecision, args.targetPrecision)));
 
             this.sourcePrecision = sourcePrecision;
         }
@@ -489,43 +489,6 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
         @Override
         Arguments toArgs() {
             return Arguments.of(sourceType, sourcePrecision, literal, targetType, targetPrecision, matcher);
-        }
-
-        private static Temporal adjustPrecision(SqlTypeName type, int sourcePrecision, int targetPrecision, Temporal result) {
-            int precision = Math.min(sourcePrecision, targetPrecision);
-
-            switch (type) {
-                case TIME: {
-                    LocalTime time = (LocalTime) result;
-
-                    return time.withNano(adjustNanos(time.getNano(), precision));
-                }
-
-                case TIMESTAMP: {
-                    LocalDateTime dt = (LocalDateTime) result;
-
-                    return dt.withNano(adjustNanos(dt.getNano(), precision));
-                }
-
-                case TIMESTAMP_WITH_LOCAL_TIME_ZONE: {
-                    Instant dt = (Instant) result;
-
-                    return dt.with(ChronoField.NANO_OF_SECOND, adjustNanos(dt.getNano(), precision));
-                }
-
-                default:
-                    throw new IllegalStateException("Unexpected value: " + type);
-            }
-        }
-
-        @SuppressWarnings("NumericCastThatLosesPrecision")
-        private static int adjustNanos(int nanos, int precision) {
-            long millis = TimeUnit.NANOSECONDS.toMillis(nanos);
-
-            int d = 3 - Math.min(3, precision);
-            long adjustedMillis = (millis / (long) Math.pow(10, d)) * (long) Math.pow(10, d);
-
-            return (int) TimeUnit.MILLISECONDS.toNanos(adjustedMillis);
         }
     }
 
