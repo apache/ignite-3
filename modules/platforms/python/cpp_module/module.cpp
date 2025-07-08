@@ -130,7 +130,9 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
             if (!addr) {
                 return nullptr;
             }
-            addresses.push_back(*addr);
+            if (!addr->host.empty()) {
+                addresses.push_back(*addr);
+            }
         }
     } else if (PyUnicode_Check(address)) {
         auto item_str = py_string::try_from_py_utf8(address);
@@ -143,7 +145,9 @@ PyObject* pyignite_dbapi_connect(PyObject*, PyObject* args, PyObject* kwargs) {
         if (!addr) {
             return nullptr;
         }
-        addresses.push_back(*addr);
+        if (!addr->host.empty()) {
+            addresses.push_back(*addr);
+        }
     } else {
         PyErr_SetString(py_get_module_interface_error_class(),
             "Only a string or a list of strings are allowed in 'address' parameter");

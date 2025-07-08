@@ -34,7 +34,7 @@ namespace {
 struct py_connection {
     PyObject_HEAD
 
-    std::unique_ptr<node_connection> m_connection;
+    node_connection *m_connection;
 };
 
 /**
@@ -55,7 +55,9 @@ PyObject* py_connection_close(py_connection* self, PyObject*)
 {
     if (self->m_connection) {
         self->m_connection->close();
-        self->m_connection.reset();
+
+        delete self->m_connection;
+        self->m_connection = nullptr;
     }
 
     Py_RETURN_NONE;
@@ -155,7 +157,8 @@ PyMethodDef py_connection_methods[] = {
  */
 int py_connection_init(py_connection *self, PyObject *, PyObject *)
 {
-    self->m_connection.reset();
+    delete self->m_connection;
+    self->m_connection = nullptr;
 
     return 0;
 }
@@ -165,7 +168,9 @@ int py_connection_init(py_connection *self, PyObject *, PyObject *)
  */
 void py_connection_dealloc(py_connection *self)
 {
-    self->m_connection.reset();
+    delete self->m_connection;
+    self->m_connection = nullptr;
+
     Py_TYPE(self)->tp_free(self);
 }
 
@@ -218,7 +223,7 @@ PyObject *make_py_connection(std::vector<ignite::end_point> addresses, const cha
     if (!py_conn_obj)
         return nullptr;
 
-    py_conn_obj->m_connection = std::move(node_connection);
+    py_conn_obj->m_connection = node_connection.release();
 
     return reinterpret_cast<PyObject *>(py_conn_obj);
 }

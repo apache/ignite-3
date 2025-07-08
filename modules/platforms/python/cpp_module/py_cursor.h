@@ -32,7 +32,7 @@ struct py_cursor {
     PyObject_HEAD
 
     /** Statement. */
-    std::unique_ptr<statement> m_statement;
+    statement *m_statement;
 };
 
 /**

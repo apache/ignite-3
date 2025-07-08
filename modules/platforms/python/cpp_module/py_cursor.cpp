@@ -51,7 +51,9 @@ int py_cursor_init(py_cursor *self, PyObject *args, PyObject *kwds)
 
 void py_cursor_dealloc(py_cursor *self)
 {
-    self->m_statement.reset();
+    delete self->m_statement;
+    self->m_statement = nullptr;
+
     Py_TYPE(self)->tp_free(self);
 }
 
@@ -59,7 +61,9 @@ PyObject* py_cursor_close(py_cursor* self, PyObject*)
 {
     if (self->m_statement) {
         self->m_statement->close();
-        self->m_statement.reset();
+
+        delete self->m_statement;
+        self->m_statement = nullptr;
     }
 
     Py_RETURN_NONE;
@@ -437,7 +441,7 @@ py_cursor *make_py_cursor(std::unique_ptr<statement> stmt) {
     if (!py_cursor_obj)
         return nullptr;
 
-    py_cursor_obj->m_statement = std::move(stmt);
+    py_cursor_obj->m_statement = stmt.release();
 
     return py_cursor_obj;
 }

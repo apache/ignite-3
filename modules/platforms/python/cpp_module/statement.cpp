@@ -47,8 +47,9 @@ void write_row(ignite::protocol::writer &writer, PyObject *params_row, std::int3
 
     auto row_size = std::int32_t(seq_size);
     if (row_size != row_size_expected) {
-        throw ignite::ignite_error("Row size is unexpected: " + std::to_string(row_size) +
-            ", expected row size: " + std::to_string(row_size_expected));
+        throw ignite::ignite_error(ignite::error::code::ILLEGAL_ARGUMENT,
+            "Row size is unexpected: " + std::to_string(row_size)
+            + ", expected row size: " + std::to_string(row_size_expected));
     }
 
     ignite::binary_tuple_builder row_builder{row_size * 3};
@@ -312,7 +313,8 @@ void statement::update_meta() {
     auto reader = std::make_unique<ignite::protocol::reader>(response.get_bytes_view());
     auto num = reader->read_int32();
     if (num < 0) {
-        throw ignite::ignite_error("Unexpected number of parameters: " + std::to_string(num));
+        throw ignite::ignite_error(
+            ignite::error::code::PROTOCOL, "Unexpected number of parameters: " + std::to_string(num));
     }
 
     std::vector<sql_parameter> params;

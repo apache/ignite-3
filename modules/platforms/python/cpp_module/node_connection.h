@@ -240,8 +240,9 @@ private:
 
             if (res < 0 || res == ignite::network::socket_client::wait_result::TIMEOUT) {
                 close();
-                throw ignite::ignite_error("Can not send a message to the server due to " +
-                    std::string(res < 0 ? "connection error" : "operation timed out"));
+                throw ignite::ignite_error(ignite::error::code::CONNECTION,
+                    "Can not send a message to the server due to "
+                    + std::string(res < 0 ? "connection error" : "operation timed out"));
             }
 
             sent += res;
@@ -268,7 +269,8 @@ private:
 
             if (res < 0 || res == ignite::network::socket_client::wait_result::TIMEOUT) {
                 close();
-                throw ignite::ignite_error("Can not receive a message from the server due to " +
+                throw ignite::ignite_error(ignite::error::code::CONNECTION,
+                    "Can not receive a message from the server due to " +
                     std::string(res < 0 ? "connection error" : "operation timed out"));
             }
 
@@ -284,7 +286,7 @@ private:
      */
     void receive_message(std::vector<std::byte> &msg, std::int32_t timeout) {
         if (!m_socket)
-            throw ignite::ignite_error("Connection is not established");
+            throw ignite::ignite_error(ignite::error::code::CONNECTION, "Connection is not established");
 
         msg.clear();
 
@@ -295,7 +297,8 @@ private:
         std::int32_t len = ignite::detail::bytes::load<ignite::detail::endian::BIG, std::int32_t>(len_buffer);
         if (len <= 0) {
             close();
-            throw ignite::ignite_error("Protocol error: Unexpected message length: " + std::to_string(len));
+            throw ignite::ignite_error(ignite::error::code::PROTOCOL,
+                "Protocol error: Unexpected message length: " + std::to_string(len));
         }
 
         msg.resize(len);
@@ -348,7 +351,8 @@ private:
             ignite::protocol::reader reader(res);
             auto req_id = reader.read_int64();
             if (req_id != id) {
-                throw ignite::ignite_error("Response with unknown ID is received: " + std::to_string(req_id));
+                throw ignite::ignite_error(ignite::error::code::SERVER_TO_CLIENT_REQUEST,
+                    "Response with unknown ID is received: " + std::to_string(req_id));
             }
 
             auto flags = reader.read_int32();
@@ -460,7 +464,8 @@ private:
 
         if (!connected) {
             close();
-            throw ignite::ignite_error("Failed to connect to cluster: " + msgs.str());
+            throw ignite::ignite_error(ignite::error::code::CONNECTION,
+                "Failed to establish connection with the host: " + msgs.str());
         }
     }
 
@@ -480,8 +485,7 @@ private:
             extensions.emplace("authn-secret", m_auth_secret);
         }
 
-        std::vector<std::byte> message =
-            ignite::protocol::make_handshake_request(CLIENT_CODE, m_protocol_version, extensions);
+        std::vector<std::byte> message = make_handshake_request(CLIENT_CODE, m_protocol_version, extensions);
 
         send_all(message.data(), message.size(), m_timeout);
         receive_and_check_magic(message, m_timeout);
@@ -492,11 +496,11 @@ private:
 
         // We now only support a single version
         if (ver != ignite::protocol::protocol_version::get_current()) {
-            throw ignite::ignite_error("Unsupported server version: " + ver.to_string() + ".");
+            throw ignite::ignite_error(ignite::error::code::PROTOCOL_COMPATIBILITY, "Unsupported server version: " + ver.to_string() + ".");
         }
 
         if (response.error) {
-            throw ignite::ignite_error("Server rejected handshake with error: " + response.error->what_str());
+            throw ignite::ignite_error(ignite::error::code::HANDSHAKE_HEADER, "Server rejected handshake with error: " + response.error->what_str());
         }
     }
 
@@ -516,7 +520,8 @@ private:
         if (!std::equal(buffer.begin(), buffer.end(),
             ignite::protocol::MAGIC_BYTES.begin(), ignite::protocol::MAGIC_BYTES.end()))
         {
-            throw ignite::ignite_error("Failed to receive magic bytes in handshake response. "
+            throw ignite::ignite_error(ignite::error::code::HANDSHAKE_HEADER,
+                "Failed to receive magic bytes in handshake response. "
                 "Possible reasons: wrong port number used, TLS is enabled on server but not on client.");
         }
     }

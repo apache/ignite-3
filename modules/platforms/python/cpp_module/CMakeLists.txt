@@ -19,8 +19,6 @@ project(_pyignite_dbapi_extension)
 
 set(TARGET ${PROJECT_NAME})
 
-find_package(ODBC REQUIRED)
-
 set(SOURCES
     module.cpp
     py_connection.cpp
@@ -44,7 +42,6 @@ add_library(${TARGET} SHARED ${SOURCES})
 
 target_include_directories(${TARGET} PUBLIC
     ${Python3_INCLUDE_DIRS}
-    ${ODBC_INCLUDE_DIRS}
 )
 
 if(NOT DEFINED EXTENSION_FILENAME)
