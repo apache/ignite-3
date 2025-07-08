@@ -84,11 +84,11 @@ public:
     node_connection(std::vector<ignite::end_point> addresses, std::string schema, std::string auth_identity,
                     std::string auth_secret, std::int32_t page_size, std::int32_t timeout)
         : m_addresses(std::move(addresses))
-        , m_schema(std::move(schema))
+        , m_schema(schema.empty() ? "PUBLIC" : std::move(schema))
         , m_auth_identity(std::move(auth_identity))
         , m_auth_secret(std::move(auth_secret))
-        , m_page_size(page_size)
-        , m_timeout(timeout ? timeout : DEFAULT_TIMEOUT_SECONDS)
+        , m_page_size(page_size > 0 ? page_size : 1024)
+        , m_timeout(timeout > 0 ? timeout : DEFAULT_TIMEOUT_SECONDS)
     {
         std::random_device device;
         std::mt19937 generator(device());

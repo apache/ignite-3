@@ -82,12 +82,16 @@ void set_error(const ignite::ignite_error &error) {
         case ignite::error::code::SCHEMA_NOT_FOUND:
         case ignite::error::code::STMT_PARSE:
         case ignite::error::code::STMT_VALIDATION:
-        case ignite::error::code::CONSTRAINT_VIOLATION:
         case ignite::error::code::EXECUTION_CANCELLED:
         case ignite::error::code::RUNTIME:
         case ignite::error::code::MAPPING:
         case ignite::error::code::TX_CONTROL_INSIDE_EXTERNAL_TX: {
             error_class = py_get_module_programming_error_class();
+            break;
+        }
+
+        case ignite::error::code::CONSTRAINT_VIOLATION: {
+            error_class = py_get_module_integrity_error_class();
             break;
         }
 

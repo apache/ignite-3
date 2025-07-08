@@ -252,7 +252,12 @@ PyObject* py_cursor_column_count(py_cursor* self, PyObject*)
     if (!stmt.is_executed())
         return PyLong_FromLong(0);
 
-    return PyLong_FromLong(long(stmt.get_meta()->size()));
+    auto meta = stmt.get_meta();
+    if (!meta) {
+        return PyLong_FromLong(0);
+    }
+
+    return PyLong_FromLong(long(meta->size()));
 }
 
 const ignite::protocol::column_meta *get_meta_column(py_cursor* self, long idx, PyObject *&err_ret) {

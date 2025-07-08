@@ -32,12 +32,13 @@ namespace {
  */
 void write_row(ignite::protocol::writer &writer, PyObject *params_row, std::int32_t row_size_expected) {
     if (!params_row || params_row == Py_None) {
-        throw ignite::ignite_error("Parameter row can not be None");
+        throw ignite::ignite_error(ignite::error::code::ILLEGAL_ARGUMENT, "Parameter row can not be None");
     }
 
     if (!PySequence_Check(params_row)) {
-        throw ignite::ignite_error(std::string("Parameter row does not provide the sequence protocol: ") +
-            py_object_get_typename(params_row));
+        throw ignite::ignite_error(ignite::error::code::ILLEGAL_ARGUMENT,
+            std::string("Parameter row does not provide the sequence protocol: ")
+            + py_object_get_typename(params_row));
     }
 
     Py_ssize_t seq_size{PySequence_Size(params_row)};
@@ -91,15 +92,17 @@ std::vector<ignite::bytes_view> read_rows(ignite::protocol::reader &reader) {
 } // anonymous namespace
 
 void py_parameter_set::write(ignite::protocol::writer &writer) const {
-    if (!m_size) {
+    if (!m_row_size) {
         writer.write_nil();
         return;
     }
 
-    if (m_size == 1) {
+    if (!is_batch_query()) {
         // m_params - is a sequence of parameters.
-        writer.write(std::int32_t(m_size));
-        write_row(writer, m_params, std::int32_t(m_size));
+        constexpr std::int32_t size = 1;
+
+        writer.write(size);
+        write_row(writer, m_params, size);
     } else {
         // m_params - is a sequence of parameter sequences.
         write(writer, 0, m_size, true);
@@ -135,17 +138,27 @@ void statement::close() noexcept {
         UNUSED_VALUE res;
     }
 
+    m_query.clear();
+    m_params_meta.clear();
+    m_executed = false;
     m_cursor.reset();
     m_rows_affected = -1;
-    m_executed = false;
+    m_params_meta_available = false;
+    m_result_meta_available = false;
+    m_result_meta.clear();
+    m_query_id = -1;
+    m_has_rowset = false;
+    m_has_more_pages = false;
+    m_was_applied = false;
 }
 
 void statement::execute(const char *query, py_parameter_set &params) {
     close();
 
+    m_query = query;
     auto &schema = m_connection.get_schema();
 
-    bool single = params.get_param_set_size() <= 1;
+    bool single = !params.is_batch_query();
 
     auto tx = m_connection.get_transaction_id();
     if (!tx && !m_connection.is_auto_commit()) {

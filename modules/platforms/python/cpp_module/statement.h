@@ -48,7 +48,7 @@ public:
      * @param params Python parameter sequence list.
      */
     py_parameter_set(Py_ssize_t row_size, PyObject *params)
-        : m_size(1)
+        : m_size(0)
         , m_row_size(row_size)
         , m_params(params) {}
 
@@ -72,12 +72,12 @@ public:
     void write(ignite::protocol::writer &writer) const;
 
     /**
-     * Get parameter set size.
+     * Check if is the batch query.
      *
-     * @return Number of rows in a set.
+     * @return @c true if is the batch query.
      */
-    [[nodiscard]] std::int32_t get_param_set_size() const {
-        return std::int32_t(m_size);
+    [[nodiscard]] bool is_batch_query() const {
+        return m_size > 0;
     }
 
 private:

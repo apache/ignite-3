@@ -427,6 +427,11 @@ class Cursor:
         Internal method.
         Update column description for the current cursor. To be called after query execution.
         """
+        column_num = self._py_cursor.column_count()
+        if not column_num:
+            self._description = None
+            return
+
         self._description = []
         for column_id in range(self._py_cursor.column_count()):
             self._description.append(ColumnDescription(
