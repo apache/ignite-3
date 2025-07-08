@@ -146,7 +146,7 @@ Otherwise duplicates are eliminated.
 
 Attributes:
 
-- `all`: If `true`, then output may contains duplicates.
+- `all`: If `true`, then output may contain duplicates.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
 - `est`: Estimated number of output rows.
@@ -159,7 +159,7 @@ During first phase, data is pre-aggregated, and result is sent to the where REDU
 
 Attributes:
 
-- `all`: If `true`, then output may contains duplicates.
+- `all`: If `true`, then output may contain duplicates.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
 - `est`: Estimated number of output rows.
@@ -174,7 +174,7 @@ Otherwise duplicates are eliminated.
 
 Attributes:
 
-- `all`: If `true`, then output may contains duplicates.
+- `all`: If `true`, then output may contain duplicates.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
 - `est`: Estimated number of output rows.
@@ -187,7 +187,7 @@ During first phase, data is pre-aggregated, and result is sent to the where REDU
 
 Attributes:
 
-- `all`: If `true`, then output may contains duplicates.
+- `all`: If `true`, then output may contain duplicates.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
 - `est`: Estimated number of output rows.
@@ -202,7 +202,7 @@ Otherwise duplicates are eliminated.
 
 Attributes:
 
-- `all`: If `true`, then output may contains duplicates.
+- `all`: If `true`, then output may contain duplicates.
 - `fieldNames`: List of names of columns in produced rows.
 Optional.
 - `est`: Estimated number of output rows.
