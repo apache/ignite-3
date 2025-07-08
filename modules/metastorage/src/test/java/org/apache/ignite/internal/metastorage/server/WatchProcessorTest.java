@@ -63,6 +63,9 @@ import org.mockito.InOrder;
 public class WatchProcessorTest extends BaseIgniteAbstractTest {
     private static final HybridTimestamp TIMESTAMP = HybridTimestamp.MAX_VALUE;
 
+    private static final byte[] FOO_BYTES = "foo".getBytes(UTF_8);
+    private static final byte[] BAR_BYTES = "bar".getBytes(UTF_8);
+
     private final FailureManager failureManager = mock(FailureManager.class);
 
     private final WatchProcessor watchProcessor = new WatchProcessor(
@@ -91,11 +94,11 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         WatchListener listener1 = mockListener();
         WatchListener listener2 = mockListener();
 
-        watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
-        watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
+        watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, FOO_BYTES)));
+        watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, BAR_BYTES)));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry1 = new EntryImpl(FOO_BYTES, null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl(BAR_BYTES, null, 1, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
@@ -118,11 +121,11 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         WatchListener listener1 = mockListener();
         WatchListener listener2 = mockListener();
 
-        watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
-        watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
+        watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, FOO_BYTES)));
+        watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, BAR_BYTES)));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 2, TIMESTAMP);
+        var entry1 = new EntryImpl(FOO_BYTES, null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl(BAR_BYTES, null, 2, TIMESTAMP);
 
         HybridTimestamp ts = new HybridTimestamp(1, 2);
 
@@ -160,11 +163,11 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         when(listener2.onUpdate(any())).thenThrow(new IllegalStateException());
 
-        watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
-        watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
+        watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, FOO_BYTES)));
+        watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, BAR_BYTES)));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry1 = new EntryImpl(FOO_BYTES, null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl(BAR_BYTES, null, 1, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
@@ -193,19 +196,19 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
                 .thenReturn(blockingFuture)
                 .thenReturn(nullCompletedFuture());
 
-        watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
-        watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, "bar".getBytes(UTF_8))));
+        watchProcessor.addWatch(new Watch(0, listener1, key -> Arrays.equals(key, FOO_BYTES)));
+        watchProcessor.addWatch(new Watch(0, listener2, key -> Arrays.equals(key, BAR_BYTES)));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
-        var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry1 = new EntryImpl(FOO_BYTES, null, 1, TIMESTAMP);
+        var entry2 = new EntryImpl(BAR_BYTES, null, 1, TIMESTAMP);
 
         watchProcessor.notifyWatches(1, List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
         verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
         verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
 
-        var entry3 = new EntryImpl("foo".getBytes(UTF_8), null, 2, TIMESTAMP);
-        var entry4 = new EntryImpl("bar".getBytes(UTF_8), null, 2, TIMESTAMP);
+        var entry3 = new EntryImpl(FOO_BYTES, null, 2, TIMESTAMP);
+        var entry4 = new EntryImpl(BAR_BYTES, null, 2, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(2, List.of(entry3, entry4), HybridTimestamp.MAX_VALUE);
 
@@ -228,9 +231,9 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
     void testEmptyEvents() {
         WatchListener listener = mockListener();
 
-        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, FOO_BYTES)));
 
-        var entry = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry = new EntryImpl(BAR_BYTES, null, 1, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry), HybridTimestamp.MAX_VALUE);
 
@@ -244,9 +247,9 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         WatchListener listener = mockListener();
         when(listener.onUpdate(any())).thenReturn(failedFuture(new RuntimeException("Oops")));
 
-        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, FOO_BYTES)));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry1 = new EntryImpl(FOO_BYTES, null, 1, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1), HybridTimestamp.MAX_VALUE);
 
@@ -278,9 +281,9 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         WatchListener listener = mockListener();
         when(listener.onUpdate(any())).thenReturn(failedFuture(new CompletionException(new NodeStoppingException())));
 
-        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, FOO_BYTES)));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry1 = new EntryImpl(FOO_BYTES, null, 1, TIMESTAMP);
 
         CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1), HybridTimestamp.MAX_VALUE);
 
@@ -295,9 +298,9 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         WatchListener listener = mock(WatchListener.class);
         when(listener.onUpdate(any())).thenReturn(listenerFuture);
 
-        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, FOO_BYTES)));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry1 = new EntryImpl(FOO_BYTES, null, 1, TIMESTAMP);
         var ts = new HybridTimestamp(1, 2);
 
         watchProcessor.notifyWatches(1, List.of(entry1), ts);
@@ -315,9 +318,9 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         WatchListener listener = mock(WatchListener.class);
         when(listener.onUpdate(any())).thenReturn(listenerFuture);
 
-        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, FOO_BYTES)));
 
-        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+        var entry1 = new EntryImpl(FOO_BYTES, null, 1, TIMESTAMP);
         HybridTimestamp entryTs = new HybridTimestamp(1, 2);
         HybridTimestamp laterTs = entryTs.addPhysicalTime(10);
 
