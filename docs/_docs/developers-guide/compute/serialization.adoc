@@ -40,11 +40,11 @@ tab:Java[]
 [source, java]
 ----
 try (IgniteClient client = IgniteClient.builder().addresses("address/to/cluster:port").build()) {
-    Integer result = client.compute().execute(
-        JobTarget.anyNode(client.clusterNodes()),
-        JobDescriptor.builder(IntegerComputeJob.class).build(),
-        1
-    );
+Integer result = client.compute().execute(
+JobTarget.anyNode(client.clusterNodes()),
+JobDescriptor.builder(IntegerComputeJob.class).build(),
+1
+);
 }
 ----
 
@@ -88,11 +88,11 @@ tab:Java[]
 [source, java]
 ----
 try (IgniteClient client = IgniteClient.builder().addresses("address/to/cluster:port").build()) {
-    Tuple resultTuple = client.compute().execute(
-        JobTarget.anyNode(client.clusterNodes()),
-        JobDescriptor.builder(TupleComputeJob.class).build(),
-        Tuple.create().set("col", "value")
-    );
+Tuple resultTuple = client.compute().execute(
+JobTarget.anyNode(client.clusterNodes()),
+JobDescriptor.builder(TupleComputeJob.class).build(),
+Tuple.create().set("col", "value")
+);
 }
 ----
 
@@ -244,8 +244,8 @@ tab:Java[]
 [source, java]
 ----
 class ArgumentCustomClientObject {
-    int arg1;
-    String arg2;
+int arg1;
+String arg2;
 }
 ----
 
@@ -266,14 +266,14 @@ tab:Java[]
 final ObjectMapper MAPPER = new ObjectMapper();
 
 class ArgumentCustomClientObjectMarshaller implements Marshaller<ArgumentCustomClientObject, byte[]> {
-    @Override
-    public byte @Nullable [] marshal(@Nullable ArgumentCustomClientObject object) throws UnsupportedObjectTypeMarshallingException {
-        try {
-            return MAPPER.writeValueAsBytes(object);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-    }
+@Override
+public byte @Nullable [] marshal(@Nullable ArgumentCustomClientObject object) throws UnsupportedObjectTypeMarshallingException {
+try {
+return MAPPER.writeValueAsBytes(object);
+} catch (JsonProcessingException e) {
+throw new RuntimeException(e);
+}
+}
 
     @Override
     public @Nullable ArgumentCustomClientObject unmarshal(byte @Nullable [] raw) throws UnsupportedObjectTypeMarshallingException {
@@ -311,21 +311,21 @@ tab:Java[]
 [source, java]
 ----
 class ResultCustomClientObject {
-    int res1;
-    String res2;
-    long res3;
+int res1;
+String res2;
+long res3;
 }
 
 
 class ResultCustomClientObjectMarshaller implements Marshaller<ResultCustomClientObject, byte[]> {
-    @Override
-    public byte @Nullable [] marshal(@Nullable ResultCustomClientObject object) throws UnsupportedObjectTypeMarshallingException {
-        try {
-            return MAPPER.writeValueAsBytes(object);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-    }
+@Override
+public byte @Nullable [] marshal(@Nullable ResultCustomClientObject object) throws UnsupportedObjectTypeMarshallingException {
+try {
+return MAPPER.writeValueAsBytes(object);
+} catch (JsonProcessingException e) {
+throw new RuntimeException(e);
+}
+}
 
     @Override
     public @Nullable ResultCustomClientObject unmarshal(byte @Nullable [] raw) throws UnsupportedObjectTypeMarshallingException {
@@ -357,15 +357,15 @@ tab:Java[]
 [source, java]
 ----
 try (IgniteClient client = IgniteClient.builder().addresses("address/to/cluster:port").build()) {
-    // Marshalling example of pojo.
-    ResultCustomClientObject resultPojo = client.compute().execute(
-        JobTarget.anyNode(client.clusterNodes()),
-        JobDescriptor.<ArgumentCustomClientObject, ResultCustomClientObject>builder(PojoComputeJob.class.getName())
-            .argumentMarshaller(new ArgumentCustomClientObjectMarshaller())
-            .resultMarshaller(new ResultCustomClientObjectMarshaller())
-            .build(),
-        new ArgumentCustomClientObject()
-    );
+// Marshalling example of pojo.
+ResultCustomClientObject resultPojo = client.compute().execute(
+JobTarget.anyNode(client.clusterNodes()),
+JobDescriptor.<ArgumentCustomClientObject, ResultCustomClientObject>builder(PojoComputeJob.class.getName())
+.argumentMarshaller(new ArgumentCustomClientObjectMarshaller())
+.resultMarshaller(new ResultCustomClientObjectMarshaller())
+.build(),
+new ArgumentCustomClientObject()
+);
 }
 ----
 
@@ -373,16 +373,16 @@ tab:.NET[]
 [source, csharp]
 ----
 using var client = await IgniteClient.StartAsync(
-    new IgniteClientConfiguration("address/to/cluster:port"));
+new IgniteClientConfiguration("address/to/cluster:port"));
 
 IJobExecution<ResultCustomClientObject> jobExec = await client.Compute.SubmitAsync(
-    JobTarget.AnyNode(await client.GetClusterNodesAsync()),
-    new JobDescriptor<ArgumentCustomClientObject, ResultCustomClientObject>("org.example.PojoComputeJob")
-    {
-        ArgMarshaller = new MyJsonMarshaller<ArgumentCustomClientObject>(),
-        ResultMarshaller = new MyJsonMarshaller<ResultCustomClientObject>()
-    },
-    new ArgumentCustomClientObject(1, "abc"));
+JobTarget.AnyNode(await client.GetClusterNodesAsync()),
+new JobDescriptor<ArgumentCustomClientObject, ResultCustomClientObject>("org.example.PojoComputeJob")
+{
+ArgMarshaller = new MyJsonMarshaller<ArgumentCustomClientObject>(),
+ResultMarshaller = new MyJsonMarshaller<ResultCustomClientObject>()
+},
+new ArgumentCustomClientObject(1, "abc"));
 
 ResultCustomClientObject result = await jobExec.GetResultAsync();
 ----
