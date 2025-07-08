@@ -217,7 +217,7 @@ public class PrepareServiceImpl implements PrepareService {
         metricManager.registerSource(sqlPlanCacheMetricSource);
         metricManager.enable(sqlPlanCacheMetricSource);
 
-        metricManager.registerSource(new ThreadPoolMetricSource(PLANNING_EXECUTOR_SOURCE_NAME, planningPool));
+        metricManager.registerSource(new ThreadPoolMetricSource(PLANNING_EXECUTOR_SOURCE_NAME, null, planningPool));
         metricManager.enable(PLANNING_EXECUTOR_SOURCE_NAME);
 
         IgnitePlanner.warmup();

@@ -201,7 +201,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     @Override
     public CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg) {
-        return send0(recipient, channelType, msg, null);
+        return send0(recipient, channelType, msg, null, true);
     }
 
     @Override
@@ -214,12 +214,24 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return send0(recipient, channelType, msg, null);
+        return send0(recipient, channelType, msg, null, false);
+    }
+
+    @Override
+    public CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg) {
+        ClusterNode recipient = topologyService.getByAddress(recipientNetworkAddress);
+
+        // Create a fake node for nodes that are not in the topology yet.
+        if (recipient == null) {
+            recipient = new ClusterNodeImpl(null, null, recipientNetworkAddress);
+        }
+
+        return send0(recipient, channelType, msg, null, false);
     }
 
     @Override
     public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
-        return send0(recipient, type, msg, correlationId);
+        return send0(recipient, type, msg, correlationId, true);
     }
 
     @Override
@@ -232,12 +244,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return respond(recipient, type, msg, correlationId);
+        return send0(recipient, type, msg, correlationId, false);
     }
 
     @Override
     public CompletableFuture<NetworkMessage> invoke(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
-        return invoke0(recipient, type, msg, timeout);
+        return invoke0(recipient, type, msg, timeout, true);
     }
 
     /** {@inheritDoc} */
@@ -251,7 +263,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             );
         }
 
-        return invoke0(recipient, type, msg, timeout);
+        return invoke0(recipient, type, msg, timeout, false);
     }
 
     /**
@@ -260,9 +272,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param recipient Target cluster node.
      * @param msg Message.
      * @param correlationId Correlation id. Not null iff the message is a response to a {@link #invoke} request.
+     * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
+     *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @return Future of the send operation.
      */
-    private CompletableFuture<Void> send0(ClusterNode recipient, ChannelType type, NetworkMessage msg, @Nullable Long correlationId) {
+    private CompletableFuture<Void> send0(
+            ClusterNode recipient,
+            ChannelType type,
+            NetworkMessage msg,
+            @Nullable Long correlationId,
+            boolean strictIdCheck
+    ) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -286,7 +306,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         NetworkMessage message = correlationId != null ? responseFromMessage(msg, correlationId) : msg;
 
-        return sendViaNetwork(recipient.id(), type, recipientAddress, message);
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck);
     }
 
     private boolean shouldDropMessage(ClusterNode recipient, NetworkMessage msg) {
@@ -301,9 +321,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param recipient Target cluster node.
      * @param msg Message.
      * @param timeout Invocation timeout.
+     * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
+     *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @return A future holding the response or error if the expected response was not received.
      */
-    private CompletableFuture<NetworkMessage> invoke0(ClusterNode recipient, ChannelType type, NetworkMessage msg, long timeout) {
+    private CompletableFuture<NetworkMessage> invoke0(
+            ClusterNode recipient,
+            ChannelType type,
+            NetworkMessage msg,
+            long timeout,
+            boolean strictIdCheck
+    ) {
         if (connectionManager.isStopped()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -329,7 +357,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         InvokeRequest message = requestFromMessage(msg, correlationId);
 
-        return sendViaNetwork(recipient.id(), type, recipientAddress, message).thenCompose(unused -> responseFuture);
+        return sendViaNetwork(recipient.id(), type, recipientAddress, message, strictIdCheck)
+                .thenCompose(unused -> responseFuture);
     }
 
     /**
@@ -339,17 +368,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param type Channel type for send.
      * @param addr Target address.
      * @param message Message.
-     *
+     * @param strictIdCheck Whether {@link RecipientLeftException} is to be thrown if the node at the other side of the channel
+     *     actually has ID different from the ID in the recipient object (that is, that the recipient has been restarted).
      * @return Future of the send operation.
      */
     private CompletableFuture<Void> sendViaNetwork(
             UUID nodeId,
             ChannelType type,
             InetSocketAddress addr,
-            NetworkMessage message
+            NetworkMessage message,
+            boolean strictIdCheck
     ) {
         if (isInNetworkThread()) {
-            return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message), outboundExecutor)
+            return CompletableFuture.supplyAsync(() -> sendViaNetwork(nodeId, type, addr, message, strictIdCheck), outboundExecutor)
                     .thenCompose(Function.identity());
         }
 
@@ -363,7 +394,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         return connectionManager.channel(nodeId, type, addr)
                 .thenComposeToCompletable(sender -> {
-                    if (nodeId != null && !sender.launchId().equals(nodeId)) {
+                    if (strictIdCheck && nodeId != null && !sender.launchId().equals(nodeId)) {
                         // The destination node has been rebooted, so it's a different node instance.
                         throw new RecipientLeftException("Target node ID is " + nodeId + ", but " + sender.launchId() + " responded");
                     }
