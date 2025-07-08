@@ -32,7 +32,7 @@ import org.jspecify.annotations.Nullable;
  * {@link ClientPartitionAwarenessMetadata partition awareness meta} and values of dynamic parameters.
  *
  * <p>The rationale behind this class is that we need to cache table schema and assignment somewhere, so we can reuse it
- * rather then request them every time from server on every query execution.
+ * rather than request them every time from server on every query execution.
  *
  * <p>Assignments are cached temporarily, and updated after certain time. See {@link ClientTable#getPartitionAssignment()} for details.
  */
