@@ -28,6 +28,6 @@ class NullStorageEngineTest {
     void doesNotHaveNonDestroyedTables() {
         var engine = new NullStorageEngine();
 
-        assertThat(engine.nonDestroyedTableIds(), is(empty()));
+        assertThat(engine.tableIdsOnDisk(), is(empty()));
     }
 }

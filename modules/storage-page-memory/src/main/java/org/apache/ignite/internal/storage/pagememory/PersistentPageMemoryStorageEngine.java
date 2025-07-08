@@ -397,7 +397,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     }
 
     @Override
-    public Set<Integer> nonDestroyedTableIds() {
+    public Set<Integer> tableIdsOnDisk() {
         return requireNonNull(filePageStoreManager, "Not started").allGroupIdsOnFs();
     }
 }

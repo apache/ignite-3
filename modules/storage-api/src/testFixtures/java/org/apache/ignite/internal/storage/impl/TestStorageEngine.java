@@ -68,7 +68,7 @@ public class TestStorageEngine implements StorageEngine {
     }
 
     @Override
-    public Set<Integer> nonDestroyedTableIds() {
+    public Set<Integer> tableIdsOnDisk() {
         return emptySet();
     }
 }

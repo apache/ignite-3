@@ -93,7 +93,13 @@ public class RocksDbStorageEngineTest extends AbstractPersistentStorageEngineTes
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-25854 - remove the override.
     @Override
-    protected void remembersCreatedTableIdsAsNonDestroyed(boolean restart) {
+    protected void remembersCreatedTableIdsOnDisk(boolean restart) {
+        // No-op.
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25854 - remove the override.
+    @Override
+    protected void tableIdsOnDiskGoAfterDestruction(boolean restart) {
         // No-op.
     }
 }

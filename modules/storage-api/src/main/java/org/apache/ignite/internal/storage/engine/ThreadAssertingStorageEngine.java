@@ -72,9 +72,9 @@ public class ThreadAssertingStorageEngine implements StorageEngine {
     }
 
     @Override
-    public Set<Integer> nonDestroyedTableIds() {
+    public Set<Integer> tableIdsOnDisk() {
         assertThreadAllowsToRead();
 
-        return storageEngine.nonDestroyedTableIds();
+        return storageEngine.tableIdsOnDisk();
     }
 }

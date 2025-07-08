@@ -22,15 +22,15 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -70,6 +70,11 @@ import org.mockito.Mock;
  * because it doesn't limit the usage of the engine with a single table.
  */
 public abstract class AbstractPersistentStorageEngineTest extends AbstractStorageEngineTest {
+    @Test
+    void isNonVolatile() {
+        assertFalse(storageEngine.isVolatile());
+    }
+
     /**
      * Tests that explicitly flushed data remains persistent on the device, when the engine is restarted.
      */
@@ -354,7 +359,7 @@ public abstract class AbstractPersistentStorageEngineTest extends AbstractStorag
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    protected void remembersCreatedTableIdsAsNonDestroyed(boolean restart) {
+    protected void remembersCreatedTableIdsOnDisk(boolean restart) {
         createTableStorageWithPartitionStorage(1);
         createTableStorageWithPartitionStorage(3);
 
@@ -362,10 +367,25 @@ public abstract class AbstractPersistentStorageEngineTest extends AbstractStorag
             restartEngine();
         }
 
-        assertThat(storageEngine.nonDestroyedTableIds(), containsInAnyOrder(1, 3));
+        assertThat(storageEngine.tableIdsOnDisk(), containsInAnyOrder(1, 3));
     }
 
-    private void createTableStorageWithPartitionStorage(int tableId) {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    protected void tableIdsOnDiskGoAfterDestruction(boolean restart) {
+        MvTableStorage tableStorage1 = createTableStorageWithPartitionStorage(1);
+        createTableStorageWithPartitionStorage(3);
+
+        assertThat(tableStorage1.destroy(), willCompleteSuccessfully());
+
+        if (restart) {
+            restartEngine();
+        }
+
+        assertThat(storageEngine.tableIdsOnDisk(), contains(3));
+    }
+
+    private MvTableStorage createTableStorageWithPartitionStorage(int tableId) {
         StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_STORAGE_PROFILE);
         StorageIndexDescriptorSupplier indexSupplier = mock(StorageIndexDescriptorSupplier.class);
 
@@ -375,12 +395,7 @@ public abstract class AbstractPersistentStorageEngineTest extends AbstractStorag
         assertThat(partitionStorageFuture, willCompleteSuccessfully());
 
         assertThat(partitionStorageFuture.join().flush(), willCompleteSuccessfully());
-    }
 
-    @Test
-    void doesNotHaveNonDestroyedTables() {
-        assumeTrue(storageEngine.isVolatile());
-
-        assertThat(storageEngine.nonDestroyedTableIds(), is(empty()));
+        return tableStorage;
     }
 }

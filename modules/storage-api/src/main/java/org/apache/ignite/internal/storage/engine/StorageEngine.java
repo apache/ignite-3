@@ -82,10 +82,10 @@ public interface StorageEngine {
     }
 
     /**
-     * Returns IDs of tables for which there are MV partition storages that were created, but they were not yet destroyed
-     * (or the destruction did not finish).
+     * Returns IDs of tables for which there are MV partition storages on disk. Those were created and flushed to disk; either
+     * destruction was not started for them, or it failed.
      */
-    default Set<Integer> nonDestroyedTableIds() {
+    default Set<Integer> tableIdsOnDisk() {
         return emptySet();
     }
 }

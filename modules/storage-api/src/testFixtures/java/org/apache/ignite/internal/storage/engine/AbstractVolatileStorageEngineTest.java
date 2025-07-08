@@ -35,6 +35,6 @@ public abstract class AbstractVolatileStorageEngineTest extends AbstractStorageE
 
     @Test
     void doesNotHaveNonDestroyedTables() {
-        assertThat(storageEngine.nonDestroyedTableIds(), is(empty()));
+        assertThat(storageEngine.tableIdsOnDisk(), is(empty()));
     }
 }
