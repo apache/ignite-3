@@ -94,11 +94,6 @@ import org.junit.jupiter.api.Test;
 
 class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
-    @Override
-    protected int initialNodes() {
-        return 4;
-    }
-
     @Test
     void testLearnerReplicaCreatedAfterStartingNewNode() {
         executeSql("CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS ALL, QUORUM SIZE 2) STORAGE PROFILES ['default']");
@@ -112,7 +107,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
             assertFalse(stableAssignments.stream().anyMatch(a -> !a.isPeer()), "no learners before starting new node");
         });
 
-        Ignite newNode = cluster.startNode((int) cluster.runningNodes().count());
+        Ignite newNode = cluster.startNode((int) cluster.runningNodes().count()); // starting a new node adds a learner
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
             Set<Assignment> stableAssignments = stablePartitionAssignments(cluster.node(0), "TEST");
@@ -151,7 +146,7 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         executeSql("CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
         executeSql("INSERT INTO TEST VALUES (1, 2)");
 
-        // 4 nodes, 2 quorum = 3 consensus + 1 learner
+        cluster.startNode((int) cluster.runningNodes().count()); // starting a new node adds a learner
         AtomicReference<IgniteImpl> learnerRef = new AtomicReference<>();
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
@@ -380,6 +375,8 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
             }
 
             IgniteBiTuple<K, V> invokeAndGetFirstRow() {
+                PublicApiThreading.setThreadRole(ApiEntryRole.SYNC_PUBLIC_API);
+
                 ClusterNode sender = node.clusterService().topologyService().localMember();
                 CompletableFuture<ReplicaResult> fut = replicaListener.invoke(request, sender.id());
 
