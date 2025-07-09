@@ -158,12 +158,11 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     }
 
     private long calculateTransactionDuration(UUID transactionId) {
-        // beginTimestamp(transactionId).getPhysical() == transactionId.getMostSignificantBits()
         return clockService.currentLong() - beginTimestamp(transactionId).getPhysical();
     }
 
     /** Holder. */
-    protected class Holder implements AbstractMetricSource.Holder<Holder> {
+    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
         private final LongAdderMetric totalCommits = new LongAdderMetric(
                 "TotalCommits",
                 "Total number of commits.");
