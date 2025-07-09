@@ -29,6 +29,7 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource.Holder;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Transaction metric source, that contains a set of transaction metrics.
@@ -66,11 +67,13 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
      * @param transactionId Transaction identifier.
      * @param commit {@code true} if a transaction was committed, and {@code false} otherwise.
      */
-    public void readWriteTxFinish(UUID transactionId, boolean commit) {
+    public void onReadWriteTransactionFinished(UUID transactionId, boolean commit) {
         Holder holder = holder();
 
         if (holder != null) {
             holder.rwDuration.add(calculateTransactionDuration(transactionId));
+
+            holder.activeTransactions.decrement();
 
             if (commit) {
                 holder.totalCommits.increment();
@@ -88,11 +91,13 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
      * @param transactionId Transaction identifier.
      * @param commit {@code true} if a transaction was committed, and {@code false} otherwise.
      */
-    public void readOnlyTxFinish(UUID transactionId, boolean commit) {
+    public void onReadOnlyTransactionFinished(UUID transactionId, boolean commit) {
         Holder holder = holder();
 
         if (holder != null) {
             holder.roDuration.add(calculateTransactionDuration(transactionId));
+
+            holder.activeTransactions.decrement();
 
             if (commit) {
                 holder.totalCommits.increment();
@@ -102,6 +107,49 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
                 holder.roRollbacks.increment();
             }
         }
+    }
+
+    /**
+     * Tracks a number of active transactions.
+     */
+    public void onTransactionStarted() {
+        Holder holder = holder();
+
+        if (holder != null) {
+            holder.activeTransactions.increment();
+        }
+    }
+
+    /**
+     * Returns a number of active transactions.
+     * If this metric source is not enabled, then always returns {@code 0}.
+     *
+     * @return Number of active transactions.
+     */
+    public long activeTransactions() {
+        Holder holder = holder();
+
+        if (holder != null) {
+            return holder.activeTransactions.value();
+        }
+
+        return 0L;
+    }
+
+    /**
+     * Returns a number of finished transactions.
+     * If this metric source is not enabled, then always returns {@code 0}.
+     *
+     * @return Number of finished transactions.
+     */
+    public long finishedTransactions() {
+        Holder holder = holder();
+
+        if (holder != null) {
+            return holder.totalCommits.value() + holder.totalRollbacks.value();
+        }
+
+        return 0L;
     }
 
     @Override
@@ -149,6 +197,11 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
                 "RoDuration",
                 ".",
                 HISTOGRAM_BUCKETS);
+
+        @TestOnly
+        private final LongAdderMetric activeTransactions = new LongAdderMetric(
+                "Active",
+                "Number of running transactions.");
 
         private final List<Metric> metrics = List.of(
                 totalCommits,

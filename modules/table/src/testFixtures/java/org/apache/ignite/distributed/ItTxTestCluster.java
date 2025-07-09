@@ -93,7 +93,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.metrics.TestMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -616,7 +616,7 @@ public class ItTxTestCluster {
                 executor,
                 new NoOpFailureManager(),
                 new SystemPropertiesNodeProperties(),
-                new NoOpMetricManager()
+                new TestMetricManager()
         );
     }
 
@@ -1331,7 +1331,7 @@ public class ItTxTestCluster {
                 executor,
                 new NoOpFailureManager(),
                 new SystemPropertiesNodeProperties(),
-                new NoOpMetricManager()
+                new TestMetricManager()
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(
