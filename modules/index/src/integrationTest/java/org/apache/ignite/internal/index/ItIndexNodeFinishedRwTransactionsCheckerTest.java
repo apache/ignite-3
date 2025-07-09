@@ -46,7 +46,6 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.impl.TestMvPartitionStorageFactory;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -56,7 +55,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -116,11 +114,6 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
         dropAllZonesExceptDefaultOne();
 
         beforeAddWriteCommittedFunction = null;
-    }
-
-    @AfterAll
-    static void afterAll() {
-        TestMvTableStorage.partitionStorageFactory(TestMvPartitionStorageFactory.DEFAULT);
     }
 
     @Test

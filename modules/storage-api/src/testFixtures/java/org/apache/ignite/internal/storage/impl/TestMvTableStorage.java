@@ -431,9 +431,15 @@ public class TestMvTableStorage implements MvTableStorage {
      * Sets the {@link TestMvPartitionStorage} factory. Useful when you need to change the behavior of a method in a test, for example. If
      * you use setting mock stubs after creating a storage, you can get into a race and as a result get {@link UnfinishedStubbingException}.
      *
-     * <p>After running a test or test class, you must set the {@link TestMvPartitionStorageFactory#DEFAULT}.</p>
+     * <p>After running a test or test class, you must set the {@link TestMvPartitionStorageFactory#DEFAULT} or invoke
+     * {@link #resetPartitionStorageFactory}.</p>
      */
     public static void partitionStorageFactory(TestMvPartitionStorageFactory factory) {
         partitionStorageFactory = factory;
+    }
+
+    /** Sets the {@link TestMvPartitionStorageFactory#DEFAULT} factory. */
+    public static void resetPartitionStorageFactory() {
+        partitionStorageFactory = TestMvPartitionStorageFactory.DEFAULT;
     }
 }
