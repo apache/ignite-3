@@ -177,7 +177,7 @@ public class ConfigurationTreeComparatorSelfTest {
      * Check {@link ConfigurationModule#deletedPrefixes()} functionality.
      */
     @Test
-    void testDeleted() {
+    void testDeletedProperty() {
         // Build previous version config tree.
         ConfigNode root = new ConfigNode(null, Map.of(Attributes.NAME, "root"), List.of(),
                 EnumSet.of(Flags.IS_ROOT), Set.of());
@@ -188,17 +188,7 @@ public class ConfigurationTreeComparatorSelfTest {
         ConfigNode legacyProp = new ConfigNode(root, Map.of(Attributes.NAME, "legacyProperty"), List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of());
 
-        ConfigNode compoundProp = new ConfigNode(root, Map.of(Attributes.NAME, "list"), List.of(),
-                EnumSet.of(Flags.IS_INTERNAL), Set.of());
-
-        ConfigNode firstMemberOfCompoundProp = new ConfigNode(compoundProp, Map.of(Attributes.NAME, "firstProperty"), List.of(),
-                EnumSet.of(Flags.IS_VALUE), Set.of());
-        ConfigNode secondMemberOfCompoundProp = new ConfigNode(compoundProp, Map.of(Attributes.NAME, "secondProperty"), List.of(),
-                EnumSet.of(Flags.IS_VALUE), Set.of());
-
-        compoundProp.addChildNodes(firstMemberOfCompoundProp, secondMemberOfCompoundProp);
-
-        root.addChildNodes(singleProp, legacyProp, compoundProp);
+        root.addChildNodes(singleProp, legacyProp);
 
         List<ConfigNode> snapshotMetadata = List.of(root);
 
@@ -209,10 +199,7 @@ public class ConfigurationTreeComparatorSelfTest {
         singleProp = new ConfigNode(root, Map.of(Attributes.NAME, "property"), List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of());
 
-        compoundProp = new ConfigNode(root, Map.of(Attributes.NAME, "list"), List.of(),
-                EnumSet.of(Flags.IS_INTERNAL), Set.of());
-
-        root.addChildNodes(List.of(singleProp, compoundProp));
+        root.addChildNodes(List.of(singleProp));
 
         List<ConfigNode> currentMetadata = List.of(root);
 
@@ -224,7 +211,7 @@ public class ConfigurationTreeComparatorSelfTest {
 
             @Override
             public Collection<String> deletedPrefixes() {
-                return List.of("root.legacyProperty", "root.list.*");
+                return List.of("root.legacyProperty");
             }
         };
 
@@ -241,7 +228,75 @@ public class ConfigurationTreeComparatorSelfTest {
 
             @Override
             public Collection<String> deletedPrefixes() {
-                return List.of("root.legacyProperty_notExist", "root.list.*");
+                return List.of("root.legacyProperty_notExist");
+            }
+        };
+
+        allModules = Set.of(configModule);
+
+        assertIncompatible(snapshotMetadata, currentMetadata, allModules);
+    }
+
+    /**
+     * Check {@link ConfigurationModule#deletedPrefixes()} functionality.
+     */
+    @Test
+    void testDeletedSubtree() {
+        // Build previous version config tree.
+        ConfigNode root = new ConfigNode(null, Map.of(Attributes.NAME, "root"), List.of(),
+                EnumSet.of(Flags.IS_ROOT), Set.of());
+
+        ConfigNode compoundProp = new ConfigNode(root, Map.of(Attributes.NAME, "list"), List.of(),
+                EnumSet.of(Flags.IS_INTERNAL), Set.of());
+
+        ConfigNode firstMemberOfCompoundProp = new ConfigNode(compoundProp, Map.of(Attributes.NAME, "firstProperty"), List.of(),
+                EnumSet.of(Flags.IS_VALUE), Set.of());
+        ConfigNode secondMemberOfCompoundProp = new ConfigNode(compoundProp, Map.of(Attributes.NAME, "secondProperty"), List.of(),
+                EnumSet.of(Flags.IS_VALUE), Set.of());
+
+        compoundProp.addChildNodes(firstMemberOfCompoundProp, secondMemberOfCompoundProp);
+
+        root.addChildNodes(compoundProp);
+
+        List<ConfigNode> snapshotMetadata = List.of(root);
+
+        // Build next version config tree. Some properties are marked as deleted.
+        root = new ConfigNode(null, Map.of(Attributes.NAME, "root"), List.of(),
+                EnumSet.of(Flags.IS_ROOT), Set.of());
+
+        compoundProp = new ConfigNode(root, Map.of(Attributes.NAME, "list"), List.of(),
+                EnumSet.of(Flags.IS_INTERNAL), Set.of());
+
+        root.addChildNodes(List.of(compoundProp));
+
+        List<ConfigNode> currentMetadata = List.of(root);
+
+        ConfigurationModule configModule = new ConfigurationModule() {
+            @Override
+            public ConfigurationType type() {
+                return ConfigurationType.LOCAL;
+            }
+
+            @Override
+            public Collection<String> deletedPrefixes() {
+                return List.of("root.list.*");
+            }
+        };
+
+        Set<ConfigurationModule> allModules = Set.of(configModule);
+
+        assertCompatible(snapshotMetadata, currentMetadata, allModules);
+
+        // missed deleted properties
+        configModule = new ConfigurationModule() {
+            @Override
+            public ConfigurationType type() {
+                return ConfigurationType.LOCAL;
+            }
+
+            @Override
+            public Collection<String> deletedPrefixes() {
+                return List.of("root.list_notExist.*");
             }
         };
 
@@ -324,10 +379,7 @@ public class ConfigurationTreeComparatorSelfTest {
         ConfigNode node1Ver1 = new ConfigNode(root, Map.of(Attributes.NAME, "oldTestCount"), List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of());
 
-        ConfigNode node2Ver1 = new ConfigNode(root, Map.of(Attributes.NAME, "fixed"), List.of(),
-                EnumSet.of(Flags.IS_VALUE), Set.of());
-
-        root.addChildNodes(node1Ver1, node2Ver1);
+        root.addChildNodes(node1Ver1);
 
         List<ConfigNode> metadataVer1 = List.of(root);
 
@@ -338,20 +390,17 @@ public class ConfigurationTreeComparatorSelfTest {
                 List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of("oldTestCount"));
 
-        ConfigNode node2Ver2 = new ConfigNode(root, Map.of(Attributes.NAME, "fixed"), List.of(),
-                EnumSet.of(Flags.IS_VALUE), Set.of());
-
-        root.addChildNodes(node1Ver2, node2Ver2);
+        root.addChildNodes(node1Ver2);
 
         List<ConfigNode> metadataVer2 = List.of(root);
 
         root = new ConfigNode(null, Map.of(Attributes.NAME, "root"), List.of(),
                 EnumSet.of(Flags.IS_ROOT), Set.of());
 
-        ConfigNode node2Ver3 = new ConfigNode(root, Map.of(Attributes.NAME, "fixed"), List.of(),
+        ConfigNode node = new ConfigNode(root, Map.of(Attributes.NAME, "fixed"), List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of());
 
-        root.addChildNodes(node2Ver3);
+        root.addChildNodes(node);
 
         List<ConfigNode> metadataVer3 = List.of(root);
 
