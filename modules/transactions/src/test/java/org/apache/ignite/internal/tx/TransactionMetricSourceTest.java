@@ -37,7 +37,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * If you want to change the name, or add a new metric, please don't forget to update the corresponding documentation.
  */
 @ExtendWith(MockitoExtension.class)
-public class TransactionMetricsTest extends BaseIgniteAbstractTest {
+public class TransactionMetricSourceTest extends BaseIgniteAbstractTest {
     @Mock
     ClockService clockService;
 

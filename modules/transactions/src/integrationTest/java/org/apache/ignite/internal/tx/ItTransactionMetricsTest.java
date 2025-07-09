@@ -17,31 +17,18 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilizationOnDefaultZone;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
@@ -66,8 +53,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
     void createTable() throws Exception {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-25283 Remove
-        awaitAssignmentsStabilization(CLUSTER.aliveNode());
+        awaitAssignmentsStabilizationOnDefaultZone(CLUSTER.aliveNode());
     }
 
     /**
@@ -266,32 +252,5 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
 
         assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + 1));
         assertThat(actualMetrics0.get("RoCommits"), is(metrics0.get("RoCommits") + 1));
-    }
-
-    private static void awaitAssignmentsStabilization(Ignite node) throws InterruptedException {
-        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
-        TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-        int tableOrZoneId = colocationEnabled() ? table.zoneId() : table.tableId();
-
-        HybridTimestamp timestamp = igniteImpl.clock().now();
-
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
-            int totalPartitionSize = 0;
-
-            // Within given test default zone is used.
-            for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
-                CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
-                        colocationEnabled()
-                                ? new ZonePartitionId(tableOrZoneId, p)
-                                : new TablePartitionId(tableOrZoneId, p),
-                        timestamp);
-
-                assertThat(assignmentsFuture, willCompleteSuccessfully());
-
-                totalPartitionSize += assignmentsFuture.join().nodes().size();
-            }
-
-            return totalPartitionSize == DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT;
-        }, 10_000));
     }
 }
