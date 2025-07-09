@@ -243,6 +243,27 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         expectEarliestCatalogVersion(catalogVersion3 - 1);
     }
 
+    @Test
+    void droppedZoneCompacted() {
+        String ZONE_NAME = "zone1";
+        String TABLE_NAME = "table1";
+        sql(format(
+                "create zone {} (partitions {}) storage profiles ['{}','{}']",
+                ZONE_NAME,
+                10,
+                DEFAULT_AIMEM_PROFILE_NAME,
+                DEFAULT_ROCKSDB_PROFILE_NAME
+        ));
+        sql(format("create table {}(id int primary key) zone {}", TABLE_NAME, ZONE_NAME));
+        sql(format("drop table {}", TABLE_NAME));
+        sql(format("drop zone {}", ZONE_NAME));
+
+        sql(format("alter zone {} set auto scale up {}", "\"Default\"", 10));
+
+        int catalogVersion = getLatestCatalogVersion(node(0));
+        expectEarliestCatalogVersion(catalogVersion - 1);
+    }
+
     private InternalTransaction beginTx(Ignite node, boolean readOnly) {
         TransactionOptions txOptions = new TransactionOptions().readOnly(readOnly);
         InternalTransaction tx = (InternalTransaction) node.transactions().begin(txOptions);
