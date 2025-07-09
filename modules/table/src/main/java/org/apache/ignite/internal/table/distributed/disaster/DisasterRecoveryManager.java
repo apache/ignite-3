@@ -846,7 +846,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                     tableLocalPartitionStateMessageByNode.put(nodeName, tableLocalPartitionStateMessage);
                 }
-                res.put(tablePartitionId, tableLocalPartitionStateMessageByNode);
+
+                if (!tableLocalPartitionStateMessageByNode.values().isEmpty()) {
+                    res.put(tablePartitionId, tableLocalPartitionStateMessageByNode);
+                }
             }
         }
 
