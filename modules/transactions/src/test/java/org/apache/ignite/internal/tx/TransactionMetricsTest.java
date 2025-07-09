@@ -25,15 +25,19 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests metric source name and transaction metric names.
  * If you want to change the name, or add a new metric, please don't forget to update the corresponding documentation.
  */
-public class TransactionMetricsTest {
+@ExtendWith(MockitoExtension.class)
+public class TransactionMetricsTest extends BaseIgniteAbstractTest {
     @Mock
     ClockService clockService;
 
