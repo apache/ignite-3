@@ -50,7 +50,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     };
 
     /** Source name. */
-    static final String SOURCE_NAME = "transactions";
+    public static final String SOURCE_NAME = "transactions";
 
     /** Clock service to calculate a timestamp for rolled back transactions. */
     private final ClockService clockService;
@@ -74,7 +74,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     public void readWriteTxFinish(UUID transactionId, boolean commit) {
         Holder holder = holder();
 
-//        log.warn(">>>>> readWriteTxFinish [enabled=" + (holder != null));
+        log.warn(">>>>> readWriteTxFinish [enabled=" + (holder != null));
         if (holder != null) {
             holder.rwDuration.add(calculateTransactionDuration(transactionId));
 
@@ -97,7 +97,7 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     public void readOnlyTxFinish(UUID transactionId, boolean commit) {
         Holder holder = holder();
 
-//        log.warn(">>>>> readOnlyTxFinish [enabled=" + (holder != null));
+        log.warn(">>>>> readOnlyTxFinish [enabled=" + (holder != null));
         if (holder != null) {
             holder.roDuration.add(calculateTransactionDuration(transactionId));
 
