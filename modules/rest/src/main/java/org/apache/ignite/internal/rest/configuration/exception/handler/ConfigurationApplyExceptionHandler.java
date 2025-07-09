@@ -17,28 +17,28 @@
 
 package org.apache.ignite.internal.rest.configuration.exception.handler;
 
-import com.typesafe.config.ConfigException;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.configuration.NodeConfigWriteException;
+import org.apache.ignite.internal.configuration.exception.ConfigurationApplyException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 
 /**
- * REST exception handler for {@link NodeConfigWriteException}.
+ * REST exception handler for {@link ConfigurationApplyException}.
  */
 @Singleton
-@Requires(classes = {ConfigException.Parse.class, ExceptionHandler.class})
-public class NodeConfigParseExceptionHandler implements ExceptionHandler<ConfigException.Parse, HttpResponse<? extends Problem>> {
+@Requires(classes = {ConfigurationApplyException.class, ExceptionHandler.class})
+public class ConfigurationApplyExceptionHandler implements ExceptionHandler<ConfigurationApplyException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, ConfigException.Parse exception) {
+    public HttpResponse<? extends Problem> handle(HttpRequest request, ConfigurationApplyException exception) {
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.UNPROCESSABLE_ENTITY)
-                        .title("Failed to parse configuration")
+                Problem.fromHttpCode(HttpCode.BAD_REQUEST)
+                        .title("Failed to apply configuration")
+                        .traceId(exception.traceId())
                         .detail(exception.getMessage()).build()
         );
     }

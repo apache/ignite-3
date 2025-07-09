@@ -101,7 +101,7 @@ public interface NodeConfigurationApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "405", description = "Configuration is read-only.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "422", description = "Configuration parse error.",
+    @ApiResponse(responseCode = "422", description = "Configuration parse/apply error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
     @Produces(MediaType.PROBLEM_JSON)

@@ -38,6 +38,7 @@ public class NodeConfigWriteExceptionHandler implements ExceptionHandler<NodeCon
         return HttpProblemResponse.from(
                 Problem.fromHttpCode(HttpCode.METHOD_NOT_ALLOWED)
                         .title("Failed to apply configuration")
+                        .traceId(exception.traceId())
                         .detail(exception.getMessage()).build()
         );
     }

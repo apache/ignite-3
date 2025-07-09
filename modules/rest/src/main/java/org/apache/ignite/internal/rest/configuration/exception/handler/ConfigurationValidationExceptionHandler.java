@@ -15,39 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.exception.handler;
+package org.apache.ignite.internal.rest.configuration.exception.handler;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
-import java.util.Set;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.exception.ConfigurationValidationIgniteException;
+import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
-import org.apache.ignite.lang.ErrorGroups.Table;
-import org.apache.ignite.lang.IgniteException;
 
 /**
- * Handles {@link IgniteException} and represents it as an application/problem+json response.
+ * REST exception handler for {@link ConfigurationValidationIgniteException}.
  */
 @Singleton
-@Requires(classes = {IgniteException.class, ExceptionHandler.class})
-public class IgniteExceptionHandler implements ExceptionHandler<IgniteException, HttpResponse<? extends Problem>> {
-    private static final Set<Integer> BAD_REQUEST_CODES = Set.of(Table.TABLE_NOT_FOUND_ERR);
-
+@Requires(classes = {ConfigurationValidationExceptionHandler.class, ExceptionHandler.class})
+public class ConfigurationValidationExceptionHandler
+        implements ExceptionHandler<ConfigurationValidationIgniteException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) {
-
-        if (exception.getCause() instanceof IllegalArgumentException || BAD_REQUEST_CODES.contains(exception.code())) {
-            return HttpProblemResponse.from(
-                    Problem.fromIgniteException(exception, HttpCode.BAD_REQUEST).build()
-            );
-        }
-
+    public HttpResponse<? extends Problem> handle(HttpRequest request, ConfigurationValidationIgniteException exception) {
         return HttpProblemResponse.from(
-                Problem.fromIgniteException(exception, HttpCode.INTERNAL_SERVER_ERROR).build()
+                Problem.fromIgniteException(exception, HttpCode.BAD_REQUEST)
+                        .invalidParams(mapValidationIssuesToRestFormat(exception))
+                        .build()
         );
+    }
+
+    private static List<InvalidParam> mapValidationIssuesToRestFormat(ConfigurationValidationIgniteException exception) {
+        return exception.issues()
+                .stream()
+                .map(validationIssue -> new InvalidParam(validationIssue.key(), validationIssue.message()))
+                .collect(Collectors.toList());
     }
 }

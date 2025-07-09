@@ -15,39 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.exception.handler;
+package org.apache.ignite.internal.rest.configuration.exception.handler;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
-import java.util.Set;
+import org.apache.ignite.internal.configuration.NodeConfigWriteException;
+import org.apache.ignite.internal.configuration.exception.ConfigurationParseException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
-import org.apache.ignite.lang.ErrorGroups.Table;
-import org.apache.ignite.lang.IgniteException;
 
 /**
- * Handles {@link IgniteException} and represents it as an application/problem+json response.
+ * REST exception handler for {@link NodeConfigWriteException}.
  */
 @Singleton
-@Requires(classes = {IgniteException.class, ExceptionHandler.class})
-public class IgniteExceptionHandler implements ExceptionHandler<IgniteException, HttpResponse<? extends Problem>> {
-    private static final Set<Integer> BAD_REQUEST_CODES = Set.of(Table.TABLE_NOT_FOUND_ERR);
-
+@Requires(classes = {ConfigurationParseException.class, ExceptionHandler.class})
+public class ConfigurationParseExceptionHandler implements ExceptionHandler<ConfigurationParseException, HttpResponse<? extends Problem>> {
     @Override
-    public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) {
-
-        if (exception.getCause() instanceof IllegalArgumentException || BAD_REQUEST_CODES.contains(exception.code())) {
-            return HttpProblemResponse.from(
-                    Problem.fromIgniteException(exception, HttpCode.BAD_REQUEST).build()
-            );
-        }
-
+    public HttpResponse<? extends Problem> handle(HttpRequest request, ConfigurationParseException exception) {
         return HttpProblemResponse.from(
-                Problem.fromIgniteException(exception, HttpCode.INTERNAL_SERVER_ERROR).build()
+                Problem.fromHttpCode(HttpCode.UNPROCESSABLE_ENTITY)
+                        .title("Failed to parse configuration")
+                        .traceId(exception.traceId())
+                        .detail(exception.getMessage())
+                        .build()
         );
     }
 }
