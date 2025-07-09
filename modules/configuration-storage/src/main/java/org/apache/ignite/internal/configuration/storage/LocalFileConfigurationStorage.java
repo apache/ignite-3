@@ -37,6 +37,7 @@ import com.typesafe.config.impl.ConfigImpl;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -363,18 +364,25 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
 
     /** Check that configuration file still exists and restore it with latest applied state in case it was deleted. */
     private void checkAndRestoreConfigFile() {
-        if (!configPath.toFile().exists()) {
+        if (Files.notExists(configPath)) {
             try {
-                if (configPath.toFile().createNewFile()) {
-                    if (!latest.isEmpty()) {
-                        saveConfigFile();
-                    }
-                } else {
-                    throw new NodeConfigCreateException("Failed to re-create config file");
+                Files.createFile(configPath);
+
+                if (!latest.isEmpty()) {
+                    saveConfigFile();
                 }
+            } catch (FileAlreadyExistsException e) {
+                throw new NodeConfigCreateException("Failed to re-create config file.", e);
             } catch (IOException e) {
                 throw new NodeConfigWriteException("Failed to restore config file.", e);
             }
+        } else if (!Files.isWritable(configPath)) {
+            readOnly = true;
+
+            LOG.warn(
+                    "Configuration file '{}' is read-only. All dynamic configuration updates will be lost after node restart.",
+                    configPath
+            );
         }
     }
 
