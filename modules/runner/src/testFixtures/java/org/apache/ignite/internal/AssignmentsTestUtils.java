@@ -19,12 +19,11 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
@@ -51,19 +50,21 @@ public class AssignmentsTestUtils {
     public static void awaitAssignmentsStabilization(Ignite node, String tableName) throws InterruptedException {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
         TableImpl table = unwrapTableImpl(node.tables().table(tableName));
-        int tableOrZoneId = colocationEnabled() ? table.zoneId() : table.tableId();
+
+        Catalog catalog = igniteImpl.catalogManager().catalog(igniteImpl.catalogManager().latestCatalogVersion());
+        CatalogZoneDescriptor zone = catalog.zone(table.zoneId());
+        assertNotNull(zone);
 
         HybridTimestamp timestamp = igniteImpl.clock().now();
 
         assertTrue(waitForCondition(() -> {
             int totalPartitionSize = 0;
 
-            // Within given test default zone is used.
-            for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
+            for (int p = 0; p < zone.partitions(); p++) {
                 CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
                         colocationEnabled()
-                                ? new ZonePartitionId(tableOrZoneId, p)
-                                : new TablePartitionId(tableOrZoneId, p),
+                                ? new ZonePartitionId(table.zoneId(), p)
+                                : new TablePartitionId(table.tableId(), p),
                         timestamp);
 
                 assertThat(assignmentsFuture, willCompleteSuccessfully());
@@ -71,7 +72,7 @@ public class AssignmentsTestUtils {
                 totalPartitionSize += assignmentsFuture.join().nodes().size();
             }
 
-            return totalPartitionSize == DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT;
+            return totalPartitionSize == zone.partitions() * zone.replicas();
         }, 10_000));
     }
 
@@ -85,14 +86,14 @@ public class AssignmentsTestUtils {
         Catalog catalog = igniteImpl.catalogManager().catalog(igniteImpl.catalogManager().latestCatalogVersion());
 
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+        assertNotNull(defaultZone);
 
         assertTrue(waitForCondition(() -> {
             HybridTimestamp timestamp = igniteImpl.clock().now();
 
             int totalPartitionSize = 0;
 
-            // Within given test default zone is used.
-            for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
+            for (int p = 0; p < defaultZone.partitions(); p++) {
                 CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver()
                         .getAssignments(new ZonePartitionId(defaultZone.id(), p), timestamp);
 
