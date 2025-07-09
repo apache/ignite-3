@@ -177,7 +177,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
     /** Creates column mapping regarding the projection. */
     public static Mappings.TargetMapping createMapping(
             @Nullable List<RexNode> projects,
-            ImmutableIntList requiredColumns,
+            @Nullable ImmutableIntList requiredColumns,
             int tableRowSize
     ) {
         if (projects != null) {

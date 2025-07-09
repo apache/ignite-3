@@ -46,7 +46,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final RowFactory<RowT> rowFactory;
 
-    private final @Nullable int[] requiredColumns;
+    private final int @Nullable [] requiredColumns;
 
     /**
      * Constructor.

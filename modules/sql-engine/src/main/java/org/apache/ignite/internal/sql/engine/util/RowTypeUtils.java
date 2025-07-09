@@ -41,12 +41,12 @@ public final class RowTypeUtils {
     }
 
     /**
-     * Compute stored rows count for provided table.
+     * Compute stored columns count for provided table.
      *
      * @param tableDescriptor Table descriptor.
-     * @return Stored rows count.
+     * @return Stored columns count.
      */
-    public static int storedRowsCount(TableDescriptor tableDescriptor) {
+    public static int storedColumnsCount(TableDescriptor tableDescriptor) {
         int count = 0;
         for (ColumnDescriptor descriptor : tableDescriptor) {
             count += descriptor.virtual() ? 0 : 1;

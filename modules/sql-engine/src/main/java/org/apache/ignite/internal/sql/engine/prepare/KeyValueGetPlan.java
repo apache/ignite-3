@@ -200,7 +200,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final RowHandler<RowT> rowHandler;
         private final RowFactory<RowT> tableRowFactory;
         private final SqlRowProvider<RowT> keySupplier;
-        private final int[] requiredColumns;
+        private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
         private SimpleLookupExecution(
@@ -208,7 +208,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 RowHandler<RowT> rowHandler,
                 RowFactory<RowT> tableRowFactory,
                 SqlRowProvider<RowT> keySupplier,
-                ImmutableIntList requiredColumns,
+                @Nullable ImmutableIntList requiredColumns,
                 SchemaAwareConverter<Object, Object> internalTypeConverter
         ) {
             this.table = table;

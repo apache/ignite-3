@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.benchmark;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchTables;
@@ -40,7 +39,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmark that runs sql queries from TPC-H suite via embedded client.
+ * Benchmark that runs sql queries on TPC-H dataset via embedded client.
  */
 @State(Scope.Benchmark)
 @Fork(1)
@@ -70,18 +69,8 @@ public class SqlSelectAllBenchmark extends AbstractTpcBenchmark {
     }
 
     @Override
-    protected Path workDir() throws Exception {
-        return Paths.get("/Users/amashenkov/w/ignite-3/modules/runner/work/");
-    }
-
-    @Override
-    protected int nodes() {
-        return 1;
-    }
-
-    @Override
     Path pathToDataset() {
-        return Paths.get("/Users/amashenkov/w/datasets/tpc-h/sf-0.1");
+        throw new RuntimeException("Provide path to directory containing <table_name>.tbl files");
     }
 
     @Param({

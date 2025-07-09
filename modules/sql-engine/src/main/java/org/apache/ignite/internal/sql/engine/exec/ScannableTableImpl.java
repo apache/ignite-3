@@ -55,7 +55,7 @@ public class ScannableTableImpl implements ScannableTable {
     /** {@inheritDoc} */
     @Override
     public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-            RowFactory<RowT> rowFactory,  int[] requiredColumns) {
+            RowFactory<RowT> rowFactory, int @Nullable [] requiredColumns) {
 
         Publisher<BinaryRow> pub;
         TxAttributes txAttributes = ctx.txAttributes();

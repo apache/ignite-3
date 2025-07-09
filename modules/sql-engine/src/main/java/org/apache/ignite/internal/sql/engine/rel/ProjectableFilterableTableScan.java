@@ -66,7 +66,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     protected final @Nullable List<String> names;
 
     /** Participating columns. */
-    protected final ImmutableIntList requiredColumns;
+    protected final @Nullable ImmutableIntList requiredColumns;
 
     protected ProjectableFilterableTableScan(
             RelOptCluster cluster,
@@ -118,7 +118,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     /**
      * Get participating columns.
      */
-    public ImmutableIntList requiredColumns() {
+    public @Nullable ImmutableIntList requiredColumns() {
         return requiredColumns;
     }
 

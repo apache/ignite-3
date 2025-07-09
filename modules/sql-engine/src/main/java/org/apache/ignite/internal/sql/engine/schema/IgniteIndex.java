@@ -149,9 +149,9 @@ public class IgniteIndex {
             RelOptCluster cluster,
             RelOptTable relOptTable,
             @Nullable List<String> names,
-            List<RexNode> proj,
-            RexNode condition,
-            ImmutableIntList requiredCols
+            @Nullable List<RexNode> proj,
+            @Nullable RexNode condition,
+            @Nullable ImmutableIntList requiredCols
     ) {
         RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
                 .replace(tableDistribution)
