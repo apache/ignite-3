@@ -566,7 +566,7 @@ public class RexUtils {
                 } else {
                     val = saturatedLiteral.value;
 
-                    saturatedLookup = saturatedLiteral.trimmed;
+                    saturatedLookup = saturatedLiteral.saturated;
                 }
             }
 
@@ -1224,14 +1224,14 @@ public class RexUtils {
         }
 
         BigDecimal newVal;
-        boolean trimmed = false;
+        boolean saturated = false;
 
         if (lower.compareTo(val) > 0) {
             newVal = lower;
-            trimmed = true;
+            saturated = true;
         } else if (val.compareTo(upper) > 0) {
             newVal = upper;
-            trimmed = true;
+            saturated = true;
         } else if (!SqlTypeUtil.equalSansNullability(node.getType(), type)) {
             newVal = val;
         } else {
@@ -1246,7 +1246,7 @@ public class RexUtils {
             lit = builder.makeApproxLiteral(newVal, type);
         }
 
-        return new SaturatedLiteral(lit, trimmed);
+        return new SaturatedLiteral(lit, saturated);
     }
 
     /**
@@ -1398,11 +1398,11 @@ public class RexUtils {
         final RexLiteral value;
 
         /** Flag indicating whether the numeric value has been saturated or the original value is used. */
-        final boolean trimmed;
+        final boolean saturated;
 
         private SaturatedLiteral(RexLiteral value, boolean trimmed) {
             this.value = value;
-            this.trimmed = trimmed;
+            this.saturated = trimmed;
         }
     }
 }
