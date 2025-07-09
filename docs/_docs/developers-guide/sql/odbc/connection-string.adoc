@@ -75,7 +75,7 @@ This argument value is ignored if `ADDRESS` argument is specified.
 |None.
 
 |`SSL_KEY_FILE`
-|Specifies the name of the file containing the SSL server private key.
+|Specifies the path to the file containing the SSL server private key.
 |None.
 
 |`SSL_CERT_FILE`
