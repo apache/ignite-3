@@ -303,7 +303,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private boolean isSystemGroup = false;
 
-    private Queue<ByteBufferCollector> appendEntriesByteBufferCollectorQueue;
+    private ByteBufferCollectorPool appendEntriesByteBufferCollectorPool;
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
@@ -783,7 +783,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setLogStripesCount(this.getLogStripesCount());
         nodeOptions.setLogYieldStrategy(this.isLogYieldStrategy());
         nodeOptions.setNodeManager(this.getNodeManager());
-        nodeOptions.setAppendEntriesByteBufferCollectorQueue(this.getAppendEntriesByteBufferCollectorQueue());
+        nodeOptions.setAppendEntriesByteBufferCollectorPool(this.getAppendEntriesByteBufferCollectorPool());
 
         return nodeOptions;
     }
@@ -841,11 +841,11 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.externallyEnforcedConfigIndex = index;
     }
 
-    public void setAppendEntriesByteBufferCollectorQueue(Queue<ByteBufferCollector> appendEntriesQueue) {
-        this.appendEntriesByteBufferCollectorQueue = appendEntriesQueue;
+    public void setAppendEntriesByteBufferCollectorPool(ByteBufferCollectorPool bufferCollectorPool) {
+        this.appendEntriesByteBufferCollectorPool = bufferCollectorPool;
     }
 
-    public Queue<ByteBufferCollector> getAppendEntriesByteBufferCollectorQueue() {
-        return appendEntriesByteBufferCollectorQueue;
+    public ByteBufferCollectorPool getAppendEntriesByteBufferCollectorPool() {
+        return appendEntriesByteBufferCollectorPool;
     }
 }

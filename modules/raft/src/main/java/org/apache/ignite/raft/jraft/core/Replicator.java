@@ -51,6 +51,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
+import org.apache.ignite.raft.jraft.option.ByteBufferCollectorPool;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReplicatorOptions;
 import org.apache.ignite.raft.jraft.rpc.AppendEntriesRequestBuilder;
@@ -175,7 +176,7 @@ public class Replicator implements ThreadId.OnError {
         if (COLLECT_STATISTICS) {
             BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.put(
                     replicatorOptions.getNode().getNodeId().getPeerId().getConsistentId(),
-                    replicatorOptions.getAppendEntriesByteBufferCollectorQueue()
+                    replicatorOptions.getAppendEntriesByteBufferCollectorPool()
             );
         }
     }
@@ -1963,16 +1964,14 @@ public class Replicator implements ThreadId.OnError {
 
     public static final Set<ByteBufferCollector> BYTE_BUFFER_COLLECTORS = ConcurrentHashMap.newKeySet();
 
-    public static final Map<String, Queue<ByteBufferCollector>> BYTE_BUFFER_COLLECTORS_BY_NODE_NAME = new ConcurrentHashMap<>();
+    public static final Map<String, ByteBufferCollectorPool> BYTE_BUFFER_COLLECTORS_BY_NODE_NAME = new ConcurrentHashMap<>();
 
     private ByteBufferCollector allocateShared(int capacity) {
-        Queue<ByteBufferCollector> q = options.getAppendEntriesByteBufferCollectorQueue();
-
-        ByteBufferCollector collector = q.poll();
+        ByteBufferCollector collector = options.getAppendEntriesByteBufferCollectorPool().borrow();
 
         if (collector == null || collector.capacity() < capacity) {
             collector = ByteBufferCollector.allocate(
-                    (int) (capacity + (capacity * 0.15)), 
+                    (int) (capacity + (capacity * 0.2)),
                     options.getNode().getNodeId().getPeerId().getConsistentId()
             );
 
@@ -1988,7 +1987,7 @@ public class Replicator implements ThreadId.OnError {
         if (c != null && c.capacity() <= ByteBufferCollector.MAX_CAPACITY_TO_RECYCLE) {
             c.clear();
 
-            options.getAppendEntriesByteBufferCollectorQueue().offer(c);
+            options.getAppendEntriesByteBufferCollectorPool().release(c);
         }
     }
 

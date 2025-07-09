@@ -43,6 +43,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest.Person;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.Replicator;
+import org.apache.ignite.raft.jraft.option.ByteBufferCollectorPool;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.Recyclers;
 import org.apache.ignite.raft.jraft.util.Recyclers.DefaultHandle;
@@ -288,7 +289,7 @@ public class ItRecyclersTest extends ClusterPerTestIntegrationTest {
         List<ByteBufferCollector> collect = Replicator.BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.entrySet().stream()
                 .filter(e -> e.getKey().contains(nodeName))
                 .map(Entry::getValue)
-                .flatMap(Collection::stream)
+                .flatMap(ByteBufferCollectorPool::stream)
                 .sorted(Comparator.comparingInt(ByteBufferCollector::capacity).reversed())
                 .collect(toList());
 
