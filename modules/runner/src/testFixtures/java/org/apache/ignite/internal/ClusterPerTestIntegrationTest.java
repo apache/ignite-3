@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
@@ -285,6 +286,14 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
     protected static ClusterNode clusterNode(Ignite node) {
         return unwrapIgniteImpl(node).node();
+    }
+
+    protected final IgniteImpl findNode(Predicate<? super IgniteImpl> predicate) {
+        return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(predicate)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("node not found"));
     }
 
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */

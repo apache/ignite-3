@@ -52,7 +52,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -1131,14 +1130,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
             return txStatePartitionStorage.get(txId);
         });
-    }
-
-    private IgniteImpl findNode(Predicate<IgniteImpl> filter) {
-        return cluster.runningNodes()
-                .map(TestWrappers::unwrapIgniteImpl)
-                .filter(n -> n != null && filter.test(n))
-                .findFirst()
-                .get();
     }
 
 }
