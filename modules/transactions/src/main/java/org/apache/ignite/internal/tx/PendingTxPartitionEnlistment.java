@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Partition enlistment information in a pending transaction. It stores information needed before commit timestamp is generated.
@@ -66,5 +67,8 @@ public class PendingTxPartitionEnlistment extends PartitionEnlistment {
         return consistencyToken;
     }
 
-    // TODO toString() в базом классе есть, а тут нет. выглядит странно.
+    @Override
+    public String toString() {
+        return S.toString(PendingTxPartitionEnlistment.class, this, super.toString());
+    }
 }

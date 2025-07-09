@@ -24,8 +24,6 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.LongAdderMetric;
@@ -33,11 +31,9 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource.Holder;
 
 /**
- * TODO.
+ * Transaction metric source, that contains a set of transaction metrics.
  **/
 public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
-    IgniteLogger log = Loggers.forClass(TransactionMetricsSource.class);
-
     /** Histogram buckets for duration metrics in milliseconds. */
     private static final long[] HISTOGRAM_BUCKETS = new long[] {
             MILLISECONDS.convert(1, MILLISECONDS),
@@ -59,9 +55,8 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
      * Creates a new instance of {@link TransactionMetricsSource}.
      */
     public TransactionMetricsSource(ClockService clockService) {
-        // TODO IGNITE-25526
-        //  super(SOURCE_NAME, "Transaction metrics.", null);
-        super(SOURCE_NAME);
+        super(SOURCE_NAME, "Transaction metrics.");
+
         this.clockService = clockService;
     }
 
@@ -74,7 +69,6 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     public void readWriteTxFinish(UUID transactionId, boolean commit) {
         Holder holder = holder();
 
-        log.warn(">>>>> readWriteTxFinish [enabled=" + (holder != null));
         if (holder != null) {
             holder.rwDuration.add(calculateTransactionDuration(transactionId));
 
@@ -97,7 +91,6 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     public void readOnlyTxFinish(UUID transactionId, boolean commit) {
         Holder holder = holder();
 
-        log.warn(">>>>> readOnlyTxFinish [enabled=" + (holder != null));
         if (holder != null) {
             holder.roDuration.add(calculateTransactionDuration(transactionId));
 
@@ -122,37 +115,37 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     }
 
     /** Holder. */
-    public class Holder implements AbstractMetricSource.Holder<Holder> {
-        public final LongAdderMetric totalCommits = new LongAdderMetric(
+    protected class Holder implements AbstractMetricSource.Holder<Holder> {
+        private final LongAdderMetric totalCommits = new LongAdderMetric(
                 "TotalCommits",
                 "Total number of commits.");
 
-        public final LongAdderMetric totalRollbacks = new LongAdderMetric(
+        private final LongAdderMetric totalRollbacks = new LongAdderMetric(
                 "TotalRollbacks",
                 "Total number of rollbacks.");
 
-        public final LongAdderMetric rwCommits = new LongAdderMetric(
+        private final LongAdderMetric rwCommits = new LongAdderMetric(
                 "RwCommits",
                 "Total number of read-write transaction commits.");
 
-        public final LongAdderMetric roCommits = new LongAdderMetric(
+        private final LongAdderMetric roCommits = new LongAdderMetric(
                 "RoCommits",
                 "Total number of read-only transaction commits.");
 
-        public final LongAdderMetric rwRollbacks = new LongAdderMetric(
+        private final LongAdderMetric rwRollbacks = new LongAdderMetric(
                 "RwRollbacks",
                 "Total number of rolled-back read-write transactions.");
 
-        public final LongAdderMetric roRollbacks = new LongAdderMetric(
+        private final LongAdderMetric roRollbacks = new LongAdderMetric(
                 "RoRollbacks",
                 "Total number of rolled-back read-only transactions.");
 
-        public final DistributionMetric rwDuration = new DistributionMetric(
+        private final DistributionMetric rwDuration = new DistributionMetric(
                 "RwDuration",
                 ".",
                 HISTOGRAM_BUCKETS);
 
-        public final DistributionMetric roDuration = new DistributionMetric(
+        private final DistributionMetric roDuration = new DistributionMetric(
                 "RoDuration",
                 ".",
                 HISTOGRAM_BUCKETS);

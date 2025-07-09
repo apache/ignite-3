@@ -29,8 +29,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -56,8 +54,6 @@ import org.jetbrains.annotations.Nullable;
  * Helper class that allows to resolve transaction state mainly for the purpose of write intent resolution.
  */
 public class TransactionStateResolver {
-    private IgniteLogger log = Loggers.forClass(TransactionStateResolver.class);
-
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
@@ -224,8 +220,6 @@ public class TransactionStateResolver {
 
             resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
         } else {
-//            log.warn(">>>>> resolving tx state from coordinator [txid=" + txId + ", coord=" + coordinator.name() + ']');
-
             txMessageSender.resolveTxStateFromCoordinator(coordinator.name(), txId, timestamp)
                     .whenComplete((response, e) -> {
                         if (e == null) {
