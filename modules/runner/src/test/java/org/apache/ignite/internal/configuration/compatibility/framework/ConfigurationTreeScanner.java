@@ -148,7 +148,7 @@ public class ConfigurationTreeScanner {
         String publicProperty = extractPublicPropertyName(field);
 
         Map<String, String> attributes = new LinkedHashMap<>();
-        attributes.put(Attributes.NAME, publicProperty.isEmpty() ? field.getName() : publicProperty);
+        attributes.put(Attributes.NAME, publicProperty);
         attributes.put(Attributes.CLASS, field.getType().getCanonicalName());
 
         return new ConfigNode(parent, attributes, annotations, flags, legacyNames, List.of());
@@ -172,10 +172,12 @@ public class ConfigurationTreeScanner {
 
             assert annotation.length == 1;
 
-            return annotation[0].value();
+            String publicName = annotation[0].value();
+
+            return publicName.isEmpty() ? field.getName() : publicName;
         }
 
-        return "";
+        return field.getName();
     }
 
     private static EnumSet<ConfigNode.Flags> extractFlags(Field field) {

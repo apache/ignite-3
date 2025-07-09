@@ -157,13 +157,17 @@ public class ConfigurationTreeComparator {
      */
     private static boolean match(ConfigNode node, ConfigNode candidate) {
         return Objects.equals(candidate.kind(), node.kind())
-                && (Objects.equals(candidate.name(), node.name())
-                    || (node.isValue() && candidate.isValue() && compareUsingLegacyNames(candidate, node)))
+                && matchNames(candidate, node)
                 && validateFlags(candidate, node)
                 && candidate.deletedPrefixes().containsAll(node.deletedPrefixes())
                 && (!node.isValue() || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
                 // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
                 && candidate.annotations().containsAll(node.annotations()); // Annotations can't be removed.
+    }
+
+    private static boolean matchNames(ConfigNode candidate, ConfigNode node) {
+        return Objects.equals(candidate.name(), node.name())
+                || (node.isValue() && candidate.isValue() && compareUsingLegacyNames(candidate, node));
     }
 
     private static boolean compareUsingLegacyNames(ConfigNode candidate, ConfigNode node) {
