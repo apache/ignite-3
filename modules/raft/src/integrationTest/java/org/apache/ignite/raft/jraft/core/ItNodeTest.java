@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -3683,7 +3684,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 anyLong(),
                 anyLong(),
                 anyLong(),
-                any(Configuration.class)
+                anyList(),
+                anyList()
         );
 
         cluster.stop(cluster.getLeader().getLeaderId());
@@ -3694,7 +3696,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 anyLong(),
                 anyLong(),
                 anyLong(),
-                any(Configuration.class)
+                anyList(),
+                anyList()
         );
 
         cluster.stop(cluster.getLeader().getLeaderId());
@@ -3705,7 +3708,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 anyLong(),
                 anyLong(),
                 anyLong(),
-                any(Configuration.class)
+                anyList(),
+                anyList()
         );
     }
 
