@@ -145,6 +145,7 @@ public class DistributionZoneRebalanceEngineV2 {
     private WatchListener createDistributionZonesDataNodesListener() {
         return evt -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
             Set<NodeWithAttributes> dataNodesWithAttributes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp());
+
             if (dataNodesWithAttributes == null) {
                 // The zone was removed so data nodes were removed too.
                 return nullCompletedFuture();
