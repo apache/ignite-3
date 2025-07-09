@@ -40,6 +40,7 @@ import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNo
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigShuttle;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner.ScanContext;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -113,7 +114,9 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         Set<ConfigurationModule> allModules = allModules();
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + fileName);
 
-        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata, allModules);
+        ComparisonContext ctx = new ComparisonContext(allModules);
+
+        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata, ctx);
     }
 
     private static Set<ConfigurationModule> allModules() {
@@ -140,7 +143,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         ScanContext scanContext = ScanContext.create(module);
 
         Class<?> rootClass = rootKey.schemaClass();
-        ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootClass, rootKey.type(), rootKey.internal());
+        ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootClass, rootKey.type(), rootKey.internal(), module.deletedPrefixes());
 
         ConfigurationTreeScanner.scan(root, rootClass, scanContext);
 

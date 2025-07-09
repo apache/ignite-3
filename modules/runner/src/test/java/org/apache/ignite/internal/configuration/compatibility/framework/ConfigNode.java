@@ -47,6 +47,8 @@ public class ConfigNode {
     private String flagsHexString;
     @JsonProperty
     private Set<String> legacyPropertyNames;
+    @JsonProperty
+    private Collection<String> deletedPrefixes = Set.of();
 
     // Non-serializable fields.
     @JsonIgnore
@@ -54,10 +56,18 @@ public class ConfigNode {
     @JsonIgnore
     private EnumSet<Flags> flags;
 
-    public static final ConfigNode INSTANCE = new ConfigNode();
-
     ConfigNode() {
         // Default constructor for Jackson deserialization.
+    }
+
+    @TestOnly
+    ConfigNode(
+            @Nullable ConfigNode parent,
+            Map<String, String> attributes,
+            List<ConfigAnnotation> annotations,
+            EnumSet<Flags> flags
+    ) {
+        this(parent, attributes, annotations, flags, Set.of(), List.of());
     }
 
     /**
@@ -68,7 +78,8 @@ public class ConfigNode {
             Map<String, String> attributes,
             List<ConfigAnnotation> annotations,
             EnumSet<Flags> flags,
-            Set<String> legacyPropertyNames
+            Set<String> legacyPropertyNames,
+            Collection<String> deletedPrefixes
     ) {
         this.parent = parent;
         this.attributes = attributes;
@@ -76,12 +87,29 @@ public class ConfigNode {
         this.flags = flags;
         this.flagsHexString = Flags.toHexString(flags);
         this.legacyPropertyNames = legacyPropertyNames;
+        this.deletedPrefixes = deletedPrefixes;
+    }
+
+    @TestOnly
+    static ConfigNode createRoot(
+            String rootName,
+            Class<?> className,
+            ConfigurationType type,
+            boolean internal
+    ) {
+        return createRoot(rootName, className, type, internal, Set.of());
     }
 
     /**
      * Creates a root configuration node.
      */
-    public static ConfigNode createRoot(String rootName, Class<?> className, ConfigurationType type, boolean internal) {
+    public static ConfigNode createRoot(
+            String rootName,
+            Class<?> className,
+            ConfigurationType type,
+            boolean internal,
+            Collection<String> deletedPrefixes
+    ) {
         Map<String, String> attrs = new LinkedHashMap<>();
         attrs.put(Attributes.NAME, rootName);
         attrs.put(Attributes.CLASS, className.getCanonicalName());
@@ -92,7 +120,7 @@ public class ConfigNode {
             flags.add(Flags.IS_INTERNAL);
         }
 
-        return new ConfigNode(null, attrs, List.of(), flags, Set.of());
+        return new ConfigNode(null, attrs, List.of(), flags, Set.of(), deletedPrefixes);
     }
 
     /**
@@ -198,6 +226,13 @@ public class ConfigNode {
      */
     Set<String> legacyPropertyNames() {
         return legacyPropertyNames;
+    }
+
+    /**
+     * Returns deleted prefixes.
+     */
+    Collection<String> deletedPrefixes() {
+        return deletedPrefixes;
     }
 
     /**

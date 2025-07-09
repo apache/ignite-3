@@ -151,7 +151,7 @@ public class ConfigurationTreeScanner {
         attributes.put(Attributes.NAME, publicProperty.isEmpty() ? field.getName() : publicProperty);
         attributes.put(Attributes.CLASS, field.getType().getCanonicalName());
 
-        return new ConfigNode(parent, attributes, annotations, flags, legacyNames);
+        return new ConfigNode(parent, attributes, annotations, flags, legacyNames, List.of());
     }
 
     private static Set<String> extractLegacy(Field field) {

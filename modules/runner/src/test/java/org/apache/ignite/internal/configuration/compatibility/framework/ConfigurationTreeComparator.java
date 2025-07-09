@@ -40,9 +40,9 @@ public class ConfigurationTreeComparator {
     public static void ensureCompatible(
             List<ConfigNode> snapshotTrees,
             List<ConfigNode> actualTrees,
-            Set<ConfigurationModule> configModules
+            ComparisonContext compContext
     ) {
-        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees, configModules));
+        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees, compContext));
 
         for (ConfigNode tree : snapshotTrees) {
             tree.accept(shuttle);
@@ -81,12 +81,14 @@ public class ConfigurationTreeComparator {
      */
     private static class Validator implements Consumer<ConfigNode> {
         private final List<ConfigNode> roots;
-        private final Set<ConfigurationModule> configModules;
+        private final ComparisonContext compContext;
         private Collection<KeyIgnorer> deletedItems;
 
-        private Validator(List<ConfigNode> roots, Set<ConfigurationModule> configModules) {
+        private static final ConfigNode NO_OP_NODE = new ConfigNode();
+
+        private Validator(List<ConfigNode> roots, ComparisonContext compContext) {
             this.roots = roots;
-            this.configModules = configModules;
+            this.compContext = compContext;
         }
 
         @Override
@@ -115,9 +117,9 @@ public class ConfigurationTreeComparator {
             }
 
             if (deletedItems == null) {
-                deletedItems = new ArrayList<>(configModules.size());
+                deletedItems = new ArrayList<>(compContext.configurationModules().size());
 
-                for (ConfigurationModule module : configModules) {
+                for (ConfigurationModule module : compContext.configurationModules()) {
                     KeyIgnorer keyIgnorer = KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
 
                     deletedItems.add(keyIgnorer);
@@ -127,7 +129,7 @@ public class ConfigurationTreeComparator {
             boolean deleted = deletedItems.stream().anyMatch(i -> i.shouldIgnore(node.path()));
 
             if (deleted) {
-                return ConfigNode.INSTANCE;
+                return NO_OP_NODE;
             }
 
             throw new IllegalStateException("No match found for node: " + node + " in candidates: \n\t"
@@ -158,8 +160,8 @@ public class ConfigurationTreeComparator {
                 && (Objects.equals(candidate.name(), node.name())
                     || (node.isValue() && candidate.isValue() && compareUsingLegacyNames(candidate, node)))
                 && validateFlags(candidate, node)
-                && (!node.isValue() || (node.isValue() && candidate.isValue() && compareUsingLegacyNames(candidate, node))
-                    || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
+                && candidate.deletedPrefixes().containsAll(node.deletedPrefixes())
+                && (!node.isValue() || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
                 // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
                 && candidate.annotations().containsAll(node.annotations()); // Annotations can't be removed.
     }
@@ -195,6 +197,23 @@ public class ConfigurationTreeComparator {
         @Override
         public String toString() {
             return sb.toString();
+        }
+    }
+
+    /** Holder class for comparison context. */
+    public static class ComparisonContext {
+        private final Set<ConfigurationModule> configurationModules;
+
+        ComparisonContext() {
+            this.configurationModules = Set.of();
+        }
+
+        public ComparisonContext(Set<ConfigurationModule> configurationModules) {
+            this.configurationModules = configurationModules;
+        }
+
+        Set<ConfigurationModule> configurationModules() {
+            return configurationModules;
         }
     }
 }
