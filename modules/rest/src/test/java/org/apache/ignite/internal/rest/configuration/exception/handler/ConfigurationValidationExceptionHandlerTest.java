@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.exception.handler;
+package org.apache.ignite.internal.rest.configuration.exception.handler;
 
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
-import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.CommonConfiguration.COMMON_CONF_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroups.CommonConfiguration.CONFIGURATION_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
@@ -30,73 +30,63 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
+import org.apache.ignite.internal.configuration.exception.ConfigurationValidationIgniteException;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class IgniteExceptionHandlerTest extends BaseIgniteAbstractTest {
+/** Test suite for {@link ConfigurationValidationExceptionHandler}. */
+public class ConfigurationValidationExceptionHandlerTest {
     private HttpRequest<?> request;
 
-    private IgniteExceptionHandler exceptionHandler;
+    private ConfigurationValidationExceptionHandler exceptionHandler;
 
-    static Stream<Arguments> igniteExceptions() {
+    static Stream<Arguments> args() {
         UUID traceId = UUID.randomUUID();
         String humanReadableCode = ErrorGroups.IGNITE_ERR_PREFIX + "-"
-                + COMMON_ERR_GROUP.name() + '-'
-                + Short.toUnsignedInt(extractErrorCode(INTERNAL_ERR));
+                + COMMON_CONF_ERR_GROUP.name() + '-'
+                + Short.toUnsignedInt(extractErrorCode(CONFIGURATION_VALIDATION_ERR));
+
+        var invalidParams = List.of(
+                new InvalidParam("key1", "Some issue1"),
+                new InvalidParam("key2", "Some issue2"));
+        var validationIssues = List.of(
+                new ValidationIssue("key1", "Some issue1"),
+                new ValidationIssue("key2", "Some issue2"));
+
 
         return Stream.of(
                 Arguments.of(
                         // given
-                        new IgniteException(traceId, INTERNAL_ERR, "Ooops"),
-                        // expected
-                        Problem.builder()
-                                .status(500)
-                                .title("Internal Server Error")
-                                .code(humanReadableCode)
-                                .detail("Ooops")
-                                .traceId(traceId)),
-                Arguments.of(
-                        // given
-                        new IgniteException(traceId, INTERNAL_ERR),
-                        // expected
-                        Problem.builder()
-                                .status(500)
-                                .title("Internal Server Error")
-                                .code(humanReadableCode)
-                                .traceId(traceId)),
-                Arguments.of(
-                        // given
-                        new IgniteException(traceId, INTERNAL_ERR, new IllegalArgumentException("Illegal value")),
+                        new ConfigurationValidationIgniteException(traceId, new ConfigurationValidationException(validationIssues)),
                         // expected
                         Problem.builder()
                                 .status(400)
                                 .title("Bad Request")
+                                .detail("Validation did not pass for keys: [key1, Some issue1], [key2, Some issue2]")
                                 .code(humanReadableCode)
                                 .traceId(traceId)
-                                .detail("Illegal value"))
+                                .invalidParams(invalidParams).build()
+                )
         );
     }
 
     @BeforeEach
     void setUp() {
-        exceptionHandler = new IgniteExceptionHandler();
+        exceptionHandler = new ConfigurationValidationExceptionHandler();
         request = mock(HttpRequest.class);
     }
 
     @ParameterizedTest
-    @MethodSource("igniteExceptions")
-    void shouldHandleIgniteException(IgniteException givenIgniteException, ProblemBuilder expectedProblem) {
+    @MethodSource("args")
+    public void handleValidationException(ConfigurationValidationIgniteException givenIgniteException, Problem expectedProblem) {
         HttpResponse<? extends Problem> response = exceptionHandler.handle(request, givenIgniteException);
 
         Problem problem = response.body();
-        assertEquals(expectedProblem.build(), problem);
+        assertEquals(expectedProblem, problem);
     }
 }

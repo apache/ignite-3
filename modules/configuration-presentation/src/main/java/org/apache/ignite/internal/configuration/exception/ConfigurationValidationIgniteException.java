@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.exception;
 import static org.apache.ignite.lang.ErrorGroups.CommonConfiguration.CONFIGURATION_VALIDATION_ERR;
 
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.lang.IgniteException;
@@ -34,6 +35,11 @@ public class ConfigurationValidationIgniteException extends IgniteException {
 
     public ConfigurationValidationIgniteException(ConfigurationValidationException validationEx) {
         super(CONFIGURATION_VALIDATION_ERR, validationEx);
+        this.validationEx = validationEx;
+    }
+
+    public ConfigurationValidationIgniteException(UUID traceId, ConfigurationValidationException validationEx) {
+        super(traceId, CONFIGURATION_VALIDATION_ERR, validationEx);
         this.validationEx = validationEx;
     }
 
