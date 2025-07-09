@@ -19,7 +19,6 @@ package org.apache.ignite.internal.raft;
 
 import java.util.Collection;
 import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 
 /**
@@ -32,13 +31,15 @@ public interface JraftGroupEventsListener {
      * @param term Raft term of the current leader.
      * @param configurationTerm Term on which the current configuration was applied.
      * @param configurationIndex Index on which the current configuration was applied.
-     * @param configuration Raft configuration on the moment of leader election.
+     * @param peers List of peers at the moment of leader election.
+     * @param learners List of learners at the moment of leader election.
      */
     void onLeaderElected(
             long term,
             long configurationTerm,
             long configurationIndex,
-            Configuration configuration
+            Collection<PeerId> peers,
+            Collection<PeerId> learners
     );
 
     /**

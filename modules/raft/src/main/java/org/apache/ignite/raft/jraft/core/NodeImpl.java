@@ -2697,8 +2697,9 @@ public class NodeImpl implements Node, RaftServerService {
                                 term,
                                 conf.getId().getTerm(),
                                 conf.getId().getIndex(),
-                                conf.getConf()
-                                );
+                                conf.getConf().listPeers(),
+                                conf.getConf().listLearners()
+                        );
                     }
                     getOptions().getFsm().onLeaderStart(this.term);
                 }

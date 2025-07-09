@@ -413,7 +413,8 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         ByteArray pendingChangeTriggerKey = pendingChangeTriggerKey(partitionGroupId(ignite, tableName, 0));
         byte[] pendinChangeTriggerKeyValue = unwrapIgniteImpl(ignite).clock().now().toBytes();
         var keyValsToUpdate = Map.of(pendingKey, pendingVal, pendingChangeTriggerKey, pendinChangeTriggerKeyValue);
-        unwrapIgniteImpl(ignite).metaStorageManager().putAll(keyValsToUpdate).join();
+
+        assertThat(unwrapIgniteImpl(ignite).metaStorageManager().putAll(keyValsToUpdate), willCompleteSuccessfully());
     }
 
     private Set<String> dataNodes(String tableName) {
