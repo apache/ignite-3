@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -97,7 +98,7 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
         lenient().when(partitionAccess1.lastAppliedTerm()).thenReturn(2L);
         lenient().when(partitionAccess2.lastAppliedTerm()).thenReturn(3L);
 
-        try (var reader = new OutgoingSnapshotReader(snapshotStorage)) {
+        try (var reader = new OutgoingSnapshotReader(UUID.randomUUID(), snapshotStorage)) {
             SnapshotMeta meta = reader.load();
             assertEquals(10L, meta.lastIncludedIndex());
             assertEquals(1L, meta.lastIncludedTerm());

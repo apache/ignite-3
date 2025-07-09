@@ -129,7 +129,7 @@ sql_result data_query::execute() {
     return make_request_execute();
 }
 
-const column_meta_vector *data_query::get_meta() {
+const protocol::column_meta_vector *data_query::get_meta() {
     if (!m_result_meta_available) {
         update_meta();
 
@@ -140,7 +140,7 @@ const column_meta_vector *data_query::get_meta() {
     return &m_result_meta;
 }
 
-const sql_parameter *data_query::get_sql_param(std::int16_t idx) {
+const sql_parameter *data_query::get_sql_param(std::int16_t idx) const {
     if (idx > 0 && static_cast<std::size_t>(idx) <= m_params_meta.size())
         return &m_params_meta.at(idx - 1);
 
@@ -181,7 +181,7 @@ sql_result data_query::fetch_next_row() {
 
 sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
     auto res = fetch_next_row();
-    if (res != ignite::sql_result::AI_SUCCESS && res != ignite::sql_result::AI_SUCCESS_WITH_INFO) {
+    if (res != sql_result::AI_SUCCESS && res != sql_result::AI_SUCCESS_WITH_INFO) {
         return res;
     }
 
@@ -519,12 +519,12 @@ sql_result data_query::process_conversion_result(
     return sql_result::AI_ERROR;
 }
 
-void data_query::set_resultset_meta(column_meta_vector value) {
+void data_query::set_resultset_meta(protocol::column_meta_vector value) {
     m_result_meta = std::move(value);
     m_result_meta_available = true;
 
     for (size_t i = 0; i < m_result_meta.size(); ++i) {
-        column_meta &meta = m_result_meta.at(i);
+        protocol::column_meta &meta = m_result_meta.at(i);
         LOG_MSG("[" << i << "] SchemaName: " << meta.get_schema_name());
         LOG_MSG("[" << i << "] TableName:  " << meta.get_table_name());
         LOG_MSG("[" << i << "] ColumnName: " << meta.get_column_name());

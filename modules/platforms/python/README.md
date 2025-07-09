@@ -45,7 +45,6 @@ for the most common platforms, but you may need to build it if your platform is 
 Linux building requirements:
 - GCC (and G++);
 - CMake version >=3.18;
-- unixODBC (dev version of the package);
 - OpenSSL (dev version of the package);
 - Docker to build wheels;
 - Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13).

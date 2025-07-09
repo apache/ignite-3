@@ -66,7 +66,7 @@ public class NodeMetricController implements NodeMetricApi, ResourceHolder {
 
     @Override
     public Collection<MetricSet> listMetricSets() {
-        return metricManager.metricSnapshot().get1().values().stream()
+        return metricManager.metricSnapshot().metrics().values().stream()
                 .map(metricSet -> {
                     List<Metric> metricDtos = StreamSupport.stream(metricSet.spliterator(), false)
                             .map(metric -> new Metric(metric.name(), metric.description()))

@@ -144,6 +144,11 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     protected abstract boolean areWatchesStarted();
 
     @Override
+    public void registerNotificationEnqueuedListener(NotificationEnqueuedListener listener) {
+        watchProcessor.registerNotificationEnqueuedListener(listener);
+    }
+
+    @Override
     public Entry get(byte[] key) {
         return doGet(key, rev);
     }

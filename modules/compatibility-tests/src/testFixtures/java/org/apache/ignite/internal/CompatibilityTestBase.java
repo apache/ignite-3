@@ -84,13 +84,9 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
     void startCluster(String baseVersion, TestInfo testInfo) {
         log.info("Starting nodes for base version: {}", baseVersion);
 
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
-                .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
-                .build();
+        cluster = createCluster(testInfo, workDir);
 
         int nodesCount = nodesCount();
-
-        cluster = new IgniteCluster(clusterConfiguration);
         cluster.start(baseVersion, nodesCount);
 
         cluster.init(this::configureInitParameters);
@@ -102,8 +98,23 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
         if (restartWithCurrentEmbeddedVersion()) {
             cluster.stop();
 
-            cluster.startEmbedded(nodesCount);
+            cluster.startEmbedded(nodesCount, false);
         }
+    }
+
+    /**
+     * Creates a cluster with the given test info and work directory.
+     *
+     * @param testInfo Test information.
+     * @param workDir Work directory.
+     * @return A new instance of {@link IgniteCluster}.
+     */
+    public static IgniteCluster createCluster(TestInfo testInfo, Path workDir) {
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
+                .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
+                .build();
+
+        return new IgniteCluster(clusterConfiguration);
     }
 
     @SuppressWarnings("unused")
@@ -157,7 +168,7 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      * @param numLatest Number of latest versions to take by default.
      * @return A list of base versions for a test.
      */
-    protected static List<String> baseVersions(int numLatest) {
+    public static List<String> baseVersions(int numLatest) {
         List<String> versions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).collect(Collectors.toList());
         if (System.getProperty("testAllVersions") != null) {
             return versions;

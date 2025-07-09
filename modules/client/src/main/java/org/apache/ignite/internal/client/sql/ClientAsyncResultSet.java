@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.sql;
 
-import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -89,10 +88,18 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
      * Constructor.
      *
      * @param ch Channel.
+     * @param marshallers Used to create marshaller in case result is for query and {@code mapper} is provided.
      * @param in Unpacker.
      * @param mapper Mapper.
+     * @param partitionAwarenessEnabled Whether partitions awareness is enabled, hence response may contain related metadata.
      */
-    ClientAsyncResultSet(ClientChannel ch, MarshallersProvider marshallers, ClientMessageUnpacker in, @Nullable Mapper<T> mapper) {
+    ClientAsyncResultSet(
+            ClientChannel ch,
+            MarshallersProvider marshallers,
+            ClientMessageUnpacker in,
+            @Nullable Mapper<T> mapper,
+            boolean partitionAwarenessEnabled
+    ) {
         this.ch = ch;
 
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
@@ -102,7 +109,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         affectedRows = in.unpackLong();
         metadata = ClientResultSetMetadata.read(in);
 
-        if (ch.protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS) && !in.tryUnpackNil()) {
+        if (partitionAwarenessEnabled && !in.tryUnpackNil()) {
             partitionAwarenessMetadata = ClientPartitionAwarenessMetadata.read(in);
         } else {
             partitionAwarenessMetadata = null;
