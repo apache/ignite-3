@@ -33,7 +33,6 @@ set(SOURCES
     diagnostic/diagnosable_adapter.cpp
     diagnostic/diagnostic_record.cpp
     diagnostic/diagnostic_record_storage.cpp
-    meta/column_meta.cpp
     meta/table_meta.cpp
     query/column_metadata_query.cpp
     query/data_query.cpp

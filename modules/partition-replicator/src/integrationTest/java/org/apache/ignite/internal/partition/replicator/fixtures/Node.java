@@ -142,6 +142,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
@@ -251,6 +252,8 @@ public class Node {
     public final ClusterManagementGroupManager cmgManager;
 
     private final SchemaManager schemaManager;
+
+    private final SchemaSafeTimeTrackerImpl schemaSafeTimeTracker;
 
     public final CatalogManager catalogManager;
 
@@ -664,7 +667,10 @@ public class Node {
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
-        schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl();
+        metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+        schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 

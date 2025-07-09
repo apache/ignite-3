@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -30,10 +31,13 @@ import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigSyntax;
+import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
@@ -601,6 +605,19 @@ public class LocalFileConfigurationStorageTest {
         assertDoesNotThrow(changer::start);
 
         assertThat(storage.readLatest("top.shortVal"), willBe((short) 3));
+    }
+
+    @Test
+    void testReadOnly() throws Exception {
+        Path configFile = tmpDir.resolve(CONFIG_NAME + "-read-only");
+        File file = configFile.toFile();
+        assertTrue(file.createNewFile());
+        assertTrue(file.setReadOnly());
+
+        assertFalse(Files.isWritable(configFile));
+
+        var storage = new LocalFileConfigurationStorage(configFile, treeGenerator, new LocalFileConfigurationModule());
+        assertThat(storage.write(Map.of(), storage.localRevision().get() + 1), willCompleteSuccessfully());
     }
 
     private String configFileContent() throws IOException {

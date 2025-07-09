@@ -44,10 +44,6 @@ jobs:
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.23.1
 
-      - name: Install UnixODBC on macOS
-        if: runner.os == 'macOS'
-        run: brew install --quiet unixodbc
-
       - name: Build wheels macOS 14
         if: matrix.os == 'macos-14'
         run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
@@ -72,7 +68,7 @@ jobs:
         env:
           CIBW_BUILD: cp39-manylinux* cp31{0,1,2,3}-manylinux*
           CIBW_ARCHS: auto64
-          CIBW_BEFORE_ALL: yum -y install unixODBC-devel openssl-devel
+          CIBW_BEFORE_ALL: yum -y install openssl-devel
           CIBW_BUILD_VERBOSITY: 1
 
       - name: Install Winget

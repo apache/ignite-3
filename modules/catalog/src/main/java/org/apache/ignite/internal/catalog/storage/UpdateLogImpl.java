@@ -71,6 +71,8 @@ import org.jetbrains.annotations.TestOnly;
 public class UpdateLogImpl implements UpdateLog {
     private static final byte[] MAGIC_BYTES = "IGNITE".getBytes(StandardCharsets.UTF_8);
 
+    public static final ByteArray CATALOG_UPDATE_PREFIX = ByteArray.fromString("catalog.update.");
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -304,7 +306,7 @@ public class UpdateLogImpl implements UpdateLog {
         }
 
         static ByteArray updatePrefix() {
-            return ByteArray.fromString("catalog.update.");
+            return CATALOG_UPDATE_PREFIX;
         }
 
         static ByteArray snapshotVersion() {

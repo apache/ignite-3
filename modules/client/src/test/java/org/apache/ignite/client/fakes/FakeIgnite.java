@@ -50,6 +50,8 @@ public class FakeIgnite implements Ignite {
 
     private final IgniteTables tables;
 
+    private final QueryProcessor queryProcessor;
+
     private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
 
     /**
@@ -68,6 +70,7 @@ public class FakeIgnite implements Ignite {
         this.name = name;
         this.compute = new FakeCompute(name, this);
         this.tables = new FakeIgniteTables(compute, placementDriver);
+        this.queryProcessor = new FakeIgniteQueryProcessor(name);
     }
 
     /** {@inheritDoc} */
@@ -77,7 +80,7 @@ public class FakeIgnite implements Ignite {
     }
 
     public QueryProcessor queryEngine() {
-        return new FakeIgniteQueryProcessor();
+        return queryProcessor;
     }
 
     /** {@inheritDoc} */
