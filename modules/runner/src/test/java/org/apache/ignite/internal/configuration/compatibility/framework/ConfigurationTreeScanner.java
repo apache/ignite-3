@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
-import static java.util.function.Predicate.not;
-
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -32,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
@@ -54,24 +52,13 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
    support named lists. See {@link org.apache.ignite.configuration.annotation.NamedConfigValue} annotation.
  TODO: https://issues.apache.org/jira/browse/IGNITE-25572
    support polymorphic nodes. See {@link org.apache.ignite.configuration.annotation.PolymorphicConfig} annotation.
- TODO https://issues.apache.org/jira/browse/IGNITE-25747
-   support {@link org.apache.ignite.configuration.validation.Range} annotation.
-   support {@link org.apache.ignite.configuration.validation.Endpoint} annotation.
-   support {@link org.apache.ignite.configuration.validation.PowerOfTwo} annotation.
-   support {@link org.apache.ignite.configuration.validation.OneOf} annotation.
-   support {@link org.apache.ignite.configuration.validation.NotBlank} annotation.
-   support {@link org.apache.ignite.configuration.validation.Immutable} annotation. ???
-   support {@link org.apache.ignite.configuration.validation.ExceptKeys} annotation.
-   support {@link org.apache.ignite.configuration.validation.CamelCaseKeys} annotation.
-   support {@link org.apache.ignite.internal.network.configuration.MulticastAddress} annotation. ???
-   support {@link org.apache.ignite.internal.network.configuration.SslConfigurationValidator} annotation. ???
 */
 
 /**
  * Provides method to extract metadata from project configuration classes.
  */
 public class ConfigurationTreeScanner {
-    private static final Set<Class<?>> SUPPORTED_FIELD_ANNOTATIONS = Set.of(
+    private static final Set<Class<?>> FLAG_ANNOTATIONS = Set.of(
             Value.class,
             Deprecated.class // See flags.
     );
@@ -135,9 +122,14 @@ public class ConfigurationTreeScanner {
      */
     private static List<ConfigAnnotation> collectAdditionalAnnotations(Field field) {
         return Arrays.stream(field.getDeclaredAnnotations())
-                .map(Annotation::annotationType)
-                .filter(not(SUPPORTED_FIELD_ANNOTATIONS::contains))
-                .map(a -> new ConfigAnnotation(a.getName()))
+                .flatMap(a -> {
+                    if (FLAG_ANNOTATIONS.contains(a.annotationType())) {
+                        return Stream.empty();
+                    } else {
+                        ConfigAnnotation configAnnotation = ConfigurationAnnotationConverter.convert(a.annotationType().getName(), a);
+                        return Stream.of(configAnnotation);
+                    }
+                })
                 .collect(Collectors.toList());
     }
 

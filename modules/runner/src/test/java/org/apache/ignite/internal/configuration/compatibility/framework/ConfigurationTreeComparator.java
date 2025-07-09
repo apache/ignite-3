@@ -31,6 +31,9 @@ import java.util.stream.Collectors;
  * Compares two configuration trees (snapshot and current).
  */
 public class ConfigurationTreeComparator {
+
+    private static final ConfigAnnotationsValidator ANNOTATION_VALIDATOR = new ConfigAnnotationsValidator();
+
     /**
      * Validates the current configuration is compatible with the snapshot.
      */
@@ -100,9 +103,13 @@ public class ConfigurationTreeComparator {
          */
         private ConfigNode find(ConfigNode node, Collection<ConfigNode> candidates) {
             for (ConfigNode candidate : candidates) {
-                if (match(node, candidate)) {
-                    return candidate;
+                if (!match(node, candidate)) {
+                    continue;
                 }
+
+                validateAnnotations(candidate, node);
+
+                return candidate;
             }
 
             throw new IllegalStateException("No match found for node: " + node + " in candidates: \n\t"
@@ -132,9 +139,29 @@ public class ConfigurationTreeComparator {
         return Objects.equals(candidate.kind(), node.kind())
                 && Objects.equals(candidate.name(), node.name())
                 && validateFlags(candidate, node)
-                && (!node.isValue() || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
-                && candidate.annotations().containsAll(node.annotations()); // Annotations can't be removed.
+                && (!node.isValue() || Objects.equals(candidate.type(), node.type())); // Value node types can be changed
+    }
+
+    private static void validateAnnotations(ConfigNode candidate, ConfigNode node) {
+        List<String> errors = new ArrayList<>();
+
+        ANNOTATION_VALIDATOR.validate(candidate, node, errors);
+
+        if (errors.isEmpty()) {
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Configuration compatibility issues for ")
+                .append(node.path())
+                .append(':')
+                .append(System.lineSeparator());
+
+        for (var error : errors) {
+            sb.append("\t\t").append(error).append(System.lineSeparator());
+        }
+
+        throw new IllegalStateException(sb.toString());
     }
 
     private static boolean validateFlags(ConfigNode candidate, ConfigNode node) {

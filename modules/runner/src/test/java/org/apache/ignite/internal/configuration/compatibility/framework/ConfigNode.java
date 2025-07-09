@@ -51,6 +51,7 @@ public class ConfigNode {
     @JsonIgnore
     private EnumSet<Flags> flags;
 
+    @SuppressWarnings("unused")
     ConfigNode() {
         // Default constructor for Jackson deserialization.
     }
@@ -184,7 +185,8 @@ public class ConfigNode {
     /**
      * Constructs the full path of this node in the configuration tree.
      */
-    private String path() {
+    @JsonIgnore
+    public String path() {
         String name = name();
 
         return parent == null ? name : parent.path() + '.' + name;
@@ -205,7 +207,7 @@ public class ConfigNode {
         // Avoid actual class name from being compared for non-value nodes.
         Predicate<Entry<String, String>> filter = isValue()
                 ? e -> true
-                : e  -> !e.getKey().equals(Attributes.CLASS);
+                : e -> !e.getKey().equals(Attributes.CLASS);
 
         String attributes = this.attributes.entrySet().stream()
                 .filter(filter)

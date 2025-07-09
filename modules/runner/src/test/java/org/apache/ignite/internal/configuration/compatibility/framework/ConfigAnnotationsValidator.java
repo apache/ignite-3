@@ -1,0 +1,228 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.configuration.compatibility.framework;
+
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.ignite.configuration.validation.ExceptKeys;
+import org.apache.ignite.configuration.validation.OneOf;
+import org.apache.ignite.configuration.validation.Range;
+
+/**
+ * Configuration annotation validator.
+ */
+final class ConfigAnnotationsValidator {
+
+    private final Map<String, AnnotationValidator> validators;
+
+    ConfigAnnotationsValidator() {
+        this(Map.of(
+                Range.class.getName(), ConfigAnnotationsValidator::validateRange,
+                ExceptKeys.class.getName(), ConfigAnnotationsValidator::validateExceptKeys,
+                OneOf.class.getName(), ConfigAnnotationsValidator::validateOneOf
+        ));
+    }
+
+    ConfigAnnotationsValidator(Map<String, AnnotationValidator> validators) {
+        this.validators = Map.copyOf(validators);
+    }
+
+    void validate(ConfigNode candidate, ConfigNode node, List<String> errors) {
+
+        List<ConfigAnnotation> currentAnnotations = node.annotations();
+        List<ConfigAnnotation> candidateAnnotations = candidate.annotations();
+
+        Map<String, ConfigAnnotation> currentMap = new HashMap<>();
+        for (ConfigAnnotation annotation : currentAnnotations) {
+            currentMap.put(annotation.name(), annotation);
+        }
+
+        Map<String, ConfigAnnotation> candidateMap = new HashMap<>();
+        for (ConfigAnnotation annotation : candidateAnnotations) {
+            candidateMap.put(annotation.name(), annotation);
+        }
+
+        Set<String> newAnnotations = new TreeSet<>();
+
+        for (String currentKey : currentMap.keySet()) {
+            if (!candidateMap.containsKey(currentKey)) {
+                newAnnotations.add(currentKey);
+            }
+        }
+
+        if (!newAnnotations.isEmpty()) {
+            errors.add("Adding annotations is not allowed. New annotations: " + newAnnotations);
+        }
+
+        for (Map.Entry<String, ConfigAnnotation> entry : candidateMap.entrySet()) {
+            ConfigAnnotation candidateAnnotation = entry.getValue();
+            ConfigAnnotation currentAnnotation = currentMap.get(entry.getKey());
+
+            if (currentAnnotation == null) {
+                continue;
+            }
+
+            validateStructure(candidateAnnotation, currentAnnotation, errors);
+        }
+    }
+
+    void validateStructure(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
+        Set<String> currentProperties = current.properties().keySet();
+        Set<String> candidateProperties = candidate.properties().keySet();
+
+        Set<String> removed = candidateProperties.stream()
+                .filter(c -> !currentProperties.contains(c))
+                .collect(Collectors.toSet());
+
+        Set<String> added = currentProperties.stream()
+                .filter(c -> !candidateProperties.contains(c))
+                .collect(Collectors.toSet());
+
+        if (!removed.isEmpty()) {
+            errors.add(candidate.name() + " removed properties " + new TreeSet<>(removed));
+        }
+
+        if (!added.isEmpty()) {
+            errors.add(candidate.name() + " added properties " + new TreeSet<>(added));
+        }
+
+        Set<String> changedTypes = new TreeSet<>();
+        Set<String> changedValues = new TreeSet<>();
+
+        for (Map.Entry<String, ConfigAnnotationValue> entry : candidate.properties().entrySet()) {
+            ConfigAnnotationValue currentValue = current.properties().get(entry.getKey());
+            if (currentValue == null) {
+                continue;
+            }
+
+            ConfigAnnotationValue candidateValue = entry.getValue();
+
+            if (!Objects.equals(candidateValue.typeName(), currentValue.typeName())) {
+                changedTypes.add(entry.getKey());
+            } else if (!Objects.equals(candidateValue, currentValue)) {
+                changedValues.add(entry.getKey());
+            }
+        }
+
+        if (!changedTypes.isEmpty()) {
+            errors.add(candidate.name() + " properties with changed types " + changedTypes);
+        }
+
+        AnnotationValidator validator = validators.get(candidate.name());
+
+        // If a specific validator is present, use it.
+        // Otherwise, expect all properties to be equal between versions.
+        if (validator != null) {
+            validator.validate(candidate, current, errors);
+        } else if (!changedValues.isEmpty()) {
+            errors.add(current.name() + " changed values " + changedValues);
+        }
+    }
+
+    void validateSpecificAnnotation(
+            ConfigAnnotation candidate,
+            ConfigAnnotation current,
+            List<String> errors
+    ) {
+        AnnotationValidator validator = validators.get(candidate.name());
+        assert candidate.name().equals(current.name()) : "Annotation name mismatch";
+
+        if (validator != null) {
+            validator.validate(candidate, current, errors);
+        }
+    }
+
+    @FunctionalInterface
+    interface AnnotationValidator {
+        void validate(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors);
+
+        /** Reads a value of the given annotation property. */
+        static <T> T getValue(ConfigAnnotation annotation, String name, Function<ConfigAnnotationValue, T> parse) {
+            ConfigAnnotationValue value = annotation.properties().get(name);
+            try {
+                return parse.apply(value);
+            } catch (Exception e) {
+                String errorMessage = format("Unable to read annotation property. Property: {}, annotation: {}", name, annotation.name());
+                throw new IllegalStateException(errorMessage, e);
+            }
+        }
+    }
+
+    private static void validateRange(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
+        long candidateMin = AnnotationValidator.getValue(candidate, "min", (v) -> (Long) v.value());
+        long candidateMax = AnnotationValidator.getValue(candidate, "max", (v) -> (Long) v.value());
+
+        long currentMin = AnnotationValidator.getValue(current, "min", (v) -> (Long) v.value());
+        long currentMax = AnnotationValidator.getValue(current, "max", (v) -> (Long) v.value());
+
+        if (currentMin > candidateMin) {
+            errors.add("Range: min changed from " + candidateMin + " to " + currentMin);
+        }
+
+        if (currentMax < candidateMax) {
+            errors.add("Range: max changed from " + candidateMax + " to " + currentMax);
+        }
+    }
+
+    private static void validateExceptKeys(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
+        List<String> candidateKeys = AnnotationValidator.getValue(candidate, "value", (v) -> (List<String>) v.value());
+        List<String> currentKeys = AnnotationValidator.getValue(current, "value", (v) -> (List<String>) v.value());
+
+        TreeSet<String> newKeys = new TreeSet<>();
+        for (String key : currentKeys) {
+            if (!candidateKeys.contains(key)) {
+                newKeys.add(key);
+            }
+        }
+
+        if (!newKeys.isEmpty()) {
+            errors.add("ExceptKeys: changed keys from " + candidateKeys + " to " + currentKeys);
+        }
+    }
+
+    private static void validateOneOf(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
+        List<String> candidateKeys = AnnotationValidator.getValue(candidate, "value", (v) -> (List<String>) v.value());
+        List<String> currentKeys = AnnotationValidator.getValue(current, "value", (v) -> (List<String>) v.value());
+
+        TreeSet<String> removedKeys = new TreeSet<>();
+        for (String key : candidateKeys) {
+            if (!currentKeys.contains(key)) {
+                removedKeys.add(key);
+            }
+        }
+
+        if (!removedKeys.isEmpty()) {
+            errors.add("OneOf: changed keys from " + candidateKeys + " to " + currentKeys);
+        }
+
+        boolean candidateCaseSensitive = AnnotationValidator.getValue(candidate, "caseSensitive", (v) -> (Boolean) v.value());
+        boolean currentCaseSensitive = AnnotationValidator.getValue(current, "caseSensitive", (v) -> (Boolean) v.value());
+
+        if (candidateCaseSensitive && !currentCaseSensitive) {
+            errors.add("OneOf: keys made case insensitive");
+        }
+    }
+}
