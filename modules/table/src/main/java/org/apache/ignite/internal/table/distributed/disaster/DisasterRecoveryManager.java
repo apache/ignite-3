@@ -109,10 +109,12 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
@@ -823,25 +825,24 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
                     LocalPartitionStateMessage localPartitionStateMessage = nodeEntry.getValue();
 
-                    TableViewInternal tableViewInternal = tableManager.cachedTable(tablePartitionId.tableId());
-
-                    if (tableViewInternal == null) {
+                    Map<TablePartitionIdMessage, Long> estimatedRowsMap = localPartitionStateMessage.partitionIdToEstimatedRowsMap();
+                    if (estimatedRowsMap == null) {
                         continue;
                     }
 
-                    MvPartitionStorage partitionStorage = tableViewInternal.internalTable().storage()
-                            .getMvPartition(tablePartitionId.partitionId());
+                    TablePartitionIdMessage tablePartitionIdMessage = toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId);
 
-                    if (partitionStorage == null) {
+                    Long size = estimatedRowsMap.get(tablePartitionIdMessage);
+                    if (size == null) {
                         continue;
                     }
 
                     LocalPartitionStateMessage tableLocalPartitionStateMessage =
                             PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
-                                    .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
+                                    .partitionId(tablePartitionIdMessage)
                                     .state(localPartitionStateMessage.state())
                                     .logIndex(localPartitionStateMessage.logIndex())
-                                    .estimatedRows(partitionStorage.estimatedSize())
+                                    .estimatedRows(size)
                                     .build();
 
                     tableLocalPartitionStateMessageByNode.put(nodeName, tableLocalPartitionStateMessage);
@@ -1127,6 +1128,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .state(localPartitionStateWithLogIndex.state)
                 .logIndex(localPartitionStateWithLogIndex.logIndex)
                 .estimatedRows(calculateEstimatedSize(zonePartitionId))
+                // This is required to be able to provide the estimated size when colocation is enabled and the request is using the
+                // old table API. In that case, `zoneStateToTableState` method will use this map to convert zone-based state to
+                // table-based state.
+                .partitionIdToEstimatedRowsMap(estimatedSizeMap(zonePartitionId))
                 .build();
     }
 
@@ -1136,6 +1141,24 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .filter(Objects::nonNull)
                 .mapToLong(MvPartitionStorage::estimatedSize)
                 .sum();
+    }
+
+    private Map<TablePartitionIdMessage, Long> estimatedSizeMap(ZonePartitionId zonePartitionId) {
+        Map<TablePartitionIdMessage, Long> partitionIdToEstimatedRowsMap = new HashMap<>();
+
+        for (TableImpl tableImpl : tableManager.zoneTables(zonePartitionId.zoneId())) {
+            MvPartitionStorage mvPartitionStorage = tableImpl.internalTable().storage().getMvPartition(zonePartitionId.partitionId());
+
+            if (mvPartitionStorage != null) {
+                partitionIdToEstimatedRowsMap.put(
+                        toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY,
+                                new TablePartitionId(tableImpl.tableId(), zonePartitionId.partitionId())),
+                        mvPartitionStorage.estimatedSize()
+                );
+            }
+        }
+
+        return partitionIdToEstimatedRowsMap;
     }
 
     private @Nullable LocalPartitionStateMessage handleStateRequestForTable(
