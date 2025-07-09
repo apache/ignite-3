@@ -34,7 +34,6 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -45,10 +44,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
  * Common methods for {@link DdlSqlToCommandConverter} testing.
  */
 class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
-    final LogicalTopologyService logicalTopologyService = mock(LogicalTopologyService.class);
-
     /** DDL SQL to command converter. */
-    final DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(logicalTopologyService);
+    final DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(storageProfiles -> {}); // TODO.
 
     final Catalog catalog = mock(Catalog.class);
 

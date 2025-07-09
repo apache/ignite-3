@@ -30,9 +30,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlNode;
@@ -50,15 +47,10 @@ import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -89,18 +81,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     @BeforeAll
     public static void setUp() {
         assertThat(ZoneOptionEnum.values().length, is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
-    }
-
-    @BeforeEach
-    void prepareLogicalTopologyServiceMock() {
-        LogicalNode node = new LogicalNode(
-                new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("127.0.0.1", 40000)),
-                Map.of(),
-                Map.of(),
-                List.of(DEFAULT_STORAGE_PROFILE, "lru_rocks", "segmented_aipersist")
-        );
-
-        when(logicalTopologyService.localLogicalTopology()).thenReturn(new LogicalTopologySnapshot(0, Set.of(node)));
     }
 
     @ParameterizedTest(name = "with syntax = {0}")

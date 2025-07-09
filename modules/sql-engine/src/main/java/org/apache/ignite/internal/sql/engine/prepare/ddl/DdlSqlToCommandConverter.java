@@ -112,9 +112,6 @@ import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
@@ -165,13 +162,15 @@ public class DdlSqlToCommandConverter {
     /** Zone options set. */
     private final Set<String> knownZoneOptionNames;
 
-    /** Logical topology service for cluster wide storage profiles resolution. */
-    private final LogicalTopologyService logicalTopologyService;
+    /** Storage profiles validator. */
+    private final StorageProfileValidator storageProfileValidator;
 
     /**
      * Constructor.
+     *
+     * @param storageProfileValidator TODO.
      */
-    public DdlSqlToCommandConverter(LogicalTopologyService logicalTopologyService) {
+    public DdlSqlToCommandConverter(StorageProfileValidator storageProfileValidator) {
         knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
                 .stream()
                 .map(Enum::name)
@@ -213,7 +212,7 @@ public class DdlSqlToCommandConverter {
 
         alterReplicasOptionInfo = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::replicas);
 
-        this.logicalTopologyService = logicalTopologyService;
+        this.storageProfileValidator = storageProfileValidator;
     }
 
     /**
@@ -731,55 +730,19 @@ public class DdlSqlToCommandConverter {
 
         List<StorageProfileParams> profiles = extractProfiles(createZoneNode.storageProfiles());
 
-        checkStorageProfilesArePresentedAmongCluster(profiles);
+        Set<String> storageProfileNames = new HashSet<>(profiles.size());
+
+        for (StorageProfileParams profile : profiles) {
+            storageProfileNames.add(profile.storageProfile());
+        }
+
+        storageProfileValidator.validate(storageProfileNames);
 
         builder.storageProfilesParams(profiles);
 
         return builder.build();
     }
 
-    private void checkStorageProfilesArePresentedAmongCluster(List<StorageProfileParams> storageProfiles) {
-        LogicalTopologySnapshot localLogicalTopologySnapshot = logicalTopologyService.localLogicalTopology();
-
-        String notPresentedStorageProfileName = findStorageProfileNotPresentedInLogicalTopologySnapshot(
-                storageProfiles,
-                localLogicalTopologySnapshot
-        );
-
-        if (notPresentedStorageProfileName != null) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Storage profile [" + notPresentedStorageProfileName + "] doesn't exist.");
-        }
-    }
-
-    private static @Nullable String findStorageProfileNotPresentedInLogicalTopologySnapshot(
-            List<StorageProfileParams> storageProfiles,
-            LogicalTopologySnapshot snapshot
-    ) {
-        Set<String> topologyWideProfiles = extractStorageProfileNamesFromLogicalTopologySnapshot(snapshot);
-
-        for (StorageProfileParams profile : storageProfiles) {
-            String storageProfileName = profile.storageProfile();
-
-            if (!topologyWideProfiles.contains(storageProfileName)) {
-                return storageProfileName;
-            }
-        }
-
-        return null;
-    }
-
-    private static Set<String> extractStorageProfileNamesFromLogicalTopologySnapshot(LogicalTopologySnapshot snapshot) {
-        Set<LogicalNode> logicalNodes = snapshot.nodes();
-
-        // Assume default persistent + rocks + aimem profiles on each node in average.
-        Set<String> topologyWideProfiles = new HashSet<>(logicalNodes.size() * 3);
-
-        for (LogicalNode logicalNode : logicalNodes) {
-            topologyWideProfiles.addAll(logicalNode.storageProfiles());
-        }
-
-        return topologyWideProfiles;
-    }
 
     /**
      * Converts the given '{@code ALTER ZONE}' AST to the {@link AlterZoneCommand} catalog command.

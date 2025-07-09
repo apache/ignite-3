@@ -78,8 +78,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.event.EventListener;
@@ -94,7 +92,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
-import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
@@ -821,40 +818,16 @@ public class TestBuilders {
 
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
-            var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(new LogicalTopologyService() {
-                        @Override
-                        public void addEventListener(LogicalTopologyEventListener listener) {
-                            // no-op.
-                        }
-
-                        @Override
-                        public void removeEventListener(LogicalTopologyEventListener listener) {
-                            // no-op.
-                        }
-
-                        @Override
-                        public CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader() {
-                            return CompletableFuture.completedFuture(localLogicalTopology());
-                        }
-
-                        @Override
-                        public LogicalTopologySnapshot localLogicalTopology() {
-                            return new LogicalTopologySnapshot(0, logicalNodes);
-                        }
-
-                        @Override
-                        public CompletableFuture<Set<ClusterNode>> validatedNodesOnLeader() {
-                            Set<ClusterNode> validatedNodes = localLogicalTopology()
-                                    .nodes()
-                                    .stream()
-                                    .map(n -> new ClusterNodeImpl(n.id(), n.name(), n.address()))
-                                    .collect(Collectors.toSet());
-
-                            return CompletableFuture.completedFuture(validatedNodes);
-                        }
-                    }), planningTimeout, PLANNING_THREAD_COUNT,
-                    new NoOpMetricManager(), schemaManager);
+            var prepareService = new PrepareServiceImpl(
+                    clusterName,
+                    0,
+                    CaffeineCacheFactory.INSTANCE,
+                    new DdlSqlToCommandConverter(storageProfiles -> {}), // TODO.
+                    planningTimeout,
+                    PLANNING_THREAD_COUNT,
+                    new NoOpMetricManager(),
+                    schemaManager
+            );
 
             ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                     NamedThreadFactory.create("test", "common-scheduled-executors", LOG)

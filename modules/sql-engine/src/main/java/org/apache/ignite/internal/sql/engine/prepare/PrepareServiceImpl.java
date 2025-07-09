@@ -48,7 +48,6 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -145,6 +144,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param clusterCfg Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
+     * @param ddlSqlToCommandConverter TODO.
      */
     public static PrepareServiceImpl create(
             String nodeName,
@@ -154,13 +154,13 @@ public class PrepareServiceImpl implements PrepareService {
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
             SqlSchemaManager schemaManager,
-            LogicalTopologyService logicalTopologyService
+            DdlSqlToCommandConverter ddlSqlToCommandConverter
     ) {
         return new PrepareServiceImpl(
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
-                new DdlSqlToCommandConverter(logicalTopologyService),
+                ddlSqlToCommandConverter,
                 clusterCfg.planner().maxPlanningTimeMillis().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager,
