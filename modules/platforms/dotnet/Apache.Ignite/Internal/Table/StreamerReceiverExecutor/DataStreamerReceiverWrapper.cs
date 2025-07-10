@@ -42,11 +42,13 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
         PooledArrayBuffer responseBuf,
         CancellationToken cancellationToken)
     {
-        var (page, arg) = StreamerReceiverSerializer.ReadReceiverInfo<TItem, TArg>(requestBuf);
         TReceiver receiver = new TReceiver();
 
         try
         {
+            var (page, arg) = StreamerReceiverSerializer.ReadReceiverInfo<TItem, TArg>(
+                requestBuf, receiver.PayloadMarshaller, receiver.ArgumentMarshaller);
+
             IList<TResult>? res = await receiver.ReceiveAsync(page, arg, context, cancellationToken).ConfigureAwait(false);
 
             StreamerReceiverSerializer.WriteReceiverResults(responseBuf.MessageWriter, res);

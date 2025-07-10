@@ -27,6 +27,7 @@ using Buffers;
 using Compute;
 using Ignite.Sql;
 using Ignite.Table;
+using Marshalling;
 using Proto.BinaryTuple;
 using Proto.MsgPack;
 
@@ -184,10 +185,15 @@ internal static class StreamerReceiverSerializer
     /// Reads the receiver info from the buffer.
     /// </summary>
     /// <param name="buf">Buffer.</param>
+    /// <param name="payloadMarshaller">Payload marshaller.</param>
+    /// <param name="argumentMarshaller">Argument marshaller.</param>
     /// <typeparam name="TItem">Item type.</typeparam>
     /// <typeparam name="TArg">Argument type.</typeparam>
     /// <returns>Receiver info.</returns>
-    public static ReceiverInfo<TItem, TArg> ReadReceiverInfo<TItem, TArg>(PooledBuffer buf)
+    public static ReceiverInfo<TItem, TArg> ReadReceiverInfo<TItem, TArg>(
+        PooledBuffer buf,
+        IMarshaller<TItem>? payloadMarshaller,
+        IMarshaller<TArg>? argumentMarshaller)
     {
         BinaryTupleReader receiverInfo = GetReceiverInfoReaderFast(buf);
 
