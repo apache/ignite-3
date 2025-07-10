@@ -198,20 +198,28 @@ internal static class StreamerReceiverSerializer
         BinaryTupleReader receiverInfo = GetReceiverInfoReaderFast(buf);
 
         var arg = (TArg)ReadReceiverArg(ref receiverInfo, 1, argumentMarshaller)!;
-        List<TItem> items = ReadReceiverPage<TItem>(ref receiverInfo);
+        List<TItem> items = ReadReceiverPage(ref receiverInfo, payloadMarshaller);
 
         return new(items, arg);
     }
 
     [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private method.")]
-    private static List<T> ReadReceiverPage<T>(ref BinaryTupleReader receiverInfo)
+    private static List<T> ReadReceiverPage<T>(ref BinaryTupleReader receiverInfo, IMarshaller<T>? marshaller)
     {
         int itemType = receiverInfo.GetInt(4);
         int itemCount = receiverInfo.GetInt(5);
 
         List<T> items = new List<T>(itemCount);
 
-        if (itemType == TupleWithSchemaMarshalling.TypeIdTuple)
+        if (marshaller != null)
+        {
+            for (int i = 0; i < itemCount; i++)
+            {
+                T item = marshaller.Unmarshal(receiverInfo.GetBytesSpan(i + 6));
+                items.Add(item);
+            }
+        }
+        else if (itemType == TupleWithSchemaMarshalling.TypeIdTuple)
         {
             for (int i = 0; i < itemCount; i++)
             {
