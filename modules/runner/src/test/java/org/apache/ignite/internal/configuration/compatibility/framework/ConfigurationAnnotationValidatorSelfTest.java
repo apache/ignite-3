@@ -62,16 +62,12 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         ConfigNode candidate = newNode(new ConfigAnnotation("a", Map.of()), new ConfigAnnotation("b", Map.of()));
         ConfigNode current = newNode(new ConfigAnnotation("a", Map.of()));
 
-        List<String> errors = new ArrayList<>();
         ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator(Map.of());
 
+        List<String> errors = new ArrayList<>();
         validator.validate(candidate, current, errors);
 
         assertEquals(List.of(), errors);
-    }
-
-    private static ConfigNode newNode(ConfigAnnotation... annotations) {
-        return new ConfigNode(null, Map.of(), Arrays.asList(annotations), EnumSet.noneOf(Flags.class));
     }
 
     @Test
@@ -186,6 +182,7 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         class SomeClass {
             @Base
             @BasePlusField
+            @BaseValueChange
             @BaseDefaultChange
             @BaseArray
             @BaseTypeChange
@@ -198,9 +195,10 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         ConfigAnnotation candidate = getAnnotation(SomeClass.class, "f1", "AnnotationType", args.ann1);
         ConfigAnnotation current = getAnnotation(SomeClass.class, "f1", "AnnotationType", args.ann2);
 
-        List<String> errors = new ArrayList<>();
         ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator(Map.of());
-        validator.validateStructure(candidate, current, errors);
+
+        List<String> errors = new ArrayList<>();
+        validator.validate(newNode(candidate), newNode(current), errors);
 
         assertEquals(Set.copyOf(args.errors), Set.copyOf(errors));
     }
@@ -225,19 +223,24 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
 
                 // Changing field type
                 new AnnotationValidationRuleArgs(Base.class, BaseTypeChange.class,
-                        Set.of("AnnotationType properties with changed types [f1]")),
+                        Set.of("AnnotationType properties with changed types [f1]", "AnnotationType changed values [f1]")),
+
+                // Changing field value
+                new AnnotationValidationRuleArgs(Base.class, BaseValueChange.class,
+                        Set.of("AnnotationType changed values [f1]")),
 
                 // Changing array field type
                 new AnnotationValidationRuleArgs(BaseArray.class, BaseArrayTypeChange.class,
-                        Set.of("AnnotationType properties with changed types [f1]")),
+                        Set.of("AnnotationType properties with changed types [f1]", "AnnotationType changed values [f1]")),
 
                 // Multiple errors
 
                 new AnnotationValidationRuleArgs(BasePlusField.class, BaseMultipleChanges.class,
                         Set.of(
-                                "AnnotationType properties with changed types [f1]",
-                                "AnnotationType removed properties [f2]",
-                                "AnnotationType added properties [f3]"
+                                "AnnotationType properties with changed types [f1]", 
+                                "AnnotationType changed values [f1]",
+                                "AnnotationType added properties [f3]", 
+                                "AnnotationType removed properties [f2]"
                         )
                 )
         );
@@ -275,6 +278,12 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
     @interface BaseTypeChange {
         @SuppressWarnings("unused")
         int f1() default 0;
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface BaseValueChange {
+        @SuppressWarnings("unused")
+        String f1() default "x";
     }
 
     @Retention(RetentionPolicy.RUNTIME)
@@ -330,13 +339,17 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator(validators);
 
         List<String> errors = new ArrayList<>();
-        validator.validateSpecificAnnotation(candidate, current, errors);
+        validator.validate(newNode(candidate), newNode(current), errors);
 
         assertEquals(List.of("Invalid"), errors);
     }
 
     @Retention(RetentionPolicy.RUNTIME)
     @interface InvalidAnnotation {
+    }
+
+    private static ConfigNode newNode(ConfigAnnotation... annotations) {
+        return new ConfigNode(null, Map.of(), Arrays.asList(annotations), EnumSet.noneOf(Flags.class));
     }
 
     private static <A extends Annotation> ConfigAnnotation getAnnotation(Class<?> clazz,

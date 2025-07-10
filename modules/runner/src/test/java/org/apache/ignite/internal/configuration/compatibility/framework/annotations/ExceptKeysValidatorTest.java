@@ -55,9 +55,9 @@ public class ExceptKeysValidatorTest extends BaseAnnotationCompatibilityValidato
         ConfigAnnotation candidate = getAnnotation(SomeClass.class, f1, ExceptKeys.class.getName(), ExceptKeys.class);
         ConfigAnnotation current = getAnnotation(SomeClass.class, f2, ExceptKeys.class.getName(), ExceptKeys.class);
 
-        List<String> errors = new ArrayList<>();
-
         AnnotationCompatibilityValidator validator = new ExceptKeysAnnotationCompatibilityValidator();
+
+        List<String> errors = new ArrayList<>();
         validator.validate(candidate, current, errors);
 
         assertEquals(Set.copyOf(expectedErrors), Set.copyOf(errors));

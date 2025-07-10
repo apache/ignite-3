@@ -96,7 +96,9 @@ final class ConfigAnnotationsValidator {
         }
     }
 
-    void validateStructure(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
+    private void validateStructure(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
+        assert candidate.name().equals(current.name()) : "Annotation name mismatch";
+
         Set<String> currentProperties = current.properties().keySet();
         Set<String> candidateProperties = candidate.properties().keySet();
 
@@ -139,9 +141,8 @@ final class ConfigAnnotationsValidator {
         validateSpecificAnnotation(candidate, current, errors);
     }
 
-    void validateSpecificAnnotation(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
+    private void validateSpecificAnnotation(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
         AnnotationCompatibilityValidator validator = validators.getOrDefault(candidate.name(), DEFAULT_VALIDATOR);
-        assert candidate.name().equals(current.name()) : "Annotation name mismatch";
 
         validator.validate(candidate, current, errors);
     }

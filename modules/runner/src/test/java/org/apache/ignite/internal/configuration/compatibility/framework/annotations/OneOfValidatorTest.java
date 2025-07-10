@@ -66,9 +66,9 @@ public class OneOfValidatorTest extends BaseAnnotationCompatibilityValidatorSelf
         ConfigAnnotation candidate = getAnnotation(SomeClass.class, f1, OneOf.class.getName(), OneOf.class);
         ConfigAnnotation current = getAnnotation(SomeClass.class, f2, OneOf.class.getName(), OneOf.class);
 
-        List<String> errors = new ArrayList<>();
-
         AnnotationCompatibilityValidator validator = new OneOfAnnotationCompatibilityValidator();
+
+        List<String> errors = new ArrayList<>();
         validator.validate(candidate, current, errors);
 
         assertEquals(expectedErrors, errors);

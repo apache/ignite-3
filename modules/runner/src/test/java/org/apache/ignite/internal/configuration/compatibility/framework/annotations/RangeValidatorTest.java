@@ -73,9 +73,9 @@ public class RangeValidatorTest extends BaseAnnotationCompatibilityValidatorSelf
         ConfigAnnotation candidate = getAnnotation(SomeClass.class, f1, Range.class.getName(), Range.class);
         ConfigAnnotation current = getAnnotation(SomeClass.class, f2, Range.class.getName(), Range.class);
 
-        List<String> errors = new ArrayList<>();
-
         AnnotationCompatibilityValidator validator = new RangeAnnotationCompatibilityValidator();
+
+        List<String> errors = new ArrayList<>();
         validator.validate(candidate, current, errors);
 
         assertEquals(Set.copyOf(expectedErrors), Set.copyOf(errors));
