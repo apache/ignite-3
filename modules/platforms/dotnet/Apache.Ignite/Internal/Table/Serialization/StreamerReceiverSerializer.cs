@@ -82,6 +82,7 @@ internal static class StreamerReceiverSerializer
         {
             builder.AppendString(className);
 
+            // TODO: arg and item marshallers.
             if (arg is IIgniteTuple tupleArg)
             {
                 builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
@@ -109,8 +110,9 @@ internal static class StreamerReceiverSerializer
     /// </summary>
     /// <param name="w">Writer.</param>
     /// <param name="res">Results.</param>
+    /// <param name="marshaller">Marshaller.</param>
     /// <typeparam name="T">Result item type.</typeparam>
-    public static void WriteReceiverResults<T>(MsgPackWriter w, IList<T>? res)
+    public static void WriteReceiverResults<T>(MsgPackWriter w, IList<T>? res, IMarshaller<T>? marshaller)
     {
         if (res == null)
         {
@@ -122,7 +124,7 @@ internal static class StreamerReceiverSerializer
 
         // Reserve a 4-byte prefix for resTupleElementCount.
         using var builder = new BinaryTupleBuilder(resTupleElementCount, prefixSize: 4);
-        AppendCollection(builder, res);
+        AppendCollection(builder, res, marshaller);
 
         Memory<byte> jobResultTupleMemWithPrefix = builder.Build();
         BinaryPrimitives.WriteInt32LittleEndian(jobResultTupleMemWithPrefix.Span, resTupleElementCount);
@@ -290,9 +292,26 @@ internal static class StreamerReceiverSerializer
         }
     }
 
-    private static void AppendCollection<T>(BinaryTupleBuilder builder, IList<T> items)
+    private static void AppendMarshalledCollection<T>(BinaryTupleBuilder builder, ICollection<T> items, IMarshaller<T> marshaller)
     {
-        if (items.Count > 0 && items[0] is IIgniteTuple)
+        builder.AppendInt((int)ColumnType.ByteArray);
+        builder.AppendInt(items.Count);
+
+        foreach (var item in items)
+        {
+            builder.AppendBytes(
+                static (bufWriter, arg) => arg.marsh.Marshal(arg.obj, bufWriter),
+                (marsh: marshaller, obj: item));
+        }
+    }
+
+    private static void AppendCollection<T>(BinaryTupleBuilder builder, IList<T> items, IMarshaller<T>? marshaller)
+    {
+        if (marshaller != null)
+        {
+            AppendMarshalledCollection(builder, items, marshaller);
+        }
+        else if (items.Count > 0 && items[0] is IIgniteTuple)
         {
             AppendTupleCollection(builder, items);
         }
