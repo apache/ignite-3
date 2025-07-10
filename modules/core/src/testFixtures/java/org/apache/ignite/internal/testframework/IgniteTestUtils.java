@@ -498,7 +498,7 @@ public final class IgniteTestUtils {
      * @return Future with task result.
      */
     public static <T> CompletableFuture<T> runAsync(Callable<T> task, String threadName) {
-        ThreadFactory thrFactory = IgniteThreadFactory.withPrefix(threadName, LOG, ThreadOperation.values());
+        ThreadFactory thrFactory = IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG, ThreadOperation.values());
 
         CompletableFuture<T> fut = new CompletableFuture<T>();
 
