@@ -265,7 +265,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         for (RocksDbStorage rocksDbStorage : storageByProfileName.values()) {
             rocksDbStorage.rocksDbInstance.destroyTable(tableId);
         }

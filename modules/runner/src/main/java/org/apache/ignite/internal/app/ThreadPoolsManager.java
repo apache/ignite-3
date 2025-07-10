@@ -97,6 +97,7 @@ public class ThreadPoolsManager implements IgniteComponent {
         metricSources.add(
                 new ThreadPoolMetricSource(
                         THREAD_POOLS_METRICS_SOURCE_NAME + "partitions-executor",
+                        "The partitions-executor pool handles all the table related operations.",
                         (ThreadPoolExecutor) partitionOperationsExecutor)
         );
     }
@@ -116,11 +117,6 @@ public class ThreadPoolsManager implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(tableIoExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, SECONDS);
-
-        metricSources.forEach(metricSource -> {
-            metricManager.disable(metricSource);
-            metricManager.unregisterSource(metricSource);
-        });
 
         return nullCompletedFuture();
     }

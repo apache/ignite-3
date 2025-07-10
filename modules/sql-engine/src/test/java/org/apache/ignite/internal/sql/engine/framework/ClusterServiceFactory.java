@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
@@ -251,7 +252,7 @@ public class ClusterServiceFactory {
             LocalMessagingService recipient = messagingServicesByNode.get(recipientConsistentId);
 
             if (recipient == null) {
-                return CompletableFuture.failedFuture(new UnresolvableConsistentIdException(recipientConsistentId));
+                return failedFuture(new UnresolvableConsistentIdException(recipientConsistentId));
             }
 
             for (NetworkMessageHandler handler : recipient.messageHandlers(msg.groupType())) {
@@ -259,6 +260,11 @@ public class ClusterServiceFactory {
             }
 
             return nullCompletedFuture();
+        }
+
+        @Override
+        public CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg) {
+            return failedFuture(new UnsupportedOperationException());
         }
 
         /** {@inheritDoc} */

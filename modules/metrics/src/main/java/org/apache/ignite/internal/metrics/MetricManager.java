@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
@@ -56,7 +55,7 @@ public interface MetricManager extends IgniteComponent {
      *
      * @param exporters Exporters.
      */
-    void start(Iterable<MetricExporter<?>> exporters);
+    void start(Iterable<MetricExporter> exporters);
 
     /**
      * Register metric source. See {@link MetricRegistry#registerSource(MetricSource)}.
@@ -115,7 +114,7 @@ public interface MetricManager extends IgniteComponent {
      *
      * @return Metrics snapshot.
      */
-    IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot();
+    MetricSnapshot metricSnapshot();
 
     /**
      * Gets a collection of metric sources.

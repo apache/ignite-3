@@ -106,13 +106,15 @@ public static class ManagementApi
         var testsDll = typeof(ManagementApi).Assembly.Location;
 
         var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
-        var unitVersion0 = unitVersion ?? DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
+        var unitVersion0 = unitVersion ?? GetRandomUnitVersion();
 
         return await UnitDeploy(
             unitId: unitId0,
             unitVersion: unitVersion0,
             unitContent: [testsDll]);
     }
+
+    public static string GetRandomUnitVersion() => DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
 
     private static async Task<DeploymentUnitStatus[]?> GetUnitStatus(string unitId)
     {

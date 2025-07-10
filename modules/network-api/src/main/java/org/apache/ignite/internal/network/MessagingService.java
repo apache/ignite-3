@@ -23,18 +23,18 @@ import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 
 /**
  * Entry point for sending messages between network members in both weak and patient mode.
- *
- * <p>TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
  */
+// TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
 public interface MessagingService {
     /**
      * Send the given message asynchronously to the specific member without any delivery guarantees.
      *
      * @param recipient Recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param msg Message which should be delivered.
      */
     void weakSend(ClusterNode recipient, NetworkMessage msg);
 
@@ -53,8 +53,12 @@ public interface MessagingService {
      * to B, then the guarantees are maintained. If, on the other hand, A sends m1 to B and m2 to C, then no guarantees
      * exist.
      *
+     * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
+     * object is found on the other side of the channel.
+     *
      * @param recipient Recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
     default CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
@@ -76,8 +80,12 @@ public interface MessagingService {
      * to B, then the guarantees are maintained. If, on the other hand, A sends m1 to B and m2 to C, then no guarantees
      * exist.
      *
+     * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
+     * object is found on the other side of the channel.
+     *
      * @param recipient Recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
     CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg);
@@ -97,14 +105,38 @@ public interface MessagingService {
      * exist.
      *
      * @param recipientConsistentId Consistent ID of the recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
     CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg);
 
     /**
+     * Tries to send the given message via specified channel asynchronously to the specific cluster member by its network address.
+     *
+     * <p>Guarantees:
+     * <ul>
+     *     <li>Messages send to same receiver will be delivered in the same order as they were sent;</li>
+     *     <li>If a message N has been successfully delivered to a member implies that all messages to same receiver
+     *     preceding N have also been successfully delivered.</li>
+     * </ul>
+     *
+     * <p>Please note that the guarantees only work for same (sender, receiver) pairs. That is, if A sends m1 and m2
+     * to B, then the guarantees are maintained. If, on the other hand, A sends m1 to B and m2 to C, then no guarantees
+     * exist.
+     *
+     * @param recipientNetworkAddress Network address of the recipient of the message.
+     * @param msg Message which should be delivered.
+     * @return Future of the send operation.
+     */
+    CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg);
+
+    /**
      * Sends a response to a {@link #invoke} request.
      * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
+     *
+     * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
+     * object is found on the other side of the channel.
      *
      * @param recipient     Recipient of the message.
      * @param msg           Message which should be delivered.
@@ -118,6 +150,10 @@ public interface MessagingService {
     /**
      * Sends a response to a {@link #invoke} request.
      * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
+     *
+     * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
+     * object is found on the other side of the channel.
      *
      * @param recipient     Recipient of the message.
      * @param msg           Message which should be delivered.
@@ -162,6 +198,10 @@ public interface MessagingService {
      * {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
      * completed successfully upon receiving a response.
      *
+     * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
+     * object is found on the other side of the channel.
+     *
      * @param recipient Recipient of the message.
      * @param msg       The message.
      * @param timeout   Waiting for response timeout in milliseconds.
@@ -175,6 +215,10 @@ public interface MessagingService {
      * Sends a message asynchronously  via specified channel with same guarantees as
      * {@link #send(ClusterNode, NetworkMessage)} and returns a future that will be
      * completed successfully upon receiving a response.
+     *
+     * <p>If the recipient is not in the physical topology anymore, the result future will be completed with
+     * a {@link RecipientLeftException}. This also relates to the case when a node with ID different from the one in the {@link ClusterNode}
+     * object is found on the other side of the channel.
      *
      * @param recipient Recipient of the message.
      * @param channelType Channel which will be used to message transfer.

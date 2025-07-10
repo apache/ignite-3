@@ -63,7 +63,7 @@ public:
     typedef std::function<protocol::client_operation(const protocol::protocol_context&)> operation_function_type;
 
     /** Default TCP port. */
-    static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
+    static constexpr uint16_t DEFAULT_TCP_PORT = protocol::protocol_context::DEFAULT_TCP_PORT;
 
     /**
      * Create a new instance of the object.

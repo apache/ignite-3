@@ -22,7 +22,8 @@ import static org.apache.ignite.internal.partition.replicator.network.PartitionR
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommandV2;
-import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommand;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV1;
+import org.apache.ignite.internal.partition.replicator.network.command.FinishTxCommandV2;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommandV2;
@@ -220,8 +221,12 @@ public interface PartitionReplicationMessageGroup {
      * <p>NOTE: Commands must be immutable because they will be stored in the replication log.</p>
      */
     interface Commands {
-        /** Message type for {@link FinishTxCommand}. */
-        short FINISH_TX = 40;
+        /**
+         * Message type for {@link FinishTxCommandV1}.
+         *
+         * @see #FINISH_TX_V2
+         */
+        short FINISH_TX_V1 = 40;
 
         /**
          * Message type for {@link WriteIntentSwitchCommand} for non-collocated distribution zones.
@@ -265,6 +270,9 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link BuildIndexCommandV2}. */
         short BUILD_INDEX_V2 = 49;
+
+        /** Message type for {@link FinishTxCommandV2}. */
+        short FINISH_TX_V2 = 50;
     }
 
     /**

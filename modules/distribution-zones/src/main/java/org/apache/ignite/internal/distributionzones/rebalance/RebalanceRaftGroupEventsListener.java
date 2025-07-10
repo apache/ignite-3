@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
-import org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -345,7 +345,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 }
 
                 Assignments stable = Assignments.of(stableFromRaft, pendingAssignmentsQueue.peekFirst().timestamp());
-                pendingAssignmentsQueue = PendingAssignmentsCalculator.pendingAssignmentsCalculator()
+                pendingAssignmentsQueue = pendingAssignmentsCalculator()
                         .stable(stable)
                         .target(pendingAssignmentsQueue.peekLast())
                         .toQueue();
@@ -479,9 +479,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                         // eq(revision(partition.assignments.planned), plannedEntry.revision)
                         con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
 
+                        AssignmentsQueue partAssignmentsPendingQueue = pendingAssignmentsCalculator()
+                                .stable(newStableAssignments)
+                                .target(Assignments.fromBytes(plannedEntry.value()))
+                                .toQueue();
+
                         successCase = ops(
                                 put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                                put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
+                                put(pendingPartAssignmentsKey, partAssignmentsPendingQueue.toBytes()),
                                 remove(plannedPartAssignmentsKey),
                                 assignmentChainChangeOp
                         ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);

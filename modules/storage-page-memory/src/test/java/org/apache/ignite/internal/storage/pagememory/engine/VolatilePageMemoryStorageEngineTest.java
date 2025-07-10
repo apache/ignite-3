@@ -27,6 +27,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
+import org.apache.ignite.internal.storage.engine.AbstractVolatileStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileView;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Implementation of the {@link AbstractStorageEngineTest} for the {@link VolatilePageMemoryStorageEngine#ENGINE_NAME} engine.
  */
-public class VolatilePageMemoryStorageEngineTest extends AbstractStorageEngineTest {
+public class VolatilePageMemoryStorageEngineTest extends AbstractVolatileStorageEngineTest {
     @InjectConfiguration("mock.profiles.default.engine = aimem")
     private StorageConfiguration storageConfig;
 

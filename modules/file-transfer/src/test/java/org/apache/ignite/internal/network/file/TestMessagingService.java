@@ -25,6 +25,7 @@ import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,6 +45,11 @@ public class TestMessagingService extends AbstractMessagingService {
 
     @Override
     public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
+        return failedFuture(new UnsupportedOperationException());
+    }
+
+    @Override
+    public CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg) {
         return failedFuture(new UnsupportedOperationException());
     }
 

@@ -163,8 +163,20 @@
       url: sql-reference/grammar-reference
     - title: Data Types
       url: sql-reference/data-types
+    - title: Explain Statement
+      url: sql-reference/explain-statement
+      items:
+        - title: Explain Statement
+          url: sql-reference/explain-statement
+        - title: List Of Operators
+          url: sql-reference/explain-operators-list
 - title: SQL Performance Tuning
-  url: sql-tuning
+  url: sql-tuning/sql-tuning
+  items:
+    - title: SQL Performance Tuning
+      url: sql-tuning/sql-tuning
+    - title: Improving Queries
+      url: sql-tuning/using-explain
 - title: General Configuration Tips
   url: general-tips
 - title: Glossary

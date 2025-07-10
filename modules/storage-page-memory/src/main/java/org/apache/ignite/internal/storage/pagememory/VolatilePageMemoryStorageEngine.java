@@ -187,7 +187,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         // No-op.
     }
 

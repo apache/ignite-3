@@ -57,12 +57,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -96,6 +94,7 @@ import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -141,6 +140,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
     void testDoStableKeySwitchWhenPendingQueueIsGreaterThanOne() {
         createZoneAndTable(4, 2);
 
@@ -273,6 +273,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
     void testNodeRestartDuringQueueProcessing() {
         createZoneAndTable(4, 2);
 
@@ -476,13 +477,6 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         int tableId = catalog.table(DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
         return TestDisasterRecoveryUtils.getRealAssignments(
                 ignite.disasterRecoveryManager(), ZONE_NAME, zoneId, tableId, 0);
-    }
-
-    private IgniteImpl findNode(Predicate<? super Ignite> predicate) {
-        return cluster.runningNodes().filter(predicate)
-                .findFirst()
-                .map(TestWrappers::unwrapIgniteImpl)
-                .orElseThrow(() -> new AssertionError("node not found"));
     }
 
     private boolean isNotMetastoreNode(Peer p) {

@@ -79,6 +79,8 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-replicator'))
     testImplementation testFixtures(project(':ignite-runner'))
+
+    testImplementation libs.awaitility
 }
 
 description = 'ignite-placement-driver'
