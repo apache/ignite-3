@@ -144,6 +144,12 @@ final class ConfigAnnotationsValidator {
     private void validateSpecificAnnotation(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
         AnnotationCompatibilityValidator validator = validators.getOrDefault(candidate.name(), DEFAULT_VALIDATOR);
 
+        boolean hasProperties = !candidate.properties().isEmpty() || !current.properties().isEmpty();
+
+        if (hasProperties && validator == DEFAULT_VALIDATOR) {
+            errors.add("Annotation requires a custom compatibility validator: " + candidate.name());
+        }
+
         validator.validate(candidate, current, errors);
     }
 }

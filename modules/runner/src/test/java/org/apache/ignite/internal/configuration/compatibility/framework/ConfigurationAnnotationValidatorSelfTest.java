@@ -182,8 +182,6 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         class SomeClass {
             @Base
             @BasePlusField
-            @BaseValueChange
-            @BaseDefaultChange
             @BaseArray
             @BaseTypeChange
             @BaseArrayTypeChange
@@ -195,7 +193,10 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         ConfigAnnotation candidate = getAnnotation(SomeClass.class, "f1", "AnnotationType", args.ann1);
         ConfigAnnotation current = getAnnotation(SomeClass.class, "f1", "AnnotationType", args.ann2);
 
-        ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator(Map.of());
+        ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator(Map.of("AnnotationType",
+                (candidate1, current1, errors) -> {
+
+                }));
 
         List<String> errors = new ArrayList<>();
         validator.validate(newNode(candidate), newNode(current), errors);
@@ -208,11 +209,6 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
                 // No changes
                 new AnnotationValidationRuleArgs(Base.class, Base.class, Set.of()),
 
-                // Changing default: should be an error, unless a custom validation is specified.
-                new AnnotationValidationRuleArgs(Base.class, BaseDefaultChange.class,
-                        Set.of("AnnotationType changed values [f1]")
-                ),
-
                 // Adding field
                 new AnnotationValidationRuleArgs(Base.class, BasePlusField.class,
                         Set.of("AnnotationType added properties [f2]")),
@@ -223,23 +219,18 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
 
                 // Changing field type
                 new AnnotationValidationRuleArgs(Base.class, BaseTypeChange.class,
-                        Set.of("AnnotationType properties with changed types [f1]", "AnnotationType changed values [f1]")),
-
-                // Changing field value
-                new AnnotationValidationRuleArgs(Base.class, BaseValueChange.class,
-                        Set.of("AnnotationType changed values [f1]")),
+                        Set.of("AnnotationType properties with changed types [f1]")),
 
                 // Changing array field type
                 new AnnotationValidationRuleArgs(BaseArray.class, BaseArrayTypeChange.class,
-                        Set.of("AnnotationType properties with changed types [f1]", "AnnotationType changed values [f1]")),
+                        Set.of("AnnotationType properties with changed types [f1]")),
 
                 // Multiple errors
 
                 new AnnotationValidationRuleArgs(BasePlusField.class, BaseMultipleChanges.class,
                         Set.of(
-                                "AnnotationType properties with changed types [f1]", 
-                                "AnnotationType changed values [f1]",
-                                "AnnotationType added properties [f3]", 
+                                "AnnotationType properties with changed types [f1]",
+                                "AnnotationType added properties [f3]",
                                 "AnnotationType removed properties [f2]"
                         )
                 )
@@ -281,18 +272,6 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
     }
 
     @Retention(RetentionPolicy.RUNTIME)
-    @interface BaseValueChange {
-        @SuppressWarnings("unused")
-        String f1() default "x";
-    }
-
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface BaseDefaultChange {
-        @SuppressWarnings("unused")
-        String f1() default "x";
-    }
-
-    @Retention(RetentionPolicy.RUNTIME)
     @interface BaseArray {
         @SuppressWarnings("unused")
         int[] f1() default 0;
@@ -320,6 +299,51 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
 
         @SuppressWarnings("unused")
         String f3();
+    }
+
+    @ParameterizedTest
+    @MethodSource("noValidationRules")
+    public void noValidator(AnnotationValidationRuleArgs args) {
+        class SomeClass {
+            @Base
+            @BaseValueChange
+            @SuppressWarnings("unused")
+            public String f1;
+        }
+
+        ConfigAnnotation candidate = getAnnotation(SomeClass.class, "f1", "AnnotationType", args.ann1);
+        ConfigAnnotation current = getAnnotation(SomeClass.class, "f1", "AnnotationType", args.ann2);
+
+        ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator(Map.of());
+
+        List<String> errors = new ArrayList<>();
+        validator.validate(newNode(candidate), newNode(current), errors);
+
+        assertEquals(Set.copyOf(args.errors), Set.copyOf(errors));
+    }
+
+    private static Stream<AnnotationValidationRuleArgs> noValidationRules() {
+        return Stream.of(
+                // No changes
+                new AnnotationValidationRuleArgs(Base.class, Base.class,
+                        Set.of(
+                                "Annotation requires a custom compatibility validator: AnnotationType"
+                        )
+                ),
+                // Value changes
+                new AnnotationValidationRuleArgs(Base.class, BaseValueChange.class,
+                        Set.of(
+                                "Annotation requires a custom compatibility validator: AnnotationType",
+                                "AnnotationType changed values [f1]"
+                        )
+                )
+        );
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface BaseValueChange {
+        @SuppressWarnings("unused")
+        String f1() default "x";
     }
 
     @Test
