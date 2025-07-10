@@ -33,14 +33,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.validation.ExceptKeys;
-import org.apache.ignite.configuration.validation.OneOf;
-import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -86,7 +82,7 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
             public int allTypes;
         }
 
-        ConfigAnnotation annotation = getAnnotation(SomeClass.class, "allTypes",  AllTypes.class.getName(), AllTypes.class);
+        ConfigAnnotation annotation = getAnnotation(SomeClass.class, "allTypes", AllTypes.class.getName(), AllTypes.class);
         assertEquals(AllTypes.class.getName(), annotation.name());
 
         Map<String, Object> expected = new HashMap<>(Map.of(
@@ -215,7 +211,7 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
                 new AnnotationValidationRuleArgs(Base.class, Base.class, Set.of()),
 
                 // Changing default: should be an error, unless a custom validation is specified.
-                new AnnotationValidationRuleArgs(Base.class, BaseDefaultChange.class, 
+                new AnnotationValidationRuleArgs(Base.class, BaseDefaultChange.class,
                         Set.of("AnnotationType changed values [f1]")
                 ),
 
@@ -317,8 +313,34 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         String f3();
     }
 
-    private static <A extends Annotation> ConfigAnnotation getAnnotation(Class<?> clazz, 
-            String field, 
+    @Test
+    public void callsSpecificValidator() {
+        class SomeClass {
+            @InvalidAnnotation
+            @SuppressWarnings("unused")
+            public String f1;
+        }
+
+        ConfigAnnotation candidate = getAnnotation(SomeClass.class, "f1", InvalidAnnotation.class.getName(), InvalidAnnotation.class);
+        ConfigAnnotation current = getAnnotation(SomeClass.class, "f1", InvalidAnnotation.class.getName(), InvalidAnnotation.class);
+
+        Map<String, AnnotationCompatibilityValidator> validators = Map.of(InvalidAnnotation.class.getName(),
+                (candidate1, current1, errors) -> errors.add("Invalid"));
+
+        ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator(validators);
+
+        List<String> errors = new ArrayList<>();
+        validator.validateSpecificAnnotation(candidate, current, errors);
+
+        assertEquals(List.of("Invalid"), errors);
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface InvalidAnnotation {
+    }
+
+    private static <A extends Annotation> ConfigAnnotation getAnnotation(Class<?> clazz,
+            String field,
             String annotationName,
             Class<A> annotationClass
     ) {
@@ -332,161 +354,5 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         } catch (NoSuchFieldException e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    @ParameterizedTest
-    @MethodSource("rangeAnnotationRules")
-    public void rangeAnnotation(String f1, String f2, Set<String> expectedErrors) {
-        class SomeClass {
-            @Range(min = 10)
-            @SuppressWarnings("unused")
-            public int minBase;
-            @Range(min = 5)
-            @SuppressWarnings("unused")
-            public int minDecreased;
-            @Range(min = 12)
-            @SuppressWarnings("unused")
-            public int minIncreased;
-
-            @Range(max = 20)
-            @SuppressWarnings("unused")
-            public int maxBase;
-            @Range(max = 15)
-            @SuppressWarnings("unused")
-            public int maxDecreased;
-            @Range(max = 22)
-            @SuppressWarnings("unused")
-            public int maxIncreased;
-
-            @Range
-            @SuppressWarnings("unused")
-            public int base;
-            @Range(max = Long.MAX_VALUE)
-            @SuppressWarnings("unused")
-            public int maxToDefault;
-            @Range(min = Long.MIN_VALUE)
-            @SuppressWarnings("unused")
-            public int minToDefault;
-        }
-
-        ConfigAnnotation candidate = getAnnotation(SomeClass.class, f1, Range.class.getName(), Range.class);
-        ConfigAnnotation current = getAnnotation(SomeClass.class, f2, Range.class.getName(), Range.class);
-
-        List<String> errors = new ArrayList<>();
-
-        ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator();
-        validator.validateSpecificAnnotation(candidate, current, errors);
-
-        assertEquals(Set.copyOf(expectedErrors), Set.copyOf(errors));
-    }
-
-    private static Stream<Arguments> rangeAnnotationRules() {
-        return Stream.of(
-                Arguments.of("minBase", "minBase", Set.of()),
-                Arguments.of("minBase", "minDecreased", Set.of()),
-                Arguments.of("minBase", "minIncreased", Set.of("Range: min changed from 10 to 12")),
-
-                Arguments.of("maxBase", "maxBase", Set.of()),
-                Arguments.of("maxBase", "maxIncreased", Set.of()),
-                Arguments.of("maxBase", "maxDecreased", Set.of("Range: max changed from 20 to 15")),
-
-                Arguments.of("base", "maxToDefault", Set.of()),
-                Arguments.of("maxToDefault", "base", Set.of()),
-
-                Arguments.of("base", "minToDefault", Set.of()),
-                Arguments.of("minToDefault", "base", Set.of())
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("exceptKeysRules")
-    public void exceptKeysAnnotation(String f1, String f2, List<String> expectedErrors) {
-        class SomeClass {
-            @ExceptKeys({"a", "b", "c"})
-            @SuppressWarnings("unused")
-            public String base;
-
-            @ExceptKeys("a")
-            @SuppressWarnings("unused")
-            public String removeKeys;
-
-            @ExceptKeys({"a", "b", "c", "d", "e"})
-            @SuppressWarnings("unused")
-            public String addKeys;
-        }
-
-        ConfigAnnotation candidate = getAnnotation(SomeClass.class, f1, ExceptKeys.class.getName(), ExceptKeys.class);
-        ConfigAnnotation current = getAnnotation(SomeClass.class, f2,  ExceptKeys.class.getName(), ExceptKeys.class);
-
-        List<String> errors = new ArrayList<>();
-
-        ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator();
-        validator.validateSpecificAnnotation(candidate, current, errors);
-
-        assertEquals(Set.copyOf(expectedErrors), Set.copyOf(errors));
-    }
-
-    private static Stream<Arguments> exceptKeysRules() {
-        return Stream.of(
-                Arguments.of("base", "base", List.of()),
-                Arguments.of("base", "removeKeys", List.of()),
-                Arguments.of("base", "addKeys", List.of("ExceptKeys: changed keys from [a, b, c] to [a, b, c, d, e]"))
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("oneOfRules")
-    public void oneOfAnnotation(String f1, String f2, List<String> expectedErrors) {
-        class SomeClass {
-            @OneOf({"a", "b", "c"})
-            @SuppressWarnings("unused")
-            public String base;
-
-            @OneOf("a")
-            @SuppressWarnings("unused")
-            public String removeKeys;
-
-            @OneOf({"a", "b", "c", "d", "e"})
-            @SuppressWarnings("unused")
-            public String addKeys;
-
-            @OneOf(value = {"a", "b", "c"}, caseSensitive = true)
-            @SuppressWarnings("unused")
-            public String caseSensitive;
-
-            @OneOf({"a", "b", "c"})
-            @SuppressWarnings("unused")
-            public String caseInsensitive;
-
-            @OneOf({"a", "b"})
-            @SuppressWarnings("unused")
-            public String caseInsensitiveRemoveKeys;
-        }
-
-        ConfigAnnotation candidate = getAnnotation(SomeClass.class, f1, OneOf.class.getName(), OneOf.class);
-        ConfigAnnotation current = getAnnotation(SomeClass.class, f2,  OneOf.class.getName(), OneOf.class);
-
-        List<String> errors = new ArrayList<>();
-
-        ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator();
-        validator.validateSpecificAnnotation(candidate, current, errors);
-
-        assertEquals(expectedErrors, errors);
-    }
-
-    private static Stream<Arguments> oneOfRules() {
-        return Stream.of(
-                Arguments.of("base", "base", List.of()),
-                Arguments.of("base", "removeKeys", List.of("OneOf: changed keys from [a, b, c] to [a]")),
-                Arguments.of("base", "addKeys", List.of()),
-                Arguments.of("caseInsensitive", "caseSensitive", List.of()),
-                Arguments.of("caseSensitive", "caseInsensitive", List.of("OneOf: keys made case insensitive")),
-                Arguments.of("caseSensitive", "caseInsensitiveRemoveKeys", 
-                        List.of(
-                                "OneOf: changed keys from [a, b, c] to [a, b]",
-                                "OneOf: keys made case insensitive"
-                        )
-                )
-        );
     }
 }

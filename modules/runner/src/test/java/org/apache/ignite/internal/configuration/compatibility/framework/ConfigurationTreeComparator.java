@@ -107,7 +107,9 @@ public class ConfigurationTreeComparator {
                     continue;
                 }
 
-                validateAnnotations(candidate, node);
+                // node is a snapshot node
+                // candidate is a current configuration node.
+                validateAnnotations(node, candidate);
 
                 return candidate;
             }

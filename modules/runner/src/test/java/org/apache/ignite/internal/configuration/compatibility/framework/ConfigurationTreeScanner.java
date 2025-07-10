@@ -208,7 +208,8 @@ public class ConfigurationTreeScanner {
         }
     }
 
-    static ConfigAnnotation extractAnnotation(String name, Annotation annotation) {
+    /** Creates {@link ConfigAnnotation} from the given java annotation. */
+    public static ConfigAnnotation extractAnnotation(String name, Annotation annotation) {
         Class<?> type = annotation.annotationType();
         Repeatable repeatable = type.getAnnotation(Repeatable.class);
         if (repeatable != null) {
