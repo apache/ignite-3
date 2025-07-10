@@ -70,9 +70,6 @@ public class ConfigurationTreeComparator {
             this.compContext = compContext;
         }
 
-        // Instance with no child as a stub in case of deleted node/subtree to stop traversing deleted subtree.
-        private static final ConfigNode NO_OP_NODE = new ConfigNode();
-
         @Override
         public void visit(ConfigNode node) {
             if (node.isValue() && !compContext.shouldIgnore(node.path())) {
