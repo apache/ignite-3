@@ -159,7 +159,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         busyLock.block();
 
         try {
-            eraseData(writeBatch);
+            cleanData(writeBatch);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to start rebalancing storage: " + createStorageInfo(), e);
         } finally {
@@ -178,7 +178,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
 
         try {
-            eraseData(writeBatch);
+            cleanData(writeBatch);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
         }
@@ -208,7 +208,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         // Changed storage states and expect all storage operations to stop soon.
         busyLock.block();
 
-        eraseData(writeBatch);
+        cleanData(writeBatch);
     }
 
     /**
@@ -261,7 +261,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      *
      * @throws RocksDBException If failed to delete data.
      */
-    public final void eraseData(WriteBatch writeBatch) throws RocksDBException {
+    public final void cleanData(WriteBatch writeBatch) throws RocksDBException {
         cleanup(writeBatch, false);
     }
 
