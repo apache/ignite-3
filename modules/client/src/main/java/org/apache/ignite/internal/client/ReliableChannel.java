@@ -51,7 +51,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
@@ -284,7 +283,6 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
-            Function<ClientChannel, CompletableFuture<Void>> channelReadyCb,
             @Nullable PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader,
             Supplier<CompletableFuture<ClientChannel>> channelResolver,
@@ -293,7 +291,6 @@ public final class ReliableChannel implements AutoCloseable {
     ) {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> channelResolver.get()
-                        .thenCompose(ch -> channelReadyCb.apply(ch).thenApply(ignored -> ch))
                         .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
                 null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
@@ -339,7 +336,7 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             @Nullable PayloadReader<T> payloadReader
     ) {
-        return serviceAsync(opCode, payloadWriter, payloadReader, null, null, false);
+        return serviceAsync(opCode, payloadWriter, payloadReader, (String) null, null, false);
     }
 
     /**
@@ -351,7 +348,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader, null, null, false);
+        return serviceAsync(opCode, null, payloadReader, (String) null, null, false);
     }
 
     private <T> CompletableFuture<T> serviceAsyncInternal(

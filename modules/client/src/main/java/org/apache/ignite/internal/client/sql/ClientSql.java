@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
-import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
+import org.apache.ignite.internal.client.tx.DirectTxUtils;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.StatementImpl;
@@ -284,7 +284,7 @@ public class ClientSql implements IgniteSql {
         Objects.requireNonNull(statement);
 
         PayloadWriter payloadWriter = w -> {
-            writeTx(transaction, w, null);
+            DirectTxUtils.writeTx(transaction, w, null);
 
             w.out().packString(statement.defaultSchema());
             w.out().packInt(statement.pageSize());
@@ -398,7 +398,7 @@ public class ClientSql implements IgniteSql {
             BatchedArguments batch
     ) {
         PayloadWriter payloadWriter = w -> {
-            writeTx(transaction, w, null);
+            DirectTxUtils.writeTx(transaction, w, null);
 
             w.out().packString(statement.defaultSchema());
             w.out().packInt(statement.pageSize());
