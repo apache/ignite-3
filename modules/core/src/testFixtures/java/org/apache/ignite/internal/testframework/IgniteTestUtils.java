@@ -69,7 +69,6 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -615,9 +614,7 @@ public final class IgniteTestUtils {
     public static long runMultiThreaded(Callable<?> call, int threadNum, String threadName) throws Exception {
         List<Callable<?>> calls = Collections.nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
-
-        return runMultiThreaded(calls, threadFactory);
+        return runMultiThreaded(calls, IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG));
     }
 
     /**
@@ -647,9 +644,7 @@ public final class IgniteTestUtils {
     public static CompletableFuture<Long> runMultiThreadedAsync(Callable<?> call, int threadNum, String threadName) {
         List<Callable<?>> calls = Collections.<Callable<?>>nCopies(threadNum, call);
 
-        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName, LOG);
-
-        return runAsync(() -> runMultiThreaded(calls, threadFactory));
+        return runAsync(() -> runMultiThreaded(calls, IgniteThreadFactory.createWithFixedPrefix(threadName, false, LOG)));
     }
 
     /**
