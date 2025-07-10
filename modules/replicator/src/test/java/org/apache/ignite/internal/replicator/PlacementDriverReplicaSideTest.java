@@ -54,7 +54,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -91,7 +91,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private Runnable reservationClosure;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
-            NamedThreadFactory.create("common", "replica", log)
+            IgniteThreadFactory.create("common", "replica", log)
     );
 
     private Replica startReplica() {
