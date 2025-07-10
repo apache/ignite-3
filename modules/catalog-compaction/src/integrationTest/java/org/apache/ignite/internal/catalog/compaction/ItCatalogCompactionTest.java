@@ -245,18 +245,18 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void droppedZoneCompacted() {
-        String ZONE_NAME = "zone1";
-        String TABLE_NAME = "table1";
+        String zoneName = "zone1";
+        String tableName = "table1";
         sql(format(
                 "create zone {} (partitions {}) storage profiles ['{}','{}']",
-                ZONE_NAME,
+                zoneName,
                 10,
                 DEFAULT_AIMEM_PROFILE_NAME,
                 DEFAULT_ROCKSDB_PROFILE_NAME
         ));
-        sql(format("create table {}(id int primary key) zone {}", TABLE_NAME, ZONE_NAME));
-        sql(format("drop table {}", TABLE_NAME));
-        sql(format("drop zone {}", ZONE_NAME));
+        sql(format("create table {}(id int primary key) zone {}", tableName, zoneName));
+        sql(format("drop table {}", tableName));
+        sql(format("drop zone {}", zoneName));
 
         sql(format("alter zone {} set auto scale up {}", "\"Default\"", 10));
 
