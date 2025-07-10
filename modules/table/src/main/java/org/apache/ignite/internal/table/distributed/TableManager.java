@@ -855,20 +855,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogSchemaDescriptor schemaDescriptor
     ) {
         return inBusyLockAsync(busyLock, () -> {
-            TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
-
             int tableId = tableDescriptor.id();
 
-            tables.put(tableId, table);
+            return createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor)
+                    .thenCompose(table -> {
+                        tables.put(tableId, table);
 
-            return schemaManager.schemaRegistry(causalityToken, tableId)
-                    .thenAccept(schemaRegistry -> inBusyLock(busyLock, () -> {
-                        table.schemaView(schemaRegistry);
+                        return schemaManager.schemaRegistry(causalityToken, tableId)
+                                .thenAccept(schemaRegistry -> inBusyLock(busyLock, () -> {
+                                    table.schemaView(schemaRegistry);
 
-                        addTableToZone(zoneDescriptor.id(), table);
+                                    addTableToZone(zoneDescriptor.id(), table);
 
-                        startedTables.put(tableId, table);
-                    }));
+                                    startedTables.put(tableId, table);
+                                }));
+                    });
         });
     }
 
@@ -888,7 +889,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogTableDescriptor tableDescriptor,
             CatalogSchemaDescriptor schemaDescriptor
     ) {
-        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
+        CompletableFuture<TableImpl> tableFuture = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
 
         int tableId = tableDescriptor.id();
 
@@ -897,14 +898,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return failedFuture(e);
             }
 
-            return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(table::schemaView);
+            return schemaManager.schemaRegistry(causalityToken, tableId)
+                    .thenAcceptBoth(tableFuture, (registry, table) -> table.schemaView(registry));
         }));
 
         // Obtain future, but don't chain on it yet because update() on VVs must be called in the same thread. The method we call
         // will call update() on VVs and inside those updates it will chain on the lock acquisition future.
         CompletableFuture<Long> acquisitionFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
         try {
-            return loadTableToZoneOnTableCreateHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, table)
+            return loadTableToZoneOnTableCreateHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, tableId, tableFuture)
                     .whenComplete((res, ex) -> unlockZoneForRead(zoneDescriptor, acquisitionFuture));
         } catch (Throwable e) {
             unlockZoneForRead(zoneDescriptor, acquisitionFuture);
@@ -917,22 +919,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CompletableFuture<Long> readLockAcquisitionFuture,
             long causalityToken,
             CatalogZoneDescriptor zoneDescriptor,
-            TableImpl table
+            int tableId,
+            CompletableFuture<TableImpl> tableFuture
     ) {
-        int tableId = table.tableId();
-
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
                 (ignore, throwable) -> inBusyLock(busyLock, () -> readLockAcquisitionFuture.thenComposeAsync(unused -> {
-                    PartitionSet parts = new BitSetPartitionSet();
+                    return tableFuture.thenCompose(table -> {
+                        PartitionSet parts = new BitSetPartitionSet();
 
-                    for (int i = 0; i < zoneDescriptor.partitions(); i++) {
-                        if (partitionReplicaLifecycleManager.hasLocalPartition(new ZonePartitionId(zoneDescriptor.id(), i))) {
-                            parts.set(i);
+                        for (int i = 0; i < zoneDescriptor.partitions(); i++) {
+                            if (partitionReplicaLifecycleManager.hasLocalPartition(new ZonePartitionId(zoneDescriptor.id(), i))) {
+                                parts.set(i);
+                            }
                         }
-                    }
 
-                    return getOrCreatePartitionStorages(table, parts).thenRun(() -> localPartsByTableId.put(tableId, parts));
+                        return getOrCreatePartitionStorages(table, parts).thenRun(() -> localPartsByTableId.put(tableId, parts));
+                    });
                 }, ioExecutor))
                 // If the table is already closed, it's not a problem (probably the node is stopping).
                 .exceptionally(ignoreTableClosedException())
@@ -945,24 +948,26 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return failedFuture(e);
             }
 
-            return allOf(localPartsUpdateFuture, tablesByIdFuture).thenRunAsync(() -> inBusyLock(busyLock, () -> {
+            return allOf(localPartsUpdateFuture, tablesByIdFuture, tableFuture).thenRunAsync(() -> inBusyLock(busyLock, () -> {
                 for (int i = 0; i < zoneDescriptor.partitions(); i++) {
                     var zonePartitionId = new ZonePartitionId(zoneDescriptor.id(), i);
 
                     if (partitionReplicaLifecycleManager.hasLocalPartition(zonePartitionId)) {
-                        preparePartitionResourcesAndLoadToZoneReplicaBusy(table, zonePartitionId, false);
+                        preparePartitionResourcesAndLoadToZoneReplicaBusy(tableFuture.join(), zonePartitionId, false);
                     }
                 }
             }), ioExecutor);
         });
 
-        tables.put(tableId, table);
+        return tableFuture.thenCompose(table -> {
+            tables.put(tableId, table);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
-        return createPartsFut.thenAccept(ignore -> {
-            startedTables.put(tableId, table);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
+            return createPartsFut.thenAccept(ignore -> {
+                startedTables.put(tableId, table);
 
-            addTableToZone(zoneDescriptor.id(), table);
+                addTableToZone(zoneDescriptor.id(), table);
+            });
         });
     }
 
@@ -1769,7 +1774,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param schemaDescriptor Catalog schema descriptor.
      * @return Table instance.
      */
-    private TableImpl createTableImpl(
+    private CompletableFuture<TableImpl> createTableImpl(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
@@ -1779,41 +1784,43 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         LOG.trace("Creating local table: name={}, id={}, token={}", tableName.toCanonicalForm(), tableDescriptor.id(), causalityToken);
 
-        MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
-        TxStateStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
+        return supplyAsync(() -> createTableStorage(tableDescriptor, zoneDescriptor), ioExecutor)
+                .thenApply(tableStorage -> {
+                    TxStateStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
 
-        int partitions = zoneDescriptor.partitions();
+                    int partitions = zoneDescriptor.partitions();
 
-        InternalTableImpl internalTable = new InternalTableImpl(
-                tableName,
-                zoneDescriptor.id(),
-                tableDescriptor.id(),
-                partitions,
-                topologyService,
-                txManager,
-                tableStorage,
-                txStateStorage,
-                replicaSvc,
-                clockService,
-                observableTimestampTracker,
-                executorInclinedPlacementDriver,
-                transactionInflights,
-                this::streamerFlushExecutor,
-                Objects.requireNonNull(streamerReceiverRunner),
-                () -> txCfg.value().readWriteTimeoutMillis(),
-                () -> txCfg.value().readOnlyTimeoutMillis(),
-                nodeProperties.colocationEnabled()
-        );
+                    InternalTableImpl internalTable = new InternalTableImpl(
+                            tableName,
+                            zoneDescriptor.id(),
+                            tableDescriptor.id(),
+                            partitions,
+                            topologyService,
+                            txManager,
+                            tableStorage,
+                            txStateStorage,
+                            replicaSvc,
+                            clockService,
+                            observableTimestampTracker,
+                            executorInclinedPlacementDriver,
+                            transactionInflights,
+                            this::streamerFlushExecutor,
+                            Objects.requireNonNull(streamerReceiverRunner),
+                            () -> txCfg.value().readWriteTimeoutMillis(),
+                            () -> txCfg.value().readOnlyTimeoutMillis(),
+                            nodeProperties.colocationEnabled()
+                    );
 
-        return new TableImpl(
-                internalTable,
-                lockMgr,
-                schemaVersions,
-                marshallers,
-                sql.get(),
-                failureProcessor,
-                tableDescriptor.primaryKeyIndexId()
-        );
+                    return new TableImpl(
+                            internalTable,
+                            lockMgr,
+                            schemaVersions,
+                            marshallers,
+                            sql.get(),
+                            failureProcessor,
+                            tableDescriptor.primaryKeyIndexId()
+                    );
+                });
     }
 
 
@@ -1884,7 +1891,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             boolean onNodeRecovery,
             long assignmentsTimestamp
     ) {
-        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
+        CompletableFuture<TableImpl> tableFuture = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
 
         int tableId = tableDescriptor.id();
 
@@ -1893,25 +1900,28 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return failedFuture(e);
             }
 
-            return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(table::schemaView);
+            return schemaManager.schemaRegistry(causalityToken, tableId)
+                    .thenAcceptBoth(tableFuture, (registry, table) -> table.schemaView(registry));
         }));
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
                 (ignore, throwable) -> inBusyLock(busyLock, () -> stableAssignmentsFuture.thenComposeAsync(newAssignments -> {
-                    PartitionSet parts = new BitSetPartitionSet();
+                    return tableFuture.thenCompose(table -> {
+                        PartitionSet parts = new BitSetPartitionSet();
 
-                    for (int i = 0; i < newAssignments.size(); i++) {
-                        Assignments partitionAssignments = newAssignments.get(i);
-                        if (localAssignment(partitionAssignments) != null) {
-                            parts.set(i);
+                        for (int i = 0; i < newAssignments.size(); i++) {
+                            Assignments partitionAssignments = newAssignments.get(i);
+                            if (localAssignment(partitionAssignments) != null) {
+                                parts.set(i);
+                            }
                         }
-                    }
 
-                    return getOrCreatePartitionStorages(table, parts)
-                            .thenRun(() -> localPartsByTableId.put(tableId, parts))
-                            // If the table is already closed, it's not a problem (probably the node is stopping).
-                            .exceptionally(ignoreTableClosedException());
+                        return getOrCreatePartitionStorages(table, parts)
+                                .thenRun(() -> localPartsByTableId.put(tableId, parts))
+                                // If the table is already closed, it's not a problem (probably the node is stopping).
+                                .exceptionally(ignoreTableClosedException());
+                    });
                 }, ioExecutor)));
 
         CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
@@ -1924,33 +1934,36 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             // `stableAssignmentsFuture` is already completed by this time (it's in chain of `localPartsUpdateFuture`).
-            return allOf(localPartsUpdateFuture, tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
-                        if (onNodeRecovery) {
-                            SchemaRegistry schemaRegistry = table.schemaView();
-                            PartitionSet partitionSet = localPartsByTableId.get(tableId);
-                            // LWM starts updating only after the node is restored.
-                            HybridTimestamp lwm = lowWatermark.getLowWatermark();
+            return allOf(localPartsUpdateFuture, tablesByIdFuture, tableFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
+                TableImpl table = tableFuture.join();
 
-                            registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
-                        }
-                        return startLocalPartitionsAndClients(
-                                stableAssignmentsFuture,
-                                pendingAssignments,
-                                assignmentsChains,
-                                table,
-                                onNodeRecovery,
-                                assignmentsTimestamp
-                        );
-                    }
-            ), ioExecutor);
+                if (onNodeRecovery) {
+                    SchemaRegistry schemaRegistry = table.schemaView();
+                    PartitionSet partitionSet = localPartsByTableId.get(tableId);
+                    // LWM starts updating only after the node is restored.
+                    HybridTimestamp lwm = lowWatermark.getLowWatermark();
+
+                    registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
+                }
+                return startLocalPartitionsAndClients(
+                        stableAssignmentsFuture,
+                        pendingAssignments,
+                        assignmentsChains,
+                        table,
+                        onNodeRecovery,
+                        assignmentsTimestamp
+                );
+            }), ioExecutor);
         });
 
-        tables.put(tableId, table);
+        return tableFuture.thenCompose(table -> {
+            tables.put(tableId, table);
 
-        // TODO should be reworked in IGNITE-16763
+            // TODO should be reworked in IGNITE-16763
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
-        return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table));
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
+            return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table));
+        });
     }
 
     /**
