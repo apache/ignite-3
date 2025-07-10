@@ -197,7 +197,7 @@ internal static class StreamerReceiverSerializer
     {
         BinaryTupleReader receiverInfo = GetReceiverInfoReaderFast(buf);
 
-        var arg = (TArg)ReadReceiverArg(ref receiverInfo, 1)!;
+        var arg = (TArg)ReadReceiverArg(ref receiverInfo, 1, argumentMarshaller)!;
         List<TItem> items = ReadReceiverPage<TItem>(ref receiverInfo);
 
         return new(items, arg);
@@ -232,19 +232,25 @@ internal static class StreamerReceiverSerializer
         return items;
     }
 
-    private static object? ReadReceiverArg(ref BinaryTupleReader reader, int index)
+    private static TArg? ReadReceiverArg<TArg>(ref BinaryTupleReader reader, int index, IMarshaller<TArg>? marshaller)
     {
         if (reader.IsNull(index))
         {
-            return null;
+            return default;
         }
 
         if (reader.GetInt(index) == TupleWithSchemaMarshalling.TypeIdTuple)
         {
-            return TupleWithSchemaMarshalling.Unpack(reader.GetBytesSpan(index + 2));
+            return (TArg)(object)TupleWithSchemaMarshalling.Unpack(reader.GetBytesSpan(index + 2));
         }
 
-        return reader.GetObject(index);
+        if (marshaller != null)
+        {
+            ReadOnlySpan<byte> bytes = reader.GetBytesSpan(index);
+            return marshaller.Unmarshal(bytes);
+        }
+
+        return (TArg?)reader.GetObject(index);
     }
 
     private static BinaryTupleReader GetReceiverInfoReaderFast(PooledBuffer jobArgBuf)
