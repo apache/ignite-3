@@ -33,6 +33,11 @@ using Marshalling;
 public interface IDataStreamerReceiver<TItem, TArg, TResult>
 {
     /// <summary>
+    /// Gets the custom marshaller for the receiver payload.
+    /// </summary>
+    IMarshaller<TItem>? PayloadMarshaller => null;
+
+    /// <summary>
     /// Gets the custom marshaller for the receiver input argument.
     /// </summary>
     IMarshaller<TArg>? ArgumentMarshaller => null;

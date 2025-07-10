@@ -29,14 +29,12 @@ using Marshalling;
 /// <param name="ReceiverClassName">Name of the streamer receiver class to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
 /// <param name="Options">Execution options.</param>
-/// <param name="ArgumentMarshaller">Argument marshaller.</param>
 /// <typeparam name="TArg">Argument type.</typeparam>
 [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Reviewed.")]
 public sealed record ReceiverDescriptor<TArg>(
     string ReceiverClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null,
-    ReceiverExecutionOptions? Options = null,
-    IMarshaller<TArg>? ArgumentMarshaller = null);
+    ReceiverExecutionOptions? Options = null);
 
 /// <summary>
 /// Stream receiver descriptor with a result type.
@@ -78,6 +76,7 @@ public sealed record ReceiverDescriptor<TArg, TResult>(
 /// <param name="ReceiverClassName">Name of the streamer receiver class to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
 /// <param name="Options">Execution options.</param>
+/// <param name="PayloadMarshaller">Payload marshaller.</param>
 /// <param name="ArgumentMarshaller">Argument marshaller.</param>
 /// <param name="ResultMarshaller">Result marshaller.</param>
 /// <typeparam name="TItem">Streamer item type.</typeparam>
@@ -88,6 +87,7 @@ public sealed record ReceiverDescriptor<TItem, TArg, TResult>(
     string ReceiverClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null,
     ReceiverExecutionOptions? Options = null,
+    IMarshaller<TItem>? PayloadMarshaller = null,
     IMarshaller<TArg>? ArgumentMarshaller = null,
     IMarshaller<TResult>? ResultMarshaller = null)
 {
@@ -97,18 +97,21 @@ public sealed record ReceiverDescriptor<TItem, TArg, TResult>(
     /// <param name="type">Receiver type.</param>
     /// <param name="deploymentUnits">Deployment units.</param>
     /// <param name="options">Options.</param>
+    /// <param name="payloadMarshaller">Payload marshaller.</param>
     /// <param name="argumentMarshaller">Argument marshaller.</param>
     /// <param name="resultMarshaller">Result marshaller.</param>
     public ReceiverDescriptor(
         Type type,
         IEnumerable<DeploymentUnit>? deploymentUnits = null,
         ReceiverExecutionOptions? options = null,
+        IMarshaller<TItem>? payloadMarshaller = null,
         IMarshaller<TArg>? argumentMarshaller = null,
         IMarshaller<TResult>? resultMarshaller = null)
         : this(
             type.AssemblyQualifiedName ?? throw new ArgumentException("Type has null AssemblyQualifiedName: " + type),
             deploymentUnits,
             ReceiverDescriptor.EnsureDotNetExecutor(options),
+            payloadMarshaller,
             argumentMarshaller,
             resultMarshaller)
     {
@@ -132,6 +135,7 @@ public static class ReceiverDescriptor
     public static ReceiverDescriptor<TItem, TArg, TResult> Of<TItem, TArg, TResult>(IDataStreamerReceiver<TItem, TArg, TResult> receiver) =>
         new(
             receiver.GetType(),
+            payloadMarshaller: receiver.PayloadMarshaller,
             argumentMarshaller: receiver.ArgumentMarshaller,
             resultMarshaller: receiver.ResultMarshaller);
 
