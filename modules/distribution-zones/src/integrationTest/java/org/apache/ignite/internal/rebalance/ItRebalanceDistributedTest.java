@@ -258,7 +258,7 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -1518,7 +1518,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                    NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
+                    IgniteThreadFactory.create(name, "test-rebalance-scheduler", logger()));
 
             replicaManager = spy(new ReplicaManager(
                     name,
