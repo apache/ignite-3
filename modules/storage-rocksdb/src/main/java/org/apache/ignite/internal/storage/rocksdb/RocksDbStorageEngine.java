@@ -287,8 +287,7 @@ public class RocksDbStorageEngine implements StorageEngine {
      * @return Future that gets completed when flush is complete.
      */
     public CompletableFuture<Void> flush() {
-        @SuppressWarnings("rawtypes")
-        CompletableFuture[] futures = storageByProfileName.values().stream()
+        CompletableFuture<?>[] futures = storageByProfileName.values().stream()
                 .map(storage -> storage.rocksDbInstance.flush())
                 .toArray(CompletableFuture[]::new);
         return allOf(futures);
