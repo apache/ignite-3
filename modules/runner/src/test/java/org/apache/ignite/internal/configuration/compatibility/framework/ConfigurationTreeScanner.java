@@ -45,8 +45,12 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.InjectedValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
@@ -69,7 +73,12 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 public class ConfigurationTreeScanner {
     private static final Set<Class<?>> FLAG_ANNOTATIONS = Set.of(
             Value.class,
-            Deprecated.class // See flags.
+            Deprecated.class, // See flags.
+            NamedConfigValue.class,
+            PublicName.class,
+            PolymorphicId.class,
+            InjectedName.class,
+            InjectedValue.class
     );
 
     /**
