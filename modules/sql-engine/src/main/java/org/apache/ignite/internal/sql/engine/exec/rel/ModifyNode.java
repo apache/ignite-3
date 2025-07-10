@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.storedRowsCount;
+import static org.apache.ignite.internal.sql.engine.util.RowTypeUtils.storedColumnsCount;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -458,7 +458,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             return null;
         }
 
-        int columnCount = storedRowsCount(descriptor);
+        int columnCount = storedColumnsCount(descriptor);
 
         // MERGE clause can use format [insert row type] + [full row type] + [columns to update] which is bigger on
         // size of [full row type] then different type of formats, so we can detect it and use for right column mapping.
