@@ -140,7 +140,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -806,7 +806,7 @@ public class TestBuilders {
             }
 
             ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
-                    NamedThreadFactory.create("test", "common-scheduled-executors", LOG)
+                    IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
             );
 
             var clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
