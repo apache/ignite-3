@@ -42,7 +42,7 @@ public class ConfigurationTreeComparator {
             List<ConfigNode> actualTrees,
             ComparisonContext compContext
     ) {
-        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees, compContext));
+        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees), compContext);
 
         for (ConfigNode tree : snapshotTrees) {
             tree.accept(shuttle);
@@ -63,14 +63,19 @@ public class ConfigurationTreeComparator {
      */
     private static class LeafNodesVisitor implements ConfigShuttle {
         private final Consumer<ConfigNode> validator;
+        private final ComparisonContext compContext;
 
-        private LeafNodesVisitor(Consumer<ConfigNode> validator) {
+        private LeafNodesVisitor(Consumer<ConfigNode> validator, ComparisonContext compContext) {
             this.validator = validator;
+            this.compContext = compContext;
         }
+
+        // Instance with no child as a stub in case of deleted node/subtree to stop traversing deleted subtree.
+        private static final ConfigNode NO_OP_NODE = new ConfigNode();
 
         @Override
         public void visit(ConfigNode node) {
-            if (node.isValue()) {
+            if (node.isValue() && !compContext.shouldIgnore(node.path())) {
                 validator.accept(node);
             }
         }
@@ -81,14 +86,9 @@ public class ConfigurationTreeComparator {
      */
     private static class Validator implements Consumer<ConfigNode> {
         private final List<ConfigNode> roots;
-        private final ComparisonContext compContext;
-        private Collection<KeyIgnorer> deletedItems;
 
-        private static final ConfigNode NO_OP_NODE = new ConfigNode();
-
-        private Validator(List<ConfigNode> roots, ComparisonContext compContext) {
+        private Validator(List<ConfigNode> roots) {
             this.roots = roots;
-            this.compContext = compContext;
         }
 
         @Override
@@ -114,22 +114,6 @@ public class ConfigurationTreeComparator {
                 if (match(node, candidate)) {
                     return candidate;
                 }
-            }
-
-            if (deletedItems == null) {
-                deletedItems = new ArrayList<>(compContext.configurationModules().size());
-
-                for (ConfigurationModule module : compContext.configurationModules()) {
-                    KeyIgnorer keyIgnorer = KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
-
-                    deletedItems.add(keyIgnorer);
-                }
-            }
-
-            boolean deleted = deletedItems.stream().anyMatch(i -> i.shouldIgnore(node.path()));
-
-            if (deleted) {
-                return NO_OP_NODE;
             }
 
             throw new IllegalStateException("No match found for node: " + node + " in candidates: \n\t"
@@ -207,6 +191,7 @@ public class ConfigurationTreeComparator {
     /** Holder class for comparison context. */
     public static class ComparisonContext {
         private final Set<ConfigurationModule> configurationModules;
+        private Collection<KeyIgnorer> deletedItems;
 
         ComparisonContext() {
             this.configurationModules = Set.of();
@@ -216,8 +201,18 @@ public class ConfigurationTreeComparator {
             this.configurationModules = configurationModules;
         }
 
-        Set<ConfigurationModule> configurationModules() {
-            return configurationModules;
+        boolean shouldIgnore(String path) {
+            if (deletedItems == null) {
+                deletedItems = new ArrayList<>(configurationModules.size());
+
+                for (ConfigurationModule module : configurationModules) {
+                    KeyIgnorer keyIgnorer = KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
+
+                    deletedItems.add(keyIgnorer);
+                }
+            }
+
+            return deletedItems.stream().anyMatch(i -> i.shouldIgnore(path));
         }
     }
 }

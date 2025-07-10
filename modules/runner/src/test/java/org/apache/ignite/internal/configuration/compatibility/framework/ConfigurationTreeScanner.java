@@ -144,7 +144,7 @@ public class ConfigurationTreeScanner {
         List<ConfigAnnotation> annotations = collectAdditionalAnnotations(field);
 
         EnumSet<ConfigNode.Flags> flags = extractFlags(field);
-        Set<String> legacyNames = extractLegacy(field);
+        Set<String> legacyNames = extractLegacyNames(field);
         String publicProperty = extractPublicPropertyName(field);
 
         Map<String, String> attributes = new LinkedHashMap<>();
@@ -154,7 +154,7 @@ public class ConfigurationTreeScanner {
         return new ConfigNode(parent, attributes, annotations, flags, legacyNames, List.of());
     }
 
-    private static Set<String> extractLegacy(Field field) {
+    private static Set<String> extractLegacyNames(Field field) {
         if (field.isAnnotationPresent(PublicName.class)) {
             PublicName[] annotation = field.getAnnotationsByType(PublicName.class);
 
