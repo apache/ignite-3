@@ -377,8 +377,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 throw new NodeConfigWriteException("Failed to restore config file.", e);
             }
         } else if (!Files.isWritable(configPath)) {
-            readOnly = true;
-
             LOG.warn(
                     "Configuration file '{}' is read-only. All dynamic configuration updates will be lost after node restart.",
                     configPath

@@ -29,4 +29,8 @@ public class NodeConfigCreateException extends IgniteException {
     public NodeConfigCreateException(String msg) {
         super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg);
     }
+
+    public NodeConfigCreateException(String msg, Throwable cause) {
+        super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg, cause);
+    }
 }
