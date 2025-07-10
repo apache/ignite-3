@@ -159,7 +159,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         busyLock.block();
 
         try {
-            destroyData(writeBatch);
+            eraseData(writeBatch);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to start rebalancing storage: " + createStorageInfo(), e);
         } finally {
@@ -178,7 +178,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
 
         try {
-            destroyData(writeBatch);
+            eraseData(writeBatch);
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
         }
@@ -208,7 +208,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         // Changed storage states and expect all storage operations to stop soon.
         busyLock.block();
 
-        destroyData(writeBatch);
+        eraseData(writeBatch);
     }
 
     /**
@@ -257,14 +257,27 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     }
 
     /**
-     * Deletes the data associated with the index, using passed write batch for the operation.
+     * Deletes the data associated with the index to prepare the storage for subsequent use, using passed write batch for the operation.
+     *
+     * @throws RocksDBException If failed to delete data.
+     */
+    public final void eraseData(WriteBatch writeBatch) throws RocksDBException {
+        cleanup(writeBatch, false);
+    }
+
+    /**
+     * Deletes the data associated with the index (the storage will not be used anymore), using passed write batch for the operation.
      *
      * @throws RocksDBException If failed to delete data.
      */
     public final void destroyData(WriteBatch writeBatch) throws RocksDBException {
+        cleanup(writeBatch, true);
+    }
+
+    private void cleanup(WriteBatch writeBatch, boolean finalDestruction) throws RocksDBException {
         clearIndex(writeBatch);
 
-        if (descriptor.mustBeBuilt()) {
+        if (descriptor.mustBeBuilt() && !finalDestruction) {
             RowId initialRowId = initialRowIdToBuild(partitionId);
 
             indexMetaStorage.putNextRowIdToBuild(writeBatch, tableId, indexId, partitionId, initialRowId);
