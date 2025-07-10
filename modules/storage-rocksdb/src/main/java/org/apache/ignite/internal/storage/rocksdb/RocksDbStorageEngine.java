@@ -277,7 +277,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     @Override
     public Set<Integer> tableIdsOnDisk() {
         return storageByProfileName.values().stream()
-                .flatMap(storage -> storage.rocksDbInstance.tableIdsInRocksDb().stream())
+                .flatMap(storage -> storage.rocksDbInstance.tableIdsOnDisk().stream())
                 .collect(toUnmodifiableSet());
     }
 

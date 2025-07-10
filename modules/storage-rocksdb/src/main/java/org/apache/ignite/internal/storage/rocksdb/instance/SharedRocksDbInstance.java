@@ -452,7 +452,7 @@ public final class SharedRocksDbInstance {
     /**
      * Returns IDs of all tables for which there are storages in the underlying RocksDB.
      */
-    public Set<Integer> tableIdsInRocksDb() {
+    public Set<Integer> tableIdsOnDisk() {
         Set<Integer> tableIds = new HashSet<>();
 
         try (
