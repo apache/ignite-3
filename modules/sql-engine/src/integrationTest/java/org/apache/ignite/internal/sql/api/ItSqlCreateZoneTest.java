@@ -75,7 +75,7 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
         assertThrowsWithCause(
                 () -> createZoneQuery(0, NOT_EXISTED_PROFILE_NAME),
                 SqlException.class,
-                "Storage profile [" + NOT_EXISTED_PROFILE_NAME + "] doesn't exist."
+                "Some storage profiles don't exist [missedProfileNames=[" + NOT_EXISTED_PROFILE_NAME + "]]."
         );
     }
 

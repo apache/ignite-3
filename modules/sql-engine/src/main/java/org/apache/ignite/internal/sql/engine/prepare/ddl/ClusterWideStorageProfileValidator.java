@@ -48,7 +48,10 @@ public class ClusterWideStorageProfileValidator implements StorageProfileValidat
         );
 
         if (!missedStorageProfileNames.isEmpty()) {
-            throw new SqlException(STMT_VALIDATION_ERR, format("Storage profiles [{}] don't exist.", missedStorageProfileNames));
+            throw new SqlException(STMT_VALIDATION_ERR, format(
+                    "Some storage profiles don't exist [missedProfileNames={}].",
+                    missedStorageProfileNames
+            ));
         }
     }
 

@@ -770,7 +770,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         // Try to create zone with not existed storage profile.
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Storage profile [" + nonExistingProfileName + "] doesn't exist.",
+                "Some storage profiles don't exist [missedProfileNames=[" + nonExistingProfileName + "]].",
                 () -> sql("CREATE ZONE \"" + zoneName + "\" STORAGE PROFILES ['" + nonExistingProfileName + "']")
         );
 
