@@ -262,7 +262,13 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * @throws RocksDBException If failed to delete data.
      */
     public final void cleanData(WriteBatch writeBatch) throws RocksDBException {
-        cleanup(writeBatch, false);
+        clearIndex(writeBatch);
+
+        if (descriptor.mustBeBuilt()) {
+            resetNextRowIdToBuild(writeBatch);
+        } else {
+            removeNextRowIdToBuild(writeBatch);
+        }
     }
 
     /**
@@ -271,23 +277,23 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * @throws RocksDBException If failed to delete data.
      */
     public final void destroyData(WriteBatch writeBatch) throws RocksDBException {
-        cleanup(writeBatch, true);
-    }
-
-    private void cleanup(WriteBatch writeBatch, boolean finalDestruction) throws RocksDBException {
         clearIndex(writeBatch);
 
-        if (descriptor.mustBeBuilt() && !finalDestruction) {
-            RowId initialRowId = initialRowIdToBuild(partitionId);
+        removeNextRowIdToBuild(writeBatch);
+    }
 
-            indexMetaStorage.putNextRowIdToBuild(writeBatch, tableId, indexId, partitionId, initialRowId);
+    private void resetNextRowIdToBuild(WriteBatch writeBatch) {
+        RowId initialRowId = initialRowIdToBuild(partitionId);
 
-            nextRowIdToBuild = initialRowId;
-        } else {
-            indexMetaStorage.removeNextRowIdToBuild(writeBatch, tableId, indexId, partitionId);
+        indexMetaStorage.putNextRowIdToBuild(writeBatch, tableId, indexId, partitionId, initialRowId);
 
-            nextRowIdToBuild = null;
-        }
+        nextRowIdToBuild = initialRowId;
+    }
+
+    private void removeNextRowIdToBuild(WriteBatch writeBatch) {
+        indexMetaStorage.removeNextRowIdToBuild(writeBatch, tableId, indexId, partitionId);
+
+        nextRowIdToBuild = null;
     }
 
     /** Method that needs to be overridden by the inheritors to remove all implementation specific data for this index. */
