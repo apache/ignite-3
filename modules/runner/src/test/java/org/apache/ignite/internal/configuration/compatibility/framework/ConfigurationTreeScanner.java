@@ -17,16 +17,25 @@
 
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
+import java.lang.annotation.Annotation;
+import java.lang.annotation.Repeatable;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -126,7 +135,7 @@ public class ConfigurationTreeScanner {
                     if (FLAG_ANNOTATIONS.contains(a.annotationType())) {
                         return Stream.empty();
                     } else {
-                        ConfigAnnotation configAnnotation = ConfigurationAnnotationConverter.convert(a.annotationType().getName(), a);
+                        ConfigAnnotation configAnnotation = extractAnnotation(a.annotationType().getName(), a);
                         return Stream.of(configAnnotation);
                     }
                 })
@@ -196,6 +205,118 @@ public class ConfigurationTreeScanner {
          */
         public Set<Class<?>> getPolymorphicInstances(Class<?> polymorphicClass) {
             return polymorphicExtensions.getOrDefault(polymorphicClass, Set.of());
+        }
+    }
+
+    static ConfigAnnotation extractAnnotation(String name, Annotation annotation) {
+        Class<?> type = annotation.annotationType();
+        Repeatable repeatable = type.getAnnotation(Repeatable.class);
+        if (repeatable != null) {
+            throw new IllegalStateException("Repeatable annotations are not supported: " + annotation);
+        }
+
+        Map<String, ConfigAnnotationValue> properties = new HashMap<>();
+
+        for (Method method : type.getMethods()) {
+            // Skip methods inherited from the object class such as equals, hashCode, etc.
+            if (BuiltinMethod.METHODS.contains(new BuiltinMethod(method))) {
+                continue;
+            }
+
+            String propertyName = method.getName();
+            Class<?> returnType = method.getReturnType();
+            ConfigAnnotationValue propertyValue;
+
+            Object result;
+            try {
+                result = method.invoke(annotation);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new IllegalStateException("Failed invoke annotation method: " + method, e);
+            }
+
+            if (returnType.isArray()) {
+                Class<?> componentType = returnType.getComponentType();
+
+                List<Object> elements = convertArray(result, componentType, annotation);
+                propertyValue = ConfigAnnotationValue.array(componentType.getName(), elements);
+            } else {
+                Object convertedValue = convertValue(result, returnType, annotation);
+                propertyValue = ConfigAnnotationValue.value(returnType.getName(), convertedValue);
+            }
+
+            properties.put(propertyName, propertyValue);
+        }
+
+        return new ConfigAnnotation(name, properties);
+    }
+
+    private static <T> List<Object> convertArray(Object elements, Class<?> elementType, Annotation annotation) {
+        int length = Array.getLength(elements);
+        List<Object> list = new ArrayList<>(length);
+
+        for (int i = 0; i < length; i++) {
+            Object element = Array.get(elements, i);
+            Object convertedElement = convertValue(element, elementType, annotation);
+
+            list.add(convertedElement);
+        }
+
+        return list;
+    }
+
+    private static Object convertValue(Object value, Class<?> returnType, Annotation annotation) {
+        if (returnType.isPrimitive() || returnType == String.class) {
+            return value;
+        } else if (returnType.isEnum()) {
+            return value.toString();
+        } else if (returnType == Class.class) {
+            Class<?> clazz = (Class<?>) value;
+            return clazz.getName();
+        } else {
+            throw new IllegalArgumentException("Supported annotation property type: " + returnType + ". Annotation: " + annotation);
+        }
+    }
+
+    private static final class BuiltinMethod {
+
+        @Retention(RetentionPolicy.RUNTIME)
+        private @interface EmptyAnnotation {
+        }
+
+        private static final Set<BuiltinMethod> METHODS;
+
+        static {
+            // Collect methods that are present on all annotation classes, so we can exclude them from processing.
+            METHODS = Arrays.stream(EmptyAnnotation.class.getMethods())
+                    .map(BuiltinMethod::new)
+                    .collect(Collectors.toSet());
+        }
+
+        private final String name;
+
+        private final Class<?> returnType;
+
+        private final List<Object> parameterTypes;
+
+        private BuiltinMethod(Method method) {
+            this.name = method.getName();
+            this.returnType = method.getReturnType();
+            this.parameterTypes = Arrays.asList(method.getParameterTypes());
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            BuiltinMethod that = (BuiltinMethod) o;
+            return Objects.equals(name, that.name) && Objects.equals(returnType, that.returnType) && Objects.equals(
+                    parameterTypes, that.parameterTypes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, returnType, parameterTypes);
         }
     }
 }

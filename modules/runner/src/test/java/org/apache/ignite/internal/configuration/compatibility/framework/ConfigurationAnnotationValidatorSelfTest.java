@@ -328,7 +328,7 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
             if (annotation == null) {
                 throw new IllegalStateException(format("No annotation: {} found. Class: {}, field: {}", annotationClass, clazz, field));
             }
-            return ConfigurationAnnotationConverter.convert(annotationName, annotation);
+            return ConfigurationTreeScanner.extractAnnotation(annotationName, annotation);
         } catch (NoSuchFieldException e) {
             throw new IllegalStateException(e);
         }
