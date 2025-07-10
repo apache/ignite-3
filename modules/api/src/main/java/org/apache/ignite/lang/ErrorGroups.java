@@ -766,7 +766,7 @@ public class ErrorGroups {
         public static final int CONFIGURATION_APPLY_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Configuration parse error. */
-        public static final int PARSE_CONFIGURATION_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 2);
+        public static final int CONFIGURATION_PARSE_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Configuration validation error. */
         public static final int CONFIGURATION_VALIDATION_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 3);

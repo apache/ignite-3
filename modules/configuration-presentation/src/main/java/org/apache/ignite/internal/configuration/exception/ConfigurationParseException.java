@@ -28,10 +28,10 @@ public class ConfigurationParseException extends IgniteException {
     private static final long serialVersionUID = -3249916096894846310L;
 
     public ConfigurationParseException(String message) {
-        super(CommonConfiguration.PARSE_CONFIGURATION_ERR, message);
+        super(CommonConfiguration.CONFIGURATION_PARSE_ERR, message);
     }
 
     public ConfigurationParseException(String message, @Nullable Throwable cause) {
-        super(CommonConfiguration.PARSE_CONFIGURATION_ERR, message, cause);
+        super(CommonConfiguration.CONFIGURATION_PARSE_ERR, message, cause);
     }
 }
