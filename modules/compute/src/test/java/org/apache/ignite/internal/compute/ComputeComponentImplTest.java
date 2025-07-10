@@ -106,7 +106,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
@@ -611,7 +611,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void executorThreadsAreNamedAccordingly() {
         assertThat(
                 executeLocally(GetThreadNameJob.class.getName()),
-                willBe(startsWith(NamedThreadFactory.threadPrefix(INSTANCE_NAME, "compute")))
+                willBe(startsWith(IgniteThread.threadPrefix(INSTANCE_NAME, "compute")))
         );
     }
 
