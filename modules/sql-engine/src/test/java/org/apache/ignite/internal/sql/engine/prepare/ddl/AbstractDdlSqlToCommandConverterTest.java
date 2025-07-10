@@ -45,7 +45,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
  */
 class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     /** DDL SQL to command converter. */
-    final DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
+    final DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(storageProfiles -> {}); // TODO.
 
     final Catalog catalog = mock(Catalog.class);
 
