@@ -75,10 +75,7 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
                 term,
                 configurationTerm,
                 configurationIndex,
-                PeersAndLearners.fromConsistentIds(
-                        peers.stream().map(PeerId::getConsistentId).collect(toUnmodifiableSet()),
-                        learners.stream().map(PeerId::getConsistentId).collect(toUnmodifiableSet())
-                )
+                configuration(peers, learners)
         );
     }
 

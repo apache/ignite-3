@@ -31,8 +31,8 @@ public interface JraftGroupEventsListener {
      * @param term Raft term of the current leader.
      * @param configurationTerm Term on which the current configuration was applied.
      * @param configurationIndex Index on which the current configuration was applied.
-     * @param peers List of peers at the moment of leader election.
-     * @param learners List of learners at the moment of leader election.
+     * @param peers Collection of peers at the moment of leader election.
+     * @param learners Collection of learners at the moment of leader election.
      */
     void onLeaderElected(
             long term,

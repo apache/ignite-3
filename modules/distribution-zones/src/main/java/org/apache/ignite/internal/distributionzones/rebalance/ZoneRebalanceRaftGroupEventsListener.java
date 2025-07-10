@@ -225,45 +225,47 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         // current global pending assignments call doStableSwitch instead of changePeersAndLearners since raft already on
                         // required configuration.
                         if (PeersAndLearners.fromAssignments(pendingAssignments).equals(configuration)) {
-                            doStableKeySwitch(
+                            doStableKeySwitchWithExceptionHandling(
                                     pendingAssignments,
                                     zonePartitionId,
                                     configurationTerm,
                                     configurationIndex,
                                     calculateAssignmentsFn
                             );
-                        }
+                        } else {
 
-                        var peers = new HashSet<String>();
-                        var learners = new HashSet<String>();
+                            var peers = new HashSet<String>();
+                            var learners = new HashSet<String>();
 
-                        for (Assignment assignment : pendingAssignments) {
-                            if (assignment.isPeer()) {
-                                peers.add(assignment.consistentId());
-                            } else {
-                                learners.add(assignment.consistentId());
+                            for (Assignment assignment : pendingAssignments) {
+                                if (assignment.isPeer()) {
+                                    peers.add(assignment.consistentId());
+                                } else {
+                                    learners.add(assignment.consistentId());
+                                }
                             }
+
+                            LOG.info(
+                                    "New leader elected. Going to apply new configuration [zonePartitionId={}, peers={}, learners={}]",
+                                    zonePartitionId, peers, learners
+                            );
+
+                            PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
+
+                            partitionMover.movePartition(peersAndLearners, term)
+                                    .whenComplete((unused, ex) -> {
+                                        // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove !hasCause(ex, TimeoutException.class)
+                                        if (ex != null && !hasCause(ex, NodeStoppingException.class) && !hasCause(ex,
+                                                TimeoutException.class)) {
+                                            String errorMessage = String.format(
+                                                    "Unable to start rebalance [zonePartitionId=%s, term=%s]",
+                                                    zonePartitionId,
+                                                    term
+                                            );
+                                            failureProcessor.process(new FailureContext(ex, errorMessage));
+                                        }
+                                    });
                         }
-
-                        LOG.info(
-                                "New leader elected. Going to apply new configuration [zonePartitionId={}, peers={}, learners={}]",
-                                zonePartitionId, peers, learners
-                        );
-
-                        PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
-
-                        partitionMover.movePartition(peersAndLearners, term)
-                                .whenComplete((unused, ex) -> {
-                                    // TODO https://issues.apache.org/jira/browse/IGNITE-23633 remove !hasCause(ex, TimeoutException.class)
-                                    if (ex != null && !hasCause(ex, NodeStoppingException.class) && !hasCause(ex, TimeoutException.class)) {
-                                        String errorMessage = String.format(
-                                                "Unable to start rebalance [zonePartitionId=%s, term=%s]",
-                                                zonePartitionId,
-                                                term
-                                        );
-                                        failureProcessor.process(new FailureContext(ex, errorMessage));
-                                    }
-                                });
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
