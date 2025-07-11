@@ -119,6 +119,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     @WorkDirectory
     protected Path workDir;
 
+    protected TestInfo testInfo;
+
     /**
      * Invoked before each test starts.
      *
@@ -127,6 +129,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      */
     @BeforeEach
     public void startCluster(TestInfo testInfo) throws Exception {
+        this.testInfo = testInfo;
+
         ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
                 .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate());
 
@@ -134,9 +138,17 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
         cluster = new Cluster(clusterConfiguration.build());
 
-        if (initialNodes() > 0) {
-            cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+        if (initialNodes() > 0 && startClusterInBeforeEach()) {
+            startAndInitCluster();
         }
+    }
+
+    protected boolean startClusterInBeforeEach() {
+        return true;
+    }
+
+    protected void startAndInitCluster() {
+        cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
     }
 
     @AfterEach

@@ -221,4 +221,8 @@ public class ReplicatorOptions implements Copiable<ReplicatorOptions> {
     public ExecutorService getCommonExecutor() {
         return getNode().getOptions().getCommonExecutor();
     }
+
+    public ByteBufferCollectorPool getAppendEntriesByteBufferCollectorPool() {
+        return getNode().getOptions().getAppendEntriesByteBufferCollectorPool();
+    }
 }

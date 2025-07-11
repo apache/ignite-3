@@ -46,11 +46,13 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.CriteriaException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests about accessing destroyed index storages.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-25686")
 class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTest {
     private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String TABLE_NAME = "TEST_TABLE";

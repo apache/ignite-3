@@ -23,9 +23,11 @@ import java.nio.ByteBuffer;
  */
 public final class ByteBufferCollector implements Recyclable {
 
-    private static final int MAX_CAPACITY_TO_RECYCLE = 4 * 1024 * 1024; // 4M
+    public static final int MAX_CAPACITY_TO_RECYCLE = 4 * 1024 * 1024; // 4M
 
     private ByteBuffer buffer;
+
+    public String nodeName;
 
     public int capacity() {
         return this.buffer != null ? this.buffer.capacity() : 0;
@@ -57,9 +59,21 @@ public final class ByteBufferCollector implements Recyclable {
         this.handle = handle;
     }
 
+    private ByteBufferCollector(final int size, final Recyclers.Handle handle, String nodeName) {
+        if (size > 0) {
+            this.buffer = Utils.allocate(size);
+        }
+        this.handle = handle;
+        this.nodeName = nodeName;
+    }
+
     public static ByteBufferCollector allocate(final int size) {
         return new ByteBufferCollector(size, Recyclers.NOOP_HANDLE);
     }
+
+        public static ByteBufferCollector allocate(final int size, String nodeName) {
+            return new ByteBufferCollector(size, Recyclers.NOOP_HANDLE, nodeName);
+        }
 
     public static ByteBufferCollector allocate() {
         return allocate(Utils.RAFT_DATA_BUF_SIZE);
@@ -83,7 +97,7 @@ public final class ByteBufferCollector implements Recyclable {
         return recyclers.threadLocalSize();
     }
 
-    private void reset(final int expectSize) {
+    public void reset(final int expectSize) {
         if (this.buffer == null) {
             this.buffer = Utils.allocate(expectSize);
         }
@@ -132,6 +146,12 @@ public final class ByteBufferCollector implements Recyclable {
             }
         }
         return recyclers.recycle(this, handle);
+    }
+
+    public void clear() {
+        if (buffer != null) {
+            buffer.clear();
+        }
     }
 
     private transient final Recyclers.Handle handle;

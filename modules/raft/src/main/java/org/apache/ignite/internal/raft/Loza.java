@@ -61,6 +61,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.option.DefaultByteBufferCollectorPool;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -164,6 +165,8 @@ public class Loza implements RaftManager {
 
         options.setClock(clock);
         options.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(clusterNetSvc.serializationRegistry()));
+        // TODO: IGNITE-25686 For new POC
+        options.setAppendEntriesByteBufferCollectorPool(new DefaultByteBufferCollectorPool(256));
 
         this.opts = options;
 

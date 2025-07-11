@@ -32,7 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.Set;
+import java.util.Queue;import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -51,6 +51,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
+import org.apache.ignite.raft.jraft.option.ByteBufferCollectorPool;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReplicatorOptions;
 import org.apache.ignite.raft.jraft.rpc.AppendEntriesRequestBuilder;
@@ -171,6 +172,13 @@ public class Replicator implements ThreadId.OnError {
         this.rpcService = replicatorOptions.getRaftRpcService();
         this.metricName = getReplicatorMetricName(replicatorOptions);
         setState(State.Created);
+
+        if (COLLECT_STATISTICS) {
+            BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.put(
+                    replicatorOptions.getNode().getNodeId().getPeerId().getConsistentId(),
+                    replicatorOptions.getAppendEntriesByteBufferCollectorPool()
+            );
+        }
     }
 
     /**
@@ -1642,6 +1650,7 @@ public class Replicator implements ThreadId.OnError {
      * @param nextSendingIndex next sending index
      * @return send result.
      */
+    // TODO: IGNITE-25686 This place is a candidate for optimization
     private boolean sendEntries(final long nextSendingIndex) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
         if (!fillCommonFields(rb, nextSendingIndex - 1, false)) {
@@ -1677,7 +1686,12 @@ public class Replicator implements ThreadId.OnError {
                 return false;
             }
             if (byteBufList.getCapacity() > 0) {
-                dataBuf = ByteBufferCollector.allocateByRecyclers(byteBufList.getCapacity());
+                if (!USE_SHARED_BYTE_BUFFERS) {
+                    dataBuf = ByteBufferCollector.allocateByRecyclers(byteBufList.getCapacity());
+                } else {
+                    dataBuf = allocateShared(byteBufList.getCapacity());
+                }
+
                 for (final ByteBuffer b : byteBufList) {
                     dataBuf.put(b);
                 }
@@ -1718,7 +1732,11 @@ public class Replicator implements ThreadId.OnError {
                             // TODO: recycle on send success, not response received IGNITE-14832.
                             // Also, this closure can be executed when rpcFuture was cancelled, but the request was not sent (meaning
                             // it's too early to recycle byte buffer)
-                            RecycleUtil.recycle(recyclable);
+                            if (!USE_SHARED_BYTE_BUFFERS) {
+                                RecycleUtil.recycle(recyclable);
+                            } else {
+                                recycleShared((ByteBufferCollector) recyclable);
+                            }
                         }
                         onRpcReturned(Replicator.this.id, RequestType.AppendEntries, status, request, getResponse(),
                             seq, v, monotonicSendTimeMs);
@@ -1944,4 +1962,50 @@ public class Replicator implements ThreadId.OnError {
         this.id.unlock();
     }
 
+    public static final Set<ByteBufferCollector> BYTE_BUFFER_COLLECTORS = ConcurrentHashMap.newKeySet();
+
+    public static final Map<String, ByteBufferCollectorPool> BYTE_BUFFER_COLLECTORS_BY_NODE_NAME = new ConcurrentHashMap<>();
+
+    private ByteBufferCollector allocateShared(int capacity) {
+        ByteBufferCollector collector = options.getAppendEntriesByteBufferCollectorPool().borrow();
+
+        if (collector == null || collector.capacity() < capacity) {
+            collector = ByteBufferCollector.allocate(
+                    (int) (capacity + (capacity * 0.2)),
+                    options.getNode().getNodeId().getPeerId().getConsistentId()
+            );
+
+            if (COLLECT_STATISTICS) {
+                BYTE_BUFFER_COLLECTORS.add(collector);
+            }
+        }
+
+        return collector;
+    }
+
+    private void recycleShared(ByteBufferCollector c) {
+        if (c != null && c.capacity() <= ByteBufferCollector.MAX_CAPACITY_TO_RECYCLE) {
+            c.clear();
+
+            options.getAppendEntriesByteBufferCollectorPool().release(c);
+        }
+    }
+
+    private static volatile boolean USE_SHARED_BYTE_BUFFERS = false;
+
+    private static volatile boolean COLLECT_STATISTICS = false;
+
+    public static void useSharedByteBuffers(boolean useSharedByteBuffers) {
+        USE_SHARED_BYTE_BUFFERS = useSharedByteBuffers;
+
+        BYTE_BUFFER_COLLECTORS.clear();
+        BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.clear();
+    }
+
+    public static void collectStatistics(boolean collectStatistics) {
+        COLLECT_STATISTICS = collectStatistics;
+
+        BYTE_BUFFER_COLLECTORS.clear();
+        BYTE_BUFFER_COLLECTORS_BY_NODE_NAME.clear();
+    }
 }
