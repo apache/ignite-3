@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -3679,19 +3680,37 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyList(),
+                anyList()
+        );
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyList(),
+                anyList()
+        );
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyList(),
+                anyList()
+        );
     }
 
     @Test

@@ -584,7 +584,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      *     <li>Broadcasts the current CMG state to all nodes in the physical topology.</li>
      * </ol>
      */
-    private void onElectedAsLeader(long term) {
+    private void onElectedAsLeader(
+            long term,
+            long configurationTerm,
+            long configurationIndex,
+            PeersAndLearners configuration
+    ) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping onLeaderElected callback, because the node is stopping");
 
