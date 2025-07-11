@@ -31,6 +31,8 @@ public class IgniteTestStore : RelationalTestStore
         Connection = new IgniteConnection(ConnectionString);
     }
 
+    public static string GetIgniteEndpoint() => "localhost:10942";
+
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) =>
         builder.UseIgnite(GetIgniteEndpoint());
 
@@ -64,6 +66,4 @@ public class IgniteTestStore : RelationalTestStore
             await client.Sql.ExecuteScriptAsync(script);
         }
     }
-
-    private static string GetIgniteEndpoint() => "localhost:10942";
 }
