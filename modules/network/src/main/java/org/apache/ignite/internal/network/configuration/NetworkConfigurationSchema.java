@@ -29,7 +29,7 @@ import org.apache.ignite.configuration.validation.Range;
 @Config
 public class NetworkConfigurationSchema {
     /** Default network port. */
-    public static final int DEFAULT_PORT = 47500;
+    public static final int DEFAULT_PORT = 3344;
 
     /** Network port. */
     @Range(min = 1024, max = 0xFFFF)
