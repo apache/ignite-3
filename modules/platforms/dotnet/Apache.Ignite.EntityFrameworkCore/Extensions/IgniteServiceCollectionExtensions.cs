@@ -77,6 +77,7 @@ public static class IgniteServiceCollectionExtensions
             .TryAdd<IQueryTranslationPostprocessorFactory, IgniteQueryTranslationPostprocessorFactory>()
             .TryAdd<IUpdateSqlGenerator, IgniteUpdateSqlGenerator>()
             .TryAdd<ISqlExpressionFactory, IgniteSqlExpressionFactory>()
+            .TryAdd<IRelationalTransactionFactory, IgniteRelationalTransactionFactory>()
             .TryAddProviderSpecificServices(
                 b => b.TryAddScoped<IIgniteRelationalConnection, IgniteRelationalConnection>());
 

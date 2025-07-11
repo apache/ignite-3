@@ -34,7 +34,7 @@ public class IgniteUpdateSqlGenerator : UpdateAndSelectSqlGenerator
 
         // SqlGenerationHelper.DelimitIdentifier(commandStringBuilder, "rowid");
         // commandStringBuilder.Append(" = ").Append("last_insert_rowid()");
-        throw new NotSupportedException("Ignite does not support identity columns.");
+        // TODO: Why do we need this?
     }
 
     protected override ResultSetMapping AppendSelectAffectedCountCommand(
@@ -49,9 +49,7 @@ public class IgniteUpdateSqlGenerator : UpdateAndSelectSqlGenerator
 
     protected override void AppendRowsAffectedWhereCondition(StringBuilder commandStringBuilder, int expectedRowsAffected)
     {
-        Check.NotNull(commandStringBuilder, nameof(commandStringBuilder));
-
-        throw new NotSupportedException("Ignite does not support affected rows check.");
+        // TODO: Why do we need this?
     }
 
     public override string GenerateNextSequenceValueOperation(string name, string? schema)

@@ -32,6 +32,8 @@ public class IgniteTransaction : DbTransaction
 
     public override IsolationLevel IsolationLevel { get; }
 
+    public override bool SupportsSavepoints => false;
+
     internal ITransaction InternalTransaction { get; }
 
     protected override DbConnection DbConnection { get; }
@@ -45,5 +47,6 @@ public class IgniteTransaction : DbTransaction
 
     public override async Task RollbackAsync(string savepointName, CancellationToken cancellationToken = default) =>
         await InternalTransaction.RollbackAsync();
+
 
 }
