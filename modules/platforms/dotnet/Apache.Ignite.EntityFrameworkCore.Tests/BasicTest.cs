@@ -40,18 +40,19 @@ public class BasicTest
     }
 
     [Test]
-    public async Task TestIgniteEfCore()
+    public async Task TestInsertSelect()
     {
         await using var ctx = CreateDbContext();
 
         await ctx.Database.EnsureCreatedAsync();
 
-        var book = new Book(Guid.NewGuid(), "Nineteen Eighty-Four", 1984, Guid.NewGuid())
-        {
-            Author = new Author(Guid.NewGuid(), "George", "Orwell")
-        };
+        var author = new Author(Guid.NewGuid(), "George", "Orwell");
 
-        ctx.Books.Add(book);
+        var book1 = new Book(Guid.NewGuid(), "Animal Farm", 1945, author.Id);
+        var book2 = new Book(Guid.NewGuid(), "Nineteen Eighty-Four", 1984, author.Id);
+
+        ctx.Authors.Add(author);
+        ctx.Books.AddRange(book1, book2);
 
         await ctx.SaveChangesAsync();
         ctx.ChangeTracker.Clear();
@@ -59,16 +60,18 @@ public class BasicTest
         var query = ctx.Books
             .AsNoTracking()
             .Include(x => x.Author)
-            .Where(b => b.Year > 1900);
+            .Where(b => b.Year > 1900)
+            .OrderBy(b => b.Year);
 
         var books = await query.ToListAsync();
 
-        Assert.AreEqual(1, books.Count);
-        Assert.AreEqual(book.Name, books[0].Name);
-        Assert.AreEqual(book.Author.FirstName, books[0].Author.FirstName);
-        Assert.AreEqual(book.Author.LastName, books[0].Author.LastName);
-        Assert.AreEqual(book.Year, books[0].Year);
-        Assert.AreEqual(book.Id, books[0].Id);
+        Assert.AreEqual(2, books.Count);
+
+        Assert.AreEqual(book1.Name, books[0].Name);
+        Assert.AreEqual(book1.Author.FirstName, books[0].Author.FirstName);
+        Assert.AreEqual(book1.Author.LastName, books[0].Author.LastName);
+        Assert.AreEqual(book1.Year, books[0].Year);
+        Assert.AreEqual(book1.Id, books[0].Id);
 
         var expectedSql =
             """
@@ -76,6 +79,7 @@ public class BasicTest
             FROM "Books" AS "b"
             INNER JOIN "Authors" AS "a" ON "b"."AuthorId" = "a"."Id"
             WHERE "b"."Year" > 1900
+            ORDER BY "b"."Year"
             """;
 
         var queryString = query.ToQueryString();
