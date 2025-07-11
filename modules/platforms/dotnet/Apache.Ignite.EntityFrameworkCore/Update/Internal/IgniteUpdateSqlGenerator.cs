@@ -35,6 +35,7 @@ public class IgniteUpdateSqlGenerator : UpdateAndSelectSqlGenerator
         // SqlGenerationHelper.DelimitIdentifier(commandStringBuilder, "rowid");
         // commandStringBuilder.Append(" = ").Append("last_insert_rowid()");
         // TODO: Why do we need this?
+        commandStringBuilder.Append("1 = 1");
     }
 
     protected override ResultSetMapping AppendSelectAffectedCountCommand(
@@ -50,6 +51,7 @@ public class IgniteUpdateSqlGenerator : UpdateAndSelectSqlGenerator
     protected override void AppendRowsAffectedWhereCondition(StringBuilder commandStringBuilder, int expectedRowsAffected)
     {
         // TODO: Why do we need this?
+        commandStringBuilder.Append("1 = 1");
     }
 
     public override string GenerateNextSequenceValueOperation(string name, string? schema)
