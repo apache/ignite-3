@@ -72,13 +72,20 @@ public class ConfigAnnotation {
         return Objects.hash(name, properties);
     }
 
-    @Override
-    public String toString() {
+    String digest() {
         // This method is used for metadata comparison,
         // so we exclude values from the comparison. 
         return name + (properties == null || properties.isEmpty() ? ""
                 : properties.entrySet().stream()
                         .map(e -> format("{}=<{}>", e.getKey(), e.getValue().typeName()))
+                        .collect(Collectors.joining(",", "(", ")")));
+    }
+
+    @Override
+    public String toString() {
+        return name + (properties == null || properties.isEmpty() ? ""
+                : properties.entrySet().stream()
+                        .map(Map.Entry::toString)
                         .collect(Collectors.joining(",", "(", ")")));
     }
 }

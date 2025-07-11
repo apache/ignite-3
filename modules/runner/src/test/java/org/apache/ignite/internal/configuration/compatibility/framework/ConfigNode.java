@@ -216,7 +216,7 @@ public class ConfigNode {
 
         return path() + ": ["
                 + attributes
-                + ", annotations=" + annotations().stream().map(ConfigAnnotation::toString).collect(Collectors.joining(",", "[", "]"))
+                + ", annotations=" + annotations().stream().map(ConfigAnnotation::digest).collect(Collectors.joining(",", "[", "]"))
                 + ", flags=" + flagsHexString
                 + (childNodeMap.isEmpty() ? "" : ", children=" + childNodeMap.size())
                 + ']';

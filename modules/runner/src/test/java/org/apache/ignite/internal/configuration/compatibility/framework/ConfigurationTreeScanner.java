@@ -73,7 +73,7 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 public class ConfigurationTreeScanner {
     private static final Set<Class<?>> FLAG_ANNOTATIONS = Set.of(
             Value.class,
-            Deprecated.class, // See flags.
+            Deprecated.class,
             NamedConfigValue.class,
             PublicName.class,
             PolymorphicId.class,
