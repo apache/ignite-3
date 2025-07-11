@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
+import java.util.Map;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
@@ -45,4 +46,12 @@ public interface LocalPartitionStateMessage extends NetworkMessage {
 
     /** Estimated number of rows for this partition. */
     long estimatedRows();
+
+    /**
+     * Returns estimated number of rows for partitions stored on this node.
+     *
+     * <p>When colocation is enabled, and we want to get estimated rows for each of the tables, this method should be used.
+     */
+    @Nullable
+    Map<TablePartitionIdMessage, Long> partitionIdToEstimatedRowsMap();
 }
