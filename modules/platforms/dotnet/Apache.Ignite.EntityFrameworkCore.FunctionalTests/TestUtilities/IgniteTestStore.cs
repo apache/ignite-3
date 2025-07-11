@@ -15,15 +15,20 @@
 
 namespace Apache.Ignite.EntityFrameworkCore.FunctionalTests.TestUtilities;
 
+using System.Diagnostics.CodeAnalysis;
+using DataCommon;
 using Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
 public class IgniteTestStore : RelationalTestStore
 {
+    [SuppressMessage("ReSharper", "VirtualMemberCallInConstructor", Justification = "Reviewed.")]
     public IgniteTestStore(string name, bool shared)
         : base(name, shared)
     {
+        ConnectionString = GetIgniteEndpoint();
+        Connection = new IgniteConnection(ConnectionString);
     }
 
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) =>
