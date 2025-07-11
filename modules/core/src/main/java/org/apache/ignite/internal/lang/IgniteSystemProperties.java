@@ -103,7 +103,7 @@ public final class IgniteSystemProperties {
      */
     @Deprecated
     public static boolean colocationEnabled() {
-        return getBoolean(COLOCATION_FEATURE_FLAG, false);
+        return getBoolean(COLOCATION_FEATURE_FLAG, true);
     }
 
     /**
