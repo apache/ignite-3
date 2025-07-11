@@ -140,10 +140,8 @@ public class IgniteCommand : DbCommand
 
     protected override DbParameter CreateDbParameter() => new IgniteParameter();
 
-    protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
-    {
-        throw new NotImplementedException();
-    }
+    protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) =>
+        ExecuteDbDataReaderAsync(behavior, CancellationToken.None).GetAwaiter().GetResult();
 
     private ISql GetSql()
     {
@@ -165,5 +163,25 @@ public class IgniteCommand : DbCommand
             ? igniteTx.InternalTransaction
             : null;
 
-    private object[] GetArgs() => _parameters?.ToObjectArray() ?? [];
+    private object[] GetArgs()
+    {
+        if (_parameters == null || _parameters.Count == 0)
+        {
+            // No parameters, return an empty array.
+            return [];
+        }
+
+        var arr = new object[_parameters.Count];
+
+        for (var i = 0; i < _parameters.Count; i++)
+        {
+            arr[i] = _parameters[i].Value switch
+            {
+                DBNull => null,
+                var other => other
+            };
+        }
+
+        return arr;
+    }
 }
