@@ -54,7 +54,6 @@ import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -1319,7 +1318,7 @@ public class NodeImpl implements Node, RaftServerService {
             opts.setfSMCallerExecutorDisruptor(StripedDisruptor.createSerialDisruptor(
                 opts.getServerName(),
                 "JRaft-FSMCaller-Disruptor-" + groupId,
-                (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 false,
@@ -1352,7 +1351,7 @@ public class NodeImpl implements Node, RaftServerService {
             opts.setNodeApplyDisruptor(new StripedDisruptor<>(
                 opts.getServerName(),
                 "JRaft-NodeImpl-Disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new NodeImpl.LogEntryAndClosure(),
                 opts.getStripes(),
@@ -1366,7 +1365,7 @@ public class NodeImpl implements Node, RaftServerService {
             opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                 opts.getServerName(),
                 "JRaft-ReadOnlyService-Disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 opts.getStripes(),
@@ -1380,7 +1379,7 @@ public class NodeImpl implements Node, RaftServerService {
             opts.setLogManagerDisruptor(new StripedDisruptor<>(
                 opts.getServerName(),
                 "JRaft-LogManager-Disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
                 opts.getLogStripesCount(),

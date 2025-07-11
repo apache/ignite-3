@@ -60,7 +60,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -124,7 +124,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         components.add(catalogManager);
 
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "distribution-zone-manager-test-scheduled-executor", log)
+                IgniteThreadFactory.create(nodeName, "distribution-zone-manager-test-scheduled-executor", log)
         );
 
         distributionZoneManager = new DistributionZoneManager(
