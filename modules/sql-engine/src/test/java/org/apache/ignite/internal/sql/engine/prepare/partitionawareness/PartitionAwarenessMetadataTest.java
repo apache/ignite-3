@@ -48,7 +48,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Tests forr {@link PartitionAwarenessMetadata} in query plans.
+ * Tests for {@link PartitionAwarenessMetadata} in query plans.
  */
 public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
 
@@ -116,7 +116,7 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
         QueryPlan plan = node.prepare(query);
         PartitionAwarenessMetadata metadata = plan.partitionAwarenessMetadata();
 
-        expectMedata(expected, metadata);
+        expectMetadata(expected, metadata);
     }
 
     private static Stream<Arguments> simpleKeyMetadata() {
@@ -131,11 +131,11 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("SELECT * FROM t WHERE c2=? and c1=? and c1=?", dynamicParams(1)),
 
                 // KV PUT
-                Arguments.of("INSERT INTO t VALUES(?, ?)", dynamicParams(0)),
+                Arguments.of("INSERT INTO t VALUES(?, ?)", dynamicParamsTrackingRequired(0)),
                 Arguments.of("INSERT INTO t VALUES(1, ?)", null),
                 Arguments.of("INSERT INTO t VALUES(1+1, ?)", null),
-                Arguments.of("INSERT INTO t(c2, c1) VALUES(?, ?)", dynamicParams(1)),
-                Arguments.of("INSERT INTO t(c2, c1) VALUES(1, ?)", dynamicParams(0)),
+                Arguments.of("INSERT INTO t(c2, c1) VALUES(?, ?)", dynamicParamsTrackingRequired(1)),
+                Arguments.of("INSERT INTO t(c2, c1) VALUES(1, ?)", dynamicParamsTrackingRequired(0)),
                 Arguments.of("INSERT INTO t(c2, c1) VALUES(?, 1)", null)
         );
     }
@@ -148,7 +148,7 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
         QueryPlan plan = node.prepare(query);
         PartitionAwarenessMetadata metadata = plan.partitionAwarenessMetadata();
 
-        expectMedata(expected, metadata);
+        expectMetadata(expected, metadata);
     }
 
     private static Stream<Arguments> shortKeyMetadata() {
@@ -165,9 +165,9 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("SELECT * FROM t WHERE c1=? and c2=? and c3=3", null),
 
                 // KV PUT
-                Arguments.of("INSERT INTO t VALUES (?, ?, ?)",  dynamicParams(2)),
-                Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, ?)", dynamicParams(2)),
-                Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (?, ?, ?)", dynamicParams(0)),
+                Arguments.of("INSERT INTO t VALUES (?, ?, ?)",  dynamicParamsTrackingRequired(2)),
+                Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, ?)", dynamicParamsTrackingRequired(2)),
+                Arguments.of("INSERT INTO t (c3, c1, c2) VALUES (?, ?, ?)", dynamicParamsTrackingRequired(0)),
 
                 Arguments.of("INSERT INTO t (c1, c2, c3) VALUES (?, ?, 3)", null),
                 Arguments.of("INSERT INTO t (c1, c3, c2) VALUES (?, 3, ?)", null),
@@ -183,7 +183,7 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
         QueryPlan plan = node.prepare(query);
         PartitionAwarenessMetadata metadata = plan.partitionAwarenessMetadata();
 
-        expectMedata(expected, metadata);
+        expectMetadata(expected, metadata);
     }
 
     private static Stream<Arguments> compoundKeyMetadata() {
@@ -202,17 +202,21 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
                 Arguments.of("SELECT * FROM t WHERE c1=1 and c2=2 and c3=3", null),
 
                 // KV PUT
-                Arguments.of("INSERT INTO t VALUES (?, ?, ?, ?)",  dynamicParams(2, 0, 1)),
-                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, ?, ?)", dynamicParams(0, 3, 1)),
-                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, 1, ?)", dynamicParams(0, 2, 1))
+                Arguments.of("INSERT INTO t VALUES (?, ?, ?, ?)",  dynamicParamsTrackingRequired(2, 0, 1)),
+                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, ?, ?)", dynamicParamsTrackingRequired(0, 3, 1)),
+                Arguments.of("INSERT INTO t (c3, c2, c4, c1) VALUES (?, ?, 1, ?)", dynamicParamsTrackingRequired(0, 2, 1))
         );
     }
 
     private static PartitionAwarenessMetadata dynamicParams(int... dynamicParams) {
-        return new PartitionAwarenessMetadata(1, dynamicParams, new int[0]);
+        return new PartitionAwarenessMetadata(1, dynamicParams, new int[0], DirectTxMode.SUPPORTED);
     }
 
-    private static void expectMedata(PartitionAwarenessMetadata expected, @Nullable PartitionAwarenessMetadata actual) {
+    private static PartitionAwarenessMetadata dynamicParamsTrackingRequired(int... dynamicParams) {
+        return new PartitionAwarenessMetadata(1, dynamicParams, new int[0], DirectTxMode.SUPPORTED_TRACKING_REQUIRED);
+    }
+
+    private static void expectMetadata(PartitionAwarenessMetadata expected, @Nullable PartitionAwarenessMetadata actual) {
         if (expected == null) {
             assertNull(actual, "Metadata should not be present");
         } else {
@@ -225,6 +229,7 @@ public class PartitionAwarenessMetadataTest extends BaseIgniteAbstractTest {
             assertNotNull(table, "table");
 
             assertEquals(table.id(), actual.tableId(), "metadata tableId");
+            assertEquals(expected.directTxMode(), actual.directTxMode(), "direct transaction support");
             assertEquals(
                     Arrays.stream(expected.indexes()).boxed().collect(Collectors.toList()),
                     Arrays.stream(actual.indexes()).boxed().collect(Collectors.toList()),
