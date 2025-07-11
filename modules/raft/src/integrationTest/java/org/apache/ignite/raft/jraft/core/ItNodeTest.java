@@ -160,7 +160,7 @@ import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedFifoByteBufferCollectorPool;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedLifoByteBufferCollectorPool;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -830,7 +830,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer.getPeerId()), Collections
                 .singletonList(learnerPeer.getPeerId())));
             nodeOptions.setAppendEntriesByteBufferCollectorPool(
-                    new ConcurrentLinkedFifoByteBufferCollectorPool(Utils.MAX_COLLECTOR_SIZE_PER_SERVER)
+                    new ConcurrentLinkedLifoByteBufferCollectorPool(Utils.MAX_COLLECTOR_SIZE_PER_SERVER)
             );
 
             RaftGroupService server = createService("unittest", peer, nodeOptions, List.of(peer, learnerPeer));

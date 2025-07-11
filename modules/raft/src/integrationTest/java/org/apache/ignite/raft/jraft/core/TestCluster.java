@@ -73,7 +73,7 @@ import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedFifoByteBufferCollectorPool;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedLifoByteBufferCollectorPool;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -274,7 +274,7 @@ public class TestCluster {
             nodeOptions.setCommandsMarshaller(commandsMarshaller(clusterService));
 
             nodeOptions.setAppendEntriesByteBufferCollectorPool(
-                    new ConcurrentLinkedFifoByteBufferCollectorPool(Utils.MAX_COLLECTOR_SIZE_PER_SERVER)
+                    new ConcurrentLinkedLifoByteBufferCollectorPool(Utils.MAX_COLLECTOR_SIZE_PER_SERVER)
             );
 
             ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);

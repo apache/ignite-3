@@ -25,9 +25,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Thread safe implementation of a pool based on a fixed-size FIFO linked list.
  *
- * <p>{@link ByteBufferCollector} are given out on a first-in, first-out basis.</p>
+ * <p>{@link ByteBufferCollector} are given out on a last-in, first-out basis.</p>
  */
-public class ConcurrentLinkedFifoByteBufferCollectorPool implements ByteBufferCollectorPool {
+public class ConcurrentLinkedLifoByteBufferCollectorPool implements ByteBufferCollectorPool {
     private final int capacity;
 
     private final AtomicReference<Node> stack = new AtomicReference<>();
@@ -37,7 +37,7 @@ public class ConcurrentLinkedFifoByteBufferCollectorPool implements ByteBufferCo
      *
      * @param capacity Maximum capacity of the pool, expected to be greater than zero.
      */
-    public ConcurrentLinkedFifoByteBufferCollectorPool(int capacity) {
+    public ConcurrentLinkedLifoByteBufferCollectorPool(int capacity) {
         assert capacity > 0 : capacity;
 
         this.capacity = capacity;

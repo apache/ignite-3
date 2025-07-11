@@ -110,7 +110,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedFifoByteBufferCollectorPool;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedLifoByteBufferCollectorPool;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -208,7 +208,7 @@ public class JraftServerImpl implements RaftServer {
 
         if (opts.getAppendEntriesByteBufferCollectorPool() == null) {
             opts.setAppendEntriesByteBufferCollectorPool(
-                    new ConcurrentLinkedFifoByteBufferCollectorPool(Utils.MAX_COLLECTOR_SIZE_PER_SERVER)
+                    new ConcurrentLinkedLifoByteBufferCollectorPool(Utils.MAX_COLLECTOR_SIZE_PER_SERVER)
             );
         }
 

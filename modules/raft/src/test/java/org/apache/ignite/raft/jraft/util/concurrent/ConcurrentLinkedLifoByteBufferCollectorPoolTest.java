@@ -37,11 +37,11 @@ import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
-/** For {@link ConcurrentLinkedFifoByteBufferCollectorPool} testing. */
-public class ConcurrentLinkedFifoByteBufferCollectorPoolTest {
+/** For {@link ConcurrentLinkedLifoByteBufferCollectorPool} testing. */
+public class ConcurrentLinkedLifoByteBufferCollectorPoolTest {
     private static final int CAPACITY = 10;
 
-    private final ConcurrentLinkedFifoByteBufferCollectorPool collectorPool = new ConcurrentLinkedFifoByteBufferCollectorPool(CAPACITY);
+    private final ConcurrentLinkedLifoByteBufferCollectorPool collectorPool = new ConcurrentLinkedLifoByteBufferCollectorPool(CAPACITY);
 
     @Test
     void borrowFromEmptyPool() {
