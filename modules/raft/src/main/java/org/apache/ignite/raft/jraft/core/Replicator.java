@@ -1726,7 +1726,7 @@ public class Replicator implements ThreadId.OnError {
                 });
         }
         catch (final Throwable t) {
-            RecycleUtil.recycle(releasable);
+            releaseShared(releasable);
             ThrowUtil.throwException(t);
         }
         addInflight(RequestType.AppendEntries, nextSendingIndex, Utils.size(request.entriesList()),
