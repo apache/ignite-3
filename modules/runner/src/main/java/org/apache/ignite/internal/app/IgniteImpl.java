@@ -964,7 +964,7 @@ public class IgniteImpl implements Ignite {
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
-        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl();
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
         metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);

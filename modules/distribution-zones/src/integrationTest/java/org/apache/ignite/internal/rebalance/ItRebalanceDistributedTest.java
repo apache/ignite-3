@@ -1553,7 +1553,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             schemaManager = new SchemaManager(registry, catalogManager);
 
-            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl();
+            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
             metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
             schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);

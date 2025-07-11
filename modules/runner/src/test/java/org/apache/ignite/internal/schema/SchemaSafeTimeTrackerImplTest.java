@@ -17,20 +17,50 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-class SchemaSafeTimeTrackerImplTest {
+@ExtendWith(MockitoExtension.class)
+class SchemaSafeTimeTrackerImplTest extends BaseIgniteAbstractTest {
+    @Mock
+    private ClusterTime clusterTime;
+
+    private SchemaSafeTimeTrackerImpl tracker;
+
+    @BeforeEach
+    void createTracker() {
+        tracker = new SchemaSafeTimeTrackerImpl(clusterTime);
+    }
+
+    @Test
+    void recoversSchemaSafeTimeOnStartFromMsSafeTime() {
+        HybridTimestamp safeTimeTs = new HybridTimestamp(1, 2);
+        when(clusterTime.currentSafeTime()).thenReturn(safeTimeTs);
+
+        assertThat(tracker.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        assertThat(tracker.currentSafeTime(), is(safeTimeTs));
+        assertThat(tracker.waitFor(safeTimeTs), is(completedFuture()));
+    }
+
     @Test
     void closureCompletesFuturesWithNodeStoppingException() {
-        var tracker = new SchemaSafeTimeTrackerImpl();
         assertThat(tracker.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Void> future = tracker.waitFor(HybridTimestamp.MAX_VALUE);

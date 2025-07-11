@@ -724,7 +724,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             }
         };
 
-        var schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl();
+        var schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
         metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
         var schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
