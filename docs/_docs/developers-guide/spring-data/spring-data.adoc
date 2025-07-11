@@ -63,7 +63,7 @@ In the example above:
 * Replace `${ignite.address}` with the host and port of your node. For example, `localhost:10800`. 
 Replace ${ignite.jdbc.connectionString} with your JDBC connection string, for example `jdbc:ignite:thin://localhost`.
 
-Example of application.properties file:
+Here is an example of the application.properties file:
 
 [source, text]
 ----
@@ -82,7 +82,7 @@ org.springframework.data.jdbc.repository.config.DialectResolver$JdbcDialectProvi
 
 == Creating Repositories
 
-After the above configuration, you can create spring repositories.
+After providing the above configuration, you can create spring repositories.
 For instance, let's create the first custom repository named `PersonRepository`:
 
 [tabs]
