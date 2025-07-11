@@ -63,7 +63,7 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -99,7 +99,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
     /** RPC executor. */
     protected final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
             20,
-            NamedThreadFactory.create("Test", "Raft-Group-Client", log)
+            IgniteThreadFactory.create("Test", "Raft-Group-Client", log)
     );
 
     private final Map<NetworkAddress, ClusterService> clusterServices = new HashMap<>();

@@ -29,6 +29,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.server.NotificationEnqueuedListener;
+import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.TestOnly;
 
@@ -36,6 +37,8 @@ import org.jetbrains.annotations.TestOnly;
  * Default implementation of {@link SchemaSafeTimeTracker}.
  */
 public class SchemaSafeTimeTrackerImpl implements SchemaSafeTimeTracker, IgniteComponent, NotificationEnqueuedListener {
+    private final ClusterTime clusterTime;
+
     private final PendingComparableValuesTracker<HybridTimestamp, Void> schemaSafeTime =
             new PendingComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
 
@@ -43,8 +46,14 @@ public class SchemaSafeTimeTrackerImpl implements SchemaSafeTimeTracker, IgniteC
 
     private final Object futureMutex = new Object();
 
+    public SchemaSafeTimeTrackerImpl(ClusterTime clusterTime) {
+        this.clusterTime = clusterTime;
+    }
+
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        schemaSafeTime.update(clusterTime.currentSafeTime(), null);
+
         return nullCompletedFuture();
     }
 
@@ -112,5 +121,10 @@ public class SchemaSafeTimeTrackerImpl implements SchemaSafeTimeTracker, IgniteC
         synchronized (futureMutex) {
             schemaSafeTimeUpdateFuture = schemaSafeTimeUpdateFuture.thenCompose(unused -> future);
         }
+    }
+
+    @TestOnly
+    HybridTimestamp currentSafeTime() {
+        return schemaSafeTime.current();
     }
 }
