@@ -382,8 +382,8 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void expectErrors(Collection<String> expected, List<String> actual) {
-        Matcher[] matchers = actual.stream().map(CoreMatchers::containsString).toArray(Matcher[]::new);
-        assertThat(expected, CoreMatchers.hasItems(matchers));
+        Matcher[] matchers = expected.stream().map(CoreMatchers::containsString).toArray(Matcher[]::new);
+        assertThat(actual, CoreMatchers.hasItems(matchers));
     }
 
     private static <A extends Annotation> ConfigAnnotation getAnnotation(Class<?> clazz,
