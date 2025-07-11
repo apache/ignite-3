@@ -62,7 +62,7 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
     }
 
     @Test
-    public void removingAnnotationDoesNotBreakCompatibility() {
+    public void removingAnnotationBreaksCompatibility() {
         ConfigNode candidate = newNode(new ConfigAnnotation("a", Map.of()), new ConfigAnnotation("b", Map.of()));
         ConfigNode current = newNode(new ConfigAnnotation("a", Map.of()));
 
@@ -71,7 +71,7 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         List<String> errors = new ArrayList<>();
         validator.validate(candidate, current, errors);
 
-        assertEquals(List.of(), errors);
+        assertEquals(List.of("Removing annotations is not allowed. Removed annotations: [b]"), errors);
     }
 
     @Test

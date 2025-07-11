@@ -248,10 +248,10 @@ public class ConfigurationTreeScanner {
                 Class<?> componentType = returnType.getComponentType();
 
                 List<Object> elements = convertArray(result, componentType, annotation);
-                propertyValue = ConfigAnnotationValue.array(componentType.getName(), elements);
+                propertyValue = ConfigAnnotationValue.createArray(componentType.getName(), elements);
             } else {
                 Object convertedValue = convertValue(result, returnType, annotation);
-                propertyValue = ConfigAnnotationValue.value(returnType.getName(), convertedValue);
+                propertyValue = ConfigAnnotationValue.createValue(returnType.getName(), convertedValue);
             }
 
             properties.put(propertyName, propertyValue);

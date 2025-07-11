@@ -86,15 +86,22 @@ final class ConfigAnnotationsValidator {
             errors.add("Adding annotations is not allowed. New annotations: " + newAnnotations);
         }
 
+        Set<String> removedAnnotations = new TreeSet<>();
+
         for (Map.Entry<String, ConfigAnnotation> entry : candidateMap.entrySet()) {
             ConfigAnnotation candidateAnnotation = entry.getValue();
             ConfigAnnotation currentAnnotation = currentMap.get(entry.getKey());
 
             if (currentAnnotation == null) {
+                removedAnnotations.add(candidateAnnotation.name());
                 continue;
             }
 
             validateStructure(candidateAnnotation, currentAnnotation, errors);
+        }
+
+        if (!removedAnnotations.isEmpty()) {
+            errors.add("Removing annotations is not allowed. Removed annotations: " + removedAnnotations);
         }
     }
 

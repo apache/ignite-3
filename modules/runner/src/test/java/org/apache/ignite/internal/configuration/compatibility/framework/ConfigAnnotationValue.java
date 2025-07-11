@@ -47,16 +47,10 @@ public class ConfigAnnotationValue {
      * @param value Value.
      * @return Value.
      */
-    public static ConfigAnnotationValue value(String className, Object value) {
+    public static ConfigAnnotationValue createValue(String className, Object value) {
         return new ConfigAnnotationValue(className, value);
     }
 
-    /**
-     * Returns a value.
-     */
-    public Object value() {
-        return value;
-    }
 
     /**
      * Creates a value for an array property.
@@ -65,8 +59,15 @@ public class ConfigAnnotationValue {
      * @param elements Elements.
      * @return Value.
      */
-    public static ConfigAnnotationValue array(String elementClassName, List<Object> elements) {
+    public static ConfigAnnotationValue createArray(String elementClassName, List<Object> elements) {
         return new ConfigAnnotationValue(elementClassName + "[]", elements);
+    }
+
+    /**
+     * Returns a value.
+     */
+    public Object value() {
+        return value;
     }
 
     /**
