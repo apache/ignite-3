@@ -43,7 +43,7 @@ public class BrokenTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void destroyTxStateStorage(int partitionId) {
+    public void destroyPartitionStorage(int partitionId) {
         // No-op.
     }
 

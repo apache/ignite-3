@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToDestroyedState;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage.BYTE_ORDER;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_OR_ZONE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -284,7 +284,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
             throwExceptionIfStorageInProgressOfRebalance();
 
             // This lower bound is the lowest possible key that goes after "lastAppliedIndexAndTermKey".
-            byte[] lowerBound = ByteBuffer.allocate(PREFIX_SIZE_BYTES + 1).order(BIG_ENDIAN)
+            byte[] lowerBound = ByteBuffer.allocate(PREFIX_SIZE_BYTES + 1).order(BYTE_ORDER)
                     .putInt(tableOrZoneId)
                     .putShort(shortPartitionId(partitionId))
                     .put((byte) 0)
@@ -368,7 +368,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     }
 
     private byte @Nullable [] readLastAppliedIndexAndTerm() throws RocksDBException {
-        byte[] lastAppliedIndexAndTermKey = ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
+        byte[] lastAppliedIndexAndTermKey = ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BYTE_ORDER)
                 .putInt(tableOrZoneId)
                 .putShort(shortPartitionId(partitionId))
                 .array();
@@ -392,21 +392,21 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     }
 
     private byte[] partitionStartPrefix() {
-        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
+        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BYTE_ORDER)
                 .putInt(tableOrZoneId)
                 .putShort(shortPartitionId(partitionId))
                 .array();
     }
 
     private byte[] partitionEndPrefix() {
-        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BIG_ENDIAN)
+        return ByteBuffer.allocate(PREFIX_SIZE_BYTES).order(BYTE_ORDER)
                 .putInt(tableOrZoneId)
                 .putShort(shortPartitionId(partitionId + 1))
                 .array();
     }
 
     private byte[] txIdToKey(UUID txId) {
-        return ByteBuffer.allocate(FULL_KEY_SIZE_BYES).order(BIG_ENDIAN)
+        return ByteBuffer.allocate(FULL_KEY_SIZE_BYES).order(BYTE_ORDER)
                 .putInt(tableOrZoneId)
                 .putShort(shortPartitionId(partitionId))
                 .putLong(txId.getMostSignificantBits())

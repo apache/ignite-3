@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
@@ -86,7 +85,5 @@ public interface StorageEngine {
      * Returns IDs of tables for which there are MV partition storages on disk. Those were created and flushed to disk; either
      * destruction was not started for them, or it failed.
      */
-    default Set<Integer> tableIdsOnDisk() {
-        return emptySet();
-    }
+    Set<Integer> tableIdsOnDisk();
 }

@@ -63,10 +63,10 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void destroyTxStateStorage(int partitionId) {
+    public void destroyPartitionStorage(int partitionId) {
         assertThreadAllowsToWrite();
 
-        wrappedStorage.destroyTxStateStorage(partitionId);
+        wrappedStorage.destroyPartitionStorage(partitionId);
     }
 
     @Override

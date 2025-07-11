@@ -1882,7 +1882,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                     .destroyPartition(partitionId);
             verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
-                    .destroyTxStateStorage(partitionId);
+                    .destroyPartitionStorage(partitionId);
         }
     }
 
@@ -1895,7 +1895,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         doAnswer(answer -> CompletableFuture.failedFuture(new IgniteInternalException("From test")))
                 .when(internalTable.txStateStorage())
-                .destroyTxStateStorage(partitionId);
+                .destroyPartitionStorage(partitionId);
     }
 
     private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String tableName, int partitionId) {

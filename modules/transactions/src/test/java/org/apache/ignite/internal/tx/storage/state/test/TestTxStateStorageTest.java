@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.tx.storage.state.test;
 
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.tx.storage.state.AbstractTxStatePartitionStorageTest;
+import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 
 /**
- * Tx partition storage test for test implementation based on {@link ConcurrentHashMap}.
+ * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
  */
-public class TestTxStatePartitionStorageTest extends AbstractTxStatePartitionStorageTest {
+public class TestTxStateStorageTest extends AbstractTxStateStorageTest {
     @Override protected TxStateStorage createTableOrZoneStorage() {
         return new TestTxStateStorage();
     }
