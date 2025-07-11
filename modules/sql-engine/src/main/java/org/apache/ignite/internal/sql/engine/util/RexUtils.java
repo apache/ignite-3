@@ -56,6 +56,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.tree.Primitive;
@@ -91,6 +92,7 @@ import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Sarg;
@@ -160,16 +162,15 @@ public class RexUtils {
     }
 
     /** Returns whether a list of expressions projects the incoming fields. */
-    public static boolean isIdentity(List<? extends RexNode> projects, RelDataType inputRowType, boolean local) {
+    public static boolean isIdentity(List<? extends RexNode> projects, RelDataType inputRowType) {
         if (inputRowType.getFieldCount() != projects.size()) {
             return false;
         }
 
-        final List<RelDataTypeField> fields = inputRowType.getFieldList();
-        Class<? extends RexSlot> clazz = local ? RexLocalRef.class : RexInputRef.class;
+        List<RelDataTypeField> fields = inputRowType.getFieldList();
 
         for (int i = 0; i < fields.size(); i++) {
-            if (!clazz.isInstance(projects.get(i))) {
+            if (!(projects.get(i) instanceof RexLocalRef)) {
                 return false;
             }
 
@@ -312,7 +313,7 @@ public class RexUtils {
             RelCollation collation,
             @Nullable RexNode condition,
             RelDataType rowType,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         if (condition == null) {
             return null;
@@ -344,11 +345,9 @@ public class RexUtils {
 
         List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
 
-        Mappings.TargetMapping mapping = null;
-
-        if (requiredColumns != null) {
-            mapping = Commons.trimmingMapping(types.size(), requiredColumns);
-        }
+        Mappings.TargetMapping mapping = requiredColumns == null
+                ? Mappings.createIdentity(types.size())
+                : Commons.projectedMapping(types.size(), requiredColumns);
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
         boolean boundsEmpty = true;
@@ -365,9 +364,7 @@ public class RexUtils {
                 break;
             }
 
-            if (mapping != null) {
-                collFldIdx = mapping.getSourceOpt(collFldIdx);
-            }
+            collFldIdx = mapping.getSourceOpt(collFldIdx);
 
             SearchBounds fldBounds = createBounds(fieldCollation, collFldPreds, cluster, types.get(collFldIdx), prevComplexity);
 
@@ -404,7 +401,7 @@ public class RexUtils {
             RelCollation collation,
             RexNode condition,
             RelDataType rowType,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         if (condition == null) {
             return null;
@@ -422,10 +419,9 @@ public class RexUtils {
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
 
-        Mappings.TargetMapping toTrimmedRowMapping = null;
-        if (requiredColumns != null) {
-            toTrimmedRowMapping = Commons.trimmingMapping(types.size(), requiredColumns);
-        }
+        Mappings.TargetMapping targetMapping = requiredColumns == null
+                ? Mappings.createIdentity(types.size())
+                : Commons.projectedMapping(types.size(), requiredColumns);
 
         List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
         for (int i = 0; i < fieldCollations.size(); i++) {
@@ -445,9 +441,7 @@ public class RexUtils {
                 return null; // Non-equality conditions are not expected.
             }
 
-            if (toTrimmedRowMapping != null) {
-                collFldIdx = toTrimmedRowMapping.getSourceOpt(collFldIdx);
-            }
+            collFldIdx = targetMapping.getSourceOpt(collFldIdx);
 
             bounds.set(i, createBounds(null, Collections.singletonList(columnPred), cluster, types.get(collFldIdx), 1));
         }
@@ -1246,7 +1240,7 @@ public class RexUtils {
      * @param type The target type for conversion.
      * @return The converted literal value, or {@code null} if the literal value is {@code null}.
      */
-    public static @Nullable Object literalValue(ExecutionContext<?> context, RexLiteral literal, Class<?> type) {
+    public static @Nullable Object literalValue(DataContext context, RexLiteral literal, Class<?> type) {
         RelDataType dataType = literal.getType();
 
         if (literal.isNull()) {

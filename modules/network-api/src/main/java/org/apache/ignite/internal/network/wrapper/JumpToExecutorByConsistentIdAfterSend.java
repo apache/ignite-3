@@ -27,6 +27,7 @@ import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 
 /**
  * Decorator around {@link MessagingService} that switches the response handling to an executor chosen by
@@ -68,6 +69,11 @@ public class JumpToExecutorByConsistentIdAfterSend implements MessagingService {
         CompletableFuture<Void> future = messagingService.send(recipientConsistentId, channelType, msg);
 
         return switchResponseHandlingToAnotherThreadIfNeeded(msg, future, recipientConsistentId);
+    }
+
+    @Override
+    public CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg) {
+        throw new UnsupportedOperationException("Sending by network address is not supported by this implementation.");
     }
 
     @Override

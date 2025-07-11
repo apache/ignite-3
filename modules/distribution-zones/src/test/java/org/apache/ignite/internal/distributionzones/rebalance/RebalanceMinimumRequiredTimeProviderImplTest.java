@@ -208,6 +208,30 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     }
 
     /**
+     * Scenario where zone is already dropped and there are no assignments. In this case we return latest available timestamp.
+     */
+    @Test
+    void testNoAssignmentsDroppedZone() throws Exception {
+        startDistributionZoneManager();
+
+        String zoneName = "zoneName";
+        createZone(zoneName, null, null, null);
+        createTable(zoneName);
+
+        dropTable(TABLE_NAME);
+        dropZone(zoneName);
+
+        Catalog earliestCatalog = latestCatalogVersion();
+        createZone(zoneName + "1", null, null, null);
+        Catalog latestCatalog = latestCatalogVersion();
+
+        long minimumRequiredTime = getMinimumRequiredTime();
+
+        assertThat(earliestCatalog.time(), is(lessThanOrEqualTo(minimumRequiredTime)));
+        assertThat(minimumRequiredTime, is(lessThanOrEqualTo(latestCatalog.time())));
+    }
+
+    /**
      * Scenario where not all stable assignments are recalculated, and there are no pending assignments. Doesn't happen in real environment,
      * test-only case. Shows that we use earliest zone version amongst known stable assignments.
      */

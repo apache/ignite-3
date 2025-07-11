@@ -87,10 +87,6 @@ public final class IgniteSystemProperties {
     /** Enables zone based replication (aka colocation) feature. */
     public static final String COLOCATION_FEATURE_FLAG = "IGNITE_ZONE_BASED_REPLICATION";
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-25526 - remove this.
-    /** Name of the property controlling whether JMX MBean creation failure due to existing bean should be ignored. */
-    public static final String IGNORE_DUPLICATE_JMX_MBEANS_ERROR = "IGNITE_IGNORE_DUPLICATE_JMX_MBEANS_ERROR";
-
     /**
      * Enforces singleton.
      */
@@ -107,7 +103,7 @@ public final class IgniteSystemProperties {
      */
     @Deprecated
     public static boolean colocationEnabled() {
-        return getBoolean(COLOCATION_FEATURE_FLAG, false);
+        return getBoolean(COLOCATION_FEATURE_FLAG, true);
     }
 
     /**

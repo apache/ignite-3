@@ -233,6 +233,7 @@ import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.recovery.system.SystemDisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.sql.SqlQueryRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
@@ -420,6 +421,8 @@ public class IgniteImpl implements Ignite {
 
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
+
+    private final SchemaSafeTimeTrackerImpl schemaSafeTimeTracker;
 
     /** Schema manager. */
     private final SchemaManager schemaManager;
@@ -962,7 +965,10 @@ public class IgniteImpl implements Ignite {
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
-        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl();
+        metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
@@ -1195,6 +1201,11 @@ public class IgniteImpl implements Ignite {
 
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker, threadPoolsManager.commonScheduler());
 
+        ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
+        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
+        ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
+                this, stateMachine, computeCfg, clusterSvc.topologyService(), clockService);
+
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
                 new DeploymentUnitStoreImpl(metaStorageMgr),
@@ -1202,14 +1213,10 @@ public class IgniteImpl implements Ignite {
                 workDir,
                 nodeConfigRegistry.getConfiguration(DeploymentExtensionConfiguration.KEY).deployment(),
                 cmgMgr,
-                name
+                name,
+                computeExecutor::onUnitRemoving // TODO IGNITE-25759 cleaner platform unit removal.
         );
         deploymentManager = deploymentManagerImpl;
-
-        ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
-        InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
-        ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(
-                this, stateMachine, computeCfg, clusterSvc.topologyService(), clockService);
 
         computeComponent = new ComputeComponentImpl(
                 name,
@@ -1546,6 +1553,7 @@ public class IgniteImpl implements Ignite {
                                 indexNodeFinishedRwTransactionsChecker,
                                 txManager,
                                 dataStorageMgr,
+                                schemaSafeTimeTracker,
                                 schemaManager,
                                 outgoingSnapshotsManager,
                                 sharedTxStateStorage,
@@ -1574,7 +1582,7 @@ public class IgniteImpl implements Ignite {
 
                     LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
 
-                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
+                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture(joinExecutor));
                 }, joinExecutor)
                 .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), joinExecutor)
                 // Signal that local recovery is complete and the node is ready to join the cluster.
@@ -2129,6 +2137,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public NodeProperties nodeProperties() {
         return nodeProperties;
+    }
+
+    @TestOnly
+    public SchemaSafeTimeTrackerImpl schemaSafeTimeTracker() {
+        return schemaSafeTimeTracker;
     }
 
     /** Triggers dumping node components state. This method is used for debugging purposes only. */

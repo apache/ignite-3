@@ -161,3 +161,82 @@ SELECT INTERVAL 'aa' DAY;
 
 statement error
 SELECT INTERVAL '100 months' DAY;
+
+# Precision and fraction of second tests
+
+query T
+SELECT INTERVAL '1' SECOND(1)
+----
+PT1S
+
+query T
+SELECT INTERVAL '1.1' SECOND(1, 1)
+----
+PT1.1S
+
+query T
+SELECT INTERVAL '11.11' SECOND(2, 2)
+----
+PT11.11S
+
+# According to SQL 2016 10.1 syntax rule 5 "interval leading field precision" should be 2 by default,
+# but it was extended to 10 in CALCITE-5817
+query T
+SELECT INTERVAL '1234567890' SECOND
+----
+PT342935H31M30S
+
+# According to SQL 2016 10.1 syntax rule 6 "interval fractional seconds precision" should be 6 by default,
+query T
+SELECT INTERVAL '10.123456' SECOND
+----
+PT10.123S
+
+query T
+SELECT INTERVAL '2:3.1' MINUTE TO SECOND
+----
+PT2M3.1S
+
+# When not the first field, SECOND has a precision of 2 places before the decimal point.
+query T
+SELECT INTERVAL '2:11.1' MINUTE TO SECOND(1)
+----
+PT2M11.1S
+
+# Invalid interval fractional formats
+
+# The leading field precision exceeds that defined explicitly.
+statement error: Interval field value 11 exceeds precision of SECOND(1) field
+SELECT INTERVAL '11.1' SECOND(1)
+
+# The fractional seconds precision exceeds that defined explicitly.
+statement error: Illegal interval literal format '1.11' for INTERVAL SECOND(2, 1)
+SELECT INTERVAL '1.11' SECOND(2, 1)
+
+# When not the first field, SECOND has a precision of 2 places before the decimal point.
+statement error: Illegal interval literal format '2:123.123' for INTERVAL MINUTE TO SECOND(3)
+SELECT INTERVAL '2:123.123' MINUTE TO SECOND(3)
+
+# The leading field precision exceeds that defined implicitly (10).
+statement error: Interval field value 12,345,678,901 exceeds precision of SECOND(10) field
+SELECT INTERVAL '12345678901' SECOND
+
+# The fractional seconds precision exceeds that defined implicitly (6).
+statement error: Illegal interval literal format '10.1234567' for INTERVAL SECOND
+SELECT INTERVAL '10.1234567' SECOND
+
+# The fractional seconds precision exceeds that defined implicitly (6).
+statement error: Illegal interval literal format '10.1234567' for INTERVAL SECOND
+SELECT INTERVAL '10.1234567' SECOND(7)
+
+for type in [MINUTE, HOUR, DAY, MONTH, YEAR]
+
+# Fractional part is not supported
+statement error: Illegal interval literal format '1.5' for INTERVAL ${type}
+SELECT INTERVAL '1.5' ${type}
+
+# Fractional seconds precision is not supported
+statement error: Encountered "," at line 1
+SELECT INTERVAL '1' ${type}(1, 1)
+
+endfor

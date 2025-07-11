@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import static org.apache.ignite.internal.util.HashUtils.combine;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -44,41 +42,45 @@ public class HashCalculator {
      * @param precision Temporal precision.
      */
     public void append(@Nullable Object v, int scale, int precision) {
+        combine(hashValue(v, scale, precision));
+    }
+
+    /** Generates 32-bit hash from the given value with regard to provided scale and precision. */
+    public static int hashValue(@Nullable Object v, int scale, int precision) {
         if (v == null) {
-            appendNull();
-            return;
+            return hashByte((byte) 0);
         }
 
         if (v.getClass() == Boolean.class) {
-            appendBoolean((boolean) v);
+            return hashBoolean((boolean) v);
         } else if (v.getClass() == Byte.class) {
-            appendByte((byte) v);
+            return hashByte((byte) v);
         } else if (v.getClass() == Short.class) {
-            appendShort((short) v);
+            return hashShort((short) v);
         } else if (v.getClass() == Integer.class) {
-            appendInt((int) v);
+            return hashInt((int) v);
         } else if (v.getClass() == Long.class) {
-            appendLong((long) v);
+            return hashLong((long) v);
         } else if (v.getClass() == Float.class) {
-            appendFloat((float) v);
+            return hashFloat((float) v);
         } else if (v.getClass() == Double.class) {
-            appendDouble((Double) v);
+            return hashDouble((Double) v);
         } else if (v.getClass() == BigDecimal.class) {
-            appendDecimal((BigDecimal) v, scale);
+            return hashDecimal((BigDecimal) v, scale);
         } else if (v.getClass() == UUID.class) {
-            appendUuid((UUID) v);
+            return hashUuid((UUID) v);
         } else if (v.getClass() == LocalDate.class) {
-            appendDate((LocalDate) v);
+            return hashDate((LocalDate) v);
         } else if (v.getClass() == LocalTime.class) {
-            appendTime((LocalTime) v, precision);
+            return hashTime((LocalTime) v, precision);
         } else if (v.getClass() == LocalDateTime.class) {
-            appendDateTime((LocalDateTime) v, precision);
+            return hashDateTime((LocalDateTime) v, precision);
         } else if (v.getClass() == Instant.class) {
-            appendTimestamp((Instant) v, precision);
+            return hashTimestamp((Instant) v, precision);
         } else if (v.getClass() == byte[].class) {
-            appendBytes((byte[]) v);
+            return hashBytes((byte[]) v);
         } else if (v.getClass() == String.class) {
-            appendString((String) v);
+            return hashString((String) v);
         } else {
             throw new IgniteInternalException("Unsupported value type: [cls=" + v.getClass() + ']');
         }
@@ -97,7 +99,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendBoolean(boolean v) {
-        hash = combine(hash, hashBoolean(v));
+        combine(hashBoolean(v));
     }
 
     /**
@@ -115,7 +117,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendByte(byte v) {
-        hash = combine(hash, hashByte(v));
+        combine(hashByte(v));
     }
 
     /**
@@ -133,7 +135,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendShort(short v) {
-        hash = combine(hash, hashShort(v));
+        combine(hashShort(v));
     }
 
     /**
@@ -151,7 +153,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendInt(int v) {
-        hash = combine(hash, hashInt(v));
+        combine(hashInt(v));
     }
 
     /**
@@ -169,7 +171,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendLong(long v) {
-        hash = combine(hash, hashLong(v));
+        combine(hashLong(v));
     }
 
     /**
@@ -187,7 +189,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendFloat(float v) {
-        hash = combine(hash, hashFloat(v));
+        combine(hashFloat(v));
     }
 
     /**
@@ -205,7 +207,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDouble(double v) {
-        hash = combine(hash, hashDouble(v));
+        combine(hashDouble(v));
     }
 
     /**
@@ -223,7 +225,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDecimal(BigDecimal v, int columnScale) {
-        hash = combine(hash, hashDecimal(v, columnScale));
+        combine(hashDecimal(v, columnScale));
     }
 
     /**
@@ -241,7 +243,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendUuid(UUID v) {
-        hash = combine(hash, hashUuid(v));
+        combine(hashUuid(v));
     }
 
     /**
@@ -259,7 +261,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendString(String v) {
-        hash = combine(hash, hashString(v));
+        combine(hashString(v));
     }
 
     /**
@@ -277,7 +279,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendBytes(byte[] v) {
-        hash = combine(hash, hashBytes(v));
+        combine(hashBytes(v));
     }
 
     /**
@@ -295,7 +297,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDate(LocalDate v) {
-        hash = combine(hash, hashDate(v));
+        combine(hashDate(v));
     }
 
     /**
@@ -316,7 +318,7 @@ public class HashCalculator {
      * @param precision Precision.
      */
     public void appendTime(LocalTime v, int precision) {
-        hash = combine(hash, hashTime(v, precision));
+        combine(hashTime(v, precision));
     }
 
     /**
@@ -338,7 +340,7 @@ public class HashCalculator {
      * @param precision Precision.
      */
     public void appendDateTime(LocalDateTime v, int precision) {
-        hash = combine(hash, hashDateTime(v, precision));
+        combine(hashDateTime(v, precision));
     }
 
     /**
@@ -347,7 +349,7 @@ public class HashCalculator {
      * @param v Value to hash.
      */
     public static int hashDateTime(LocalDateTime v, int precision) {
-        return combine(hashDate(v.toLocalDate()), hashTime(v.toLocalTime(), precision));
+        return HashUtils.combine(hashDate(v.toLocalDate()), hashTime(v.toLocalTime(), precision));
     }
 
     /**
@@ -357,7 +359,7 @@ public class HashCalculator {
      * @param precision Precision.
      */
     public void appendTimestamp(Instant v, int precision) {
-        hash = combine(hash, hashTimestamp(v, precision));
+        combine(hashTimestamp(v, precision));
     }
 
     /**
@@ -370,6 +372,35 @@ public class HashCalculator {
     }
 
     /**
+     * Combines current state with hash calculated externally.
+     *
+     * <p>If external hash was calculated with {@link #hashValue(Object, int, int)}, then result of this operation will be the same as if
+     * value was appended to this calculator. That is, following code will provide equal results:
+     *
+     * <pre>
+     *         HashCalculator calc1 = new HashCalculator();
+     *         HashCalculator calc2 = new HashCalculator();
+     *
+     *         // Update the sate of calculators somehow.
+     *         ...
+     *
+     *         // Given the both calculators were prepared with
+     *         // the same sequence of values, following two lines
+     *         // will provide equal results.
+     *
+     *         calc1.append(value, scale, precision);
+     *         calc2.combine(hashValue(value, scale, precision));
+     *
+     *         assertEquals(calc1.hash(), calc2.hash());
+     * </pre>
+     *
+     * @param anotherHash Another hash to combine with current state.
+     */
+    public void combine(int anotherHash) {
+        hash = HashUtils.combine(hash, anotherHash);
+    }
+
+    /**
      * Get сombined hash code.
      *
      * @param hashes Individual hash codes.
@@ -378,7 +409,7 @@ public class HashCalculator {
         int hash = 0;
 
         for (int h : hashes) {
-            hash = combine(hash, h);
+            hash = HashUtils.combine(hash, h);
         }
 
         return hash;

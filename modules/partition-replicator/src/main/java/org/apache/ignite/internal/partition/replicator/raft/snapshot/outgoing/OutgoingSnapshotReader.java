@@ -35,7 +35,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshotReader.class);
 
     /** Snapshot id. */
-    private final UUID id = UUID.randomUUID();
+    private final UUID id;
 
     /** Snapshot storage. */
     private final PartitionSnapshotStorage snapshotStorage;
@@ -44,11 +44,11 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     /**
      * Constructor.
-     *
-     * @param snapshotStorage Snapshot storage.
      */
-    public OutgoingSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
+    public OutgoingSnapshotReader(UUID snapshotId, PartitionSnapshotStorage snapshotStorage) {
         this.snapshotStorage = snapshotStorage;
+
+        id = snapshotId;
 
         snapshot = new OutgoingSnapshot(
                 id,
@@ -58,7 +58,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
                 snapshotStorage.catalogService()
         );
 
-        LOG.info("Starting snapshot reader for snapshot {}", id);
+        LOG.info("Starting snapshot reader [{}, snapshotId={}]", createPartitionInfo(), id);
 
         snapshotStorage.outgoingSnapshotsManager().startOutgoingSnapshot(id, snapshot);
     }
@@ -77,7 +77,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
 
     @Override
     public void close() throws IOException {
-        LOG.info("Closing snapshot reader for snapshot {}", id);
+        LOG.info("Closing snapshot reader [{}, snapshotId={}]", createPartitionInfo(), id);
 
         snapshotStorage.outgoingSnapshotsManager().finishOutgoingSnapshot(id);
     }
@@ -107,5 +107,9 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     @Override
     public Message getFileMeta(String fileName) {
         throw new UnsupportedOperationException("No files in the snapshot");
+    }
+
+    private String createPartitionInfo() {
+        return snapshotStorage.partitionKey().toString();
     }
 }

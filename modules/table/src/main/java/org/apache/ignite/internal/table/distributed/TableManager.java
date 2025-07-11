@@ -1467,7 +1467,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private PartitionMover createPartitionMover(TablePartitionId replicaGrpId) {
-        return new PartitionMover(busyLock, () -> {
+        return new PartitionMover(busyLock, rebalanceScheduler, () -> {
             CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
             if (replicaFut == null) {
                 return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
@@ -3258,7 +3258,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
         assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
 
-        engine.dropMvTable(tableDescriptor.id());
+        engine.destroyMvTable(tableDescriptor.id());
 
         sharedTxStateStorage.destroyStorage(tableDescriptor.id());
 
