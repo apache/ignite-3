@@ -355,11 +355,12 @@ public class ClientTransaction implements Transaction {
      * @param ch Channel facade.
      * @param opChannel Operation channel.
      * @param pm Partition mapping.
-     * @param opCode Operation code.
+     * @param trackOperation Denotes if upcoming operation should be tracked. This affects finalization behavior as acknowledge must
+     *         be received for every tracked operation prior to transaction finalization.
      * @return The future.
      */
     public CompletableFuture<IgniteBiTuple<String, Long>> enlistFuture(ReliableChannel ch, ClientChannel opChannel, PartitionMapping pm,
-            int opCode) {
+            boolean trackOperation) {
         if (!enlistPartitionLock.readLock().tryLock()) {
             throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
         }
@@ -384,7 +385,7 @@ public class ClientTransaction implements Transaction {
         // Re-check after unlock.
         checkEnlistPossible();
 
-        if (ClientOp.isWrite(opCode)) {
+        if (trackOperation) {
             ch.inflights().addInflight(txId);
         }
 

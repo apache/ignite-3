@@ -96,6 +96,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * By default, any SQL API test should be added to the base class and use special provided methods to interact
  * with the API in a API-type-independent manner. For any API-specific test, should be used the appropriate subclass.
  */
+@SuppressWarnings("ThrowableNotThrown")
 public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected static final int ROW_COUNT = 16;
 
@@ -269,10 +270,12 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // Outdated tx.
         Transaction outerTx0 = outerTx;
-        assertThrowsSqlException(
+        assertThrowsWithCode(
+                IgniteException.class,
                 Transactions.TX_ALREADY_FINISHED_ERR,
-                "Transaction is already finished",
-                () -> checkDml(1, outerTx0, sql, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
+                () -> checkDml(1, outerTx0, sql, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE),
+                "Transaction is already finished"
+        );
 
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
@@ -745,10 +748,11 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             tx.rollback();
 
-            assertThrowsSqlException(
+            assertThrowsWithCode(
+                    IgniteException.class,
                     Transactions.TX_ALREADY_FINISHED_ERR,
-                    "Transaction is already finished",
-                    () -> sql.execute(tx, "INSERT INTO tst VALUES (1, 1)")
+                    () -> sql.execute(tx, "INSERT INTO tst VALUES (1, 1)"),
+                    "Transaction is already finished"
             );
         }
 

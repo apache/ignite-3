@@ -64,7 +64,7 @@ public class PartitionAwarenessMetadataExtractor {
 
         List<RexNode> expressions = kv.keyExpressions();
 
-        return buildMetadata(optTable, false, expressions);
+        return buildMetadata(optTable, false, expressions, DirectTxMode.SUPPORTED);
     }
 
     /**
@@ -80,13 +80,14 @@ public class PartitionAwarenessMetadataExtractor {
 
         List<RexNode> expressions = kv.expressions();
 
-        return buildMetadata(optTable, true, expressions);
+        return buildMetadata(optTable, true, expressions, DirectTxMode.SUPPORTED_TRACKING_REQUIRED);
     }
 
     private static @Nullable PartitionAwarenessMetadata buildMetadata(
             RelOptTable optTable,
             boolean fullRow,
-            List<RexNode> expressions
+            List<RexNode> expressions,
+            DirectTxMode directTxMode
     ) {
         IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
         assert igniteTable != null;
@@ -116,6 +117,6 @@ public class PartitionAwarenessMetadataExtractor {
             }
         }
 
-        return new PartitionAwarenessMetadata(igniteTable.id(), indexes, hash);
+        return new PartitionAwarenessMetadata(igniteTable.id(), indexes, hash, directTxMode);
     }
 }

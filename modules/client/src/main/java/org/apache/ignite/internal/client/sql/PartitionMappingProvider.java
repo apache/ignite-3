@@ -42,6 +42,7 @@ public class PartitionMappingProvider {
     private final Supplier<@Nullable List<String>> assignmentsProvider;
     private final int[] indexes;
     private final int[] hash;
+    private final ClientDirectTxMode directTxMode;
 
     static PartitionMappingProvider create(
             ClientTable table,
@@ -55,6 +56,7 @@ public class PartitionMappingProvider {
                 meta.tableId(),
                 meta.indexes(),
                 meta.hash(),
+                meta.directTxMode(),
                 () -> schemaFuture.getNow(null),
                 () -> table.getPartitionAssignment().getNow(null)
         );
@@ -64,12 +66,14 @@ public class PartitionMappingProvider {
             int tableId,
             int[] indexes,
             int[] hash,
+            ClientDirectTxMode directTxMode,
             Supplier<@Nullable ClientSchema> schemaProvider,
             Supplier<@Nullable List<String>> assignmentsProvider
     ) {
         this.tableId = tableId;
         this.indexes = indexes;
         this.hash = hash;
+        this.directTxMode = directTxMode;
         this.schemaProvider = schemaProvider;
         this.assignmentsProvider = assignmentsProvider;
     }
@@ -84,6 +88,10 @@ public class PartitionMappingProvider {
 
     public int[] hash() {
         return hash;
+    }
+
+    public ClientDirectTxMode directTxMode() {
+        return directTxMode;
     }
 
     public boolean ready() {

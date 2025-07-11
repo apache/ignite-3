@@ -36,7 +36,6 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -225,7 +224,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc.pm, ClientOp.TUPLE_UPSERT);
+            tx.enlistFuture(ch, clientChannel, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {
@@ -256,7 +255,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc.pm, ClientOp.TUPLE_UPSERT);
+            tx.enlistFuture(ch, clientChannel, wc.pm, true);
 
             fail();
         } catch (TransactionException e) {

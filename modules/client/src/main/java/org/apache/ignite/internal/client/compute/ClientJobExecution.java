@@ -119,7 +119,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 ClientOp.COMPUTE_GET_STATE,
                 w -> w.out().packUuid(jobId),
                 ClientJobExecution::unpackJobState,
-                null,
+                (String) null,
                 null,
                 false
         );
@@ -132,7 +132,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 ClientOp.COMPUTE_GET_STATE,
                 w -> w.out().packUuid(taskId),
                 ClientJobExecution::unpackTaskState,
-                null,
+                (String) null,
                 null,
                 false
         );
@@ -145,7 +145,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 ClientOp.COMPUTE_CANCEL,
                 w -> w.out().packUuid(jobId),
                 ClientJobExecution::unpackBooleanResult,
-                null,
+                (String) null,
                 null,
                 false
         );
@@ -161,7 +161,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
                     w.out().packInt(newPriority);
                 },
                 ClientJobExecution::unpackBooleanResult,
-                null,
+                (String) null,
                 null,
                 false
         );

@@ -42,19 +42,26 @@ public final class ClientPartitionAwarenessMetadata {
     private final int tableId;
     private final int[] indexes;
     private final int[] hash;
+    private final ClientDirectTxMode directTxMode;
 
-    private ClientPartitionAwarenessMetadata(int tableId, int[] indexes, int[] hash) {
+    private ClientPartitionAwarenessMetadata(int tableId, int[] indexes, int[] hash, ClientDirectTxMode directTxMode) {
         this.tableId = tableId;
         this.indexes = indexes;
         this.hash = hash;
+        this.directTxMode = directTxMode;
     }
 
-    static ClientPartitionAwarenessMetadata read(ClientMessageUnpacker unpacker) {
+    static ClientPartitionAwarenessMetadata read(ClientMessageUnpacker unpacker, boolean sqlDirectMappingSupported) {
         int tableId = unpacker.unpackInt();
         int[] indexes = unpacker.unpackIntArray();
         int[] hash = unpacker.unpackIntArray();
 
-        return new ClientPartitionAwarenessMetadata(tableId, indexes, hash);
+        ClientDirectTxMode directTxMode = ClientDirectTxMode.NOT_SUPPORTED;
+        if (sqlDirectMappingSupported) {
+            directTxMode = ClientDirectTxMode.fromId(unpacker.unpackByte());
+        }
+
+        return new ClientPartitionAwarenessMetadata(tableId, indexes, hash, directTxMode);
     }
 
     public int tableId() {
@@ -67,5 +74,9 @@ public final class ClientPartitionAwarenessMetadata {
 
     public int[] hash() {
         return hash;
+    }
+
+    ClientDirectTxMode directTxMode() {
+        return directTxMode;
     }
 }

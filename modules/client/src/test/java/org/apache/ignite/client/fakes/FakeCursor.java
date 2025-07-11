@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.DirectTxMode;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -109,11 +110,12 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
             rows.add(getRow(proc.lastScript));
             columns.add(new FakeColumnMetadata("script", ColumnType.STRING));
         } else if ("SELECT PA".equals(qry)) {
-            paMeta = new PartitionAwarenessMetadata(1, new int[] {0, -1, -2, 2}, new int[] {100, 500});
+            paMeta = new PartitionAwarenessMetadata(1, new int[] {0, -1, -2, 2}, new int[] {100, 500},
+                    DirectTxMode.SUPPORTED_TRACKING_REQUIRED);
             rows.add(getRow(1));
             columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
         } else if ("SELECT SINGLE COLUMN PA".equals(qry)) {
-            paMeta = new PartitionAwarenessMetadata(100500, new int[] {0}, new int[0]);
+            paMeta = new PartitionAwarenessMetadata(100500, new int[] {0}, new int[0], DirectTxMode.SUPPORTED);
             rows.add(getRow(1));
             columns.add(new FakeColumnMetadata("col1", ColumnType.INT32));
         } else {

@@ -317,7 +317,7 @@ public class ClientCompute implements IgniteCompute {
                 ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
                 w -> packTask(w.out(), taskDescriptor, arg),
                 ClientCompute::unpackSubmitTaskResult,
-                null,
+                (String) null,
                 null,
                 true
         );

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client.tx;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.tx.ClientTransaction.EMPTY;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.concurrent.CompletableFuture;
@@ -87,7 +86,6 @@ public class ClientTransactions implements IgniteTransactions {
 
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
-                ch0 -> nullCompletedFuture(),
                 w -> {
                     w.out().packBoolean(readOnly);
                     w.out().packLong(timeout);
