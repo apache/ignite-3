@@ -31,6 +31,21 @@ public class IgniteTestStore : RelationalTestStore
 
     public override void Clean(DbContext context) => DropAllTables().GetAwaiter().GetResult();
 
+    public override TestStore Initialize(
+        IServiceProvider serviceProvider,
+        Func<DbContext> createContext,
+        Action<DbContext>? seed = null,
+        Action<DbContext>? clean = null)
+    {
+        using var context = createContext();
+        Clean(context);
+        context.Database.EnsureCreated();
+
+        base.Initialize(serviceProvider, createContext, seed, clean);
+
+        return this;
+    }
+
     private static async Task DropAllTables()
     {
         // Drop all tables so that EnsureCreatedAsync works as expected and every test starts with a clean slate.
