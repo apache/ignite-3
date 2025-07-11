@@ -26,6 +26,7 @@ public class MusicStoreIgniteTest : MusicStoreTestBase<MusicStoreIgniteTest.Musi
     public MusicStoreIgniteTest(MusicStoreIgniteFixture fixture)
         : base(fixture)
     {
+        // TODO: This requires auto-increment ID columns, which are not supported by Ignite?
     }
 
     public class MusicStoreIgniteFixture : MusicStoreFixtureBase

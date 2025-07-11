@@ -34,7 +34,8 @@ public class IgniteUpdateSqlGenerator : UpdateAndSelectSqlGenerator
 
         // SqlGenerationHelper.DelimitIdentifier(commandStringBuilder, "rowid");
         // commandStringBuilder.Append(" = ").Append("last_insert_rowid()");
-        // TODO: Why do we need this?
+
+        // TODO: This is needed to obtain the last inserted row ID for auto-increment columns.
         commandStringBuilder.Append("1 = 1");
     }
 
@@ -50,7 +51,7 @@ public class IgniteUpdateSqlGenerator : UpdateAndSelectSqlGenerator
 
     protected override void AppendRowsAffectedWhereCondition(StringBuilder commandStringBuilder, int expectedRowsAffected)
     {
-        // TODO: Why do we need this?
+        // TODO: This is needed to obtain the last inserted row ID for auto-increment columns.
         commandStringBuilder.Append("1 = 1");
     }
 
