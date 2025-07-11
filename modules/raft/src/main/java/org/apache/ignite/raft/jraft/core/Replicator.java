@@ -1677,7 +1677,7 @@ public class Replicator implements ThreadId.OnError {
                 return false;
             }
             if (byteBufList.getCapacity() > 0) {
-                dataBuf = ByteBufferCollector.allocateByRecyclers(byteBufList.getCapacity());
+                dataBuf = allocateShared(byteBufList.getCapacity());
                 for (final ByteBuffer b : byteBufList) {
                     dataBuf.put(b);
                 }
@@ -1702,7 +1702,7 @@ public class Replicator implements ThreadId.OnError {
         this.statInfo.firstLogIndex = request.prevLogIndex() + 1;
         this.statInfo.lastLogIndex = request.prevLogIndex() + Utils.size(request.entriesList());
 
-        final Recyclable recyclable = dataBuf;
+        final ByteBufferCollector releasable = dataBuf;
         final int v = this.version;
         final long monotonicSendTimeMs = Utils.monotonicMs();
         final int seq = getAndIncrementReqSeq();
@@ -1718,7 +1718,7 @@ public class Replicator implements ThreadId.OnError {
                             // TODO: recycle on send success, not response received IGNITE-14832.
                             // Also, this closure can be executed when rpcFuture was cancelled, but the request was not sent (meaning
                             // it's too early to recycle byte buffer)
-                            RecycleUtil.recycle(recyclable);
+                            releaseShared(releasable);
                         }
                         onRpcReturned(Replicator.this.id, RequestType.AppendEntries, status, request, getResponse(),
                             seq, v, monotonicSendTimeMs);
@@ -1726,7 +1726,7 @@ public class Replicator implements ThreadId.OnError {
                 });
         }
         catch (final Throwable t) {
-            RecycleUtil.recycle(recyclable);
+            RecycleUtil.recycle(releasable);
             ThrowUtil.throwException(t);
         }
         addInflight(RequestType.AppendEntries, nextSendingIndex, Utils.size(request.entriesList()),
@@ -1944,4 +1944,23 @@ public class Replicator implements ThreadId.OnError {
         this.id.unlock();
     }
 
+    private ByteBufferCollector allocateShared(int size) {
+        ByteBufferCollector collector = options.getAppendEntriesByteBufferCollectorPool().borrow();
+
+        if (collector == null || collector.capacity() < size) {
+            // Re-creation is used to avoid race when re-creating the internal buffer.
+            // It has been empirically found that adding 20% to the requested size reduces the number of allocations.
+            collector = ByteBufferCollector.allocate(Math.max(size, size + (int) (size * 0.2)));
+        }
+
+        return collector;
+    }
+
+    private void releaseShared(ByteBufferCollector c) {
+        if (c.capacity() <= ByteBufferCollector.MAX_CAPACITY_TO_RECYCLE) {
+            c.clear();
+
+            options.getAppendEntriesByteBufferCollectorPool().release(c);
+        }
+    }
 }

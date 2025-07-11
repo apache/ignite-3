@@ -37,6 +37,8 @@ import org.apache.ignite.raft.jraft.core.Scheduler;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
+import org.apache.ignite.raft.jraft.util.ByteBufferCollectorPool;
 import org.apache.ignite.raft.jraft.util.Copiable;
 import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -300,6 +302,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * If the group is declared as a system group, certain threads are dedicated specifically for that one.
      */
     private boolean isSystemGroup = false;
+
+    /**
+     * Shared pool of {@link ByteBufferCollector} for sending log entries for replication.
+     *
+     * <p>Used to prevent a large number of {@link ByteBufferCollector} from being accumulated across all threads that are involved in
+     * sending log entries, see {@link ByteBufferCollector#allocateByRecyclers}.</p>
+     */
+    private ByteBufferCollectorPool appendEntriesByteBufferCollectorPool;
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
@@ -834,5 +844,15 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setExternallyEnforcedConfigIndex(@Nullable Long index) {
         this.externallyEnforcedConfigIndex = index;
+    }
+
+    /** Returns shared pool of {@link ByteBufferCollector} for sending log entries for replication. */
+    public ByteBufferCollectorPool getAppendEntriesByteBufferCollectorPool() {
+        return appendEntriesByteBufferCollectorPool;
+    }
+
+    /** Sets shared pool of {@link ByteBufferCollector} for sending log entries for replication. */
+    public void setAppendEntriesByteBufferCollectorPool(ByteBufferCollectorPool appendEntriesByteBufferCollectorPool) {
+        this.appendEntriesByteBufferCollectorPool = appendEntriesByteBufferCollectorPool;
     }
 }

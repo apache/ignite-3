@@ -66,6 +66,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedFifoByteBufferCollectorPool;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -164,6 +165,9 @@ public class Loza implements RaftManager {
 
         options.setClock(clock);
         options.setCommandsMarshaller(new ThreadLocalOptimizedMarshaller(clusterNetSvc.serializationRegistry()));
+        options.setAppendEntriesByteBufferCollectorPool(
+                new ConcurrentLinkedFifoByteBufferCollectorPool(Utils.MAX_COLLECTOR_SIZE_PER_SERVER)
+        );
 
         this.opts = options;
 
