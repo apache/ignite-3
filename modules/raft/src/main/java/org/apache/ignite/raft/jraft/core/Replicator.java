@@ -67,13 +67,13 @@ import org.apache.ignite.raft.jraft.rpc.RpcResponseClosureAdapter;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
-import org.apache.ignite.raft.jraft.util.Recyclable;
 import org.apache.ignite.raft.jraft.util.RecyclableByteBufferList;
 import org.apache.ignite.raft.jraft.util.RecycleUtil;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.internal.ThrowUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Replicator for replicating log entry from leader to followers.
@@ -1956,8 +1956,8 @@ public class Replicator implements ThreadId.OnError {
         return collector;
     }
 
-    private void releaseShared(ByteBufferCollector c) {
-        if (c.capacity() <= ByteBufferCollector.MAX_CAPACITY_TO_RECYCLE) {
+    private void releaseShared(@Nullable ByteBufferCollector c) {
+        if (c != null && c.capacity() <= ByteBufferCollector.MAX_CAPACITY_TO_RECYCLE) {
             c.clear();
 
             options.getAppendEntriesByteBufferCollectorPool().release(c);
