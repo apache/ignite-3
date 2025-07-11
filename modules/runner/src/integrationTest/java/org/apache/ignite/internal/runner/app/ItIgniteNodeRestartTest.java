@@ -646,7 +646,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 failureProcessor,
-                nodeProperties
+                nodeProperties,
+                metricManager
         );
 
         ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(

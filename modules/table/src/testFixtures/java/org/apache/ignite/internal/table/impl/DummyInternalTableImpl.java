@@ -63,6 +63,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -695,7 +696,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 resourcesRegistry,
                 transactionInflights,
                 new TestLowWatermark(),
-                COMMON_SCHEDULER
+                COMMON_SCHEDULER,
+                new NoOpMetricManager()
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

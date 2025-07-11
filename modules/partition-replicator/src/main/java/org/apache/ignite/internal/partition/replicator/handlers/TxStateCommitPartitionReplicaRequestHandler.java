@@ -113,7 +113,7 @@ public class TxStateCommitPartitionReplicaRequestHandler {
                     || clusterNodeResolver.getById(txStateMeta.txCoordinatorId()) == null) {
                 // This means that primary replica for commit partition has changed, since the local node doesn't have the volatile tx
                 // state; and there is no final tx state in txStateStorage, or the tx coordinator left the cluster. But we can assume
-                // that as the coordinator (or information about it) is missing, there is  no need to wait a finish request from
+                // that as the coordinator (or information about it) is missing, there is no need to wait a finish request from
                 // tx coordinator, the transaction can't be committed at all.
                 return txRecoveryEngine.triggerTxRecovery(txId, localNode.id())
                         .handle((v, ex) ->
