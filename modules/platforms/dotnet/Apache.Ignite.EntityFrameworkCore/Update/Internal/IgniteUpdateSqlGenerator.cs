@@ -52,6 +52,7 @@ public class IgniteUpdateSqlGenerator : UpdateAndSelectSqlGenerator
     protected override void AppendRowsAffectedWhereCondition(StringBuilder commandStringBuilder, int expectedRowsAffected)
     {
         // TODO: This is needed to obtain the last inserted row ID for auto-increment columns.
+        // TODO: See UseSqlReturningClause in sqlite provider.
         commandStringBuilder.Append("1 = 1");
     }
 
