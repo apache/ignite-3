@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.compatibility.framework;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -153,16 +154,25 @@ final class ConfigAnnotationsValidator {
     private void validateSpecificAnnotation(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors) {
         AnnotationCompatibilityValidator validator = validators.getOrDefault(candidate.name(), DEFAULT_VALIDATOR);
 
-        boolean hasProperties = !candidate.properties().isEmpty() || !current.properties().isEmpty();
+        List<String> newErrors = new ArrayList<>();
+        validator.validate(candidate, current, newErrors);
 
-        if (hasProperties && validator == DEFAULT_VALIDATOR) {
-            String error = format("Annotation requires a custom compatibility validator: {}. "
-                            + "Consider using {} if every change should be treated as incompatible.",
-                    candidate.name(), DefaultAnnotationCompatibilityValidator.class.getName());
+        errors.addAll(newErrors);
 
-            errors.add(error);
+        // Report additional error iff the annotation has properties and there is no custom validator.
+        if (!newErrors.isEmpty()) {
+            boolean hasProperties = !candidate.properties().isEmpty() || !current.properties().isEmpty();
+            if (hasProperties && validator == DEFAULT_VALIDATOR) {
+                String error = format("Annotation requires a custom compatibility validator: {}. "
+                                + "Consider using {} if every change should be treated as incompatible "
+                                + "or implement an {} for this annotation", 
+                        candidate.name(),
+                        DefaultAnnotationCompatibilityValidator.class.getName(),
+                        AnnotationCompatibilityValidator.class.getName()
+                );
+
+                errors.add(error);
+            }
         }
-
-        validator.validate(candidate, current, errors);
     }
 }

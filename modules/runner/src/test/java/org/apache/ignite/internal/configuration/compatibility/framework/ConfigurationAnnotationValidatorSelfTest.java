@@ -199,7 +199,6 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
 
         ConfigAnnotationsValidator validator = new ConfigAnnotationsValidator(Map.of("AnnotationType",
                 (candidate1, current1, errors) -> {
-
                 }));
 
         List<String> errors = new ArrayList<>();
@@ -329,11 +328,7 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
     private static Stream<AnnotationValidationRuleArgs> noValidationRules() {
         return Stream.of(
                 // No changes
-                new AnnotationValidationRuleArgs(Base.class, Base.class,
-                        Set.of(
-                                "Annotation requires a custom compatibility validator: AnnotationType"
-                        )
-                ),
+                new AnnotationValidationRuleArgs(Base.class, Base.class, Set.of()),
                 // Value changes
                 new AnnotationValidationRuleArgs(Base.class, BaseValueChange.class,
                         Set.of(
