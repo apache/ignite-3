@@ -167,7 +167,6 @@ public class IgniteCommand : DbCommand
     {
         if (_parameters == null || _parameters.Count == 0)
         {
-            // No parameters, return an empty array.
             return [];
         }
 
