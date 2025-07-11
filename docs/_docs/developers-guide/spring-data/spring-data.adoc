@@ -28,49 +28,59 @@ to the application's `pom.xml` file:
 [tabs]
 --
 tab:pom.xml[]
-[source,xml]
+[source,xml, subs="attributes,specialchars"]]
 ----
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>ignite-spring-ignite</artifactId>
-    <version>${ignite.version}</version>
+    <version>${version}</version>
 </dependency>
 
 <dependency>
     <groupId>org.apache.ignite</groupId>
     <artifactId>spring-boot-ignite-client-autoconfigure</artifactId>
-    <version>${ignite.version}</version>
+    <version>${version}</version>
 </dependency>
 
 
 ----
 --
 
-Replace `${ignite.version}` with an actual version of Apache Ignite dependencies you are interested in, respectively.
 
 == Application Configuration
 
-You should provide the following properties to the Spring application:
+To start working with Spring Data, first provide the following properties to your application:
 
+[source, text]
+----
 ignite.client.addresses=${ignite.address}
 spring.datasource.url=${ignite.jdbc.connectionString}
 spring.datasource.driver-class-name=org.apache.ignite.jdbc.IgniteJdbcDriver
+----
 
-Replace `${ignite.address}` with ignite host and port. For example, `localhost:10800`. Replace ${ignite.jdbc.connectionString} with actual
-JDBC connection string, for example `jdbc:ignite:thin://localhost`.
+In the example above:
+
+* Replace `${ignite.address}` with the host and port of your node. For example, `localhost:10800`. 
+Replace ${ignite.jdbc.connectionString} with your JDBC connection string, for example `jdbc:ignite:thin://localhost`.
 
 Example of application.properties file:
 
+[source, text]
+----
 ignite.client.addresses=127.0.0.1:10800
 spring.datasource.url=jdbc:ignite:thin://localhost
 spring.datasource.driver-class-name=org.apache.ignite.jdbc.IgniteJdbcDriver
+----
 
-You should also provide `IgniteDialectProvider` by adding the following config to the `resources/META-INF/spring.factories` (create the
-file if it doesn't exist):
+You should also provide the `IgniteDialectProvider` parameter by adding the following configuration property to the `resources/META-INF/spring.factories` (create the
+file if it does not exist):
 
+[source, text]
+----
 org.springframework.data.jdbc.repository.config.DialectResolver$JdbcDialectProvider=org.apache.ignite.data.IgniteDialectProvider
+----
 
-== Repository
+== Creating Repositories
 
 After the above configuration, you can create spring repositories.
 For instance, let's create the first custom repository named `PersonRepository`:
@@ -109,21 +119,19 @@ public interface PersonRepository extends IgniteRepository<Person, Long> {
 ----
 --
 
-* Signatures of custom methods like `findByFirstName(name)` and `findTopByLastNameLike(name)` will be automatically processed and turned
-into SQL queries when methods get executed. In addition, `@Query(queryString)` annotation can be used if a concrete​ SQL
+Signatures of custom methods like `findByFirstName(name)` and `findTopByLastNameLike(name)` will be automatically processed and turned
+into SQL queries when methods get executed. In addition, `@Query(queryString)` annotation can be used if a specific​ SQL
 query needs to be executed as a result of a method call.
 
 
 [CAUTION]
 ====
 [discrete]
-A table must be created in Apache Ignite before working with it.
-
-
+A table must exists in the cluster before you start to work with it.
 ====
 
 
-== Using Apache Ignite Repositories
+== Using Repositories
 
 Now, you can put data in Ignite using Spring Data API:
 
@@ -145,7 +153,7 @@ repo.save(persons);
 ----
 --
 
-To query the data, we can use basic CRUD operations or methods that will be automatically turned into Apache Ignite SQL queries:
+To query the data, you can use CRUD operations or methods that will be automatically turned into Apache Ignite SQL queries:
 
 [tabs]
 --
