@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration.compatibility.framework.annotations;
 
 import java.util.List;
-import java.util.TreeSet;
 import org.apache.ignite.configuration.validation.ExceptKeys;
 import org.apache.ignite.internal.configuration.compatibility.framework.AnnotationCompatibilityValidator;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigAnnotation;
@@ -33,14 +32,7 @@ public class ExceptKeysAnnotationCompatibilityValidator implements AnnotationCom
         List<String> candidateKeys = AnnotationCompatibilityValidator.getValue(candidate, "value", (v) -> (List<String>) v.value());
         List<String> currentKeys = AnnotationCompatibilityValidator.getValue(current, "value", (v) -> (List<String>) v.value());
 
-        TreeSet<String> newKeys = new TreeSet<>();
-        for (String key : currentKeys) {
-            if (!candidateKeys.contains(key)) {
-                newKeys.add(key);
-            }
-        }
-
-        if (!newKeys.isEmpty()) {
+        if (!candidateKeys.containsAll(currentKeys)) {
             errors.add("ExceptKeys: changed keys from " + candidateKeys + " to " + currentKeys);
         }
     }

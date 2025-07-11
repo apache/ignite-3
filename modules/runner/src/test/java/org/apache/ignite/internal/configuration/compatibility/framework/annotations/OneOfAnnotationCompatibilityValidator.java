@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration.compatibility.framework.annotations;
 
 import java.util.List;
-import java.util.TreeSet;
 import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.internal.configuration.compatibility.framework.AnnotationCompatibilityValidator;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigAnnotation;
@@ -33,14 +32,7 @@ public class OneOfAnnotationCompatibilityValidator implements AnnotationCompatib
         List<String> candidateKeys = AnnotationCompatibilityValidator.getValue(candidate, "value", (v) -> (List<String>) v.value());
         List<String> currentKeys = AnnotationCompatibilityValidator.getValue(current, "value", (v) -> (List<String>) v.value());
 
-        TreeSet<String> removedKeys = new TreeSet<>();
-        for (String key : candidateKeys) {
-            if (!currentKeys.contains(key)) {
-                removedKeys.add(key);
-            }
-        }
-
-        if (!removedKeys.isEmpty()) {
+        if (!currentKeys.containsAll(candidateKeys)) {
             errors.add("OneOf: changed keys from " + candidateKeys + " to " + currentKeys);
         }
 
@@ -48,7 +40,7 @@ public class OneOfAnnotationCompatibilityValidator implements AnnotationCompatib
         boolean currentCaseSensitive = AnnotationCompatibilityValidator.getValue(current, "caseSensitive", (v) -> (Boolean) v.value());
 
         if (candidateCaseSensitive && !currentCaseSensitive) {
-            errors.add("OneOf: keys made case insensitive");
+            errors.add("OneOf: case-insensitive validation can' become case-sensitive, which is more restrictive");
         }
     }
 }

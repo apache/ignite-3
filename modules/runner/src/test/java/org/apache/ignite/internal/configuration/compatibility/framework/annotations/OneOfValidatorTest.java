@@ -80,11 +80,15 @@ public class OneOfValidatorTest extends BaseAnnotationCompatibilityValidatorSelf
                 Arguments.of("base", "removeKeys", List.of("OneOf: changed keys from [a, b, c] to [a]")),
                 Arguments.of("base", "addKeys", List.of()),
                 Arguments.of("caseInsensitive", "caseSensitive", List.of()),
-                Arguments.of("caseSensitive", "caseInsensitive", List.of("OneOf: keys made case insensitive")),
+                Arguments.of("caseSensitive", "caseInsensitive", 
+                        List.of(
+                                "OneOf: case-insensitive validation can' become case-sensitive, which is more restrictive"
+                        )
+                ),
                 Arguments.of("caseSensitive", "caseInsensitiveRemoveKeys",
                         List.of(
                                 "OneOf: changed keys from [a, b, c] to [a, b]",
-                                "OneOf: keys made case insensitive"
+                                "OneOf: case-insensitive validation can' become case-sensitive, which is more restrictive"
                         )
                 )
         );
