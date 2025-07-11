@@ -139,7 +139,8 @@ public interface TxStatePartitionStorage extends ManuallyCloseable {
     void close();
 
     /**
-     * Closes and removes all data from the storage.
+     * Closes and removes all data from the storage. The destruction is not guaranteed to be durable (that is, if a node
+     * stops/crashes before persisting this change to disk, the storage might still be there after node restart).
      *
      * <p>REQUIRED: For background tasks for storage, such as rebalancing, to be completed by the time the method is called.
      */

@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -189,6 +191,11 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     @Override
     public void destroyMvTable(int tableId) {
         // No-op.
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        return emptySet();
     }
 
     /**
