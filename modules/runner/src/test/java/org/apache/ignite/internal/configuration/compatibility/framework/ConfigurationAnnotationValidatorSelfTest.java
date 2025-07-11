@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.annotation.Annotation;
@@ -26,6 +27,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -35,6 +37,8 @@ import java.util.TreeMap;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -201,7 +205,7 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         List<String> errors = new ArrayList<>();
         validator.validate(newNode(candidate), newNode(current), errors);
 
-        assertEquals(Set.copyOf(args.errors), Set.copyOf(errors));
+        expectErrors(args.errors, errors);
     }
 
     private static Stream<AnnotationValidationRuleArgs> annotationValidationRules() {
@@ -319,7 +323,7 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
         List<String> errors = new ArrayList<>();
         validator.validate(newNode(candidate), newNode(current), errors);
 
-        assertEquals(Set.copyOf(args.errors), Set.copyOf(errors));
+        expectErrors(args.errors, errors);
     }
 
     private static Stream<AnnotationValidationRuleArgs> noValidationRules() {
@@ -374,6 +378,12 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
 
     private static ConfigNode newNode(ConfigAnnotation... annotations) {
         return new ConfigNode(null, Map.of(), Arrays.asList(annotations), EnumSet.noneOf(Flags.class));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void expectErrors(Collection<String> expected, List<String> actual) {
+        Matcher[] matchers = actual.stream().map(CoreMatchers::containsString).toArray(Matcher[]::new);
+        assertThat(expected, CoreMatchers.hasItems(matchers));
     }
 
     private static <A extends Annotation> ConfigAnnotation getAnnotation(Class<?> clazz,

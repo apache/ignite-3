@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -147,7 +149,11 @@ final class ConfigAnnotationsValidator {
         boolean hasProperties = !candidate.properties().isEmpty() || !current.properties().isEmpty();
 
         if (hasProperties && validator == DEFAULT_VALIDATOR) {
-            errors.add("Annotation requires a custom compatibility validator: " + candidate.name());
+            String error = format("Annotation requires a custom compatibility validator: {}. "
+                            + "Consider using {} if every change should be treated as incompatible.",
+                    candidate.name(), DefaultAnnotationCompatibilityValidator.class.getName());
+
+            errors.add(error);
         }
 
         validator.validate(candidate, current, errors);
