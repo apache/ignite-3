@@ -15,9 +15,11 @@
 
 namespace Apache.Ignite.EntityFrameworkCore.FunctionalTests.Query;
 
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using TestModels.Northwind;
 using TestUtilities;
 
 public class NorthwindQueryIgniteFixture<TModelCustomizer> : NorthwindQueryRelationalFixture<TModelCustomizer>
@@ -25,4 +27,12 @@ public class NorthwindQueryIgniteFixture<TModelCustomizer> : NorthwindQueryRelat
 {
     protected override ITestStoreFactory TestStoreFactory =>
         IgniteNorthwindTestStoreFactory.Instance;
+
+    protected override Type ContextType
+        => typeof(NorthwindIgniteContext);
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
+    {
+        base.OnModelCreating(modelBuilder, context);
+    }
 }
