@@ -88,8 +88,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /** Path to temporary configuration storage. */
     private final Path tempConfigPath;
 
-    private boolean readOnly = false;
-
     /** R/W lock to guard the latest configuration and config file. */
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -301,10 +299,16 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     }
 
     private void saveConfigFile() {
-        if (readOnly) {
-            return;
+        if (!Files.isWritable(configPath)) {
+            NodeConfigWriteException e = new NodeConfigWriteException(
+                    "The configuration file is read-only, so changes cannot be applied. "
+                            + "Check your system configuration. "
+                            + "If you are using containerization, such as Kubernetes, "
+                            + "the file can only be modified through native Kubernetes methods."
+            );
+            LOG.warn("The config file " + configPath + " is not writable", e);
+            throw e;
         }
-
         try {
             Files.write(
                     tempConfigPath,
@@ -373,8 +377,6 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 throw new NodeConfigWriteException("Failed to restore config file.", e);
             }
         } else if (!Files.isWritable(configPath)) {
-            readOnly = true;
-
             LOG.warn(
                     "Configuration file '{}' is read-only. All dynamic configuration updates will be lost after node restart.",
                     configPath

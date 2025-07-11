@@ -21,15 +21,16 @@ import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Throws when node bootstrap configuration file failed to create with IO problem.
+ * Throws when writing to node bootstrap configuration failed with IO problem.
  */
-public class NodeConfigCreateException extends IgniteException {
+public class NodeConfigWriteException extends IgniteException {
+    private static final long serialVersionUID = 3366819484159053877L;
 
-    public NodeConfigCreateException(String msg) {
-        super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg);
+    public NodeConfigWriteException(String message) {
+        super(NodeConfiguration.CONFIG_WRITE_ERR, message);
     }
 
-    public NodeConfigCreateException(String msg, Throwable cause) {
-        super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg, cause);
+    public NodeConfigWriteException(String message, Throwable cause) {
+        super(NodeConfiguration.CONFIG_WRITE_ERR, message, cause);
     }
 }
