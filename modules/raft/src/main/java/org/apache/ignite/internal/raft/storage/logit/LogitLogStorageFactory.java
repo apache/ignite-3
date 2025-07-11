@@ -29,7 +29,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.FeatureChecker;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -67,7 +67,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         this.logPath = logPath;
         this.storeOptions = storeOptions;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "logit-checkpoint-executor", LOG)
+                IgniteThreadFactory.create(nodeName, "logit-checkpoint-executor", LOG)
         );
 
         checkVmOptions();

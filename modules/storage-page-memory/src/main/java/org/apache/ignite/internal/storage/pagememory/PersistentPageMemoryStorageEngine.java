@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -24,6 +25,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -64,7 +66,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
 /** Storage engine implementation based on {@link PersistentPageMemory}. */
@@ -238,7 +240,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(igniteInstanceName, "persistent-mv-partition-destruction", LOG)
+                IgniteThreadFactory.create(igniteInstanceName, "persistent-mv-partition-destruction", LOG)
         );
         executor.allowCoreThreadTimeOut(true);
 
@@ -308,7 +310,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         FilePageStoreManager filePageStoreManager = this.filePageStoreManager;
 
         assert filePageStoreManager != null : "Component has not started";
@@ -392,5 +394,10 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                     storageProfileConfiguration.name().value(), dataRegionSize.key(), defaultDataRegionSize
             );
         }
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        return requireNonNull(filePageStoreManager, "Not started").allGroupIdsOnFs();
     }
 }

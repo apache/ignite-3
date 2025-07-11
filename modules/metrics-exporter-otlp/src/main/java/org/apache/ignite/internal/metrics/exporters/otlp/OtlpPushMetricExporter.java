@@ -48,7 +48,7 @@ public class OtlpPushMetricExporter extends PushMetricExporter {
     public void reconfigure(ExporterView newVal) {
         var newReporter = new MetricReporter((OtlpExporterView) newVal, clusterIdSupplier(), nodeName());
 
-        for (MetricSet metricSet : metrics().getKey().values()) {
+        for (MetricSet metricSet : snapshot().metrics().values()) {
             newReporter.addMetricSet(metricSet);
         }
 
@@ -67,12 +67,12 @@ public class OtlpPushMetricExporter extends PushMetricExporter {
     }
 
     @Override
-    public void removeMetricSet(String metricSetName) {
+    public void removeMetricSet(MetricSet metricSet) {
         MetricReporter reporter0 = reporter.get();
 
         assert reporter0 != null;
 
-        reporter0.removeMetricSet(metricSetName);
+        reporter0.removeMetricSet(metricSet.name());
     }
 
     @Override

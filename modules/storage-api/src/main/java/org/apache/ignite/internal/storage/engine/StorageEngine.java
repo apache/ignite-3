@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
 
+import java.util.Set;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 
@@ -62,12 +64,13 @@ public interface StorageEngine {
     MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier);
 
     /**
-     * Destroys the table if it exists.
+     * Destroys the table if it exists. The destruction is not guaranteed to be durable (that is, if a node stops/crashes before
+     * persisting this change to disk, the table storage might still be there after node restart).
      *
      * @param tableId Table ID.
      * @throws StorageException If an error has occurs while dropping the table.
      */
-    void dropMvTable(int tableId);
+    void destroyMvTable(int tableId);
 
     /**
      * Default size of a data region, maximum between 256 MiB and 20% of the total physical memory.
@@ -77,5 +80,13 @@ public interface StorageEngine {
     static long defaultDataRegionSize() {
         //noinspection NumericCastThatLosesPrecision
         return Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
+    }
+
+    /**
+     * Returns IDs of tables for which there are MV partition storages on disk. Those were created and flushed to disk; either
+     * destruction was not started for them, or it failed.
+     */
+    default Set<Integer> tableIdsOnDisk() {
+        return emptySet();
     }
 }

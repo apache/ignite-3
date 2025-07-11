@@ -78,7 +78,7 @@ public class IteratorImplTest extends BaseIgniteAbstractTest {
             Mockito.when(this.logManager.getEntry(i)).thenReturn(log);
         }
         NodeOptions nodeOptions = new NodeOptions();
-        executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
+        executor = JRaftUtils.createExecutor("test-node", "test-executor", Utils.cpus());
         nodeOptions.setCommonExecutor(executor);
         this.iter = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, nodeOptions);
     }

@@ -43,8 +43,14 @@ import org.junitpioneer.jupiter.params.IntRangeSource;
 public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
 
     private static final IntSet UNSUPPORTED_TESTS = IntSet.of(
-            5, 12, 14, 16, 17, 20, 21, 23, 24, 27, 29, 32, 35, 36, 37, 39, 40, 44, 47, 49,
-            50, 57, 58, 62, 66, 67, 70, 74, 75, 77, 80, 82, 83, 86, 92, 94, 95, 98, 99
+            // TODO https://issues.apache.org/jira/browse/IGNITE-14642 Support STDDEV_SAMP function and unmute tests.
+            17, 29, 35,
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25872 Support GROUPING function and unmute tests.
+            27, 36, 86,
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25873 Support aggregate window function RANK and unmute tests.
+            44, 47, 49, 57, 67, 70,
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25874 Either support multi-statement queries or split them.
+            14, 23, 24, 39
     );
 
     @ParameterizedTest

@@ -20,27 +20,31 @@ package org.apache.ignite.internal.table.distributed.schema;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTracker;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 
 /**
  * A default implementation of {@link SchemaSyncService}.
  */
 public class SchemaSyncServiceImpl implements SchemaSyncService {
-    private final ClusterTime clusterTime;
+    private final SchemaSafeTimeTracker schemaSafeTimeTracker;
 
     private final LongSupplier delayDurationMs;
 
     /**
      * Constructor.
      */
-    public SchemaSyncServiceImpl(ClusterTime clusterTime, LongSupplier delayDurationMs) {
-        this.clusterTime = clusterTime;
+    public SchemaSyncServiceImpl(SchemaSafeTimeTracker schemaSafeTimeTracker, LongSupplier delayDurationMs) {
+        this.schemaSafeTimeTracker = schemaSafeTimeTracker;
         this.delayDurationMs = delayDurationMs;
     }
 
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
-        return clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
+        return schemaSafeTimeTracker.waitFor(metastoreSafeTimeToWait(ts));
+    }
+
+    private HybridTimestamp metastoreSafeTimeToWait(HybridTimestamp ts) {
+        return ts.subtractPhysicalTime(delayDurationMs.getAsLong());
     }
 }
