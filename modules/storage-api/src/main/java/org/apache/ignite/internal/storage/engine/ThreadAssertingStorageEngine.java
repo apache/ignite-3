@@ -45,6 +45,8 @@ public class ThreadAssertingStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
+        assertThreadAllowsToWrite();
+
         storageEngine.start();
     }
 

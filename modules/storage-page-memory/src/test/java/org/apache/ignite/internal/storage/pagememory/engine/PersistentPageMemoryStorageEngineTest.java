@@ -100,4 +100,9 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentSto
             assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(12345L));
         }
     }
+
+    @Override
+    protected void persistTableDestructionIfNeeded() {
+        // No-op as table destruction is durable for this engine.
+    }
 }

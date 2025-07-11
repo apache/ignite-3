@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
 
-import java.util.BitSet;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -28,7 +27,7 @@ import java.util.concurrent.Executor;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -149,7 +148,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         ExecutableTable executableTable = tableRegistry.getTable(catalogVersion, sqlTable.id());
         ScannableTable scannableTable = executableTable.scannableTable();
 
-        ImmutableBitSet requiredColumns = lookupNode.requiredColumns();
+        ImmutableIntList requiredColumns = lookupNode.requiredColumns();
         RexNode filterExpr = lookupNode.condition();
         List<RexNode> projectionExpr = lookupNode.projects();
 
@@ -169,9 +168,9 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         SchemaAwareConverter<Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
 
         operation = filter == null && projection == null ? new SimpleLookupExecution<>(scannableTable, rowHandler, rowFactory,
-                keySupplier, requiredColumns.toBitSet(), internalTypeConverter)
+                keySupplier, requiredColumns, internalTypeConverter)
                 : new FilterableProjectableLookupExecution<>(scannableTable, rowHandler, rowFactory, keySupplier,
-                        filter, projection, requiredColumns.toBitSet(), internalTypeConverter);
+                        filter, projection, requiredColumns, internalTypeConverter);
 
         this.operation = operation;
 
@@ -201,16 +200,22 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final RowHandler<RowT> rowHandler;
         private final RowFactory<RowT> tableRowFactory;
         private final SqlRowProvider<RowT> keySupplier;
-        private final BitSet requiredColumns;
+        private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
-        private SimpleLookupExecution(ScannableTable table, RowHandler<RowT> rowHandler, RowFactory<RowT> tableRowFactory,
-                SqlRowProvider<RowT> keySupplier, BitSet requiredColumns, SchemaAwareConverter<Object, Object> internalTypeConverter) {
+        private SimpleLookupExecution(
+                ScannableTable table,
+                RowHandler<RowT> rowHandler,
+                RowFactory<RowT> tableRowFactory,
+                SqlRowProvider<RowT> keySupplier,
+                @Nullable ImmutableIntList requiredColumns,
+                SchemaAwareConverter<Object, Object> internalTypeConverter
+        ) {
             this.table = table;
             this.rowHandler = rowHandler;
             this.tableRowFactory = tableRowFactory;
             this.keySupplier = keySupplier;
-            this.requiredColumns = requiredColumns;
+            this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
             this.internalTypeConverter = internalTypeConverter;
         }
 
@@ -234,7 +239,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         private final SqlRowProvider<RowT> keySupplier;
         private final @Nullable SqlPredicate<RowT> filter;
         private final @Nullable SqlProjection<RowT> projection;
-        private final @Nullable BitSet requiredColumns;
+        private final int @Nullable [] requiredColumns;
         private final SchemaAwareConverter<Object, Object> internalTypeConverter;
 
         private FilterableProjectableLookupExecution(
@@ -244,7 +249,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 SqlRowProvider<RowT> keySupplier,
                 @Nullable SqlPredicate<RowT> filter,
                 @Nullable SqlProjection<RowT> projection,
-                @Nullable BitSet requiredColumns,
+                @Nullable ImmutableIntList requiredColumns,
                 SchemaAwareConverter<Object, Object> internalTypeConverter
         ) {
             this.table = table;
@@ -253,7 +258,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
             this.keySupplier = keySupplier;
             this.filter = filter;
             this.projection = projection;
-            this.requiredColumns = requiredColumns;
+            this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
             this.internalTypeConverter = internalTypeConverter;
         }
 

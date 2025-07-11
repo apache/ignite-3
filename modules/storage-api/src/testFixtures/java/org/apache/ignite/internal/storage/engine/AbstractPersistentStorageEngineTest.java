@@ -70,6 +70,9 @@ import org.mockito.Mock;
  * because it doesn't limit the usage of the engine with a single table.
  */
 public abstract class AbstractPersistentStorageEngineTest extends AbstractStorageEngineTest {
+    /** Makes sure that table destruction is persisted durably. */
+    protected abstract void persistTableDestructionIfNeeded();
+
     @Test
     void isNonVolatile() {
         assertFalse(storageEngine.isVolatile());
@@ -360,8 +363,8 @@ public abstract class AbstractPersistentStorageEngineTest extends AbstractStorag
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     protected void remembersCreatedTableIdsOnDisk(boolean restart) {
-        createTableStorageWithPartitionStorage(1);
-        createTableStorageWithPartitionStorage(3);
+        createTableStorageLeavingTraceOnDisk(1);
+        createTableStorageLeavingTraceOnDisk(3);
 
         if (restart) {
             restartEngine();
@@ -372,20 +375,21 @@ public abstract class AbstractPersistentStorageEngineTest extends AbstractStorag
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    protected void tableIdsOnDiskGoAfterDestruction(boolean restart) {
-        MvTableStorage tableStorage1 = createTableStorageWithPartitionStorage(1);
-        createTableStorageWithPartitionStorage(3);
+    protected void tableIdsOnDiskGetRemovedOnPersistedDestruction(boolean restart) {
+        MvTableStorage tableStorage1 = createTableStorageLeavingTraceOnDisk(1);
+        createTableStorageLeavingTraceOnDisk(3);
 
         assertThat(tableStorage1.destroy(), willCompleteSuccessfully());
 
         if (restart) {
+            persistTableDestructionIfNeeded();
             restartEngine();
         }
 
         assertThat(storageEngine.tableIdsOnDisk(), contains(3));
     }
 
-    private MvTableStorage createTableStorageWithPartitionStorage(int tableId) {
+    private MvTableStorage createTableStorageLeavingTraceOnDisk(int tableId) {
         StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_STORAGE_PROFILE);
         StorageIndexDescriptorSupplier indexSupplier = mock(StorageIndexDescriptorSupplier.class);
 
@@ -394,7 +398,15 @@ public abstract class AbstractPersistentStorageEngineTest extends AbstractStorag
         CompletableFuture<MvPartitionStorage> partitionStorageFuture = tableStorage.createMvPartition(0);
         assertThat(partitionStorageFuture, willCompleteSuccessfully());
 
-        assertThat(partitionStorageFuture.join().flush(), willCompleteSuccessfully());
+        MvPartitionStorage partitionStorage = partitionStorageFuture.join();
+
+        partitionStorage.runConsistently(locker -> {
+            partitionStorage.committedGroupConfiguration(new byte[]{1, 2, 3});
+            partitionStorage.lastApplied(1, 1);
+            return null;
+        });
+
+        assertThat(partitionStorage.flush(), willCompleteSuccessfully());
 
         return tableStorage;
     }

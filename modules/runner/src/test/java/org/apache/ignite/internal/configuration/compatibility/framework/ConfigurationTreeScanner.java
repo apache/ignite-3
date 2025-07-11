@@ -22,6 +22,8 @@ import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Array;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -36,8 +38,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
@@ -57,10 +61,6 @@ import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNo
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 
 /*
- TODO: https://issues.apache.org/jira/browse/IGNITE-25573
-   support removed nodes. {@link ConfigurationModule#deletedPrefixes()}.
-   support user names. See {@link org.apache.ignite.configuration.annotation.Name} annotation. @PublicName ?
-   support renamed nodes. See {@link org.apache.ignite.configuration.annotation.PublicName} annotation.
  TODO: https://issues.apache.org/jira/browse/IGNITE-25571
    support named lists. See {@link org.apache.ignite.configuration.annotation.NamedConfigValue} annotation.
  TODO: https://issues.apache.org/jira/browse/IGNITE-25572
@@ -91,7 +91,8 @@ public class ConfigurationTreeScanner {
     public static void scan(ConfigNode currentNode, Class<?> schemaClass, ScanContext context) {
         assert schemaClass != null && schemaClass.getName().startsWith("org.apache.ignite");
 
-        Set<Class<?>> extensions = context.getExtensions(schemaClass);
+        Collection<Class<?>> extensions = context.getExtensions(schemaClass);
+
         if (!extensions.isEmpty()) {
             extensions.stream()
                     .sorted(Comparator.comparing(Class::getName)) // Sort for test stability.
@@ -155,12 +156,40 @@ public class ConfigurationTreeScanner {
         List<ConfigAnnotation> annotations = collectAdditionalAnnotations(field);
 
         EnumSet<ConfigNode.Flags> flags = extractFlags(field);
+        Set<String> legacyNames = extractLegacyNames(field);
+        String publicProperty = extractPublicPropertyName(field);
 
         Map<String, String> attributes = new LinkedHashMap<>();
-        attributes.put(Attributes.NAME, field.getName());
+        attributes.put(Attributes.NAME, publicProperty);
         attributes.put(Attributes.CLASS, field.getType().getCanonicalName());
 
-        return new ConfigNode(parent, attributes, annotations, flags);
+        return new ConfigNode(parent, attributes, annotations, flags, legacyNames, List.of());
+    }
+
+    private static Set<String> extractLegacyNames(Field field) {
+        if (field.isAnnotationPresent(PublicName.class)) {
+            PublicName[] annotation = field.getAnnotationsByType(PublicName.class);
+
+            assert annotation.length == 1;
+
+            return Set.of(annotation[0].legacyNames());
+        }
+
+        return Set.of();
+    }
+
+    private static String extractPublicPropertyName(Field field) {
+        if (field.isAnnotationPresent(PublicName.class)) {
+            PublicName[] annotation = field.getAnnotationsByType(PublicName.class);
+
+            assert annotation.length == 1;
+
+            String publicName = annotation[0].value();
+
+            return publicName.isEmpty() ? field.getName() : publicName;
+        }
+
+        return field.getName();
     }
 
     private static EnumSet<ConfigNode.Flags> extractFlags(Field field) {
@@ -205,7 +234,6 @@ public class ConfigurationTreeScanner {
         public Set<Class<?>> getExtensions(Class<?> extendedClass) {
             return extensions.getOrDefault(extendedClass, Set.of());
         }
-
 
         /**
          * Returns the set of polymorphic instance classes for the given polymorphic class.

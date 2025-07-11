@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.ignite.migrationtools.cli.exceptions.DataStreamerExceptionHandler;
+import org.apache.ignite.migrationtools.cli.exceptions.DefaultMigrateCacheExceptionHandler;
 import org.apache.ignite.migrationtools.cli.exceptions.IgniteClientConnectionExceptionHandler;
 import org.apache.ignite.migrationtools.cli.persistence.calls.MigrateCacheCall;
 import org.apache.ignite.migrationtools.cli.persistence.calls.RetriableMigrateCacheCall;
@@ -29,6 +31,7 @@ import org.apache.ignite.migrationtools.cli.persistence.params.MigrateCacheParam
 import org.apache.ignite.migrationtools.cli.persistence.params.RetrieableMigrateCacheParams;
 import org.apache.ignite3.internal.cli.commands.BaseCommand;
 import org.apache.ignite3.internal.cli.core.call.CallExecutionPipeline;
+import org.apache.ignite3.internal.cli.core.exception.handler.DefaultExceptionHandlers;
 import picocli.CommandLine;
 
 /** Migrate cache command. */
@@ -55,7 +58,9 @@ public class MigrateCacheCmd extends BaseCommand implements Callable<Integer> {
         var call = new RetriableMigrateCacheCall(migrateCacheCall);
         return runPipeline(
                 CallExecutionPipeline.builder(call)
+                        .defaultExceptionHandler(new DefaultExceptionHandlers(DefaultMigrateCacheExceptionHandler.INSTANCE))
                         .exceptionHandler(new IgniteClientConnectionExceptionHandler())
+                        .exceptionHandler(new DataStreamerExceptionHandler())
                         .inputProvider(() -> new RetriableMigrateCacheCall.Input(
                                 parent.params(),
                                 migrateCacheParams,

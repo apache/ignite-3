@@ -24,8 +24,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.KeyIgnorer;
 
 /**
  * Compares two configuration trees (snapshot and current).
@@ -37,8 +40,12 @@ public class ConfigurationTreeComparator {
     /**
      * Validates the current configuration is compatible with the snapshot.
      */
-    public static void ensureCompatible(List<ConfigNode> snapshotTrees, List<ConfigNode> actualTrees) {
-        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees));
+    public static void ensureCompatible(
+            List<ConfigNode> snapshotTrees,
+            List<ConfigNode> actualTrees,
+            ComparisonContext compContext
+    ) {
+        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees), compContext);
 
         for (ConfigNode tree : snapshotTrees) {
             tree.accept(shuttle);
@@ -59,14 +66,16 @@ public class ConfigurationTreeComparator {
      */
     private static class LeafNodesVisitor implements ConfigShuttle {
         private final Consumer<ConfigNode> validator;
+        private final ComparisonContext compContext;
 
-        private LeafNodesVisitor(Consumer<ConfigNode> validator) {
+        private LeafNodesVisitor(Consumer<ConfigNode> validator, ComparisonContext compContext) {
             this.validator = validator;
+            this.compContext = compContext;
         }
 
         @Override
         public void visit(ConfigNode node) {
-            if (node.isValue()) {
+            if (node.isValue() && !compContext.shouldIgnore(node.path())) {
                 validator.accept(node);
             }
         }
@@ -94,7 +103,6 @@ public class ConfigurationTreeComparator {
                 candidates = found.childNodes();
             }
         }
-
 
         /**
          * Return first node from candidates collection that matches the given node.
@@ -139,9 +147,10 @@ public class ConfigurationTreeComparator {
      */
     private static boolean match(ConfigNode node, ConfigNode candidate) {
         return Objects.equals(candidate.kind(), node.kind())
-                && Objects.equals(candidate.name(), node.name())
+                && matchNames(candidate, node)
                 && validateFlags(candidate, node)
-                && (!node.isValue() || Objects.equals(candidate.type(), node.type())); // Value node types can be changed
+                && candidate.deletedPrefixes().containsAll(node.deletedPrefixes())
+                && (!node.isValue() || Objects.equals(candidate.type(), node.type())); // Value node types can be changed.
     }
 
     private static void validateAnnotations(ConfigNode candidate, ConfigNode node) {
@@ -164,6 +173,15 @@ public class ConfigurationTreeComparator {
         }
 
         throw new IllegalStateException(sb.toString());
+    }
+
+    private static boolean matchNames(ConfigNode candidate, ConfigNode node) {
+        return Objects.equals(candidate.name(), node.name())
+                || (node.isValue() && candidate.isValue() && compareUsingLegacyNames(candidate, node));
+    }
+
+    private static boolean compareUsingLegacyNames(ConfigNode candidate, ConfigNode node) {
+        return candidate.legacyPropertyNames().contains(node.name());
     }
 
     private static boolean validateFlags(ConfigNode candidate, ConfigNode node) {
@@ -193,6 +211,34 @@ public class ConfigurationTreeComparator {
         @Override
         public String toString() {
             return sb.toString();
+        }
+    }
+
+    /** Holder class for comparison context. */
+    public static class ComparisonContext {
+        private final Set<ConfigurationModule> configurationModules;
+        private Collection<KeyIgnorer> deletedItems;
+
+        ComparisonContext() {
+            this.configurationModules = Set.of();
+        }
+
+        public ComparisonContext(Set<ConfigurationModule> configurationModules) {
+            this.configurationModules = configurationModules;
+        }
+
+        boolean shouldIgnore(String path) {
+            if (deletedItems == null) {
+                deletedItems = new ArrayList<>(configurationModules.size());
+
+                for (ConfigurationModule module : configurationModules) {
+                    KeyIgnorer keyIgnorer = KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
+
+                    deletedItems.add(keyIgnorer);
+                }
+            }
+
+            return deletedItems.stream().anyMatch(i -> i.shouldIgnore(path));
         }
     }
 }

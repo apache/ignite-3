@@ -104,7 +104,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
@@ -195,7 +195,7 @@ public class DataNodesManager {
 
         executor = createZoneManagerExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
-                NamedThreadFactory.create(nodeName, "dst-zones-scheduler", LOG)
+                IgniteThreadFactory.create(nodeName, "dst-zones-scheduler", LOG)
         );
 
         scaleUpTimerPrefixListener = createScaleUpTimerPrefixListener();

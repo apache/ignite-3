@@ -58,6 +58,7 @@ import org.apache.ignite3.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite3.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite3.internal.cli.logger.CliLoggers;
 import org.apache.ignite3.internal.logger.IgniteLogger;
+import org.apache.ignite3.internal.util.ExceptionUtils;
 import org.apache.ignite3.table.DataStreamerItem;
 import org.apache.ignite3.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -300,7 +301,7 @@ public class MigrateCacheCall implements Call<MigrateCacheCall.Input, MigrateCac
                 LOGGER.error("Error while migration persistence folder", e);
                 return DefaultCallOutput.<Ouput>builder()
                         .status(CallOutputStatus.ERROR)
-                        .cause(new IgniteCliException("Error while migrating persistence folder", e))
+                        .cause(ExceptionUtils.unwrapCause(e))
                         .body(new Ouput("Migration finished unsuccessfully", outputProgressFile))
                         .build();
             }

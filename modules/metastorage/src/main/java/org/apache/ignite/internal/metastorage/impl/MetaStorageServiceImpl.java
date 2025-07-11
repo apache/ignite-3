@@ -60,7 +60,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -96,7 +96,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 metaStorageRaftGrpSvc,
                 new MetaStorageCommandsFactory(),
                 // TODO: Extract the pool size into configuration, see https://issues.apache.org/jira/browse/IGNITE-18735
-                Executors.newFixedThreadPool(5, NamedThreadFactory.create(nodeName, "metastorage-publisher", LOG)),
+                Executors.newFixedThreadPool(5, IgniteThreadFactory.create(nodeName, "metastorage-publisher", LOG)),
                 busyLock
         );
 
