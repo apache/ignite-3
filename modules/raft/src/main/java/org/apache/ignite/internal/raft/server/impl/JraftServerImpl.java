@@ -642,19 +642,35 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
+     * Returns current term of raft node.
+     *
+     * @param nodeId ID of the Raft node.
+     * @return Current term.
+     */
+    public long currentTerm(RaftNodeId nodeId) {
+        RaftGroupService service = nodes.get(nodeId);
+
+        if (service == null) {
+            throw new IgniteInternalException("No raft node found: " + nodeId);
+        }
+
+        return service.getRaftNode().getCurrentTerm();
+    }
+
+    /**
      * Performs a {@code resetPeers} operation on raft node.
      *
      * @param raftNodeId Raft node ID.
      * @param peersAndLearners New node configuration.
      */
-    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
+    public Status resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners, long term) {
         RaftGroupService raftGroupService = nodes.get(raftNodeId);
 
         List<PeerId> peerIds = peersAndLearners.peers().stream().map(PeerId::fromPeer).collect(toList());
 
         List<PeerId> learnerIds = peersAndLearners.learners().stream().map(PeerId::fromPeer).collect(toList());
 
-        raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds));
+        return raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds), term);
     }
 
     /**
