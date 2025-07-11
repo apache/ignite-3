@@ -30,24 +30,20 @@ public class NorthwindIgniteContext : NorthwindRelationalContext
         base.OnModelCreating(modelBuilder);
 
         // Add primary keys - Ignite does not support PK-less entities.
-        modelBuilder.Entity<CustomerQuery>().Property<Guid>("id")
+        AddId<CustomerQuery>(modelBuilder);
+        AddId<CustomerQueryWithQueryFilter>(modelBuilder);
+        AddId<ProductQuery>(modelBuilder);
+    }
+
+    private static void AddId<T>(ModelBuilder modelBuilder)
+        where T : class
+    {
+        var entity = modelBuilder.Entity<T>();
+
+        entity.Property<Guid>("id")
             .HasColumnType("uuid")
             .HasDefaultValueSql("rand_uuid");
 
-        modelBuilder.Entity<CustomerQuery>().HasKey("id");
-
-        modelBuilder.Entity<Customer>(
-            b =>
-            {
-                b.Property(e => e.CustomerID).IsFixedLength();
-            });
-
-        modelBuilder.Entity<Order>(
-            b =>
-            {
-                b.Property(e => e.CustomerID).IsFixedLength();
-                b.Property(e => e.EmployeeID).HasColumnType("int");
-                b.Property(o => o.OrderDate).HasColumnType("datetime");
-            });
+        entity.HasKey("id");
     }
 }
