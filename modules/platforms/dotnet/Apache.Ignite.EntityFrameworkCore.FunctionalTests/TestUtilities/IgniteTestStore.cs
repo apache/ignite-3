@@ -27,11 +27,23 @@ public class IgniteTestStore : RelationalTestStore
     }
 
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) =>
-        builder.UseIgnite("localhost:10942");
+        builder.UseIgnite(GetIgniteEndpoint());
 
-    public override void Clean(DbContext context)
+    public override void Clean(DbContext context) => DropAllTables().GetAwaiter().GetResult();
+
+    private static async Task DropAllTables()
     {
-        // TODO: ??
-        context.Database.EnsureDeleted();
+        // Drop all tables so that EnsureCreatedAsync works as expected and every test starts with a clean slate.
+        using var client = await IgniteClient.StartAsync(new(GetIgniteEndpoint()));
+
+        var tables = await client.Tables.GetTablesAsync();
+        var script = string.Join("\n", tables.Select(t => $"DROP TABLE {t.Name}; "));
+
+        if (!string.IsNullOrWhiteSpace(script))
+        {
+            await client.Sql.ExecuteScriptAsync(script);
+        }
     }
+
+    private static string GetIgniteEndpoint() => "localhost:10942";
 }
