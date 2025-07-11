@@ -15,6 +15,7 @@
 
 namespace Apache.Ignite.EntityFrameworkCore.FunctionalTests.TestUtilities;
 
+using Extensions;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,9 +32,6 @@ public class IgniteTestStoreFactory : RelationalTestStoreFactory
 
     public override TestStore GetOrCreate(string storeName) => Create(storeName);
 
-    public override IServiceCollection AddProviderServices(IServiceCollection serviceCollection)
-    {
-        // Ignite does not have any provider services for now.
-        return serviceCollection;
-    }
+    public override IServiceCollection AddProviderServices(IServiceCollection serviceCollection) =>
+        serviceCollection.AddEntityFrameworkIgnite();
 }

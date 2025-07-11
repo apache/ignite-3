@@ -15,6 +15,7 @@
 
 namespace Apache.Ignite.EntityFrameworkCore.FunctionalTests.TestUtilities;
 
+using Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
@@ -25,11 +26,8 @@ public class IgniteTestStore : RelationalTestStore
     {
     }
 
-    public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
-    {
-        // Ignite does not have any provider options for now.
-        return builder;
-    }
+    public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder) =>
+        builder.UseIgnite("localhost:10942");
 
     public override void Clean(DbContext context)
     {
