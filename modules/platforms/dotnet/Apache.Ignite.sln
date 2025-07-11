@@ -34,6 +34,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.EntityFramewo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.EntityFrameworkCore.Tests", "Apache.Ignite.EntityFrameworkCore.Tests\Apache.Ignite.EntityFrameworkCore.Tests.csproj", "{30752D89-C9EB-4116-913E-BEBB49CEBB10}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.EntityFrameworkCore.FunctionalTests", "Apache.Ignite.EntityFrameworkCore.FunctionalTests\Apache.Ignite.EntityFrameworkCore.FunctionalTests.csproj", "{97D08E8A-B260-44D3-8D17-BD1EF19EF3F9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -79,5 +81,9 @@ Global
 		{30752D89-C9EB-4116-913E-BEBB49CEBB10}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{30752D89-C9EB-4116-913E-BEBB49CEBB10}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{30752D89-C9EB-4116-913E-BEBB49CEBB10}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97D08E8A-B260-44D3-8D17-BD1EF19EF3F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97D08E8A-B260-44D3-8D17-BD1EF19EF3F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97D08E8A-B260-44D3-8D17-BD1EF19EF3F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97D08E8A-B260-44D3-8D17-BD1EF19EF3F9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
