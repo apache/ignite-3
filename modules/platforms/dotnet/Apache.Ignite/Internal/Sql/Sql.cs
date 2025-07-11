@@ -207,10 +207,10 @@ namespace Apache.Ignite.Internal.Sql
         {
             switch (e.Code)
             {
-                case ErrorGroups.Sql.StmtParse:
+                case ErrorGroups.Sql.StmtParse or ErrorGroups.Sql.StmtValidation:
                     throw new SqlException(
                         e.TraceId,
-                        ErrorGroups.Sql.StmtValidation,
+                        e.Code,
                         "Invalid query, check inner exceptions for details: " + statement,
                         e);
 
