@@ -66,7 +66,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Pair;
@@ -121,7 +121,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     protected ExecutionContext<T> executionContext(int bufferSize, boolean withDelays) {
         if (withDelays) {
             StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
-                    NamedThreadFactory.create("fake-test-node", "sqlTestExec", log),
+                    IgniteThreadFactory.create("fake-test-node", "sqlTestExec", log),
                     false,
                     0);
 

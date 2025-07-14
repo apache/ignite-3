@@ -34,7 +34,7 @@ public interface MessagingService {
      * Send the given message asynchronously to the specific member without any delivery guarantees.
      *
      * @param recipient Recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param msg Message which should be delivered.
      */
     void weakSend(ClusterNode recipient, NetworkMessage msg);
 
@@ -58,7 +58,7 @@ public interface MessagingService {
      * object is found on the other side of the channel.
      *
      * @param recipient Recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
     default CompletableFuture<Void> send(ClusterNode recipient, NetworkMessage msg) {
@@ -85,7 +85,7 @@ public interface MessagingService {
      * object is found on the other side of the channel.
      *
      * @param recipient Recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
     CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg);
@@ -105,7 +105,7 @@ public interface MessagingService {
      * exist.
      *
      * @param recipientConsistentId Consistent ID of the recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
     CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg);
@@ -125,7 +125,7 @@ public interface MessagingService {
      * exist.
      *
      * @param recipientNetworkAddress Network address of the recipient of the message.
-     * @param msg       Message which should be delivered.
+     * @param msg Message which should be delivered.
      * @return Future of the send operation.
      */
     CompletableFuture<Void> send(NetworkAddress recipientNetworkAddress, ChannelType channelType, NetworkMessage msg);

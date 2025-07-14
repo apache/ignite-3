@@ -3258,7 +3258,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
         assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
 
-        engine.dropMvTable(tableDescriptor.id());
+        engine.destroyMvTable(tableDescriptor.id());
 
         sharedTxStateStorage.destroyStorage(tableDescriptor.id());
 

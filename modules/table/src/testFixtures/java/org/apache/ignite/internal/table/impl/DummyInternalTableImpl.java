@@ -126,7 +126,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -190,7 +190,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
     private static final ScheduledExecutorService COMMON_SCHEDULER = Executors.newSingleThreadScheduledExecutor(
-            new NamedThreadFactory("DummyInternalTable-common-scheduler-", true, LOG)
+            IgniteThreadFactory.create("node", "DummyInternalTable-common-scheduler-", true, LOG)
     );
 
     private final boolean enabledColocation = colocationEnabled();

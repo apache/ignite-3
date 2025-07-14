@@ -37,7 +37,7 @@ import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -68,7 +68,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** End key in range for searching local configuration keys. */
     private static final ByteArray LOC_KEYS_END_RANGE = ByteArray.fromString(incrementLastChar(LOC_PREFIX));
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("loc-cfg", LOG));
+    private final ExecutorService threadPool;
 
     private final InFlightFutures futureTracker = new InFlightFutures();
 
@@ -89,8 +89,9 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
      *
      * @param vaultMgr Vault manager.
      */
-    public LocalConfigurationStorage(VaultManager vaultMgr) {
+    public LocalConfigurationStorage(String nodeName, VaultManager vaultMgr) {
         this.vaultMgr = vaultMgr;
+        this.threadPool = Executors.newFixedThreadPool(4, IgniteThreadFactory.create(nodeName, "loc-cfg", LOG));
     }
 
     @Override

@@ -38,7 +38,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -85,7 +85,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
 
         executorService = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors() * 2,
-                NamedThreadFactory.create(nodeName, "raft-volatile-log-rocksdb-spillout-pool", LOG)
+                IgniteThreadFactory.create(nodeName, "raft-volatile-log-rocksdb-spillout-pool", LOG)
         );
     }
 

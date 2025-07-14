@@ -27,7 +27,7 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.jetbrains.annotations.Nullable;
 
@@ -90,7 +90,7 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
             @Nullable List<String> names,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         this(-1L, cluster, traits, hints, tbl, names, proj, cond, requiredColumns);
     }
@@ -117,7 +117,7 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
             @Nullable List<String> names,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(cluster, traits, hints, tbl, names, proj, cond, requiredColumns);
         this.sourceId = sourceId;
