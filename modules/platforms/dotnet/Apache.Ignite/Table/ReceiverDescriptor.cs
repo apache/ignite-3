@@ -97,23 +97,14 @@ public sealed record ReceiverDescriptor<TItem, TArg, TResult>(
     /// <param name="type">Receiver type.</param>
     /// <param name="deploymentUnits">Deployment units.</param>
     /// <param name="options">Options.</param>
-    /// <param name="payloadMarshaller">Payload marshaller.</param>
-    /// <param name="argumentMarshaller">Argument marshaller.</param>
-    /// <param name="resultMarshaller">Result marshaller.</param>
     public ReceiverDescriptor(
         Type type,
         IEnumerable<DeploymentUnit>? deploymentUnits = null,
-        ReceiverExecutionOptions? options = null,
-        IMarshaller<TItem>? payloadMarshaller = null,
-        IMarshaller<TArg>? argumentMarshaller = null,
-        IMarshaller<TResult>? resultMarshaller = null)
+        ReceiverExecutionOptions? options = null)
         : this(
             type.AssemblyQualifiedName ?? throw new ArgumentException("Type has null AssemblyQualifiedName: " + type),
             deploymentUnits,
-            ReceiverDescriptor.EnsureDotNetExecutor(options),
-            payloadMarshaller,
-            argumentMarshaller,
-            resultMarshaller)
+            ReceiverDescriptor.EnsureDotNetExecutor(options))
     {
         // No-op.
     }
@@ -133,11 +124,7 @@ public static class ReceiverDescriptor
     /// <typeparam name="TResult">Result type.</typeparam>
     /// <returns>Receiver descriptor.</returns>
     public static ReceiverDescriptor<TItem, TArg, TResult> Of<TItem, TArg, TResult>(IDataStreamerReceiver<TItem, TArg, TResult> receiver) =>
-        new(
-            receiver.GetType(),
-            payloadMarshaller: receiver.PayloadMarshaller,
-            argumentMarshaller: receiver.ArgumentMarshaller,
-            resultMarshaller: receiver.ResultMarshaller);
+        new(receiver.GetType());
 
     /// <summary>
     /// Ensures that the provided <see cref="ReceiverExecutionOptions"/> is set to use the .NET executor.
