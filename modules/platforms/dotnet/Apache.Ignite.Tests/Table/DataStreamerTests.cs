@@ -25,6 +25,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Compute;
+using Ignite.Marshalling;
 using Ignite.Table;
 using Internal.Proto;
 using Microsoft.Extensions.Logging;
@@ -66,7 +67,11 @@ public class DataStreamerTests : IgniteTestsBase
     private static readonly ReceiverDescriptor<object, object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
 
     private static readonly ReceiverDescriptor<ComputeTests.Nested, ComputeTests.MyArg, ComputeTests.MyResult> MarshallerReceiver
-        = new(MarshallerReceiverClassName);
+        = new(
+            MarshallerReceiverClassName,
+            PayloadMarshaller: new ComputeTests.ToStringMarshaller(),
+            ArgumentMarshaller: new JsonMarshaller<ComputeTests.MyArg>(),
+            ResultMarshaller: new JsonMarshaller<ComputeTests.MyResult>());
 
     private static int _unknownKey = 333000;
 

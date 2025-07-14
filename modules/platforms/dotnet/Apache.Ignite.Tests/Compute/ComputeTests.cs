@@ -1104,7 +1104,7 @@ namespace Apache.Ignite.Tests.Compute
 
         internal record MyResult(string Data, Nested Nested);
 
-        private class ToStringMarshaller : IMarshaller<Nested>
+        internal class ToStringMarshaller : IMarshaller<Nested>
         {
             public void Marshal(Nested obj, IBufferWriter<byte> writer)
             {

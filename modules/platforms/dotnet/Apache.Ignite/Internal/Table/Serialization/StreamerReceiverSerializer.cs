@@ -150,9 +150,10 @@ internal static class StreamerReceiverSerializer
     /// Reads receiver execution results. Opposite of <see cref="WriteReceiverResults{T}"/>.
     /// </summary>
     /// <param name="reader">Reader.</param>
+    /// <param name="marshaller">Marshaller.</param>
     /// <typeparam name="T">Result element type.</typeparam>
     /// <returns>Pooled array with results and the actual element count.</returns>
-    public static (T[]? ResultsPooledArray, int ResultsCount) ReadReceiverResults<T>(MsgPackReader reader)
+    public static (T[]? ResultsPooledArray, int ResultsCount) ReadReceiverResults<T>(MsgPackReader reader, IMarshaller<T>? marshaller)
     {
         if (reader.TryReadNil())
         {
@@ -176,6 +177,16 @@ internal static class StreamerReceiverSerializer
 
         try
         {
+            if (marshaller != null)
+            {
+                for (var i = 0; i < elementCount; i++)
+                {
+                    resultsPooledArr[i] = marshaller.Unmarshal(tuple.GetBytesSpan(2 + i));
+                }
+
+                return (resultsPooledArr, elementCount);
+            }
+
             for (var i = 0; i < elementCount; i++)
             {
                 resultsPooledArr[i] = (T)(object)TupleWithSchemaMarshalling.Unpack(tuple.GetBytesSpan(2 + i));

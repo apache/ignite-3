@@ -383,6 +383,7 @@ namespace Apache.Ignite.Internal.Table
                         receiver.Options ?? ReceiverExecutionOptions.Default,
                         receiver.PayloadMarshaller,
                         receiver.ArgumentMarshaller,
+                        receiver.ResultMarshaller,
                         receiverArg,
                         cancellationToken).ConfigureAwait(false);
 
@@ -417,6 +418,7 @@ namespace Apache.Ignite.Internal.Table
                 receiver.DeploymentUnits ?? [],
                 receiver.ReceiverClassName,
                 receiver.Options ?? ReceiverExecutionOptions.Default,
+                null,
                 null,
                 null,
                 receiverArg,
