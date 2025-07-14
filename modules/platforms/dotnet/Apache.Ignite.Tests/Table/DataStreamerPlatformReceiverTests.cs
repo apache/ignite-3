@@ -233,6 +233,20 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         Assert.AreEqual(1, ex.FailedItems.Count);
     }
 
+    [Test]
+    public async Task TestMarshallerReceiver()
+    {
+
+    }
+
+
+    [Test]
+    public async Task TestErrorInMarshaller()
+    {
+        // TODO
+        await Task.Delay(1);
+    }
+
     private async Task<object> RunEchoArgReceiver(object arg, IRecordView<Poco>? view = null)
     {
         view ??= PocoView;

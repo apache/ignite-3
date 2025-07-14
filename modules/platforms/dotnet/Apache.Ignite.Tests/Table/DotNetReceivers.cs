@@ -23,6 +23,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Ignite.Marshalling;
 using Ignite.Table;
 
 /// <summary>
@@ -131,6 +132,12 @@ public static class DotNetReceivers
 
     public class MarshallerReceiver : IDataStreamerReceiver<ReceiverItem<string>, ReceiverArg, ReceiverResult<string>>
     {
+        public IMarshaller<ReceiverItem<string>> PayloadMarshaller => new TestJsonMarshaller<ReceiverItem<string>>(new());
+
+        public IMarshaller<ReceiverArg> ArgumentMarshaller => new TestJsonMarshaller<ReceiverArg>(new());
+
+        public IMarshaller<ReceiverResult<string>> ResultMarshaller => new TestJsonMarshaller<ReceiverResult<string>>(new());
+
         public async ValueTask<IList<ReceiverResult<string>>?> ReceiveAsync(
             IList<ReceiverItem<string>> page,
             ReceiverArg arg,
