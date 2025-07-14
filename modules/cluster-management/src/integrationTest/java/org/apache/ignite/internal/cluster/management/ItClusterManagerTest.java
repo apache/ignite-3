@@ -571,7 +571,6 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         String[] cmgNodes = clusterNodeNames();
 
-//        initCluster(cmgNodes, cmgNodes);
         assertThrowsWithCause(
                 () -> initCluster(cmgNodes, cmgNodes),
                 InitException.class,

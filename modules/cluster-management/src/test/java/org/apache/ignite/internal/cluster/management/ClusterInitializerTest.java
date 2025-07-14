@@ -296,8 +296,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     }
 
     private CompletableFuture<NetworkMessage> prepareInitCompleteMessage() {
-        // TODO sanpwc use different message
-        NetworkMessage msg = msgFactory.initCompleteMessage().build();
+        NetworkMessage msg = msgFactory.prepareInitCompleteMessage().build();
 
         return CompletableFuture.completedFuture(msg);
     }

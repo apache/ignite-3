@@ -40,6 +40,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.PrepareInitCompleteMessage;
 import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.configuration.validation.ConfigurationDuplicatesValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
@@ -193,6 +194,7 @@ public class ClusterInitializer {
 
             CmgPrepareInitMessage prepareInitMessage = msgFactory.cmgPrepareInitMessage()
                     .initInitiatorColocationEnabled(nodeProperties.colocationEnabled())
+                    .initInitiatorNodeVersion("NotARealVersion")
                     .build();
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
@@ -290,7 +292,7 @@ public class ClusterInitializer {
                                         String.format("Got error response from node \"%s\": %s", node.name(), errorResponse.cause()),
                                         errorResponse.shouldCancel()
                                 );
-                            } else if (!(response instanceof InitCompleteMessage)) {
+                            } else if (!(response instanceof InitCompleteMessage || response instanceof PrepareInitCompleteMessage)) {
                                 throw new InternalInitException(
                                         String.format("Unexpected response from node \"%s\": %s", node.name(), response.getClass()),
                                         true

@@ -17,25 +17,12 @@
 
 package org.apache.ignite.internal.cluster.management.network.messages;
 
-import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Message for initializing the Cluster Management Group.
+ * Successful response for initializing a Raft group.
  */
-@Transferable(CmgMessageGroup.CMG_PREPARE_INIT)
-public interface CmgPrepareInitMessage extends NetworkMessage {
-    /**
-     * String representation of the node's version that initiates the init procedure.
-     */
-    String initInitiatorNodeVersion();
-
-    /**
-     * Colocation enabled mode of the node that initiates the init procedure. All nodes in CMG group should have same colocation enabled
-     * mode.
-     */
-    boolean initInitiatorColocationEnabled();
+@Transferable(CmgMessageGroup.PREPARE_INIT_COMPLETE)
+public interface PrepareInitCompleteMessage extends NetworkMessage {
 }

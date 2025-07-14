@@ -607,7 +607,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         }
     }
 
-    // TODO sanpwc javadoc
+    /**
+     * Handles the prepare init messages.
+     *
+     * If both initiator node and recipient have same colocation mode PrepareInitCompleteMessage is sent,
+     * otherwise InitErrorMessage is sent.
+     */
     private void handlePrepareInit(CmgPrepareInitMessage msg, ClusterNode sender, long correlationId) {
         NetworkMessage response;
         if (nodeProperties.colocationEnabled() != msg.initInitiatorColocationEnabled()) {
@@ -621,8 +626,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
             response = preparePhaseInitErrorMessage(colocationEnabledMismatchResponseMessage);
         } else {
-            // TODO sanpwc use prepare specific response.
-            response = msgFactory.initCompleteMessage().build();
+            response = msgFactory.prepareInitCompleteMessage().build();
         }
 
         clusterService.messagingService().respond(sender, response, correlationId);
