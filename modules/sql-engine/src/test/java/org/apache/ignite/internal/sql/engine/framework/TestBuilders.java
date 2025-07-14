@@ -822,7 +822,7 @@ public class TestBuilders {
                     clusterName,
                     0,
                     CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(storageProfiles -> {}), // TODO.
+                    new DdlSqlToCommandConverter(storageProfiles -> {}),
                     planningTimeout,
                     PLANNING_THREAD_COUNT,
                     new NoOpMetricManager(),

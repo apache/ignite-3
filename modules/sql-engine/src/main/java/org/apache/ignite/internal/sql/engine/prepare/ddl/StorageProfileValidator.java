@@ -20,15 +20,15 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import java.util.Collection;
 
 /**
- * TODO.
+ * Common validator for storage profile names.
  */
 @FunctionalInterface
 public interface StorageProfileValidator {
 
     /**
-     * TODO.
+     * Checks that provided storage profile names are existing and valid.
      *
-     * @param storageProfiles TODO.
+     * @param storageProfiles Storage profile names to check.
      */
     void validate(Collection<String> storageProfiles);
 }

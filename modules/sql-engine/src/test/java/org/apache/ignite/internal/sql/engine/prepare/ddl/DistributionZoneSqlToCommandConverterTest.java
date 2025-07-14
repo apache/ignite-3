@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -30,6 +31,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlNode;
@@ -47,10 +52,14 @@ import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
-import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -78,8 +87,34 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             ZoneOptionEnum.CONSISTENCY_MODE
     );
 
-    @BeforeAll
-    public static void setUp() {
+    private static final String AIPERSIST_STORAGE_PROFILE = "segmented_aipersist";
+
+    private static final String ROCKSDB_STORAGE_PROFILE = "lru_rocks";
+
+    private static final List<String> NODE_DEFAULT_STORAGE_PROFILES = List.of(
+            DEFAULT_STORAGE_PROFILE,
+            AIPERSIST_STORAGE_PROFILE,
+            ROCKSDB_STORAGE_PROFILE
+    );
+
+    private LogicalTopologyService logicalTopologyService;
+
+    @BeforeEach
+    public void setUp() {
+        // Default mock
+        logicalTopologyService = mock(LogicalTopologyService.class);
+
+        LogicalTopologySnapshot defaultLogicalTopologySnapshot = new LogicalTopologySnapshot(
+                0,
+                IntStream.range(0, 2)
+                        .mapToObj(nodeIdx -> createLocalNode(nodeIdx, NODE_DEFAULT_STORAGE_PROFILES))
+                        .collect(Collectors.toList())
+        );
+
+        when(logicalTopologyService.localLogicalTopology()).thenReturn(defaultLogicalTopologySnapshot);
+
+        converter = new DdlSqlToCommandConverter(new ClusterWideStorageProfileValidator(logicalTopologyService));
+
         assertThat(ZoneOptionEnum.values().length, is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
     }
 
@@ -169,7 +204,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                             + "distribution_algorithm='rendezvous', "
                             + "data_nodes_filter='$[?(@.region == \"US\")]', "
                             + "data_nodes_auto_adjust=300, "
-                            + "storage_profiles='lru_rocks , segmented_aipersist ' "
+                            + "storage_profiles='" + ROCKSDB_STORAGE_PROFILE + " , " + AIPERSIST_STORAGE_PROFILE + " ' "
                     : "CREATE ZONE test "
                             + "(partitions 2, "
                             + "replicas 5, "
@@ -177,7 +212,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                             + "distribution algorithm 'rendezvous', "
                             + "nodes filter '$[?(@.region == \"US\")]', "
                             + "auto adjust 300) "
-                            + "storage profiles ['lru_rocks', 'segmented_aipersist '] ";
+                            + "storage profiles ['" + ROCKSDB_STORAGE_PROFILE + "' , '" + AIPERSIST_STORAGE_PROFILE + " '] ";
 
             CatalogCommand cmd = convert(sql);
             CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
@@ -192,8 +227,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
             List<CatalogStorageProfileDescriptor> storageProfiles = desc.storageProfiles().profiles();
             assertThat(storageProfiles, hasSize(2));
-            assertThat(storageProfiles.get(0).storageProfile(), equalTo("lru_rocks"));
-            assertThat(storageProfiles.get(1).storageProfile(), equalTo("segmented_aipersist"));
+            assertThat(storageProfiles.get(0).storageProfile(), equalTo(ROCKSDB_STORAGE_PROFILE));
+            assertThat(storageProfiles.get(1).storageProfile(), equalTo(AIPERSIST_STORAGE_PROFILE));
         }
 
         // Check remaining options.
@@ -202,11 +237,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                     ? "CREATE ZONE test with "
                             + "data_nodes_auto_adjust_scale_up=100, "
                             + "data_nodes_auto_adjust_scale_down=200, "
-                            + "storage_profiles='lru_rocks'"
+                            + "storage_profiles='" + ROCKSDB_STORAGE_PROFILE + "'"
                     : "CREATE ZONE test "
                             + "(auto scale up 100, "
                             + "auto scale down 200) "
-                            + "storage profiles ['lru_rocks']";
+                            + "storage profiles ['" + ROCKSDB_STORAGE_PROFILE + "']";
 
             CatalogCommand cmd = convert(sql);
             CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
@@ -249,6 +284,60 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
         assertThat(desc.replicas(), equalTo(DistributionAlgorithm.ALL_REPLICAS));
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testSingleNonExistedStorageProfile(boolean withPresent) {
+        String nonExistedStorageProfileName = "not_existed_profile";
+
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + nonExistedStorageProfileName + "'"
+                : "CREATE ZONE test STORAGE PROFILES ['" + nonExistedStorageProfileName + "']";
+
+        expectStatementValidationError(
+                sql,
+                "Some storage profiles don't exist [missedProfileNames=[" + nonExistedStorageProfileName + "]]."
+        );
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testSeveralNonExistedStorageProfiles(boolean withPresent) {
+        String nonExistedStorageProfileName1 = "not_existed_profile_1";
+        String nonExistedStorageProfileName2 = "not_existed_profile_2";
+
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + nonExistedStorageProfileName1 + ", " + nonExistedStorageProfileName2 + "'"
+                : "CREATE ZONE test STORAGE PROFILES ['" + nonExistedStorageProfileName1 + "', '" + nonExistedStorageProfileName2 + "']";
+
+        expectStatementValidationError(
+                sql,
+                "Some storage profiles don't exist [missedProfileNames=["
+                        + nonExistedStorageProfileName1 + ", "
+                        + nonExistedStorageProfileName2 + "]]."
+        );
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testNonExistedStorageProfilesAmongExistedOnes(boolean withPresent) {
+        String nonExistedStorageProfileName = "not_existed_profile";
+
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='"
+                        + AIPERSIST_STORAGE_PROFILE + ", "
+                        + nonExistedStorageProfileName + ", "
+                        + ROCKSDB_STORAGE_PROFILE + "'"
+                : "CREATE ZONE test STORAGE PROFILES ['"
+                        + AIPERSIST_STORAGE_PROFILE + "', '"
+                        + nonExistedStorageProfileName + "', '"
+                        + ROCKSDB_STORAGE_PROFILE + "']";
+
+        expectStatementValidationError(
+                sql,
+                "Some storage profiles don't exist [missedProfileNames=[" + nonExistedStorageProfileName + "]]."
+        );
     }
 
     private static List<Arguments> defaultQuorum() {
@@ -676,9 +765,22 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     private void expectStatementValidationError(String sql, String errorMessageFragment) {
         assertThrowsWithCode(
                 SqlException.class,
-                Sql.STMT_VALIDATION_ERR,
+                STMT_VALIDATION_ERR,
                 () -> convert(sql),
                 errorMessageFragment
+        );
+    }
+
+    private static LogicalNode createLocalNode(int nodeIdx, List<String> storageProfiles) {
+        return new LogicalNode(
+                new ClusterNodeImpl(
+                        UUID.randomUUID(),
+                        "node" + nodeIdx,
+                        new NetworkAddress("127.0.0.1", 3344 + nodeIdx)
+                ),
+                Map.of(),
+                Map.of(),
+                storageProfiles
         );
     }
 }

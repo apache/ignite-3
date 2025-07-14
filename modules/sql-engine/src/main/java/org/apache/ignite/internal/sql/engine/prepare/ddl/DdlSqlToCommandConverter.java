@@ -168,7 +168,7 @@ public class DdlSqlToCommandConverter {
     /**
      * Constructor.
      *
-     * @param storageProfileValidator TODO.
+     * @param storageProfileValidator Storage profile names validator.
      */
     public DdlSqlToCommandConverter(StorageProfileValidator storageProfileValidator) {
         knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)

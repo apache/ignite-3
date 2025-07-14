@@ -22,7 +22,8 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.List;
@@ -72,9 +73,10 @@ class ItSqlCreateZoneTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void testCreateZoneFailedWithoutCorrectStorageProfileInCluster() {
-        assertThrowsWithCause(
-                () -> createZoneQuery(0, NOT_EXISTED_PROFILE_NAME),
+        assertThrowsWithCode(
                 SqlException.class,
+                STMT_VALIDATION_ERR,
+                () -> createZoneQuery(0, NOT_EXISTED_PROFILE_NAME),
                 "Some storage profiles don't exist [missedProfileNames=[" + NOT_EXISTED_PROFILE_NAME + "]]."
         );
     }

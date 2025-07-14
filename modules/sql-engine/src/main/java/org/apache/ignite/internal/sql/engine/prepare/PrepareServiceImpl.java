@@ -144,7 +144,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param clusterCfg Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
-     * @param ddlSqlToCommandConverter TODO.
+     * @param ddlSqlToCommandConverter Converter from SQL DDL operators to catalog commands.
      */
     public static PrepareServiceImpl create(
             String nodeName,

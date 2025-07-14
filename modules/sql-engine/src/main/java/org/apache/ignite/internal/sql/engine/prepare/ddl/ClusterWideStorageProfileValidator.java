@@ -29,7 +29,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.sql.SqlException;
 
 /**
- * TODO.
+ * Storage profile names validator that checks presence of given to validate profile names across cluster.
  */
 public class ClusterWideStorageProfileValidator implements StorageProfileValidator {
     private final LogicalTopologyService logicalTopologyService;
