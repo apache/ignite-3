@@ -36,7 +36,7 @@ public class GenerateConfigurationSnapshot {
     private static final Path DEFAULT_SNAPSHOT_FILE = Path.of("modules", "runner", "build", "work", DEFAULT_FILE_NAME);
 
     private static final IgniteLogger LOG = Loggers.forClass(ConfigurationCompatibilityTest.class);
-    
+
     /**
      * Generates a snapshot of the current configuration metadata and saves it to a file.
      */

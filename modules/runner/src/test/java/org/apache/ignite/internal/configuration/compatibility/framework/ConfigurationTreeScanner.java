@@ -40,17 +40,17 @@ import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.NodeReference;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 
 /*
  TODO: https://issues.apache.org/jira/browse/IGNITE-25571
    support named lists. See {@link org.apache.ignite.configuration.annotation.NamedConfigValue} annotation.
- TODO: https://issues.apache.org/jira/browse/IGNITE-25572
-   support polymorphic nodes. See {@link org.apache.ignite.configuration.annotation.PolymorphicConfig} annotation.
  TODO https://issues.apache.org/jira/browse/IGNITE-25747
    support {@link org.apache.ignite.configuration.validation.Range} annotation.
    support {@link org.apache.ignite.configuration.validation.Endpoint} annotation.
@@ -94,21 +94,47 @@ public class ConfigurationTreeScanner {
             return;
         }
 
-        List<ConfigNode> children = new ArrayList<>();
+        List<NodeReference> children = new ArrayList<>();
+
         configurationClasses(schemaClass).stream()
                 .flatMap(c -> Arrays.stream(c.getDeclaredFields()))
                 .filter(field -> !Modifier.isStatic(field.getModifiers()))
                 .sorted(Comparator.comparing(Field::getName)) // Sort for test stability.
                 .forEach(field -> {
-                    ConfigNode node = createNodeForField(currentNode, field);
+                    Set<Class<?>> instanceClasses = context.getPolymorphicInstances(field.getType());
+                    List<ConfigNode> fieldNodes = new ArrayList<>(instanceClasses.size() + 1);
 
-                    children.add(node);
+                    // Field itself
+                    ConfigNode node = createNodeForField(currentNode, field, field.getType());
+                    fieldNodes.add(node);
+
                     if (!node.isValue()) {
                         scan(node, field.getType(), context);
                     }
+
+                    // Collect nodes that correspond to polymorphic instances
+                    if (!instanceClasses.isEmpty()) {
+                        List<Class<?>> instances = new ArrayList<>(instanceClasses);
+                        // Sort classes to make processing stable
+                        instances.sort(Comparator.comparing(Class::getName));
+
+                        for (Class<?> instanceClass : instances) {
+                            ConfigNode instanceTypeNode = createNodeForField(currentNode, field, instanceClass);
+                            fieldNodes.add(instanceTypeNode);
+
+                            if (!instanceTypeNode.isValue()) {
+                                scan(instanceTypeNode, instanceClass, context);
+                            }
+                        }
+
+                        // Sort subclasses to make data stable.
+                        fieldNodes.sort(Comparator.comparing(ConfigNode::className));
+                    }
+
+                    children.add(new NodeReference(fieldNodes));
                 });
 
-        currentNode.addChildNodes(children);
+        currentNode.addChildReferences(children);
     }
 
     private static List<Class<?>> configurationClasses(Class<?> configClass) {
@@ -118,6 +144,7 @@ public class ConfigurationTreeScanner {
             assert current.isAnnotationPresent(Config.class)
                     || current.isAnnotationPresent(ConfigurationRoot.class)
                     || current.isAnnotationPresent(PolymorphicConfig.class)
+                    || current.isAnnotationPresent(PolymorphicConfigInstance.class)
                     || current.isAnnotationPresent(ConfigurationExtension.class)
                     || current.isAnnotationPresent(AbstractConfiguration.class) : current;
 
@@ -140,7 +167,7 @@ public class ConfigurationTreeScanner {
                 .collect(Collectors.toList());
     }
 
-    private static ConfigNode createNodeForField(ConfigNode parent, Field field) {
+    private static ConfigNode createNodeForField(ConfigNode parent, Field field, Class<?> type) {
         List<ConfigAnnotation> annotations = collectAdditionalAnnotations(field);
 
         EnumSet<ConfigNode.Flags> flags = extractFlags(field);
@@ -149,7 +176,13 @@ public class ConfigurationTreeScanner {
 
         Map<String, String> attributes = new LinkedHashMap<>();
         attributes.put(Attributes.NAME, publicProperty);
-        attributes.put(Attributes.CLASS, field.getType().getCanonicalName());
+        attributes.put(Attributes.CLASS, type.getCanonicalName());
+
+        PolymorphicConfigInstance configInstance = type.getAnnotation(PolymorphicConfigInstance.class);
+        if (configInstance != null) {
+            String instanceType = type.getAnnotation(PolymorphicConfigInstance.class).value();
+            attributes.put(Attributes.INSTANCE_TYPE, instanceType);
+        }
 
         return new ConfigNode(parent, attributes, annotations, flags, legacyNames, List.of());
     }

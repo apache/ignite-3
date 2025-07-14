@@ -28,6 +28,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.NodeReference;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
 import org.junit.jupiter.api.Test;
 
@@ -406,10 +407,8 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     /**
-     * Test scenario. <br>
-     * config ver1 has property : prop1 <br>
-     * config ver2 has renamed property : prop1 -> prop2 <br>
-     * config ver3 has deleted property : prop1, prop2 <br>
+     * Test scenario. <br> config ver1 has property : prop1 <br> config ver2 has renamed property : prop1 -> prop2 <br> config ver3 has
+     * deleted property : prop1, prop2 <br>
      * <br>
      * Check config transitions are possible: ver1 -> ver2, ver1 -> ver3, ver2 -> ver3
      */
@@ -465,8 +464,135 @@ public class ConfigurationTreeComparatorSelfTest {
         assertCompatible(metadataVer2, metadataVer3, new ComparisonContext(allModules));
     }
 
+    @Test
+    public void testPolymorphicConfigNoChanges() {
+        ConfigNode root = createRoot("root");
+
+        ConfigNode base = createNode(root, "subconfig", "ClassBase");
+        base.addChildNodes(createChild(base, "f1"));
+
+        ConfigNode subclassA = createInstanceNode(root, "subconfig", "ClassA", "A");
+        subclassA.addChildNodes(createChild(subclassA, "f2"));
+
+        ConfigNode subclassB = createInstanceNode(root, "subconfig", "ClassB", "B");
+        subclassB.addChildNodes(createChild(subclassB, "f3"));
+
+        root.addChildReferences(List.of(new NodeReference(List.of(base, subclassA, subclassB))));
+
+        assertCompatible(List.of(root), List.of(root));
+    }
+
+    @Test
+    public void testPolymorphicConfigAddInstance() {
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode base = createNode(root1, "subconfig", "ClassBase");
+            base.addChildNodes(createChild(base, "f1"));
+
+            ConfigNode subclassA = createInstanceNode(root1, "subconfig", "ClassA", "A");
+            subclassA.addChildNodes(createChild(subclassA, "f2"));
+
+            root1.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode base = createNode(root2, "subconfig", "ClassBase");
+            base.addChildNodes(createChild(base, "f1"));
+
+            ConfigNode subclassA = createInstanceNode(root2, "subconfig", "ClassA", "A");
+            subclassA.addChildNodes(createChild(subclassA, "f2"));
+
+            ConfigNode subclassB = createInstanceNode(root2, "subconfig", "ClassB", "B");
+            subclassB.addChildNodes(createChild(subclassB, "f3"));
+
+            root2.addChildReferences(List.of(new NodeReference(List.of(base, subclassA, subclassB))));
+        }
+
+        assertCompatible(List.of(root1), List.of(root2));
+        // Removing should be an incompatible change.
+        assertIncompatible(List.of(root2), List.of(root1));
+    }
+
+    @Test
+    public void testPolymorphicConfigChangeType() {
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode base = createNode(root1, "subconfig", "ClassBase");
+            base.addChildNodes(createChild(base, "f1"));
+
+            ConfigNode subclassA = createInstanceNode(root1, "subconfig", "ClassA", "A");
+            subclassA.addChildNodes(createChild(subclassA, "f2"));
+
+            root1.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode base = createNode(root2, "subconfig", "ClassBase");
+            base.addChildNodes(createChild(base, "f1"));
+
+            ConfigNode subclassA = createInstanceNode(root2, "subconfig", "ClassA", "B");
+            subclassA.addChildNodes(createChild(subclassA, "f2"));
+
+            root2.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
+        }
+
+        // Changing instance type is always an incompatible change 
+        assertIncompatible(List.of(root1), List.of(root2));
+        assertIncompatible(List.of(root2), List.of(root1));
+    }
+
+    @Test
+    public void testPolymorphicConfigAddInstanceField() {
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode base = createNode(root1, "subconfig", "ClassBase");
+            base.addChildNodes(createChild(base, "f1"));
+
+            ConfigNode subclassA = createInstanceNode(root1, "subconfig", "ClassA", "A");
+            subclassA.addChildNodes(createChild(subclassA, "f2"));
+
+            root1.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode base = createNode(root2, "subconfig", "ClassBase");
+            base.addChildNodes(createChild(base, "f1"));
+
+            ConfigNode subclassA = createInstanceNode(root2, "subconfig", "ClassA", "A");
+            subclassA.addChildNodes(createChild(subclassA, "f2"));
+            subclassA.addChildNodes(createChild(subclassA, "f3"));
+
+            root2.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
+        }
+
+        assertCompatible(List.of(root1), List.of(root2));
+        // Removing should be an incompatible change.
+        assertIncompatible(List.of(root2), List.of(root1));
+    }
+
     private static ConfigNode createRoot(String name) {
         return ConfigNode.createRoot(name, Object.class, ConfigurationType.LOCAL, true);
+    }
+
+    private static ConfigNode createNode(ConfigNode parent, String name, String className) {
+        return new ConfigNode(
+                parent,
+                Map.of(Attributes.NAME, name, Attributes.CLASS, className),
+                List.of(),
+                EnumSet.noneOf(Flags.class)
+        );
+    }
+
+    private static ConfigNode createInstanceNode(ConfigNode parent, String name, String className, String instanceType) {
+        return new ConfigNode(
+                parent,
+                Map.of(Attributes.NAME, name, Attributes.CLASS, className, Attributes.INSTANCE_TYPE, instanceType),
+                List.of(),
+                EnumSet.noneOf(Flags.class)
+        );
     }
 
     private static ConfigNode createChild(ConfigNode root1, String name) {

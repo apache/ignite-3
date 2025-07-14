@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.List;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.NodeReference;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
@@ -58,9 +59,11 @@ public class ConfigNodeSerializer {
      * Recursively set parent links for all children
      */
     private static void restoreParentLinks(ConfigNode node) {
-        for (ConfigNode child : node.childNodes()) {
-            child.init(node);
-            restoreParentLinks(child);
+        for (NodeReference ref : node.childNodes()) {
+            for (ConfigNode child : ref.nodes()) {
+                child.init(node);
+                restoreParentLinks(child);
+            }
         }
     }
 }
