@@ -33,6 +33,54 @@
 # pragma ide diagnostic ignored "readability-non-const-parameter"
 #endif
 
+namespace {
+
+#define DBG_STR_CASE(x)                                                                                                \
+case x:                                                                                                               \
+return #x
+
+const char *attr_id_to_string(uint16_t id) {
+    switch (id) {
+        DBG_STR_CASE(SQL_DESC_LABEL);
+        DBG_STR_CASE(SQL_DESC_BASE_COLUMN_NAME);
+        DBG_STR_CASE(SQL_DESC_NAME);
+        DBG_STR_CASE(SQL_DESC_TABLE_NAME);
+        DBG_STR_CASE(SQL_DESC_BASE_TABLE_NAME);
+        DBG_STR_CASE(SQL_DESC_SCHEMA_NAME);
+        DBG_STR_CASE(SQL_DESC_CATALOG_NAME);
+        DBG_STR_CASE(SQL_DESC_LITERAL_PREFIX);
+        DBG_STR_CASE(SQL_DESC_LITERAL_SUFFIX);
+        DBG_STR_CASE(SQL_DESC_TYPE_NAME);
+        DBG_STR_CASE(SQL_DESC_LOCAL_TYPE_NAME);
+        DBG_STR_CASE(SQL_DESC_FIXED_PREC_SCALE);
+        DBG_STR_CASE(SQL_DESC_AUTO_UNIQUE_VALUE);
+        DBG_STR_CASE(SQL_DESC_CASE_SENSITIVE);
+        DBG_STR_CASE(SQL_DESC_CONCISE_TYPE);
+        DBG_STR_CASE(SQL_DESC_TYPE);
+        DBG_STR_CASE(SQL_DESC_DISPLAY_SIZE);
+        DBG_STR_CASE(SQL_DESC_LENGTH);
+        DBG_STR_CASE(SQL_DESC_OCTET_LENGTH);
+        DBG_STR_CASE(SQL_DESC_NULLABLE);
+        DBG_STR_CASE(SQL_DESC_NUM_PREC_RADIX);
+        DBG_STR_CASE(SQL_DESC_PRECISION);
+        DBG_STR_CASE(SQL_DESC_SCALE);
+        DBG_STR_CASE(SQL_DESC_SEARCHABLE);
+        DBG_STR_CASE(SQL_DESC_UNNAMED);
+        DBG_STR_CASE(SQL_DESC_UNSIGNED);
+        DBG_STR_CASE(SQL_DESC_UPDATABLE);
+        DBG_STR_CASE(SQL_COLUMN_LENGTH);
+        DBG_STR_CASE(SQL_COLUMN_PRECISION);
+        DBG_STR_CASE(SQL_COLUMN_SCALE);
+        default:
+            break;
+    }
+    return "<< UNKNOWN ID >>";
+}
+
+#undef DBG_STR_CASE
+
+} // anonymous namespace
+
 namespace ignite {
 
 diagnosable *diagnosable_from_handle(SQLSMALLINT handle_type, void *handle) {
@@ -500,7 +548,7 @@ SQLRETURN SQLNativeSql(SQLHDBC conn, SQLCHAR *in_query, SQLINTEGER in_query_len,
 
 SQLRETURN SQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT column_num, SQLUSMALLINT field_id, SQLPOINTER str_attr,
     SQLSMALLINT buffer_len, SQLSMALLINT *str_attr_len, SQLLEN *numeric_attr) {
-    LOG_MSG("SQLColAttribute called: " << field_id << " (" << column_meta::attr_id_to_string(field_id) << ")");
+    LOG_MSG("SQLColAttribute called: " << field_id << " (" << attr_id_to_string(field_id) << ")");
 
     auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)

@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -67,7 +67,7 @@ class VersatileReadWriteLockTest {
     private static final String ASYNC_CONTINUATION_THREAD_PREFIX = "ace";
 
     private final ExecutorService asyncContinuationExecutor = Executors.newCachedThreadPool(
-            new NamedThreadFactory(ASYNC_CONTINUATION_THREAD_PREFIX, LOG)
+            IgniteThreadFactory.createWithFixedPrefix(ASYNC_CONTINUATION_THREAD_PREFIX, false, LOG)
     );
 
     /** The lock under test. */

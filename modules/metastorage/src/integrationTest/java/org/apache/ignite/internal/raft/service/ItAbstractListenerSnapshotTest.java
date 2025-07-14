@@ -67,7 +67,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -127,7 +127,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, LOG));
+        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create("common", Loza.CLIENT_POOL_NAME, LOG));
 
         initialMemberConf = IntStream.range(0, nodes())
                 .mapToObj(i -> testNodeName(testInfo, PORT + i))

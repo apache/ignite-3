@@ -60,7 +60,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfigurationSchema;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -148,7 +148,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         this.messagingService = messagingService;
 
         scheduledThreadPool = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "low-watermark-updater", LOG)
+                IgniteThreadFactory.create(nodeName, "low-watermark-updater", LOG)
         );
     }
 

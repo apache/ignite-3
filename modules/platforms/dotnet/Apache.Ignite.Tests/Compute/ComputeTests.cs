@@ -1054,6 +1054,16 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(jobExecution.Id, state!.Id);
             Assert.AreEqual(status, state.Status);
             Assert.That(state.CreateTime, Is.GreaterThanOrEqualTo(beforeStart));
+
+            if (state.StartTime == null)
+            {
+                // Not started yet.
+                Assert.That(status, Is.AnyOf(JobStatus.Queued, JobStatus.Canceling, JobStatus.Canceled));
+                Assert.IsNull(state.FinishTime);
+
+                return;
+            }
+
             Assert.That(state.StartTime, Is.GreaterThanOrEqualTo(state.CreateTime));
 
             if (status is JobStatus.Canceled or JobStatus.Completed or JobStatus.Failed)

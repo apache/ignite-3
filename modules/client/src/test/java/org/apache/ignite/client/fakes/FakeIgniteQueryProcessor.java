@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -40,7 +41,14 @@ import org.jetbrains.annotations.Nullable;
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     public static final String FAILED_SQL = "SELECT FAIL";
 
+    private final String name;
+
+    Consumer<String> dataAccessListener;
     String lastScript;
+
+    public FakeIgniteQueryProcessor(String name) {
+        this.name = name;
+    }
 
     @Override
     public CompletableFuture<QueryMetadata> prepareSingleAsync(
@@ -61,6 +69,10 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             String qry,
             Object... params
     ) {
+        if (dataAccessListener != null) {
+            dataAccessListener.accept(name);
+        }
+
         if (FAILED_SQL.equals(qry)) {
             return CompletableFuture.failedFuture(new SqlException(STMT_VALIDATION_ERR, "Query failed"));
         }
@@ -92,5 +104,9 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
+    }
+
+    public void setDataAccessListener(Consumer<String> dataAccessListener) {
+        this.dataAccessListener = dataAccessListener;
     }
 }

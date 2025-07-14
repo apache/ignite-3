@@ -29,7 +29,7 @@ import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
@@ -177,12 +177,12 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
     /** Creates column mapping regarding the projection. */
     public static Mappings.TargetMapping createMapping(
             @Nullable List<RexNode> projects,
-            ImmutableBitSet requiredColumns,
+            @Nullable ImmutableIntList requiredColumns,
             int tableRowSize
     ) {
         if (projects != null) {
             Mapping trimmingMapping = requiredColumns != null
-                    ? Mappings.invert(Mappings.source(requiredColumns.asList(), tableRowSize))
+                    ? Mappings.invert(Mappings.source(requiredColumns, tableRowSize))
                     : Mappings.createIdentity(tableRowSize);
 
 
@@ -206,7 +206,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
         }
 
         if (requiredColumns != null) {
-            return Mappings.target(requiredColumns.asList(), tableRowSize);
+            return Mappings.target(requiredColumns, tableRowSize);
         }
 
         return Mappings.createIdentity(tableRowSize);

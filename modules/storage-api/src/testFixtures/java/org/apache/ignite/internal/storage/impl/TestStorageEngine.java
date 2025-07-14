@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.storage.impl;
 
+import static java.util.Collections.emptySet;
 import static org.mockito.Mockito.spy;
 
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -61,7 +63,12 @@ public class TestStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         // No-op.
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        return emptySet();
     }
 }
