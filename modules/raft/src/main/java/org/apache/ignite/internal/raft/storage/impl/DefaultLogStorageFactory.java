@@ -38,7 +38,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -128,7 +128,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         this.fsync = fsync;
 
         executorService = Executors.newSingleThreadExecutor(
-                NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
+                IgniteThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
         );
     }
 

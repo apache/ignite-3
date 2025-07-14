@@ -22,8 +22,7 @@ import java.nio.ByteBuffer;
  * A byte buffer collector that will expand automatically.
  */
 public final class ByteBufferCollector implements Recyclable {
-
-    private static final int MAX_CAPACITY_TO_RECYCLE = 4 * 1024 * 1024; // 4M
+    public static final int MAX_CAPACITY_TO_RECYCLE = 4 * 1024 * 1024; // 4M
 
     private ByteBuffer buffer;
 
@@ -132,6 +131,14 @@ public final class ByteBufferCollector implements Recyclable {
             }
         }
         return recyclers.recycle(this, handle);
+    }
+
+    public void clear() {
+        ByteBuffer buffer = this.buffer;
+
+        if (buffer != null) {
+            buffer.clear();
+        }
     }
 
     private transient final Recyclers.Handle handle;

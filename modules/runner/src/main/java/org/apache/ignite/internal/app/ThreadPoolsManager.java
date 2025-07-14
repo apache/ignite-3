@@ -39,7 +39,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.sources.ThreadPoolMetricSource;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -90,7 +89,7 @@ public class ThreadPoolsManager implements IgniteComponent {
                 )
         );
 
-        commonScheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "common-scheduler", LOG));
+        commonScheduler = Executors.newSingleThreadScheduledExecutor(IgniteThreadFactory.create(nodeName, "common-scheduler", LOG));
 
         this.metricManager = metricManager;
 
@@ -98,6 +97,7 @@ public class ThreadPoolsManager implements IgniteComponent {
         metricSources.add(
                 new ThreadPoolMetricSource(
                         THREAD_POOLS_METRICS_SOURCE_NAME + "partitions-executor",
+                        "The partitions-executor pool handles all the table related operations.",
                         (ThreadPoolExecutor) partitionOperationsExecutor)
         );
     }
@@ -117,11 +117,6 @@ public class ThreadPoolsManager implements IgniteComponent {
         IgniteUtils.shutdownAndAwaitTermination(tableIoExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, SECONDS);
-
-        metricSources.forEach(metricSource -> {
-            metricManager.disable(metricSource);
-            metricManager.unregisterSource(metricSource);
-        });
 
         return nullCompletedFuture();
     }

@@ -56,7 +56,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -107,7 +106,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
@@ -158,7 +157,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
         lenient().when(topologyService.localMember().name()).thenReturn(INSTANCE_NAME);
 
-        JobClassLoader classLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
+        JobClassLoader classLoader = new JobClassLoader(List.of(), getClass().getClassLoader());
         JobContext jobContext = new JobContext(classLoader, ignored -> {});
         lenient().when(jobContextManager.acquireClassLoader(anyList()))
                 .thenReturn(completedFuture(jobContext));
@@ -612,7 +611,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void executorThreadsAreNamedAccordingly() {
         assertThat(
                 executeLocally(GetThreadNameJob.class.getName()),
-                willBe(startsWith(NamedThreadFactory.threadPrefix(INSTANCE_NAME, "compute")))
+                willBe(startsWith(IgniteThread.threadPrefix(INSTANCE_NAME, "compute")))
         );
     }
 

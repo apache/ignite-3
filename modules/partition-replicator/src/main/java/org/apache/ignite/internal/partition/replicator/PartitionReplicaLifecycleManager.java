@@ -789,7 +789,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
-        return new PartitionMover(busyLock, () -> {
+        return new PartitionMover(busyLock, rebalanceScheduler, () -> {
             CompletableFuture<Replica> replicaFut = replicaMgr.replica(replicaGrpId);
             if (replicaFut == null) {
                 return failedFuture(new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
@@ -1221,7 +1221,8 @@ public class PartitionReplicaLifecycleManager extends
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
-        Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
+        AssignmentsQueue pendingAssignmentsQueue = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value());
+        Assignments pendingAssignments = pendingAssignmentsQueue == null ? Assignments.EMPTY : pendingAssignmentsQueue.poll();
 
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());

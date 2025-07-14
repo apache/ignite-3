@@ -84,7 +84,7 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
@@ -366,7 +366,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     void executorChooserChoosesHandlingThread() throws Exception {
-        ExecutorService executor = Executors.newSingleThreadExecutor(NamedThreadFactory.create("test", "custom-pool", log));
+        ExecutorService executor = Executors.newSingleThreadExecutor(IgniteThreadFactory.create("test", "custom-pool", log));
 
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
@@ -391,7 +391,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     void multipleHandlersChooseExecutors() throws Exception {
-        ExecutorService customExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create("test", "custom-pool", log));
+        ExecutorService customExecutor = Executors.newSingleThreadExecutor(IgniteThreadFactory.create("test", "custom-pool", log));
 
         try (
                 Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
@@ -501,6 +501,68 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
             assertNotNull(messagingService.resolveRecipientAddress(nodeToCheck));
             assertNotNull(messagingService.resolveRecipientAddress(nodeToCheckWithoutName));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendByClusterNodeOperation.class)
+    void sendByClusterNodeFailsIfActualNodeIdIsDifferent(SendByClusterNodeOperation operation) throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            ClusterNode receiverWithAnotherId = copyWithDifferentId();
+
+            assertThat(
+                    operation.sendAction.send(senderServices.messagingService, testMessage("test"), receiverWithAnotherId),
+                    willThrow(RecipientLeftException.class)
+            );
+        }
+    }
+
+    private ClusterNodeImpl copyWithDifferentId() {
+        return new ClusterNodeImpl(
+                randomUUID(),
+                receiverNode.name(),
+                receiverNode.address(),
+                receiverNode.nodeMetadata()
+        );
+    }
+
+    @ParameterizedTest
+    @EnumSource(SendByConsistentCoordinateOperation.class)
+    void sendByConsistentCoordinateSucceedsIfActualNodeIdIsDifferent(SendByConsistentCoordinateOperation operation) throws Exception {
+        ClusterNode receiverWithAnotherId = copyWithDifferentId();
+
+        lenient().when(topologyService.getByConsistentId(receiverWithAnotherId.name())).thenReturn(receiverWithAnotherId);
+        lenient().when(topologyService.getByAddress(receiverWithAnotherId.address())).thenReturn(receiverWithAnotherId);
+
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            CompletableFuture<Void> messageDelivered = new CompletableFuture<>();
+
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    (message, sender, correlationId) -> {
+                        if (message instanceof TestMessage) {
+                            messageDelivered.complete(null);
+
+                            if (correlationId != null) {
+                                receiverServices.messagingService.respond(sender, message, correlationId);
+                            }
+                        }
+                    }
+            );
+
+            assertThat(
+                    operation.sendAction.send(senderServices.messagingService, testMessage("test"), receiverWithAnotherId),
+                    willCompleteSuccessfully()
+            );
+            if (operation.notRespondOperation()) {
+                assertThat(messageDelivered, willCompleteSuccessfully());
+            }
         }
     }
 
@@ -736,6 +798,45 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         ClusterNodeChanger(BiFunction<ClusterNode, Services, ClusterNode> changer) {
             this.changer = changer;
+        }
+    }
+
+    @FunctionalInterface
+    private interface AsyncSendAction {
+        CompletableFuture<?> send(MessagingService service, TestMessage message, ClusterNode recipient);
+    }
+
+    private enum SendByClusterNodeOperation {
+        SEND_DEFAULT_CHANNEL((service, message, to) -> service.send(to, message)),
+        SEND_SPECIFIC_CHANNEL((service, message, to) -> service.send(to, TEST_CHANNEL, message)),
+        RESPOND_DEFAULT_CHANNEL((service, message, to) -> service.respond(to, message, 123L)),
+        RESPOND_SPECIFIC_CHANNEL((service, message, to) -> service.respond(to, TEST_CHANNEL, message, 123L)),
+        INVOKE_DEFAULT_CHANNEL((service, message, to) -> service.invoke(to, message, 10_000)),
+        INVOKE_SPECIFIC_CHANNEL((service, message, to) -> service.invoke(to, TEST_CHANNEL, message, 10_000));
+
+        private final AsyncSendAction sendAction;
+
+        SendByClusterNodeOperation(AsyncSendAction sendAction) {
+            this.sendAction = sendAction;
+        }
+    }
+
+    private enum SendByConsistentCoordinateOperation {
+        SEND_BY_CONSISTENT_ID((service, message, to) -> service.send(to.name(), ChannelType.DEFAULT, message)),
+        SEND_BY_ADDRESS((service, message, to) -> service.send(to.address(), ChannelType.DEFAULT, message)),
+        RESPOND_BY_CONSISTENT_ID_DEFAULT_CHANNEL((service, message, to) -> service.respond(to.name(), message, 123L)),
+        RESPOND_BY_CONSISTENT_ID_SPECIFIC_CHANNEL((service, message, to) -> service.respond(to.name(), ChannelType.DEFAULT, message, 123L)),
+        INVOKE_BY_CONSISTENT_ID_DEFAULT_CHANNEL((service, message, to) -> service.invoke(to.name(), message, 10000)),
+        INVOKE_BY_CONSISTENT_ID_SPECIFIC_CHANNEL((service, message, to) -> service.invoke(to.name(), ChannelType.DEFAULT, message, 10000));
+
+        private final AsyncSendAction sendAction;
+
+        SendByConsistentCoordinateOperation(AsyncSendAction sendAction) {
+            this.sendAction = sendAction;
+        }
+
+        private boolean notRespondOperation() {
+            return this != RESPOND_BY_CONSISTENT_ID_DEFAULT_CHANNEL && this != RESPOND_BY_CONSISTENT_ID_SPECIFIC_CHANNEL;
         }
     }
 }

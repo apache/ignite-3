@@ -24,7 +24,6 @@ import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
-import java.net.URL;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -128,11 +127,11 @@ public class FakeCompute implements IgniteComputeInternal {
         }
 
         if (jobClassName.startsWith("org.apache.ignite")) {
-            JobClassLoader jobClassLoader = new JobClassLoader(List.of(), new URL[]{}, this.getClass().getClassLoader());
+            JobClassLoader jobClassLoader = new JobClassLoader(List.of(), this.getClass().getClassLoader());
             Class<ComputeJob<Object, Object>> jobClass = ComputeUtils.jobClass(jobClassLoader, jobClassName);
             ComputeJob<Object, Object> job = ComputeUtils.instantiateJob(jobClass);
             CompletableFuture<Object> jobFut = job.executeAsync(
-                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader(), null),
+                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), jobClassLoader, null),
                     SharedComputeUtils.unmarshalArgOrResult(arg, null, null));
 
             return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());

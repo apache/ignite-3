@@ -39,7 +39,7 @@ public class ColumnFamilyUtils {
         RocksDB.loadLibrary();
     }
 
-    /** Name of the meta column family matches default columns family, meaning that it always exist when new table is created. */
+    /** Name of the meta column family matches default columns family, meaning that it always exists when new table is created. */
     private static final String META_CF_NAME = "default";
 
     /** Name of the Column Family that stores partition data with references to row data. */

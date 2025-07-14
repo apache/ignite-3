@@ -70,7 +70,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -133,7 +133,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(NODE_NAME, "data-nodes-manager-test-scheduled-executor", log)
+                IgniteThreadFactory.create(NODE_NAME, "data-nodes-manager-test-scheduled-executor", log)
         );
 
         ClockService clockService = new TestClockService(clock, new ClockWaiter(NODE_NAME, clock, scheduledExecutorService));

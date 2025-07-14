@@ -25,6 +25,7 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.PushMetricExporter;
+import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterView;
 import org.apache.ignite.internal.util.CollectionUtils;
 
@@ -32,20 +33,20 @@ import org.apache.ignite.internal.util.CollectionUtils;
  * Log push metrics exporter.
  */
 @AutoService(MetricExporter.class)
-public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
+public class LogPushExporter extends PushMetricExporter {
     public static final String EXPORTER_NAME = "logPush";
 
     /** Padding for individual metric output. */
     private static final String PADDING = "  ";
 
     @Override
-    protected long period() {
-        return configuration().periodMillis();
+    protected long period(ExporterView exporterView) {
+        return ((LogPushExporterView) exporterView).periodMillis();
     }
 
     @Override
     public void report() {
-        Collection<MetricSet> metricSets = metrics().get1().values();
+        Collection<MetricSet> metricSets = snapshot().metrics().values();
 
         if (CollectionUtils.nullOrEmpty(metricSets)) {
             return;

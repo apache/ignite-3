@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.function.Supplier;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.LiteralVal;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -33,23 +32,23 @@ public class LiteralValAccumulatorTest extends BaseIgniteAbstractTest {
 
     @Test
     public void test() {
-        StatefulAccumulator accumulator = newCall();
+        StatefulAccumulator accumulator = newCall(true);
 
-        // Literal agg accepts the same value.
+        // Literal agg ignores its arguments.
         accumulator.add("1");
 
-        assertEquals("1", accumulator.end());
+        assertEquals(true, accumulator.end());
     }
 
     @Test
     public void empty() {
-        StatefulAccumulator accumulator = newCall();
+        StatefulAccumulator accumulator = newCall(false);
 
-        assertEquals(null, accumulator.end());
+        assertEquals(false, accumulator.end());
     }
 
-    private StatefulAccumulator newCall() {
-        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(Commons.typeFactory().createSqlType(SqlTypeName.VARCHAR));
+    private StatefulAccumulator newCall(boolean literal) {
+        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(Commons.rexBuilder().makeLiteral(literal));
         return new StatefulAccumulator(supplier);
     }
 }

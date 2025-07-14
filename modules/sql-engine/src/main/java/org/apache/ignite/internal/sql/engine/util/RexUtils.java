@@ -56,6 +56,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.linq4j.tree.Primitive;
@@ -91,6 +92,7 @@ import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Sarg;
@@ -160,16 +162,15 @@ public class RexUtils {
     }
 
     /** Returns whether a list of expressions projects the incoming fields. */
-    public static boolean isIdentity(List<? extends RexNode> projects, RelDataType inputRowType, boolean local) {
+    public static boolean isIdentity(List<? extends RexNode> projects, RelDataType inputRowType) {
         if (inputRowType.getFieldCount() != projects.size()) {
             return false;
         }
 
-        final List<RelDataTypeField> fields = inputRowType.getFieldList();
-        Class<? extends RexSlot> clazz = local ? RexLocalRef.class : RexInputRef.class;
+        List<RelDataTypeField> fields = inputRowType.getFieldList();
 
         for (int i = 0; i < fields.size(); i++) {
-            if (!clazz.isInstance(projects.get(i))) {
+            if (!(projects.get(i) instanceof RexLocalRef)) {
                 return false;
             }
 
@@ -312,7 +313,7 @@ public class RexUtils {
             RelCollation collation,
             @Nullable RexNode condition,
             RelDataType rowType,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         if (condition == null) {
             return null;
@@ -344,11 +345,9 @@ public class RexUtils {
 
         List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
 
-        Mappings.TargetMapping mapping = null;
-
-        if (requiredColumns != null) {
-            mapping = Commons.trimmingMapping(types.size(), requiredColumns);
-        }
+        Mappings.TargetMapping mapping = requiredColumns == null
+                ? Mappings.createIdentity(types.size())
+                : Commons.projectedMapping(types.size(), requiredColumns);
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
         boolean boundsEmpty = true;
@@ -365,9 +364,7 @@ public class RexUtils {
                 break;
             }
 
-            if (mapping != null) {
-                collFldIdx = mapping.getSourceOpt(collFldIdx);
-            }
+            collFldIdx = mapping.getSourceOpt(collFldIdx);
 
             SearchBounds fldBounds = createBounds(fieldCollation, collFldPreds, cluster, types.get(collFldIdx), prevComplexity);
 
@@ -404,7 +401,7 @@ public class RexUtils {
             RelCollation collation,
             RexNode condition,
             RelDataType rowType,
-            @Nullable ImmutableBitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         if (condition == null) {
             return null;
@@ -422,10 +419,9 @@ public class RexUtils {
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
 
-        Mappings.TargetMapping toTrimmedRowMapping = null;
-        if (requiredColumns != null) {
-            toTrimmedRowMapping = Commons.trimmingMapping(types.size(), requiredColumns);
-        }
+        Mappings.TargetMapping targetMapping = requiredColumns == null
+                ? Mappings.createIdentity(types.size())
+                : Commons.projectedMapping(types.size(), requiredColumns);
 
         List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
         for (int i = 0; i < fieldCollations.size(); i++) {
@@ -445,9 +441,7 @@ public class RexUtils {
                 return null; // Non-equality conditions are not expected.
             }
 
-            if (toTrimmedRowMapping != null) {
-                collFldIdx = toTrimmedRowMapping.getSourceOpt(collFldIdx);
-            }
+            collFldIdx = targetMapping.getSourceOpt(collFldIdx);
 
             bounds.set(i, createBounds(null, Collections.singletonList(columnPred), cluster, types.get(collFldIdx), 1));
         }
@@ -506,8 +500,8 @@ public class RexUtils {
                     fldIdx = fld.getIntKey();
                 }
 
-                RexNode casted = addCast(cluster, pred.operands.get(1), types.get(fldIdx));
-                bounds.set(fldIdx, new ExactBounds(pred, casted));
+                SaturatedRexNode casted = addCast(cluster, pred.operands.get(1), types.get(fldIdx));
+                bounds.set(fldIdx, new ExactBounds(pred, casted.value));
             }
         }
 
@@ -548,9 +542,13 @@ public class RexUtils {
         for (RexCall pred : collFldPreds) {
             RexNode val = null;
             RexNode ref = pred.getOperands().get(0);
+            boolean saturatedLookup = false;
 
             if (isBinaryComparison(pred)) {
-                val = addCast(cluster, pred.operands.get(1), fldType);
+                SaturatedRexNode saturatedNode = addCast(cluster, pred.getOperands().get(1), fldType);
+
+                val = saturatedNode.value;
+                saturatedLookup = saturatedNode.saturated;
             }
 
             SqlOperator op = pred.getOperator();
@@ -558,7 +556,9 @@ public class RexUtils {
             if (op.kind == EQUALS || op.kind == IS_NOT_DISTINCT_FROM) {
                 assert val != null;
 
-                return new ExactBounds(pred, val);
+                RexNode pred0 = saturatedLookup ? builder.makeCall(op, ref, val) : pred;
+
+                return new ExactBounds(pred0, val);
             } else if (op.kind == IS_NULL) {
                 return new ExactBounds(pred, nullValue);
             } else if (op.kind == OR) {
@@ -1152,20 +1152,20 @@ public class RexUtils {
         }
     }
 
-    private static RexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type) {
+    private static SaturatedRexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type) {
         RexNode node = removeCast(condition);
 
         assert idxOpSupports(node) : "Unsupported RexNode in index condition: " + node;
 
         RexBuilder builder = cluster.getRexBuilder();
-        RexNode saturated = toSaturatedValue(builder, node, type);
+        SaturatedRexNode saturatedLiteral = toSaturatedValue(builder, node, type);
 
-        if (saturated != null) {
-            return saturated;
+        if (saturatedLiteral != null) {
+            return saturatedLiteral;
         } else if (TypeUtils.needCastInSearchBounds(Commons.typeFactory(), node.getType(), type)) {
-            return builder.makeCast(type, node);
+            return new SaturatedRexNode(builder.makeCast(type, node), false);
         } else {
-            return node;
+            return new SaturatedRexNode(node, false);
         }
     }
 
@@ -1179,7 +1179,7 @@ public class RexUtils {
      * <p>Otherwise returns {@code null}.
      */
     @Nullable
-    private static RexLiteral toSaturatedValue(RexBuilder builder, RexNode node, RelDataType type) {
+    private static SaturatedRexNode toSaturatedValue(RexBuilder builder, RexNode node, RelDataType type) {
         if (!SqlTypeUtil.isNumeric(node.getType()) || !SqlTypeUtil.isNumeric(type) || !(node instanceof RexLiteral)) {
             return null;
         }
@@ -1210,24 +1210,29 @@ public class RexUtils {
         }
 
         BigDecimal newVal;
+        boolean saturated = false;
 
         if (lower.compareTo(val) > 0) {
             newVal = lower;
+            saturated = true;
         } else if (val.compareTo(upper) > 0) {
             newVal = upper;
+            saturated = true;
         } else if (!SqlTypeUtil.equalSansNullability(node.getType(), type)) {
             newVal = val;
         } else {
             // If literal types and required type, match ignoring nullability,
             // then return a literal as is.
-            return lit;
+            return new SaturatedRexNode(lit, false);
         }
 
         if (exact) {
-            return builder.makeExactLiteral(newVal, type);
+            lit = builder.makeExactLiteral(newVal, type);
         } else {
-            return builder.makeApproxLiteral(newVal, type);
+            lit = builder.makeApproxLiteral(newVal, type);
         }
+
+        return new SaturatedRexNode(lit, saturated);
     }
 
     /**
@@ -1246,7 +1251,7 @@ public class RexUtils {
      * @param type The target type for conversion.
      * @return The converted literal value, or {@code null} if the literal value is {@code null}.
      */
-    public static @Nullable Object literalValue(ExecutionContext<?> context, RexLiteral literal, Class<?> type) {
+    public static @Nullable Object literalValue(DataContext context, RexLiteral literal, Class<?> type) {
         RelDataType dataType = literal.getType();
 
         if (literal.isNull()) {
@@ -1372,5 +1377,17 @@ public class RexUtils {
         }
 
         return wasChanged ? newSearchBounds : searchBounds;
+    }
+
+    private static class SaturatedRexNode {
+        final RexNode value;
+
+        /** Flag indicating whether the numeric value has been saturated or the original value is used. */
+        final boolean saturated;
+
+        private SaturatedRexNode(RexNode value, boolean saturated) {
+            this.value = value;
+            this.saturated = saturated;
+        }
     }
 }

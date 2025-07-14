@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
@@ -24,6 +26,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -49,7 +52,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.rocksdb.RocksDB;
 
 /**
@@ -127,7 +130,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
         threadPool = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
-                NamedThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG)
+                IgniteThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG)
         );
     }
 
@@ -265,9 +268,28 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         for (RocksDbStorage rocksDbStorage : storageByProfileName.values()) {
             rocksDbStorage.rocksDbInstance.destroyTable(tableId);
         }
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        return storageByProfileName.values().stream()
+                .flatMap(storage -> storage.rocksDbInstance.tableIdsOnDisk().stream())
+                .collect(toUnmodifiableSet());
+    }
+
+    /**
+     * Flushes all changes made to the underlying RocksDB instances to disk.
+     *
+     * @return Future that gets completed when flush is complete.
+     */
+    public CompletableFuture<Void> flush() {
+        CompletableFuture<?>[] futures = storageByProfileName.values().stream()
+                .map(storage -> storage.rocksDbInstance.flush())
+                .toArray(CompletableFuture[]::new);
+        return allOf(futures);
     }
 }

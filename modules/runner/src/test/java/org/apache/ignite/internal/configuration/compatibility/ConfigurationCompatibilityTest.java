@@ -26,7 +26,9 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNo
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigShuttle;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner.ScanContext;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -97,7 +100,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + DEFAULT_FILE_NAME);
 
-        ConfigurationTreeComparator.compare(currentMetadata, snapshotMetadata);
+        ConfigurationTreeComparator.compare(snapshotMetadata, currentMetadata);
     }
 
     /**
@@ -108,9 +111,19 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     @MethodSource("getSnapshots")
     void testConfigurationCompatibility(String fileName) throws IOException {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
+        Set<ConfigurationModule> allModules = allModules();
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + fileName);
 
-        ConfigurationTreeComparator.ensureCompatible(currentMetadata, snapshotMetadata);
+        ComparisonContext ctx = new ComparisonContext(allModules);
+
+        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata, ctx);
+    }
+
+    private static Set<ConfigurationModule> allModules() {
+        var modulesProvider = new ServiceLoaderModulesProvider();
+        List<ConfigurationModule> modules = modulesProvider.modules(ConfigurationCompatibilityTest.class.getClassLoader());
+
+        return new HashSet<>(modules);
     }
 
     private static List<ConfigNode> loadCurrentConfiguration() {
@@ -130,7 +143,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         ScanContext scanContext = ScanContext.create(module);
 
         Class<?> rootClass = rootKey.schemaClass();
-        ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootClass, rootKey.type(), rootKey.internal());
+        ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootClass, rootKey.type(), rootKey.internal(), module.deletedPrefixes());
 
         ConfigurationTreeScanner.scan(root, rootClass, scanContext);
 
@@ -176,12 +189,16 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         }
         if ("file".equals(dirUrl.getProtocol())) {
             Path dirPath = Path.of(dirUrl.getPath());
-            return Files.list(dirPath)
-                    .filter(Files::isRegularFile)
-                    .map(Path::getFileName)
-                    .map(Path::toString)
-                    .filter(p -> p.endsWith(".bin"))
-                    .map(Arguments::of);
+            try (Stream<Path> list = Files.list(dirPath)) {
+                return list
+                        .filter(Files::isRegularFile)
+                        .map(Path::getFileName)
+                        .map(Path::toString)
+                        .filter(p -> p.endsWith(".bin"))
+                        .map(Arguments::of)
+                        .collect(Collectors.toList())
+                        .stream();
+            }
         } else {
             throw new UnsupportedOperationException("Unsupported protocol: " + dirUrl.getProtocol());
         }

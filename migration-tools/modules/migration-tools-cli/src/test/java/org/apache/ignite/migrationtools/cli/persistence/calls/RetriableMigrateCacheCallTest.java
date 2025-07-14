@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import org.apache.ignite.migrationtools.cli.persistence.params.IgniteClientAuthenticatorParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.MigrateCacheParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.PersistenceParams;
 import org.apache.ignite.migrationtools.cli.persistence.params.RetrieableMigrateCacheParams;
@@ -151,7 +152,12 @@ class RetriableMigrateCacheCallTest {
         var c = new RetriableMigrateCacheCall(migrateCacheCall);
         var retryParams = new RetrieableMigrateCacheParams(retryLimit, 0);
         CallOutput<MigrateCacheCall.Ouput> ret = c.execute(
-                new RetriableMigrateCacheCall.Input(mock(PersistenceParams.class), mock(MigrateCacheParams.class), retryParams));
+                new RetriableMigrateCacheCall.Input(
+                        mock(PersistenceParams.class),
+                        mock(MigrateCacheParams.class),
+                        retryParams,
+                        mock(IgniteClientAuthenticatorParams.class))
+        );
 
         Mockito.verify(migrateCacheCall, times(numExpectedExecutions)).execute(any(MigrateCacheCall.Input.class));
 

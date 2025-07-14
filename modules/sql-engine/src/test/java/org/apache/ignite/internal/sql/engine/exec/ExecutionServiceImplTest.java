@@ -186,7 +186,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     public static final int PLANNING_THREAD_COUNT = 2;
 
-    /** Timeout in ms for stopping execution service.*/
+    /** Timeout in ms for stopping execution service. */
     private static final long SHUTDOWN_TIMEOUT = 5_000;
 
     private static final int CATALOG_VERSION = 1;
@@ -241,7 +241,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private void setupCluster(CacheFactory mappingCacheFactory, Function<String, QueryTaskExecutor> executorsFactory) {
-        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
+        DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(storageProfiles -> {});
 
         testCluster = new TestCluster();
         executionServices = nodeNames.stream()
@@ -382,8 +382,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * A query initialization is failed on the initiator during the mapping phase.
-     * Need to verify that the exception is handled properly.
+     * A query initialization is failed on the initiator during the mapping phase. Need to verify that the exception is handled properly.
      */
     @Test
     public void testQueryMappingFailure() {

@@ -97,7 +97,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -227,7 +227,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.localTopologyMetricsSource = new LocalTopologyMetricsSource(clusterService.topologyService());
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
+                IgniteThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
         );
 
         cmgMessageHandler = createMessageHandler();
@@ -661,7 +661,12 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      *     <li>Broadcasts the current CMG state to all nodes in the physical topology.</li>
      * </ol>
      */
-    private void onElectedAsLeader(long term) {
+    private void onElectedAsLeader(
+            long term,
+            long configurationTerm,
+            long configurationIndex,
+            PeersAndLearners configuration
+    ) {
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping onLeaderElected callback, because the node is stopping");
 

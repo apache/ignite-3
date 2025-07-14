@@ -73,9 +73,8 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         closeAll(client, server);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testConnectionMetrics(boolean gracefulDisconnect) throws Exception {
+    @Test
+    public void testConnectionMetrics() throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
         client = clientBuilder().build();
 
@@ -84,18 +83,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertEquals(1, metrics.connectionsEstablished());
         assertEquals(1, metrics.connectionsActive());
 
-        if (gracefulDisconnect) {
-            client.close();
-        } else {
-            server.close();
-        }
+        server.close();
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> metrics.connectionsActive() == 0, 1000),
                 () -> "connectionsActive: " + metrics.connectionsActive());
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLost() == (gracefulDisconnect ? 0 : 1), 1000),
+                IgniteTestUtils.waitForCondition(() -> metrics.connectionsLost() == 1, 1000),
                 () -> "connectionsLost: " + metrics.connectionsLost());
 
         assertEquals(1, metrics.connectionsEstablished());
@@ -312,13 +307,13 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().metricsEnabled(metricsEnabled).build();
         client.tables().tables();
 
-        String beanName = "org.apache.ignite:group=metrics,name=client";
+        String beanName = "org.apache.ignite:type=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         ObjectName objName = new ObjectName(beanName);
         boolean registered = mbeanSrv.isRegistered(objName);
 
-        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + "]");
+        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + ']');
 
         if (!metricsEnabled) {
             return;

@@ -188,7 +188,7 @@ public class ClientSchema {
      *
      * @return Colocation columns.
      */
-    ClientColumn[] colocationColumns() {
+    public ClientColumn[] colocationColumns() {
         return colocationColumns;
     }
 

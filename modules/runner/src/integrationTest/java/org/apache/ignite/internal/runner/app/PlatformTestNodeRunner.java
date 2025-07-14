@@ -86,7 +86,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.ClusterChange;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -248,8 +247,6 @@ public class PlatformTestNodeRunner {
             System.out.println("Dry run succeeded.");
             return;
         }
-
-        System.setProperty(IgniteSystemProperties.IGNORE_DUPLICATE_JMX_MBEANS_ERROR, "true");
 
         List<IgniteServer> startedIgniteServers = startNodes(BASE_PATH, nodesBootstrapCfg);
 

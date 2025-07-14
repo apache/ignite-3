@@ -33,7 +33,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 
@@ -77,7 +77,7 @@ public class ClockWaiter implements IgniteComponent {
                 10,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "clock-waiter-future-executor", Loggers.forClass(ClockWaiter.class))
+                IgniteThreadFactory.create(nodeName, "clock-waiter-future-executor", Loggers.forClass(ClockWaiter.class))
         );
         executor.allowCoreThreadTimeOut(true);
 

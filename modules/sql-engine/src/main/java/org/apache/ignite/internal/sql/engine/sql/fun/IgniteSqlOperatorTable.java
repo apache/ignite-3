@@ -348,9 +348,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                                     return typeFactory.createTypeWithNullability(resultType, nullable);
                                 }
                             } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
-                                return typeFactory.createTypeWithNullability(type1, nullable);
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type1, type2, nullable);
                             } else if (SqlTypeUtil.isDatetime(type2) && SqlTypeUtil.isInterval(type1)) {
-                                return typeFactory.createTypeWithNullability(type2, nullable);
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type2, type1, nullable);
                             }
 
                             return null;
@@ -388,7 +388,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                                     return typeFactory.createTypeWithNullability(resultType, nullable);
                                 }
                             } else if (SqlTypeUtil.isDatetime(type1) && SqlTypeUtil.isInterval(type2)) {
-                                return typeFactory.createTypeWithNullability(type1, nullable);
+                                return deriveDatetimePlusMinusIntervalType(typeFactory, type1, type2, nullable);
                             }
 
                             return null;
@@ -396,6 +396,24 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     },
                     InferTypes.FIRST_KNOWN,
                     MINUS_OPERATOR_TYPES_CHECKER);
+
+    private static RelDataType deriveDatetimePlusMinusIntervalType(
+            RelDataTypeFactory typeFactory,
+            RelDataType datetimeType,
+            RelDataType intervalType,
+            boolean nullable
+    ) {
+        assert SqlTypeUtil.isDatetime(datetimeType) : "not datetime: " + datetimeType;
+        assert SqlTypeUtil.isInterval(intervalType) : "not interval: " + intervalType;
+
+        if (datetimeType.getSqlTypeName().allowsPrecScale(true, false)
+                && intervalType.getScale() > datetimeType.getPrecision()) {
+            // Using a fraction of a second from an interval as the precision of the expression.
+            datetimeType = typeFactory.createSqlType(datetimeType.getSqlTypeName(), intervalType.getScale());
+        }
+
+        return typeFactory.createTypeWithNullability(datetimeType, nullable);
+    }
 
     /**
      * Arithmetic division operator, '{@code /}'.

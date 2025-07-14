@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
-import static org.apache.ignite.internal.network.processor.serialization.BaseMethodNameResolver.propertyName;
+import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.propertyName;
 
 import com.squareup.javapoet.CodeBlock;
 import java.util.Collection;

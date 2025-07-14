@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
@@ -50,7 +49,7 @@ public class NoOpMetricManager implements MetricManager {
     }
 
     @Override
-    public void start(Iterable<MetricExporter<?>> exporters) {
+    public void start(Iterable<MetricExporter> exporters) {
     }
 
     @Override
@@ -89,8 +88,8 @@ public class NoOpMetricManager implements MetricManager {
     }
 
     @Override
-    public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
-        return new IgniteBiTuple<>(Collections.emptyMap(), 1L);
+    public MetricSnapshot metricSnapshot() {
+        return new MetricSnapshot(Collections.emptyMap(), 1L);
     }
 
     @Override
