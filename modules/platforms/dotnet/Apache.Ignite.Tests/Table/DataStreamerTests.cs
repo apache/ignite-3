@@ -922,7 +922,8 @@ public class DataStreamerTests : IgniteTestsBase
             payloadSelector: x => x,
             receiverArg: arg).FirstAsync();
 
-        Assert.IsNotNull(res);
+        Assert.AreEqual("foo_1", res.Data);
+        Assert.AreEqual(payload, res.Nested);
     }
 
     [Test]

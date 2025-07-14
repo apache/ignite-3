@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -236,9 +237,19 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [Test]
     public async Task TestMarshallerReceiver()
     {
+        var receiverItem = new DotNetReceivers.ReceiverItem<string>(Guid.NewGuid(), "hello");
+        var receiverArg = new DotNetReceivers.ReceiverArg(123, "345");
 
+        DotNetReceivers.ReceiverResult<string> res = await PocoView.StreamDataAsync(
+            new object[] { "unused" }.ToAsyncEnumerable(),
+            DotNetReceivers.Marshaller with { DeploymentUnits = [_defaultTestUnit] },
+            keySelector: _ => new Poco(),
+            payloadSelector: _ => receiverItem,
+            receiverArg: receiverArg).FirstAsync();
+
+        Assert.AreEqual(receiverArg, res.Arg);
+        Assert.AreEqual(receiverItem, res.Item);
     }
-
 
     [Test]
     public async Task TestErrorInMarshaller()
