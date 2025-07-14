@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Table;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
@@ -40,6 +41,9 @@ public static class DotNetReceivers
         ReceiverDescriptor.Of(new CreateTableAndUpsertReceiver());
 
     public static readonly ReceiverDescriptor<IIgniteTuple, object?, IIgniteTuple> UpdateTuple = ReceiverDescriptor.Of(new UpdateTupleReceiver());
+
+    public static readonly ReceiverDescriptor<ReceiverItem<string>, ReceiverArg, ReceiverResult<string>> Marshaller =
+        ReceiverDescriptor.Of(new MarshallerReceiver());
 
     public class EchoReceiver : IDataStreamerReceiver<object, object, object>
     {
@@ -124,4 +128,24 @@ public static class DotNetReceivers
             return ValueTask.FromResult<IList<IIgniteTuple>?>(page);
         }
     }
+
+    public class MarshallerReceiver : IDataStreamerReceiver<ReceiverItem<string>, ReceiverArg, ReceiverResult<string>>
+    {
+        public async ValueTask<IList<ReceiverResult<string>>?> ReceiveAsync(
+            IList<ReceiverItem<string>> page,
+            ReceiverArg arg,
+            IDataStreamerReceiverContext context,
+            CancellationToken cancellationToken)
+        {
+            await Task.Yield();
+
+            return page.Select(x => new ReceiverResult<string>(x, arg)).ToList();
+        }
+    }
+
+    public record ReceiverItem<T>(Guid Id, T Value);
+
+    public record ReceiverArg(int A, string B);
+
+    public record ReceiverResult<T>(ReceiverItem<T> Item, ReceiverArg Arg);
 }
