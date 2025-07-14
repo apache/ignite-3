@@ -340,6 +340,32 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         );
     }
 
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testExistedStorageProfileOnDisjointProfileSetsInLogicalTopologySnapshot(boolean withPresent) throws SqlParseException {
+        when(logicalTopologyService.localLogicalTopology()).thenReturn(new LogicalTopologySnapshot(
+                0,
+                List.of(
+                        createLocalNode(0, List.of(AIPERSIST_STORAGE_PROFILE)),
+                        createLocalNode(1, List.of(ROCKSDB_STORAGE_PROFILE)),
+                        createLocalNode(2, List.of(DEFAULT_STORAGE_PROFILE))
+                )
+        ));
+
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'"
+                : "CREATE ZONE test STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
+
+        CatalogCommand cmd = convert(sql);
+
+        List<CatalogStorageProfileDescriptor> storageProfiles = invokeAndGetFirstEntry(cmd, NewZoneEntry.class)
+                .descriptor()
+                .storageProfiles()
+                .profiles();
+        assertThat(storageProfiles, hasSize(1));
+        assertThat(storageProfiles.get(0).storageProfile(), equalTo(DEFAULT_STORAGE_PROFILE));
+    }
+
     private static List<Arguments> defaultQuorum() {
         return List.of(
                 Arguments.of(1, 1),
