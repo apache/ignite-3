@@ -500,8 +500,8 @@ public class RexUtils {
                     fldIdx = fld.getIntKey();
                 }
 
-                RexNode casted = addCast(cluster, pred.operands.get(1), types.get(fldIdx));
-                bounds.set(fldIdx, new ExactBounds(pred, casted));
+                SaturatedRexNode casted = addCast(cluster, pred.operands.get(1), types.get(fldIdx));
+                bounds.set(fldIdx, new ExactBounds(pred, casted.value));
             }
         }
 
@@ -542,9 +542,13 @@ public class RexUtils {
         for (RexCall pred : collFldPreds) {
             RexNode val = null;
             RexNode ref = pred.getOperands().get(0);
+            boolean saturatedLookup = false;
 
             if (isBinaryComparison(pred)) {
-                val = addCast(cluster, pred.operands.get(1), fldType);
+                SaturatedRexNode saturatedNode = addCast(cluster, pred.getOperands().get(1), fldType);
+
+                val = saturatedNode.value;
+                saturatedLookup = saturatedNode.saturated;
             }
 
             SqlOperator op = pred.getOperator();
@@ -552,7 +556,9 @@ public class RexUtils {
             if (op.kind == EQUALS || op.kind == IS_NOT_DISTINCT_FROM) {
                 assert val != null;
 
-                return new ExactBounds(pred, val);
+                RexNode pred0 = saturatedLookup ? builder.makeCall(op, ref, val) : pred;
+
+                return new ExactBounds(pred0, val);
             } else if (op.kind == IS_NULL) {
                 return new ExactBounds(pred, nullValue);
             } else if (op.kind == OR) {
@@ -1146,20 +1152,20 @@ public class RexUtils {
         }
     }
 
-    private static RexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type) {
+    private static SaturatedRexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type) {
         RexNode node = removeCast(condition);
 
         assert idxOpSupports(node) : "Unsupported RexNode in index condition: " + node;
 
         RexBuilder builder = cluster.getRexBuilder();
-        RexNode saturated = toSaturatedValue(builder, node, type);
+        SaturatedRexNode saturatedLiteral = toSaturatedValue(builder, node, type);
 
-        if (saturated != null) {
-            return saturated;
+        if (saturatedLiteral != null) {
+            return saturatedLiteral;
         } else if (TypeUtils.needCastInSearchBounds(Commons.typeFactory(), node.getType(), type)) {
-            return builder.makeCast(type, node);
+            return new SaturatedRexNode(builder.makeCast(type, node), false);
         } else {
-            return node;
+            return new SaturatedRexNode(node, false);
         }
     }
 
@@ -1173,7 +1179,7 @@ public class RexUtils {
      * <p>Otherwise returns {@code null}.
      */
     @Nullable
-    private static RexLiteral toSaturatedValue(RexBuilder builder, RexNode node, RelDataType type) {
+    private static SaturatedRexNode toSaturatedValue(RexBuilder builder, RexNode node, RelDataType type) {
         if (!SqlTypeUtil.isNumeric(node.getType()) || !SqlTypeUtil.isNumeric(type) || !(node instanceof RexLiteral)) {
             return null;
         }
@@ -1204,24 +1210,29 @@ public class RexUtils {
         }
 
         BigDecimal newVal;
+        boolean saturated = false;
 
         if (lower.compareTo(val) > 0) {
             newVal = lower;
+            saturated = true;
         } else if (val.compareTo(upper) > 0) {
             newVal = upper;
+            saturated = true;
         } else if (!SqlTypeUtil.equalSansNullability(node.getType(), type)) {
             newVal = val;
         } else {
             // If literal types and required type, match ignoring nullability,
             // then return a literal as is.
-            return lit;
+            return new SaturatedRexNode(lit, false);
         }
 
         if (exact) {
-            return builder.makeExactLiteral(newVal, type);
+            lit = builder.makeExactLiteral(newVal, type);
         } else {
-            return builder.makeApproxLiteral(newVal, type);
+            lit = builder.makeApproxLiteral(newVal, type);
         }
+
+        return new SaturatedRexNode(lit, saturated);
     }
 
     /**
@@ -1366,5 +1377,17 @@ public class RexUtils {
         }
 
         return wasChanged ? newSearchBounds : searchBounds;
+    }
+
+    private static class SaturatedRexNode {
+        final RexNode value;
+
+        /** Flag indicating whether the numeric value has been saturated or the original value is used. */
+        final boolean saturated;
+
+        private SaturatedRexNode(RexNode value, boolean saturated) {
+            this.value = value;
+            this.saturated = saturated;
+        }
     }
 }
