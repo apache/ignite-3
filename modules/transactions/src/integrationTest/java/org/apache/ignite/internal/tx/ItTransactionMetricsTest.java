@@ -19,12 +19,14 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilizationOnDefaultZone;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.metrics.LongMetric;
@@ -62,7 +64,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
      * @param nodeIndex Node index to create a key value view.
      * @return Key value view.
      */
-    private KeyValueView<Integer, String> keyValueView(int nodeIndex) {
+    private static KeyValueView<Integer, String> keyValueView(int nodeIndex) {
         return keyValueView(CLUSTER.node(nodeIndex));
     }
 
@@ -72,7 +74,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
      * @param node Node to create a key value view.
      * @return Key value view.
      */
-    private KeyValueView<Integer, String> keyValueView(Ignite node) {
+    private static KeyValueView<Integer, String> keyValueView(Ignite node) {
         return node.tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
     }
 
@@ -82,7 +84,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
      * @param nodeIndex Node index to capture transaction metrics.
      * @return Snapshot of transaction metrics.
      */
-    private Map<String, Long> metricValues(int nodeIndex) {
+    private static Map<String, Long> metricValues(int nodeIndex) {
         var values = new HashMap<String, Long>();
 
         MetricSet txMetrics = unwrapIgniteImpl(node(nodeIndex))
@@ -232,14 +234,98 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
-     * Tests that TotalCommits and RoCommits are incremented when a SQL engine is used.
+     * Tests that TotalRollbacks and RwRollbacks/RoRollbacks are incremented when a transaction rolled back due to timeout.
      */
     @Test
-    void testSqlImplicitTransaction() {
+    void testTimeoutRollbackTransaction() throws Exception {
         Map<String, Long> metrics0 = metricValues(0);
         Map<String, Long> metrics1 = metricValues(1);
 
-        sql(0, "select * from " + TABLE_NAME);
+        Transaction rwTx = node(0).transactions().begin(new TransactionOptions().timeoutMillis(1000));
+        keyValueView(0).put(rwTx, 12, "value");
+
+        Transaction roTx = node(0).transactions().begin(new TransactionOptions().readOnly(true).timeoutMillis(1000));
+        keyValueView(0).get(roTx, 12);
+
+        // wait for completion of the transactions due to timeout.
+        assertThat(waitForCondition(() -> {
+            Map<String, Long> m = metricValues(0);
+
+            boolean total = m.get("TotalRollbacks") == metrics0.get("TotalRollbacks") + 2;
+            boolean rw = m.get("RwRollbacks") == metrics0.get("RwRollbacks") + 1;
+            boolean ro = m.get("RoRollbacks") == metrics0.get("RoRollbacks") + 1;
+
+            return total && rw && ro;
+        }, 5_000), is(true));
+
+        // Check that there are no updates on the node 1.
+        testMetricValues(metrics1, metricValues(1));
+    }
+
+    /**
+     * Tests that TotalRollbacks and RwRollbacks are incremented when a transaction rolled back due to a deadlock.
+     */
+    @Test
+    void testDeadlockTransaction() throws Exception {
+        Map<String, Long> metrics0 = metricValues(0);
+        Map<String, Long> metrics1 = metricValues(1);
+
+        KeyValueView<Integer, String> kv = keyValueView(0);
+
+        Transaction rwTx1 = node(0).transactions().begin();
+        Transaction rwTx2 = node(0).transactions().begin();
+
+        kv.put(rwTx1, 12, "value");
+        kv.put(rwTx2, 24, "value");
+
+        CompletableFuture<?> asyncOp1 = kv.getAsync(rwTx1, 24);
+        CompletableFuture<?> asyncOp2 = kv.getAsync(rwTx2, 12);
+
+        assertThat(waitForCondition(() -> asyncOp1.isDone() && asyncOp2.isDone(), 5_000), is(true));
+
+        rwTx1.commit();
+        // rwTx2 should be rolled back due to a deadlock
+
+        Map<String, Long> actualMetrics0 = metricValues(0);
+        Map<String, Long> actualMetrics1 = metricValues(1);
+
+        // Check that there are no updates on the node 1.
+        testMetricValues(metrics1, actualMetrics1);
+
+        // Check that all transaction metrics ere not changed except TotalRollbacks, TotalCommits, RwRollbacks and RwCommits.
+        testMetricValues(metrics0, actualMetrics0, "TotalRollbacks", "TotalCommits", "RwRollbacks", "RwCommits");
+
+        assertThat(actualMetrics0.get("TotalRollbacks"), is(metrics0.get("TotalRollbacks") + 1));
+        assertThat(actualMetrics0.get("RwRollbacks"), is(metrics0.get("RwRollbacks") + 1));
+
+        assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + 1));
+        assertThat(actualMetrics0.get("RwCommits"), is(metrics0.get("RwCommits") + 1));
+    }
+
+    /**
+     * Tests that TotalCommits, RwCommits and RoCommits are incremented when a SQL engine is used.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testSqlTransaction(boolean implicit) {
+        Object[] emptyArgs = new Object[0];
+
+        Map<String, Long> metrics0 = metricValues(0);
+        Map<String, Long> metrics1 = metricValues(1);
+
+        // read-only transaction.
+        Transaction tx = implicit ? null : node(0).transactions().begin(new TransactionOptions().readOnly(true));
+        sql(0, tx, "select * from " + TABLE_NAME, emptyArgs);
+        if (!implicit) {
+            tx.commit();
+        }
+
+        // read-write transaction.
+        tx = implicit ? null : node(0).transactions().begin();
+        sql(0, tx, "delete from " + TABLE_NAME, emptyArgs);
+        if (!implicit) {
+            tx.commit();
+        }
 
         Map<String, Long> actualMetrics0 = metricValues(0);
         Map<String, Long> actualMetrics1 = metricValues(1);
@@ -248,9 +334,10 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         testMetricValues(metrics1, actualMetrics1);
 
         // Check that all transaction metrics ere not changed except TotalCommits and RoCommits.
-        testMetricValues(metrics0, actualMetrics0, "TotalCommits", "RoCommits");
+        testMetricValues(metrics0, actualMetrics0, "TotalCommits", "RwCommits", "RoCommits");
 
-        assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + 1));
+        assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + 2));
         assertThat(actualMetrics0.get("RoCommits"), is(metrics0.get("RoCommits") + 1));
+        assertThat(actualMetrics0.get("RwCommits"), is(metrics0.get("RwCommits") + 1));
     }
 }
