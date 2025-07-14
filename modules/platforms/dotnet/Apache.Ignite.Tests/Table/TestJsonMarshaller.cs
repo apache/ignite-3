@@ -17,6 +17,7 @@ namespace Apache.Ignite.Tests.Table;
 
 using System;
 using System.Buffers;
+using System.Text;
 using Ignite.Marshalling;
 
 /// <summary>
@@ -41,7 +42,16 @@ public class TestJsonMarshaller<T> : IMarshaller<T>
 
     public T Unmarshal(ReadOnlySpan<byte> bytes)
     {
-        T res = _marshaller.Unmarshal(bytes);
+        T res;
+
+        try
+        {
+            res = _marshaller.Unmarshal(bytes);
+        }
+        catch (Exception e)
+        {
+            throw new InvalidOperationException($"Failed to deserialize JSON: '{Encoding.UTF8.GetString(bytes)}'", e);
+        }
 
         if (res != null && res.ToString()!.Contains("error", StringComparison.OrdinalIgnoreCase))
         {
