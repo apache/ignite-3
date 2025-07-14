@@ -203,7 +203,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      *
      * @param newPeers new peers
      */
-    Status resetPeers(final Configuration newPeers);
+    Status resetPeers(final Configuration newPeers, long term);
 
     /**
      * Add some new learners to the raft group. done.run() will be invoked after this operation finishes, describing the
