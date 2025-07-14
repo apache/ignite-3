@@ -46,6 +46,8 @@ public class DataStreamerTests : IgniteTestsBase
 
     private const string UpsertElementTypeNameReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
 
+    private const string MarshallerReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$MarshallerReceiver";
+
     private const int Count = 100;
 
     private const int UpdatedKey = Count / 2;
@@ -62,6 +64,9 @@ public class DataStreamerTests : IgniteTestsBase
     private static readonly ReceiverDescriptor<object?, object> EchoReceiverObsolete = new(EchoReceiverClassName);
 
     private static readonly ReceiverDescriptor<object, object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
+
+    private static readonly ReceiverDescriptor<ComputeTests.Nested, ComputeTests.MyArg, ComputeTests.MyResult> MarshallerReceiver
+        = new(MarshallerReceiverClassName);
 
     private static int _unknownKey = 333000;
 
@@ -897,6 +902,22 @@ public class DataStreamerTests : IgniteTestsBase
             receiverArg: arg).SingleAsync();
 
         Assert.AreEqual(arg, res);
+    }
+
+    [Test]
+    public async Task TestMarshallerReceiver()
+    {
+        var payload = new ComputeTests.Nested(Guid.NewGuid(), 1.23m);
+        var arg = new ComputeTests.MyArg(1, "foo", new ComputeTests.Nested(Guid.NewGuid(), 2.2m));
+
+        ComputeTests.MyResult res = await PocoView.StreamDataAsync(
+            new[] { payload }.ToAsyncEnumerable(),
+            MarshallerReceiver,
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            receiverArg: arg).FirstAsync();
+
+        Assert.IsNotNull(res);
     }
 
     [Test]

@@ -1097,12 +1097,12 @@ namespace Apache.Ignite.Tests.Compute
             JobTarget.Node(
                 (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).First());
 
-        private record Nested(Guid Id, decimal Price);
+        internal record Nested(Guid Id, decimal Price);
 
         [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests.")]
-        private record MyArg(int Id, string Name, Nested Nested);
+        internal record MyArg(int Id, string Name, Nested Nested);
 
-        private record MyResult(string Data, Nested Nested);
+        internal record MyResult(string Data, Nested Nested);
 
         private class ToStringMarshaller : IMarshaller<Nested>
         {
