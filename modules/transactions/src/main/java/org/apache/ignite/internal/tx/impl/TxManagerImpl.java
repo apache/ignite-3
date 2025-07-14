@@ -1158,12 +1158,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return runAsync(runnable, writeIntentSwitchPool);
     }
 
-    void completeReadOnlyTransactionFuture(
-            boolean commit,
-            boolean implicit,
-            TxIdAndTimestamp txIdAndTimestamp,
-            boolean timeoutExceeded
-    ) {
+    void completeReadOnlyTransactionFuture(boolean commit, TxIdAndTimestamp txIdAndTimestamp, boolean timeoutExceeded) {
         UUID txId = txIdAndTimestamp.getTxId();
 
         txMetrics.onReadOnlyTransactionFinished(txId, commit);

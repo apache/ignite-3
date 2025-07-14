@@ -29,7 +29,6 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-only implementation of an internal transaction.
@@ -136,12 +135,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public CompletableFuture<Void> finish(
-            boolean commit,
-            @Nullable HybridTimestamp executionTimestamp,
-            boolean full,
-            boolean timeoutExceeded
-    ) {
+    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
         assert !full : "Read-only transactions cannot be full.";
         assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
 
@@ -153,12 +147,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         txFuture.complete(null);
 
-        ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(
-                commit,
-                implicit(),
-                new TxIdAndTimestamp(readTimestamp, id()),
-                timeoutExceeded
-        );
+        ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(commit, new TxIdAndTimestamp(readTimestamp, id()), timeoutExceeded);
 
         this.timeoutExceeded = timeoutExceeded;
 
