@@ -442,7 +442,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         IgniteTable tbl = rel.getTable().unwrap(IgniteTable.class);
 
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
-        ImmutableBitSet requiredColumns = rel.requiredColumns();
+        ImmutableIntList requiredColumns = rel.requiredColumns();
+
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
         ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
 
@@ -529,7 +530,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 ranges,
                 filters,
                 prj,
-                requiredColumns == null ? null : requiredColumns.toBitSet()
+                requiredColumns
         );
     }
 
@@ -538,7 +539,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteTableScan rel) {
         RexNode condition = rel.condition();
         List<RexNode> projects = rel.projects();
-        ImmutableBitSet requiredColumns = rel.requiredColumns();
+        ImmutableIntList requiredColumns = rel.requiredColumns();
 
         IgniteTable tbl = rel.getTable().unwrapOrThrow(IgniteTable.class);
         ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
@@ -581,7 +582,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 partitionProvider,
                 filters,
                 prj,
-                requiredColumns == null ? null : requiredColumns.toBitSet()
+                requiredColumns
         );
     }
 
@@ -590,7 +591,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSystemViewScan rel) {
         RexNode condition = rel.condition();
         List<RexNode> projects = rel.projects();
-        ImmutableBitSet requiredColumns = rel.requiredColumns();
+        ImmutableIntList requiredColumns = rel.requiredColumns();
         IgniteDataSource igniteDataSource = rel.getTable().unwrapOrThrow(IgniteDataSource.class);
 
         BinaryTupleSchema schema = fromTableDescriptor(igniteDataSource.descriptor());
@@ -622,7 +623,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 dataSource,
                 filters,
                 prj,
-                requiredColumns == null ? null : requiredColumns.toBitSet()
+                requiredColumns
         );
     }
 

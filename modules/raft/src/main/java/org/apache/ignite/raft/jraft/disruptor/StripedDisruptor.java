@@ -39,7 +39,7 @@ import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource.DisruptorMetrics;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.jetbrains.annotations.Nullable;
 
@@ -153,7 +153,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
         eventHandlers = new ArrayList<>(stripes);
         exceptionHandlers = new ArrayList<>(stripes);
         this.stripes = stripes;
-        this.name = NamedThreadFactory.threadPrefix(nodeName, poolName);
+        this.name = IgniteThread.threadPrefix(nodeName, poolName);
         this.sharedStripe = sharedStripe;
         this.metrics = raftMetrics;
 

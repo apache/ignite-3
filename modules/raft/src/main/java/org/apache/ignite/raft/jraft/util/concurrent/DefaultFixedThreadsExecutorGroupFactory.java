@@ -20,7 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 
@@ -57,7 +57,7 @@ public class DefaultFixedThreadsExecutorGroupFactory implements FixedThreadsExec
     }
 
     protected ThreadFactory newDaemonThreadFactory(String poolName) {
-        return new NamedThreadFactory(poolName, true, LOG);
+        return IgniteThreadFactory.createWithFixedPrefix(poolName, true, LOG);
     }
 
     @Override

@@ -34,7 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
     /** Engine instance. */
-    StorageEngine storageEngine;
+    protected StorageEngine storageEngine;
 
     protected LogSyncer logSyncer = mock(LogSyncer.class);
 

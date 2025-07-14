@@ -1180,6 +1180,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         writeBatch.delete(meta, lastAppliedIndexAndTermKey);
         writeBatch.delete(meta, lastGroupConfigKey);
         writeBatch.delete(meta, leaseKey);
+        writeBatch.delete(meta, estimatedSizeKey);
 
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
         writeBatch.deleteRange(helper.dataCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());

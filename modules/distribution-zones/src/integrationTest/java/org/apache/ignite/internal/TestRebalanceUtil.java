@@ -110,6 +110,20 @@ public class TestRebalanceUtil {
     }
 
     /**
+     * Returns pending partition change trigger key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Pending partition change trigger key.
+     */
+    public static ByteArray pendingChangeTriggerKey(PartitionGroupId partitionGroupId) {
+        if (colocationEnabled()) {
+            return ZoneRebalanceUtil.pendingChangeTriggerKey(((ZonePartitionId) partitionGroupId));
+        } else {
+            return RebalanceUtil.pendingChangeTriggerKey((TablePartitionId) partitionGroupId);
+        }
+    }
+
+    /**
      * Returns planned partition assignments key.
      *
      * @param partitionGroupId Partition group identifier.

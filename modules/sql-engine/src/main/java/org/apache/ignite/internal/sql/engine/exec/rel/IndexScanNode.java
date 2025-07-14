@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -27,6 +26,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -57,7 +57,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     private final PartitionProvider<RowT> partitionProvider;
 
     /** Participating columns. */
-    private final @Nullable BitSet requiredColumns;
+    private final int @Nullable [] requiredColumns;
 
     private final @Nullable RangeIterable<RowT> rangeConditions;
 
@@ -89,14 +89,14 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
-            @Nullable BitSet requiredColumns
+            @Nullable ImmutableIntList requiredColumns
     ) {
         super(ctx, filters, rowTransformer);
 
         this.schemaIndex = schemaIndex;
         this.table = table;
         this.partitionProvider = partitionProvider;
-        this.requiredColumns = requiredColumns;
+        this.requiredColumns = requiredColumns == null ? null : requiredColumns.toIntArray();
         this.rangeConditions = rangeConditions;
         this.comp = comp;
         this.factory = rowFactory;

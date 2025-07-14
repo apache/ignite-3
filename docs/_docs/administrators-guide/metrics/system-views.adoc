@@ -122,23 +122,6 @@ A node system view that lists the currently active locks.
 
 |=======
 
-=== SEQUENCES
-
-[width="100%", cols="15%a, 15%a, 60%a",opts="header"]
-|=======
-|Column	|Data Type| Description
-| ID | INT32 | The ID of the sequence.
-| NAME | STRING | The name of the sequence.
-| SCHEMA_ID | INT32 | The id of the schema used by the sequence.
-| SCHEMA_NAME | STRING | The name of the schema used by the sequence.
-| DATA_TYPE | STRING | The sequence data type.
-| INCREMENT | INT64 | How much the sequence is incremented by each time.
-| MINIMUM_VALUE | INT64 | Minimum sequence value.
-| MAXIMUM_VALUE | INT64 | Maximum sequence value.
-| START_VALUE | INT64 | The starting value of the sequence.
-| CACHE_VALUE | INT64 | The amount of sequence numbers that are pre-allocated and stored in memory.
-|=======
-
 === SQL_QUERIES
 
 [width="100%", cols="15%a, 15%a, 60%a",opts="header"]

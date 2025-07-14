@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb.engine;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
@@ -70,6 +71,11 @@ public class RocksDbStorageEngineTest extends AbstractPersistentStorageEngineTes
         );
     }
 
+    @Override
+    protected void persistTableDestructionIfNeeded() {
+        assertThat(((RocksDbStorageEngine) storageEngine).flush(), willCompleteSuccessfully());
+    }
+
     @Test
     void dataRegionSizeGetsInitialized() {
         for (StorageProfileView view : storageConfiguration.profiles().value()) {
@@ -89,17 +95,5 @@ public class RocksDbStorageEngineTest extends AbstractPersistentStorageEngineTes
         for (StorageProfileView view : storageConfig.profiles().value()) {
             assertThat(((RocksDbProfileView) view).sizeBytes(), is(12345L));
         }
-    }
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-25854 - remove the override.
-    @Override
-    protected void remembersCreatedTableIdsOnDisk(boolean restart) {
-        // No-op.
-    }
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-25854 - remove the override.
-    @Override
-    protected void tableIdsOnDiskGoAfterDestruction(boolean restart) {
-        // No-op.
     }
 }

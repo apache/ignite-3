@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -106,7 +107,7 @@ import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -320,7 +321,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                 "unit-test",
                 "JRaft-FSMCaller-Disruptor",
-                (stripeName, logger) -> NamedThreadFactory.create("unit-test", stripeName, true, logger),
+                (stripeName, logger) -> IgniteThreadFactory.create("unit-test", stripeName, true, logger),
                 1,
                 () -> new ApplyTask(),
                 1,
@@ -3679,19 +3680,37 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyList(),
+                anyList()
+        );
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyList(),
+                anyList()
+        );
 
         cluster.stop(cluster.getLeader().getLeaderId());
 
         cluster.waitAndGetLeader();
 
-        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(anyLong());
+        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyList(),
+                anyList()
+        );
     }
 
     @Test

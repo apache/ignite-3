@@ -178,7 +178,7 @@ import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOn
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -668,7 +668,7 @@ public class Node {
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
-        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl();
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
         metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
 
         schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
@@ -697,7 +697,7 @@ public class Node {
 
         ScheduledExecutorService rebalanceScheduler = Executors.newScheduledThreadPool(
                 REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(name, "test-rebalance-scheduler", LOG)
+                IgniteThreadFactory.create(name, "test-rebalance-scheduler", LOG)
         );
 
         SystemDistributedConfiguration systemDistributedConfiguration =
