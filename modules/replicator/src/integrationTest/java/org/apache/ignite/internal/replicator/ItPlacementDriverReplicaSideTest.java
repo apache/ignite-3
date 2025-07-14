@@ -100,7 +100,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.topology.TestLogicalTopologyService;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -162,7 +162,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     public void beforeTest(TestInfo testInfo) {
         partitionOperationsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create("test", "partition-operations", log)
+                IgniteThreadFactory.create("test", "partition-operations", log)
         );
 
         placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))

@@ -207,7 +207,11 @@ public class ExecutorServiceExtension implements BeforeAllCallback, AfterAllCall
         String threadPrefix = threadPrefix(injectExecutorService, testClass, fieldName, methodName);
         ThreadOperation[] allowedOperations = injectExecutorService.allowedOperations();
 
-        ThreadFactory threadFactory = IgniteThreadFactory.withPrefix(threadPrefix, Loggers.forClass(testClass), allowedOperations);
+        ThreadFactory threadFactory = IgniteThreadFactory.createWithFixedPrefix(
+                threadPrefix,
+                false,
+                Loggers.forClass(testClass),
+                allowedOperations);
 
         if (fieldType.equals(ScheduledExecutorService.class)) {
             return newScheduledThreadPool(threadCount == 0 ? 1 : threadCount, threadFactory);

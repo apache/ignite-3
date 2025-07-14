@@ -39,7 +39,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -106,7 +106,7 @@ public class ResourceVacuumManager implements IgniteComponent {
         this.clusterNodeResolver = topologyService;
         this.resourceVacuumExecutor = Executors.newScheduledThreadPool(
                 RESOURCE_VACUUM_EXECUTOR_SIZE,
-                NamedThreadFactory.create(nodeName, "resource-vacuum-executor", LOG)
+                IgniteThreadFactory.create(nodeName, "resource-vacuum-executor", LOG)
         );
         this.finishedReadOnlyTransactionTracker = new FinishedReadOnlyTransactionTracker(
                 topologyService,

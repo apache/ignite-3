@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import java.util.BitSet;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Row type utils class.
@@ -40,30 +41,32 @@ public final class RowTypeUtils {
     }
 
     /**
-     * Compute stored rows count for provided table.
+     * Compute stored columns count for provided table.
      *
      * @param tableDescriptor Table descriptor.
-     * @return Stored rows count.
+     * @return Stored columns count.
      */
-    public static int storedRowsCount(TableDescriptor tableDescriptor) {
-        return storedColumns(tableDescriptor).cardinality();
+    public static int storedColumnsCount(TableDescriptor tableDescriptor) {
+        int count = 0;
+        for (ColumnDescriptor descriptor : tableDescriptor) {
+            count += descriptor.virtual() ? 0 : 1;
+        }
+        return count;
     }
 
-    private static ImmutableBitSet storedColumns(TableDescriptor tableDescriptor) {
-        BitSet virtualColumns = new BitSet();
-        for (ColumnDescriptor descriptor : tableDescriptor) {
-            if (descriptor.virtual()) {
-                virtualColumns.set(descriptor.logicalIndex());
-            }
-        }
-        ImmutableBitSet storedColumns;
-        if (virtualColumns.isEmpty()) {
-            storedColumns = ImmutableBitSet.range(tableDescriptor.columnsCount());
-        } else {
-            virtualColumns.flip(0, tableDescriptor.columnsCount());
-            storedColumns = ImmutableBitSet.fromBitSet(virtualColumns);
+    private static @Nullable ImmutableIntList storedColumns(TableDescriptor tableDescriptor) {
+        if (!tableDescriptor.hasVirtualColumns()) {
+            return null;
         }
 
-        return storedColumns;
+        IntArrayList storedColumns = new IntArrayList(tableDescriptor.columnsCount());
+
+        for (ColumnDescriptor descriptor : tableDescriptor) {
+            if (!descriptor.virtual()) {
+                storedColumns.add(descriptor.logicalIndex());
+            }
+        }
+
+        return ImmutableIntList.of(storedColumns.toIntArray());
     }
 }

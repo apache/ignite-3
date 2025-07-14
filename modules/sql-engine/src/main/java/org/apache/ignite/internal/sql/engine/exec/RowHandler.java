@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
@@ -53,6 +54,10 @@ public interface RowHandler<RowT> {
      * @return {@link BinaryTuple} representation.
      */
     BinaryTuple toBinaryTuple(RowT row);
+
+    default ByteBuffer toByteBuffer(RowT row) {
+        return toBinaryTuple(row).byteBuffer();
+    }
 
     /** String representation. */
     String toString(RowT row);

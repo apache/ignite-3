@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.schema.CatalogColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
@@ -57,7 +57,7 @@ public class SystemViewPlannerTest extends AbstractPlannerTest {
         IgniteSystemView propsView = systemPropsView("SYS_PROPS", "KEY", "VAL");
 
         assertPlan("SELECT * FROM SYS_PROPS", createSystemSchema(propsView),
-                isSystemViewScan("SYS_PROPS").and(v -> ImmutableBitSet.of(0, 1).equals(v.requiredColumns())));
+                isSystemViewScan("SYS_PROPS").and(v -> ImmutableIntList.of(0, 1).equals(v.requiredColumns())));
     }
 
     @Test
@@ -67,10 +67,10 @@ public class SystemViewPlannerTest extends AbstractPlannerTest {
         IgniteSchema schema = createSystemSchema(propsView);
 
         assertPlan("SELECT key FROM SYS_PROPS", schema,
-                isSystemViewScan("SYS_PROPS").and(v -> ImmutableBitSet.of(0).equals(v.requiredColumns())));
+                isSystemViewScan("SYS_PROPS").and(v -> ImmutableIntList.of(0).equals(v.requiredColumns())));
 
         assertPlan("SELECT val FROM SYS_PROPS", schema,
-                isSystemViewScan("SYS_PROPS").and(v -> ImmutableBitSet.of(1).equals(v.requiredColumns())));
+                isSystemViewScan("SYS_PROPS").and(v -> ImmutableIntList.of(1).equals(v.requiredColumns())));
     }
 
     @Test
@@ -102,7 +102,7 @@ public class SystemViewPlannerTest extends AbstractPlannerTest {
 
         assertPlan("SELECT id, SUBSTRING(home, 4) FROM users WHERE name LIKE 'test%'", schema,
                 isSystemViewScan("USERS")
-                        .and(v -> ImmutableBitSet.of(0, 1, 2).equals(v.requiredColumns()))
+                        .and(v -> ImmutableIntList.of(0, 1, 2).equals(v.requiredColumns()))
                         .and(hasExprs(IgniteSystemViewScan::projects, "$t0", "SUBSTRING($t1, 4)"))
                         .and(hasExpr(IgniteSystemViewScan::condition, "LIKE($t2, _UTF-8'test%')")
         ));
