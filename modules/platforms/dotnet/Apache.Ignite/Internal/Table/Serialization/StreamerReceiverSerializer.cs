@@ -44,14 +44,19 @@ internal static class StreamerReceiverSerializer
     /// <param name="className">Receiver class name.</param>
     /// <param name="arg">Receiver argument.</param>
     /// <param name="items">Receiver items.</param>
+    /// <param name="payloadMarshaller">Payload marshaller.</param>
+    /// <param name="argMarshaller">Argument marshaller.</param>
     /// <typeparam name="T">Item type.</typeparam>
-    public static void WriteReceiverInfo<T>(
+    /// <typeparam name="TArg">Arg type.</typeparam>
+    public static void WriteReceiverInfo<T, TArg>(
         ref MsgPackWriter w,
         string className,
-        object? arg,
-        ArraySegment<T> items)
+        TArg arg,
+        ArraySegment<T> items,
+        IMarshaller<T>? payloadMarshaller,
+        IMarshaller<TArg>? argMarshaller)
     {
-        using var builder = BuildReceiverInfo(className, arg, items);
+        using var builder = BuildReceiverInfo(className, arg, items, payloadMarshaller, argMarshaller);
 
         w.Write(builder.NumElements);
         w.Write(builder.Build().Span);
@@ -63,13 +68,18 @@ internal static class StreamerReceiverSerializer
     /// <param name="className">Receiver class name.</param>
     /// <param name="arg">Receiver argument.</param>
     /// <param name="items">Receiver items.</param>
+    /// <param name="payloadMarshaller">Payload marshaller.</param>
+    /// <param name="argMarshaller">Argument marshaller.</param>
     /// <param name="prefixSize">Builder prefix size.</param>
     /// <typeparam name="T">Item type.</typeparam>
+    /// <typeparam name="TArg">Argument type.</typeparam>
     /// <returns>Binary tuple builder.</returns>
-    public static BinaryTupleBuilder BuildReceiverInfo<T>(
+    public static BinaryTupleBuilder BuildReceiverInfo<T, TArg>(
         string className,
-        object? arg,
+        TArg arg,
         ArraySegment<T> items,
+        IMarshaller<T>? payloadMarshaller,
+        IMarshaller<TArg>? argMarshaller,
         int prefixSize = 0)
     {
         Debug.Assert(items.Count > 0, "items.Count > 0");
@@ -82,8 +92,13 @@ internal static class StreamerReceiverSerializer
         {
             builder.AppendString(className);
 
-            // TODO: arg and item marshallers.
-            if (arg is IIgniteTuple tupleArg)
+            if (argMarshaller != null)
+            {
+                builder.AppendInt((int)ColumnType.ByteArray);
+                builder.AppendInt(0); // Scale.
+                builder.AppendBytes(static (bufWriter, a) => a.argMarshaller.Marshal(a.arg, bufWriter), (arg, argMarshaller));
+            }
+            else if (arg is IIgniteTuple tupleArg)
             {
                 builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
                 builder.AppendInt(0); // Scale.
@@ -94,7 +109,7 @@ internal static class StreamerReceiverSerializer
                 builder.AppendObjectWithType(arg);
             }
 
-            AppendCollection(builder, items);
+            AppendCollection(builder, items, payloadMarshaller);
 
             return builder;
         }
