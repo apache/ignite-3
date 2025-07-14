@@ -127,6 +127,8 @@ public class MockNode {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
+        boolean colocationEnabled = IgniteSystemProperties.colocationEnabled();
+
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 new SystemDisasterRecoveryStorage(vaultManager),
@@ -135,7 +137,7 @@ public class MockNode {
                         clusterService,
                         hocon -> hocon,
                         new TestConfigurationValidator(),
-                        new SystemPropertiesNodeProperties()
+                        () -> colocationEnabled
                 ),
                 raftManager,
                 clusterStateStorage,
@@ -144,7 +146,8 @@ public class MockNode {
                 failureManager,
                 clusterIdHolder,
                 cmgRaftConfigurer,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                () -> colocationEnabled
         );
 
         components = List.of(
