@@ -167,7 +167,7 @@ internal static class StreamerReceiverSerializer
         }
 
         var tuple = new BinaryTupleReader(reader.ReadBinary(), numElements);
-        if (tuple.GetInt(0) != TupleWithSchemaMarshalling.TypeIdTuple)
+        if (tuple.GetInt(0) != TupleWithSchemaMarshalling.TypeIdTuple && marshaller == null)
         {
             return tuple.GetObjectCollectionWithType<T>();
         }
