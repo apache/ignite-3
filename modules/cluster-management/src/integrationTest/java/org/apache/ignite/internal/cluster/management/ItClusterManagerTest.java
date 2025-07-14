@@ -562,7 +562,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testInitFailsOnDifferentEnabledColocationModesWithinCMGNodes(boolean colocationEnabled) throws Exception {
+    void testInitFailsOnDifferentEnabledColocationModesWithinCmgNodes(boolean colocationEnabled) throws Exception {
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled));
         startNode(0, 2);
 
@@ -576,8 +576,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 InitException.class,
                 "Unable to initialize the cluster: org.apache.ignite.internal.cluster.management.InternalInitException:"
                         + " IGN-CMN-65535 Got error response from node \"icmt_tifodecmwcmgn_10001\": Colocation modes does not match"
-                        + " [initInitiatorNodeName=icmt_tifodecmwcmgn_10000, initInitiatorColocationMode=" + colocationEnabled +
-                        ", recipientColocationMode=" + !colocationEnabled + "]."
+                        + " [initInitiatorNodeName=icmt_tifodecmwcmgn_10000, initInitiatorColocationMode=" + colocationEnabled
+                        + ", recipientColocationMode=" + !colocationEnabled + "]."
         );
     }
 }
