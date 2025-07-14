@@ -282,7 +282,7 @@ internal static class StreamerReceiverSerializer
 
         if (marshaller != null)
         {
-            ReadOnlySpan<byte> bytes = reader.GetBytesSpan(index);
+            ReadOnlySpan<byte> bytes = reader.GetBytesSpan(index + 2);
             return marshaller.Unmarshal(bytes);
         }
 
