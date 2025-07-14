@@ -744,7 +744,7 @@ public class TestBuilders {
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(), planningTimeout, PLANNING_THREAD_COUNT,
+                    new DdlSqlToCommandConverter(storageProfiles -> {}), planningTimeout, PLANNING_THREAD_COUNT,
                     new NoOpMetricManager(), schemaManager);
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
