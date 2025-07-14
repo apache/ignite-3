@@ -44,7 +44,7 @@ import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedLifoByteBufferCollectorPool;import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
 import org.jetbrains.annotations.Nullable;
 
@@ -309,7 +309,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * <p>Used to prevent a large number of {@link ByteBufferCollector} from being accumulated across all threads that are involved in
      * sending log entries, see {@link ByteBufferCollector#allocateByRecyclers}.</p>
      */
-    private ByteBufferCollectorPool appendEntriesByteBufferCollectorPool;
+    private ByteBufferCollectorPool appendEntriesByteBufferCollectorPool = new ConcurrentLinkedLifoByteBufferCollectorPool(
+            Utils.MAX_COLLECTOR_SIZE_PER_SERVER
+    );
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());

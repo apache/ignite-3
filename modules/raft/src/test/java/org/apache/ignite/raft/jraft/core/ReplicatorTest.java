@@ -61,7 +61,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ThreadId;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedLifoByteBufferCollectorPool;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -116,9 +115,6 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         NodeOptions options = new NodeOptions();
         executor = JRaftUtils.createExecutor("test-executor-", Utils.cpus());
         options.setCommonExecutor(executor);
-        options.setAppendEntriesByteBufferCollectorPool(
-                new ConcurrentLinkedLifoByteBufferCollectorPool(Utils.MAX_COLLECTOR_SIZE_PER_SERVER)
-        );
 
         Mockito.when(this.logManager.getLastLogIndex()).thenReturn(10L);
         Mockito.when(this.logManager.getTerm(10)).thenReturn(1L);

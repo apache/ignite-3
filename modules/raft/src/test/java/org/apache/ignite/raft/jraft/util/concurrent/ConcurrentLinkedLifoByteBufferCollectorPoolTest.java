@@ -72,7 +72,7 @@ public class ConcurrentLinkedLifoByteBufferCollectorPoolTest {
 
     @Test
     void borrowSeveral() {
-        List<ByteBufferCollector> collectors = allocateListCollector(5);
+        List<ByteBufferCollector> collectors = allocateCollectors(5);
 
         collectors.forEach(collectorPool::release);
 
@@ -102,7 +102,7 @@ public class ConcurrentLinkedLifoByteBufferCollectorPoolTest {
 
     @Test
     void releaseMoreThanCapacity() {
-        List<ByteBufferCollector> collectors = allocateListCollector(CAPACITY + 5);
+        List<ByteBufferCollector> collectors = allocateCollectors(CAPACITY + 5);
 
         collectors.forEach(collectorPool::release);
 
@@ -171,7 +171,7 @@ public class ConcurrentLinkedLifoByteBufferCollectorPoolTest {
         return ByteBufferCollector.allocate(32);
     }
 
-    private static List<ByteBufferCollector> allocateListCollector(int size) {
+    private static List<ByteBufferCollector> allocateCollectors(int size) {
         return IntStream.range(0, size)
                 .mapToObj(i -> allocateCollector())
                 .collect(toList());

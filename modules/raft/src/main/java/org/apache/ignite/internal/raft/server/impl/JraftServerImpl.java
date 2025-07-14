@@ -110,7 +110,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentLinkedLifoByteBufferCollectorPool;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -205,12 +204,6 @@ public class JraftServerImpl implements RaftServer {
          than suspicion timeout for the 1000 nodes cluster with ping interval equals 500ms.
          */
         this.opts.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy(11_000, 3));
-
-        if (opts.getAppendEntriesByteBufferCollectorPool() == null) {
-            opts.setAppendEntriesByteBufferCollectorPool(
-                    new ConcurrentLinkedLifoByteBufferCollectorPool(Utils.MAX_COLLECTOR_SIZE_PER_SERVER)
-            );
-        }
 
         var monitors = new ArrayList<>(SIMULTANEOUS_GROUP_START_PARALLELISM);
 
