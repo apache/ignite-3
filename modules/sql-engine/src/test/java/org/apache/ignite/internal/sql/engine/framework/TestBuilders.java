@@ -739,6 +739,14 @@ public class TestBuilders {
                     CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock)
             );
 
+            var parserService = new ParserServiceImpl();
+
+            ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
+            var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
+            var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
+                    new DdlSqlToCommandConverter(storageProfiles -> {}), planningTimeout, PLANNING_THREAD_COUNT,
+                    new NoOpMetricManager(), schemaManager);
+
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
 
             for (Entry<String, Set<String>> entry : nodeName2SystemView.entrySet()) {
@@ -747,38 +755,6 @@ public class TestBuilders {
                     systemViewsByNode.computeIfAbsent(nodeName, (k) -> new ArrayList<>()).add(systemViewName);
                 }
             }
-
-            List<LogicalNode> logicalNodes = nodeNames.stream()
-                    .map(name -> {
-                        List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
-                        NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
-                        LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr);
-                        List<String> storageProfiles = List.of("Default");
-
-                        if (systemViewForNode.isEmpty()) {
-                            return new LogicalNode(logicalNode, Map.of(), Map.of(), storageProfiles);
-                        } else {
-                            String attrName = SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
-                            String nodeNameSep = SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
-                            String nodeNamesString = String.join(nodeNameSep, systemViewForNode);
-
-                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), storageProfiles);
-                        }
-                    })
-                    .collect(Collectors.toList());
-
-            ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
-            var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
-            var prepareService = new PrepareServiceImpl(
-                    clusterName,
-                    0,
-                    CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(storageProfiles -> {}),
-                    planningTimeout,
-                    PLANNING_THREAD_COUNT,
-                    new NoOpMetricManager(),
-                    schemaManager
-            );
 
             ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                     IgniteThreadFactory.create("test", "common-scheduled-executors", LOG)
@@ -795,6 +771,24 @@ public class TestBuilders {
 
             RunnableX stopClosure = () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
+            List<LogicalNode> logicalNodes = nodeNames.stream()
+                    .map(name -> {
+                        List<String> systemViewForNode = systemViewsByNode.getOrDefault(name, List.of());
+                        NetworkAddress addr = NetworkAddress.from("127.0.0.1:10000");
+                        LogicalNode logicalNode = new LogicalNode(randomUUID(), name, addr);
+
+                        if (systemViewForNode.isEmpty()) {
+                            return logicalNode;
+                        } else {
+                            String attrName = SystemViewManagerImpl.NODE_ATTRIBUTES_KEY;
+                            String nodeNameSep = SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
+                            String nodeNamesString = String.join(nodeNameSep, systemViewForNode);
+
+                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), List.of());
+                        }
+                    })
+                    .collect(Collectors.toList());
+
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
             ConcurrentMap<String, UpdatableTable> updatableTablesByName = new ConcurrentHashMap<>();
             ConcurrentMap<String, AssignmentsProvider> assignmentsProviderByTableName = new ConcurrentHashMap<>();
@@ -805,8 +799,6 @@ public class TestBuilders {
                             .mapToObj(partNo -> nodeNames)
                             .collect(Collectors.toList())
             );
-
-            var parserService = new ParserServiceImpl();
 
             DefaultDataProvider defaultDataProvider = this.defaultDataProvider;
             Map<String, TestNode> nodes = nodeNames.stream()
