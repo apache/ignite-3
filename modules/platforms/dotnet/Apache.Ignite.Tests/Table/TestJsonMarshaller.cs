@@ -30,15 +30,7 @@ public class TestJsonMarshaller<T> : IMarshaller<T>
 
     public TestJsonMarshaller(JsonMarshaller<T> marshaller) => _marshaller = marshaller;
 
-    public void Marshal(T obj, IBufferWriter<byte> writer)
-    {
-        if (obj != null && obj.ToString()!.Contains("error", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Test marshaller error: " + obj);
-        }
-
-        _marshaller.Marshal(obj, writer);
-    }
+    public void Marshal(T obj, IBufferWriter<byte> writer) => _marshaller.Marshal(obj, writer);
 
     public T Unmarshal(ReadOnlySpan<byte> bytes)
     {

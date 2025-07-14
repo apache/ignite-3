@@ -252,10 +252,20 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestErrorInMarshaller()
+    public void TestErrorInMarshaller()
     {
-        // TODO
-        await Task.Delay(1);
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await PocoView.StreamDataAsync(
+            new object[] { "unused" }.ToAsyncEnumerable(),
+            DotNetReceivers.Marshaller with { DeploymentUnits = [_defaultTestUnit] },
+            keySelector: _ => new Poco(),
+            payloadSelector: _ => new DotNetReceivers.ReceiverItem<string>(Guid.Empty, "error!"),
+            receiverArg: new DotNetReceivers.ReceiverArg(1, "1")).FirstAsync());
+
+        Assert.AreEqual(
+            ".NET job failed: Test marshaller error: ReceiverItem { Id = 00000000-0000-0000-0000-000000000000, Value = error! }",
+            ex.Message);
+
+        Assert.AreEqual(1, ex.FailedItems.Count);
     }
 
     private async Task<object> RunEchoArgReceiver(object arg, IRecordView<Poco>? view = null)
