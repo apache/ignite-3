@@ -617,7 +617,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration
     ) throws NodeStoppingException {
-        System.out.println(">>> " + localNodeConsistentId);
         if (!enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -717,7 +716,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
             );
         } finally {
-            System.out.println("<<< = " + localNodeConsistentId + ", replicaGrpId = " + replicaGrpId + " closed");
             busyLock.leaveBusy();
         }
     }
