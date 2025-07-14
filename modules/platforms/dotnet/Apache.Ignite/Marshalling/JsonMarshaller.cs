@@ -19,7 +19,6 @@ namespace Apache.Ignite.Marshalling;
 
 using System;
 using System.Buffers;
-using System.Text;
 using System.Text.Json;
 using Internal.Common;
 
@@ -59,17 +58,8 @@ public sealed class JsonMarshaller<T> : IMarshaller<T>
     }
 
     /// <inheritdoc />
-    public T Unmarshal(ReadOnlySpan<byte> bytes)
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<T>(bytes, Options)!;
-        }
-        catch (Exception e)
-        {
-            throw new InvalidOperationException($"Failed to deserialize JSON: {Encoding.UTF8.GetString(bytes)}", e);
-        }
-    }
+    public T Unmarshal(ReadOnlySpan<byte> bytes) =>
+        JsonSerializer.Deserialize<T>(bytes, Options)!;
 
     /// <inheritdoc />
     public override string ToString() =>
