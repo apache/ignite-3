@@ -135,9 +135,14 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full, boolean timeoutExceeded) {
+    public CompletableFuture<Void> finish(
+            boolean commitIntent,
+            HybridTimestamp executionTimestamp,
+            boolean full,
+            boolean timeoutExceeded
+    ) {
         assert !full : "Read-only transactions cannot be full.";
-        assert !(commit && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
+        assert !(commitIntent && timeoutExceeded) : "Transaction cannot commit with timeout exceeded.";
 
         if (!finishGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
@@ -147,7 +152,10 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         txFuture.complete(null);
 
-        ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(commit, new TxIdAndTimestamp(readTimestamp, id()), timeoutExceeded);
+        ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(
+                commitIntent,
+                new TxIdAndTimestamp(readTimestamp, id()),
+                timeoutExceeded);
 
         this.timeoutExceeded = timeoutExceeded;
 
