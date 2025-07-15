@@ -153,7 +153,7 @@ public class NodeUtils {
         return preferablePrimary[0];
     }
 
-    private static void stopLeaseProlongation(Collection<IgniteImpl> nodes, IgniteImpl leaseholderNode, ReplicationGroupId groupId,
+    public static void stopLeaseProlongation(Collection<IgniteImpl> nodes, IgniteImpl leaseholderNode, ReplicationGroupId groupId,
             String preferablePrimary) {
         StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                 .groupId(groupId)
@@ -165,7 +165,7 @@ public class NodeUtils {
         );
     }
 
-    private static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
+    public static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
         CompletableFuture<ReplicaMeta> leaseholderFuture = node.placementDriver().awaitPrimaryReplica(
                 groupId,
                 node.clock().now(),

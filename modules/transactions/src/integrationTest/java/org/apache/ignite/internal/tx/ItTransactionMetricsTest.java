@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.AssignmentsTestUtils.awaitAssignmentsStabilizationOnDefaultZone;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -27,13 +31,23 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.table.NodeUtils;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -300,6 +314,65 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
 
         assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + 1));
         assertThat(actualMetrics0.get("RwCommits"), is(metrics0.get("RwCommits") + 1));
+    }
+
+    /**
+     * Tests that TotalRollbacks and RwRollbacks are incremented when a transaction rolled back due to a lease expiration.
+     * @throws Exception
+     */
+    @Test
+    void testRollbackTransactionOnLeaseExpiration() throws Exception {
+        Map<String, Long> metrics0 = metricValues(0);
+        Map<String, Long> metrics1 = metricValues(1);
+
+        int key = 12;
+
+        TableImpl table = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
+
+        int partitionId = table.partitionId(Tuple.create().set("id", key));
+
+        Transaction tx = node(0).transactions().begin();
+
+        keyValueView(0).put(tx, key, "value");
+
+        ReplicationGroupId replicationGroupId = colocationEnabled()
+                ? new ZonePartitionId(table.zoneId(), partitionId)
+                : new TablePartitionId(table.tableId(), partitionId);
+
+        ReplicaMeta leaseholder = NodeUtils.leaseholder(unwrapIgniteImpl(node(0)), replicationGroupId);
+
+        Ignite leaseholderNode = CLUSTER
+                .runningNodes()
+                .filter(n -> n.cluster().localNode().id().equals(leaseholder.getLeaseholderId()))
+                .findFirst().orElseThrow();
+
+        NodeUtils.stopLeaseProlongation(
+                CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()),
+                unwrapIgniteImpl(leaseholderNode),
+                new ZonePartitionId(table.zoneId(), partitionId),
+                null
+        );
+
+        // Wait for the lease expiration.
+        unwrapIgniteImpl(node(0))
+                .clockService()
+                .waitFor(leaseholder.getExpirationTime().tick())
+                .orTimeout(10, TimeUnit.SECONDS)
+                .join();
+
+        assertThrows(TransactionException.class, tx::commit, null);
+
+        Map<String, Long> actualMetrics0 = metricValues(0);
+        Map<String, Long> actualMetrics1 = metricValues(1);
+
+        // Check that there are no updates on the node 1.
+        testMetricValues(metrics1, actualMetrics1);
+
+        // Check that all transaction metrics ere not changed except TotalCommits and RoCommits.
+        testMetricValues(metrics0, actualMetrics0, "TotalRollbacks", "RwRollbacks");
+
+        assertThat(actualMetrics0.get("TotalRollbacks"), is(metrics0.get("TotalRollbacks") + 1));
+        assertThat(actualMetrics0.get("RwRollbacks"), is(metrics0.get("RwRollbacks") + 1));
     }
 
     /**
