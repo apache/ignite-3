@@ -712,7 +712,8 @@ public class IgniteImpl implements Ignite {
         clusterInitializer = new ClusterInitializer(
                 clusterSvc,
                 clusterCfgDynamicDefaultsPatcher,
-                distributedCfgValidator
+                distributedCfgValidator,
+                nodeProperties
         );
 
         NodeAttributesCollector nodeAttributesCollector =
@@ -740,7 +741,8 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 clusterIdService,
                 cmgRaftConfigurer,
-                metricManager
+                metricManager,
+                nodeProperties
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
