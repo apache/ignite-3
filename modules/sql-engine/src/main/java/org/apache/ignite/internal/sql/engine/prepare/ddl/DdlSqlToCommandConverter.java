@@ -162,10 +162,15 @@ public class DdlSqlToCommandConverter {
     /** Zone options set. */
     private final Set<String> knownZoneOptionNames;
 
+    /** Storage profiles validator. */
+    private final StorageProfileValidator storageProfileValidator;
+
     /**
      * Constructor.
+     *
+     * @param storageProfileValidator Storage profile names validator.
      */
-    public DdlSqlToCommandConverter() {
+    public DdlSqlToCommandConverter(StorageProfileValidator storageProfileValidator) {
         knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
                 .stream()
                 .map(Enum::name)
@@ -206,6 +211,8 @@ public class DdlSqlToCommandConverter {
         ));
 
         alterReplicasOptionInfo = new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::replicas);
+
+        this.storageProfileValidator = storageProfileValidator;
     }
 
     /**
@@ -723,10 +730,19 @@ public class DdlSqlToCommandConverter {
 
         List<StorageProfileParams> profiles = extractProfiles(createZoneNode.storageProfiles());
 
+        Set<String> storageProfileNames = new HashSet<>(profiles.size());
+
+        for (StorageProfileParams profile : profiles) {
+            storageProfileNames.add(profile.storageProfile());
+        }
+
+        storageProfileValidator.validate(storageProfileNames);
+
         builder.storageProfilesParams(profiles);
 
         return builder.build();
     }
+
 
     /**
      * Converts the given '{@code ALTER ZONE}' AST to the {@link AlterZoneCommand} catalog command.
