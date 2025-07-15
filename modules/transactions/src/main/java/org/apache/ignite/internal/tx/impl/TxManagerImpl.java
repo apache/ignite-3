@@ -715,13 +715,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         txId,
                         finishingStateMeta.txFinishFuture()
                 )
-        ).thenAccept(unused -> {
+        ).whenComplete((unused, throwable) -> {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
-                txMetrics.onReadWriteTransactionFinished(txId, commitIntent);
+                txMetrics.onReadWriteTransactionFinished(txId, commitIntent && throwable == null);
 
                 decrementRwTxCount(txId);
             }
-        }).whenComplete((unused, throwable) -> transactionInflights.removeTxContext(txId));
+
+            transactionInflights.removeTxContext(txId);
+        });
     }
 
     private void assertReplicationGroupType(ReplicationGroupId replicationGroupId) {
