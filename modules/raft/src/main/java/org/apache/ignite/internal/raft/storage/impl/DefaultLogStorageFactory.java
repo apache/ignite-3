@@ -68,6 +68,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Name of the log factory, will be used in logs. */
     private final String factoryName;
 
+    /** Node name. */
+    private final String nodeName;
+
     /** Path to the log storage. */
     private final Path logPath;
 
@@ -126,6 +129,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         this.factoryName = factoryName;
         this.logPath = logPath;
         this.fsync = fsync;
+        this.nodeName = nodeName;
 
         executorService = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
@@ -159,7 +163,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
         this.cfOption = createColumnFamilyOptions();
 
-        this.flushListener = new LoggingRocksDbFlushListener(factoryName);
+        this.flushListener = new LoggingRocksDbFlushListener(factoryName, nodeName);
 
         List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
                 // Column family to store configuration log entry.

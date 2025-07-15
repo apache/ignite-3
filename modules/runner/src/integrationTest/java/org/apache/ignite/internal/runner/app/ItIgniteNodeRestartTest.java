@@ -734,6 +734,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
         var sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                name,
                 storagePath.resolve("tx-state"),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),

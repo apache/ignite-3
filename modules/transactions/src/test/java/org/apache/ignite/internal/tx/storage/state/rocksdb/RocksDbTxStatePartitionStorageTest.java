@@ -73,6 +73,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
     @BeforeEach
     protected void beforeTest() {
         sharedStorage = new TxStateRocksDbSharedStorage(
+                "test",
                 workDir,
                 scheduledExecutor,
                 executor,
