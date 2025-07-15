@@ -30,7 +30,9 @@ public interface AnnotationCompatibilityValidator {
     /** Validates compatibility between annotation revisions. */
     void validate(ConfigAnnotation candidate, ConfigAnnotation current, List<String> errors);
 
-    /** Reads a value of the given annotation property. */
+    /** 
+     * Reads a value of the given annotation property. Note that all int values are stored as {@code long} values.
+     */
     static <T> T getValue(ConfigAnnotation annotation, String name, Function<ConfigAnnotationValue, T> parse) {
         ConfigAnnotationValue value = annotation.properties().get(name);
         try {

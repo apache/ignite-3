@@ -87,9 +87,9 @@ public class ConfigurationAnnotationValidatorSelfTest extends BaseIgniteAbstract
 
         Map<String, Object> expected = new HashMap<>(Map.of(
                 "bool", true,
-                "int8", (byte) 8,
-                "int16", (short) 16,
-                "int32", 32,
+                "int8", 8L, // store integer types as longs
+                "int16", 16L, 
+                "int32", 32L,
                 "int64", 64L,
                 "f32", 32.0f,
                 "f64", 64.0d,

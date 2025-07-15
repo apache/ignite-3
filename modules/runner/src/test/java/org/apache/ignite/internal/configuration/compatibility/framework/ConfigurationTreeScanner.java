@@ -299,7 +299,14 @@ public class ConfigurationTreeScanner {
     }
 
     private static Object convertValue(Object value, Class<?> returnType, Annotation annotation) {
-        if (returnType.isPrimitive() || returnType == String.class) {
+        if (returnType == byte.class || returnType == short.class || returnType == int.class || returnType == long.class) {
+            // Store integer types as longs because jackson deserializes longs that fit into INT as ints by default,
+            // it is to store read ints as longs to make validation easier.
+            Number val = (Number) value;
+            return val.longValue();
+        } else if (value instanceof Float || value instanceof Double) {
+            return value;
+        } else if (returnType == String.class || returnType == boolean.class) {
             return value;
         } else if (returnType.isEnum()) {
             return value.toString();
