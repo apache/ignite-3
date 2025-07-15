@@ -218,6 +218,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /** Path to the rocksdb database. */
     private final Path dbPath;
 
+    /** Node name. */
+    private final String nodeName;
+
     /** RockDB options. */
     private volatile DBOptions options;
 
@@ -308,6 +311,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         this.dbPath = dbPath;
         this.scheduledExecutor = scheduledExecutor;
+        this.nodeName = nodeName;
 
         executor = Executors.newFixedThreadPool(
                 2,
@@ -400,6 +404,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         flusher = new RocksDbFlusher(
                 "rocksdb metastorage kv storage",
+                nodeName,
                 busyLock,
                 scheduledExecutor,
                 executor,

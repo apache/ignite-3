@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.storage.state.test;
+package org.apache.ignite.internal.cluster.management.network.messages;
 
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.tx.storage.state.AbstractTxStatePartitionStorageTest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Tx partition storage test for test implementation based on {@link ConcurrentHashMap}.
+ * Successful response for initializing a Raft group.
  */
-public class TestTxStatePartitionStorageTest extends AbstractTxStatePartitionStorageTest {
-    @Override protected TxStateStorage createTableOrZoneStorage() {
-        return new TestTxStateStorage();
-    }
+@Transferable(CmgMessageGroup.PREPARE_INIT_COMPLETE)
+public interface PrepareInitCompleteMessage extends NetworkMessage {
 }

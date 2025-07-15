@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.storage.state.test;
+package org.apache.ignite.internal.cluster.management.network.messages;
 
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.tx.storage.state.AbstractTxStatePartitionStorageTest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Tx partition storage test for test implementation based on {@link ConcurrentHashMap}.
+ * Message for the Cluster Management Group initialization preparation.
  */
-public class TestTxStatePartitionStorageTest extends AbstractTxStatePartitionStorageTest {
-    @Override protected TxStateStorage createTableOrZoneStorage() {
-        return new TestTxStateStorage();
-    }
+@Transferable(CmgMessageGroup.CMG_PREPARE_INIT)
+public interface CmgPrepareInitMessage extends NetworkMessage {
+    /**
+     * Colocation enabled mode of the node that initiates the init procedure. All nodes in CMG group should have the same colocation enabled
+     * mode.
+     */
+    boolean initInitiatorColocationEnabled();
 }
