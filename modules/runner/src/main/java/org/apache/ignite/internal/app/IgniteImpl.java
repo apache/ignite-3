@@ -571,7 +571,7 @@ public class IgniteImpl implements Ignite {
         try {
             lifecycleManager.startComponentsAsync(new ComponentContext(), nodeCfgMgr);
         } catch (NodeStoppingException e) {
-            throw new AssertionError("Unexpected exception", e);
+            throw new AssertionError(String.format("Unexpected exception: [nodeName=%s, configPath=%s]", name, configPath), e);
         }
 
         LOG.info("Starting node: [name={}, workDir={}, configPath={}]", name, workDir, configPath);
