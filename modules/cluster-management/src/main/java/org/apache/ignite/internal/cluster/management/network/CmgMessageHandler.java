@@ -24,7 +24,6 @@ import org.apache.ignite.internal.cluster.management.network.messages.ClusterSta
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessage;
-import org.apache.ignite.internal.cluster.management.network.messages.CmgPrepareInitMessageImpl;
 import org.apache.ignite.internal.cluster.management.network.messages.RefuseJoinMessage;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
