@@ -40,7 +40,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -331,7 +330,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
             // the iteration space.
             it.status();
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(INTERNAL_ERR, "Cannot get table/zone IDs", e);
+            throw new TxStateStorageException(INTERNAL_ERR, "Cannot get table/zone IDs", e);
         }
 
         return Set.copyOf(ids);

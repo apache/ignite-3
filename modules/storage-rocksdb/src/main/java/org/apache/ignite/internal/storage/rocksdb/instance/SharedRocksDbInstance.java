@@ -47,7 +47,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -474,7 +473,7 @@ public final class SharedRocksDbInstance {
             // the iteration space.
             it.status();
         } catch (RocksDBException e) {
-            throw new IgniteInternalException(INTERNAL_ERR, "Cannot get table IDs", e);
+            throw new StorageException(INTERNAL_ERR, "Cannot get table IDs", e);
         }
 
         return Set.copyOf(tableIds);
