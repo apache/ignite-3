@@ -204,7 +204,7 @@ public class ClusterInitializer {
                     .initialClusterConfiguration(patchedClusterConfiguration)
                     .build();
 
-            // Within prepareInitMessage we validate that all CMG nodes have enabledColocation mode.
+            // Handler of prepareInitMessage validates that all CMG nodes have the same enabledColocation mode.
             return invokeMessage(cmgNodes, prepareInitMessage)
                     .thenCompose(ignored -> invokeMessage(cmgNodes, initMessage)
                             .handle((v, e) -> {
