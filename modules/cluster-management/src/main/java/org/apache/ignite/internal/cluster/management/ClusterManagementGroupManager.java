@@ -617,7 +617,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         NetworkMessage response;
         if (nodeProperties.colocationEnabled() != msg.initInitiatorColocationEnabled()) {
             String colocationEnabledMismatchResponseMessage = IgniteStringFormatter.format(
-                    "Colocation modes does not match [initInitiatorNodeName={}, initInitiatorColocationMode={}, "
+                    "Colocation modes do not match [initInitiatorNodeName={}, initInitiatorColocationMode={}, "
                             + "recipientColocationMode={}].",
                     sender.name(),
                     msg.initInitiatorColocationEnabled(),
