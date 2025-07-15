@@ -111,7 +111,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
-    /** Template for license related tests with checks on licenses that may not have some storage license features enabled. */
+    /** Template for tests that may not have some storage engines enabled. */
     protected static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"

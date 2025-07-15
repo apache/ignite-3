@@ -384,7 +384,7 @@ public class Cluster {
      * Returns an Ignite server by its index.
      */
     public IgniteServer server(int index) {
-        return igniteServers.get(index);
+        return Objects.requireNonNull(igniteServers.get(index));
     }
 
     /**
@@ -575,6 +575,13 @@ public class Cluster {
      */
     public Stream<Ignite> runningNodes() {
         return nodes.stream().filter(Objects::nonNull);
+    }
+
+    /**
+     * Returns nodes.
+     */
+    public List<Ignite> nodes() {
+        return nodes;
     }
 
     /**

@@ -64,6 +64,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -85,6 +86,9 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     /** Test default table name. */
     protected static final String DEFAULT_TABLE_NAME = "person";
 
+    /** Default partition count for tests. */
+    protected static final int DEFAULT_PARTITION_COUNT = 25;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
@@ -103,7 +107,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
-    /** Template for license related tests with checks on licenses that may not have some storage license features enabled. */
+    /** Template for tests that may not have some storage engines enabled. */
     protected static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
@@ -194,6 +198,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     protected static void dropAllTables() {
         Ignite aliveNode = CLUSTER.aliveNode();
         String dropTablesScript = aliveNode.tables().tables().stream()
+                .filter(t -> !CatalogUtils.SYSTEM_SCHEMAS.contains(t.qualifiedName().schemaName()))
                 .map(Table::name)
                 .map(name -> "DROP TABLE " + name)
                 .collect(Collectors.joining(";\n"));
@@ -242,6 +247,16 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         if (!dropZonesScript.isEmpty()) {
             sqlScript(dropZonesScript);
         }
+    }
+
+    /**
+     * Creates a table.
+     *
+     * @param name Table name.
+     * @param replicas Replica factor.
+     */
+    protected static Table createTable(String name, int replicas) {
+        return createZoneAndTable(zoneName(name), name, replicas, DEFAULT_PARTITION_COUNT);
     }
 
     /**
@@ -545,27 +560,34 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      * Class for updating table in {@link #insertPeople(String, Person...)}, {@link #updatePeople(String, Person...)}. You can use
      * {@link #deletePeople(String, int...)} to remove people.
      */
-    protected static class Person {
-        final int id;
+    public static class Person {
+        public final int id;
 
-        final String name;
+        public final String name;
 
-        final double salary;
+        public final double salary;
 
 
-        /**
-         * Default constructor.
-         */
+        /** Default constructor. */
         public Person() {
-            id = 0;
-            name = null;
-            salary = 0;
+            this(0, null, 0);
         }
 
+        /** Constructor. */
         public Person(int id, String name, double salary) {
             this.id = id;
             this.name = name;
             this.salary = salary;
+        }
+
+        /** Returns value tuple to work with KV storage. */
+        public Tuple toValueTuple() {
+            return Tuple.create().set("name", name).set("salary", salary);
+        }
+
+        /** Returns key tuple to work with KV storage. */
+        public Tuple toKeyTuple() {
+            return Tuple.create().set("id", id);
         }
     }
 

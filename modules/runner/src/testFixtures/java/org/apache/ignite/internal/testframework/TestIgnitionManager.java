@@ -216,7 +216,8 @@ public class TestIgnitionManager {
             Path configPath,
             boolean useDefaultStorageProfiles
     ) throws IOException {
-         writeConfigurationFileApplyingTestDefaults(configStr, configPath, DEFAULT_NODE_CONFIG, useDefaultStorageProfiles);
+        Map<String, String> storageProfiles = useDefaultStorageProfiles ? DEFAULT_STORAGE_PROFILES : Map.of();
+        writeConfigurationFileApplyingTestDefaults(configStr, configPath, DEFAULT_NODE_CONFIG, storageProfiles);
     }
 
     /**
@@ -225,23 +226,21 @@ public class TestIgnitionManager {
      * @param configStr Config string.
      * @param configPath Config file path.
      * @param defaults Map of overrides.
-     * @param useDefaultStorageProfiles Use storage profiles from {@link #DEFAULT_STORAGE_PROFILES} or don't.
+     * @param storageProfiles Map of storage profiles overrides.
      * @throws IOException If failed to write the file.
      */
     public static void writeConfigurationFileApplyingTestDefaults(
             @Nullable String configStr,
             Path configPath,
             Map<String, String> defaults,
-            boolean useDefaultStorageProfiles
+            Map<String, String> storageProfiles
     ) throws IOException {
         if (configStr == null && Files.exists(configPath)) {
             // Nothing to do.
             return;
         }
         Map<String, String> preconfiguredParams = new HashMap<>(defaults);
-        if (useDefaultStorageProfiles) {
-            preconfiguredParams.putAll(DEFAULT_STORAGE_PROFILES);
-        }
+        preconfiguredParams.putAll(storageProfiles);
 
         String configStringToWrite = applyTestDefaultsToConfig(configStr, preconfiguredParams);
 
