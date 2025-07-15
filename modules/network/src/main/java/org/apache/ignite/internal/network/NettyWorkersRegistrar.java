@@ -95,7 +95,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         List<NettyWorker> nettyWorkers = new ArrayList<>();
-        for (EventLoopGroup group : bootstrapFactory.eventLoopGroupsForDetectBlockedThreads()) {
+        for (EventLoopGroup group : bootstrapFactory.eventLoopGroupsForBlockedThreadsDetection()) {
             registerWorkersFor(group, nettyWorkers);
         }
         workers = List.copyOf(nettyWorkers);
