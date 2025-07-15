@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -318,10 +319,9 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
 
     /**
      * Tests that TotalRollbacks and RwRollbacks are incremented when a transaction rolled back due to a lease expiration.
-     * @throws Exception
      */
     @Test
-    void testRollbackTransactionOnLeaseExpiration() throws Exception {
+    void testRollbackTransactionOnLeaseExpiration() {
         Map<String, Long> metrics0 = metricValues(0);
         Map<String, Long> metrics1 = metricValues(1);
 
@@ -341,14 +341,16 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
 
         ReplicaMeta leaseholder = NodeUtils.leaseholder(unwrapIgniteImpl(node(0)), replicationGroupId);
 
-        Ignite leaseholderNode = CLUSTER
+        IgniteImpl leaseholderNode = CLUSTER
                 .runningNodes()
                 .filter(n -> n.cluster().localNode().id().equals(leaseholder.getLeaseholderId()))
-                .findFirst().orElseThrow();
+                .findFirst()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .orElseThrow();
 
         NodeUtils.stopLeaseProlongation(
                 CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()),
-                unwrapIgniteImpl(leaseholderNode),
+                leaseholderNode,
                 new ZonePartitionId(table.zoneId(), partitionId),
                 null
         );
