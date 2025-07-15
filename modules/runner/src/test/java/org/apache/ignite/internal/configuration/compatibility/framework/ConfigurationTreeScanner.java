@@ -67,7 +67,7 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
  * Provides method to extract metadata from project configuration classes.
  */
 public class ConfigurationTreeScanner {
-    private static final Set<Class<?>> FLAG_ANNOTATIONS = Set.of(
+    private static final Set<Class<?>> SUPPORTED_ANNOTATIONS = Set.of(
             Value.class,
             Deprecated.class,
             NamedConfigValue.class,
@@ -138,7 +138,7 @@ public class ConfigurationTreeScanner {
     private static List<ConfigAnnotation> collectAdditionalAnnotations(Field field) {
         return Arrays.stream(field.getDeclaredAnnotations())
                 .flatMap(a -> {
-                    if (FLAG_ANNOTATIONS.contains(a.annotationType())) {
+                    if (SUPPORTED_ANNOTATIONS.contains(a.annotationType())) {
                         return Stream.empty();
                     } else {
                         ConfigAnnotation configAnnotation = extractAnnotation(a.annotationType().getName(), a);
