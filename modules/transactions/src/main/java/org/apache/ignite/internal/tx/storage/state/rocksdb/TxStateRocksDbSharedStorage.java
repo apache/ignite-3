@@ -290,10 +290,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
                 .order(BYTE_ORDER)
                 .putInt(tableOrZoneId)
                 .array();
-        byte[] dataEnd = ByteBuffer.allocate(TxStateRocksDbStorage.TABLE_OR_ZONE_PREFIX_SIZE_BYTES)
-                .order(BYTE_ORDER)
-                .putInt(tableOrZoneId + 1)
-                .array();
+        byte[] dataEnd = incrementPrefix(dataStart);
 
         try (WriteBatch writeBatch = new WriteBatch()) {
             writeBatch.deleteRange(txStateColumnFamily.handle(), dataStart, dataEnd);
