@@ -63,8 +63,10 @@ public interface StorageEngine {
     MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier);
 
     /**
-     * Destroys the table if it exists. The destruction is not guaranteed to be durable (that is, if a node stops/crashes before
-     * persisting this change to disk, the table storage might still be there after node restart).
+     * Destroys the table if it exists.
+     *
+     * <p>The destruction is not guaranteed to be durable (that is, if a node stops/crashes before persisting this change to disk,
+     * the table storage might still be there after node restart).
      *
      * @param tableId Table ID.
      * @throws StorageException If an error has occurs while dropping the table.
