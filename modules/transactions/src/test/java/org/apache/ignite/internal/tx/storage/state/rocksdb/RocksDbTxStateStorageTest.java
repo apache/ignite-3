@@ -66,6 +66,7 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @BeforeEach
     protected void beforeTest() {
         sharedStorage = new TxStateRocksDbSharedStorage(
+                "test",
                 workDir,
                 scheduledExecutor,
                 executor,

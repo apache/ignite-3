@@ -55,6 +55,7 @@ class TxStateRocksDbSharedStorageTest {
     @BeforeEach
     void createAndStartSharedStorage() {
         sharedStorage = new TxStateRocksDbSharedStorage(
+                "test",
                 workDir,
                 scheduler,
                 executor,
