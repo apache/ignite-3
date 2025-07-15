@@ -574,6 +574,8 @@ public class IgniteImpl implements Ignite {
             throw new AssertionError("Unexpected exception", e);
         }
 
+        LOG.info("Starting node: [name={}, workDir={}, configPath={}]", name, workDir, configPath);
+
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
 
         LOG.info("Local node configuration: {}", convertToHoconString(nodeConfigRegistry));
