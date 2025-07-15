@@ -1054,6 +1054,16 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(jobExecution.Id, state!.Id);
             Assert.AreEqual(status, state.Status);
             Assert.That(state.CreateTime, Is.GreaterThanOrEqualTo(beforeStart));
+
+            if (state.StartTime == null)
+            {
+                // Not started yet.
+                Assert.That(status, Is.AnyOf(JobStatus.Queued, JobStatus.Canceling, JobStatus.Canceled));
+                Assert.IsNull(state.FinishTime);
+
+                return;
+            }
+
             Assert.That(state.StartTime, Is.GreaterThanOrEqualTo(state.CreateTime));
 
             if (status is JobStatus.Canceled or JobStatus.Completed or JobStatus.Failed)
@@ -1087,14 +1097,14 @@ namespace Apache.Ignite.Tests.Compute
             JobTarget.Node(
                 (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).First());
 
-        private record Nested(Guid Id, decimal Price);
+        internal record Nested(Guid Id, decimal Price);
 
         [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests.")]
-        private record MyArg(int Id, string Name, Nested Nested);
+        internal record MyArg(int Id, string Name, Nested Nested);
 
-        private record MyResult(string Data, Nested Nested);
+        internal record MyResult(string Data, Nested Nested);
 
-        private class ToStringMarshaller : IMarshaller<Nested>
+        internal class ToStringMarshaller : IMarshaller<Nested>
         {
             public void Marshal(Nested obj, IBufferWriter<byte> writer)
             {

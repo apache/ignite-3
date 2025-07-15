@@ -53,6 +53,25 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     }
 
     @Test
+    @DisplayName("Output should show aliases for columns in sql output")
+    void showColumnAliases() {
+        execute("sql", "select id, name, salary, salary + 1 from person", "--jdbc-url", JDBC_URL);
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputIsSqlResultWithColumns("ID", "NAME", "SALARY", "SALARY + 1"),
+                this::assertErrOutputIsEmpty
+        );
+
+        execute("sql", "select id as col_1, name as col_2, salary as col_3, salary + 1 as col_4 from person", "--jdbc-url", JDBC_URL);
+        assertAll(
+                this::assertExitCodeIsZero,
+                () -> assertOutputIsSqlResultWithColumns("COL_1", "COL_2", "COL_3", "COL_4"),
+                this::assertErrOutputIsEmpty
+        );
+
+    }
+
+    @Test
     @DisplayName("Should execute sequence of statements without error")
     void createSelectAlterSelect() {
         String[] statements = {

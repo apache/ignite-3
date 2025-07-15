@@ -75,7 +75,15 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
             @InjectExecutorService ScheduledExecutorService scheduler,
             @InjectExecutorService ExecutorService executor
     ) {
-        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduler, executor, logSyncer, mock(FailureProcessor.class), () -> 0);
+        sharedStorage = new TxStateRocksDbSharedStorage(
+                "test",
+                workDir,
+                scheduler,
+                executor,
+                logSyncer,
+                mock(FailureProcessor.class),
+                () -> 0
+        );
 
         manager = new ZoneResourcesManager(
                 sharedStorage,

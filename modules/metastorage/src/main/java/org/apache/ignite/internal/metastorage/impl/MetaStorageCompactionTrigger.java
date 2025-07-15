@@ -51,7 +51,7 @@ import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -144,7 +144,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
         config = new MetaStorageCompactionTriggerConfiguration(systemDistributedConfig);
 
         compactionExecutor = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
+                IgniteThreadFactory.create(localNodeName, "metastorage-compaction-executor", LOG)
         );
 
         storage.registerCompactionRevisionUpdateListener(this::onCompactionRevisionUpdate);

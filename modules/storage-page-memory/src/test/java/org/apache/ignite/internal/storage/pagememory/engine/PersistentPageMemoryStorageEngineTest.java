@@ -29,6 +29,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
+import org.apache.ignite.internal.storage.engine.AbstractPersistentStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -44,7 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Implementation of the {@link AbstractStorageEngineTest} for the {@link PersistentPageMemoryStorageEngine#ENGINE_NAME} engine.
  */
 @ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
-public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngineTest {
+public class PersistentPageMemoryStorageEngineTest extends AbstractPersistentStorageEngineTest {
     @InjectConfiguration("mock.profiles.default.engine = aipersist")
     private StorageConfiguration storageConfig;
 
@@ -98,5 +99,10 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
         for (StorageProfileView view : storageConfig.profiles().value()) {
             assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(12345L));
         }
+    }
+
+    @Override
+    protected void persistTableDestructionIfNeeded() {
+        // No-op as table destruction is durable for this engine.
     }
 }

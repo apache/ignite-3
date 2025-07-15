@@ -172,7 +172,6 @@ import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
@@ -222,6 +221,7 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
@@ -258,7 +258,7 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -1186,7 +1186,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         final ReplicaManager replicaManager;
 
-        final MetaStorageManager metaStorageManager;
+        final MetaStorageManagerImpl metaStorageManager;
 
         private final VaultManager vaultManager;
 
@@ -1213,6 +1213,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         private final ClusterManagementGroupManager cmgManager;
 
         private final SchemaManager schemaManager;
+
+        private final SchemaSafeTimeTrackerImpl schemaSafeTimeTracker;
 
         private final CatalogManager catalogManager;
 
@@ -1344,7 +1346,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
-                    new TestConfigurationValidator()
+                    new TestConfigurationValidator(),
+                    new SystemPropertiesNodeProperties()
             );
 
             ComponentWorkingDir cmgWorkDir = cmgPath(systemConfiguration, dir);
@@ -1516,7 +1519,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                    NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
+                    IgniteThreadFactory.create(name, "test-rebalance-scheduler", logger()));
 
             replicaManager = spy(new ReplicaManager(
                     name,
@@ -1551,7 +1554,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             schemaManager = new SchemaManager(registry, catalogManager);
 
-            schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
+            schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageManager.clusterTime());
+            metaStorageManager.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+            schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
             SystemDistributedConfiguration systemDistributedConfiguration =
                     clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
@@ -1569,6 +1575,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
             sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                    name,
                     storagePath.resolve("tx-state"),
                     threadPoolsManager.commonScheduler(),
                     threadPoolsManager.tableIoExecutor(),
@@ -1724,6 +1731,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     replicaManager,
                     txManager,
                     dataStorageMgr,
+                    schemaSafeTimeTracker,
                     schemaManager,
                     sharedTxStateStorage,
                     partitionReplicaLifecycleManager,
@@ -1876,7 +1884,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
                     .destroyPartition(partitionId);
             verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
-                    .destroyTxStateStorage(partitionId);
+                    .destroyPartitionStorage(partitionId);
         }
     }
 
@@ -1889,7 +1897,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         doAnswer(answer -> CompletableFuture.failedFuture(new IgniteInternalException("From test")))
                 .when(internalTable.txStateStorage())
-                .destroyTxStateStorage(partitionId);
+                .destroyPartitionStorage(partitionId);
     }
 
     private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String tableName, int partitionId) {

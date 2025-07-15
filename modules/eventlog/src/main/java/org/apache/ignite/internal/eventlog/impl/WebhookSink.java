@@ -57,7 +57,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.ssl.KeystoreLoader;
 import org.apache.ignite.internal.rest.constants.MediaType;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -99,7 +99,7 @@ class WebhookSink implements Sink<WebhookSinkView> {
         client = configureClient(cfg);
 
         executorService = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("eventlog-webhook-sink", LOG)
+                IgniteThreadFactory.create(nodeName, "eventlog-webhook-sink", LOG)
         );
 
         executorService.scheduleAtFixedRate(

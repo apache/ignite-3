@@ -233,6 +233,7 @@ import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.recovery.system.SystemDisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.sql.SqlQueryRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.SchemaSafeTimeTrackerImpl;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
@@ -267,7 +268,6 @@ import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOn
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.threading.PublicApiThreadingIgniteCatalog;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -421,6 +421,8 @@ public class IgniteImpl implements Ignite {
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
 
+    private final SchemaSafeTimeTrackerImpl schemaSafeTimeTracker;
+
     /** Schema manager. */
     private final SchemaManager schemaManager;
 
@@ -569,8 +571,10 @@ public class IgniteImpl implements Ignite {
         try {
             lifecycleManager.startComponentsAsync(new ComponentContext(), nodeCfgMgr);
         } catch (NodeStoppingException e) {
-            throw new AssertionError("Unexpected exception", e);
+            throw new AssertionError(String.format("Unexpected exception: [nodeName=%s, configPath=%s]", name, configPath), e);
         }
+
+        LOG.info("Starting node: [name={}, workDir={}, configPath={}]", name, workDir, configPath);
 
         ConfigurationRegistry nodeConfigRegistry = nodeCfgMgr.configurationRegistry();
 
@@ -708,7 +712,8 @@ public class IgniteImpl implements Ignite {
         clusterInitializer = new ClusterInitializer(
                 clusterSvc,
                 clusterCfgDynamicDefaultsPatcher,
-                distributedCfgValidator
+                distributedCfgValidator,
+                nodeProperties
         );
 
         NodeAttributesCollector nodeAttributesCollector =
@@ -736,7 +741,8 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 clusterIdService,
                 cmgRaftConfigurer,
-                metricManager
+                metricManager,
+                nodeProperties
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
@@ -871,7 +877,7 @@ public class IgniteImpl implements Ignite {
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
         ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(name, "rebalance-scheduler", LOG));
+                IgniteThreadFactory.create(name, "rebalance-scheduler", LOG));
 
         // TODO: IGNITE-22222 this instantiation should be moved inside ReplicaManager's constructor
         Marshaller raftMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry());
@@ -962,7 +968,10 @@ public class IgniteImpl implements Ignite {
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
-        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
+        schemaSafeTimeTracker = new SchemaSafeTimeTrackerImpl(metaStorageMgr.clusterTime());
+        metaStorageMgr.registerNotificationEnqueuedListener(schemaSafeTimeTracker);
+
+        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(schemaSafeTimeTracker, delayDurationMsSupplier);
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
@@ -1040,6 +1049,7 @@ public class IgniteImpl implements Ignite {
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                name,
                 storagePath.resolve(TX_STATE_DIR),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
@@ -1547,6 +1557,7 @@ public class IgniteImpl implements Ignite {
                                 indexNodeFinishedRwTransactionsChecker,
                                 txManager,
                                 dataStorageMgr,
+                                schemaSafeTimeTracker,
                                 schemaManager,
                                 outgoingSnapshotsManager,
                                 sharedTxStateStorage,
@@ -1575,7 +1586,7 @@ public class IgniteImpl implements Ignite {
 
                     LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
 
-                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture());
+                    return recoverComponentsStateOnStart(joinExecutor, lifecycleManager.allComponentsStartFuture(joinExecutor));
                 }, joinExecutor)
                 .thenComposeAsync(v -> clusterCfgMgr.configurationRegistry().onDefaultsPersisted(), joinExecutor)
                 // Signal that local recovery is complete and the node is ready to join the cluster.
@@ -2130,6 +2141,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public NodeProperties nodeProperties() {
         return nodeProperties;
+    }
+
+    @TestOnly
+    public SchemaSafeTimeTrackerImpl schemaSafeTimeTracker() {
+        return schemaSafeTimeTracker;
     }
 
     /** Triggers dumping node components state. This method is used for debugging purposes only. */

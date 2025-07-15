@@ -52,7 +52,6 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -548,7 +547,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
         // build bounds for two sequential columns also belongs to index
         List<SearchBounds> bounds = RexUtils.buildSortedSearchBounds(Commons.emptyCluster(),
-                RelCollations.of(ImmutableIntList.of(1, 2)), andCondition, rowType, ImmutableBitSet.of(0, 1, 2));
+                RelCollations.of(ImmutableIntList.of(1, 2)), andCondition, rowType, ImmutableIntList.of(0, 1, 2));
 
         if (!conditionSatisfyIdx) {
             assertNull(bounds);

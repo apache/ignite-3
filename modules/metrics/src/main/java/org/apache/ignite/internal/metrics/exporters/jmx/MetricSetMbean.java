@@ -44,9 +44,7 @@ import org.apache.ignite.internal.metrics.UuidGauge;
  * Every {@link Metric} of metric set will be represented by MBean's attribute with the same name.
  */
 public class MetricSetMbean implements DynamicMBean {
-    /**
-     * Metric set.
-     */
+    /** Metric set. */
     private MetricSet metricSet;
 
     /**
@@ -58,9 +56,6 @@ public class MetricSetMbean implements DynamicMBean {
         this.metricSet = metricSet;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object getAttribute(String attribute) throws AttributeNotFoundException {
         if ("MBeanInfo".equals(attribute)) {
@@ -86,12 +81,9 @@ public class MetricSetMbean implements DynamicMBean {
             return ((UuidGauge) metric).value();
         }
 
-        throw new AttributeNotFoundException("Unknown metric class " + metric.getClass());
+        throw new AttributeNotFoundException("Unknown metric class [class=" + metric.getClass().getName() + ']');
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public AttributeList getAttributes(String[] attributes) {
         AttributeList list = new AttributeList();
@@ -109,9 +101,6 @@ public class MetricSetMbean implements DynamicMBean {
         return list;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object invoke(String actionName, Object[] params, String[] signature) throws MBeanException, ReflectionException {
         if ("getAttribute".equals(actionName)) {
@@ -122,12 +111,9 @@ public class MetricSetMbean implements DynamicMBean {
             }
         }
 
-        throw new UnsupportedOperationException("invoke is not supported.");
+        throw new UnsupportedOperationException("The invoke is not supported [action=" + actionName + ']');
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public MBeanInfo getMBeanInfo() {
         Iterator<Metric> iter = metricSet.iterator();
@@ -146,24 +132,20 @@ public class MetricSetMbean implements DynamicMBean {
 
         return new MBeanInfo(
                 MetricManagerImpl.class.getName(),
-                metricSet.name(),
+                metricSet.description() != null
+                        ? metricSet.description() + " Source name: " + metricSet.name()
+                        : "Source name: " + metricSet.name(),
                 attrs.toArray(new MBeanAttributeInfo[0]),
                 null,
                 null,
                 null);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setAttribute(Attribute attribute) {
         throw new UnsupportedOperationException("setAttribute is not supported.");
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public AttributeList setAttributes(AttributeList attributes) {
         throw new UnsupportedOperationException("setAttributes is not supported.");
@@ -175,7 +157,7 @@ public class MetricSetMbean implements DynamicMBean {
      * @param metric Metric.
      * @return Class of metric value.
      */
-    private String metricClass(Metric metric) {
+    private static String metricClass(Metric metric) {
         if (metric instanceof DoubleMetric) {
             return Double.class.getName();
         } else if (metric instanceof IntMetric) {
@@ -192,6 +174,6 @@ public class MetricSetMbean implements DynamicMBean {
             return UuidGauge.class.getName();
         }
 
-        throw new IllegalArgumentException("Unknown metric class " + metric.getClass());
+        throw new IllegalArgumentException("Unknown metric class [class=" + metric.getClass().getName() + ']');
     }
 }
