@@ -609,8 +609,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     /**
      * Handles the prepare init messages.
-     *
-     * If both initiator node and recipient have same colocation mode PrepareInitCompleteMessage is sent,
+
+     * <p>If both initiator node and recipient have same colocation mode PrepareInitCompleteMessage is sent,
      * otherwise InitErrorMessage is sent.
      */
     private void handlePrepareInit(CmgPrepareInitMessage msg, ClusterNode sender, long correlationId) {
@@ -618,10 +618,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         if (nodeProperties.colocationEnabled() != msg.initInitiatorColocationEnabled()) {
             String colocationEnabledMismatchResponseMessage = IgniteStringFormatter.format(
                     "Colocation modes does not match [initInitiatorNodeName={}, initInitiatorColocationMode={}, "
-                            + "recipientColocationMode={}]."
-                    , sender.name()
-                    , msg.initInitiatorColocationEnabled()
-                    , nodeProperties.colocationEnabled()
+                            + "recipientColocationMode={}].",
+                    sender.name(),
+                    msg.initInitiatorColocationEnabled(),
+                    nodeProperties.colocationEnabled()
             );
 
             response = preparePhaseInitErrorMessage(colocationEnabledMismatchResponseMessage);

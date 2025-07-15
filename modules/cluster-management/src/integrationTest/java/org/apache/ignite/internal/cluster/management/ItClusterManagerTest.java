@@ -229,6 +229,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     /**
      * Tests executing the init command with incorrect node names.
      */
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     void testInitInvalidNodes() throws Exception {
         startCluster(2);
@@ -560,9 +561,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         }
     }
 
+    @SuppressWarnings("ThrowableNotThrown")
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testInitFailsOnDifferentEnabledColocationModesWithinCmgNodes(boolean colocationEnabled) throws Exception {
+    void testInitFailsOnDifferentEnabledColocationModesWithinCmgNodes(boolean colocationEnabled) {
         System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled));
         startNode(0, 2);
 
@@ -574,9 +576,9 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThrowsWithCause(
                 () -> initCluster(cmgNodes, cmgNodes),
                 InitException.class,
-                "Unable to initialize the cluster: org.apache.ignite.internal.cluster.management.InternalInitException:"
-                        + " IGN-CMN-65535 Got error response from node \"icmt_tifodecmwcmgn_10001\": Colocation modes does not match"
-                        + " [initInitiatorNodeName=icmt_tifodecmwcmgn_10000, initInitiatorColocationMode=" + colocationEnabled
+                "Unable to initialize the cluster: org.apache.ignite.internal.cluster.management.InternalInitException: IGN-CMN-65535"
+                        + " Got error response from node \"icmt_tifodecmwcn_10001\": Colocation modes does not match"
+                        + " [initInitiatorNodeName=icmt_tifodecmwcn_10000, initInitiatorColocationMode=" + colocationEnabled
                         + ", recipientColocationMode=" + !colocationEnabled + "]."
         );
     }

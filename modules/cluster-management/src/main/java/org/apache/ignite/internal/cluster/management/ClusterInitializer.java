@@ -194,7 +194,6 @@ public class ClusterInitializer {
 
             CmgPrepareInitMessage prepareInitMessage = msgFactory.cmgPrepareInitMessage()
                     .initInitiatorColocationEnabled(nodeProperties.colocationEnabled())
-                    .initInitiatorNodeVersion("NotARealVersion")
                     .build();
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()

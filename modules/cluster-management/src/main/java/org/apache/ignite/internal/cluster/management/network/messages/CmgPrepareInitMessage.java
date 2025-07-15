@@ -29,11 +29,6 @@ import org.jetbrains.annotations.Nullable;
 @Transferable(CmgMessageGroup.CMG_PREPARE_INIT)
 public interface CmgPrepareInitMessage extends NetworkMessage {
     /**
-     * String representation of the node's version that initiates the init procedure.
-     */
-    String initInitiatorNodeVersion();
-
-    /**
      * Colocation enabled mode of the node that initiates the init procedure. All nodes in CMG group should have same colocation enabled
      * mode.
      */
