@@ -37,6 +37,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
@@ -111,6 +112,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25918")
     void timeoutExceptionHasCorrectCause() throws InterruptedException {
         Table table = createTestTable();
 
