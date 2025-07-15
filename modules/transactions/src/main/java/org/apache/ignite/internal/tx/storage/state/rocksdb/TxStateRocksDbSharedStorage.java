@@ -116,6 +116,8 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
 
     private final FailureProcessor failureProcessor;
 
+    private final String nodeName;
+
     private volatile ColumnFamily txStateColumnFamily;
 
     private volatile ColumnFamily txStateMetaColumnFamily;
@@ -123,6 +125,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param dbPath Database path.
      * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing
      *         blocking, long or IO operations.
@@ -132,18 +135,20 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
      * @see RocksDbFlusher
      */
     public TxStateRocksDbSharedStorage(
+            String nodeName,
             Path dbPath,
             ScheduledExecutorService scheduledExecutor,
             ExecutorService threadPool,
             LogSyncer logSyncer,
             FailureProcessor failureProcessor
     ) {
-        this(dbPath, scheduledExecutor, threadPool, logSyncer, failureProcessor, TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER);
+        this(nodeName, dbPath, scheduledExecutor, threadPool, logSyncer, failureProcessor, TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER);
     }
 
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param dbPath Database path.
      * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing
      *         blocking, long or IO operations.
@@ -154,6 +159,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
      * @see RocksDbFlusher
      */
     public TxStateRocksDbSharedStorage(
+            String nodeName,
             Path dbPath,
             ScheduledExecutorService scheduledExecutor,
             ExecutorService threadPool,
@@ -167,6 +173,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
         this.flushDelaySupplier = flushDelaySupplier;
         this.logSyncer = logSyncer;
         this.failureProcessor = failureProcessor;
+        this.nodeName = nodeName;
     }
 
     /**
@@ -201,6 +208,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
 
             flusher = new RocksDbFlusher(
                     "tx state storage",
+                    nodeName,
                     busyLock,
                     scheduledExecutor,
                     threadPool,
