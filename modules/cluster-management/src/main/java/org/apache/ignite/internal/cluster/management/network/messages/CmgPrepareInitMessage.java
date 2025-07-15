@@ -21,7 +21,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Message for initializing the Cluster Management Group.
+ * Message for the Cluster Management Group initialization preparation.
  */
 @Transferable(CmgMessageGroup.CMG_PREPARE_INIT)
 public interface CmgPrepareInitMessage extends NetworkMessage {
