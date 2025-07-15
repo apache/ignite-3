@@ -141,10 +141,10 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     }
 
     /**
-     * Returns all event loop groups managed by this factory.
+     * Returns all event loop groups managed by this factory for which it is necessary to determine blocked threads.
      */
-    List<EventLoopGroup> eventLoopGroups() {
-        return List.of(bossGroup, workerGroup);
+    List<EventLoopGroup> eventLoopGroupsForDetectBlockedThreads() {
+        return List.of(workerGroup);
     }
 
     /** {@inheritDoc} */
