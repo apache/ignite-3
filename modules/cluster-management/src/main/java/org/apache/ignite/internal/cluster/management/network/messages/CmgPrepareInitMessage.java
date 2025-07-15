@@ -26,7 +26,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 @Transferable(CmgMessageGroup.CMG_PREPARE_INIT)
 public interface CmgPrepareInitMessage extends NetworkMessage {
     /**
-     * Colocation enabled mode of the node that initiates the init procedure. All nodes in CMG group should have same colocation enabled
+     * Colocation enabled mode of the node that initiates the init procedure. All nodes in CMG group should have the same colocation enabled
      * mode.
      */
     boolean initInitiatorColocationEnabled();
