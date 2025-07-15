@@ -611,7 +611,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      * Handles the prepare init messages.
      *
      * <p>If both initiator node and recipient have the same colocation mode, a PrepareInitCompleteMessage is sent,
-     * otherwise InitErrorMessage is sent.
+     * otherwise an InitErrorMessage is sent.
      */
     private void handlePrepareInit(CmgPrepareInitMessage msg, ClusterNode sender, long correlationId) {
         NetworkMessage response;
