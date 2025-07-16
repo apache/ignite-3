@@ -17,7 +17,6 @@
 
 package org.apache.ignite.example.catalog;
 
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.catalog.annotations.ColumnRef;
@@ -34,24 +33,23 @@ import org.apache.ignite.table.KeyValueView;
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class KeyValuePojoExample {
+
+    //--------------------------------------------------------------------------------------
+    //
+    // Defining a table with an annotation.
+    //
+    //--------------------------------------------------------------------------------------
+
     @Table(value = "kv_pojo",
             zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
             colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
-    public static class PojoValue {
-        @Column("f_name")
-        private String firstName;
 
-        @Column("l_name")
-        private String lastName;
-
-        private String str;
-
-        public PojoValue(String firstName, String lastName) {
-            this.firstName = firstName;
-            this.lastName = lastName;
-        }
-    }
+    //--------------------------------------------------------------------------------------
+    //
+    // Creating a POJO for the key.
+    //
+    //--------------------------------------------------------------------------------------
 
     public static class PojoKey {
         @Id
@@ -67,8 +65,29 @@ public class KeyValuePojoExample {
         }
     }
 
+    //--------------------------------------------------------------------------------------
+    //
+    // Creating POJO for the values.
+    //
+    //--------------------------------------------------------------------------------------
+
+    public static class PojoValue {
+        @Column("f_name")
+        private String firstName;
+
+        @Column("l_name")
+        private String lastName;
+
+        private String str;
+
+        public PojoValue(String firstName, String lastName) {
+            this.firstName = firstName;
+            this.lastName = lastName;
+        }
+    }
 
     public static void main(String[] args) {
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -81,13 +100,31 @@ public class KeyValuePojoExample {
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating a table.
+            //
+            //--------------------------------------------------------------------------------------
+
             org.apache.ignite.table.Table myTable = client.catalog().createTable(PojoKey.class, PojoValue.class);
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Putting a new value into a table.
+            //
+            //--------------------------------------------------------------------------------------
 
             KeyValueView<PojoKey, PojoValue> kvView = myTable.keyValueView(PojoKey.class, PojoValue.class);
             PojoKey key = new PojoKey(1, "sample");
             PojoValue putValue = new PojoValue("John", "Smith");
-
             kvView.put(null, key, putValue);
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Getting a value from the table.
+            //
+            //--------------------------------------------------------------------------------------
 
             PojoValue getValue = kvView.get(null, key);
             System.out.println(

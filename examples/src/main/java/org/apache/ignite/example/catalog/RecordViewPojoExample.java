@@ -17,7 +17,6 @@
 
 package org.apache.ignite.example.catalog;
 
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.catalog.annotations.ColumnRef;
@@ -35,10 +34,24 @@ import org.apache.ignite.table.Tuple;
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class RecordViewPojoExample {
+
+    //--------------------------------------------------------------------------------------
+    //
+    // Defining a table with an annotation.
+    //
+    //--------------------------------------------------------------------------------------
+
     @Table(value = "pojo_sample",
             zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
             colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
             indexes = @Index(value = "ix_sample", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
+
+    //--------------------------------------------------------------------------------------
+    //
+    // Creating a POJO for table columns.
+    //
+    //--------------------------------------------------------------------------------------
+
     public static class Pojo {
         @Id
         Integer id;
@@ -57,6 +70,7 @@ public class RecordViewPojoExample {
     }
 
     public static void main(String[] args) {
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -69,20 +83,36 @@ public class RecordViewPojoExample {
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating a table.
+            //
+            //--------------------------------------------------------------------------------------
+
             org.apache.ignite.table.Table myTable = client.catalog().createTable(Pojo.class);
 
-            RecordView<Tuple> view = myTable.recordView();
+            //--------------------------------------------------------------------------------------
+            //
+            // Putting a new value into a table.
+            //
+            //--------------------------------------------------------------------------------------
 
+            RecordView<Tuple> view = myTable.recordView();
             Tuple insertTuple = Tuple.create()
                     .set("id", 1)
                     .set("id_str", "sample")
                     .set("f_name", "John")
                     .set("l_name", "Smith");
-
             view.insert(null, insertTuple);
 
-            Tuple getTuple = view.get(null, insertTuple);
+            //--------------------------------------------------------------------------------------
+            //
+            // Getting a value from the table.
+            //
+            //--------------------------------------------------------------------------------------
 
+            Tuple getTuple = view.get(null, insertTuple);
             System.out.println(
                     "\nRetrieved record: " +
                             getTuple.stringValue("f_name")

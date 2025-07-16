@@ -18,7 +18,6 @@ package org.apache.ignite.example.catalog;
 
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.definitions.TableDefinition;
@@ -33,6 +32,7 @@ import org.apache.ignite.table.Tuple;
  */
 public class TableBuilderExample {
     public static void main(String[] args) {
+
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -47,6 +47,12 @@ public class TableBuilderExample {
         ) {
             IgniteCatalog catalog = client.catalog();
 
+            //--------------------------------------------------------------------------------------
+            //
+            // Creating a table by using a TableDefinition builder.
+            //
+            //--------------------------------------------------------------------------------------
+
             catalog.createTable(
                     TableDefinition.builder("sampleTable3")
                             .primaryKey("myKey")
@@ -57,8 +63,21 @@ public class TableBuilderExample {
                             .build()
             );
 
+            //--------------------------------------------------------------------------------------
+            //
+            // Putting a new value into a table.
+            //
+            //--------------------------------------------------------------------------------------
+
             Table myTable = client.tables().table("sampleTable3");
             myTable.keyValueView().put(null, Tuple.create().set("myKey", 1), Tuple.create().set("myValue", "John"));
+
+            //--------------------------------------------------------------------------------------
+            //
+            // Getting a value from the table.
+            //
+            //--------------------------------------------------------------------------------------
+
             Tuple value = myTable.keyValueView().get(null, Tuple.create().set("myKey", 1));
             System.out.println(
                     "\nRetrieved value:\n" +
