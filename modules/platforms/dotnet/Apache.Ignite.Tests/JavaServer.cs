@@ -41,12 +41,15 @@ namespace Apache.Ignite.Tests
         private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest"
           + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava --parallel";
 
+        private const string GradleCommandExecOldServer = ":ignite-compatibility-tests:runnerPlatformCompatibilityTest"
+          + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava --parallel";
+
          /** Full path to Gradle binary. */
         private static readonly string GradlePath = GetGradle();
 
         private readonly Process? _process;
 
-        public JavaServer(int port, Process? process)
+        private JavaServer(int port, Process? process)
         {
             Port = port;
             _process = process;

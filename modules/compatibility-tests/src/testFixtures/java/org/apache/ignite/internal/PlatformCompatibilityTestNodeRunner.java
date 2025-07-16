@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 
 import java.lang.reflect.Method;
 import java.nio.file.Path;
@@ -68,6 +69,7 @@ public class PlatformCompatibilityTestNodeRunner {
         cluster.init(x -> {});
 
         System.out.println(">>> Started test node with version: " + version);
+        System.out.println("THIN_CLIENT_PORTS=" + unwrapIgniteImpl(cluster.node(0)).clientAddress().port());
         Thread.sleep(600_000);
     }
 
