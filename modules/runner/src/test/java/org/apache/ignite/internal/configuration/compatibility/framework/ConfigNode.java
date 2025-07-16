@@ -53,7 +53,7 @@ public class ConfigNode {
 
     // Non-serializable fields.
     @JsonIgnore
-    @Nullable 
+    @Nullable
     private ConfigNode parent;
     @JsonIgnore
     private EnumSet<Flags> flags;
@@ -260,10 +260,10 @@ public class ConfigNode {
     String instanceType() {
         return attributes.get(Attributes.INSTANCE_TYPE);
     }
-    
-    /** Attributes. */
+
+    /** Returns attributes of this node. */
     @JsonIgnore
-    public Map<String, String> attributes() {
+    Map<String, String> attributes() {
         return attributes;
     }
 
