@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.TestInfo;
@@ -48,15 +49,17 @@ public class PlatformCompatibilityTestNodeRunner {
             + "}";
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 1) {
-            System.err.println("Usage: OldNodeRunner <version>");
+        if (args.length < 2) {
+            System.err.println("Usage: OldNodeRunner <version> <workDir>");
             System.exit(1);
         }
 
         String version = args[0];
-        System.out.println("Starting test node with version: " + version);
+        String workDir = args[1];
 
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), workDir)
+        System.out.println("Starting test node with version: " + version + " in work directory: " + workDir);
+
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
                 .build();
 
