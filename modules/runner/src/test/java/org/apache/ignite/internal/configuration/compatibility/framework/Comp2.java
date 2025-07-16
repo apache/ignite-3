@@ -219,23 +219,31 @@ public class Comp2 {
      * <pre>
      *     {A.B: [A, B], A.C.D: [A, C, D], A.C.E: {A, C, E}}
      * </pre>
+     * 
+     * Renaming: Each renamed node has legacy node names, in that case we simply visit the node under its legacy names.
      */
     private static void collect(ConfigNode node, CurrentPath path, Map<String, List<Path>> paths) {
         if (node.isValue()) {
-            CurrentPath end = path.newChild(node.name(), node);
-            String key = String.join(".", end.keys);
+            Set<String> names = getNodeNames(node);
+            for (String name : names) {
+                CurrentPath end = path.newChild(name, node);
+                String key = String.join(".", end.keys);
 
-            List<Path> out = paths.computeIfAbsent(key, (k) -> new ArrayList<>());
-            out.add(new Path(end.nodes));
+                List<Path> out = paths.computeIfAbsent(key, (k) -> new ArrayList<>());
+                out.add(new Path(end.nodes));
+            }
         } else {
-            CurrentPath subPath = path.newChild(node.name(), node);
+            Set<String> names = getNodeNames(node);
+            for (String name : names) {
+                CurrentPath subPath = path.newChild(name, node);
 
-            for (var ref : node.childNodes()) {
-                List<ConfigNode> nodes = new ArrayList<>(ref.nodes());
-                nodes.sort(Comparator.comparing(ConfigNode::name).thenComparing(ConfigNode::className));
+                for (var ref : node.childNodes()) {
+                    List<ConfigNode> nodes = new ArrayList<>(ref.nodes());
+                    nodes.sort(Comparator.comparing(ConfigNode::name).thenComparing(ConfigNode::className));
 
-                for (var child : nodes) {
-                    collect(child, subPath, paths);
+                    for (var child : nodes) {
+                        collect(child, subPath, paths);
+                    }
                 }
             }
         }
@@ -274,6 +282,14 @@ public class Comp2 {
             path.keys.add(name);
             path.nodes.add(node);
             return path;
+        }
+    }
+
+    private static Set<String> getNodeNames(ConfigNode node) {
+        if (node.legacyPropertyNames().isEmpty()) {
+            return Set.of(node.name());
+        } else {
+            return new TreeSet<>(node.legacyPropertyNames());
         }
     }
 
