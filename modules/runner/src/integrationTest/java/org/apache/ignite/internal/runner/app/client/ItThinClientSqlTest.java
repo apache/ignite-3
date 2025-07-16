@@ -420,27 +420,36 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             // No-op.
         }
 
-        Transaction tx = client.transactions().begin();
-        for (int i = 0; i < count; i++) {
-            try (ResultSet<?> ignored = sql.execute(tx, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
-                // No-op.
+        client.transactions().runInTransaction(tx -> {
+            for (int i = 0; i < count; i++) {
+                try (ResultSet<?> ignored = sql.execute(tx, "INSERT INTO my_table VALUES (?, ?)", i, i)) {
+                    // No-op.
+                }
             }
-        }
 
-        for (int i = 0; i < count; i++) {
-            try (ResultSet<SqlRow> rs = sql.execute(tx, "SELECT * FROM my_table WHERE id = ?", i)) {
-                assertEquals(i, rs.next().intValue(1));
+            for (int i = 0; i < count; i++) {
+                try (ResultSet<SqlRow> rs = sql.execute(tx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                    assertEquals(i, rs.next().intValue(1));
+                }
             }
-        }
 
-        // All just inserted rows should not be visible yet
-        for (int i = 0; i < count; i++) {
-            try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
-                assertFalse(rs.hasNext());
+            // All just inserted rows should not be visible yet
+            for (int i = 0; i < count; i++) {
+                try (ResultSet<SqlRow> rs = sql.execute(null, "SELECT * FROM my_table WHERE id = ?", i)) {
+                    assertFalse(rs.hasNext());
+                }
             }
-        }
 
-        tx.commit();
+            // The same for explicit RO transaction
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-25921 uncomment section below
+            // client.transactions().runInTransaction(roTx -> {
+            //     for (int i = 0; i < count; i++) {
+            //         try (ResultSet<SqlRow> rs = sql.execute(roTx, "SELECT * FROM my_table WHERE id = ?", i)) {
+            //             assertFalse(rs.hasNext());
+            //         }
+            //     }
+            // }, new TransactionOptions().readOnly(true));
+        });
 
         // And now changes are published.
         for (int i = 0; i < count; i++) {

@@ -56,6 +56,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -390,7 +391,17 @@ public class ClientSql implements IgniteSql {
                 w.out().packBoolean(requestAck);
             }
 
-            DirectTxUtils.writeTx(transaction, w, ctx);
+            try {
+                DirectTxUtils.writeTx(transaction, w, ctx);
+            } catch (IgniteException ex) {
+                ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(
+                        SqlException.class,
+                        ex.traceId(),
+                        ex.code(),
+                        ex.getMessage(),
+                        ex
+                ));
+            }
 
             w.out().packString(statement.defaultSchema());
             w.out().packInt(statement.pageSize());
