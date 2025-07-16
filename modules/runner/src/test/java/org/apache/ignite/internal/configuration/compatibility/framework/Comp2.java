@@ -9,11 +9,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.configuration.compatibility.GenerateConfigurationSnapshot;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.NodeReference;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -153,8 +155,20 @@ public class Comp2 {
             List<Path> previous = previousNodes.get(key);
             List<Path> current = currentNodes.get(key);
 
-            for (int i = 0; i < previous.size(); i++) {
-                validatePath(previous.get(i), current.get(i), errors);
+            if (previous.size() == 1 && current.size() == 1 || previous.size() == current.size()) {
+                // Both nodes are non-polymorphic or polymorphic nodes has not been moved between a base class and its subclasses. 
+                for (int i = 0; i < previous.size(); i++) {
+                    validatePath(previous.get(i), current.get(i), errors);
+                }
+            } else if (previous.size() == 1 && noPolymorphicNodes(previous)) {
+                // From non-polymorphic to a polymorphic one
+                validateNonPolymorphicToPolymorphic(previous.get(0), current, errors);
+            } else if (current.size() == 1 && noPolymorphicNodes(current)) {
+                // From non-polymorphic to a polymorphic one
+                validatePolymorphicToNonPolymorphic(previous, current.get(0), errors);
+            } else {
+                // From one polymorphic case to another polymorphic
+                validatePolymorphicToPolymorphic(previous, current, errors);
             }
         }
 
@@ -184,6 +198,55 @@ public class Comp2 {
         }
     }
 
+    private static boolean noPolymorphicNodes(List<Path> paths) {
+        return paths.stream().allMatch(p -> p.subclass.isEmpty());
+    }
+
+    private static void validateNonPolymorphicToPolymorphic(Path previous, List<Path> currentPaths, List<String> errors) {
+        // Extracting a base class + subclasses is compatible 
+        // unless there are incompatible changes between nodes.
+        for (Path current : currentPaths) {
+            validatePath(previous, current, errors);
+        }
+    }
+
+    private static void validatePolymorphicToNonPolymorphic(List<Path> previousPaths, Path current, List<String> errors) {
+        // Converting a base class with its subclasses to a simple config is compatible
+        // unless there are incompatible changes between nodes.
+        for (Path previous : previousPaths) {
+            validatePath(previous, current, errors);
+        }
+    }
+
+    private static void validatePolymorphicToPolymorphic(List<Path> previousPaths, List<Path> currentPaths, List<String> errors) {
+        // Moving a node w/ default value from a subclass to its base class is incompatible change. 
+        // Moving a node w/o default value from a subclass to its base class is valid only if there is a single subclass
+
+        Optional<Path> previousBaseClass = previousPaths.stream().filter(p -> p.subclass.isEmpty()).findFirst();
+        Optional<Path> currentBaseClass = currentPaths.stream().filter(p -> p.subclass.isEmpty()).findFirst();
+
+        if (previousBaseClass.isEmpty() && currentBaseClass.isPresent()) {
+            // Moving a value from a subclass to the base class
+            Path current = currentBaseClass.orElseThrow(() -> new IllegalStateException("Unexpected"));
+            ConfigNode valueNode = current.nodes.get(current.nodes.size() - 1);
+
+            // A value w/o default and there are more than 2 subclasses
+            if (!valueNode.hasDefault() && currentPaths.size() > 2) {
+                errors.add("Unable to move non-default node from a subclass to its base class: " + valueNode.path());
+            }
+
+        } else if (previousBaseClass.isPresent() && currentBaseClass.isEmpty()) {
+            // Moving a value from a base class to a subclass
+            Path previous = previousBaseClass.orElseThrow(() -> new IllegalStateException("Unexpected"));
+            ConfigNode valueNode = previous.nodes.get(previous.nodes.size() - 1);
+
+            // A value w/o default and there are more than 2 subclasses 
+            if (!valueNode.hasDefault() && previousPaths.size() > 2) {
+                errors.add("Unable to move non-default node from a base class to a subclass: " + valueNode.path());
+            }
+        }
+    }
+
     private static Map<String, Map<String, ConfigNode>> groupByKind(List<ConfigNode> nodes) {
         Map<String, Map<String, ConfigNode>> out = new LinkedHashMap<>();
 
@@ -201,6 +264,10 @@ public class Comp2 {
 
         collect(node, new CurrentPath(), paths);
 
+        for (List<Path> path : paths.values()) {
+            path.sort(Comparator.comparing(a -> a.subclass));
+        }
+
         return paths;
     }
 
@@ -217,10 +284,42 @@ public class Comp2 {
      * 
      * Gets converted to:
      * <pre>
-     *     {A.B: [A, B], A.C.D: [A, C, D], A.C.E: {A, C, E}}
+     *     A.B: [A, B], 
+     *     A.C.D: [A, C, D], 
+     *     A.C.E: {A, C, E}
      * </pre>
      * 
-     * Renaming: Each renamed node has legacy node names, in that case we simply visit the node under its legacy names.
+     * <p>Renaming: 
+     * <p>Each renamed node has legacy node names, in that case we simply visit the node under its legacy names.
+     * 
+     * <p>Polymorphic nodes:
+     * <p>{@link NodeReference#nodes()} returns multiple nodes:
+     *
+     * <pre>
+     *    A
+     *  /  \
+     * B    C
+     *     / \ 
+     *    t   f0
+     * C has two subclasses C1 and C2 t is a field that stores instance type.
+     *    C1  
+     *   /  \
+     *  f1   f2
+     *
+     *    C2  
+     *   /
+     *  f3
+     * </pre>
+     *
+     * Gets converted to:
+     * <pre>
+     *     A.B: [A, B]
+     *     A.C.t: [A, C, t] (C1), [A, C, t] (C2)
+     *     A.C.f0: [A, C, f0] (C1), [A, C, f0] (C2)
+     *     A.C.f1: [A, C, f1] (C1)
+     *     A.C.f2: [A, C, f1] (C1)
+     *     A.C.f3: [A, C, f1] (C2)
+     * </pre>
      */
     private static void collect(ConfigNode node, CurrentPath path, Map<String, List<Path>> paths) {
         if (node.isValue()) {
@@ -230,12 +329,17 @@ public class Comp2 {
                 String key = String.join(".", end.keys);
 
                 List<Path> out = paths.computeIfAbsent(key, (k) -> new ArrayList<>());
-                out.add(new Path(end.nodes));
+                out.add(new Path(path.providence, end.nodes));
             }
         } else {
             Set<String> names = getNodeNames(node);
             for (String name : names) {
-                CurrentPath subPath = path.newChild(name, node);
+                CurrentPath subPath;
+                if (node.instanceType() != null) {
+                    subPath = new CurrentPath(path, node).newChild(name, node);
+                } else {
+                    subPath = path.newChild(name, node);
+                }
 
                 for (var ref : node.childNodes()) {
                     List<ConfigNode> nodes = new ArrayList<>(ref.nodes());
@@ -251,14 +355,18 @@ public class Comp2 {
 
     private static class Path {
         final List<ConfigNode> nodes;
+        // To distinguish a base class and subclasses 
+        final String subclass;
 
-        private Path(List<ConfigNode> nodes) {
+        private Path(List<String> providence, List<ConfigNode> nodes) {
             this.nodes = List.copyOf(nodes);
+            this.subclass = String.join(".", providence);
         }
 
         @Override
         public String toString() {
             return "Path{" +
+                    "subclass=" + subclass +
                     ", nodes=" + nodes.stream().map(n -> n.path() + " " + n.attributes()).collect(Collectors.toSet()) +
                     '}';
         }
@@ -267,6 +375,7 @@ public class Comp2 {
     private static class CurrentPath {
         private final List<String> keys = new ArrayList<>();
         private final List<ConfigNode> nodes = new ArrayList<>();
+        private final List<String> providence = new ArrayList<>();
 
         private CurrentPath() {
 
@@ -275,6 +384,16 @@ public class Comp2 {
         CurrentPath(CurrentPath src) {
             this.keys.addAll(src.keys);
             this.nodes.addAll(src.nodes);
+            this.providence.addAll(src.providence);
+        }
+
+        CurrentPath(CurrentPath src, ConfigNode srcNode) {
+            this.keys.addAll(src.keys);
+            this.nodes.addAll(src.nodes);
+            if (!providence.isEmpty()) {
+                throw new IllegalStateException("Only one level of polymorphic config hierarchy is supported: " + srcNode.path());
+            }
+            this.providence.add(srcNode.instanceType());
         }
 
         CurrentPath newChild(String name, ConfigNode node) {
@@ -319,6 +438,10 @@ public class Comp2 {
             sb.append(node.name());
         }
 
-        return sb.toString();
+        if (hasSubclasses) {
+            return sb.toString();
+        } else {
+            return path.subclass + sb;
+        }
     }
 }
