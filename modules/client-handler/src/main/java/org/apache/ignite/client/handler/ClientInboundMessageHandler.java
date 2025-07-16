@@ -1012,7 +1012,9 @@ public class ClientInboundMessageHandler
                 || opCode == ClientOp.TUPLE_DELETE_EXACT
                 || opCode == ClientOp.TUPLE_GET_AND_DELETE
                 || opCode == ClientOp.TUPLE_CONTAINS_KEY
-                || opCode == ClientOp.STREAMER_BATCH_SEND;
+                || opCode == ClientOp.STREAMER_BATCH_SEND
+                || opCode == ClientOp.TX_COMMIT
+                || opCode == ClientOp.TX_ROLLBACK;
 
                 // Sql-related operation must do some bookkeeping first on the client's thread to avoid races
                 // (for instance, cancellation must not be processed until execution request is registered).
