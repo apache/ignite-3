@@ -535,9 +535,7 @@ public class LeaseUpdater {
                         // New lease is granted.
                         Lease newLease = writeNewLease(grpId, candidate, renewedLeases);
 
-                        boolean force = !lease.isProlongable() && lease.proposedCandidate() != null;
-
-                        toBeNegotiated.put(grpId, new LeaseAgreement(newLease, force));
+                        toBeNegotiated.put(grpId, new LeaseAgreement(newLease, true));
                     } else if (canBeProlonged) {
                         // Old lease is renewed.
                         renewedLeases.put(grpId, prolongLease(lease, newExpirationTimestamp));
