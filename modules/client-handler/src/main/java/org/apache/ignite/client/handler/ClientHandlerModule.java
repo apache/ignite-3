@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.BIND_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -393,11 +393,10 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
                 result.complete(bindFut.channel());
             } else if (bindFut.cause() instanceof BindException) {
-                // TODO IGNITE-21614
                 result.completeExceptionally(
                         new IgniteException(
-                                PORT_IN_USE_ERR,
-                                "Cannot start thin client connector endpoint. Port " + port + " is in use.",
+                                BIND_ERR,
+                                String.format("Cannot start thin client connector endpoint at %s:%d.", addresses[0], port),
                                 bindFut.cause())
                 );
             } else if (bindFut.cause() instanceof UnresolvedAddressException) {

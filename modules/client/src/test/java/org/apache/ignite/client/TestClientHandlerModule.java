@@ -288,7 +288,8 @@ public class TestClientHandlerModule implements IgniteComponent {
         }
 
         if (ch == null) {
-            String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
+            String address = configuration.listenAddresses()[0];
+            String msg = String.format("Cannot start thin client connector endpoint at %s:%d.", address, port);
 
             throw new IgniteException(INTERNAL_ERR, msg);
         }
