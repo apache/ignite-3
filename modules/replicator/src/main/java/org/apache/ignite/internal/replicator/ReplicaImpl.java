@@ -207,7 +207,7 @@ public class ReplicaImpl implements Replica {
 
             return null;
         }).thenCompose(pendingsBytes -> {
-            if (pendingsBytes == null) {
+            if (pendingsBytes == null || pendingsBytes.get1() == null) {
                 return nullCompletedFuture();
             }
 
