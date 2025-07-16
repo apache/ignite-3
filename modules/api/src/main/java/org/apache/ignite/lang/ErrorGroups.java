@@ -529,9 +529,6 @@ public class ErrorGroups {
 
         /** Could not resolve address. */
         public static final int ADDRESS_UNRESOLVED_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 6);
-
-        /** Invalid/unavailable address. */
-        public static final int INVALID_OR_UNAVAILABLE_ADDRESS_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Node configuration error group. */

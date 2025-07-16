@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Network.INVALID_OR_UNAVAILABLE_ADDRESS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -46,7 +45,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -100,9 +98,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
     /** Connection id generator.
      * The resulting connection id is local to the current node and is intended for logging, diagnostics, and management purposes. */
     private static final AtomicLong CONNECTION_ID_GEN = new AtomicLong();
-
-    /** BindException message pattern. */
-    private static final Pattern CANNOT_ASSIGN_REQUESTED_ADDRESS = Pattern.compile("Cannot assign requested address");
 
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
@@ -398,20 +393,13 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
                 result.complete(bindFut.channel());
             } else if (bindFut.cause() instanceof BindException) {
-                if (CANNOT_ASSIGN_REQUESTED_ADDRESS.matcher(bindFut.cause().getMessage()).matches()) {
-                    result.completeExceptionally(
-                            new IgniteException(
-                                    INVALID_OR_UNAVAILABLE_ADDRESS_ERR,
-                                    String.format("Cannot start thin client connector endpoint. Invalid or unavailable address: %s",
-                                            addresses[0]),
-                                    bindFut.cause()));
-                } else {
-                    result.completeExceptionally(
-                            new IgniteException(
-                                    PORT_IN_USE_ERR,
-                                    String.format("Cannot start thin client connector endpoint. Port %d is in use.", port),
-                                    bindFut.cause()));
-                }
+                // TODO IGNITE-21614
+                result.completeExceptionally(
+                        new IgniteException(
+                                PORT_IN_USE_ERR,
+                                "Cannot start thin client connector endpoint. Port " + port + " is in use.",
+                                bindFut.cause())
+                );
             } else if (bindFut.cause() instanceof UnresolvedAddressException) {
                 result.completeExceptionally(
                         new IgniteException(
