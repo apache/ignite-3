@@ -337,7 +337,7 @@ namespace Apache.Ignite.Internal.Table
                 SingleWriter = false
             });
 
-            // Stream in background.
+            // Stream in the background.
             var streamTask = Stream();
 
             // Result async enumerable is returned immediately. It will be completed when the streaming completes.
@@ -381,6 +381,9 @@ namespace Apache.Ignite.Internal.Table
                         receiver.DeploymentUnits ?? [],
                         receiver.ReceiverClassName,
                         receiver.Options ?? ReceiverExecutionOptions.Default,
+                        receiver.PayloadMarshaller,
+                        receiver.ArgumentMarshaller,
+                        receiver.ResultMarshaller,
                         receiverArg,
                         cancellationToken).ConfigureAwait(false);
 
@@ -415,6 +418,9 @@ namespace Apache.Ignite.Internal.Table
                 receiver.DeploymentUnits ?? [],
                 receiver.ReceiverClassName,
                 receiver.Options ?? ReceiverExecutionOptions.Default,
+                null,
+                null,
+                null,
                 receiverArg,
                 cancellationToken).ConfigureAwait(false);
         }
