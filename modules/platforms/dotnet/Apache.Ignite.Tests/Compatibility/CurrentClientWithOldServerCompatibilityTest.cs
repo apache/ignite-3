@@ -46,4 +46,12 @@ public class CurrentClientWithOldServerCompatibilityTest
         _javaServer.Dispose();
         _workDir.Dispose();
     }
+
+    [Test]
+    public async Task TestStartClient()
+    {
+        var cfg = new IgniteClientConfiguration($"localhost:{_javaServer.Port}");
+        using var client = await IgniteClient.StartAsync(cfg);
+        await client.Tables.GetTablesAsync();
+    }
 }
