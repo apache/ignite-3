@@ -69,6 +69,7 @@ data: {
     # List of new keywords. Example: "DATABASES", "TABLES". If the keyword is
     # not a reserved keyword, add it to the 'nonReservedKeywords' section.
     keywords: [
+      "OFF"
       "AUTO"
       "DOWN"
       "PARTITIONS"
@@ -102,6 +103,7 @@ data: {
     # items in this list become non-reserved.
     nonReservedKeywordsToAdd: [
       # Keywords introduced by Ignite
+      "OFF"
       "AUTO"
       "DOWN"
       "PARTITIONS"

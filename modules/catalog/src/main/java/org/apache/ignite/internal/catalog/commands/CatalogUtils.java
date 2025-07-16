@@ -145,6 +145,11 @@ public class CatalogUtils {
     public static final int DEFAULT_LENGTH = 1;
 
     /**
+     * Passing this value as a auto adjust param means that this option is disabled.
+     */
+    public static int AUTO_ADJUST_OFF = Integer.MAX_VALUE;
+
+    /**
      * Default length for VARCHAR and VARBINARY is implementation defined.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 8
