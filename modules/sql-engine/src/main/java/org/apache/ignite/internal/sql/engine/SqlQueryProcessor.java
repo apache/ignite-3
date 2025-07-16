@@ -85,6 +85,8 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.ClusterWideStorageProfileValidator;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
@@ -281,6 +283,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         metricManager.registerSource(sqlQueryMetricSource);
         metricManager.enable(sqlQueryMetricSource);
 
+        var storageProfileValidator = new ClusterWideStorageProfileValidator(logicalTopologyService);
+
+        var ddlSqlToCommandConverter = new DdlSqlToCommandConverter(storageProfileValidator);
+
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
                 CACHE_FACTORY,
@@ -288,7 +294,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 metricManager,
                 clusterCfg,
                 nodeCfg,
-                sqlSchemaManager
+                sqlSchemaManager,
+                ddlSqlToCommandConverter
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(

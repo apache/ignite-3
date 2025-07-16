@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSu
 
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -109,6 +111,25 @@ public class ItSqlUsesKeyValueGetTest extends BaseSqlIntegrationTest {
                 .withParams(key)
                 .returns(key, key * 10)
                 .check();
+    }
+
+    @Test
+    void lookupOnOutOfRangeKey() {
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
+
+        try {
+            sql(tx, "INSERT INTO simple_key VALUES (2147483647, 0), (-2147483648, 0);");
+
+            assertQuery((InternalTransaction) tx, "SELECT val FROM simple_key WHERE id = 2147483648")
+                    .returnNothing()
+                    .check();
+
+            assertQuery((InternalTransaction) tx, "SELECT val FROM simple_key WHERE id = -2147483649")
+                    .returnNothing()
+                    .check();
+        } finally {
+            tx.rollback();
+        }
     }
 
     private static int randomKey() {

@@ -31,7 +31,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -763,12 +763,33 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void creatingTableOnZoneReferencingNonExistingProfile() {
+        String zoneName = "test_zone";
         String tableName = "test_table";
+        String nonExistingProfileName = "no-such-profile";
 
-        sql("CREATE ZONE test_zone STORAGE PROFILES ['no-such-profile']");
-        sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) ZONE test_zone");
+        // Try to create zone with not existed storage profile.
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Some storage profiles don't exist [missedProfileNames=[" + nonExistingProfileName + "]].",
+                () -> sql("CREATE ZONE \"" + zoneName + "\" STORAGE PROFILES ['" + nonExistingProfileName + "']")
+        );
 
+        // Check that the zone wasn't created and table creation fails with zone not found reason.
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Distribution zone with name '" + zoneName + "' not found.",
+                () -> sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) ZONE \"" + zoneName + "\"")
+        );
+
+        // Try to create table with default zone and wrong storage profile.
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Zone with name 'Default' does not contain table's storage profile [storageProfile='" + nonExistingProfileName + "'].",
+                () -> sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) STORAGE PROFILE '" + nonExistingProfileName + "'")
+        );
+
+        // Verify that there still no the desired table.
         Table table = CLUSTER.aliveNode().tables().table(tableName);
-        assertThat(table, is(notNullValue()));
+        assertThat(table, is(nullValue()));
     }
 }

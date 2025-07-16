@@ -42,6 +42,7 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -126,11 +127,18 @@ public class MockNode {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
+        boolean colocationEnabled = IgniteSystemProperties.colocationEnabled();
+
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 new SystemDisasterRecoveryStorage(vaultManager),
                 clusterService,
-                new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
+                new ClusterInitializer(
+                        clusterService,
+                        hocon -> hocon,
+                        new TestConfigurationValidator(),
+                        () -> colocationEnabled
+                ),
                 raftManager,
                 clusterStateStorage,
                 new LogicalTopologyImpl(clusterStateStorage, failureManager),
@@ -138,7 +146,8 @@ public class MockNode {
                 failureManager,
                 clusterIdHolder,
                 cmgRaftConfigurer,
-                new NoOpMetricManager()
+                new NoOpMetricManager(),
+                () -> colocationEnabled
         );
 
         components = List.of(

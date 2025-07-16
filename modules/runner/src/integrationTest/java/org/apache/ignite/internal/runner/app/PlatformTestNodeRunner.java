@@ -859,6 +859,39 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings("unused") // Used by platform tests.
+    private static class MarshallerReceiver implements DataStreamerReceiver<Nested, MyArg, MyResult> {
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> payloadMarshaller() {
+            return new ToStringMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<MyArg, byte[]> argumentMarshaller() {
+            return new JsonMarshaller<>(MyArg.class);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyResult, byte[]> resultMarshaller() {
+            return new JsonMarshaller<>(MyResult.class);
+        }
+
+        @Override
+        public CompletableFuture<List<MyResult>> receive(List<Nested> page, DataStreamerReceiverContext ctx, MyArg arg) {
+            List<MyResult> results = new ArrayList<>(page.size());
+
+            for (Nested item : page) {
+                MyResult res = new MyResult();
+                res.data = arg.name + "_" + arg.id;
+                res.nested = item;
+
+                results.add(res);
+            }
+
+            return completedFuture(results);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
     private static class PartitionJob implements ComputeJob<Long, Integer> {
         @Override
         public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Long id) {
