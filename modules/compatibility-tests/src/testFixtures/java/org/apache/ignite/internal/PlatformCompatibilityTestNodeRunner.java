@@ -75,7 +75,7 @@ public class PlatformCompatibilityTestNodeRunner {
 
         System.out.println(">>> Started test node with version: " + version);
         System.out.println("THIN_CLIENT_PORTS=" + CLIENT_PORT);
-        Thread.sleep(600_000);
+        Thread.sleep(60_000);
 
         cluster.stop();
     }
