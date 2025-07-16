@@ -74,6 +74,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -398,20 +399,15 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
                 result.complete(bindFut.channel());
             } else if (bindFut.cause() instanceof BindException) {
-                if (CANNOT_ASSIGN_REQUESTED_ADDRESS.matcher(bindFut.cause().getMessage()).matches()) {
-                    result.completeExceptionally(
-                            new IgniteException(
-                                    INVALID_OR_UNAVAILABLE_ADDRESS_ERR,
-                                    String.format("Cannot start thin client connector endpoint. Invalid or unavailable address: %s",
-                                            addresses[0]),
-                                    bindFut.cause()));
-                } else {
-                    result.completeExceptionally(
-                            new IgniteException(
-                                    PORT_IN_USE_ERR,
-                                    String.format("Cannot start thin client connector endpoint. Port %d is in use.", port),
-                                    bindFut.cause()));
-                }
+                Pair<Integer, String> errorCodeAndMessage = getErrorCodeAndMessage((BindException) bindFut.cause(), addresses[0], port);
+                int errCode = errorCodeAndMessage.getFirst();
+                String errMsg = errorCodeAndMessage.getSecond();
+
+                result.completeExceptionally(
+                        new IgniteException(
+                                errCode,
+                                errMsg,
+                                bindFut.cause()));
             } else if (bindFut.cause() instanceof UnresolvedAddressException) {
                 result.completeExceptionally(
                         new IgniteException(
@@ -473,5 +469,23 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
     @Override
     public CompletableFuture<PlatformComputeConnection> registerComputeExecutorId(String computeExecutorId) {
         return computeExecutors.computeIfAbsent(computeExecutorId, k -> new CompletableFuture<>());
+    }
+
+    /** Returns an appropriate error code and message
+     * based on the cause of the bind error. */
+    public static Pair<Integer, String> getErrorCodeAndMessage(BindException e, String address, int port) {
+        int errCode;
+        String errMsg;
+
+        if (CANNOT_ASSIGN_REQUESTED_ADDRESS.matcher(e.getMessage()).matches()) {
+            errCode  = INVALID_OR_UNAVAILABLE_ADDRESS_ERR;
+            errMsg = String.format("Cannot start thin client connector endpoint. Invalid or unavailable address: %s",
+                    address);
+        } else {
+            errCode = PORT_IN_USE_ERR;
+            errMsg = String.format("Cannot start thin client connector endpoint. Port %d is in use.", port);
+        }
+
+        return new Pair<>(errCode, errMsg);
     }
 }
