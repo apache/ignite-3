@@ -140,22 +140,6 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     public void afterEachTest() throws Exception {
         var closeables = new ArrayList<AutoCloseable>();
 
-        List<String> serverNames = IGNITE_SERVERS.stream()
-                .filter(Objects::nonNull)
-                .map(IgniteServer::name)
-                .collect(toList());
-
-        log.info("Shutting the cluster down [nodes={}]", serverNames);
-
-        // Stop all nodes in reverse order to ensure that the first started node (MS node) is stopped last.
-        for (int i = IGNITE_SERVERS.size() - 1; i >= 0; i--) {
-            IgniteServer node = IGNITE_SERVERS.get(i);
-
-            if (node != null) {
-                closeables.add(node::shutdown);
-            }
-        }
-
         if (!partialNodes.isEmpty()) {
             for (int i = partialNodes.size() - 1; i >= 0; i--) {
                 PartialNode node = partialNodes.get(i);
@@ -166,7 +150,19 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         closeAll(closeables);
 
+        List<IgniteServer> serversToStop = new ArrayList<>(IGNITE_SERVERS);
+
+        List<String> serverNames = serversToStop.stream()
+                .filter(Objects::nonNull)
+                .map(IgniteServer::name)
+                .collect(toList());
+
+        log.info("Shutting the cluster down [nodes={}]", serverNames);
+
+        serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
+
         IGNITE_SERVERS.clear();
+        partialNodes.clear();
     }
 
     /**
