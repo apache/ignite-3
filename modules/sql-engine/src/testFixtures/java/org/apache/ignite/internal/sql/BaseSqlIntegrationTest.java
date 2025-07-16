@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -49,6 +50,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -281,6 +283,27 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
      */
     protected void waitUntilRunningQueriesCount(Matcher<Integer> matcher) {
         SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor(), matcher);
+    }
+
+    /**
+     * Waits until the number of active (pending) transactions matches the specified matcher.
+     *
+     * @param matcher Matcher to check the number of active transactions.
+     * @throws AssertionError If after waiting the number of active transactions still does not match the specified matcher.
+     */
+    protected void waitUntilActiveTransactionsCount(Matcher<Integer> matcher) {
+        waitUntilActiveTransactionsCount("", matcher);
+    }
+
+    /**
+     * Waits until the number of active (pending) transactions matches the specified matcher.
+     *
+     * @param matcher Matcher to check the number of active transactions.
+     * @param reason Detailed message.
+     * @throws AssertionError If after waiting the number of active transactions still does not match the specified matcher.
+     */
+    protected void waitUntilActiveTransactionsCount(String reason, Matcher<Integer> matcher) {
+        Awaitility.await().untilAsserted(() -> assertThat(reason, txManager().pending(), matcher));
     }
 
     protected static void gatherStatistics() {
