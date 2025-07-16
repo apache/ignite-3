@@ -70,7 +70,9 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
     void createTable() throws Exception {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
 
-        awaitAssignmentsStabilizationOnDefaultZone(CLUSTER.aliveNode());
+        if (colocationEnabled()) {
+            awaitAssignmentsStabilizationOnDefaultZone(CLUSTER.aliveNode());
+        }
     }
 
     /**
@@ -351,7 +353,7 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         NodeUtils.stopLeaseProlongation(
                 CLUSTER.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toSet()),
                 leaseholderNode,
-                new ZonePartitionId(table.zoneId(), partitionId),
+                replicationGroupId,
                 null
         );
 
