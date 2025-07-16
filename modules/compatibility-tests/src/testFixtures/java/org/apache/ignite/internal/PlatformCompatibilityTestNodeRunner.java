@@ -31,7 +31,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Old node runner for platform compatibility tests.
  */
-@SuppressWarnings("CallToSystemExit")
+@SuppressWarnings("CallToSystemGetenv")
 public class PlatformCompatibilityTestNodeRunner {
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
@@ -50,13 +50,12 @@ public class PlatformCompatibilityTestNodeRunner {
             + "}";
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 2) {
-            System.err.println("Usage: OldNodeRunner <version> <workDir>");
-            System.exit(1);
-        }
+        String version = System.getenv("IGNITE_OLD_SERVER_VERSION");
+        String workDir = System.getenv("IGNITE_OLD_SERVER_WORK_DIR");
 
-        String version = args[0];
-        String workDir = args[1];
+        if (version == null || workDir == null) {
+            throw new Exception("IGNITE_OLD_SERVER_VERSION and IGNITE_OLD_SERVER_WORK_DIR environment variables are not set.");
+        }
 
         System.out.println(">>> Starting test node with version: " + version + " in work directory: " + workDir);
 

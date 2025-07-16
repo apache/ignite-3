@@ -63,14 +63,39 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<JavaServer> StartAsync()
+        public static async Task<JavaServer> StartAsync() =>
+            await StartInternalAsync(GradleCommandExec, DefaultClientPort);
+
+        /// <summary>
+        /// Starts a server node.
+        /// </summary>
+        /// <returns>Disposable object to stop the server.</returns>
+        public static async Task<JavaServer> StartOldAsync(string version) =>
+            await StartInternalAsync(GradleCommandExecOldServer, DefaultClientPortOldServer);
+
+        public void Dispose()
         {
-            if (await TryConnect(DefaultClientPort) == null)
+            Log(">>> Stopping Java server 1...");
+            _process?.StandardInput.Close();
+
+            Log(">>> Stopping Java server 2...");
+            _process?.Kill();
+            _process?.Kill(entireProcessTree: true);
+
+            Log(">>> Stopping Java server 3...");
+            _process?.Dispose();
+
+            Log(">>> Java server stopped.");
+        }
+
+        private static async Task<JavaServer> StartInternalAsync(string gradleCommand, int defaultPort)
+        {
+            if (await TryConnect(defaultPort) == null)
             {
                 // Server started from outside.
                 Log(">>> Java server is already started.");
 
-                return new JavaServer(DefaultClientPort, null);
+                return new JavaServer(defaultPort, null);
             }
 
             if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
@@ -81,7 +106,7 @@ namespace Apache.Ignite.Tests
 
             Log(">>> Java server is not detected, starting...");
 
-            var process = CreateProcess();
+            var process = CreateProcess(gradleCommand);
 
             var evt = new ManualResetEventSlim(false);
             int[]? ports = null;
@@ -111,7 +136,7 @@ namespace Apache.Ignite.Tests
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            var port = ports?.FirstOrDefault() ?? DefaultClientPort;
+            var port = ports?.FirstOrDefault() ?? defaultPort;
 
             if (!evt.Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds)) || !WaitForServer(port))
             {
@@ -125,26 +150,11 @@ namespace Apache.Ignite.Tests
             return new JavaServer(port, process);
         }
 
-        public void Dispose()
-        {
-            Log(">>> Stopping Java server 1...");
-            _process?.StandardInput.Close();
-
-            Log(">>> Stopping Java server 2...");
-            _process?.Kill();
-            _process?.Kill(entireProcessTree: true);
-
-            Log(">>> Stopping Java server 3...");
-            _process?.Dispose();
-
-            Log(">>> Java server stopped.");
-        }
-
-        private static Process CreateProcess()
+        private static Process CreateProcess(string gradleCommand)
         {
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
             var opts = Environment.GetEnvironmentVariable(GradleOptsEnvVar);
-            var command = $"{GradlePath} {GradleCommandExec} {opts}";
+            var command = $"{GradlePath} {gradleCommand} {opts}";
 
             Log("Executing command: " + command);
 
