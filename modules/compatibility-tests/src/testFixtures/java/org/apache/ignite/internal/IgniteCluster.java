@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -186,7 +185,7 @@ public class IgniteCluster {
                 .timeout(30, TimeUnit.SECONDS)
                 .until(
                         () -> send(get("/management/v1/node/state")).body(),
-                        hasJsonPath("$.state", is(in(new String[]{"STARTING", "STARTED"})))
+                        hasJsonPath("$.state", is(equalTo("STARTING")))
                 );
 
         // Initialize the cluster
@@ -290,7 +289,6 @@ public class IgniteCluster {
     }
 
     private List<RunnerNode> startRunnerNodes(String igniteVersion, int nodesCount) {
-
         try (ProjectConnection connection = GradleConnector.newConnector()
                 .forProjectDirectory(getProjectRoot())
                 .connect()
