@@ -289,9 +289,9 @@ public class IgniteCluster {
     }
 
     private List<RunnerNode> startRunnerNodes(String igniteVersion, int nodesCount) {
+
         try (ProjectConnection connection = GradleConnector.newConnector()
-                // Current directory is modules/compatibility-tests so get two parents
-                .forProjectDirectory(Path.of("..", "..").normalize().toFile())
+                .forProjectDirectory(getProjectRoot())
                 .connect()
         ) {
             BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
@@ -308,6 +308,21 @@ public class IgniteCluster {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static File getProjectRoot() {
+        var absPath = new File("").getAbsolutePath();
+
+        // Find root by looking for "gradlew" file.
+        while (!new File(absPath, "gradlew").exists()) {
+            var parent = new File(absPath).getParentFile();
+            if (parent == null) {
+                throw new IllegalStateException("Could not find project root with 'gradlew' file");
+            }
+            absPath = parent.getAbsolutePath();
+        }
+
+        return new File(absPath);
     }
 
     static File constructArgFile(
