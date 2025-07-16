@@ -18,7 +18,6 @@
 package org.apache.ignite.client;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.client.handler.ClientHandlerModule.getErrorCodeAndMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -66,7 +65,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -290,10 +288,9 @@ public class TestClientHandlerModule implements IgniteComponent {
         }
 
         if (ch == null) {
-            String address = configuration.listenAddresses()[0];
-            Pair<Integer, String> errorCodeAndMessage = getErrorCodeAndMessage((BindException) bindRes.cause(), address, port);
+            String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
 
-            throw new IgniteException(INTERNAL_ERR, errorCodeAndMessage.getSecond());
+            throw new IgniteException(INTERNAL_ERR, msg);
         }
 
         return ch.closeFuture();
