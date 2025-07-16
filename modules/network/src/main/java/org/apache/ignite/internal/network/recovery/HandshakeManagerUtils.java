@@ -130,6 +130,8 @@ class HandshakeManagerUtils {
 
         int index = safeAbs(channelKey.hashCode()) % eventLoops.size();
 
+        LOG.info("PVD:: Get thread for channel key {}: (index {})",  channelKey, index);
+
         return eventLoops.get(index);
     }
 
