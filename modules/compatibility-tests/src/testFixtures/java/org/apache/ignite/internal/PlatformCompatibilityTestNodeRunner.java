@@ -71,6 +71,8 @@ public class PlatformCompatibilityTestNodeRunner {
         System.out.println(">>> Started test node with version: " + version);
         System.out.println("THIN_CLIENT_PORTS=" + unwrapIgniteImpl(cluster.node(0)).clientAddress().port());
         Thread.sleep(600_000);
+
+        cluster.stop();
     }
 
     private static class PlatformTestInfo implements TestInfo {
