@@ -54,8 +54,9 @@ public class TxStateMeta implements TransactionMeta {
     private final @Nullable Boolean isFinishedDueToTimeout;
 
     /**
-     * The ignite transaction object is associated with this state. This field can be initialized only on the transaction coordinator,
-     * {@code null} in other nodes.
+     * The ignite transaction object is associated with this state.
+     * This field can be initialized only on the transaction coordinator, {@code null} on the other nodes.
+     * Moreover, this field can be set to {@code null} even on the transaction coordinator under certain circumstances.
      */
     @IgniteToStringExclude
     private final @Nullable InternalTransaction tx;
