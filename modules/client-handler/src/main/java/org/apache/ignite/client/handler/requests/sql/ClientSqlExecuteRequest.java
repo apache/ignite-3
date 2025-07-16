@@ -72,6 +72,14 @@ public class ClientSqlExecuteRequest {
      * @param metrics Metrics.
      * @param timestampTracker Server's view of latest seen by client time.
      * @param sqlPartitionAwarenessSupported Denotes whether client supports partition awareness for SQL or not.
+     * @param sqlDirectTxMappingSupported Denotes whether client supports direct mapping of implicit transaction for SQL operations
+     *         for SQL or not.
+     * @param txManager Tx manager is used to start explicit transaction in case of transaction piggybacking, or to start remote
+     *         transaction in case of direct mapping.
+     * @param clockService Clock service is required to update observable time after execution of operation within a remote
+     *         transaction.
+     * @param notificationSender Notification sender is required to send acknowledge for underlying write operation within a remote
+     *         transaction.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
