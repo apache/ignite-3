@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests
 {
     using System;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
@@ -64,14 +65,17 @@ namespace Apache.Ignite.Tests
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
         public static async Task<JavaServer> StartAsync() =>
-            await StartInternalAsync(GradleCommandExec, DefaultClientPort);
+            await StartInternalAsync(GradleCommandExec, DefaultClientPort, []);
 
-        /// <summary>
-        /// Starts a server node.
-        /// </summary>
-        /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<JavaServer> StartOldAsync(string version) =>
-            await StartInternalAsync(GradleCommandExecOldServer, DefaultClientPortOldServer);
+        public static async Task<JavaServer> StartOldAsync(string version, string workDir) =>
+            await StartInternalAsync(
+                GradleCommandExecOldServer,
+                DefaultClientPortOldServer,
+                env: new Dictionary<string, string?>
+                {
+                    { "IGNITE_OLD_SERVER_VERSION", version },
+                    { "IGNITE_OLD_SERVER_WORK_DIR", workDir }
+                });
 
         public void Dispose()
         {
@@ -88,7 +92,7 @@ namespace Apache.Ignite.Tests
             Log(">>> Java server stopped.");
         }
 
-        private static async Task<JavaServer> StartInternalAsync(string gradleCommand, int defaultPort)
+        private static async Task<JavaServer> StartInternalAsync(string gradleCommand, int defaultPort, IDictionary<string, string?> env)
         {
             if (await TryConnect(defaultPort) == null)
             {
@@ -106,7 +110,7 @@ namespace Apache.Ignite.Tests
 
             Log(">>> Java server is not detected, starting...");
 
-            var process = CreateProcess(gradleCommand);
+            var process = CreateProcess(gradleCommand, env);
 
             var evt = new ManualResetEventSlim(false);
             int[]? ports = null;
@@ -150,7 +154,7 @@ namespace Apache.Ignite.Tests
             return new JavaServer(port, process);
         }
 
-        private static Process CreateProcess(string gradleCommand)
+        private static Process CreateProcess(string gradleCommand, IDictionary<string, string?> env)
         {
             var file = TestUtils.IsWindows ? "cmd.exe" : "/bin/bash";
             var opts = Environment.GetEnvironmentVariable(GradleOptsEnvVar);
@@ -158,24 +162,34 @@ namespace Apache.Ignite.Tests
 
             Log("Executing command: " + command);
 
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = file,
+                ArgumentList =
+                {
+                    TestUtils.IsWindows ? "/c" : "-c",
+                    command
+                },
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                WorkingDirectory = TestUtils.RepoRootDir,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                RedirectStandardInput = true,
+                Environment =
+                {
+                    ["IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_SKIP_CERTIFICATE_VALIDATION"] = "true"
+                }
+            };
+
+            foreach (var kvp in env)
+            {
+                processStartInfo.Environment[kvp.Key] = kvp.Value;
+            }
+
             var process = new Process
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = file,
-                    ArgumentList =
-                    {
-                        TestUtils.IsWindows ? "/c" : "-c",
-                        command
-                    },
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    WorkingDirectory = TestUtils.RepoRootDir,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    RedirectStandardInput = true,
-                    Environment = { ["IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_SKIP_CERTIFICATE_VALIDATION"] = "true" }
-                }
+                StartInfo = processStartInfo
             };
 
             return process;
