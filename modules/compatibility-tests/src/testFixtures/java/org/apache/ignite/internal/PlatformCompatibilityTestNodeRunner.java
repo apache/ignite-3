@@ -68,7 +68,7 @@ public class PlatformCompatibilityTestNodeRunner {
         cluster.init(x -> {});
 
         System.out.println(">>> Started test node with version: " + version);
-        System.in.read();
+        Thread.sleep(600_000);
     }
 
     private static class PlatformTestInfo implements TestInfo {
