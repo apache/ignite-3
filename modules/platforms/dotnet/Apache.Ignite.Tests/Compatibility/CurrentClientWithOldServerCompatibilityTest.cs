@@ -30,6 +30,8 @@ public class CurrentClientWithOldServerCompatibilityTest
 
     private JavaServer _javaServer;
 
+    private IIgniteClient _client;
+
     public CurrentClientWithOldServerCompatibilityTest(string serverVersion) =>
         _serverVersion = serverVersion;
 
@@ -38,20 +40,23 @@ public class CurrentClientWithOldServerCompatibilityTest
     {
         _workDir = new TempDir();
         _javaServer = await JavaServer.StartOldAsync(_serverVersion, _workDir.Path);
+
+        var cfg = new IgniteClientConfiguration($"localhost:{_javaServer.Port}");
+        _client = await IgniteClient.StartAsync(cfg);
     }
 
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
+        _client.Dispose();
         _javaServer.Dispose();
         _workDir.Dispose();
     }
 
     [Test]
-    public async Task TestStartClient()
+    public async Task TestTables()
     {
-        var cfg = new IgniteClientConfiguration($"localhost:{_javaServer.Port}");
-        using var client = await IgniteClient.StartAsync(cfg);
-        await client.Tables.GetTablesAsync();
+        var tables = await _client.Tables.GetTablesAsync();
+        Assert.AreEqual(1, tables.Count);
     }
 }
