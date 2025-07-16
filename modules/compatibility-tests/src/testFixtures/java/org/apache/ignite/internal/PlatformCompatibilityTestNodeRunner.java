@@ -57,13 +57,18 @@ public class PlatformCompatibilityTestNodeRunner {
         String version = args[0];
         String workDir = args[1];
 
-        System.out.println("Starting test node with version: " + version + " in work directory: " + workDir);
+        System.out.println(">>> Starting test node with version: " + version + " in work directory: " + workDir);
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
                 .build();
 
         var cluster = new IgniteCluster(clusterConfiguration);
+        cluster.start(version, 1);
+        cluster.init(x -> {});
+
+        System.out.println(">>> Started test node with version: " + version);
+        System.in.read();
     }
 
     private static class PlatformTestInfo implements TestInfo {
