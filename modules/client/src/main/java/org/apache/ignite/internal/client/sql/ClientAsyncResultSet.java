@@ -92,13 +92,15 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
      * @param in Unpacker.
      * @param mapper Mapper.
      * @param partitionAwarenessEnabled Whether partitions awareness is enabled, hence response may contain related metadata.
+     * @param sqlDirectMappingSupported Whether direct mapping is supported, hence response may contain additional metadata.
      */
     ClientAsyncResultSet(
             ClientChannel ch,
             MarshallersProvider marshallers,
             ClientMessageUnpacker in,
             @Nullable Mapper<T> mapper,
-            boolean partitionAwarenessEnabled
+            boolean partitionAwarenessEnabled,
+            boolean sqlDirectMappingSupported
     ) {
         this.ch = ch;
 
@@ -110,7 +112,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         metadata = ClientResultSetMetadata.read(in);
 
         if (partitionAwarenessEnabled && !in.tryUnpackNil()) {
-            partitionAwarenessMetadata = ClientPartitionAwarenessMetadata.read(in);
+            partitionAwarenessMetadata = ClientPartitionAwarenessMetadata.read(in, sqlDirectMappingSupported);
         } else {
             partitionAwarenessMetadata = null;
         }

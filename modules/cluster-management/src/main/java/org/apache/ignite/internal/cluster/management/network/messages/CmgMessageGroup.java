@@ -78,6 +78,16 @@ public class CmgMessageGroup {
     public static final short REFUSE_JOIN = 8;
 
     /**
+     * Message type for {@link CmgPrepareInitMessage}.
+     */
+    public static final short CMG_PREPARE_INIT = 9;
+
+    /**
+     * Message type for {@link PrepareInitCompleteMessage}.
+     */
+    public static final short PREPARE_INIT_COMPLETE = 10;
+
+    /**
      * Message types for RAFT commands.
      */
     public interface Commands  {

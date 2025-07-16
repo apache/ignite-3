@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -44,7 +45,10 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Integration tests for {@link ClusterManagementGroupManager}.
@@ -52,15 +56,36 @@ import org.junit.jupiter.api.Test;
 public class ItClusterManagerTest extends BaseItClusterManagementTest {
     private final List<MockNode> cluster = new ArrayList<>();
 
+    private String commonColocationFeatureFlag;
+
+    @BeforeEach
+    public void setUp() {
+        commonColocationFeatureFlag = System.getProperty(COLOCATION_FEATURE_FLAG);
+    }
+
     @AfterEach
     void tearDown() throws Exception {
         stopCluster();
+
+        if (commonColocationFeatureFlag == null) {
+            System.clearProperty(COLOCATION_FEATURE_FLAG);
+        } else {
+            System.setProperty(COLOCATION_FEATURE_FLAG, commonColocationFeatureFlag);
+        }
     }
 
     private void startCluster(int numNodes) {
         cluster.addAll(createNodes(numNodes));
 
         cluster.parallelStream().forEach(MockNode::startAndJoin);
+    }
+
+    private void startNode(int idx, int clusterSize) {
+        MockNode node = createNode(idx, clusterSize);
+
+        cluster.add(node);
+
+        node.startAndJoin();
     }
 
     private void stopCluster() throws Exception {
@@ -204,6 +229,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     /**
      * Tests executing the init command with incorrect node names.
      */
+    @SuppressWarnings("ThrowableNotThrown")
     @Test
     void testInitInvalidNodes() throws Exception {
         startCluster(2);
@@ -533,5 +559,27 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         for (MockNode node : cluster) {
             assertThat(node.startFuture(), willCompleteSuccessfully());
         }
+    }
+
+    @SuppressWarnings("ThrowableNotThrown")
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testInitFailsOnDifferentEnabledColocationModesWithinCmgNodes(boolean colocationEnabled) {
+        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(colocationEnabled));
+        startNode(0, 2);
+
+        System.setProperty(COLOCATION_FEATURE_FLAG, Boolean.toString(!colocationEnabled));
+        startNode(1, 2);
+
+        String[] cmgNodes = clusterNodeNames();
+
+        assertThrowsWithCause(
+                () -> initCluster(cmgNodes, cmgNodes),
+                InitException.class,
+                "Unable to initialize the cluster: org.apache.ignite.internal.cluster.management.InternalInitException: IGN-CMN-65535"
+                        + " Got error response from node \"icmt_tifodecmwcn_10001\": Colocation modes do not match"
+                        + " [initInitiatorNodeName=icmt_tifodecmwcn_10000, initInitiatorColocationMode=" + colocationEnabled
+                        + ", recipientColocationMode=" + !colocationEnabled + "]."
+        );
     }
 }

@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -230,6 +231,40 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
             receiverArg: "test").SingleAsync());
 
         Assert.AreEqual("ReceiverExecutionOptions are not supported by the server.", ex.Message);
+        Assert.AreEqual(1, ex.FailedItems.Count);
+    }
+
+    [Test]
+    public async Task TestMarshallerReceiver()
+    {
+        var receiverItem = new DotNetReceivers.ReceiverItem<string>(Guid.NewGuid(), "hello");
+        var receiverArg = new DotNetReceivers.ReceiverArg(123, "345");
+
+        DotNetReceivers.ReceiverResult<string> res = await PocoView.StreamDataAsync(
+            new object[] { "unused" }.ToAsyncEnumerable(),
+            DotNetReceivers.Marshaller with { DeploymentUnits = [_defaultTestUnit] },
+            keySelector: _ => new Poco(),
+            payloadSelector: _ => receiverItem,
+            receiverArg: receiverArg).FirstAsync();
+
+        Assert.AreEqual(receiverArg, res.Arg);
+        Assert.AreEqual(receiverItem, res.Item);
+    }
+
+    [Test]
+    public void TestErrorInMarshaller()
+    {
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await PocoView.StreamDataAsync(
+            new object[] { "unused" }.ToAsyncEnumerable(),
+            DotNetReceivers.Marshaller with { DeploymentUnits = [_defaultTestUnit] },
+            keySelector: _ => new Poco(),
+            payloadSelector: _ => new DotNetReceivers.ReceiverItem<string>(Guid.Empty, "error!"),
+            receiverArg: new DotNetReceivers.ReceiverArg(1, "1")).FirstAsync());
+
+        Assert.AreEqual(
+            ".NET job failed: Test marshaller error: ReceiverItem { Id = 00000000-0000-0000-0000-000000000000, Value = error! }",
+            ex.Message);
+
         Assert.AreEqual(1, ex.FailedItems.Count);
     }
 

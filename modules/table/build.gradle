@@ -154,6 +154,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-replicator'))
     integrationTestImplementation testFixtures(project(':ignite-marshaller-common'))
     integrationTestImplementation testFixtures(project(':ignite-catalog'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics'))
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.calcite.core
     integrationTestImplementation libs.rocksdb.jni

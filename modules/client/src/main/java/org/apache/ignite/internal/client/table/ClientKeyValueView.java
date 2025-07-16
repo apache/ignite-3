@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getColocationHash;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
+import static org.apache.ignite.internal.client.tx.DirectTxUtils.writeTx;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableOperation;
 import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableValue;

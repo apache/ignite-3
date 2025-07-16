@@ -419,6 +419,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         FailureProcessor failureProcessor = mock(FailureProcessor.class);
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                node.name(),
                 workDir.resolve("tx-state"),
                 scheduledExecutor,
                 partitionOperationsExecutor,

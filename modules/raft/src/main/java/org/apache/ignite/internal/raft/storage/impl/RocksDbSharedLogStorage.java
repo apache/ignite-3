@@ -518,7 +518,12 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
             lastLogIndex = getLastLogIndex();
 
-            if (lastLogIndex > lastIndexKept) {
+            // If lastLogIndex == 0, it means that most likely after the raft snapshot was committed, truncatePrefix was executed, which
+            // deleted all local log entries. And then log entries came from the new leader, which led to the need to clean up previous
+            // local log entries that are no longer there.
+            if (lastLogIndex != 0) {
+                assert lastLogIndex >= lastIndexKept : String.format("lastLogIndex=%s, lastIndexKept=%s", lastLogIndex, lastIndexKept);
+
                 byte[] beginKey = createKey(lastIndexKept + 1);
                 byte[] endKey = createKey(lastLogIndex + 1);
 

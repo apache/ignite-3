@@ -263,11 +263,16 @@ public class TransactionInflights {
         }
 
         CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
-            waitReadyToFinish(commit)
-                    .whenComplete((ignoredReadyToFinish, readyException) -> finishAction.apply(commit && readyException == null)
-                            .whenComplete((ignoredFinishActionResult, finishException) ->
-                                    completeFinishInProgressFuture(commit, readyException, finishException))
-                    );
+            waitReadyToFinish(commit).whenComplete((ignoredReadyToFinish, readyException) -> {
+                try {
+                    CompletableFuture<Void> actionFut = finishAction.apply(commit && readyException == null);
+
+                    actionFut.whenComplete((ignoredFinishActionResult, finishException) ->
+                            completeFinishInProgressFuture(commit, readyException, finishException));
+                } catch (Throwable err) {
+                    completeFinishInProgressFuture(commit, readyException, err);
+                }
+            });
 
             return finishInProgressFuture;
         }
