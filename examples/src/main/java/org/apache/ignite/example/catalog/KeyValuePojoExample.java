@@ -78,8 +78,6 @@ public class KeyValuePojoExample {
         @Column("l_name")
         private String lastName;
 
-        private String str;
-
         public PojoValue(String firstName, String lastName) {
             this.firstName = firstName;
             this.lastName = lastName;
