@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.example.catalog;
 
 import java.util.concurrent.ExecutionException;
@@ -34,21 +35,11 @@ import org.apache.ignite.table.Tuple;
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class RecordViewPojoExample {
-    @Table(
-            value = "pojo_sample",
-            zone = @Zone(
-                    value = "zone_test",
-                    replicas = 2,
-                    storageProfiles = "default"
-            ),
-            colocateBy = { @ColumnRef("id"), @ColumnRef("id_str") },
-            indexes = { @Index(value = "ix_sample", columns = {
-                    @ColumnRef(value = "f_name"),
-                    @ColumnRef(value = "l_name")})
-            }
-    )
-    static
-    class Pojo {
+    @Table(value = "pojo_sample",
+            zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
+            colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
+            indexes = @Index(value = "ix_sample", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
+    public static class Pojo {
         @Id
         Integer id;
 
@@ -65,7 +56,7 @@ public class RecordViewPojoExample {
         String str;
     }
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) {
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -96,9 +87,6 @@ public class RecordViewPojoExample {
                     "\nRetrieved record: " +
                             getTuple.stringValue("f_name")
             );
-
-
-
         }
     }
 }

@@ -34,42 +34,41 @@ import org.apache.ignite.table.KeyValueView;
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class KeyValuePojoExample {
-    @Table(
-            value = "kv_pojo",
-            zone = @Zone(
-                    value = "zone_test",
-                    replicas = 2,
-                    storageProfiles = "default"
-            ),
-            colocateBy = { @ColumnRef("id"), @ColumnRef("id_str") },
-            indexes = { @Index(value = "ix", columns = {
-                    @ColumnRef(value = "f_name"),
-                    @ColumnRef(value = "l_name") })
-            }
-    )
-    static
-    class PojoValue {
+    @Table(value = "kv_pojo",
+            zone = @Zone(value = "zone_test", replicas = 2, storageProfiles = "default"),
+            colocateBy = {@ColumnRef("id"), @ColumnRef("id_str")},
+            indexes = @Index(value = "ix", columns = {@ColumnRef("f_name"), @ColumnRef("l_name")}))
+    public static class PojoValue {
         @Column("f_name")
-        String firstName;
+        private String firstName;
 
         @Column("l_name")
-        String lastName;
+        private String lastName;
 
-        String str;
+        private String str;
+
+        public PojoValue(String firstName, String lastName) {
+            this.firstName = firstName;
+            this.lastName = lastName;
+        }
     }
 
-    static
-    class PojoKey {
+    public static class PojoKey {
         @Id
         Integer id;
 
         @Id(SortOrder.DEFAULT)
         @Column(value = "id_str", length = 20)
         String idStr;
+
+        public PojoKey(Integer id, String idStr) {
+            this.id = id;
+            this.idStr = idStr;
+        }
     }
 
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) {
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
@@ -85,12 +84,8 @@ public class KeyValuePojoExample {
             org.apache.ignite.table.Table myTable = client.catalog().createTable(PojoKey.class, PojoValue.class);
 
             KeyValueView<PojoKey, PojoValue> kvView = myTable.keyValueView(PojoKey.class, PojoValue.class);
-            PojoKey key = new PojoKey();
-            key.id = 1;
-            key.idStr = "sample";
-            PojoValue putValue = new PojoValue();
-            putValue.firstName="John";
-            putValue.lastName="Smith";
+            PojoKey key = new PojoKey(1, "sample");
+            PojoValue putValue = new PojoValue("John", "Smith");
 
             kvView.put(null, key, putValue);
 

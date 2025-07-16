@@ -32,7 +32,7 @@ import org.apache.ignite.table.Tuple;
  * <p>Find instructions on how to run the example in the README.md file located in the "examples" directory root.
  */
 public class TableBuilderExample {
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) {
         //--------------------------------------------------------------------------------------
         //
         // Creating a client to connect to the cluster.
