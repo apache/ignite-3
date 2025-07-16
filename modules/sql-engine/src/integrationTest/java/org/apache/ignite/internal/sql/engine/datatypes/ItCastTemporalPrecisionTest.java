@@ -133,9 +133,6 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
         {
             Object param = parseSourceLiteral(literal, sourceType);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-25716 Remove assumption.
-            Assumptions.assumeFalse(sourceType == TIME && targetType == TIME && targetPrecision == 0);
-
             assertQuery(format("SELECT ?::{}", sqlNameWithPrecision(targetType, targetPrecision)))
                     .withParam(param)
                     .withTimeZoneId(ZoneOffset.UTC)
