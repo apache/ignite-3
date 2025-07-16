@@ -38,6 +38,7 @@ public class CurrentClientWithOldServerCompatibilityTest
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
+        // TODO: Verify old server (check process output?). Looks like the wrong one is started.
         _workDir = new TempDir();
         _javaServer = await JavaServer.StartOldAsync(_serverVersion, _workDir.Path);
 
