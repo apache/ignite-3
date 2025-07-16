@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -330,6 +331,12 @@ public class LeaseUpdater {
         return primaryCandidate;
     }
 
+    /**
+     * An atomic counter used to generate incremental values in a thread-safe manner.
+     * This counter is utilized to ensure unique and sequential values across multiple threads.
+     */
+    private final AtomicInteger incrementalCounter = new AtomicInteger();
+
     private @Nullable ClusterNode tryToFindCandidateAmongAssignments(
             Set<Assignment> assignments,
             ReplicationGroupId grpId,
@@ -337,6 +344,10 @@ public class LeaseUpdater {
     ) {
         // TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
         ClusterNode primaryCandidate = null;
+
+        int proposedNo = proposedConsistentId == null ? incrementalCounter.getAndIncrement() % assignments.size() : -1;
+
+        int i = 0;
 
         for (Assignment assignment : assignments) {
             if (!assignment.isPeer()) {
@@ -351,7 +362,7 @@ public class LeaseUpdater {
                 continue;
             }
 
-            if (assignment.consistentId().equals(proposedConsistentId)) {
+            if (assignment.consistentId().equals(proposedConsistentId) || proposedNo == i) {
                 primaryCandidate = candidateNode;
 
                 break;
@@ -365,6 +376,8 @@ public class LeaseUpdater {
                     primaryCandidate = candidateNode;
                 }
             }
+
+            i++;
         }
 
         return primaryCandidate;
