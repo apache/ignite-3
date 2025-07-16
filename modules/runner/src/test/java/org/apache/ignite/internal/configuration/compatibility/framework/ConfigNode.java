@@ -53,15 +53,10 @@ public class ConfigNode {
 
     // Non-serializable fields.
     @JsonIgnore
-    @Nullable
+    @Nullable 
     private ConfigNode parent;
     @JsonIgnore
     private EnumSet<Flags> flags;
-
-    @JsonIgnore
-    public Map<String, String> attributes() {
-        return attributes;
-    }
 
     @SuppressWarnings("unused")
     ConfigNode() {
@@ -265,11 +260,18 @@ public class ConfigNode {
     String instanceType() {
         return attributes.get(Attributes.INSTANCE_TYPE);
     }
+    
+    /** Attributes. */
+    @JsonIgnore
+    public Map<String, String> attributes() {
+        return attributes;
+    }
 
     /**
      * Constructs the full path of this node in the configuration tree.
      */
-    String path() {
+    @JsonIgnore
+    public String path() {
         String name = name();
 
         return parent == null ? name : parent.path() + '.' + name;
@@ -301,7 +303,7 @@ public class ConfigNode {
 
         return path() + ": ["
                 + attributes
-                + ", annotations=" + annotations().stream().map(ConfigAnnotation::toString).collect(Collectors.joining(",", "[", "]"))
+                + ", annotations=" + annotations().stream().map(ConfigAnnotation::digest).collect(Collectors.joining(",", "[", "]"))
                 + ", flags=" + flagsHexString
                 + (childReferences.isEmpty() ? "" : ", children=" + childReferences.size())
                 + ']';

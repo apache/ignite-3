@@ -165,8 +165,8 @@ public class ConfigurationTreeComparatorSelfTest {
                 new ConfigNode(
                         root2,
                         Map.of(ConfigNode.Attributes.NAME, "child"),
-                        List.of(new ConfigAnnotation(Deprecated.class.getName())),
-                        EnumSet.of(Flags.IS_VALUE))
+                        List.of(),
+                        EnumSet.of(Flags.IS_VALUE, Flags.IS_DEPRECATED))
         ));
 
         // Adding deprecation is compatible change.

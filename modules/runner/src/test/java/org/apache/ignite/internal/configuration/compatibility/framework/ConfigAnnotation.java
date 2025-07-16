@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -29,31 +32,53 @@ public class ConfigAnnotation {
     @JsonProperty
     private String name;
     @JsonProperty
-    private Map<String, String> properties;
+    private Map<String, ConfigAnnotationValue> properties = new LinkedHashMap<>();
 
+    @SuppressWarnings("unused")
     ConfigAnnotation() {
         // Default constructor for Jackson deserialization.
     }
 
-    ConfigAnnotation(String name) {
-        this(name, Map.of());
-    }
-
-    ConfigAnnotation(String name, Map<String, String> properties) {
+    ConfigAnnotation(String name, Map<String, ConfigAnnotationValue> properties) {
         this.name = name;
         this.properties = properties;
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(name);
+    /**
+     * Returns annotation type name.
+     */
+    public String name() {
+        return name;
+    }
+
+    /**
+     * Returns values of annotation properties.
+     */
+    public Map<String, ConfigAnnotationValue> properties() {
+        return properties;
     }
 
     @Override
     public boolean equals(Object o) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
-        return o != null && getClass() == o.getClass() && name.equals(((ConfigAnnotation) o).name);
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ConfigAnnotation that = (ConfigAnnotation) o;
+        return Objects.equals(name, that.name) && Objects.equals(properties, that.properties);
+    }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, properties);
+    }
+
+    String digest() {
+        // This method is used for metadata comparison,
+        // so we exclude values from the comparison. 
+        return name + (properties == null || properties.isEmpty() ? ""
+                : properties.entrySet().stream()
+                        .map(e -> format("{}=<{}>", e.getKey(), e.getValue().typeName()))
+                        .collect(Collectors.joining(",", "(", ")")));
     }
 
     @Override

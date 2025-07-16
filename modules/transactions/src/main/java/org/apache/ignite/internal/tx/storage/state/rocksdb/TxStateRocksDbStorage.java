@@ -35,8 +35,10 @@ import org.jetbrains.annotations.Nullable;
  * RocksDb implementation of {@link TxStateStorage}.
  */
 public class TxStateRocksDbStorage implements TxStateStorage {
+    static final int TABLE_OR_ZONE_ID_SIZE_BYTES = Integer.BYTES;
+
     /** Prefix length for the payload within a table/zone. Consists of tableId/zoneId (4 bytes) in Big Endian.  */
-    static final int TABLE_OR_ZONE_PREFIX_SIZE_BYTES = Integer.BYTES;
+    static final int TABLE_OR_ZONE_PREFIX_SIZE_BYTES = TABLE_OR_ZONE_ID_SIZE_BYTES;
 
     /** Partition storages. */
     private final AtomicReferenceArray<TxStateRocksDbPartitionStorage> storages;
@@ -113,7 +115,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public void destroyTxStateStorage(int partitionId) {
+    public void destroyPartitionStorage(int partitionId) {
         checkPartitionId(partitionId);
 
         TxStatePartitionStorage storage = storages.getAndSet(partitionId, null);

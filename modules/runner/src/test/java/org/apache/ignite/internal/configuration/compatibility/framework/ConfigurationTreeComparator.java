@@ -36,6 +36,9 @@ import org.jetbrains.annotations.Nullable;
  * Compares two configuration trees (snapshot and current).
  */
 public class ConfigurationTreeComparator {
+
+    private static final ConfigAnnotationsValidator ANNOTATION_VALIDATOR = new ConfigAnnotationsValidator();
+
     /**
      * Validates the current configuration is compatible with the snapshot.
      */
@@ -105,6 +108,10 @@ public class ConfigurationTreeComparator {
                     reportError(path, node, candidates);
                     return;
                 }
+
+                // node is a snapshot node
+                // candidate is a current configuration node.
+                validateAnnotations(node, found);
 
                 Collection<NodeReference> childRefs = found.childNodes();
                 candidates = childRefs.stream().map(NodeReference::nodes).collect(Collectors.toList());
@@ -216,6 +223,28 @@ public class ConfigurationTreeComparator {
                 && (instanceType == null || Objects.equals(candidate.instanceType(), node.instanceType()))
                 // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
                 && candidate.annotations().containsAll(node.annotations()); // Annotations can't be removed.
+    }
+
+    private static void validateAnnotations(ConfigNode candidate, ConfigNode node) {
+        List<String> errors = new ArrayList<>();
+
+        ANNOTATION_VALIDATOR.validate(candidate, node, errors);
+
+        if (errors.isEmpty()) {
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Configuration compatibility issues for ")
+                .append(node.path())
+                .append(':')
+                .append(System.lineSeparator());
+
+        for (var error : errors) {
+            sb.append("\t\t").append(error).append(System.lineSeparator());
+        }
+
+        throw new IllegalStateException(sb.toString());
     }
 
     private static boolean matchNames(ConfigNode candidate, ConfigNode node) {
