@@ -191,8 +191,11 @@ public class ConfigurationTreeScanner {
     private static EnumSet<ConfigNode.Flags> extractFlags(Field field) {
         EnumSet<ConfigNode.Flags> flags = EnumSet.noneOf(ConfigNode.Flags.class);
 
-        if (!field.isAnnotationPresent(NamedConfigValue.class)
-                && !field.isAnnotationPresent(ConfigValue.class)) {
+        if (field.isAnnotationPresent(NamedConfigValue.class)) {
+            flags.add(Flags.IS_NAMED_NODE);
+        } else if (field.isAnnotationPresent(ConfigValue.class)) {
+            flags.add(Flags.IS_INNER_NODE);
+        } else {
             flags.add(Flags.IS_VALUE);
         }
 
