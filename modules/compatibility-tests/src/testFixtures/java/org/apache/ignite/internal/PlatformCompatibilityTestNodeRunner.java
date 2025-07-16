@@ -63,6 +63,9 @@ public class PlatformCompatibilityTestNodeRunner {
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
+                .basePort(4455)
+                .baseHttpPort(11300)
+                .baseHttpsPort(11400)
                 .baseClientPort(CLIENT_PORT)
                 .build();
 
