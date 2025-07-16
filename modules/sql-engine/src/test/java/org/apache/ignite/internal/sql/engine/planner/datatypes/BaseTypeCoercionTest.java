@@ -741,7 +741,9 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
             RexCall call1 = (RexCall) operands.get(0);
             RexCall call2 = (RexCall) operands.get(1);
 
+            System.out.println("first");
             boolean firstOp = matchCall(call1, call1op1, call1op2);
+            System.out.println("second");
             boolean secondOp = matchCall(call2, call2op1, call2op2);
 
             return firstOp && secondOp;
@@ -763,6 +765,9 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
 
         boolean op1Matches = first.matches(op1);
         boolean op2Matches = second.matches(op2);
+
+        System.out.println("op1Matches: " + op1Matches + " " + op1.getType());
+        System.out.println("op2Matches: " + op2Matches + " " + op1.getType());
 
         return op1Matches && op2Matches;
     }
