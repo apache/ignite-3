@@ -33,6 +33,8 @@ import org.junit.jupiter.api.TestInfo;
  */
 @SuppressWarnings("CallToSystemGetenv")
 public class PlatformCompatibilityTestNodeRunner {
+    private static final int CLIENT_PORT = 10952;
+
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
             + "    port: {},\n"
@@ -61,7 +63,7 @@ public class PlatformCompatibilityTestNodeRunner {
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
-                .baseClientPort(10952)
+                .baseClientPort(CLIENT_PORT)
                 .build();
 
         var cluster = new IgniteCluster(clusterConfiguration);
@@ -69,7 +71,7 @@ public class PlatformCompatibilityTestNodeRunner {
         cluster.init(x -> {});
 
         System.out.println(">>> Started test node with version: " + version);
-        System.out.println("THIN_CLIENT_PORTS=" + unwrapIgniteImpl(cluster.node(0)).clientAddress().port());
+        System.out.println("THIN_CLIENT_PORTS=" + CLIENT_PORT);
         Thread.sleep(600_000);
 
         cluster.stop();
