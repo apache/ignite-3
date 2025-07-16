@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +32,8 @@ import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNo
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.NodeReference;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Self-test for {@link ConfigurationTreeComparator} checks various compatibility scenarios.
@@ -350,25 +353,36 @@ public class ConfigurationTreeComparatorSelfTest {
 
     @Test
     void testCompatibleRename() {
+        ConfigNode root1 = createRoot("root");
+
         ConfigNode oldNode = new ConfigNode(null, Map.of(Attributes.NAME, "oldTestCount"), List.of(),
                 EnumSet.of(Flags.IS_VALUE));
+        root1.addChildNodes(oldNode);
+
+        ConfigNode root2 = createRoot("root");
 
         ConfigNode newNode = new ConfigNode(null, Map.of(Attributes.NAME, "newTestCount"),
                 List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of("oldTestCount"), List.of());
+        root2.addChildNodes(newNode);
 
-        assertCompatible(oldNode, newNode);
+        assertCompatible(root1, root2);
 
+        root1 = createRoot("root");
         // Equal configs, still compatible
         oldNode = new ConfigNode(null, Map.of(Attributes.NAME, "newTestCount"),
                 List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of("oldTestCount"), List.of());
+        root1.addChildNodes(oldNode);
+
+        root2 = createRoot("root");
 
         newNode = new ConfigNode(null, Map.of(Attributes.NAME, "newTestCount"),
                 List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of("oldTestCount"), List.of());
+        root2.addChildNodes(newNode);
 
-        assertCompatible(oldNode, newNode);
+        assertCompatible(root1, root2);
 
         // TODO: need to have a possibility to check compatibility between outdated (officially no more supported) version and current one.
         // I.e. previous tree with filled deletedPrefixes and current without - need to be compatible too, decided to make it later.
@@ -404,6 +418,32 @@ public class ConfigurationTreeComparatorSelfTest {
         root2.addChildNodes(newNode2);
 
         assertIncompatible(oldNode1, newNode1);
+
+        // Incorrectly renaming leaf nodes.
+
+        root1 = createRoot("root1");
+        oldNode2 = createChild("oldTestCount");
+        root1.addChildNodes(oldNode2);
+
+        root2 = createRoot("root1");
+        newNode2 = createChild("newTestCount", Set.of(), Set.of("oldTestCount_misspelled"), List.of());
+        root2.addChildNodes(newNode2);
+
+        assertIncompatible(root1, root2);
+
+        // Incorrectly renaming intermediate nodes.
+
+        root1 = createRoot("root1");
+        oldNode2 = createNode("node", "X");
+        oldNode2.addChildNodes(createChild("value"));
+        root1.addChildNodes(oldNode2);
+
+        root2 = createRoot("root1");
+        newNode2 = createNode("node", "X", Set.of("node_misspelled"), List.of());
+        newNode2.addChildNodes(createChild("value"));
+        root2.addChildNodes(newNode2);
+
+        assertIncompatible(root1, root2);
     }
 
     /**
@@ -418,7 +458,7 @@ public class ConfigurationTreeComparatorSelfTest {
                 EnumSet.of(Flags.IS_ROOT));
 
         ConfigNode node1Ver1 = new ConfigNode(root, Map.of(Attributes.NAME, "oldTestCount"), List.of(),
-                EnumSet.of(Flags.IS_VALUE));
+                EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT));
 
         root.addChildNodes(node1Ver1);
 
@@ -429,7 +469,7 @@ public class ConfigurationTreeComparatorSelfTest {
 
         ConfigNode node1Ver2 = new ConfigNode(root, Map.of(Attributes.NAME, "newTestCount"),
                 List.of(),
-                EnumSet.of(Flags.IS_VALUE), Set.of("oldTestCount"), List.of());
+                EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT), Set.of("oldTestCount"), List.of());
 
         root.addChildNodes(node1Ver2);
 
@@ -439,7 +479,7 @@ public class ConfigurationTreeComparatorSelfTest {
                 EnumSet.of(Flags.IS_ROOT));
 
         ConfigNode node = new ConfigNode(root, Map.of(Attributes.NAME, "fixed"), List.of(),
-                EnumSet.of(Flags.IS_VALUE));
+                EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT));
 
         root.addChildNodes(node);
 
@@ -468,16 +508,16 @@ public class ConfigurationTreeComparatorSelfTest {
     public void testPolymorphicConfigNoChanges() {
         ConfigNode root = createRoot("root");
 
-        ConfigNode base = createNode(root, "subconfig", "ClassBase");
+        ConfigNode base = createNode("subconfig", "ClassBase");
         base.addChildNodes(createChild(base, "f1"));
 
-        ConfigNode subclassA = createInstanceNode(root, "subconfig", "ClassA", "A");
-        subclassA.addChildNodes(createChild(subclassA, "f2"));
+        ConfigNode subclassA = createInstanceNode("subconfig", "ClassA", "A");
+        subclassA.addChildNodes(createChild("f2"));
 
-        ConfigNode subclassB = createInstanceNode(root, "subconfig", "ClassB", "B");
-        subclassB.addChildNodes(createChild(subclassB, "f3"));
+        ConfigNode subclassB = createInstanceNode("subconfig", "ClassB", "B");
+        subclassB.addChildNodes(createChild("f3"));
 
-        root.addChildReferences(List.of(new NodeReference(List.of(base, subclassA, subclassB))));
+        root.linkChildReferences(new NodeReference(List.of(base, subclassA, subclassB)));
 
         assertCompatible(List.of(root), List.of(root));
     }
@@ -489,24 +529,24 @@ public class ConfigurationTreeComparatorSelfTest {
             ConfigNode base = createNode(root1, "subconfig", "ClassBase");
             base.addChildNodes(createChild(base, "f1"));
 
-            ConfigNode subclassA = createInstanceNode(root1, "subconfig", "ClassA", "A");
+            ConfigNode subclassA = createInstanceNode("subconfig", "ClassA", "A");
             subclassA.addChildNodes(createChild(subclassA, "f2"));
 
-            root1.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
+            root1.linkChildReferences(new NodeReference(List.of(base, subclassA)));
         }
 
         ConfigNode root2 = createRoot("root");
         {
-            ConfigNode base = createNode(root2, "subconfig", "ClassBase");
+            ConfigNode base = createNode("subconfig", "ClassBase");
             base.addChildNodes(createChild(base, "f1"));
 
-            ConfigNode subclassA = createInstanceNode(root2, "subconfig", "ClassA", "A");
+            ConfigNode subclassA = createInstanceNode("subconfig", "ClassA", "A");
             subclassA.addChildNodes(createChild(subclassA, "f2"));
 
-            ConfigNode subclassB = createInstanceNode(root2, "subconfig", "ClassB", "B");
+            ConfigNode subclassB = createInstanceNode("subconfig", "ClassB", "B");
             subclassB.addChildNodes(createChild(subclassB, "f3"));
 
-            root2.addChildReferences(List.of(new NodeReference(List.of(base, subclassA, subclassB))));
+            root2.linkChildReferences(new NodeReference(List.of(base, subclassA, subclassB)));
         }
 
         assertCompatible(List.of(root1), List.of(root2));
@@ -518,10 +558,10 @@ public class ConfigurationTreeComparatorSelfTest {
     public void testPolymorphicConfigChangeType() {
         ConfigNode root1 = createRoot("root");
         {
-            ConfigNode base = createNode(root1, "subconfig", "ClassBase");
+            ConfigNode base = createNode("subconfig", "ClassBase");
             base.addChildNodes(createChild(base, "f1"));
 
-            ConfigNode subclassA = createInstanceNode(root1, "subconfig", "ClassA", "A");
+            ConfigNode subclassA = createInstanceNode("subconfig", "ClassA", "A");
             subclassA.addChildNodes(createChild(subclassA, "f2"));
 
             root1.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
@@ -532,7 +572,7 @@ public class ConfigurationTreeComparatorSelfTest {
             ConfigNode base = createNode(root2, "subconfig", "ClassBase");
             base.addChildNodes(createChild(base, "f1"));
 
-            ConfigNode subclassA = createInstanceNode(root2, "subconfig", "ClassA", "B");
+            ConfigNode subclassA = createInstanceNode("subconfig", "ClassA", "B");
             subclassA.addChildNodes(createChild(subclassA, "f2"));
 
             root2.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
@@ -543,34 +583,371 @@ public class ConfigurationTreeComparatorSelfTest {
         assertIncompatible(List.of(root2), List.of(root1));
     }
 
-    @Test
-    public void testPolymorphicConfigAddInstanceField() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPolymorphicConfigAddInstanceField(boolean hasDefault) {
+        Set<Flags> newFieldFlags = hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+
         ConfigNode root1 = createRoot("root");
         {
-            ConfigNode base = createNode(root1, "subconfig", "ClassBase");
-            base.addChildNodes(createChild(base, "f1"));
+            ConfigNode base = createNode("subconfig", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
 
-            ConfigNode subclassA = createInstanceNode(root1, "subconfig", "ClassA", "A");
-            subclassA.addChildNodes(createChild(subclassA, "f2"));
+            ConfigNode subclassA = createInstanceNode("subconfig", "ClassA", "A");
+            subclassA.addChildNodes(createChild("t"));
+            subclassA.addChildNodes(createChild("f1"));
+            subclassA.addChildNodes(createChild("f2"));
 
-            root1.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
+            root1.linkChildReferences(new NodeReference(List.of(base, subclassA)));
         }
 
         ConfigNode root2 = createRoot("root");
         {
             ConfigNode base = createNode(root2, "subconfig", "ClassBase");
+            base.addChildNodes(createChild("t"));
             base.addChildNodes(createChild(base, "f1"));
 
-            ConfigNode subclassA = createInstanceNode(root2, "subconfig", "ClassA", "A");
-            subclassA.addChildNodes(createChild(subclassA, "f2"));
-            subclassA.addChildNodes(createChild(subclassA, "f3"));
+            ConfigNode subclassA = createInstanceNode("subconfig", "ClassA", "A");
+            subclassA.addChildNodes(createChild("t"));
+            subclassA.addChildNodes(createChild("f1"));
+            subclassA.addChildNodes(createChild("f2"));
+            subclassA.addChildNodes(createChild("f3", newFieldFlags));
 
-            root2.addChildReferences(List.of(new NodeReference(List.of(base, subclassA))));
+            root2.linkChildReferences(new NodeReference(List.of(base, subclassA)));
         }
 
-        assertCompatible(List.of(root1), List.of(root2));
+        if (hasDefault) {
+            assertCompatible(List.of(root1), List.of(root2));
+        } else {
+            assertIncompatible(List.of(root1), List.of(root2));
+        }
+
         // Removing should be an incompatible change.
         assertIncompatible(List.of(root2), List.of(root1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPolymorphicConfigExtraction(boolean hasDefault) {
+        Set<Flags> fieldFlags = hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+            base.addChildNodes(createChild("f2"));
+            base.addChildNodes(createChild("f3", fieldFlags));
+
+            root1.linkChildReferences(new NodeReference(List.of(base)));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+
+            ConfigNode subclass = createInstanceNode("config", "ClassA", "A");
+            subclass.addChildNodes(createChild("t"));
+            subclass.addChildNodes(createChild("f1"));
+            subclass.addChildNodes(createChild("f2"));
+            subclass.addChildNodes(createChild("f3", fieldFlags));
+
+            root2.linkChildReferences(new NodeReference(List.of(base, subclass)));
+        }
+
+        // Extracting a subclass
+        assertCompatible(List.of(root1), List.of(root2));
+        // Moving a subclass back is also compatible
+        assertCompatible(List.of(root2), List.of(root1));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPolymorphicConfigExtractionAddNewField(boolean hasDefault) {
+        Set<Flags> newFieldFlags = hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+            base.addChildNodes(createChild("f2"));
+            base.addChildNodes(createChild("f3"));
+
+            root1.linkChildReferences(new NodeReference(List.of(base)));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+
+            ConfigNode subclass = createInstanceNode("config", "ClassA", "A");
+            subclass.addChildNodes(createChild("t"));
+            subclass.addChildNodes(createChild("f1"));
+            subclass.addChildNodes(createChild("f2"));
+            subclass.addChildNodes(createChild("f3"));
+            subclass.addChildNodes(createChild("f4", newFieldFlags));
+
+            root2.linkChildReferences(new NodeReference(List.of(base, subclass)));
+        }
+
+        // Extracting a subclass + adding a new field
+        if (hasDefault) {
+            assertCompatible(root1, root2);
+        } else {
+            assertIncompatible(root1, root2);
+        }
+        // A new field is removed - this change is not compatible
+        assertIncompatible(root2, root1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPolymorphicConfigMoveFieldToBase(boolean hasDefault) {
+        Set<Flags> fieldFlags = hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2", fieldFlags));
+            subclass1.addChildNodes(createChild("f3"));
+
+            root1.linkChildReferences(new NodeReference(List.of(base, subclass1)));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+            base.addChildNodes(createChild("f2", fieldFlags));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2", fieldFlags));
+            subclass1.addChildNodes(createChild("f3"));
+
+            root2.linkChildReferences(new NodeReference(List.of(base, subclass1)));
+        }
+
+        // Moving a field from a subclass to the base class
+        assertCompatible(root1, root2);
+        // Reverse change is also valid
+        assertCompatible(root2, root1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPolymorphicConfigMoveFieldToBase2Subclasses(boolean hasDefault) {
+        Set<Flags> fieldFlags = hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2", fieldFlags));
+            subclass1.addChildNodes(createChild("f3"));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "B");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f4"));
+
+            root1.linkChildReferences(new NodeReference(List.of(base, subclass1, subclass2)));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+            base.addChildNodes(createChild("f2", fieldFlags));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2", fieldFlags));
+            subclass1.addChildNodes(createChild("f3"));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "B");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f2", fieldFlags));
+            subclass2.addChildNodes(createChild("f4"));
+
+            root2.linkChildReferences(new NodeReference(List.of(base, subclass1, subclass2)));
+        }
+
+        // Moving a field from a subclass to the base class
+        if (hasDefault) {
+            assertCompatible(root1, root2);
+            // Reverse change is also valid
+            assertCompatible(root2, root1);
+        } else {
+            assertIncompatible(root1, root2);
+            // Invalid because there more than 1 subclass
+            assertIncompatible(root2, root1);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPolymorphicConfigMoveFieldToBaseClass2SubclassesNested(boolean hasDefault) {
+        Set<Flags> fieldFlags = hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode init = createNode("init", "InitClassBase");
+            init.addChildNodes(createChild(init, "i"));
+            root1.addChildReferences(List.of(new NodeReference(List.of(init))));
+
+            ConfigNode base = createNode(init, "config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2", fieldFlags));
+            subclass1.addChildNodes(createChild("f3"));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "B");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f4"));
+
+            init.linkChildReferences(new NodeReference(List.of(base, subclass1, subclass2)));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode init = createNode("init", "InitClassBase");
+            init.addChildNodes(createChild("i"));
+            root2.addChildReferences(List.of(new NodeReference(List.of(init))));
+
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+            base.addChildNodes(createChild("f2", fieldFlags));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2", fieldFlags));
+            subclass1.addChildNodes(createChild("f3"));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "B");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f2", fieldFlags));
+            subclass2.addChildNodes(createChild("f4"));
+
+            init.linkChildReferences(new NodeReference(List.of(base, subclass1, subclass2)));
+        }
+
+        // Moving a field from a subclass to the base class
+        if (hasDefault) {
+            assertCompatible(root1, root2);
+            // Reverse change is also valid
+            assertCompatible(root2, root1);
+        } else {
+            assertIncompatible(root1, root2);
+            // Invalid because there more than 1 subclass
+            assertIncompatible(root2, root1);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPolymorphicConfigExtractionSubclassesAddNewFielNestedSubclass(boolean hasDefault) {
+        Set<Flags> newFieldFlags = hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode init = createNode("init", "InitClass");
+            init.addChildNodes(createChild("t_i"));
+
+            ConfigNode subinit = createInstanceNode("init", "SubInitClass", "I");
+            subinit.addChildNodes(createChild("t_i"));
+            subinit.addChildNodes(createChild("i"));
+
+            root1.addChildReferences(List.of(new NodeReference(List.of(init, subinit))));
+
+            ConfigNode base = createNode(subinit, "config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2"));
+            subclass1.addChildNodes(createChild("f3"));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "B");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f4"));
+
+            subinit.linkChildReferences(new NodeReference(List.of(base, subclass1, subclass2)));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode init = createNode("init", "InitClass");
+            init.addChildNodes(createChild("t_i"));
+            init.addChildNodes(createChild("j", newFieldFlags));
+
+            ConfigNode subinit = createInstanceNode("init", "SubInitClass", "I");
+            subinit.addChildNodes(createChild("t_i"));
+            subinit.addChildNodes(createChild("i"));
+            subinit.addChildNodes(createChild("j", newFieldFlags));
+
+            root2.addChildReferences(List.of(new NodeReference(List.of(init, subinit))));
+
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+            base.addChildNodes(createChild("f2"));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "C");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2"));
+            subclass1.addChildNodes(createChild("f3"));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "E");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f2"));
+            subclass2.addChildNodes(createChild("f4"));
+
+            subinit.linkChildReferences(new NodeReference(List.of(base, subclass1, subclass2)));
+        }
+
+        if (hasDefault) {
+            assertCompatible(root1, root2);
+            assertIncompatible(root2, root1);
+        } else {
+            assertIncompatible(root1, root2);
+            assertIncompatible(root2, root1);
+        }
     }
 
     private static ConfigNode createRoot(String name) {
@@ -582,25 +959,70 @@ public class ConfigurationTreeComparatorSelfTest {
                 parent,
                 Map.of(Attributes.NAME, name, Attributes.CLASS, className),
                 List.of(),
-                EnumSet.noneOf(Flags.class)
+                EnumSet.noneOf(Flags.class),
+                Set.of(),
+                Set.of()
         );
     }
 
-    private static ConfigNode createInstanceNode(ConfigNode parent, String name, String className, String instanceType) {
+    private static ConfigNode createNode(String name, String className) {
+        return createNode(name, className, Set.of(), List.of());
+    }
+
+    private static ConfigNode createNode(String name, String className, Set<String> legacyNames, List<String> deletedPrefixes) {
         return new ConfigNode(
-                parent,
+                null,
+                Map.of(Attributes.NAME, name, Attributes.CLASS, className),
+                List.of(),
+                EnumSet.noneOf(Flags.class),
+                legacyNames,
+                deletedPrefixes
+        );
+    }
+
+    private static ConfigNode createInstanceNode(String name, String className, String instanceType) {
+        return new ConfigNode(
+                null,
                 Map.of(Attributes.NAME, name, Attributes.CLASS, className, Attributes.INSTANCE_TYPE, instanceType),
                 List.of(),
                 EnumSet.noneOf(Flags.class)
         );
     }
 
-    private static ConfigNode createChild(ConfigNode root1, String name) {
+    private static ConfigNode createChild(ConfigNode root, String name) {
         return new ConfigNode(
-                root1,
+                root,
                 Map.of(ConfigNode.Attributes.NAME, name, Attributes.CLASS, int.class.getCanonicalName()),
                 List.of(),
-                EnumSet.of(Flags.IS_VALUE)
+                EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT)
+        );
+    }
+
+    private static ConfigNode createChild(String name) {
+        return createChild(name, Set.of(), Set.of(), List.of());
+    }
+
+    private static ConfigNode createChild(String name, Set<Flags> flags) {
+        return createChild(name, flags, Set.of(), List.of());
+    }
+
+    private static ConfigNode createChild(String name, Set<Flags> flags, Set<String> legacyNames, List<String> deletedPrefixes) {
+        Set<Flags> valueFlags = new HashSet<>();
+        valueFlags.add(Flags.IS_VALUE);
+
+        if (flags.isEmpty()) {
+            valueFlags.add(Flags.HAS_DEFAULT);
+        } else {
+            valueFlags.addAll(flags);
+        }
+
+        return new ConfigNode(
+                null,
+                Map.of(ConfigNode.Attributes.NAME, name, Attributes.CLASS, int.class.getCanonicalName()),
+                List.of(),
+                EnumSet.copyOf(valueFlags),
+                legacyNames,
+                deletedPrefixes
         );
     }
 
@@ -627,8 +1049,9 @@ public class ConfigurationTreeComparatorSelfTest {
     private static void assertIncompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig, ComparisonContext compContext) {
         try {
             assertCompatible(oldConfig, newConfig, compContext);
-        } catch (IllegalStateException ignore) {
+        } catch (IllegalStateException e) {
             // Expected exception
+            System.err.println("Error: " + e.getMessage());
             return;
         }
 

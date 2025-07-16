@@ -127,9 +127,10 @@ public class ConfigurationTreeScanner {
                             ConfigNode instanceTypeNode = createNodeForField(currentNode, field, instanceClass);
                             fieldNodes.add(instanceTypeNode);
 
-                            if (!instanceTypeNode.isValue()) {
-                                scan(instanceTypeNode, instanceClass, context);
-                            }
+                            // Each subclass includes fields from the base class
+                            scan(instanceTypeNode, field.getType(), context);
+                            // And its own fields
+                            scan(instanceTypeNode, instanceClass, context);
                         }
 
                         // Sort subclasses to make data stable.
@@ -233,6 +234,16 @@ public class ConfigurationTreeScanner {
 
         if (field.isAnnotationPresent(Deprecated.class)) {
             flags.add(Flags.IS_DEPRECATED);
+        }
+
+        Value value = field.getAnnotation(Value.class);
+        if (value != null && value.hasDefault()) {
+            flags.add(Flags.HAS_DEFAULT);
+        }
+
+        PolymorphicId polymorphicId = field.getAnnotation(PolymorphicId.class);
+        if (polymorphicId != null && polymorphicId.hasDefault()) {
+            flags.add(Flags.HAS_DEFAULT);
         }
 
         return flags;

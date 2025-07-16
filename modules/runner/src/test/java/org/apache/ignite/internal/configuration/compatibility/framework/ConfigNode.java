@@ -171,10 +171,26 @@ public class ConfigNode {
     /**
      * Add the child nodes to this node.
      */
-    void addChildReferences(Collection<NodeReference> childNodes) {
+    void addChildReferences(Collection<NodeReference> references) {
         assert !flags.contains(Flags.IS_VALUE) : "Value node can't have children.";
 
-        childReferences.addAll(childNodes);
+        childReferences.addAll(references);
+    }
+
+    /**
+     * Add the child nodes to this node.
+     */
+    @TestOnly
+    void linkChildReferences(NodeReference... references) {
+        assert !flags.contains(Flags.IS_VALUE) : "Value node can't have children.";
+
+        for (NodeReference ref : references) {
+            for (ConfigNode node : ref.nodes()) {
+                node.parent = this;
+            }
+        }
+
+        childReferences.addAll(List.of(references));
     }
 
     /**
@@ -182,6 +198,8 @@ public class ConfigNode {
      */
     @TestOnly
     void addChildNodes(Collection<ConfigNode> childNodes) {
+        childNodes.forEach(n -> n.parent = this);
+
         addChildReferences(childNodes.stream().map(n -> new NodeReference(List.of(n))).collect(Collectors.toList()));
     }
 
@@ -223,6 +241,10 @@ public class ConfigNode {
     @JsonIgnore
     public boolean isDeprecated() {
         return flags.contains(Flags.IS_DEPRECATED);
+    }
+
+    public boolean hasDefault() {
+        return flags.contains(Flags.HAS_DEFAULT);
     }
 
     /**
@@ -326,7 +348,8 @@ public class ConfigNode {
         IS_ROOT(1),
         IS_VALUE(1 << 1),
         IS_DEPRECATED(1 << 2),
-        IS_INTERNAL(1 << 3);
+        IS_INTERNAL(1 << 3),
+        HAS_DEFAULT(1 << 4);
 
         private final int mask;
 

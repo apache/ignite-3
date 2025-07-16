@@ -47,11 +47,13 @@ public class ConfigurationTreeComparator {
             List<ConfigNode> actualTrees,
             ComparisonContext compContext
     ) {
-        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees), compContext);
-
-        for (ConfigNode tree : snapshotTrees) {
-            tree.accept(shuttle);
-        }
+//        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees), compContext);
+//
+//        for (ConfigNode tree : snapshotTrees) {
+//            tree.accept(shuttle);
+//        }
+        Comp2 comp2 = new Comp2(compContext);
+        comp2.ensureCompatible(snapshotTrees, actualTrees);
     }
 
     /**
@@ -61,6 +63,9 @@ public class ConfigurationTreeComparator {
         String dump1 = dumpTree(tree1);
         String dump2 = dumpTree(tree2);
         assertEquals(dump1, dump2, "Configuration metadata mismatch");
+        
+        Comp2 comp2 = new Comp2();
+        comp2.ensureCompatible(tree1, tree2);
     }
 
     /**
@@ -214,7 +219,7 @@ public class ConfigurationTreeComparator {
     /**
      * Returns {@code true} if given node is compatible with candidate node, {@code false} otherwise.
      */
-    private static boolean match(ConfigNode node, ConfigNode candidate, @Nullable String instanceType) {
+    public static boolean match(ConfigNode node, ConfigNode candidate, @Nullable String instanceType) {
         return Objects.equals(candidate.kind(), node.kind())
                 && matchNames(candidate, node)
                 && validateFlags(candidate, node)
