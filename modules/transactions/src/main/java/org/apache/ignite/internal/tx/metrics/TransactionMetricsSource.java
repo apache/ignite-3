@@ -34,8 +34,8 @@ import org.jetbrains.annotations.TestOnly;
  **/
 public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     /** Histogram buckets for duration metrics in milliseconds. */
-    public static final long[] HISTOGRAM_BUCKETS =
-            new long[] { 1, 2, 4, 8, 16, 25, 50, 75, 100, 250, 500, 750, 1000, 3000, 5000, 10000, 25000, 60000};
+    private static final long[] HISTOGRAM_BUCKETS =
+            {1, 2, 4, 8, 16, 25, 50, 75, 100, 250, 500, 750, 1000, 3000, 5000, 10000, 25000, 60000};
 
     /** Source name. */
     public static final String SOURCE_NAME = "transactions";
