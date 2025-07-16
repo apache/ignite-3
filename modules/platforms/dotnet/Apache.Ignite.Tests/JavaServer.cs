@@ -64,13 +64,11 @@ namespace Apache.Ignite.Tests
         /// Starts a server node.
         /// </summary>
         /// <returns>Disposable object to stop the server.</returns>
-        public static async Task<JavaServer> StartAsync() =>
-            await StartInternalAsync(GradleCommandExec, DefaultClientPort, []);
+        public static async Task<JavaServer> StartAsync() => await StartInternalAsync(old: false, env: []);
 
         public static async Task<JavaServer> StartOldAsync(string version, string workDir) =>
             await StartInternalAsync(
-                GradleCommandExecOldServer,
-                DefaultClientPortOldServer,
+                old: true,
                 env: new Dictionary<string, string?>
                 {
                     { "IGNITE_OLD_SERVER_VERSION", version },
@@ -92,23 +90,34 @@ namespace Apache.Ignite.Tests
             Log(">>> Java server stopped.");
         }
 
-        private static async Task<JavaServer> StartInternalAsync(string gradleCommand, int defaultPort, IDictionary<string, string?> env)
+        private static async Task<JavaServer> StartInternalAsync(bool old, IDictionary<string, string?> env)
         {
-            if (await TryConnect(defaultPort) == null)
+            string gradleCommand = old ? GradleCommandExecOldServer : GradleCommandExec;
+            int defaultPort = old ? DefaultClientPortOldServer : DefaultClientPort;
+
+            if (!old)
             {
-                // Server started from outside.
-                Log(">>> Java server is already started.");
+                if (await TryConnect(defaultPort) == null)
+                {
+                    // Server started from outside.
+                    Log(">>> Java server is already started.");
 
-                return new JavaServer(defaultPort, null);
+                    return new JavaServer(defaultPort, null);
+                }
+
+                if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
+                    && requireExternalServer)
+                {
+                    throw new InvalidOperationException(
+                        $"Java server is not started, but {RequireExternalJavaServerEnvVar} is set to true.");
+                }
+
+                Log(">>> Java server is not detected, starting...");
             }
-
-            if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
-                && requireExternalServer)
+            else
             {
-                throw new InvalidOperationException($"Java server is not started, but {RequireExternalJavaServerEnvVar} is set to true.");
+                Log(">>> Starting old Java server...");
             }
-
-            Log(">>> Java server is not detected, starting...");
 
             var process = CreateProcess(gradleCommand, env);
 
