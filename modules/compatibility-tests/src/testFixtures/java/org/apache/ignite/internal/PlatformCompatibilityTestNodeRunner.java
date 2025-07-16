@@ -62,6 +62,7 @@ public class PlatformCompatibilityTestNodeRunner {
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
+                .baseClientPort(10952)
                 .build();
 
         var cluster = new IgniteCluster(clusterConfiguration);
