@@ -83,6 +83,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
@@ -484,21 +485,24 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         // Peers[0, 1], Learners [empty]
         PeersAndLearners configuration = PeersAndLearners.fromPeers(NODES.subList(0, 1), emptyList());
-        assertThat(service.changePeersAndLearners(configuration, leaderWithTerm.term()), willCompleteSuccessfully());
+        assertThat(service.changePeersAndLearners(configuration, leaderWithTerm.term(), Configuration.NO_CASUALITY_TOKEN),
+                willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), is(empty()));
 
         // Peers[0, 1, 2], Learners [empty]
         PeersAndLearners configuration2 = PeersAndLearners.fromPeers(NODES, emptyList());
-        assertThat(service.changePeersAndLearners(configuration2, leaderWithTerm.term()), willCompleteSuccessfully());
+        assertThat(service.changePeersAndLearners(configuration2, leaderWithTerm.term(), Configuration.NO_CASUALITY_TOKEN),
+                willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.toArray()));
         assertThat(service.learners(), is(empty()));
 
         // Peers[0, 1], Learners [3, 4, 5]
         PeersAndLearners configuration3 = PeersAndLearners.fromPeers(NODES.subList(0, 1), NODES_FOR_LEARNERS);
-        assertThat(service.changePeersAndLearners(configuration3, leaderWithTerm.term()), willCompleteSuccessfully());
+        assertThat(service.changePeersAndLearners(configuration3, leaderWithTerm.term(), Configuration.NO_CASUALITY_TOKEN),
+                willCompleteSuccessfully());
 
         assertThat(service.peers(), containsInAnyOrder(NODES.subList(0, 1).toArray()));
         assertThat(service.learners(), containsInAnyOrder(NODES_FOR_LEARNERS.toArray()));

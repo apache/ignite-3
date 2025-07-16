@@ -48,7 +48,10 @@ public class ResetPeerRequestProcessor extends BaseCliRequestProcessor<ResetPeer
     @Override
     protected Message processRequest0(final CliRequestContext ctx, final ResetPeerRequest request,
         final IgniteCliRpcRequestClosure done) {
-        final Configuration newConf = new Configuration();
+
+        long casualityToken = request.casualityToken() != null ? request.casualityToken() : Configuration.NO_CASUALITY_TOKEN;
+
+        final Configuration newConf = new Configuration(casualityToken);
         for (final String peerIdStr : request.newPeersList()) {
             final PeerId peer = new PeerId();
             if (peer.parse(peerIdStr)) {

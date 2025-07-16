@@ -140,6 +140,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -610,7 +611,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
-                        .thenApply(Entry::value)
+                        .thenApply(entry -> new IgniteBiTuple<>(entry.value(), entry.revision()))
 
         );
 

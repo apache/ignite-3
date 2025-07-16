@@ -85,8 +85,9 @@ class RaftGroupEventsListenerAdapter implements JraftGroupEventsListener {
     }
 
     @Override
-    public void onReconfigurationError(Status status, Collection<PeerId> peerIds, Collection<PeerId> learnerIds, long term) {
-        delegate.onReconfigurationError(convertStatus(status), configuration(peerIds, learnerIds), term);
+    public void onReconfigurationError(Status status, Collection<PeerId> peerIds, Collection<PeerId> learnerIds, long term,
+            long casualityToken) {
+        delegate.onReconfigurationError(convertStatus(status), configuration(peerIds, learnerIds), term, casualityToken);
     }
 
     private static PeersAndLearners configuration(Collection<PeerId> peerIds, Collection<PeerId> learnerIds) {
