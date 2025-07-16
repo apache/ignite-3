@@ -134,3 +134,13 @@ dependencies {
 processTestResources {
     from configurations.openapiSpec
 }
+
+tasks.register('runnerPlatformCompatibilityTest', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.PlatformCompatibilityTestNodeRunner'
+
+    jvmArgs += defaultJvmArgs
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
