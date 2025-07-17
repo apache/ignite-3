@@ -17,16 +17,24 @@
 
 namespace Apache.Ignite.Tests.Compatibility;
 
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Table;
 using Internal;
 using Internal.Proto;
+using Internal.Table;
+using Network;
 using NUnit.Framework;
 using TestHelpers;
 
 [TestFixture("3.0.0")]
 public class CurrentClientWithOldServerCompatibilityTest
 {
+    private const string TableNameTest = "TEST";
+
+    private const string TableNameAllColumns = "ALL_COLUMNS";
+
     private readonly string _serverVersion;
 
     private TempDir _workDir;
@@ -78,6 +86,30 @@ public class CurrentClientWithOldServerCompatibilityTest
     public async Task TestTables()
     {
         var tables = await _client.Tables.GetTablesAsync();
-        Assert.AreEqual(1, tables.Count);
+        Assert.AreEqual(2, tables.Count);
+
+        var tableNames = tables.Select(t => t.QualifiedName.ObjectName).Order().ToList();
+
+        Assert.AreEqual(TableNameAllColumns, tableNames[0]);
+        Assert.AreEqual(TableNameTest, tableNames[1]);
+    }
+
+    [Test]
+    public async Task TestPartitionManager()
+    {
+        ITable? table = await _client.Tables.GetTableAsync(TableNameTest);
+        Assert.IsNotNull(table);
+
+        IReadOnlyDictionary<IPartition, IClusterNode> primaryReplicas = await table.PartitionManager.GetPrimaryReplicasAsync();
+        Assert.AreEqual(25, primaryReplicas.Count);
+
+        var clusterNode = _client.GetConnections().Select(x => x.Node).Single();
+
+        foreach (var (partition, node) in primaryReplicas)
+        {
+            Assert.IsInstanceOf<HashPartition>(partition);
+            Assert.AreEqual(clusterNode.Name, node.Name);
+            Assert.AreEqual(clusterNode.Id, node.Id);
+        }
     }
 }
