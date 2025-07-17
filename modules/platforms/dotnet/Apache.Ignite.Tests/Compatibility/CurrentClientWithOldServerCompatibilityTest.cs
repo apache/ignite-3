@@ -24,7 +24,6 @@ using System.Threading.Tasks;
 using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
-using Ignite.Transactions;
 using Internal;
 using Internal.Proto;
 using Internal.Table;
