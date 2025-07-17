@@ -40,6 +40,7 @@ public class RaftGroupConfiguration implements Serializable {
 
     private final long index;
     private final long term;
+    private final long sequenceToken;
 
     @IgniteToStringInclude
     private final List<String> peers;
@@ -57,18 +58,30 @@ public class RaftGroupConfiguration implements Serializable {
     public RaftGroupConfiguration(
             long index,
             long term,
+            long sequenceToken,
             Collection<String> peers,
             Collection<String> learners,
             @Nullable Collection<String> oldPeers,
             @Nullable Collection<String> oldLearners
-
     ) {
         this.index = index;
         this.term = term;
+        this.sequenceToken = sequenceToken;
         this.peers = List.copyOf(peers);
         this.learners = List.copyOf(learners);
         this.oldPeers = oldPeers == null ? null : List.copyOf(oldPeers);
         this.oldLearners = oldLearners == null ? null : List.copyOf(oldLearners);
+    }
+
+    public RaftGroupConfiguration(
+            long index,
+            long term,
+            Collection<String> peers,
+            Collection<String> learners,
+            @Nullable Collection<String> oldPeers,
+            @Nullable Collection<String> oldLearners
+    ) {
+        this(index, term, 0, peers, learners, oldPeers, oldLearners);
     }
 
     /**
@@ -132,6 +145,10 @@ public class RaftGroupConfiguration implements Serializable {
         return oldPeers == null;
     }
 
+    public long sequenceToken() {
+        return sequenceToken;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -141,13 +158,14 @@ public class RaftGroupConfiguration implements Serializable {
             return false;
         }
         RaftGroupConfiguration that = (RaftGroupConfiguration) o;
-        return index == that.index && term == that.term && Objects.equals(peers, that.peers) && Objects.equals(learners, that.learners)
+        return index == that.index && term == that.term && sequenceToken == that.sequenceToken
+                && Objects.equals(peers, that.peers) && Objects.equals(learners, that.learners)
                 && Objects.equals(oldPeers, that.oldPeers) && Objects.equals(oldLearners, that.oldLearners);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(index, term, peers, learners, oldPeers, oldLearners);
+        return Objects.hash(index, term, sequenceToken, peers, learners, oldPeers, oldLearners);
     }
 
     @Override

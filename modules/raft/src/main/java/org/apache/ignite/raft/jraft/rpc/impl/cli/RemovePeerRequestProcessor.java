@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.conf.Configuration;import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.RemovePeerResponse;
@@ -53,9 +53,12 @@ public class RemovePeerRequestProcessor extends BaseCliRequestProcessor<RemovePe
         final String removingPeerIdStr = request.peerId();
         final PeerId removingPeer = new PeerId();
         if (removingPeer.parse(removingPeerIdStr)) {
+
+            long sequenceToken = request.sequenceToken() != null ? request.sequenceToken() : Configuration.NO_SEQUENCE_TOKEN;
+
             LOG.info("Receive RemovePeerRequest to {} from {}, removing {}", ctx.node.getNodeId(), done.getRpcCtx()
                 .getRemoteAddress(), removingPeerIdStr);
-            ctx.node.removePeer(removingPeer, status -> {
+            ctx.node.removePeer(removingPeer, sequenceToken, status -> {
                 if (!status.isOk()) {
                     done.run(status);
                 }

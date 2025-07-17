@@ -39,13 +39,21 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
 
     private static final String LEARNER_POSTFIX = "/learner";
 
+    public static final long NO_SEQUENCE_TOKEN = 0;
+
     private List<PeerId> peers = new ArrayList<>();
 
     // use LinkedHashSet to keep insertion order.
     private LinkedHashSet<PeerId> learners = new LinkedHashSet<>();
 
+    private long sequenceToken;
+
     public Configuration() {
         super();
+    }
+
+    public Configuration(long sequenceToken) {
+        this.sequenceToken = sequenceToken;
     }
 
     /**
@@ -53,8 +61,12 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
      *
      * @param conf configuration
      */
+    public Configuration(final Iterable<PeerId> conf, long sequenceToken) {
+        this(conf, null, sequenceToken);
+    }
+
     public Configuration(final Iterable<PeerId> conf) {
-        this(conf, null);
+        this(conf, 0);
     }
 
     /**
@@ -63,7 +75,16 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
      * @param conf configuration
      */
     public Configuration(final Configuration conf) {
-        this(conf.getPeers(), conf.getLearners());
+        this(conf.getPeers(), conf.getLearners(), conf.getSequenceToken());
+    }
+
+    /**
+     * Construct a configuration from another conf.
+     *
+     * @param conf configuration
+     */
+    public Configuration(final Configuration conf, long sequenceToken) {
+        this(conf.getPeers(), conf.getLearners(), sequenceToken);
     }
 
     /**
@@ -72,12 +93,17 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
      * @param conf peers configuration
      * @param learners learners
      */
-    public Configuration(final Iterable<PeerId> conf, final Iterable<PeerId> learners) {
+    public Configuration(final Iterable<PeerId> conf, final Iterable<PeerId> learners, long sequenceToken) {
         Requires.requireNonNull(conf, "conf");
+        this.sequenceToken = sequenceToken;
         for (final PeerId peer : conf) {
             this.peers.add(peer.copy());
         }
         addLearners(learners);
+    }
+
+    public Configuration(final Iterable<PeerId> conf, final Iterable<PeerId> learners) {
+       this(conf, learners, 0);
     }
 
     public void setLearners(final LinkedHashSet<PeerId> learners) {
@@ -132,6 +158,13 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
     }
 
     /**
+    * A token that is bound to this configuration.
+    */
+    public long getSequenceToken() {
+        return sequenceToken;
+    }
+
+    /**
      * Retrieve the learners set copy.
      *
      * @return learners
@@ -142,7 +175,7 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
 
     @Override
     public Configuration copy() {
-        return new Configuration(this.peers, this.learners);
+        return new Configuration(this.peers, this.learners, this.sequenceToken);
     }
 
     /**
@@ -220,6 +253,7 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
         int result = 1;
         result = prime * result + ((this.learners == null) ? 0 : this.learners.hashCode());
         result = prime * result + ((this.peers == null) ? 0 : this.peers.hashCode());
+        result = prime * result + (int)sequenceToken;
         return result;
     }
 
@@ -235,6 +269,9 @@ public class Configuration implements Iterable<PeerId>, Copiable<Configuration> 
             return false;
         }
         Configuration other = (Configuration) obj;
+        if(this.sequenceToken != other.sequenceToken) {
+            return false;
+        }
         if (this.learners == null) {
             if (other.learners != null) {
                 return false;

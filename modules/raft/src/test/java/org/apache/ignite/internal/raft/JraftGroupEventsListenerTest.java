@@ -81,7 +81,7 @@ class JraftGroupEventsListenerTest extends BaseIgniteAbstractTest {
         Status defaultStatus = LEADER_STEPPED_DOWN;
 
         // onReconfigurationError should not be called with null status but rather with a default status.
-        verify(listener, times(1)).onReconfigurationError(eq(defaultStatus), any(), any(), anyLong());
+        verify(listener, times(1)).onReconfigurationError(eq(defaultStatus), any(), any(), anyLong(), anyLong());
 
         // Future should be already done as execution is in the same thread.
         assertTrue(resultFuture.isDone());

@@ -322,7 +322,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * Versioned value for tracking RAFT groups initialization and starting completion.
      *
      * <p>Only explicitly updated in
-     * {@link #startLocalPartitionsAndClients(CompletableFuture, List, List, TableImpl, boolean, long)}.
+     * {@link #startLocalPartitionsAndClients(CompletableFuture, List, List, TableImpl, boolean, long, long)}.
      *
      * <p>Completed strictly after {@link #localPartitionsVv}.
      */
@@ -1272,7 +1272,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             List<@Nullable AssignmentsChain> assignmentsChains,
             TableImpl table,
             boolean isRecovery,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            long revision
     ) {
         int tableId = table.tableId();
 
@@ -1327,7 +1328,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             localAssignmentInStable,
                             stableAssignments,
                             isRecovery,
-                            assignmentsTimestamp
+                            assignmentsTimestamp,
+                            revision
                     ).whenComplete((res, ex) -> {
                         if (ex != null) {
                             String errorMessage = String.format(
@@ -1353,7 +1355,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Assignment localAssignment,
             Assignments stableAssignments,
             boolean isRecovery,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            long revision
     ) {
         if (nodeProperties.colocationEnabled()) {
             return nullCompletedFuture();
@@ -1478,7 +1481,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return replicaMgr.weakStartReplica(
                 replicaGrpId,
                 startReplicaSupplier,
-                forcedAssignments
+                forcedAssignments,
+                revision
         ).handle((res, ex) -> {
             if (ex != null && !(hasCause(ex, NodeStoppingException.class, TransientReplicaStartException.class))) {
                 String errorMessage = String.format(
@@ -1907,7 +1911,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Creates local structures for a table.
      *
-     * @param causalityToken Causality token.
+     * @param sequenceToken Sequence token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
      * @param schemaDescriptor Catalog schema descriptor.
@@ -1916,7 +1920,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<Void> createTableLocally(
-            long causalityToken,
+            long sequenceToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
             CatalogSchemaDescriptor schemaDescriptor,
@@ -1926,20 +1930,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             boolean onNodeRecovery,
             long assignmentsTimestamp
     ) {
-        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
+        TableImpl table = createTableImpl(sequenceToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
 
         int tableId = tableDescriptor.id();
 
-        tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
+        tablesVv.update(sequenceToken, (ignore, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(e);
             }
 
-            return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(table::schemaView);
+            return schemaManager.schemaRegistry(sequenceToken, tableId).thenAccept(table::schemaView);
         }));
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
-        CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
+        CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(sequenceToken,
                 (ignore, throwable) -> inBusyLock(busyLock, () -> stableAssignmentsFuture.thenComposeAsync(newAssignments -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
@@ -1956,11 +1960,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .exceptionally(ignoreTableClosedException());
                 }, ioExecutor)));
 
-        CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
+        CompletableFuture<?> tablesByIdFuture = tablesVv.get(sequenceToken);
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be started only on the assignments change
         //  event triggered by zone create or alter.
-        CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
+        CompletableFuture<?> createPartsFut = assignmentsUpdatedVv.update(sequenceToken, (token, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
@@ -1981,7 +1985,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         assignmentsChains,
                         table,
                         onNodeRecovery,
-                        assignmentsTimestamp
+                        assignmentsTimestamp,
+                        sequenceToken
                 );
             }), ioExecutor);
         });
@@ -2479,7 +2484,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
                 assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
 
-                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()));
+                // Sequence token for data partitions is MS revision.
+                replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision);
             }), ioExecutor);
         } else {
             localServicesStartFuture = nullCompletedFuture();
@@ -2571,7 +2577,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 localAssignmentInPending,
                                 computedStableAssignments,
                                 isRecovery,
-                                assignmentsTimestamp
+                                assignmentsTimestamp,
+                                revision
                         );
                     }));
                 }), ioExecutor);
@@ -2625,6 +2632,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ChangePeersAndLearnersAsyncReplicaRequest request = TABLE_MESSAGES_FACTORY.changePeersAndLearnersAsyncReplicaRequest()
                     .groupId(partitionIdMessage)
                     .pendingAssignments(pendingAssignments.toBytes())
+                    .sequenceToken(currentRevision)
                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                     .build();
 
@@ -3526,7 +3534,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             localAssignment,
                             stableAssignments,
                             false,
-                            assignmentsTimestamp
+                            assignmentsTimestamp,
+                            revision
                     );
                 }));
             }, ioExecutor);

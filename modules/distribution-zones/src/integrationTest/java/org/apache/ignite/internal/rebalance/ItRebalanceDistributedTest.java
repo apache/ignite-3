@@ -162,6 +162,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -1530,7 +1531,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     view -> new LocalLogStorageFactory(),
                     threadPoolsManager.tableIoExecutor(),
                     replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
-                            .thenApply(Entry::value)
+                            .thenApply(entry -> new IgniteBiTuple<>(entry.value(), entry.revision()))
             ));
 
             LongSupplier delayDurationMsSupplier = () -> 10L;

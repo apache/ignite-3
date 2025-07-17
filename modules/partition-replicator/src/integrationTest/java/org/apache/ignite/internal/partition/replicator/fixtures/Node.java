@@ -97,6 +97,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -105,7 +106,6 @@ import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventPara
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -653,7 +653,7 @@ public class Node {
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsQueueKey((ZonePartitionId) replicaGrpId))
-                        .thenApply(Entry::value)
+                        .thenApply(entry -> new IgniteBiTuple<>(entry.value(), entry.revision()))
         );
 
         LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;

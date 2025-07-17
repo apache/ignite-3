@@ -231,7 +231,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
         @Override
         public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-            execute(learnerManager::resetLearners);
+            // TODO: Set the token for Metastorage.
+            execute((raftService, term) -> learnerManager.resetLearners(raftService, term, 0));
         }
     }
 
