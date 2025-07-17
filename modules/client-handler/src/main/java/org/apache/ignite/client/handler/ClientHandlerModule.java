@@ -393,10 +393,11 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
                 result.complete(bindFut.channel());
             } else if (bindFut.cause() instanceof BindException) {
+                String address = addresses.length == 0 ? "" : addresses[0];
                 result.completeExceptionally(
                         new IgniteException(
                                 BIND_ERR,
-                                String.format("Cannot start thin client connector endpoint at %s:%d.", addresses[0], port),
+                                "Cannot start thin client connector endpoint at address=" + address + ", port=" + port,
                                 bindFut.cause())
                 );
             } else if (bindFut.cause() instanceof UnresolvedAddressException) {
