@@ -3493,6 +3493,14 @@ public class NodeImpl implements Node, RaftServerService {
                     return;
             }
 
+            if (this.conf.getConf().getCasualityToken() > newPeersAndLearners.getCasualityToken()) {
+                Status status = new Status(RaftError.ESTALE, "Provided configuration is stale");
+
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
+
+                return;
+            }
+
             logConfigurationChange(newPeersAndLearners);
 
             unsafeRegisterConfChange(this.conf.getConf(), newPeersAndLearners, done);
@@ -3515,6 +3523,14 @@ public class NodeImpl implements Node, RaftServerService {
                         getNodeId(), currentTerm, term);
 
                 Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, Status.OK());
+
+                return;
+            }
+
+            if (this.conf.getConf().getCasualityToken() > newConf.getCasualityToken()) {
+                Status status = new Status(RaftError.ESTALE, "Provided configuration is stale");
+
+                Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done, status);
 
                 return;
             }
@@ -3559,6 +3575,11 @@ public class NodeImpl implements Node, RaftServerService {
                 LOG.warn("Node {} set peers need wait current conf changing.", getNodeId());
                 return new Status(RaftError.EBUSY, "Changing to another configuration");
             }
+
+            if (this.conf.getConf().getCasualityToken() > newPeers.getCasualityToken()) {
+                return new Status(RaftError.ESTALE, "Provided configuration is stale");
+            }
+
             // check equal, maybe retry direct return
             if (this.conf.getConf().equals(newPeers)) {
                 return Status.OK();
