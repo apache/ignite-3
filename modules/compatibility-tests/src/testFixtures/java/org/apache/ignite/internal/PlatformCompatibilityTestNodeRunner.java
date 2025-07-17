@@ -52,6 +52,11 @@ public class PlatformCompatibilityTestNodeRunner {
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
+    /**
+     * Entry point.
+     *
+     * @param args Args.
+     */
     public static void main(String[] args) throws Exception {
         String version = System.getenv("IGNITE_OLD_SERVER_VERSION");
         String workDir = System.getenv("IGNITE_OLD_SERVER_WORK_DIR");

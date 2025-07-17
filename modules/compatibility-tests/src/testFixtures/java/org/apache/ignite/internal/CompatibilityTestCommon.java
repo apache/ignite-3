@@ -32,6 +32,11 @@ public class CompatibilityTestCommon {
 
     public static final String TABLE_NAME_ALL_COLUMNS = "ALL_COLUMNS";
 
+    /**
+     * Creates default tables for compatibility tests.
+     *
+     * @param client Ignite client instance.
+     */
     public static void createDefaultTables(Ignite client) {
         if (!ddl(client, "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
             sql(client, "DELETE FROM " + TABLE_NAME_TEST);
@@ -54,6 +59,14 @@ public class CompatibilityTestCommon {
 
     }
 
+    /**
+     * Executes a SQL query and returns the result as a list of {@link SqlRow}.
+     *
+     * @param client Ignite client instance.
+     * @param sql SQL query to execute.
+     * @param arguments Arguments for the SQL query.
+     * @return List of {@link SqlRow} if the query returns a row set, otherwise null.
+     */
     public static @Nullable List<SqlRow> sql(Ignite client, String sql, Object... arguments) {
         try (var cursor = client.sql().execute(null, sql, arguments)) {
             if (cursor.hasRowSet()) {
