@@ -482,4 +482,29 @@ public class CurrentClientWithOldServerCompatibilityTest
 
         StringAssert.Contains("Cannot load job class by name 'test'", ex!.Message);
     }
+
+    [Test]
+    public async Task TestStreamer()
+    {
+        var table = await _client.Tables.GetTableAsync(TableNameTest);
+        var view = table!.RecordBinaryView;
+        var keys = new List<IgniteTuple>();
+
+        await view.StreamDataAsync(GetData(), DataStreamerOptions.Default with { PageSize = 123 });
+
+        var results = await view.GetAllAsync(null, keys);
+        Assert.AreEqual(keys.Count, results.Count);
+
+        async IAsyncEnumerable<IIgniteTuple> GetData()
+        {
+            await Task.Yield(); // Simulate async enumeration.
+
+            for (int i = 0; i < 5000; i++)
+            {
+                var id = ++_idGen;
+                keys.Add(new IgniteTuple { ["ID"] = id });
+                yield return new IgniteTuple { ["ID"] = id, ["NAME"] = $"TestStreamer{i}" };
+            }
+        }
+    }
 }
