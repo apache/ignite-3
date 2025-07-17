@@ -112,4 +112,16 @@ public class CurrentClientWithOldServerCompatibilityTest
             Assert.AreEqual(clusterNode.Id, node.Id);
         }
     }
+
+    [Test]
+    public async Task TestGetClusterNodes()
+    {
+        IList<IClusterNode> nodes = await _client.GetClusterNodesAsync();
+        Assert.AreEqual(1, nodes.Count);
+
+        var connectedNode = _client.GetConnections().Select(x => x.Node).Single();
+
+        Assert.AreEqual(connectedNode.Id, nodes[0].Id);
+        Assert.AreEqual(connectedNode.Name, nodes[0].Name);
+    }
 }
