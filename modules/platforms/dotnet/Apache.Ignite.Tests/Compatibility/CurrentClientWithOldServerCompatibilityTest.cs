@@ -64,10 +64,12 @@ public class CurrentClientWithOldServerCompatibilityTest
             LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
-        _client = await IgniteClient.StartAsync(cfg);
+        var startupTimeout = TimeSpan.FromSeconds(10);
 
-        await _client.Sql.ExecuteScriptAsync("DELETE FROM TEST WHERE ID >= 1000").WaitAsync(TimeSpan.FromSeconds(15));
-        await _client.Sql.ExecuteScriptAsync("DELETE FROM ALL_COLUMNS WHERE ID >= 1000").WaitAsync(TimeSpan.FromSeconds(15));
+        _client = await IgniteClient.StartAsync(cfg).WaitAsync(startupTimeout);
+
+        await _client.Sql.ExecuteScriptAsync("DELETE FROM TEST WHERE ID >= 1000").WaitAsync(startupTimeout);
+        await _client.Sql.ExecuteScriptAsync("DELETE FROM ALL_COLUMNS WHERE ID >= 1000").WaitAsync(startupTimeout);
     }
 
     [OneTimeTearDown]
