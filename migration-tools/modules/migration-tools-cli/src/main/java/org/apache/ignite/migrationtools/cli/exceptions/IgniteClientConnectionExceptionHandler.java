@@ -17,16 +17,36 @@
 
 package org.apache.ignite.migrationtools.cli.exceptions;
 
+import static org.apache.ignite3.lang.ErrorGroups.Authentication.AUTHENTICATION_ERR_GROUP;
+import static org.apache.ignite3.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
+
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.ignite3.client.IgniteClientConnectionException;
 import org.apache.ignite3.internal.cli.core.exception.ExceptionHandler;
 import org.apache.ignite3.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite3.internal.cli.core.style.component.ErrorUiComponent;
+import org.apache.ignite3.internal.cli.core.style.component.ErrorUiComponent.ErrorComponentBuilder;
+import org.apache.ignite3.lang.IgniteException;
 
 /** Simple exception handler for {@link IgniteClientConnectionException}. */
 public class IgniteClientConnectionExceptionHandler implements ExceptionHandler<IgniteClientConnectionException> {
     @Override
     public int handle(ExceptionWriter writer, IgniteClientConnectionException e) {
-        writer.write(ErrorUiComponent.fromHeader(e.getMessage()).render());
+        ErrorComponentBuilder errorUiBuilder = ErrorUiComponent.builder()
+                .header("Could not connect to cluster: " + e.getMessage());
+
+        Throwable rootCause = ExceptionUtils.getRootCause(e);
+        if (rootCause instanceof IgniteException) {
+            IgniteException rootCauseIgn = (IgniteException) rootCause;
+            if (rootCauseIgn.groupCode() == AUTHENTICATION_ERR_GROUP.groupCode() && rootCauseIgn.code() == INVALID_CREDENTIALS_ERR) {
+                errorUiBuilder.header("Could not connect to cluster: Invalid client authentication credentials.")
+                        .details("Please check the command help for more information on how to correctly supply the client credentials.");
+
+            }
+        }
+
+        writer.write(errorUiBuilder.build().render());
+
         return e.code();
     }
 

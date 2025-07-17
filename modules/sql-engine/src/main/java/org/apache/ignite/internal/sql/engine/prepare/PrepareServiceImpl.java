@@ -144,6 +144,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param clusterCfg Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
      * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
+     * @param ddlSqlToCommandConverter Converter from SQL DDL operators to catalog commands.
      */
     public static PrepareServiceImpl create(
             String nodeName,
@@ -152,13 +153,14 @@ public class PrepareServiceImpl implements PrepareService {
             MetricManager metricManager,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
-            SqlSchemaManager schemaManager
+            SqlSchemaManager schemaManager,
+            DdlSqlToCommandConverter ddlSqlToCommandConverter
     ) {
         return new PrepareServiceImpl(
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
-                new DdlSqlToCommandConverter(),
+                ddlSqlToCommandConverter,
                 clusterCfg.planner().maxPlanningTimeMillis().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager,
@@ -215,7 +217,7 @@ public class PrepareServiceImpl implements PrepareService {
         metricManager.registerSource(sqlPlanCacheMetricSource);
         metricManager.enable(sqlPlanCacheMetricSource);
 
-        metricManager.registerSource(new ThreadPoolMetricSource(PLANNING_EXECUTOR_SOURCE_NAME, planningPool));
+        metricManager.registerSource(new ThreadPoolMetricSource(PLANNING_EXECUTOR_SOURCE_NAME, null, planningPool));
         metricManager.enable(PLANNING_EXECUTOR_SOURCE_NAME);
 
         IgnitePlanner.warmup();

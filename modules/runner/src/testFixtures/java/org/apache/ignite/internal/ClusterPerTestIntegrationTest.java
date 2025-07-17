@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
@@ -33,6 +34,7 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -143,6 +145,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         cluster.shutdown();
 
         MicronautCleanup.removeShutdownHooks();
+
+        TestMvTableStorage.resetPartitionStorageFactory();
     }
 
     /**
@@ -285,6 +289,14 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
     protected static ClusterNode clusterNode(Ignite node) {
         return unwrapIgniteImpl(node).node();
+    }
+
+    protected final IgniteImpl findNode(Predicate<? super IgniteImpl> predicate) {
+        return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .filter(predicate)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("node not found"));
     }
 
     /** Ad-hoc registered extension for dumping cluster state in case of test failure. */

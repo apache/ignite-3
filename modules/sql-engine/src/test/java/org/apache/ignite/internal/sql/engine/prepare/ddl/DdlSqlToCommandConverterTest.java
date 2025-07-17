@@ -91,6 +91,7 @@ import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -106,6 +107,11 @@ import org.mockito.Mockito;
  */
 public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
     private static final Integer TEST_ZONE_ID = 100;
+
+    @BeforeEach
+    void setUp() {
+        converter = new DdlSqlToCommandConverter(storageProfiles -> {});
+    }
 
     @Test
     void testCheckDuplicates() {

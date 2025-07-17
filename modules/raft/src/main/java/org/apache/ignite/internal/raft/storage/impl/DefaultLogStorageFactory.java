@@ -38,7 +38,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -67,6 +67,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** Name of the log factory, will be used in logs. */
     private final String factoryName;
+
+    /** Node name. */
+    private final String nodeName;
 
     /** Path to the log storage. */
     private final Path logPath;
@@ -126,9 +129,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         this.factoryName = factoryName;
         this.logPath = logPath;
         this.fsync = fsync;
+        this.nodeName = nodeName;
 
         executorService = Executors.newSingleThreadExecutor(
-                NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
+                IgniteThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
         );
     }
 
@@ -159,7 +163,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
         this.cfOption = createColumnFamilyOptions();
 
-        this.flushListener = new LoggingRocksDbFlushListener(factoryName);
+        this.flushListener = new LoggingRocksDbFlushListener(factoryName, nodeName);
 
         List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
                 // Column family to store configuration log entry.

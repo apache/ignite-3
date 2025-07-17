@@ -83,9 +83,9 @@ public interface MetricExporter {
      * {@link MetricManagerImpl} invokes this method,
      * when the metric source was disabled.
      *
-     * @param metricSetName Name of metric set to remove.
+     * @param metricSet Named metric set to remove.
      */
-    default void removeMetricSet(String metricSetName) {
+    default void removeMetricSet(MetricSet metricSet) {
         // No-op.
     }
 }

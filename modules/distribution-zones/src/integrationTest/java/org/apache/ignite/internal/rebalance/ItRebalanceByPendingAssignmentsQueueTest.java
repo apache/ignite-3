@@ -22,6 +22,7 @@ import static java.util.Optional.ofNullable;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestRebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
@@ -30,6 +31,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationE
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
 import static org.apache.ignite.internal.rebalance.ItRebalanceByPendingAssignmentsQueueTest.AssignmentsRecorder.recordAssignmentsEvents;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -45,6 +47,7 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Deque;
@@ -57,12 +60,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -142,7 +143,6 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
     void testDoStableKeySwitchWhenPendingQueueIsGreaterThanOne() {
         createZoneAndTable(4, 2);
 
@@ -275,11 +275,13 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25804")
-    void testNodeRestartDuringQueueProcessing() {
+    void testNodeRestartDuringQueueProcessing() throws InterruptedException {
         createZoneAndTable(4, 2);
 
+        assertTrue(waitForCondition(() -> stablePartitionAssignments(TABLE_NAME).size() == 4, 10_000));
+
         Set<Assignment> stableAssignments = stablePartitionAssignments(TABLE_NAME);
+
         AssignmentsQueue expectedPendingAssignmentsQueue = assignmentsPromoteDemote(stableAssignments);
         assertThat("pending queue size >= 2", expectedPendingAssignmentsQueue.size(), greaterThanOrEqualTo(2));
 
@@ -288,6 +290,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
                 .map(Assignment::consistentId).filter(name -> !name.equals(leaseholder)).findFirst().orElseThrow();
 
         putPendingAssignments(raftLeader(TABLE_NAME), TABLE_NAME, expectedPendingAssignmentsQueue);
+
         cluster.restartNode(cluster.nodeIndex(restartNode));
 
         await().atMost(60, SECONDS).untilAsserted(() -> {
@@ -304,6 +307,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25849")
     void testRaftLeaderChangedDuringAssignmentsQueueProcessing() {
         createZoneAndTable(4, 2);
 
@@ -405,7 +409,12 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     private static void putPendingAssignments(Ignite ignite, String tableName, AssignmentsQueue pendingAssignmentsQueue) {
         ByteArray pendingKey = pendingPartitionAssignmentsKey(partitionGroupId(ignite, tableName, 0));
         byte[] pendingVal = pendingAssignmentsQueue.toBytes();
-        unwrapIgniteImpl(ignite).metaStorageManager().put(pendingKey, pendingVal).join();
+
+        ByteArray pendingChangeTriggerKey = pendingChangeTriggerKey(partitionGroupId(ignite, tableName, 0));
+        byte[] pendingChangeTriggerKeyValue = unwrapIgniteImpl(ignite).clock().now().toBytes();
+        var keyValsToUpdate = Map.of(pendingKey, pendingVal, pendingChangeTriggerKey, pendingChangeTriggerKeyValue);
+
+        assertThat(unwrapIgniteImpl(ignite).metaStorageManager().putAll(keyValsToUpdate), willCompleteSuccessfully());
     }
 
     private Set<String> dataNodes(String tableName) {
@@ -479,13 +488,6 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         int tableId = catalog.table(DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
         return TestDisasterRecoveryUtils.getRealAssignments(
                 ignite.disasterRecoveryManager(), ZONE_NAME, zoneId, tableId, 0);
-    }
-
-    private IgniteImpl findNode(Predicate<? super Ignite> predicate) {
-        return cluster.runningNodes().filter(predicate)
-                .findFirst()
-                .map(TestWrappers::unwrapIgniteImpl)
-                .orElseThrow(() -> new AssertionError("node not found"));
     }
 
     private boolean isNotMetastoreNode(Peer p) {

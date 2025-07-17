@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -42,11 +43,15 @@ public class ConfigNodeSerializer {
      */
     public static List<ConfigNode> readAsJson(IgniteDataInput in) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
+        // To support {Object val} where val can be both long and int, deserialize always ints as longs.
+        objectMapper.configure(DeserializationFeature.USE_LONG_FOR_INTS, true);
 
         MappingIterator<ConfigNode> objectMappingIterator = objectMapper.readerFor(ConfigNode.class).readValues(in);
 
         List<ConfigNode> configNodes = objectMappingIterator.readAll();
 
+        // Init roots, then restore parent links.
+        configNodes.forEach(root -> root.init(null));
         configNodes.forEach(ConfigNodeSerializer::restoreParentLinks);
 
         return configNodes;
@@ -57,7 +62,7 @@ public class ConfigNodeSerializer {
      */
     private static void restoreParentLinks(ConfigNode node) {
         for (ConfigNode child : node.childNodes()) {
-            child.setParent(node);
+            child.init(node);
             restoreParentLinks(child);
         }
     }

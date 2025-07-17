@@ -51,6 +51,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -176,6 +177,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         CLUSTER.shutdown();
 
         MicronautCleanup.removeShutdownHooks();
+
+        TestMvTableStorage.resetPartitionStorageFactory();
     }
 
     /** Drops all visible tables. */

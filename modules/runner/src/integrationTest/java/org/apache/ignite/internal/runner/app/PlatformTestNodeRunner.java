@@ -86,7 +86,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.ClusterChange;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -248,8 +247,6 @@ public class PlatformTestNodeRunner {
             System.out.println("Dry run succeeded.");
             return;
         }
-
-        System.setProperty(IgniteSystemProperties.IGNORE_DUPLICATE_JMX_MBEANS_ERROR, "true");
 
         List<IgniteServer> startedIgniteServers = startNodes(BASE_PATH, nodesBootstrapCfg);
 
@@ -858,6 +855,39 @@ public class PlatformTestNodeRunner {
         @Override
         public CompletableFuture<List<Object>> receive(List<Object> page, DataStreamerReceiverContext ctx, Object arg) {
             return CompletableFuture.completedFuture(page);
+        }
+    }
+
+    @SuppressWarnings("unused") // Used by platform tests.
+    private static class MarshallerReceiver implements DataStreamerReceiver<Nested, MyArg, MyResult> {
+        @Override
+        public @Nullable Marshaller<Nested, byte[]> payloadMarshaller() {
+            return new ToStringMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<MyArg, byte[]> argumentMarshaller() {
+            return new JsonMarshaller<>(MyArg.class);
+        }
+
+        @Override
+        public @Nullable Marshaller<MyResult, byte[]> resultMarshaller() {
+            return new JsonMarshaller<>(MyResult.class);
+        }
+
+        @Override
+        public CompletableFuture<List<MyResult>> receive(List<Nested> page, DataStreamerReceiverContext ctx, MyArg arg) {
+            List<MyResult> results = new ArrayList<>(page.size());
+
+            for (Nested item : page) {
+                MyResult res = new MyResult();
+                res.data = arg.name + "_" + arg.id;
+                res.nested = item;
+
+                results.add(res);
+            }
+
+            return completedFuture(results);
         }
     }
 

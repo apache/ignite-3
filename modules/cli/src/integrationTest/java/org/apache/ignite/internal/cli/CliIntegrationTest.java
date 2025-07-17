@@ -26,8 +26,10 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
@@ -42,8 +44,10 @@ import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
+import org.apache.ignite.internal.cli.decorators.TableDecorator;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
+import org.apache.ignite.internal.cli.sql.table.Table;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,7 +75,8 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
             new MetricSource().name("topology.local").enabled(true),
             new MetricSource().name("thread.pools.partitions-executor").enabled(true),
             new MetricSource().name("thread.pools.sql-executor").enabled(true),
-            new MetricSource().name("thread.pools.sql-planning-executor").enabled(true)
+            new MetricSource().name("thread.pools.sql-planning-executor").enabled(true),
+            new MetricSource().name("transactions").enabled(true)
     };
 
     /** Correct ignite jdbc url. */
@@ -196,6 +201,19 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         assertThat(sout.toString())
                 .as("Expected command output to be: " + expectedOutput + " but was " + sout.toString())
                 .isEqualTo(expectedOutput);
+    }
+
+    protected void assertOutputIsSqlResultWithColumns(String... columns) {
+        String tableWithContent = new TableDecorator(false)
+                .decorate(new Table(List.of(columns), List.of()))
+                .toTerminalString();
+        String expectedHeader = Arrays.stream(tableWithContent.split("\n"))
+                .limit(2)
+                .collect(Collectors.joining("\n"));
+
+        assertThat(sout.toString())
+                .as("Expected command output to start with: " + expectedHeader + " but was " + sout.toString())
+                .startsWith(expectedHeader);
     }
 
     protected void assertOutputStartsWith(String expectedOutput) {

@@ -100,7 +100,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -192,7 +192,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
         requestsExecutor = Executors.newFixedThreadPool(
                 5,
-                NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
+                IgniteThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
         replicaService = new ReplicaService(

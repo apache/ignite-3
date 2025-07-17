@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -48,7 +50,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 
 /** Storage engine implementation based on {@link VolatilePageMemory}. */
 public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEngine {
@@ -136,7 +138,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(igniteInstanceName, "volatile-mv-partition-destruction", LOG)
+                IgniteThreadFactory.create(igniteInstanceName, "volatile-mv-partition-destruction", LOG)
         );
         executor.allowCoreThreadTimeOut(true);
 
@@ -187,8 +189,13 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     }
 
     @Override
-    public void dropMvTable(int tableId) {
+    public void destroyMvTable(int tableId) {
         // No-op.
+    }
+
+    @Override
+    public Set<Integer> tableIdsOnDisk() {
+        return emptySet();
     }
 
     /**

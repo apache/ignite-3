@@ -177,7 +177,7 @@ public class ZoneResourcesManager implements ManuallyCloseable {
             if (resources != null) {
                 resources.resourcesByPartitionId.remove(zonePartitionId.partitionId());
 
-                resources.txStateStorage.destroyTxStateStorage(zonePartitionId.partitionId());
+                resources.txStateStorage.destroyPartitionStorage(zonePartitionId.partitionId());
             }
         });
     }

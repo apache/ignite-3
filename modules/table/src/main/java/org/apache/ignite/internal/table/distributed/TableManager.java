@@ -3059,7 +3059,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         if (!nodeProperties.colocationEnabled()) {
             if (internalTable.txStateStorage().getPartitionStorage(partitionId) != null) {
-                destroyFutures.add(runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor));
+                destroyFutures.add(runAsync(() -> internalTable.txStateStorage().destroyPartitionStorage(partitionId), ioExecutor));
             }
 
             destroyFutures.add(runAsync(() -> destroyReplicationProtocolStorages(tablePartitionId, table), ioExecutor));
@@ -3294,7 +3294,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
         assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
 
-        engine.dropMvTable(tableDescriptor.id());
+        engine.destroyMvTable(tableDescriptor.id());
 
         sharedTxStateStorage.destroyStorage(tableDescriptor.id());
 
