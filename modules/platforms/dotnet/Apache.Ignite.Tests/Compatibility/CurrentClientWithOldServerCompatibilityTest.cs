@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Ignite.Transactions;
@@ -465,5 +466,20 @@ public class CurrentClientWithOldServerCompatibilityTest
         Assert.IsFalse((await view.GetAsync(tx, key)).HasValue, "Read-only transaction shows snapshot of data in the past.");
 
         await tx.RollbackAsync();
+    }
+
+    [Test]
+    public async Task TestComputeMissingJob()
+    {
+        var target = JobTarget.AnyNode(await _client.GetClusterNodesAsync());
+        var desc = new JobDescriptor<string?, string?>("test");
+
+        var ex = Assert.ThrowsAsync<ComputeException>(async () =>
+        {
+            var jobExecution = await _client.Compute.SubmitAsync(target, desc, null);
+            await jobExecution.GetResultAsync();
+        });
+
+        StringAssert.Contains("Cannot load job class by name 'test'", ex!.Message);
     }
 }
