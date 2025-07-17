@@ -17,7 +17,10 @@
 
 namespace Apache.Ignite.Tests.Compatibility;
 
+using System.Linq;
 using System.Threading.Tasks;
+using Internal;
+using Internal.Proto;
 using NUnit.Framework;
 using TestHelpers;
 
@@ -51,6 +54,24 @@ public class CurrentClientWithOldServerCompatibilityTest
         _client.Dispose();
         _javaServer.Dispose();
         _workDir.Dispose();
+    }
+
+    [Test]
+    public void TestProtocolFeatures()
+    {
+        ClientSocket socket = ((IgniteClientInternal)_client).Socket.GetSockets().First();
+        ProtocolBitmaskFeature features = socket.ConnectionContext.Features;
+
+        switch (_serverVersion)
+        {
+            case "3.0.0":
+                Assert.AreEqual(default(ProtocolBitmaskFeature), features);
+                break;
+
+            default:
+                Assert.Fail($"Unexpected server version: {_serverVersion}");
+                break;
+        }
     }
 
     [Test]
