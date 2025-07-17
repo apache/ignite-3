@@ -19,8 +19,13 @@ package org.apache.ignite.internal.network.netty;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -32,6 +37,8 @@ import org.apache.ignite.internal.util.FastTimestamps;
  * Inbound handler that handles incoming acknowledgement messages and sends acknowledgement messages for other messages.
  */
 public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
+    private static final IgniteLogger LOG = Loggers.forClass(InboundRecoveryHandler.class);
+
     /** Handler name. */
     public static final String NAME = "inbound-recovery-handler";
 
@@ -49,6 +56,9 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
     };
 
     private static class HIstMsgInfo {
+        /** Date format for thread dumps. */
+        final DateTimeFormatter THREAD_DUMP_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
+
         HashMap<String, Integer> map = new HashMap();
 
         long timestamp;
@@ -59,7 +69,8 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
         void println() {
             if (FastTimestamps.coarseCurrentTimeMillis() - timestamp > 10_000) {
-                System.out.println(Thread.currentThread().getName() + ": HIST: " + map + " messages, last timestamp: " + timestamp);
+                LOG.info("PVD:: Message histogram: {} messages, last timestamp: {}", map,
+                        THREAD_DUMP_FMT.format(Instant.ofEpochMilli(timestamp)));
 
                 timestamp = System.currentTimeMillis();
                 map.clear();
