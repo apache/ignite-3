@@ -345,7 +345,7 @@ public class LeaseUpdater {
         // TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
         ClusterNode primaryCandidate = null;
 
-        int proposedNo = proposedConsistentId == null ? incrementalCounter.getAndIncrement() % assignments.size() : -1;
+        int proposedNo = proposedConsistentId == null && !assignments.isEmpty() ? incrementalCounter.getAndIncrement() % assignments.size() : -1;
 
         int i = 0;
 
