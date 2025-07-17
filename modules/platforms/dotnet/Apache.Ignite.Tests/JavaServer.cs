@@ -38,7 +38,7 @@ namespace Apache.Ignite.Tests
 
         private const int DefaultClientPort = 10942;
 
-        private const int DefaultClientPortOldServer = 10952;
+        private const int DefaultClientPortOldServer = 10800;
 
         private const int ConnectTimeoutSeconds = 4 * 60;
 
