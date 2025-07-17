@@ -240,7 +240,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
 
         // No new transactions through ddl.
-        assertEquals(0, txManager.pending());
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     /** Check correctness of implicit and explicit transactions. */
@@ -301,7 +301,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
-        assertEquals(0, txManagerInternal.pending());
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     /** Check correctness of explicit transaction rollback. */
@@ -552,7 +552,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertEquals(ROW_COUNT, txManager.finished() - txPrevCnt);
         // No new transactions through ddl.
-        assertEquals(0, txManager.pending());
+        waitUntilActiveTransactionsCount(is(0));
 
         checkDml(ROW_COUNT, sql, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -772,7 +772,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         execute(1, sql, "SELECT * FROM TEST");
 
-        waitUntilActiveTransactionsCount("Expected no pending transactions", is(0));
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     /**
@@ -833,7 +833,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         rs.close();
 
-        waitUntilActiveTransactionsCount("Expected no pending transactions", is(0));
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     @Test

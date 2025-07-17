@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -292,18 +293,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
      * @throws AssertionError If after waiting the number of active transactions still does not match the specified matcher.
      */
     protected void waitUntilActiveTransactionsCount(Matcher<Integer> matcher) {
-        waitUntilActiveTransactionsCount("", matcher);
-    }
-
-    /**
-     * Waits until the number of active (pending) transactions matches the specified matcher.
-     *
-     * @param matcher Matcher to check the number of active transactions.
-     * @param reason Detailed message.
-     * @throws AssertionError If after waiting the number of active transactions still does not match the specified matcher.
-     */
-    protected void waitUntilActiveTransactionsCount(String reason, Matcher<Integer> matcher) {
-        Awaitility.await().untilAsserted(() -> assertThat(reason, txManager().pending(), matcher));
+        Awaitility.await().timeout(5, SECONDS).untilAsserted(() -> assertThat(txManager().pending(), matcher));
     }
 
     protected static void gatherStatistics() {
@@ -312,7 +302,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
 
         statisticManager.forceUpdateAll();
         try {
-            statisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.SECONDS);
+            statisticManager.lastUpdateStatisticFuture().get(5_000, SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new RuntimeException(e);
         }
