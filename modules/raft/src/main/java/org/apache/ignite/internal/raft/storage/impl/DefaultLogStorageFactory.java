@@ -65,6 +65,10 @@ import org.rocksdb.util.SizeUnit;
 public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
 
+    static final byte[] FINISHED_META_MIGRATION_META_KEY = {0};
+
+    static final byte[] STORAGE_CREATED_META_PREFIX = {1};
+
     /** Name of the log factory, will be used in logs. */
     private final String factoryName;
 
@@ -85,6 +89,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** Write options to use in writes to database. */
     private WriteOptions writeOptions;
+
+    private ColumnFamilyHandle metaHandle;
 
     /** Configuration column family handle. */
     private ColumnFamilyHandle confHandle;
@@ -166,6 +172,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         this.flushListener = new LoggingRocksDbFlushListener(factoryName, nodeName);
 
         List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
+                // Column family to store metadata.
+                new ColumnFamilyDescriptor("Meta".getBytes(UTF_8), cfOption),
                 // Column family to store configuration log entry.
                 new ColumnFamilyDescriptor("Configuration".getBytes(UTF_8), cfOption),
                 // Default column family to store user data log entry.
@@ -185,14 +193,22 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             // Setup background compactions pool
             env.setBackgroundThreads(Runtime.getRuntime().availableProcessors(), Priority.LOW);
 
-            assert (columnFamilyHandles.size() == 2);
-            this.confHandle = columnFamilyHandles.get(0);
-            this.dataHandle = columnFamilyHandles.get(1);
+            assert (columnFamilyHandles.size() == 3);
+            this.metaHandle = columnFamilyHandles.get(0);
+            this.confHandle = columnFamilyHandles.get(1);
+            this.dataHandle = columnFamilyHandles.get(2);
+
+            MetadataMigration metadataMigration = metadataMigration();
+            metadataMigration.migrateIfNeeded();
         } catch (Exception e) {
             closeRocksResources();
 
             throw e;
         }
+    }
+
+    MetadataMigration metadataMigration() {
+        return new MetadataMigration(db, writeOptions, metaHandle, confHandle, dataHandle);
     }
 
     @Override
@@ -226,19 +242,23 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     public LogStorage createLogStorage(String raftNodeStorageId, RaftOptions raftOptions) {
         // raftOptions is ignored as fsync status is passed via dbOptions.
 
-        return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, raftNodeStorageId, writeOptions, executorService);
+        return new RocksDbSharedLogStorage(this, db, metaHandle, confHandle, dataHandle, raftNodeStorageId, writeOptions, executorService);
     }
 
     @Override
     public void destroyLogStorage(String uri) {
-        try {
+        try (WriteBatch writeBatch = new WriteBatch()) {
             RocksDbSharedLogStorage.destroyAllEntriesBetween(
-                    db,
+                    writeBatch,
                     confHandle,
                     dataHandle,
                     raftNodeStorageStartPrefix(uri),
                     raftNodeStorageEndPrefix(uri)
             );
+
+            writeBatch.delete(metaHandle, RocksDbSharedLogStorage.storageCreatedKey(uri));
+
+            db.write(this.writeOptions, writeBatch);
         } catch (RocksDBException e) {
             throw new LogStorageException("Fail to destroy the log storage for " + uri, e);
         }
@@ -338,5 +358,25 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         }
 
         return opts;
+    }
+
+    @TestOnly
+    RocksDB db() {
+        return db;
+    }
+
+    @TestOnly
+    ColumnFamilyHandle metaColumnFamilyHandle() {
+        return metaHandle;
+    }
+
+    @TestOnly
+    ColumnFamilyHandle confColumnFamilyHandle() {
+        return confHandle;
+    }
+
+    @TestOnly
+    ColumnFamilyHandle dataColumnFamilyHandle() {
+        return dataHandle;
     }
 }
