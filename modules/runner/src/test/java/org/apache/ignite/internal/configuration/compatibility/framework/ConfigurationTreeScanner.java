@@ -57,8 +57,6 @@ import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNo
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 
 /*
- TODO: https://issues.apache.org/jira/browse/IGNITE-25571
-   support named lists. See {@link org.apache.ignite.configuration.annotation.NamedConfigValue} annotation.
  TODO: https://issues.apache.org/jira/browse/IGNITE-25572
    support polymorphic nodes. See {@link org.apache.ignite.configuration.annotation.PolymorphicConfig} annotation.
 */
