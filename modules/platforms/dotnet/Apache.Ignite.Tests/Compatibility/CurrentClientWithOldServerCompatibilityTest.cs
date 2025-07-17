@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Ignite.Sql;
 using Ignite.Table;
 using Internal;
 using Internal.Proto;
@@ -44,6 +45,8 @@ public class CurrentClientWithOldServerCompatibilityTest
     private JavaServer _javaServer;
 
     private IIgniteClient _client;
+
+    private int _idGen = 1000;
 
     public CurrentClientWithOldServerCompatibilityTest(string serverVersion) =>
         _serverVersion = serverVersion;
@@ -201,5 +204,32 @@ public class CurrentClientWithOldServerCompatibilityTest
         Assert.AreEqual(Instant.FromUnixTimeSeconds(1714946523), row["TSTZ"]);
         Assert.IsTrue((bool)row["BOOL"]!);
         CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, (byte[])row["BYTES"]!);
+    }
+
+    [Test]
+    public async Task TestSqlMultiplePages()
+    {
+        int count = 12345;
+        int minId = ++_idGen;
+
+        var tuples = Enumerable.Range(0, count)
+            .Select(_ => ++_idGen)
+            .Select(id => new IgniteTuple { ["ID"] = id, ["NAME"] = $"test{id}" })
+            .ToList();
+
+        var table = await _client.Tables.GetTableAsync(TableNameTest);
+        await table!.RecordBinaryView.UpsertAllAsync(null, tuples);
+
+        var statement = new SqlStatement($"SELECT * FROM {TableNameTest} WHERE ID > ?", pageSize: 10);
+
+        await using var cursor = await _client.Sql.ExecuteAsync(null, statement, minId);
+
+        int rowCnt = 0;
+        await foreach (var row in cursor)
+        {
+            rowCnt++;
+        }
+
+        Assert.AreEqual(count, rowCnt);
     }
 }
