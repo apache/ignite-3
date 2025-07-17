@@ -21,16 +21,11 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.VolatileDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
-import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
-import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.benchmark.VolatilePageMemoryBenchmarkBase;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
@@ -39,8 +34,6 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.Constants;
-import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -70,28 +63,12 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
-public class SortedIndexTreeInsertBenchmark {
-    /** Size of a data region. Should be large enough to fit all the data in this benchmark. */
-    private static final long REGION_SIZE = 4L * Constants.GiB;
-
-    /** Page size. We may want to make it configurable in the future. Let's use a more performant 4Kb for now. */
-    private static final int PAGE_SIZE = 4 * Constants.KiB;
-
-    /** Group ID constant for the benchmark. Could be anything. */
-    private static final int GROUP_ID = 1;
-    /** Partition ID constant for the benchmark. Could be anything. */
-    private static final int PARTITION_ID = 0;
+public class SortedIndexTreeInsertBenchmark extends VolatilePageMemoryBenchmarkBase {
     /** Index ID constant for the benchmark. Could be anything. */
     private static final int INDEX_ID = 1;
 
     /** Some fake row ID for benchmark. Reused in all operations, because allocating a new one every time is slow. */
     private static final RowId ROW_ID = new RowId(PARTITION_ID);
-
-    /** An instance of {@link Random}. */
-    private static final Random RANDOM = new Random(System.currentTimeMillis());
-
-    /** {@link PageMemory} instance. */
-    private VolatilePageMemory volatilePageMemory;
 
     /** Benchmark parameterization. We want to measure many different index columns descriptors. The list will eventually be expanded. */
     @Param({"LONG", "STRING_16"})
@@ -134,27 +111,9 @@ public class SortedIndexTreeInsertBenchmark {
      * Initializes the benchmark state.
      */
     @Setup
+    @Override
     public void setup() throws Exception {
-        var ioRegistry = new PageIoRegistry();
-        ioRegistry.loadFromServiceLoader();
-
-        volatilePageMemory = new VolatilePageMemory(
-                VolatileDataRegionConfiguration.builder().pageSize(PAGE_SIZE).initSize(REGION_SIZE).maxSize(REGION_SIZE).build(),
-                ioRegistry,
-                new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
-        );
-
-        volatilePageMemory.start();
-
-        var freeList = new FreeListImpl(
-                "freeList",
-                GROUP_ID,
-                PARTITION_ID,
-                volatilePageMemory,
-                volatilePageMemory.allocatePageNoReuse(GROUP_ID, PARTITION_ID, FLAG_AUX),
-                true,
-                null
-        );
+        super.setup();
 
         sortedIndexTree = SortedIndexTree.createNew(
                 GROUP_ID,
@@ -172,8 +131,9 @@ public class SortedIndexTreeInsertBenchmark {
      * Invalidates the benchmark state.
      */
     @TearDown
+    @Override
     public void tearDown() throws Exception {
-        volatilePageMemory.stop(true);
+        super.tearDown();
     }
 
     /**
