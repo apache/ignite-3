@@ -956,8 +956,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         setValidatedNodeType(expr, returnType);
 
         if (castOperand instanceof SqlDynamicParam
-                && operandType.getSqlTypeName() == SqlTypeName.DECIMAL
-                && returnType.getSqlTypeName() == SqlTypeName.DECIMAL
+                && ((operandType.getSqlTypeName() == SqlTypeName.DECIMAL
+                && returnType.getSqlTypeName() == SqlTypeName.DECIMAL)
+                || (operandType.getSqlTypeName() == SqlTypeName.TIME
+                && returnType.getSqlTypeName() == SqlTypeName.TIME)
+                || (operandType.getSqlTypeName() == SqlTypeName.TIMESTAMP
+                && returnType.getSqlTypeName() == SqlTypeName.TIMESTAMP)
+                || (operandType.getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+                && returnType.getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE))
         ) {
             // By default type of dyn param of type DECIMAL is DECIMAL(28, 6) (see DECIMAL_DYNAMIC_PARAM_PRECISION and
             // DECIMAL_DYNAMIC_PARAM_SCALE at the beginning of the class declaration). Although this default seems
@@ -1565,7 +1571,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else if (cls == LocalDate.class) {
             return typeFactory.createSqlType(SqlTypeName.DATE);
         } else if (cls == LocalTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIME, 6);
+            return typeFactory.createSqlType(SqlTypeName.TIME);
         } else if (cls == LocalDateTime.class) {
             return typeFactory.createSqlType(SqlTypeName.TIMESTAMP);
         } else if (cls == Instant.class) {

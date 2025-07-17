@@ -62,6 +62,11 @@ public class IgniteSqlDateTimeUtils {
             return null;
         }
 
+        return adjustTimestampMillis((long) timestamp, fractionOfSecond);
+    }
+
+    /** Returns the timestamp value truncated to the specified fraction of a second. */
+    private static long adjustTimestampMillis(long timestamp, int fractionOfSecond) {
         assert fractionOfSecond >= 0;
 
         long unit;
@@ -87,11 +92,16 @@ public class IgniteSqlDateTimeUtils {
     }
 
     /** Returns the time value truncated to the specified fraction of a second. */
-    public static @Nullable Integer adjustTimeMillis(Integer time, int fractionOfSecond) {
+    public static @Nullable Integer adjustTimeMillis(@Nullable Integer time, int fractionOfSecond) {
         if (time == null) {
             return null;
         }
 
+        return adjustTimeMillis((int) time, fractionOfSecond);
+    }
+
+    /** Returns the time value truncated to the specified fraction of a second. */
+    private static int adjustTimeMillis(int time, int fractionOfSecond) {
         assert time >= 0 : time;
         assert fractionOfSecond >= 0;
 
