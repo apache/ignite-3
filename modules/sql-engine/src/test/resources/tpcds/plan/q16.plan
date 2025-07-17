@@ -66,7 +66,7 @@ Sort
                               est: (rows=18262)
                             TableScan
                                 table: PUBLIC.DATE_DIM
-                                predicate: AND(>=(D_DATE, 1999-04-01), <=(D_DATE, +(1999-04-01, *(60, 86400000:INTERVAL DAY))))
+                                predicate: SEARCH(D_DATE, Sarg[[1999-04-01..1999-05-31]])
                                 fieldNames: [D_DATE_SK, D_DATE]
                                 est: (rows=18262)
                         Exchange

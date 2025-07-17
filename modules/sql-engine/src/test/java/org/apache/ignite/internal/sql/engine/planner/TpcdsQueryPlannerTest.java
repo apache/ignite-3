@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlan
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
@@ -92,7 +93,7 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
 
     @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
     static void updateQueryPlan(String queryId, String newPlan) {
-        Path targetDirectory = null;
+        Path targetDirectory = Paths.get("/Users/korlov/projects/work/ignite-3/modules/sql-engine/src/test/resources/tpcds/plan");
 
         // A targetDirectory must be specified by hand when expected plans are generated. 
         //noinspection ConstantValue 

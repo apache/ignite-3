@@ -20,17 +20,22 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_PRECISION;
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.DECIMAL_DYNAMIC_PARAM_SCALE;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -2694,7 +2699,7 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
     }
 
     @ParameterizedTest
-    @MethodSource("inOperandsLiterals")
+    @MethodSource("inOperandsLiteralsWithinRange")
     public void literals(
             NumericPair numericPair,
             Matcher<RexNode> first,
@@ -2713,39 +2718,53 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
         // take it into consideration.
         boolean closerToBound = numericPair.first().spec() == ColumnType.INT16;
 
-        String value = "(" + generateLiteral(numericPair.second(), closerToBound) + ")";
+        String value = "(" + createLiteral(numericPair.second(), closerToBound) + ")";
 
         Predicate<IgniteTableScan> matcher = checkPlan(first, second);
         assertPlan("SELECT c1 FROM T1 WHERE c1 IN " + value, schema, matcher);
     }
 
+    @ParameterizedTest
+    @MethodSource("inOperandsLiteralsOutOfRange")
+    public void literalsOutOfRange(
+            NumericPair numericPair
+    ) throws Exception {
+        IgniteSchema schema = createSchema(
+                TestBuilders.table()
+                        .name("T1")
+                        .distribution(IgniteDistributions.single())
+                        .addColumn("C1", numericPair.first())
+                        .addColumn("C2", numericPair.second())
+                        .build()
+        );
+
+        // SHORT values can intersect with a DECIMAL with a 5 digits in integer parts, so for SHORT (INT16) we need to generate values
+        // take it into consideration.
+        boolean closerToBound = numericPair.first().spec() == ColumnType.INT16;
+
+        String value = "(" + createLiteral(numericPair.second(), closerToBound) + ")";
+
+        Predicate<IgniteValues> matcher = isInstanceOf(IgniteValues.class);
+        assertPlan("SELECT c1 FROM T1 WHERE c1 IN " + value, schema, matcher);
+    }
+
     /**
-     * This test ensures that {@link #inOperandsLiterals()} doesn't miss any type pair from {@link NumericPair}.
+     * This test ensures that combination of {@link #inOperandsLiteralsWithinRange()} and {@link #inOperandsLiteralsOutOfRange()}
+     * doesn't miss any type pair from {@link NumericPair}.
      */
     @Test
     void inOperandsLiteralsIncludeAllPairs() {
-        checkIncludesAllNumericTypePairs(inOperandsLiterals());
+        checkIncludesAllNumericTypePairs(Stream.concat(inOperandsLiteralsWithinRange(), inOperandsLiteralsOutOfRange()));
     }
 
-    private static Stream<Arguments> inOperandsLiterals() {
+    private static Stream<Arguments> inOperandsLiteralsWithinRange() {
         return Stream.of(
                 // TINYINT
 
                 Arguments.of(
                         NumericPair.TINYINT_TINYINT,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
-                ),
-                Arguments.of(
-                        NumericPair.TINYINT_SMALLINT,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
-                ),
-
-                Arguments.of(
-                        NumericPair.TINYINT_INT,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
+                        ofTypeWithoutCast(NativeTypes.INT8),
+                        ofTypeWithoutCast(NativeTypes.INT8)
                 ),
 
                 Arguments.of(
@@ -2761,77 +2780,23 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(
-                        NumericPair.TINYINT_BIGINT,
-                        castTo(NativeTypes.INT64),
-                        ofTypeWithoutCast(NativeTypes.INT64)
-                ),
-
-                Arguments.of(
                         NumericPair.TINYINT_DECIMAL_1_0,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
+                        ofTypeWithoutCast(NativeTypes.INT8),
+                        ofTypeWithoutCast(NativeTypes.INT8)
                 ),
 
                 Arguments.of(
                         NumericPair.TINYINT_DECIMAL_2_0,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
-                ),
-
-                Arguments.of(
-                        NumericPair.TINYINT_DECIMAL_2_1,
-                        castTo(Types.DECIMAL_4_1),
-                        ofTypeWithoutCast(Types.DECIMAL_4_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.TINYINT_DECIMAL_3_1,
-                        castTo(Types.DECIMAL_4_1),
-                        ofTypeWithoutCast(Types.DECIMAL_4_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.TINYINT_DECIMAL_4_3,
-                        castTo(Types.DECIMAL_6_3),
-                        ofTypeWithoutCast(Types.DECIMAL_6_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.TINYINT_DECIMAL_5_0,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
-                ),
-
-                Arguments.of(
-                        NumericPair.TINYINT_DECIMAL_5_3,
-                        castTo(Types.DECIMAL_6_3),
-                        ofTypeWithoutCast(Types.DECIMAL_6_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.TINYINT_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_6_1),
-                        ofTypeWithoutCast(Types.DECIMAL_6_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.TINYINT_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
+                        ofTypeWithoutCast(NativeTypes.INT8),
+                        ofTypeWithoutCast(NativeTypes.INT8)
                 ),
 
                 // SMALLINT
 
                 Arguments.of(
                         NumericPair.SMALLINT_SMALLINT,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
-                ),
-
-                Arguments.of(
-                        NumericPair.SMALLINT_INT,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
+                        ofTypeWithoutCast(NativeTypes.INT16),
+                        ofTypeWithoutCast(NativeTypes.INT16)
                 ),
 
                 Arguments.of(
@@ -2847,63 +2812,15 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(
-                        NumericPair.SMALLINT_BIGINT,
-                        castTo(NativeTypes.INT64),
-                        ofTypeWithoutCast(NativeTypes.INT64)
-                ),
-
-                Arguments.of(
                         NumericPair.SMALLINT_DECIMAL_1_0,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
+                        ofTypeWithoutCast(NativeTypes.INT16),
+                        ofTypeWithoutCast(NativeTypes.INT16)
                 ),
 
                 Arguments.of(
                         NumericPair.SMALLINT_DECIMAL_2_0,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
-                ),
-
-                Arguments.of(
-                        NumericPair.SMALLINT_DECIMAL_2_1,
-                        castTo(Types.DECIMAL_6_1),
-                        ofTypeWithoutCast(Types.DECIMAL_6_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.SMALLINT_DECIMAL_3_1,
-                        castTo(Types.DECIMAL_6_1),
-                        ofTypeWithoutCast(Types.DECIMAL_6_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.SMALLINT_DECIMAL_4_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.SMALLINT_DECIMAL_5_0,
-                        castTo(NativeTypes.INT32),
-                        ofTypeWithoutCast(NativeTypes.INT32)
-                ),
-
-                Arguments.of(
-                        NumericPair.SMALLINT_DECIMAL_5_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.SMALLINT_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_6_1),
-                        ofTypeWithoutCast(Types.DECIMAL_6_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.SMALLINT_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
+                        ofTypeWithoutCast(NativeTypes.INT16),
+                        ofTypeWithoutCast(NativeTypes.INT16)
                 ),
 
                 // INT
@@ -2927,12 +2844,6 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(
-                        NumericPair.INT_BIGINT,
-                        castTo(NativeTypes.INT64),
-                        ofTypeWithoutCast(NativeTypes.INT64)
-                ),
-
-                Arguments.of(
                         NumericPair.INT_DECIMAL_1_0,
                         ofTypeWithoutCast(NativeTypes.INT32),
                         ofTypeWithoutCast(NativeTypes.INT32)
@@ -2945,45 +2856,9 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(
-                        NumericPair.INT_DECIMAL_2_1,
-                        castTo(Types.DECIMAL_11_1),
-                        ofTypeWithoutCast(Types.DECIMAL_11_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.INT_DECIMAL_3_1,
-                        castTo(Types.DECIMAL_11_1),
-                        ofTypeWithoutCast(Types.DECIMAL_11_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.INT_DECIMAL_4_3,
-                        castTo(Types.DECIMAL_13_3),
-                        ofTypeWithoutCast(Types.DECIMAL_13_3)
-                ),
-
-                Arguments.of(
                         NumericPair.INT_DECIMAL_5_0,
                         ofTypeWithoutCast(NativeTypes.INT32),
                         ofTypeWithoutCast(NativeTypes.INT32)
-                ),
-
-                Arguments.of(
-                        NumericPair.INT_DECIMAL_5_3,
-                        castTo(Types.DECIMAL_13_3),
-                        ofTypeWithoutCast(Types.DECIMAL_13_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.INT_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_11_1),
-                        ofTypeWithoutCast(Types.DECIMAL_11_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.INT_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_13_3),
-                        ofTypeWithoutCast(Types.DECIMAL_13_3)
                 ),
 
                 // BIGINT
@@ -3019,45 +2894,9 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(
-                        NumericPair.BIGINT_DECIMAL_2_1,
-                        castTo(Types.DECIMAL_20_1),
-                        ofTypeWithoutCast(Types.DECIMAL_20_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.BIGINT_DECIMAL_3_1,
-                        castTo(Types.DECIMAL_20_1),
-                        ofTypeWithoutCast(Types.DECIMAL_20_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.BIGINT_DECIMAL_4_3,
-                        castTo(Types.DECIMAL_22_3),
-                        ofTypeWithoutCast(Types.DECIMAL_22_3)
-                ),
-
-                Arguments.of(
                         NumericPair.BIGINT_DECIMAL_5_0,
                         ofTypeWithoutCast(NativeTypes.INT64),
                         ofTypeWithoutCast(NativeTypes.INT64)
-                ),
-
-                Arguments.of(
-                        NumericPair.BIGINT_DECIMAL_5_3,
-                        castTo(Types.DECIMAL_22_3),
-                        ofTypeWithoutCast(Types.DECIMAL_22_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.BIGINT_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_20_1),
-                        ofTypeWithoutCast(Types.DECIMAL_20_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.BIGINT_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_22_3),
-                        ofTypeWithoutCast(Types.DECIMAL_22_3)
                 ),
 
                 // REAL
@@ -3098,56 +2937,8 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
 
                 Arguments.of(
                         NumericPair.DECIMAL_1_0_DECIMAL_1_0,
-                        castTo(Types.DECIMAL_10_0),
-                        ofTypeWithoutCast(Types.DECIMAL_10_0)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_1_0_DECIMAL_2_0,
-                        castTo(Types.DECIMAL_10_0),
-                        ofTypeWithoutCast(Types.DECIMAL_10_0)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_1_0_DECIMAL_2_1,
-                        castTo(Types.DECIMAL_2_1),
-                        ofTypeWithoutCast(Types.DECIMAL_2_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_1_0_DECIMAL_3_1,
-                        castTo(Types.DECIMAL_3_1),
-                        ofTypeWithoutCast(Types.DECIMAL_3_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_1_0_DECIMAL_4_3,
-                        castTo(Types.DECIMAL_4_3),
-                        ofTypeWithoutCast(Types.DECIMAL_4_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_1_0_DECIMAL_5_0,
-                        castTo(Types.DECIMAL_10_0),
-                        ofTypeWithoutCast(Types.DECIMAL_10_0)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_1_0_DECIMAL_5_3,
-                        castTo(Types.DECIMAL_5_3),
-                        ofTypeWithoutCast(Types.DECIMAL_5_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_1_0_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_6_1),
-                        ofTypeWithoutCast(Types.DECIMAL_6_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_1_0_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
+                        ofTypeWithoutCast(Types.DECIMAL_1_0),
+                        ofTypeWithoutCast(Types.DECIMAL_1_0)
                 ),
 
                 // DECIMAL (2, 0)
@@ -3166,38 +2957,8 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
 
                 Arguments.of(
                         NumericPair.DECIMAL_2_0_DECIMAL_2_0,
-                        castTo(Types.DECIMAL_10_0),
-                        ofTypeWithoutCast(Types.DECIMAL_10_0)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_0_DECIMAL_3_1,
-                        castTo(Types.DECIMAL_3_1),
-                        ofTypeWithoutCast(Types.DECIMAL_3_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_0_DECIMAL_5_0,
-                        castTo(Types.DECIMAL_10_0),
-                        ofTypeWithoutCast(Types.DECIMAL_10_0)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_0_DECIMAL_5_3,
-                        castTo(Types.DECIMAL_5_3),
-                        ofTypeWithoutCast(Types.DECIMAL_5_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_0_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_6_1),
-                        ofTypeWithoutCast(Types.DECIMAL_6_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_0_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
+                        ofTypeWithoutCast(Types.DECIMAL_2_0),
+                        ofTypeWithoutCast(Types.DECIMAL_2_0)
                 ),
 
                 // DECIMAL (2,1)
@@ -3215,51 +2976,9 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(
-                        NumericPair.DECIMAL_2_1_DECIMAL_2_0,
-                        castTo(Types.DECIMAL_11_1),
-                        ofTypeWithoutCast(Types.DECIMAL_11_1)
-                ),
-
-                Arguments.of(
                         NumericPair.DECIMAL_2_1_DECIMAL_2_1,
                         ofTypeWithoutCast(Types.DECIMAL_2_1),
                         ofTypeWithoutCast(Types.DECIMAL_2_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_1_DECIMAL_3_1,
-                        castTo(Types.DECIMAL_3_1),
-                        ofTypeWithoutCast(Types.DECIMAL_3_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_1_DECIMAL_4_3,
-                        castTo(Types.DECIMAL_4_3),
-                        ofTypeWithoutCast(Types.DECIMAL_4_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_1_DECIMAL_5_0,
-                        castTo(Types.DECIMAL_11_1),
-                        ofTypeWithoutCast(Types.DECIMAL_11_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_1_DECIMAL_5_3,
-                        castTo(Types.DECIMAL_5_3),
-                        ofTypeWithoutCast(Types.DECIMAL_5_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_1_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_6_1),
-                        ofTypeWithoutCast(Types.DECIMAL_6_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_2_1_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
                 ),
 
                 // DECIMAL (3,1)
@@ -3282,30 +3001,6 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                         ofTypeWithoutCast(Types.DECIMAL_3_1)
                 ),
 
-                Arguments.of(
-                        NumericPair.DECIMAL_3_1_DECIMAL_5_0,
-                        castTo(Types.DECIMAL_11_1),
-                        ofTypeWithoutCast(Types.DECIMAL_11_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_3_1_DECIMAL_5_3,
-                        castTo(Types.DECIMAL_5_3),
-                        ofTypeWithoutCast(Types.DECIMAL_5_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_3_1_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_6_1),
-                        ofTypeWithoutCast(Types.DECIMAL_6_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_3_1_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
-                ),
-
                 // DECIMAL (4,3)
 
                 Arguments.of(
@@ -3321,45 +3016,9 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(
-                        NumericPair.DECIMAL_4_3_DECIMAL_2_0,
-                        castTo(Types.DECIMAL_13_3),
-                        ofTypeWithoutCast(Types.DECIMAL_13_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_4_3_DECIMAL_3_1,
-                        castTo(Types.DECIMAL_5_3),
-                        ofTypeWithoutCast(Types.DECIMAL_5_3)
-                ),
-
-                Arguments.of(
                         NumericPair.DECIMAL_4_3_DECIMAL_4_3,
                         ofTypeWithoutCast(Types.DECIMAL_4_3),
                         ofTypeWithoutCast(Types.DECIMAL_4_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_4_3_DECIMAL_5_0,
-                        castTo(Types.DECIMAL_13_3),
-                        ofTypeWithoutCast(Types.DECIMAL_13_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_4_3_DECIMAL_5_3,
-                        castTo(Types.DECIMAL_5_3),
-                        ofTypeWithoutCast(Types.DECIMAL_5_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_4_3_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_4_3_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
                 ),
 
                 // DECIMAL (5,0)
@@ -3378,20 +3037,8 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
 
                 Arguments.of(
                         NumericPair.DECIMAL_5_0_DECIMAL_5_0,
-                        castTo(Types.DECIMAL_10_0),
-                        ofTypeWithoutCast(Types.DECIMAL_10_0)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_5_0_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_6_1),
-                        ofTypeWithoutCast(Types.DECIMAL_6_1)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_5_0_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
+                        ofTypeWithoutCast(Types.DECIMAL_5_0),
+                        ofTypeWithoutCast(Types.DECIMAL_5_0)
                 ),
 
                 // DECIMAL (5,3)
@@ -3409,27 +3056,9 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(
-                        NumericPair.DECIMAL_5_3_DECIMAL_5_0,
-                        castTo(Types.DECIMAL_13_3),
-                        ofTypeWithoutCast(Types.DECIMAL_13_3)
-                ),
-
-                Arguments.of(
                         NumericPair.DECIMAL_5_3_DECIMAL_5_3,
                         ofTypeWithoutCast(Types.DECIMAL_5_3),
                         ofTypeWithoutCast(Types.DECIMAL_5_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_5_3_DECIMAL_6_1,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
-                ),
-
-                Arguments.of(
-                        NumericPair.DECIMAL_5_3_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
                 ),
 
                 // DECIMAL (6,1)
@@ -3452,12 +3081,6 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                         ofTypeWithoutCast(Types.DECIMAL_6_1)
                 ),
 
-                Arguments.of(
-                        NumericPair.DECIMAL_6_1_DECIMAL_8_3,
-                        castTo(Types.DECIMAL_8_3),
-                        ofTypeWithoutCast(Types.DECIMAL_8_3)
-                ),
-
                 // DECIMAL (8,3)
 
                 Arguments.of(
@@ -3478,5 +3101,160 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
                         ofTypeWithoutCast(Types.DECIMAL_8_3)
                 )
         );
+    }
+
+    private static Stream<Arguments> inOperandsLiteralsOutOfRange() {
+        return Stream.of(
+                // TINYINT
+
+                NumericPair.TINYINT_SMALLINT,
+                NumericPair.TINYINT_INT,
+                NumericPair.TINYINT_BIGINT,
+                NumericPair.TINYINT_DECIMAL_2_1,
+                NumericPair.TINYINT_DECIMAL_3_1,
+                NumericPair.TINYINT_DECIMAL_4_3,
+                NumericPair.TINYINT_DECIMAL_5_0,
+                NumericPair.TINYINT_DECIMAL_5_3,
+                NumericPair.TINYINT_DECIMAL_6_1,
+                NumericPair.TINYINT_DECIMAL_8_3,
+
+                // SMALLINT
+
+                NumericPair.SMALLINT_INT,
+                NumericPair.SMALLINT_BIGINT,
+                NumericPair.SMALLINT_DECIMAL_2_1,
+                NumericPair.SMALLINT_DECIMAL_3_1,
+                NumericPair.SMALLINT_DECIMAL_4_3,
+                NumericPair.SMALLINT_DECIMAL_5_0,
+                NumericPair.SMALLINT_DECIMAL_5_3,
+                NumericPair.SMALLINT_DECIMAL_6_1,
+                NumericPair.SMALLINT_DECIMAL_8_3,
+
+                // INT
+
+                NumericPair.INT_BIGINT,
+                NumericPair.INT_DECIMAL_2_1,
+                NumericPair.INT_DECIMAL_3_1,
+                NumericPair.INT_DECIMAL_4_3,
+                NumericPair.INT_DECIMAL_5_3,
+                NumericPair.INT_DECIMAL_6_1,
+                NumericPair.INT_DECIMAL_8_3,
+
+                // BIGINT
+
+                NumericPair.BIGINT_DECIMAL_2_1,
+                NumericPair.BIGINT_DECIMAL_3_1,
+                NumericPair.BIGINT_DECIMAL_4_3,
+                NumericPair.BIGINT_DECIMAL_5_3,
+                NumericPair.BIGINT_DECIMAL_6_1,
+                NumericPair.BIGINT_DECIMAL_8_3,
+
+                // DECIMAL (1, 0)
+
+                NumericPair.DECIMAL_1_0_DECIMAL_2_0,
+                NumericPair.DECIMAL_1_0_DECIMAL_2_1,
+                NumericPair.DECIMAL_1_0_DECIMAL_3_1,
+                NumericPair.DECIMAL_1_0_DECIMAL_4_3,
+                NumericPair.DECIMAL_1_0_DECIMAL_5_0,
+                NumericPair.DECIMAL_1_0_DECIMAL_5_3,
+                NumericPair.DECIMAL_1_0_DECIMAL_6_1,
+                NumericPair.DECIMAL_1_0_DECIMAL_8_3,
+
+                // DECIMAL (2, 0)
+
+                NumericPair.DECIMAL_2_0_DECIMAL_3_1,
+                NumericPair.DECIMAL_2_0_DECIMAL_5_0,
+                NumericPair.DECIMAL_2_0_DECIMAL_5_3,
+                NumericPair.DECIMAL_2_0_DECIMAL_6_1,
+                NumericPair.DECIMAL_2_0_DECIMAL_8_3,
+
+                // DECIMAL (2,1)
+
+                NumericPair.DECIMAL_2_1_DECIMAL_2_0,
+                NumericPair.DECIMAL_2_1_DECIMAL_3_1,
+                NumericPair.DECIMAL_2_1_DECIMAL_4_3,
+                NumericPair.DECIMAL_2_1_DECIMAL_5_0,
+                NumericPair.DECIMAL_2_1_DECIMAL_5_3,
+                NumericPair.DECIMAL_2_1_DECIMAL_6_1,
+                NumericPair.DECIMAL_2_1_DECIMAL_8_3,
+
+                // DECIMAL (3,1)
+
+                NumericPair.DECIMAL_3_1_DECIMAL_5_0,
+                NumericPair.DECIMAL_3_1_DECIMAL_5_3,
+                NumericPair.DECIMAL_3_1_DECIMAL_6_1,
+                NumericPair.DECIMAL_3_1_DECIMAL_8_3,
+
+                // DECIMAL (4,3)
+
+                NumericPair.DECIMAL_4_3_DECIMAL_2_0,
+                NumericPair.DECIMAL_4_3_DECIMAL_3_1,
+                NumericPair.DECIMAL_4_3_DECIMAL_5_0,
+                NumericPair.DECIMAL_4_3_DECIMAL_5_3,
+                NumericPair.DECIMAL_4_3_DECIMAL_6_1,
+                NumericPair.DECIMAL_4_3_DECIMAL_8_3,
+
+                // DECIMAL (5,0)
+
+                NumericPair.DECIMAL_5_0_DECIMAL_6_1,
+                NumericPair.DECIMAL_5_0_DECIMAL_8_3,
+
+                // DECIMAL (5,3)
+
+                NumericPair.DECIMAL_5_3_DECIMAL_5_0,
+                NumericPair.DECIMAL_5_3_DECIMAL_6_1,
+                NumericPair.DECIMAL_5_3_DECIMAL_8_3,
+
+                // DECIMAL (6,1)
+
+                NumericPair.DECIMAL_6_1_DECIMAL_8_3
+        ).map(Arguments::of);
+    }
+
+    private static String createLiteral(NativeType type, boolean closerToBoundForDecimal5) {
+        Object val = SqlTestUtils.generateValueByType(type);
+        // We have different behaviour of planner depending on value it can put CAST or not to do it.
+        // So we will generate all values which more then Short.MAX_VALUE and CAST will be always putted.
+        if (closerToBoundForDecimal5 && type.spec() == ColumnType.DECIMAL) {
+            DecimalNativeType t = ((DecimalNativeType) type);
+            // for five-digit we can have value less or more then Short.MaX_VALUE.
+            // To get rid of vagueness let's generate always bigger value.
+            if (t.precision() - t.scale() == 5) {
+                BigDecimal bd = ((BigDecimal) val);
+                if (bd.signum() > 0 && bd.intValue() < Short.MAX_VALUE) {
+                    val = bd.add(BigDecimal.valueOf(Short.MAX_VALUE));
+                } else if (bd.signum() < 0 && bd.intValue() > -Short.MAX_VALUE) {
+                    val = bd.subtract(BigDecimal.valueOf(Short.MAX_VALUE));
+                }
+            }
+        }
+        return SqlTestUtils.makeLiteral(normalizeBigDecimal(type, val), type);
+    }
+
+    private static Object normalizeBigDecimal(NativeType type, Object val) {
+        if (!(type instanceof DecimalNativeType)) {
+            return val;
+        }
+
+        DecimalNativeType decimalType = (DecimalNativeType) type;
+        BigDecimal bd = (BigDecimal) val;
+
+        BigDecimal upper = (BigDecimal) SqlTypeName.DECIMAL.getLimit(
+                true, Limit.OVERFLOW, false, decimalType.precision() - decimalType.scale(), 0
+        );
+
+        if (bd.compareTo(upper) > 0) {
+            return bd.subtract(BigDecimal.ONE);
+        }
+
+        BigDecimal lower = (BigDecimal) SqlTypeName.DECIMAL.getLimit(
+                false, Limit.OVERFLOW, false, decimalType.precision() - decimalType.scale(), 0
+        );
+
+        if (bd.compareTo(lower) < 0) {
+            return bd.add(BigDecimal.ONE);
+        }
+
+        return val;
     }
 }

@@ -45,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -467,12 +468,21 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
      * Index bound checks - search key lies out of value range.
      */
     @ParameterizedTest
-    @MethodSource("boundsTypeLimits")
+    @MethodSource("boundsTypeLimitsWithinRange")
     public void testBoundsTypeLimits(RelDataType type, Object value, Predicate<SearchBounds> bounds) throws Exception {
         IgniteSchema schema = createSchemaFrom(
                 tableB("TEST2", "C2", type).andThen(addSortIndex("C2")));
 
         assertBounds("SELECT * FROM test2 WHERE C2 = " + value, List.of(), schema, bounds);
+    }
+
+    @ParameterizedTest
+    @MethodSource("boundsTypeLimitsOutOfRange")
+    public void testBoundsTypeLimitsOutOfRange(RelDataType type, Object value) throws Exception {
+        IgniteSchema schema = createSchemaFrom(
+                tableB("TEST2", "C2", type).andThen(addSortIndex("C2")));
+
+        assertPlan("SELECT * FROM test2 WHERE C2 = " + value, schema, isInstanceOf(IgniteValues.class));
     }
 
     @ParameterizedTest
@@ -578,55 +588,44 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
     }
 
-    private static Stream<Arguments> boundsTypeLimits() {
+    private static Stream<Arguments> boundsTypeLimitsWithinRange() {
         RelDataType tinyintType = sqlType(SqlTypeName.TINYINT);
-        byte[] tinyIntTypeLimits = {Byte.MIN_VALUE, Byte.MAX_VALUE};
         List<Arguments> tinyInts = List.of(
-                arguments(tinyintType, -129, exact(tinyIntTypeLimits[0])),
-                arguments(tinyintType, -128, exact(tinyIntTypeLimits[0])),
-                arguments(tinyintType, 127, exact(tinyIntTypeLimits[1])),
-                arguments(tinyintType, 128, exact(tinyIntTypeLimits[1]))
+                arguments(tinyintType, Byte.MIN_VALUE, exact(Byte.MIN_VALUE)),
+                arguments(tinyintType, Byte.MAX_VALUE, exact(Byte.MAX_VALUE))
         );
 
         RelDataType smallIntType = sqlType(SqlTypeName.SMALLINT);
-        short[] smallIntLimits = {Short.MIN_VALUE, Short.MAX_VALUE};
         List<Arguments> smallInts = List.of(
-                arguments(smallIntType, (-(int) Math.pow(2, 15) - 1), exact(smallIntLimits[0])),
-                arguments(smallIntType, (-(int) Math.pow(2, 15)), exact(smallIntLimits[0])),
-                arguments(smallIntType, ((int) Math.pow(2, 15)), exact(smallIntLimits[1])),
-                arguments(smallIntType, ((int) Math.pow(2, 15) + 1), exact(smallIntLimits[1]))
+                arguments(smallIntType, Short.MIN_VALUE, exact(Short.MIN_VALUE)),
+                arguments(smallIntType, Short.MAX_VALUE, exact(Short.MAX_VALUE))
         );
 
         RelDataType intType = sqlType(SqlTypeName.INTEGER);
-        int[] intLimits = {Integer.MIN_VALUE, Integer.MAX_VALUE};
         List<Arguments> ints = List.of(
-                arguments(intType, (-(long) Math.pow(2, 31) - 1), exact(intLimits[0])),
-                arguments(intType, (-(long) Math.pow(2, 31)), exact(intLimits[0])),
-                arguments(intType, ((long) Math.pow(2, 31)), exact(intLimits[1])),
-                arguments(intType, ((long) Math.pow(2, 31) + 1), exact(intLimits[1]))
+                arguments(intType, Integer.MIN_VALUE, exact(Integer.MIN_VALUE)),
+                arguments(intType, Integer.MAX_VALUE, exact(Integer.MAX_VALUE))
         );
 
         RelDataType bigIntType = sqlType(SqlTypeName.BIGINT);
-        BigDecimal[] bigIntTypeLimits = {BigDecimal.valueOf(Long.MIN_VALUE), BigDecimal.valueOf(Long.MAX_VALUE)};
         List<Arguments> bigints = List.of(
-                arguments(bigIntType, BigInteger.TWO.pow(63).negate(), exact(bigIntTypeLimits[0]))
+                arguments(bigIntType, Long.MIN_VALUE, exact(Long.MIN_VALUE)),
+                arguments(bigIntType, Long.MAX_VALUE, exact(Long.MAX_VALUE))
         );
 
         RelDataType decimal3Type = sqlType(SqlTypeName.DECIMAL, 3);
         BigDecimal[] decimal3TypeLimits = {BigDecimal.valueOf(-999), BigDecimal.valueOf(999)};
         List<Arguments> decimal3s = List.of(
-                arguments(decimal3Type, "(-1000)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
-                arguments(decimal3Type, "(-999)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
-                arguments(decimal3Type, "999::DECIMAL(3)", exact(decimal3TypeLimits[1])),
-                arguments(decimal3Type, "1000::DECIMAL(3)", exact(decimal3TypeLimits[1]))
+                arguments(decimal3Type, "-999", exact(decimal3TypeLimits[0])),
+                arguments(decimal3Type, "999", exact(decimal3TypeLimits[1]))
         );
 
         RelDataType decimal53Type = sqlType(SqlTypeName.DECIMAL, 5, 3);
         BigDecimal[] decimal53TypeLimits = {new BigDecimal("-99.999"), new BigDecimal("99.999")};
 
         List<Arguments> decimal35s = List.of(
-                arguments(decimal53Type, "(-100.000)::DECIMAL(5, 3)", exact(decimal53TypeLimits[0])),
-                arguments(decimal53Type, "(100.000)::DECIMAL(5, 3)", exact(decimal53TypeLimits[1]))
+                arguments(decimal53Type, "-99.999", exact(decimal53TypeLimits[0])),
+                arguments(decimal53Type, "99.999", exact(decimal53TypeLimits[1]))
         );
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19858
@@ -637,6 +636,53 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         //          arguments(realType, BigDecimal.valueOf(Float.MAX_VALUE).add(BigDecimal.ONE) + "::REAL", exact(Float.MAX_VALUE)),
         //          arguments(realType, BigDecimal.valueOf(Double.MAX_VALUE).add(BigDecimal.ONE), exact(Double.MAX_VALUE))
         //  );
+
+        return Stream.of(
+                tinyInts,
+                smallInts,
+                ints,
+                bigints,
+                decimal3s,
+                decimal35s
+        ).flatMap(Collection::stream);
+    }
+
+    private static Stream<Arguments> boundsTypeLimitsOutOfRange() {
+        RelDataType tinyintType = sqlType(SqlTypeName.TINYINT);
+        List<Arguments> tinyInts = List.of(
+                arguments(tinyintType, -129),
+                arguments(tinyintType, 128)
+        );
+
+        RelDataType smallIntType = sqlType(SqlTypeName.SMALLINT);
+        List<Arguments> smallInts = List.of(
+                arguments(smallIntType, (-1 + Short.MIN_VALUE)),
+                arguments(smallIntType, (1 + Short.MAX_VALUE))
+        );
+
+        RelDataType intType = sqlType(SqlTypeName.INTEGER);
+        List<Arguments> ints = List.of(
+                arguments(intType, (-1 + (long) Integer.MIN_VALUE)),
+                arguments(intType, (1 + (long) Integer.MAX_VALUE))
+        );
+
+        RelDataType bigIntType = sqlType(SqlTypeName.BIGINT);
+        List<Arguments> bigints = List.of(
+                arguments(bigIntType, BigInteger.valueOf(Long.MIN_VALUE).subtract(BigInteger.ONE)),
+                arguments(bigIntType, BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE))
+        );
+
+        RelDataType decimal3Type = sqlType(SqlTypeName.DECIMAL, 3);
+        List<Arguments> decimal3s = List.of(
+                arguments(decimal3Type, "-1000"),
+                arguments(decimal3Type, "1000")
+        );
+
+        RelDataType decimal53Type = sqlType(SqlTypeName.DECIMAL, 5, 3);
+        List<Arguments> decimal35s = List.of(
+                arguments(decimal53Type, "-100.123"),
+                arguments(decimal53Type, "100.123")
+        );
 
         return Stream.of(
                 tinyInts,

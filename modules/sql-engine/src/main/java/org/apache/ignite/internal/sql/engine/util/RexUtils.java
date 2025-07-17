@@ -87,8 +87,8 @@ import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -102,6 +102,7 @@ import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
+import org.apache.ignite.internal.sql.engine.prepare.OutOfRangeLiteralComparisonReductionShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -120,14 +121,6 @@ public class RexUtils {
 
     /** Hash index permitted search operations. */
     private static final EnumSet<SqlKind> HASH_SEARCH_OPS = EnumSet.of(EQUALS, IS_NOT_DISTINCT_FROM);
-
-    private static final BigDecimal MAX_DOUBLE_VALUE = BigDecimal.valueOf(Double.MAX_VALUE);
-
-    private static final BigDecimal MIN_DOUBLE_VALUE = MAX_DOUBLE_VALUE.negate();
-
-    private static final BigDecimal MAX_FLOAT_VALUE = BigDecimal.valueOf(Float.MAX_VALUE);
-
-    private static final BigDecimal MIN_FLOAT_VALUE = MAX_FLOAT_VALUE.negate();
 
     /**
      * Builder.
@@ -500,8 +493,7 @@ public class RexUtils {
                     fldIdx = fld.getIntKey();
                 }
 
-                SaturatedRexNode casted = addCast(cluster, pred.operands.get(1), types.get(fldIdx));
-                bounds.set(fldIdx, new ExactBounds(pred, casted.value));
+                bounds.set(fldIdx, new ExactBounds(pred, pred.operands.get(1)));
             }
         }
 
@@ -530,25 +522,23 @@ public class RexUtils {
         // Give priority to equality operators.
         collFldPreds.sort(Comparator.comparingInt(pred -> {
             switch (pred.getOperator().getKind()) {
-                case EQUALS:
-                case IS_NOT_DISTINCT_FROM:
                 case IS_NULL:
                     return 0;
-                default:
+                case EQUALS:
                     return 1;
+                case IS_NOT_DISTINCT_FROM:
+                    return 2;
+                default:
+                    return 10;
             }
         }));
 
         for (RexCall pred : collFldPreds) {
             RexNode val = null;
             RexNode ref = pred.getOperands().get(0);
-            boolean saturatedLookup = false;
 
             if (isBinaryComparison(pred)) {
-                SaturatedRexNode saturatedNode = addCast(cluster, pred.getOperands().get(1), fldType);
-
-                val = saturatedNode.value;
-                saturatedLookup = saturatedNode.saturated;
+                val = pred.getOperands().get(1);
             }
 
             SqlOperator op = pred.getOperator();
@@ -556,9 +546,7 @@ public class RexUtils {
             if (op.kind == EQUALS || op.kind == IS_NOT_DISTINCT_FROM) {
                 assert val != null;
 
-                RexNode pred0 = saturatedLookup ? builder.makeCall(op, ref, val) : pred;
-
-                return new ExactBounds(pred0, val);
+                return new ExactBounds(pred, val);
             } else if (op.kind == IS_NULL) {
                 return new ExactBounds(pred, nullValue);
             } else if (op.kind == OR) {
@@ -720,7 +708,9 @@ public class RexUtils {
 
         RexBuilder builder = builder(cluster);
 
-        RexNode sargCond = sargRef(builder, ref, sarg, fldType, RexUnknownAs.UNKNOWN);
+        RexNode sargCond = sargRef(builder, ref, sarg, fldType, RexUnknownAs.UNKNOWN)
+                .accept(new OutOfRangeLiteralComparisonReductionShuttle(builder));
+
         List<RexNode> disjunctions = RelOptUtil.disjunctions(RexUtil.toDnf(builder, sargCond));
         List<SearchBounds> bounds = new ArrayList<>(disjunctions.size());
 
@@ -835,7 +825,7 @@ public class RexUtils {
         RexSlot ref;
 
         if (isBinaryComparison(rexNode)) {
-            ref = extractRefFromBinary(predCall, cluster);
+            ref = extractRefFromBinary(predCall);
 
             if (ref == null) {
                 return null;
@@ -846,7 +836,7 @@ public class RexUtils {
                 predCall = (RexCall) invert(builder(cluster), predCall);
             }
         } else {
-            ref = extractRefFromOperand(predCall, cluster, 0);
+            ref = extractRefFromOperand(predCall, 0);
 
             if (ref == null) {
                 return null;
@@ -904,17 +894,17 @@ public class RexUtils {
         return rexNode;
     }
 
-    private static @Nullable RexSlot extractRefFromBinary(RexCall call, RelOptCluster cluster) {
+    private static @Nullable RexSlot extractRefFromBinary(RexCall call) {
         assert isBinaryComparison(call) : "Unsupported RexNode is binary comparison: " + call;
 
-        RexSlot leftRef = extractRefFromOperand(call, cluster, 0);
+        RexSlot leftRef = extractRefFromOperand(call, 0);
         RexNode rightOp = call.getOperands().get(1);
 
         if (leftRef != null) {
             return idxOpSupports(removeCast(rightOp)) ? leftRef : null;
         }
 
-        RexSlot rightRef = extractRefFromOperand(call, cluster, 1);
+        RexSlot rightRef = extractRefFromOperand(call, 1);
         RexNode leftOp = call.getOperands().get(0);
 
         if (rightRef != null) {
@@ -924,15 +914,24 @@ public class RexUtils {
         return null;
     }
 
-    private static @Nullable RexSlot extractRefFromOperand(RexCall call, RelOptCluster cluster, int operandNum) {
+    private static @Nullable RexSlot extractRefFromOperand(RexCall call, int operandNum) {
         assert isSupportedTreeComparison(call) : "Unsupported RexNode is tree comparison: " + call;
 
         RexNode op = call.getOperands().get(operandNum);
+        RelDataType operandType = op.getType();
 
-        op = removeCast(op);
+        while (isLosslessCast(op)) {
+            op = ((RexCall) op).getOperands().get(0);
+        }
+
+        // We cannot compose search condition if expression requires to be downcasted in order to be put
+        // in bound. Downcast is not safe, and may throw `Out of range` error. As of now, such case
+        // must be handler by user explicitly by manually CASTing to the required type.
+        if (TypeUtils.needCastInSearchBounds(Commons.typeFactory(), operandType, op.getType())) {
+            return null;
+        }
 
         if (op instanceof RexSlot) {
-            RelDataType operandType = call.getOperands().get(operandNum).getType();
             if (!TypeUtils.needCastInSearchBounds(Commons.typeFactory(), op.getType(), operandType)) {
                 return (RexSlot) op;
             }
@@ -949,7 +948,8 @@ public class RexUtils {
         return rightOp.isA(SqlKind.LOCAL_REF) || rightOp.isA(SqlKind.INPUT_REF);
     }
 
-    private static boolean isBinaryComparison(RexNode exp) {
+    /** Checks if given {@link RexNode} represents binary comparison. */
+    public static boolean isBinaryComparison(RexNode exp) {
         return BINARY_COMPARISON.contains(exp.getKind())
                 && (exp instanceof RexCall)
                 && ((RexCall) exp).getOperands().size() == 2;
@@ -1152,89 +1152,6 @@ public class RexUtils {
         }
     }
 
-    private static SaturatedRexNode addCast(RelOptCluster cluster, RexNode condition, RelDataType type) {
-        RexNode node = removeCast(condition);
-
-        assert idxOpSupports(node) : "Unsupported RexNode in index condition: " + node;
-
-        RexBuilder builder = cluster.getRexBuilder();
-        SaturatedRexNode saturatedLiteral = toSaturatedValue(builder, node, type);
-
-        if (saturatedLiteral != null) {
-            return saturatedLiteral;
-        } else if (TypeUtils.needCastInSearchBounds(Commons.typeFactory(), node.getType(), type)) {
-            return new SaturatedRexNode(builder.makeCast(type, node), false);
-        } else {
-            return new SaturatedRexNode(node, false);
-        }
-    }
-
-    /**
-     * If the given node is a numeric literal, checks whether its cast to {@code type} overflows and in that case
-     * performs {@code saturated cast}, converting a value of that literal to the largest value of that type.
-     *
-     * <p>If overflow does can not occur, returns a literal wrapped in a cast to {@code type}, because values search bounds
-     * in index lookups/scans should exactly match to types of database columns.
-     *
-     * <p>Otherwise returns {@code null}.
-     */
-    @Nullable
-    private static SaturatedRexNode toSaturatedValue(RexBuilder builder, RexNode node, RelDataType type) {
-        if (!SqlTypeUtil.isNumeric(node.getType()) || !SqlTypeUtil.isNumeric(type) || !(node instanceof RexLiteral)) {
-            return null;
-        }
-
-        RexLiteral lit = (RexLiteral) node;
-        BigDecimal val = lit.getValueAs(BigDecimal.class);
-        assert val != null : "No value";
-
-        BigDecimal upper;
-        BigDecimal lower;
-        boolean exact;
-
-        if (type.getSqlTypeName() == SqlTypeName.DOUBLE) {
-            lower = MIN_DOUBLE_VALUE;
-            upper = MAX_DOUBLE_VALUE;
-            exact = false;
-        } else if (type.getSqlTypeName() == SqlTypeName.REAL || type.getSqlTypeName() == SqlTypeName.FLOAT) {
-            lower = MIN_FLOAT_VALUE;
-            upper = MAX_FLOAT_VALUE;
-            exact = false;
-        } else {
-            int precision = type.getSqlTypeName().allowsPrec() ? type.getPrecision() : -1;
-            int scale = type.getSqlTypeName().allowsScale() ? type.getScale() : -1;
-
-            upper = (BigDecimal) type.getSqlTypeName().getLimit(true, Limit.OVERFLOW, false, precision, scale);
-            lower = (BigDecimal) type.getSqlTypeName().getLimit(false, Limit.OVERFLOW, false, precision, scale);
-            exact = true;
-        }
-
-        BigDecimal newVal;
-        boolean saturated = false;
-
-        if (lower.compareTo(val) > 0) {
-            newVal = lower;
-            saturated = true;
-        } else if (val.compareTo(upper) > 0) {
-            newVal = upper;
-            saturated = true;
-        } else if (!SqlTypeUtil.equalSansNullability(node.getType(), type)) {
-            newVal = val;
-        } else {
-            // If literal types and required type, match ignoring nullability,
-            // then return a literal as is.
-            return new SaturatedRexNode(lit, false);
-        }
-
-        if (exact) {
-            lit = builder.makeExactLiteral(newVal, type);
-        } else {
-            lit = builder.makeApproxLiteral(newVal, type);
-        }
-
-        return new SaturatedRexNode(lit, saturated);
-    }
-
     /**
      * Extracts the value of a literal and converts it to the specified type, 
      * optionally adjusting for time zone offsets when dealing with 
@@ -1379,15 +1296,35 @@ public class RexUtils {
         return wasChanged ? newSearchBounds : searchBounds;
     }
 
-    private static class SaturatedRexNode {
-        final RexNode value;
-
-        /** Flag indicating whether the numeric value has been saturated or the original value is used. */
-        final boolean saturated;
-
-        private SaturatedRexNode(RexNode value, boolean saturated) {
-            this.value = value;
-            this.saturated = saturated;
+    /** Check if given {@link RexNode} is a 'loss-less' cast, that is, a cast from which
+     * the original value of the field can be certainly recovered. */
+    public static boolean isLosslessCast(RexNode node) {
+        if (!node.isA(SqlKind.CAST)) {
+            return false;
         }
+
+        RelDataType source = ((RexCall) node).getOperands().get(0).getType();
+        RelDataType target = node.getType();
+
+        if (source.getFamily() != target.getFamily()) {
+            return false;
+        }
+
+        if (SqlTypeUtil.isExactNumeric(source) && target.getSqlTypeName() == SqlTypeName.DECIMAL) {
+            int tp = target.getPrecision();
+            int ts = target.getScale();
+            int sp = source.getPrecision();
+            int ss = source.getScale();
+
+            return ts >= ss && (tp - ts) >= (sp - ss);
+        }
+
+        if (SqlTypeFamily.CHARACTER.getTypeNames().contains(source.getSqlTypeName())
+                && SqlTypeFamily.CHARACTER.getTypeNames().contains(target.getSqlTypeName())) {
+            return target.getSqlTypeName().compareTo(source.getSqlTypeName()) >= 0
+                    && (source.getPrecision() <= target.getPrecision() || target.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED);
+        }
+
+        return RexUtil.isLosslessCast(source, target);
     }
 }

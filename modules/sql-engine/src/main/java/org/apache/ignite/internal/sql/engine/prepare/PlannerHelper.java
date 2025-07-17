@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
@@ -157,11 +158,19 @@ public final class PlannerHelper {
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
 
+            RelOptCluster cluster = rel.getCluster();
+            rel = rel.accept(new RelHomogeneousShuttle() {
+                @Override public RelNode visit(RelNode other) {
+                    RelNode next = super.visit(other);
+                    return next.accept(new OutOfRangeLiteralComparisonReductionShuttle(cluster.getRexBuilder()));
+                }
+            });
+
             rel = planner.transform(PlannerPhase.HEP_FILTER_PUSH_DOWN, rel.getTraitSet(), rel);
 
             rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
 
-            {
+            if (fastQueryOptimizationEnabled()) {
                 // the sole purpose of this code block is to limit scope of `simpleOperation` variable.
                 // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,
                 // thus if result meets our expectation, then return the result, otherwise discard it and
