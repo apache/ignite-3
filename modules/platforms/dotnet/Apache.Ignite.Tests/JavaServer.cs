@@ -53,13 +53,16 @@ namespace Apache.Ignite.Tests
 
         private readonly Process? _process;
 
-        private JavaServer(int port, Process? process)
+        private JavaServer(IReadOnlyList<int> ports, Process? process)
         {
-            Port = port;
+            Port = ports[0];
+            Ports = ports;
             _process = process;
         }
 
         public int Port { get; }
+
+        public IReadOnlyList<int> Ports { get; }
 
         /// <summary>
         /// Starts a server node.
@@ -86,15 +89,24 @@ namespace Apache.Ignite.Tests
 
         public void Dispose()
         {
+            if (_process == null)
+            {
+                Log(">>> Java server was not started by us, not stopping.");
+                return;
+            }
+
             Log(">>> Stopping Java server 1...");
-            _process?.StandardInput.Close();
+            _process.StandardInput.Close();
 
             Log(">>> Stopping Java server 2...");
-            _process?.Kill();
-            _process?.Kill(entireProcessTree: true);
+            _process.Kill();
+            _process.Kill(entireProcessTree: true);
 
             Log(">>> Stopping Java server 3...");
-            _process?.Dispose();
+            _process.Dispose();
+
+            Log(">>> Stopping Java server 4...");
+            KillProcessesOnPorts(Ports);
 
             Log(">>> Java server stopped.");
         }
@@ -109,7 +121,7 @@ namespace Apache.Ignite.Tests
                 // Server started from outside.
                 Log(">>> Java server is already started on port " + defaultPort + ".");
 
-                return new JavaServer(defaultPort, null);
+                return new JavaServer([defaultPort], null);
             }
 
             if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
@@ -151,18 +163,34 @@ namespace Apache.Ignite.Tests
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            var port = ports?.FirstOrDefault() ?? defaultPort;
-
-            if (!evt.Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds)) || !WaitForServer(port))
+            if (!evt.Wait(TimeSpan.FromSeconds(ConnectTimeoutSeconds)))
             {
                 process.Kill(entireProcessTree: true);
 
-                throw new InvalidOperationException("Failed to wait for the server to start. Check logs for details.");
+                throw new InvalidOperationException("Failed to wait for THIN_CLIENT_PORTS. Check logs for details.");
+            }
+
+            if (ports == null)
+            {
+                process.Kill(entireProcessTree: true);
+
+                throw new InvalidOperationException("Failed to get ports. Check logs for details.");
+            }
+
+            var port = ports.FirstOrDefault();
+
+            if (!WaitForServer(port))
+            {
+                process.Kill(entireProcessTree: true);
+                KillProcessesOnPorts(ports);
+
+                throw new InvalidOperationException(
+                    $"Failed to wait for the server to start (can't connect the client on port {port}). Check logs for details.");
             }
 
             Log($">>> Java server started on port {port}.");
 
-            return new JavaServer(port, process);
+            return new JavaServer(ports, process);
         }
 
         private static Process CreateProcess(string gradleCommand, IDictionary<string, string?> env)
@@ -265,6 +293,45 @@ namespace Apache.Ignite.Tests
                 : "gradlew";
 
             return Path.Combine(TestUtils.RepoRootDir, gradleWrapper);
+        }
+
+        private static void KillProcessesOnPorts(IEnumerable<int> ports)
+        {
+            foreach (var port in ports)
+            {
+                try
+                {
+                    KillProcessOnPort(port);
+                }
+                catch (Exception e)
+                {
+                    Log($"Failed to kill process on port {port}: {e}");
+                }
+            }
+        }
+
+        private static void KillProcessOnPort(int port)
+        {
+            var command = TestUtils.IsWindows
+                ? $"for /f \"tokens=5\" %a in ('netstat -aon | find \"{port}\"') do taskkill /f /pid %a"
+                : $"kill -9 $(lsof -t -i :{port})";
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = TestUtils.IsWindows ? "cmd.exe" : "/bin/sh",
+                ArgumentList =
+                {
+                    TestUtils.IsWindows ? "/c" : "-c",
+                    command
+                },
+                RedirectStandardOutput = false,
+                RedirectStandardError = false,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(psi);
+            process?.WaitForExit();
         }
     }
 }
