@@ -23,6 +23,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Sql;
 using Ignite.Table;
+using Ignite.Transactions;
 using Internal;
 using Internal.Proto;
 using Internal.Table;
@@ -442,5 +443,27 @@ public class CurrentClientWithOldServerCompatibilityTest
         await tx.RollbackAsync();
 
         Assert.IsFalse((await view.GetAsync(null, key)).HasValue);
+    }
+
+    [Test]
+    public async Task TestTxReadOnly()
+    {
+        int id = ++_idGen;
+        var key = new IgniteTuple { ["ID"] = id };
+
+        var table = await _client.Tables.GetTableAsync(TableNameTest);
+        var view = table!.RecordBinaryView;
+
+        // Start and activate a read-only transaction.
+        await using var tx = await _client.Transactions.BeginAsync(new(ReadOnly: true));
+        Assert.IsFalse((await view.GetAsync(tx, key)).HasValue); // Activate lazy tx.
+
+        // Insert a record with an implicit tx.
+        await view.InsertAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "testTxReadOnly" });
+
+        // RO transaction should not see the changes made outside of it.
+        Assert.IsFalse((await view.GetAsync(tx, key)).HasValue, "Read-only transaction shows snapshot of data in the past.");
+
+        await tx.RollbackAsync();
     }
 }
