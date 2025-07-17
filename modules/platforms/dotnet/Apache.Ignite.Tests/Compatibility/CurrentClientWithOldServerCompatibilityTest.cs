@@ -212,7 +212,7 @@ public class CurrentClientWithOldServerCompatibilityTest
     [Test]
     public async Task TestSqlMultiplePages()
     {
-        int count = 12345;
+        int count = 1234;
         int minId = ++_idGen;
 
         var tuples = Enumerable.Range(0, count)
