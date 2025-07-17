@@ -225,6 +225,10 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         assertThat(stateFut, willCompleteSuccessfully());
 
+        if (stateFut.get() == null) {
+            return Set.of();
+        }
+
         return Stream.concat(
                 stateFut.get().metaStorageNodes().stream(),
                 stateFut.get().cmgNodes().stream()
