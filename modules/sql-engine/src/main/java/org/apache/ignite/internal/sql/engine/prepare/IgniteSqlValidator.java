@@ -128,6 +128,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public static final int MAX_LENGTH_OF_ALIASES = 256;
     public static final int DECIMAL_DYNAMIC_PARAM_PRECISION = 28;
     public static final int DECIMAL_DYNAMIC_PARAM_SCALE = 6;
+    private static final int TIME_DYNAMIC_PARAM_PRECISION = 6;
 
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
@@ -1565,7 +1566,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else if (cls == LocalDate.class) {
             return typeFactory.createSqlType(SqlTypeName.DATE);
         } else if (cls == LocalTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIME);
+            return typeFactory.createSqlType(SqlTypeName.TIME, TIME_DYNAMIC_PARAM_PRECISION);
         } else if (cls == LocalDateTime.class) {
             return typeFactory.createSqlType(SqlTypeName.TIMESTAMP);
         } else if (cls == Instant.class) {
