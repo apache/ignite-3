@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
@@ -498,6 +499,8 @@ public class ClientInboundMessageHandler
             actualFeatures.clear(TX_DELAYED_ACKS.featureId());
             actualFeatures.clear(TX_PIGGYBACK.featureId());
             actualFeatures.clear(TX_ALLOW_NOOP_ENLIST.featureId());
+
+            actualFeatures.clear(SQL_DIRECT_TX_MAPPING.featureId());
         } else {
             actualFeatures = this.features;
         }
@@ -935,7 +938,8 @@ public class ClientInboundMessageHandler
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
-                        clientContext.hasFeature(SQL_PARTITION_AWARENESS)
+                        clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
+                        clockService, notificationSender(requestId)
                 );
 
             case ClientOp.OPERATION_CANCEL:
@@ -1008,7 +1012,9 @@ public class ClientInboundMessageHandler
                 || opCode == ClientOp.TUPLE_DELETE_EXACT
                 || opCode == ClientOp.TUPLE_GET_AND_DELETE
                 || opCode == ClientOp.TUPLE_CONTAINS_KEY
-                || opCode == ClientOp.STREAMER_BATCH_SEND;
+                || opCode == ClientOp.STREAMER_BATCH_SEND
+                || opCode == ClientOp.TX_COMMIT
+                || opCode == ClientOp.TX_ROLLBACK;
 
                 // Sql-related operation must do some bookkeeping first on the client's thread to avoid races
                 // (for instance, cancellation must not be processed until execution request is registered).
