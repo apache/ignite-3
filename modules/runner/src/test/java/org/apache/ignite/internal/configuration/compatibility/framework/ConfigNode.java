@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.compatibility.framework;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -42,7 +43,7 @@ public class ConfigNode {
     @JsonProperty
     private List<ConfigAnnotation> annotations = new ArrayList<>();
     @JsonProperty
-    private final Map<String, ConfigNode> childNodeMap = new LinkedHashMap<>();
+    private List<NodeReference> childReferences = new ArrayList<>();
     @JsonProperty
     private String flagsHexString;
     @JsonProperty
@@ -52,7 +53,7 @@ public class ConfigNode {
 
     // Non-serializable fields.
     @JsonIgnore
-    @Nullable 
+    @Nullable
     private ConfigNode parent;
     @JsonIgnore
     private EnumSet<Flags> flags;
@@ -156,8 +157,8 @@ public class ConfigNode {
     /**
      * Returns the child nodes of this node.
      */
-    public Collection<ConfigNode> childNodes() {
-        return childNodeMap.values();
+    public Collection<NodeReference> childNodes() {
+        return childReferences;
     }
 
     /**
@@ -170,10 +171,36 @@ public class ConfigNode {
     /**
      * Add the child nodes to this node.
      */
-    void addChildNodes(Collection<ConfigNode> childNodes) {
+    void addChildReferences(Collection<NodeReference> references) {
         assert !flags.contains(Flags.IS_VALUE) : "Value node can't have children.";
 
-        childNodes.forEach(e -> childNodeMap.put(e.name(), e));
+        childReferences.addAll(references);
+    }
+
+    /**
+     * Add the child nodes to this node.
+     */
+    @TestOnly
+    void linkChildReferences(NodeReference... references) {
+        assert !flags.contains(Flags.IS_VALUE) : "Value node can't have children.";
+
+        for (NodeReference ref : references) {
+            for (ConfigNode node : ref.nodes()) {
+                node.parent = this;
+            }
+        }
+
+        childReferences.addAll(List.of(references));
+    }
+
+    /**
+     * Add the child nodes to this node.
+     */
+    @TestOnly
+    void addChildNodes(Collection<ConfigNode> childNodes) {
+        childNodes.forEach(n -> n.parent = this);
+
+        addChildReferences(childNodes.stream().map(n -> new NodeReference(List.of(n))).collect(Collectors.toList()));
     }
 
     /**
@@ -181,7 +208,7 @@ public class ConfigNode {
      */
     @TestOnly
     void addChildNodes(ConfigNode... childNodes) {
-        addChildNodes(List.of(childNodes));
+        addChildNodes(Arrays.asList(childNodes));
     }
 
     /**
@@ -216,6 +243,10 @@ public class ConfigNode {
         return flags.contains(Flags.IS_DEPRECATED);
     }
 
+    public boolean hasDefault() {
+        return flags.contains(Flags.HAS_DEFAULT);
+    }
+
     /**
      * Returns node annotations.
      */
@@ -238,6 +269,27 @@ public class ConfigNode {
     }
 
     /**
+     * Returns a class name.
+     */
+    String className() {
+        return attributes.get(Attributes.CLASS);
+    }
+
+    /**
+     * Returns instance type of a polymorphic config.
+     */
+    @Nullable
+    String instanceType() {
+        return attributes.get(Attributes.INSTANCE_TYPE);
+    }
+
+    /** Returns attributes of this node. */
+    @JsonIgnore
+    Map<String, String> attributes() {
+        return attributes;
+    }
+
+    /**
      * Constructs the full path of this node in the configuration tree.
      */
     @JsonIgnore
@@ -253,8 +305,10 @@ public class ConfigNode {
     public void accept(ConfigShuttle visitor) {
         visitor.visit(this);
 
-        for (ConfigNode child : childNodes()) {
-            child.accept(visitor);
+        for (NodeReference ref : childNodes()) {
+            for (var node : ref.nodes()) {
+                node.accept(visitor);
+            }
         }
     }
 
@@ -273,7 +327,7 @@ public class ConfigNode {
                 + attributes
                 + ", annotations=" + annotations().stream().map(ConfigAnnotation::digest).collect(Collectors.joining(",", "[", "]"))
                 + ", flags=" + flagsHexString
-                + (childNodeMap.isEmpty() ? "" : ", children=" + childNodeMap.size())
+                + (childReferences.isEmpty() ? "" : ", children=" + childReferences.size())
                 + ']';
     }
 
@@ -283,7 +337,7 @@ public class ConfigNode {
                 + attributes.entrySet().stream().map(Map.Entry::toString).collect(Collectors.joining(","))
                 + ", annotations=" + annotations().stream().map(ConfigAnnotation::toString).collect(Collectors.joining(",", "[", "]"))
                 + ", flags=" + flags
-                + (childNodeMap.isEmpty() ? "" : ", children=" + childNodeMap.size())
+                + (childReferences.isEmpty() ? "" : ", children=" + childReferences.size())
                 + ']';
     }
 
@@ -294,7 +348,8 @@ public class ConfigNode {
         IS_ROOT(1),
         IS_VALUE(1 << 1),
         IS_DEPRECATED(1 << 2),
-        IS_INTERNAL(1 << 3);
+        IS_INTERNAL(1 << 3),
+        HAS_DEFAULT(1 << 4);
 
         private final int mask;
 
@@ -332,5 +387,31 @@ public class ConfigNode {
         static String NAME = "name";
         static String KIND = "kind";
         static String CLASS = "class";
+        static String INSTANCE_TYPE = "instanceType";
+    }
+
+    /**
+     * Child node reference.
+     */
+    public static class NodeReference {
+        @JsonProperty
+        private List<ConfigNode> nodes = new ArrayList<>();
+
+        @SuppressWarnings("unused")
+        NodeReference() {
+            // Default constructor for Jackson deserialization.
+        }
+
+        /**
+         * Constructor for a multi node reference (used by polymorphic configuration).
+         */
+        NodeReference(List<ConfigNode> nodes) {
+            this.nodes = nodes;
+        }
+
+        /** Nodes. */
+        public List<ConfigNode> nodes() {
+            return nodes;
+        }
     }
 }

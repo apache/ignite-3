@@ -29,6 +29,8 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.NodeReference;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compares two configuration trees (snapshot and current).
@@ -45,11 +47,13 @@ public class ConfigurationTreeComparator {
             List<ConfigNode> actualTrees,
             ComparisonContext compContext
     ) {
-        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees), compContext);
-
-        for (ConfigNode tree : snapshotTrees) {
-            tree.accept(shuttle);
-        }
+//        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees), compContext);
+//
+//        for (ConfigNode tree : snapshotTrees) {
+//            tree.accept(shuttle);
+//        }
+        Comp2 comp2 = new Comp2(compContext);
+        comp2.ensureCompatible(snapshotTrees, actualTrees);
     }
 
     /**
@@ -59,6 +63,9 @@ public class ConfigurationTreeComparator {
         String dump1 = dumpTree(tree1);
         String dump2 = dumpTree(tree2);
         assertEquals(dump1, dump2, "Configuration metadata mismatch");
+        
+        Comp2 comp2 = new Comp2();
+        comp2.ensureCompatible(tree1, tree2);
     }
 
     /**
@@ -96,34 +103,101 @@ public class ConfigurationTreeComparator {
             List<ConfigNode> path = getPath(leafNode);
 
             // Validate path starting from the root.
-            Collection<ConfigNode> candidates = roots;
+            List<Collection<ConfigNode>> candidates = List.of(roots);
 
             for (ConfigNode node : path) {
-                ConfigNode found = find(node, candidates);
-                candidates = found.childNodes();
-            }
-        }
+                String instanceType = node.instanceType();
+                ConfigNode found = find(node, candidates, instanceType);
 
-        /**
-         * Return first node from candidates collection that matches the given node.
-         *
-         * @throws IllegalStateException If no match found.
-         */
-        private ConfigNode find(ConfigNode node, Collection<ConfigNode> candidates) {
-            for (ConfigNode candidate : candidates) {
-                if (!match(node, candidate)) {
-                    continue;
+                if (found == null) {
+                    reportError(path, node, candidates);
+                    return;
                 }
 
                 // node is a snapshot node
                 // candidate is a current configuration node.
-                validateAnnotations(node, candidate);
+                validateAnnotations(node, found);
 
-                return candidate;
+                Collection<NodeReference> childRefs = found.childNodes();
+                candidates = childRefs.stream().map(NodeReference::nodes).collect(Collectors.toList());
+            }
+        }
+
+        /**
+         * Returns first node from candidates collection that matches the given node.
+         */
+        private static @Nullable ConfigNode find(
+                ConfigNode node,
+                List<Collection<ConfigNode>> candidateList,
+                @Nullable String instanceType
+        ) {
+            for (Collection<ConfigNode> candidates : candidateList) {
+                for (ConfigNode candidate : candidates) {
+                    if (match(node, candidate, instanceType)) {
+                        return candidate;
+                    }
+                }
             }
 
-            throw new IllegalStateException("No match found for node: " + node + " in candidates: \n\t"
-                    + candidates.stream().map(ConfigNode::toString).collect(Collectors.joining("\n\t")));
+            return null;
+        }
+
+        private static void reportError(
+                List<ConfigNode> path,
+                ConfigNode target,
+                List<Collection<ConfigNode>> candidateList
+        ) {
+            /* No match for node: <node path>
+             *
+             * Node:
+             *   <node details>
+             *
+             * Path:
+             *   <path element node details>
+             *   ...
+             *   <path element node details>
+             *
+             * Candidates:
+             *   <candidate node details>
+             *   ...
+             *   <candidate node details>
+             */
+
+            StringBuilder candidateText = new StringBuilder();
+
+            for (Collection<ConfigNode> candidates : candidateList) {
+                if (candidateText.length() > 0) {
+                    candidateText.append(System.lineSeparator());
+                }
+                String text = renderNodeList(candidates);
+                candidateText.append(text);
+            }
+
+            String pathText = renderNodeList(path);
+
+            throw new IllegalStateException("No match found for node: " + target.path()
+                    + "\n\nNode:\n\t" + target
+                    + "\n\nPath:\n" + pathText
+                    + "\n\nCandidates:\n" + candidateText
+            );
+        }
+
+        private static String renderNodeList(Collection<ConfigNode> path) {
+            StringBuilder pathText = new StringBuilder();
+
+            for (ConfigNode node : path) {
+                if (pathText.length() > 0) {
+                    pathText.append(System.lineSeparator());
+                }
+                pathText.append('\t')
+                        .append(node.path())
+                        .append(" attributes: ")
+                        .append(node.attributes())
+                        .append(" annotations: ")
+                        .append(node.annotations());
+            }
+
+            return pathText.toString();
         }
     }
 
@@ -145,12 +219,15 @@ public class ConfigurationTreeComparator {
     /**
      * Returns {@code true} if given node is compatible with candidate node, {@code false} otherwise.
      */
-    private static boolean match(ConfigNode node, ConfigNode candidate) {
+    public static boolean match(ConfigNode node, ConfigNode candidate, @Nullable String instanceType) {
         return Objects.equals(candidate.kind(), node.kind())
                 && matchNames(candidate, node)
                 && validateFlags(candidate, node)
                 && candidate.deletedPrefixes().containsAll(node.deletedPrefixes())
-                && (!node.isValue() || Objects.equals(candidate.type(), node.type())); // Value node types can be changed.
+                && (!node.isValue() || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
+                && (instanceType == null || Objects.equals(candidate.instanceType(), node.instanceType()))
+                // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
+                && candidate.annotations().containsAll(node.annotations()); // Annotations can't be removed.
     }
 
     private static void validateAnnotations(ConfigNode candidate, ConfigNode node) {
