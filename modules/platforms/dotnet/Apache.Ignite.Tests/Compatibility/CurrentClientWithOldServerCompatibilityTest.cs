@@ -27,6 +27,7 @@ using Ignite.Table;
 using Internal;
 using Internal.Proto;
 using Internal.Table;
+using Microsoft.Extensions.Logging;
 using Network;
 using NodaTime;
 using NUnit.Framework;
@@ -58,7 +59,11 @@ public class CurrentClientWithOldServerCompatibilityTest
         _workDir = new TempDir();
         _javaServer = await JavaServer.StartOldAsync(_serverVersion, _workDir.Path);
 
-        var cfg = new IgniteClientConfiguration($"localhost:{_javaServer.Port}");
+        var cfg = new IgniteClientConfiguration($"localhost:{_javaServer.Port}")
+        {
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
+        };
+
         _client = await IgniteClient.StartAsync(cfg);
 
         await _client.Sql.ExecuteScriptAsync("DELETE FROM TEST WHERE ID >= 1000");
@@ -130,7 +135,7 @@ public class CurrentClientWithOldServerCompatibilityTest
         IReadOnlyDictionary<IPartition, IClusterNode> primaryReplicas = await table.PartitionManager.GetPrimaryReplicasAsync();
         Assert.AreEqual(25, primaryReplicas.Count);
 
-        var clusterNode = _client.GetConnections().Select(x => x.Node).Single();
+        var clusterNode = _client.GetConnections().Select(x => x.Node).First();
 
         foreach (var (partition, node) in primaryReplicas)
         {
@@ -146,7 +151,7 @@ public class CurrentClientWithOldServerCompatibilityTest
         IList<IClusterNode> nodes = await _client.GetClusterNodesAsync();
         Assert.AreEqual(1, nodes.Count);
 
-        var connectedNode = _client.GetConnections().Select(x => x.Node).Single();
+        var connectedNode = _client.GetConnections().Select(x => x.Node).First();
 
         Assert.AreEqual(connectedNode.Id, nodes[0].Id);
         Assert.AreEqual(connectedNode.Name, nodes[0].Name);
