@@ -173,7 +173,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             cmgMsPartialNodesNames = msCmgNodes(component);
 
             for (PartialNode partialNode : partialNodes) {
-                if(!cmgMsPartialNodesNames.contains(partialNode.name())) {
+                if (!cmgMsPartialNodesNames.contains(partialNode.name())) {
                     closeables.add(partialNode::stop);
                 }
             }
@@ -198,7 +198,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
         // Add CMG/MS nodes at the end of the list to ensure that they are stopped last.
         if (!partialNodes.isEmpty()) {
             for (PartialNode partialNode : partialNodes) {
-                if(cmgMsPartialNodesNames.contains(partialNode.name())) {
+                if (cmgMsPartialNodesNames.contains(partialNode.name())) {
                     closeables.add(partialNode::stop);
                 }
             }
