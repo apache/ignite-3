@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.util.List;
+import org.apache.calcite.DataContexts;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -132,7 +133,7 @@ public class PlanUtils {
 
         for (int i = 0; i < aggregateCalls.size(); i++) {
             AggregateCall call = aggregateCalls.get(i);
-            Accumulator acc = accumulators.accumulatorFactory(call, inputType).get();
+            Accumulator acc = accumulators.accumulatorFactory(DataContexts.EMPTY, call, inputType).get();
             RelDataType fieldType;
             // For a decimal type Accumulator::returnType returns a type with default precision and scale,
             // that can cause precision loss when a tuple is sent over the wire by an exchanger/outbox.
