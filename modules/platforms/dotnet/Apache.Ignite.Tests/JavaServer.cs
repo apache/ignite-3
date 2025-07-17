@@ -79,7 +79,8 @@ namespace Apache.Ignite.Tests
                     { "IGNITE_OLD_SERVER_VERSION", version },
                     { "IGNITE_OLD_SERVER_WORK_DIR", workDir },
                     { "IGNITE_OLD_SERVER_PORT_OFFSET", portOffset.ToString(CultureInfo.InvariantCulture) }
-                });
+                },
+                portOffset: portOffset);
         }
 
         public void Dispose()
@@ -97,10 +98,10 @@ namespace Apache.Ignite.Tests
             Log(">>> Java server stopped.");
         }
 
-        private static async Task<JavaServer> StartInternalAsync(bool old, Dictionary<string, string?> env)
+        private static async Task<JavaServer> StartInternalAsync(bool old, Dictionary<string, string?> env, int portOffset = 0)
         {
             string gradleCommand = old ? GradleCommandExecOldServer : GradleCommandExec;
-            int defaultPort = old ? DefaultClientPortOldServer : DefaultClientPort;
+            int defaultPort = (old ? DefaultClientPortOldServer : DefaultClientPort) + portOffset;
 
             if (await TryConnect(defaultPort) == null)
             {
