@@ -155,22 +155,22 @@ public class CurrentClientWithOldServerCompatibilityTest
         var cols = meta.Columns;
         Assert.AreEqual(16, cols.Count);
 
-        StringAssert.Contains("name=ID, type=Int32, Precision=10", cols[0].ToString());
-        StringAssert.Contains("name=BYTE, type=INT8, precision=3", cols[1].ToString());
-        StringAssert.Contains("name=SHORT, type=INT16, precision=5", cols[2].ToString());
-        StringAssert.Contains("name=INT, type=INT32, precision=10", cols[3].ToString());
-        StringAssert.Contains("name=LONG, type=INT64, precision=19", cols[4].ToString());
-        StringAssert.Contains("name=FLOAT, type=FLOAT, precision=7", cols[5].ToString());
-        StringAssert.Contains("name=DOUBLE, type=DOUBLE, precision=15", cols[6].ToString());
-        StringAssert.Contains("name=DEC, type=DECIMAL, precision=10, scale=1", cols[7].ToString());
-        StringAssert.Contains("name=STRING, type=STRING, precision=65536", cols[8].ToString());
-        StringAssert.Contains("name=GUID, type=UUID, precision=-1", cols[9].ToString());
-        StringAssert.Contains("name=DT, type=DATE, precision=0", cols[10].ToString());
-        StringAssert.Contains("name=TM, type=TIME, precision=9", cols[11].ToString());
-        StringAssert.Contains("name=TS, type=DATETIME, precision=9", cols[12].ToString());
-        StringAssert.Contains("name=TSTZ, type=TIMESTAMP, precision=6", cols[13].ToString());
-        StringAssert.Contains("name=BOOL, type=BOOLEAN, precision=1", cols[14].ToString());
-        StringAssert.Contains("name=BYTES, type=BYTE_ARRAY, precision=65536", cols[15].ToString());
+        StringAssert.Contains("Name = ID, Type = Int32, Precision = 10", cols[0].ToString());
+        StringAssert.Contains("Name = BYTE, Type = Int8, Precision = 3", cols[1].ToString());
+        StringAssert.Contains("Name = SHORT, Type = Int16, Precision = 5", cols[2].ToString());
+        StringAssert.Contains("Name = INT, Type = Int32, Precision = 10", cols[3].ToString());
+        StringAssert.Contains("Name = LONG, Type = Int64, Precision = 19", cols[4].ToString());
+        StringAssert.Contains("Name = FLOAT, Type = Float, Precision = 7", cols[5].ToString());
+        StringAssert.Contains("Name = DOUBLE, Type = Double, Precision = 15", cols[6].ToString());
+        StringAssert.Contains("Name = DEC, Type = Decimal, Precision = 10, Scale = 1", cols[7].ToString());
+        StringAssert.Contains("Name = STRING, Type = String, Precision = 65536", cols[8].ToString());
+        StringAssert.Contains("Name = GUID, Type = Uuid, Precision = -1", cols[9].ToString());
+        StringAssert.Contains("Name = DT, Type = Date, Precision = 0", cols[10].ToString());
+        StringAssert.Contains("Name = TM, Type = Time, Precision = 9", cols[11].ToString());
+        StringAssert.Contains("Name = TS, Type = Datetime, Precision = 9", cols[12].ToString());
+        StringAssert.Contains("Name = TSTZ, Type = Timestamp, Precision = 6", cols[13].ToString());
+        StringAssert.Contains("Name = BOOL, Type = Boolean, Precision = 1", cols[14].ToString());
+        StringAssert.Contains("Name = BYTES, Type = ByteArray, Precision = 65536", cols[15].ToString());
     }
 
     [Test]
