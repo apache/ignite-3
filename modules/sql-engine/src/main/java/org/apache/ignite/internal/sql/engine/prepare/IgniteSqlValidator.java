@@ -957,10 +957,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         setValidatedNodeType(expr, returnType);
 
         if (castOperand instanceof SqlDynamicParam
-                && (hasSameTypeName(operandType, returnType, SqlTypeName.DECIMAL)
-                || hasSameTypeName(operandType, returnType, SqlTypeName.TIME)
-                || hasSameTypeName(operandType, returnType, SqlTypeName.TIMESTAMP)
-                || hasSameTypeName(operandType, returnType, SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE))
+                && operandType.getSqlTypeName() == SqlTypeName.DECIMAL
+                && returnType.getSqlTypeName() == SqlTypeName.DECIMAL
         ) {
             // By default type of dyn param of type DECIMAL is DECIMAL(28, 6) (see DECIMAL_DYNAMIC_PARAM_PRECISION and
             // DECIMAL_DYNAMIC_PARAM_SCALE at the beginning of the class declaration). Although this default seems
@@ -968,9 +966,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             // there is an ability to specify more precise type by CAST operation. Therefore if type of the dyn param
             // is decimal, and it immediately casted to DECIMAL as well, we need override type of the dyn param to desired
             // one.
-            // The same applies to temporal types that have a precision, for example, the dynamic TIMESTAMP parameter has
-            // a precision of 6 by default, but the user can override it by specifying 9.
-            // But with temporal types it doesn't make sense until we support precision greater then 6.
             setDynamicParamType((SqlDynamicParam) castOperand, returnType);
 
             return;
@@ -999,11 +994,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             throw newValidationError(expr,
                     RESOURCE.cannotCastValue(operandType.toString(), returnType.toString()));
         }
-    }
-
-    /** Returns a flag indicating whether both specified types have the specified type name. */
-    private static boolean hasSameTypeName(RelDataType type1, RelDataType type2, SqlTypeName expected) {
-        return type1.getSqlTypeName() == expected && type2.getSqlTypeName() == expected;
     }
 
     @Override
