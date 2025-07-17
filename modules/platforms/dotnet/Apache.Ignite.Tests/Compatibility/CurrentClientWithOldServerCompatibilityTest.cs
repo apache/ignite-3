@@ -95,6 +95,24 @@ public class CurrentClientWithOldServerCompatibilityTest
     }
 
     [Test]
+    public async Task TestTableByName()
+    {
+        var table = await _client.Tables.GetTableAsync(TableNameTest);
+        Assert.IsNotNull(table);
+
+        Assert.AreEqual(TableNameTest, table.QualifiedName.ObjectName);
+    }
+
+    [Test]
+    public async Task TestTableByQualifiedName()
+    {
+        var table = await _client.Tables.GetTableAsync(QualifiedName.Parse(TableNameTest));
+        Assert.IsNotNull(table);
+
+        Assert.AreEqual(TableNameTest, table.QualifiedName.ObjectName);
+    }
+
+    [Test]
     public async Task TestPartitionManager()
     {
         ITable? table = await _client.Tables.GetTableAsync(TableNameTest);
