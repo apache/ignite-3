@@ -462,9 +462,6 @@ namespace Apache.Ignite
 
             /// <summary> AddressUnresolved error. </summary>
             public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
-
-            /// <summary> BindException error. </summary>
-            public const int Bind = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> NodeConfiguration errors. </summary>
