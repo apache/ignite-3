@@ -34,7 +34,7 @@ namespace Apache.Ignite.Tests
     public sealed class JavaServer : IDisposable
     {
         private const string GradleOptsEnvVar = "IGNITE_DOTNET_GRADLE_OPTS";
-        private const string RequireExternalJavaServerEnvVar = "IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER1";
+        private const string RequireExternalJavaServerEnvVar = "IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER";
 
         private const int DefaultClientPort = 10942;
 
