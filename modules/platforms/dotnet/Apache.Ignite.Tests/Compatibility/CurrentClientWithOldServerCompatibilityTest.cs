@@ -369,4 +369,38 @@ public class CurrentClientWithOldServerCompatibilityTest
         Assert.AreEqual(1, deleteAllExactRes.Count);
         Assert.AreEqual(id, deleteAllExactRes[0]["ID"]);
     }
+
+    [Test]
+    public async Task TestRecordViewAllColumnTypes()
+    {
+        var table = await _client.Tables.GetTableAsync(TableNameAllColumns);
+        var view = table!.RecordBinaryView;
+
+        int id = ++_idGen;
+
+        var tuple = new IgniteTuple
+        {
+            ["ID"] = id,
+            ["BYTE"] = (sbyte)1,
+            ["SHORT"] = (short)2,
+            ["INT"] = 3,
+            ["LONG"] = 4L,
+            ["FLOAT"] = 5.5f,
+            ["DOUBLE"] = 6.6d,
+            ["DEC"] = new BigDecimal(7.7m),
+            ["STRING"] = "test",
+            ["GUID"] = Guid.NewGuid(),
+            ["DT"] = LocalDate.FromDateTime(DateTime.Now.Date),
+            ["TM"] = LocalTime.FromTicksSinceMidnight(DateTime.Now.TimeOfDay.Ticks),
+            ["TS"] = LocalDateTime.FromDateTime(DateTime.Now),
+            ["TSTZ"] = Instant.FromUnixTimeSeconds(123456),
+            ["BOOL"] = true,
+            ["BYTES"] = new byte[] { 1, 2, 3, 4 }
+        };
+
+        Assert.IsTrue(await view.InsertAsync(null, tuple));
+
+        IIgniteTuple res = (await view.GetAsync(null, new IgniteTuple { ["ID"] = id })).Value;
+        Assert.AreEqual(tuple, res);
+    }
 }
