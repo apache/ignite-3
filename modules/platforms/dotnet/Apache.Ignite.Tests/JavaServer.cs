@@ -95,29 +95,22 @@ namespace Apache.Ignite.Tests
             string gradleCommand = old ? GradleCommandExecOldServer : GradleCommandExec;
             int defaultPort = old ? DefaultClientPortOldServer : DefaultClientPort;
 
-            if (!old)
+            if (await TryConnect(defaultPort) == null)
             {
-                if (await TryConnect(defaultPort) == null)
-                {
-                    // Server started from outside.
-                    Log(">>> Java server is already started.");
+                // Server started from outside.
+                Log(">>> Java server is already started.");
 
-                    return new JavaServer(defaultPort, null);
-                }
-
-                if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
-                    && requireExternalServer)
-                {
-                    throw new InvalidOperationException(
-                        $"Java server is not started, but {RequireExternalJavaServerEnvVar} is set to true.");
-                }
-
-                Log(">>> Java server is not detected, starting...");
+                return new JavaServer(defaultPort, null);
             }
-            else
+
+            if (bool.TryParse(Environment.GetEnvironmentVariable(RequireExternalJavaServerEnvVar), out var requireExternalServer)
+                && requireExternalServer)
             {
-                Log(">>> Starting old Java server...");
+                throw new InvalidOperationException(
+                    $"Java server is not started, but {RequireExternalJavaServerEnvVar} is set to true.");
             }
+
+            Log(">>> Java server is not detected, starting...");
 
             var process = CreateProcess(gradleCommand, env);
 
