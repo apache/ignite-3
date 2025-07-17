@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Compatibility;
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -141,5 +142,60 @@ public class CurrentClientWithOldServerCompatibilityTest
 
         Assert.AreEqual(connectedNode.Id, nodes[0].Id);
         Assert.AreEqual(connectedNode.Name, nodes[0].Name);
+    }
+
+    [Test]
+    public async Task TestSqlColumnMeta()
+    {
+        await using var cursor = await _client.Sql.ExecuteAsync(null, $"select * from {TableNameAllColumns}");
+        var meta = cursor.Metadata;
+        Assert.IsNotNull(meta);
+
+        var cols = meta.Columns;
+        Assert.AreEqual(16, cols.Count);
+
+        StringAssert.Contains("name=ID, type=INT32, precision=10", cols[0].ToString());
+        StringAssert.Contains("name=BYTE, type=INT8, precision=3", cols[1].ToString());
+        StringAssert.Contains("name=SHORT, type=INT16, precision=5", cols[2].ToString());
+        StringAssert.Contains("name=INT, type=INT32, precision=10", cols[3].ToString());
+        StringAssert.Contains("name=LONG, type=INT64, precision=19", cols[4].ToString());
+        StringAssert.Contains("name=FLOAT, type=FLOAT, precision=7", cols[5].ToString());
+        StringAssert.Contains("name=DOUBLE, type=DOUBLE, precision=15", cols[6].ToString());
+        StringAssert.Contains("name=DEC, type=DECIMAL, precision=10, scale=1", cols[7].ToString());
+        StringAssert.Contains("name=STRING, type=STRING, precision=65536", cols[8].ToString());
+        StringAssert.Contains("name=GUID, type=UUID, precision=-1", cols[9].ToString());
+        StringAssert.Contains("name=DT, type=DATE, precision=0", cols[10].ToString());
+        StringAssert.Contains("name=TM, type=TIME, precision=9", cols[11].ToString());
+        StringAssert.Contains("name=TS, type=DATETIME, precision=9", cols[12].ToString());
+        StringAssert.Contains("name=TSTZ, type=TIMESTAMP, precision=6", cols[13].ToString());
+        StringAssert.Contains("name=BOOL, type=BOOLEAN, precision=1", cols[14].ToString());
+        StringAssert.Contains("name=BYTES, type=BYTE_ARRAY, precision=65536", cols[15].ToString());
+    }
+
+    [Test]
+    public async Task TestSqlSelectAllColumnTypes()
+    {
+        var rows = await _client.Sql.ExecuteAsync(null, $"select * from {TableNameAllColumns} where id = 1");
+        Assert.IsNotNull(rows);
+        var rowList = await rows.ToListAsync();
+        Assert.AreEqual(1, rowList.Count);
+
+        var row = rowList[0];
+        Assert.AreEqual(1, row["ID"]);
+        Assert.AreEqual((byte)1, row["BYTE"]);
+        Assert.AreEqual((short)2, row["SHORT"]);
+        Assert.AreEqual(3, row["INT"]);
+        Assert.AreEqual(4L, row["LONG"]);
+        Assert.AreEqual(5.0f, row["FLOAT"]);
+        Assert.AreEqual(6.0d, row["DOUBLE"]);
+        Assert.AreEqual(new decimal(7), row["DEC"]);
+        Assert.AreEqual("test", row["STRING"]);
+        Assert.AreEqual(Guid.Parse("10000000-2000-3000-4000-500000000000"), row["GUID"]);
+        Assert.AreEqual(new DateTime(2023, 1, 1), row["DT"]);
+        Assert.AreEqual(new TimeSpan(0, 12, 0, 0), row["TM"]);
+        Assert.AreEqual(new DateTime(2023, 1, 1, 12, 0, 0), row["TS"]);
+        Assert.AreEqual(DateTimeOffset.FromUnixTimeSeconds(1714946523), row["TSTZ"]);
+        Assert.IsTrue((bool)row["BOOL"]!);
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, (byte[])row["BYTES"]!);
     }
 }
