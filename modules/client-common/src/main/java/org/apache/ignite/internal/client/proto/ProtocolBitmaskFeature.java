@@ -72,7 +72,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Client supports Partition Awareness for SQL queries.
      */
-    SQL_PARTITION_AWARENESS(9);
+    SQL_PARTITION_AWARENESS(9),
+
+    /**
+     * Direct mapping for SQL queries within explicit transactions.
+     */
+    SQL_DIRECT_TX_MAPPING(10);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

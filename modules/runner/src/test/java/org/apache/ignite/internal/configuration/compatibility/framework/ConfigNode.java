@@ -52,10 +52,12 @@ public class ConfigNode {
 
     // Non-serializable fields.
     @JsonIgnore
-    @Nullable private ConfigNode parent;
+    @Nullable 
+    private ConfigNode parent;
     @JsonIgnore
     private EnumSet<Flags> flags;
 
+    @SuppressWarnings("unused")
     ConfigNode() {
         // Default constructor for Jackson deserialization.
     }
@@ -238,7 +240,8 @@ public class ConfigNode {
     /**
      * Constructs the full path of this node in the configuration tree.
      */
-    String path() {
+    @JsonIgnore
+    public String path() {
         String name = name();
 
         return parent == null ? name : parent.path() + '.' + name;
@@ -259,7 +262,7 @@ public class ConfigNode {
         // Avoid actual class name from being compared for non-value nodes.
         Predicate<Entry<String, String>> filter = isValue()
                 ? e -> true
-                : e  -> !e.getKey().equals(Attributes.CLASS);
+                : e -> !e.getKey().equals(Attributes.CLASS);
 
         String attributes = this.attributes.entrySet().stream()
                 .filter(filter)
@@ -268,7 +271,7 @@ public class ConfigNode {
 
         return path() + ": ["
                 + attributes
-                + ", annotations=" + annotations().stream().map(ConfigAnnotation::toString).collect(Collectors.joining(",", "[", "]"))
+                + ", annotations=" + annotations().stream().map(ConfigAnnotation::digest).collect(Collectors.joining(",", "[", "]"))
                 + ", flags=" + flagsHexString
                 + (childNodeMap.isEmpty() ? "" : ", children=" + childNodeMap.size())
                 + ']';

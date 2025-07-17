@@ -134,8 +134,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         return withSchemaSync((InternalTransaction) tx, null, action);
     }
 
-    private <T> CompletableFuture<T> withSchemaSync(@Nullable InternalTransaction tx, @Nullable Integer previousSchemaVersion,
-            KvAction<T> action) {
+    private <T> CompletableFuture<T> withSchemaSync(
+            @Nullable InternalTransaction tx,
+            @Nullable Integer previousSchemaVersion,
+            KvAction<T> action
+    ) {
         CompletableFuture<Integer> schemaVersionFuture = isDirectFlowApplicableTx(tx)
                 ? schemaVersions.schemaVersionAtCurrentTime(tbl.tableId())
                 : schemaVersions.schemaVersionAt(tx.schemaTimestamp(), tbl.tableId());

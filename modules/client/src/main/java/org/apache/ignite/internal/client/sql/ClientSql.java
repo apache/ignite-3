@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
-import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -37,11 +40,14 @@ import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.PayloadReader;
 import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.client.tx.DirectTxUtils;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.StatementImpl;
@@ -283,40 +289,60 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
-        PayloadWriter payloadWriter = w -> {
-            writeTx(transaction, w, null);
+        PartitionMappingProvider mappingProvider = mappingProviderCache.getIfPresent(new PaCacheKey(statement));
 
-            w.out().packString(statement.defaultSchema());
-            w.out().packInt(statement.pageSize());
-            w.out().packLong(statement.queryTimeout(TimeUnit.MILLISECONDS));
+        PartitionMapping mapping = mappingProvider != null 
+                ? mappingProvider.get(arguments)
+                : null;
 
-            w.out().packLongNullable(0L); // defaultSessionTimeout
-            w.out().packString(statement.timeZoneId().getId());
+        // Write context carries request execution details over async chain.
+        WriteContext ctx = new WriteContext(ch.observableTimestamp());
 
-            packProperties(w, null);
+        boolean directTxSupported = mappingProvider != null
+                && (mappingProvider.directTxMode() == ClientDirectTxMode.SUPPORTED
+                || mappingProvider.directTxMode() == ClientDirectTxMode.SUPPORTED_TRACKING_REQUIRED);
 
-            w.out().packString(statement.query());
+        boolean shouldTrackOperation = directTxSupported
+                && mappingProvider.directTxMode() == ClientDirectTxMode.SUPPORTED_TRACKING_REQUIRED;
 
-            w.out().packObjectArrayAsBinaryTuple(arguments);
+        CompletableFuture<@Nullable ClientTransaction> txStartFut = DirectTxUtils.ensureStarted(
+                ch, transaction, mapping, ctx, ch -> {
+                    boolean supports = directTxSupported && mapping != null
+                            // Enough to check only SQL_DIRECT_TX_MAPPING flag - other tx flags are set if this flag is set.
+                            && ch.protocolContext().isFeatureSupported(SQL_DIRECT_TX_MAPPING)
+                            && ch.protocolContext().clusterNode().name().equals(mapping.nodeConsistentId());
 
-            w.out().packLong(ch.observableTimestamp().get().longValue());
+                    assert !supports || ch.protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS, TX_PIGGYBACK);
 
-            if (w.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS)) {
-                // Let's always request PA metadata from server, if enabled. Later we might introduce some throttling.
-                w.out().packBoolean(partitionAwarenessEnabled);
-            }
+                    return supports;
+                }
+        );
 
-            if (cancellationToken != null) {
-                addCancelAction(cancellationToken, w);
-            }
-        };
+        return txStartFut.thenCompose(tx -> ch.serviceAsync(
+                ClientOp.SQL_EXEC,
+                payloadWriter(ctx, transaction, cancellationToken, statement, arguments, shouldTrackOperation),
+                payloadReader(ctx, mapper, tx, statement),
+                () -> DirectTxUtils.resolveChannel(ctx, ch, shouldTrackOperation, tx, mapping),
+                null,
+                false
+        )).exceptionally(ClientSql::handleException);
+    }
 
-        PayloadReader<AsyncResultSet<T>> payloadReader = r -> {
+    private <T> PayloadReader<AsyncResultSet<T>> payloadReader(
+            WriteContext ctx,
+            @Nullable Mapper<T> mapper,
+            @Nullable ClientTransaction tx,
+            Statement statement
+    ) {
+        return r -> {
             boolean tryUnpackPaMeta = partitionAwarenessEnabled 
                     && r.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS);
 
+            boolean sqlDirectMappingSupported = r.clientChannel().protocolContext().isFeatureSupported(SQL_DIRECT_TX_MAPPING);
+
+            DirectTxUtils.readTx(r, ctx, tx, ch.observableTimestamp());
             ClientAsyncResultSet<T> rs = new ClientAsyncResultSet<>(
-                    r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta
+                    r.clientChannel(), marshallers, r.in(), mapper, tryUnpackPaMeta, sqlDirectMappingSupported
             );
 
             ClientPartitionAwarenessMetadata partitionAwarenessMetadata = rs.partitionAwarenessMetadata();
@@ -349,33 +375,47 @@ public class ClientSql implements IgniteSql {
 
             return rs;
         };
+    }
 
-        if (transaction != null) {
-            try {
-                //noinspection resource
-                return ClientLazyTransaction.ensureStarted(transaction, ch).get1()
-                        .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader))
-                        .exceptionally(ClientSql::handleException);
-            } catch (TransactionException e) {
-                return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
+    private PayloadWriter payloadWriter(
+            WriteContext ctx,
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            @Nullable Object[] arguments,
+            boolean requestAck
+    ) {
+        return w -> {
+            if (w.clientChannel().protocolContext().isFeatureSupported(SQL_DIRECT_TX_MAPPING)) {
+                w.out().packBoolean(requestAck);
             }
-        }
 
-        PartitionMappingProvider mappingProvider = mappingProviderCache.getIfPresent(new PaCacheKey(statement));
+            DirectTxUtils.writeTx(transaction, w, ctx);
 
-        PartitionMapping mapping = null;
-        if (mappingProvider != null) {
-            mapping = mappingProvider.get(arguments);
-        }
+            w.out().packString(statement.defaultSchema());
+            w.out().packInt(statement.pageSize());
+            w.out().packLong(statement.queryTimeout(TimeUnit.MILLISECONDS));
 
-        return ch.serviceAsync(
-                ClientOp.SQL_EXEC,
-                payloadWriter,
-                payloadReader,
-                mapping != null ? mapping.nodeConsistentId() : null,
-                null,
-                false
-        );
+            w.out().packLongNullable(0L); // defaultSessionTimeout
+            w.out().packString(statement.timeZoneId().getId());
+
+            packProperties(w, null);
+
+            w.out().packString(statement.query());
+
+            w.out().packObjectArrayAsBinaryTuple(arguments);
+
+            w.out().packLong(ch.observableTimestamp().get().longValue());
+
+            if (w.clientChannel().protocolContext().isFeatureSupported(SQL_PARTITION_AWARENESS)) {
+                // Let's always request PA metadata from server, if enabled. Later we might introduce some throttling.
+                w.out().packBoolean(partitionAwarenessEnabled);
+            }
+
+            if (cancellationToken != null) {
+                addCancelAction(cancellationToken, w);
+            }
+        };
     }
 
     /** {@inheritDoc} */
@@ -398,7 +438,7 @@ public class ClientSql implements IgniteSql {
             BatchedArguments batch
     ) {
         PayloadWriter payloadWriter = w -> {
-            writeTx(transaction, w, null);
+            DirectTxUtils.writeTx(transaction, w, null);
 
             w.out().packString(statement.defaultSchema());
             w.out().packInt(statement.pageSize());

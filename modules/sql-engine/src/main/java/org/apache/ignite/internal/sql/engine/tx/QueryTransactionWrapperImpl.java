@@ -79,6 +79,10 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
             txTracker.registerOperationFinish(transaction);
         }
 
+        if (transaction.remote()) {
+            return nullCompletedFuture();
+        }
+
         return transaction.rollbackAsync();
     }
 

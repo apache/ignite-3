@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.client.sql.ClientDirectTxMode;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.PartitionMappingProvider;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -233,6 +234,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
             assertThat(meta.tableId(), CoreMatchers.is(1));
             assertThat(meta.indexes(), CoreMatchers.is(new int[] {0, -1, -2, 2}));
             assertThat(meta.hash(), CoreMatchers.is(new int[] {100, 500}));
+            assertThat(meta.directTxMode(), CoreMatchers.is(ClientDirectTxMode.SUPPORTED_TRACKING_REQUIRED));
         }
     }
 

@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
+using Marshalling;
 
 /// <summary>
 /// Data streamer receiver.
@@ -31,6 +32,21 @@ using System.Threading.Tasks;
 [SuppressMessage("ReSharper", "TypeParameterCanBeVariant", Justification = "Won't be possible later with marshallers.")]
 public interface IDataStreamerReceiver<TItem, TArg, TResult>
 {
+    /// <summary>
+    /// Gets the custom marshaller for the receiver payload.
+    /// </summary>
+    IMarshaller<TItem>? PayloadMarshaller => null;
+
+    /// <summary>
+    /// Gets the custom marshaller for the receiver input argument.
+    /// </summary>
+    IMarshaller<TArg>? ArgumentMarshaller => null;
+
+    /// <summary>
+    /// Gets the custom marshaller for the receiver result.
+    /// </summary>
+    IMarshaller<TResult>? ResultMarshaller => null;
+
     /// <summary>
     /// Receives a page of items from the data streamer.
     /// <para />
