@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoop;
+import io.netty.channel.nio.NioEventLoop;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -130,7 +131,8 @@ class HandshakeManagerUtils {
 
         int index = safeAbs(channelKey.hashCode()) % eventLoops.size();
 
-        LOG.info("PVD:: Get thread for channel key {}: (index {})",  channelKey, index);
+        LOG.info("PVD:: Get thread for channel key {}: (index {}, thread {})",
+                channelKey, index, ((NioEventLoop) eventLoops.get(index)).threadProperties().name());
 
         return eventLoops.get(index);
     }

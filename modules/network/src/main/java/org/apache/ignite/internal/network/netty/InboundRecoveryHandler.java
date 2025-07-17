@@ -20,11 +20,13 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.Collections;
+import java.util.HashMap;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
+import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
  * Inbound handler that handles incoming acknowledgement messages and sends acknowledgement messages for other messages.
@@ -38,6 +40,32 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
     /** Messages factory. */
     private final NetworkMessagesFactory factory;
+
+    ThreadLocal<HIstMsgInfo> locHisto = new ThreadLocal<>() {;
+        @Override
+        protected HIstMsgInfo initialValue() {
+            return new HIstMsgInfo();
+        }
+    };
+
+    private static class HIstMsgInfo {
+        HashMap<String, Integer> map = new HashMap();
+
+        long timestamp;
+
+        void add(String msg) {
+            map.compute(msg, (k, v) -> v == null ? 1 : v + 1);
+        }
+
+        void println() {
+            if (FastTimestamps.coarseCurrentTimeMillis() - timestamp > 10_000) {
+                System.out.println(Thread.currentThread().getName() + ": HIST: " + map + " messages, last timestamp: " + timestamp);
+
+                timestamp = System.currentTimeMillis();
+                map.clear();
+            }
+        }
+    }
 
     /**
      * Constructor.
@@ -54,6 +82,10 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         NetworkMessage message = (NetworkMessage) msg;
+
+        var hist = locHisto.get();
+        hist.add(msg.getClass().getName());
+        hist.println();
 
         if (message instanceof AcknowledgementMessage) {
             AcknowledgementMessage ackMessage = (AcknowledgementMessage) msg;
