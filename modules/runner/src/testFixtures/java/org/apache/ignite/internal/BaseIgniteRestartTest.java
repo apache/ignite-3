@@ -34,16 +34,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -140,29 +146,89 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     public void afterEachTest() throws Exception {
         var closeables = new ArrayList<AutoCloseable>();
 
-        if (!partialNodes.isEmpty()) {
-            for (int i = partialNodes.size() - 1; i >= 0; i--) {
-                PartialNode node = partialNodes.get(i);
+        List<String> serverNames = IGNITE_SERVERS.stream()
+                .filter(Objects::nonNull)
+                .map(IgniteServer::name)
+                .collect(toList());
 
-                closeables.add(node::stop);
+        List<String> partialNodeNames = this.partialNodes.stream()
+                .filter(Objects::nonNull)
+                .map(PartialNode::name)
+                .collect(toList());
+
+        log.info("Shutting the cluster down [serverNodes={}, partialNodes={}]", serverNames, partialNodeNames);
+
+        Set<String> cmgMsNodesNames = new HashSet<>();
+
+        Set<String> cmgMsPartialNodesNames = new HashSet<>();
+
+        if (!partialNodes.isEmpty()) {
+            PartialNode anyPartialNode = partialNodes.get(0);
+
+            ClusterManagementGroupManager component = findComponent(
+                    anyPartialNode.startedComponents(),
+                    ClusterManagementGroupManager.class
+            );
+
+            cmgMsPartialNodesNames = msCmgNodes(component);
+
+            for (PartialNode partialNode : partialNodes) {
+                if(!cmgMsPartialNodesNames.contains(partialNode.name())) {
+                    closeables.add(partialNode::stop);
+                }
+            }
+        }
+
+        if (!IGNITE_SERVERS.isEmpty()) {
+            IgniteServer anyNode = IGNITE_SERVERS.get(0);
+
+            IgniteImpl ignite = unwrapIgniteImpl(anyNode.api());
+
+            cmgMsNodesNames = msCmgNodes(ignite.clusterManagementGroupManager());
+
+            for (IgniteServer node : IGNITE_SERVERS) {
+                if (node != null) {
+                    if (!cmgMsNodesNames.contains(node.name())) {
+                        closeables.add(node::shutdown);
+                    }
+                }
+            }
+        }
+
+        // Add CMG/MS nodes at the end of the list to ensure that they are stopped last.
+        if (!partialNodes.isEmpty()) {
+            for (PartialNode partialNode : partialNodes) {
+                if(cmgMsPartialNodesNames.contains(partialNode.name())) {
+                    closeables.add(partialNode::stop);
+                }
+            }
+        }
+
+        if (!IGNITE_SERVERS.isEmpty()) {
+            for (IgniteServer node : IGNITE_SERVERS) {
+                if (node != null) {
+                    if (cmgMsNodesNames.contains(node.name())) {
+                        closeables.add(node::shutdown);
+                    }
+                }
             }
         }
 
         closeAll(closeables);
 
-        List<IgniteServer> serversToStop = new ArrayList<>(IGNITE_SERVERS);
-
-        List<String> serverNames = serversToStop.stream()
-                .filter(Objects::nonNull)
-                .map(IgniteServer::name)
-                .collect(toList());
-
-        log.info("Shutting the cluster down [nodes={}]", serverNames);
-
-        serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
-
         IGNITE_SERVERS.clear();
         partialNodes.clear();
+    }
+
+    private static Set<String> msCmgNodes(ClusterManagementGroupManager ignite) throws Exception {
+        CompletableFuture<ClusterState> stateFut = ignite.clusterState();
+
+        assertThat(stateFut, willCompleteSuccessfully());
+
+        return Stream.concat(
+                stateFut.get().metaStorageNodes().stream(),
+                stateFut.get().cmgNodes().stream()
+        ).collect(Collectors.toSet());
     }
 
     /**
