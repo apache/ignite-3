@@ -250,4 +250,127 @@ public class CurrentClientWithOldServerCompatibilityTest
         rowList = await rows.ToListAsync();
         Assert.AreEqual(0, rowList.Count);
     }
+
+    [Test]
+    public async Task TestRecordViewOperations()
+    {
+        int id = ++_idGen;
+        int id2 = ++_idGen;
+        var key = new IgniteTuple { ["ID"] = id };
+        var key2 = new IgniteTuple { ["ID"] = id2 };
+
+        var table = await _client.Tables.GetTableAsync(TableNameTest);
+        var view = table!.RecordBinaryView;
+
+        // Insert.
+        Assert.IsTrue(await view.InsertAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v1" }));
+        Assert.AreEqual("v1", (await view.GetAsync(null, key)).Value["NAME"]);
+        Assert.IsFalse(await view.InsertAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v2" }));
+
+        // Insert All.
+        var insertAllRes = await view.InsertAllAsync(null, [
+            new IgniteTuple { ["ID"] = id, ["NAME"] = "v3" },
+            new IgniteTuple { ["ID"] = id2, ["NAME"] = "v4" }
+        ]);
+        Assert.AreEqual(1, insertAllRes.Count);
+        Assert.AreEqual(id, insertAllRes[0]["ID"]);
+
+        // Upsert.
+        await view.UpsertAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v2" });
+        Assert.AreEqual("v2", (await view.GetAsync(null, key)).Value["NAME"]);
+
+        // Get and upsert.
+        var oldValue = await view.GetAndUpsertAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v5" });
+        Assert.AreEqual("v2", oldValue.Value["NAME"]);
+
+        // Upsert All.
+        await view.UpsertAllAsync(null, new[]
+        {
+            new IgniteTuple { ["ID"] = id, ["NAME"] = "v5" },
+            new IgniteTuple { ["ID"] = id2, ["NAME"] = "v6" }
+        });
+        Assert.AreEqual("v5", (await view.GetAsync(null, key)).Value["NAME"]);
+        Assert.AreEqual("v6", (await view.GetAsync(null, key2)).Value["NAME"]);
+
+        // Contains.
+        Assert.IsTrue(await view.ContainsKeyAsync(null, key));
+        Assert.IsFalse(await view.ContainsKeyAsync(null, new IgniteTuple { ["ID"] = -id }));
+
+        // Contains all.
+        // TODO IGNITE-25940 .NET: Add ContainsAll to table views
+        // Assert.IsTrue(await view.ContainsAllAsync(null, new[] { key, key2 }));
+        // Assert.IsFalse(await view.ContainsAllAsync(null, new[] { key, new IgniteTuple { ["ID"] = -id } }));
+
+        // Get.
+        Assert.IsNotNull(await view.GetAsync(null, key));
+        Assert.IsNull(await view.GetAsync(null, new IgniteTuple { ["ID"] = -id }));
+
+        // Get all.
+        var keys = new[] { key, new IgniteTuple { ["ID"] = -id } };
+        var results = await view.GetAllAsync(null, keys);
+        Assert.AreEqual(2, results.Count);
+        Assert.AreEqual("v5", results[0].Value["NAME"]);
+        Assert.IsNull(results[1]);
+
+        // Replace.
+        Assert.IsTrue(await view.ReplaceAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v7" }));
+        Assert.IsFalse(await view.ReplaceAsync(null, new IgniteTuple { ["ID"] = -id, ["NAME"] = "v8" }));
+        Assert.AreEqual("v7", (await view.GetAsync(null, key)).Value["NAME"]);
+
+        // Replace exact.
+        Assert.IsFalse(await view.ReplaceAsync(
+            null,
+            new IgniteTuple { ["ID"] = id, ["NAME"] = "-v7" },
+            new IgniteTuple { ["ID"] = id, ["NAME"] = "v8" }));
+
+        Assert.IsTrue(await view.ReplaceAsync(
+            null,
+            new IgniteTuple { ["ID"] = id, ["NAME"] = "v7" },
+            new IgniteTuple { ["ID"] = id, ["NAME"] = "v8" }));
+
+        Assert.AreEqual("v8", (await view.GetAsync(null, key)).Value["NAME"]);
+
+        // Get and replace.
+        var old = await view.GetAndReplaceAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v9" });
+        Assert.AreEqual("v8", old.Value["NAME"]);
+        Assert.AreEqual("v9", (await view.GetAsync(null, key)).Value["NAME"]);
+
+        // Delete.
+        Assert.IsTrue(await view.DeleteAsync(null, key));
+        Assert.IsFalse(await view.DeleteAsync(null, key));
+        Assert.IsNull(await view.GetAsync(null, key));
+
+        // Delete exact.
+        Assert.IsFalse(await view.DeleteExactAsync(null, new IgniteTuple { ["ID"] = id2, ["NAME"] = "v9" }));
+        Assert.IsTrue(await view.DeleteExactAsync(null, new IgniteTuple { ["ID"] = id2, ["NAME"] = "v6" }));
+
+        // Get and delete.
+        await view.UpsertAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v10" });
+        Assert.IsNull(await view.GetAndDeleteAsync(null, new IgniteTuple { ["ID"] = -id }));
+
+        var getAndDelete = await view.GetAndDeleteAsync(null, new IgniteTuple { ["ID"] = id });
+        Assert.AreEqual("v10", getAndDelete.Value["NAME"]);
+
+        // Delete all.
+        await view.UpsertAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v11" });
+        var deleteAllRes = await view.DeleteAllAsync(null, [
+            new IgniteTuple { ["ID"] = id },
+            new IgniteTuple { ["ID"] = id2 }
+        ]);
+
+        Assert.AreEqual(1, deleteAllRes.Count);
+        Assert.AreEqual(id2, deleteAllRes[0]["ID"]);
+
+        // Delete all exact.
+        await view.UpsertAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v12" });
+        await view.UpsertAsync(null, new IgniteTuple { ["ID"] = id2, ["NAME"] = "v13" });
+
+        var deleteAllExactRes = await view.DeleteAllExactAsync(null, [
+            new IgniteTuple { ["ID"] = id },
+            new IgniteTuple { ["ID"] = id2, ["NAME"] = "v13" }
+        ]);
+
+        Assert.AreEqual(1, deleteAllExactRes.Count);
+        Assert.AreEqual(id, deleteAllExactRes[0]["ID"]);
+    }
 }
