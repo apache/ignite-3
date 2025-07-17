@@ -425,4 +425,22 @@ public class CurrentClientWithOldServerCompatibilityTest
         Assert.IsNotNull(res);
         Assert.AreEqual("testTxCommit", res["NAME"]);
     }
+
+    [Test]
+    public async Task TestTxRollback()
+    {
+        int id = ++_idGen;
+        var key = new IgniteTuple { ["ID"] = id };
+
+        var table = await _client.Tables.GetTableAsync(TableNameTest);
+        var view = table!.RecordBinaryView;
+
+        Assert.IsFalse((await view.GetAsync(null, key)).HasValue);
+
+        await using var tx = await _client.Transactions.BeginAsync();
+        await view.InsertAsync(tx, new IgniteTuple { ["ID"] = id, ["NAME"] = "testTxRollback" });
+        await tx.RollbackAsync();
+
+        Assert.IsFalse((await view.GetAsync(null, key)).HasValue);
+    }
 }
