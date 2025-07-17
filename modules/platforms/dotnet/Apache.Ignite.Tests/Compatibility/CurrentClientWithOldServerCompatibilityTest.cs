@@ -403,4 +403,26 @@ public class CurrentClientWithOldServerCompatibilityTest
         IIgniteTuple res = (await view.GetAsync(null, new IgniteTuple { ["ID"] = id })).Value;
         Assert.AreEqual(tuple, res);
     }
+
+    [Test]
+    public async Task TestTxCommit()
+    {
+        int id = ++_idGen;
+        var key = new IgniteTuple { ["ID"] = id };
+
+        var table = await _client.Tables.GetTableAsync(TableNameTest);
+        var view = table!.RecordBinaryView;
+
+        Assert.IsFalse((await view.GetAsync(null, key)).HasValue);
+
+        await _client.Transactions.RunInTransactionAsync(async tx =>
+        {
+            var tuple = new IgniteTuple { ["ID"] = id, ["NAME"] = "testTxCommit" };
+            await view.InsertAsync(tx, tuple);
+        });
+
+        var res = (await view.GetAsync(null, key)).Value;
+        Assert.IsNotNull(res);
+        Assert.AreEqual("testTxCommit", res["NAME"]);
+    }
 }
