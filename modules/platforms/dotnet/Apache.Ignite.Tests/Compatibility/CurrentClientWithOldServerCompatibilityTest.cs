@@ -66,8 +66,8 @@ public class CurrentClientWithOldServerCompatibilityTest
 
         _client = await IgniteClient.StartAsync(cfg);
 
-        await _client.Sql.ExecuteScriptAsync("DELETE FROM TEST WHERE ID >= 1000");
-        await _client.Sql.ExecuteScriptAsync("DELETE FROM ALL_COLUMNS WHERE ID >= 1000");
+        await _client.Sql.ExecuteScriptAsync("DELETE FROM TEST WHERE ID >= 1000").WaitAsync(TimeSpan.FromSeconds(15));
+        await _client.Sql.ExecuteScriptAsync("DELETE FROM ALL_COLUMNS WHERE ID >= 1000").WaitAsync(TimeSpan.FromSeconds(15));
     }
 
     [OneTimeTearDown]
