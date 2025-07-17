@@ -75,6 +75,10 @@ public class PlatformCompatibilityTestNodeRunner {
         cluster.start(version, 1);
         cluster.init(x -> {});
 
+        try (var client = cluster.createClient()) {
+            CompatibilityTestCommon.createDefaultTables(client);
+        }
+
         System.out.println(">>> Started test node with version: " + version);
         System.out.println("THIN_CLIENT_PORTS=" + clusterConfiguration.baseClientPort());
         Thread.sleep(600_000);
