@@ -959,7 +959,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertTrue(Tuple.equals(v2, kvView.get(tx1, k2)));
 
         tx1.commit();
-        tx0.rollback();
+        tx0.commit();
     }
 
     @AfterEach
