@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Globalization;
     using System.IO;
     using System.Linq;
     using System.Runtime.InteropServices;
@@ -66,14 +67,20 @@ namespace Apache.Ignite.Tests
         /// <returns>Disposable object to stop the server.</returns>
         public static async Task<JavaServer> StartAsync() => await StartInternalAsync(old: false, env: []);
 
-        public static async Task<JavaServer> StartOldAsync(string version, string workDir) =>
-            await StartInternalAsync(
+        public static async Task<JavaServer> StartOldAsync(string version, string workDir)
+        {
+            // Calculate port offset based on the server version (minor + patch) to avoid conflicts with other tests.
+            var portOffset = 20_000 + int.Parse(version[2..].Replace(".", string.Empty));
+
+            return await StartInternalAsync(
                 old: true,
                 env: new()
                 {
                     { "IGNITE_OLD_SERVER_VERSION", version },
-                    { "IGNITE_OLD_SERVER_WORK_DIR", workDir }
+                    { "IGNITE_OLD_SERVER_WORK_DIR", workDir },
+                    { "IGNITE_OLD_SERVER_PORT_OFFSET", portOffset.ToString(CultureInfo.InvariantCulture) }
                 });
+        }
 
         public void Dispose()
         {

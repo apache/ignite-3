@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_CLIENT_PORT;
+import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_HTTPS_PORT;
+import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
+import static org.apache.ignite.internal.ClusterConfiguration.DEFAULT_BASE_PORT;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
@@ -53,6 +57,7 @@ public class PlatformCompatibilityTestNodeRunner {
     public static void main(String[] args) throws Exception {
         String version = System.getenv("IGNITE_OLD_SERVER_VERSION");
         String workDir = System.getenv("IGNITE_OLD_SERVER_WORK_DIR");
+        int portOffset = Integer.parseInt(System.getenv().getOrDefault("IGNITE_OLD_SERVER_PORT_OFFSET", "0"));
 
         if (version == null || workDir == null) {
             throw new Exception("IGNITE_OLD_SERVER_VERSION and IGNITE_OLD_SERVER_WORK_DIR environment variables are not set.");
@@ -62,10 +67,10 @@ public class PlatformCompatibilityTestNodeRunner {
 
         ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(new PlatformTestInfo(), Path.of(workDir))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE)
-                .basePort(4455)
-                .baseHttpPort(11300)
-                .baseHttpsPort(11400)
-                .baseClientPort(CLIENT_PORT)
+                .basePort(DEFAULT_BASE_PORT + portOffset)
+                .baseHttpPort(DEFAULT_BASE_HTTP_PORT + portOffset)
+                .baseHttpsPort(DEFAULT_BASE_HTTPS_PORT + portOffset)
+                .baseClientPort(DEFAULT_BASE_CLIENT_PORT + portOffset)
                 .build();
 
         var cluster = new IgniteCluster(clusterConfiguration);
