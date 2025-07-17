@@ -1,0 +1,244 @@
+# name: test/sql/aggregate/group/test_group_by_rollup_cube.test
+# description: Test group by with rollup and cube
+# feature: T431 (CUBE and ROLLUP)
+# group: [group]
+
+query III
+SELECT a, b, c
+FROM (VALUES (1, 2, 3), (4, NULL, 6)) AS t (a, b, c)
+GROUP BY ROLLUP(a, b, c)
+ORDER BY a, b, c;
+----
+1	2	3
+1	2	NULL
+1	NULL	NULL
+4	NULL	6
+4	NULL	NULL
+4	NULL	NULL
+NULL	NULL	NULL
+
+query III
+SELECT a, b, c
+FROM (VALUES (1, 2, 3), (4, NULL, 6)) AS t (a, b, c)
+GROUP BY ROLLUP(a, c, b)
+ORDER BY a, b, c;
+----
+1	2	3
+1	NULL	3
+1	NULL	NULL
+4	NULL	6
+4	NULL	6
+4	NULL	NULL
+NULL	NULL	NULL
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-25919
+query III
+SELECT a, b, c
+FROM (VALUES (1, 2, 3), (4, NULL, 6)) AS t (a, b, c)
+GROUP BY ROLLUP(a, b), ROLLUP(a, c)
+ORDER BY a, b, c;
+----
+1	2	3
+1	2	NULL
+1	2	NULL
+1	NULL	3
+1	NULL	3
+1	NULL	NULL
+1	NULL	NULL
+1	NULL	NULL
+4	NULL	6
+4	NULL	6
+4	NULL	6
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+NULL	NULL	NULL
+
+query III
+SELECT a, b, c
+FROM (VALUES (1, 2, 3), (4, NULL, 6)) AS t (a, b, c)
+GROUP BY DISTINCT ROLLUP(a, b), ROLLUP(a, c)
+ORDER BY a, b, c;
+----
+1	2	3
+1	2	NULL
+1	NULL	3
+1	NULL	NULL
+4	NULL	6
+4	NULL	6
+4	NULL	NULL
+4	NULL	NULL
+NULL	NULL	NULL
+
+query IIRR
+SELECT city_id, category_id, min(price) as price_min, max(price) as price_max
+FROM (VALUES
+(2, 6, 21500.00),
+(2, 6, 22900.00),
+(2, 6, 23500.00),
+(2, 7, 17800.00),
+(3, 3, 10500.00)
+) AS t (city_id, category_id, price)
+GROUP BY ROLLUP(city_id, category_id)
+ORDER BY city_id, category_id;
+----
+2	6	21500.00	23500.00
+2	7	17800.00	17800.00
+2	NULL	17800.00	23500.00
+3	3	10500.00	10500.00
+3	NULL	10500.00	10500.00
+NULL	NULL	10500.00	23500.00
+
+query IIRR
+SELECT city_id, category_id, min(price) as price_min, max(price) as price_max
+FROM (VALUES
+(2, 6, 21500.00),
+(2, 6, 22900.00),
+(2, 6, 23500.00),
+(2, 7, 17800.00),
+(3, 3, 10500.00)
+) AS t (city_id, category_id, price)
+GROUP BY ROLLUP(city_id, category_id)
+ORDER BY city_id NULLS FIRST, category_id;
+----
+NULL	NULL	10500.00	23500.00
+2	6	21500.00	23500.00
+2	7	17800.00	17800.00
+2	NULL	17800.00	23500.00
+3	3	10500.00	10500.00
+3	NULL	10500.00	10500.00
+
+query III
+SELECT a, b, c
+FROM (VALUES (1, 2, 3), (4, NULL, 6)) AS t (a, b, c)
+GROUP BY CUBE(a, b, c)
+ORDER BY a, b, c;
+----
+1	2	3
+1	2	NULL
+1	NULL	3
+1	NULL	NULL
+4	NULL	6
+4	NULL	6
+4	NULL	NULL
+4	NULL	NULL
+NULL	2	3
+NULL	2	NULL
+NULL	NULL	3
+NULL	NULL	6
+NULL	NULL	6
+NULL	NULL	NULL
+NULL	NULL	NULL
+
+query III
+SELECT a, b, c
+FROM (VALUES (1, 2, 3), (4, NULL, 6)) AS t (a, b, c)
+GROUP BY CUBE(a, c, b)
+ORDER BY a, b, c;
+----
+1	2	3
+1	2	NULL
+1	NULL	3
+1	NULL	NULL
+4	NULL	6
+4	NULL	6
+4	NULL	NULL
+4	NULL	NULL
+NULL	2	3
+NULL	2	NULL
+NULL	NULL	3
+NULL	NULL	6
+NULL	NULL	6
+NULL	NULL	NULL
+NULL	NULL	NULL
+
+query III
+SELECT a, b, c
+FROM (VALUES (1, 2, 3), (4, NULL, 6)) AS t (a, b, c)
+GROUP BY CUBE(a, b), CUBE(a, c)
+ORDER BY a, b, c;
+----
+1	2	3
+1	2	3
+1	2	3
+1	2	NULL
+1	2	NULL
+1	2	NULL
+1	NULL	3
+1	NULL	3
+1	NULL	3
+1	NULL	NULL
+1	NULL	NULL
+1	NULL	NULL
+4	NULL	6
+4	NULL	6
+4	NULL	6
+4	NULL	6
+4	NULL	6
+4	NULL	6
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+4	NULL	NULL
+NULL	2	3
+NULL	2	NULL
+NULL	NULL	3
+NULL	NULL	6
+NULL	NULL	6
+NULL	NULL	NULL
+NULL	NULL	NULL
+
+query III
+SELECT a, b, c
+FROM (VALUES (1, 2, 3), (4, NULL, 6)) AS t (a, b, c)
+GROUP BY DISTINCT CUBE(a, b), CUBE(a, c)
+ORDER BY a, b, c;
+----
+1	2	3
+1	2	NULL
+1	NULL	3
+1	NULL	NULL
+4	NULL	6
+4	NULL	6
+4	NULL	NULL
+4	NULL	NULL
+NULL	2	3
+NULL	2	NULL
+NULL	NULL	3
+NULL	NULL	6
+NULL	NULL	6
+NULL	NULL	NULL
+NULL	NULL	NULL
+
+query IIRR
+SELECT city_id, category_id, min(price) as price_min, max(price) as price_max
+FROM (VALUES
+(2, 6, 21500.00),
+(2, 6, 22900.00),
+(2, 6, 23500.00),
+(2, 7, 17800.00),
+(4, 6, 20000.00),
+(4, 8, 37000.00),
+(4, 9, 75600.00)
+) AS t (city_id, category_id, price)
+GROUP BY CUBE(city_id, category_id)
+ORDER BY city_id, category_id;
+----
+2	6	21500.00	23500.00
+2	7	17800.00	17800.00
+2	NULL	17800.00	23500.00
+4	6	20000.00	20000.00
+4	8	37000.00	37000.00
+4	9	75600.00	75600.00
+4	NULL	20000.00	75600.00
+NULL	6	20000.00	23500.00
+NULL	7	17800.00	17800.00
+NULL	8	37000.00	37000.00
+NULL	9	75600.00	75600.00
+NULL	NULL	17800.00	75600.00
+
