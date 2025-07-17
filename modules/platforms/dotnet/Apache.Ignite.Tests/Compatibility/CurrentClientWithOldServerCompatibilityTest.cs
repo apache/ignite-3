@@ -26,6 +26,7 @@ using Internal;
 using Internal.Proto;
 using Internal.Table;
 using Network;
+using NodaTime;
 using NUnit.Framework;
 using TestHelpers;
 
@@ -154,7 +155,7 @@ public class CurrentClientWithOldServerCompatibilityTest
         var cols = meta.Columns;
         Assert.AreEqual(16, cols.Count);
 
-        StringAssert.Contains("name=ID, type=INT32, precision=10", cols[0].ToString());
+        StringAssert.Contains("name=ID, type=Int32, Precision=10", cols[0].ToString());
         StringAssert.Contains("name=BYTE, type=INT8, precision=3", cols[1].ToString());
         StringAssert.Contains("name=SHORT, type=INT16, precision=5", cols[2].ToString());
         StringAssert.Contains("name=INT, type=INT32, precision=10", cols[3].ToString());
@@ -175,8 +176,11 @@ public class CurrentClientWithOldServerCompatibilityTest
     [Test]
     public async Task TestSqlSelectAllColumnTypes()
     {
-        var rows = await _client.Sql.ExecuteAsync(null, $"select * from {TableNameAllColumns} where id = 1");
+        var rows = await _client.Sql.ExecuteAsync(
+            null, $"select * from {TableNameAllColumns} where id = 1");
+
         Assert.IsNotNull(rows);
+
         var rowList = await rows.ToListAsync();
         Assert.AreEqual(1, rowList.Count);
 
@@ -188,13 +192,13 @@ public class CurrentClientWithOldServerCompatibilityTest
         Assert.AreEqual(4L, row["LONG"]);
         Assert.AreEqual(5.0f, row["FLOAT"]);
         Assert.AreEqual(6.0d, row["DOUBLE"]);
-        Assert.AreEqual(new decimal(7), row["DEC"]);
+        Assert.AreEqual(new BigDecimal(7m), row["DEC"]);
         Assert.AreEqual("test", row["STRING"]);
         Assert.AreEqual(Guid.Parse("10000000-2000-3000-4000-500000000000"), row["GUID"]);
-        Assert.AreEqual(new DateTime(2023, 1, 1), row["DT"]);
-        Assert.AreEqual(new TimeSpan(0, 12, 0, 0), row["TM"]);
-        Assert.AreEqual(new DateTime(2023, 1, 1, 12, 0, 0), row["TS"]);
-        Assert.AreEqual(DateTimeOffset.FromUnixTimeSeconds(1714946523), row["TSTZ"]);
+        Assert.AreEqual(new LocalDate(2023, 1, 1), row["DT"]);
+        Assert.AreEqual(new LocalTime(12, 0, 0, 0), row["TM"]);
+        Assert.AreEqual(new LocalDateTime(2023, 1, 1, 12, 0, 0), row["TS"]);
+        Assert.AreEqual(Instant.FromUnixTimeSeconds(1714946523), row["TSTZ"]);
         Assert.IsTrue((bool)row["BOOL"]!);
         CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, (byte[])row["BYTES"]!);
     }
