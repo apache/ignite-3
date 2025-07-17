@@ -34,7 +34,7 @@ namespace Apache.Ignite.Tests
     public sealed class JavaServer : IDisposable
     {
         private const string GradleOptsEnvVar = "IGNITE_DOTNET_GRADLE_OPTS";
-        private const string RequireExternalJavaServerEnvVar = "IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER";
+        private const string RequireExternalJavaServerEnvVar = "IGNITE_DOTNET_REQUIRE_EXTERNAL_SERVER1";
 
         private const int DefaultClientPort = 10942;
 
@@ -107,7 +107,7 @@ namespace Apache.Ignite.Tests
             if (await TryConnect(defaultPort) == null)
             {
                 // Server started from outside.
-                Log(">>> Java server is already started.");
+                Log(">>> Java server is already started on port " + defaultPort + ".");
 
                 return new JavaServer(defaultPort, null);
             }
