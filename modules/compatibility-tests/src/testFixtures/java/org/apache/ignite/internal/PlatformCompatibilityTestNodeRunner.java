@@ -57,7 +57,7 @@ public class PlatformCompatibilityTestNodeRunner {
     public static void main(String[] args) throws Exception {
         String version = System.getenv("IGNITE_OLD_SERVER_VERSION");
         String workDir = System.getenv("IGNITE_OLD_SERVER_WORK_DIR");
-        int portOffset = Integer.parseInt(System.getenv().getOrDefault("IGNITE_OLD_SERVER_PORT_OFFSET", "0"));
+        int portOffset = Integer.parseInt(System.getenv().getOrDefault("IGNITE_OLD_SERVER_PORT_OFFSET", "20000"));
 
         if (version == null || workDir == null) {
             throw new Exception("IGNITE_OLD_SERVER_VERSION and IGNITE_OLD_SERVER_WORK_DIR environment variables are not set.");
