@@ -232,4 +232,18 @@ public class CurrentClientWithOldServerCompatibilityTest
 
         Assert.AreEqual(count, rowCnt);
     }
+
+    [Test]
+    public async Task TestSqlScript()
+    {
+        await _client.Sql.ExecuteScriptAsync("CREATE TABLE testSqlScript (id INT PRIMARY KEY, name VARCHAR)");
+        var rows = await _client.Sql.ExecuteAsync(null, "SELECT * FROM SYSTEM.TABLES WHERE NAME = 'TESTSQLSCRIPT'");
+        var rowList = await rows.ToListAsync();
+        Assert.AreEqual(1, rowList.Count);
+
+        await _client.Sql.ExecuteScriptAsync("DROP TABLE testSqlScript");
+        rows = await _client.Sql.ExecuteAsync(null, "SELECT * FROM SYSTEM.TABLES WHERE NAME = 'TESTSQLSCRIPT'");
+        rowList = await rows.ToListAsync();
+        Assert.AreEqual(0, rowList.Count);
+    }
 }
