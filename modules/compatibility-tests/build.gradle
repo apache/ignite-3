@@ -136,6 +136,7 @@ processTestResources {
 }
 
 tasks.register('runnerPlatformCompatibilityTest', JavaExec) {
+    dependsOn tasks.integrationTestClasses
     mainClass = 'org.apache.ignite.internal.PlatformCompatibilityTestNodeRunner'
 
     jvmArgs += defaultJvmArgs
