@@ -59,6 +59,9 @@ public class CurrentClientWithOldServerCompatibilityTest
 
         var cfg = new IgniteClientConfiguration($"localhost:{_javaServer.Port}");
         _client = await IgniteClient.StartAsync(cfg);
+
+        await _client.Sql.ExecuteScriptAsync("DELETE FROM TEST WHERE ID >= 1000");
+        await _client.Sql.ExecuteScriptAsync("DELETE FROM ALL_COLUMNS WHERE ID >= 1000");
     }
 
     [OneTimeTearDown]
@@ -223,13 +226,7 @@ public class CurrentClientWithOldServerCompatibilityTest
         var statement = new SqlStatement($"SELECT * FROM {TableNameTest} WHERE ID > ?", pageSize: 10);
 
         await using var cursor = await _client.Sql.ExecuteAsync(null, statement, minId);
-
-        int rowCnt = 0;
-        await foreach (var row in cursor)
-        {
-            rowCnt++;
-        }
-
+        var rowCnt = await cursor.CountAsync();
         Assert.AreEqual(count, rowCnt);
     }
 
@@ -284,11 +281,10 @@ public class CurrentClientWithOldServerCompatibilityTest
         Assert.AreEqual("v2", oldValue.Value["NAME"]);
 
         // Upsert All.
-        await view.UpsertAllAsync(null, new[]
-        {
+        await view.UpsertAllAsync(null, [
             new IgniteTuple { ["ID"] = id, ["NAME"] = "v5" },
             new IgniteTuple { ["ID"] = id2, ["NAME"] = "v6" }
-        });
+        ]);
         Assert.AreEqual("v5", (await view.GetAsync(null, key)).Value["NAME"]);
         Assert.AreEqual("v6", (await view.GetAsync(null, key2)).Value["NAME"]);
 
@@ -302,15 +298,15 @@ public class CurrentClientWithOldServerCompatibilityTest
         // Assert.IsFalse(await view.ContainsAllAsync(null, new[] { key, new IgniteTuple { ["ID"] = -id } }));
 
         // Get.
-        Assert.IsNotNull(await view.GetAsync(null, key));
-        Assert.IsNull(await view.GetAsync(null, new IgniteTuple { ["ID"] = -id }));
+        Assert.IsTrue((await view.GetAsync(null, key)).HasValue);
+        Assert.IsFalse((await view.GetAsync(null, new IgniteTuple { ["ID"] = -id })).HasValue);
 
         // Get all.
         var keys = new[] { key, new IgniteTuple { ["ID"] = -id } };
         var results = await view.GetAllAsync(null, keys);
         Assert.AreEqual(2, results.Count);
         Assert.AreEqual("v5", results[0].Value["NAME"]);
-        Assert.IsNull(results[1]);
+        Assert.IsFalse(results[1].HasValue);
 
         // Replace.
         Assert.IsTrue(await view.ReplaceAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v7" }));
@@ -338,7 +334,7 @@ public class CurrentClientWithOldServerCompatibilityTest
         // Delete.
         Assert.IsTrue(await view.DeleteAsync(null, key));
         Assert.IsFalse(await view.DeleteAsync(null, key));
-        Assert.IsNull(await view.GetAsync(null, key));
+        Assert.IsFalse((await view.GetAsync(null, key)).HasValue);
 
         // Delete exact.
         Assert.IsFalse(await view.DeleteExactAsync(null, new IgniteTuple { ["ID"] = id2, ["NAME"] = "v9" }));
@@ -346,7 +342,7 @@ public class CurrentClientWithOldServerCompatibilityTest
 
         // Get and delete.
         await view.UpsertAsync(null, new IgniteTuple { ["ID"] = id, ["NAME"] = "v10" });
-        Assert.IsNull(await view.GetAndDeleteAsync(null, new IgniteTuple { ["ID"] = -id }));
+        Assert.IsFalse((await view.GetAndDeleteAsync(null, new IgniteTuple { ["ID"] = -id })).HasValue);
 
         var getAndDelete = await view.GetAndDeleteAsync(null, new IgniteTuple { ["ID"] = id });
         Assert.AreEqual("v10", getAndDelete.Value["NAME"]);
