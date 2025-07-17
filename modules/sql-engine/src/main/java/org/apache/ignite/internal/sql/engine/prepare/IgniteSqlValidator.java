@@ -1571,7 +1571,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else if (cls == LocalDate.class) {
             return typeFactory.createSqlType(SqlTypeName.DATE);
         } else if (cls == LocalTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIME);
+            return typeFactory.createSqlType(SqlTypeName.TIME, 6);
         } else if (cls == LocalDateTime.class) {
             return typeFactory.createSqlType(SqlTypeName.TIMESTAMP);
         } else if (cls == Instant.class) {

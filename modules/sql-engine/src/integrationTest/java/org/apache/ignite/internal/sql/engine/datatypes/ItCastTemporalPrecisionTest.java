@@ -30,7 +30,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoField;
 import java.time.temporal.Temporal;
 import java.util.List;
 import java.util.Objects;
@@ -102,7 +101,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "{0} ''{1}''::{2}({3}) = {4}")
     @MethodSource("selectCastArgs")
     public void selectCast(SqlTypeName sourceType, String literal, SqlTypeName targetType, int targetPrecision,
-            Matcher<List<List<?>>> matcher, Matcher<List<List<?>>> dynParamsMatcher) {
+            Matcher<List<List<?>>> matcher) {
         RelDataType targetDataType = Commons.typeFactory().createSqlType(targetType, targetPrecision);
         ColumnType expectColumnType = TypeUtils.columnType(targetDataType);
         String literalType = sourceType == VARCHAR ? "" : sourceType.getSpaceName();
@@ -137,7 +136,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
                     .withParam(param)
                     .withTimeZoneId(ZoneOffset.UTC)
                     .columnMetadata(new MetadataMatcher().type(expectColumnType).precision(targetPrecision))
-                    .results(dynParamsMatcher)
+                    .results(matcher)
                     .check();
         }
     }
@@ -468,16 +467,7 @@ public class ItCastTemporalPrecisionTest extends BaseSqlIntegrationTest {
         }
 
         Arguments toArgs() {
-            Matcher<List<List<?>>> dynParamMatcher = matcher;
-
-            if (sourceType == TIME && targetType != sourceType) {
-                // The default dynamic parameter precision is 0, so the millisecond value
-                // will be truncated unless an explicit ?::TIME(n) is specified.
-                dynParamMatcher = new ListOfListsMatcher(Matchers.contains(
-                        new TimeMatcher(expected.with(ChronoField.NANO_OF_SECOND, 0))));
-            }
-
-            return Arguments.of(sourceType, literal, targetType, targetPrecision, matcher, dynParamMatcher);
+            return Arguments.of(sourceType, literal, targetType, targetPrecision, matcher);
         }
     }
 

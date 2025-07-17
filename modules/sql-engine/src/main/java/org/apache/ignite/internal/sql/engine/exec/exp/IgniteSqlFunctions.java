@@ -380,6 +380,11 @@ public class IgniteSqlFunctions {
     }
 
     /** Adjusts precision of {@link SqlTypeName#TIME} value. */
+    public static int toTimeExact(long val, int precision) {
+        return IgniteSqlDateTimeUtils.adjustTimeMillis((int) val, precision);
+    }
+
+    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
     public static @Nullable Integer toDateExact(@Nullable Object object) {
         if (object == null) {
             return null;
