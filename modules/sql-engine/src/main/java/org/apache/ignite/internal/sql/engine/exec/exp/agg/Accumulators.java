@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import static org.apache.calcite.sql.type.SqlTypeName.ANY;
 import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
-import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.VARBINARY;
@@ -31,7 +30,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
-import org.apache.calcite.DataContexts;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
@@ -69,11 +68,11 @@ public class Accumulators {
     /**
      * Returns a supplier that creates a accumulator functions for the given aggregate call.
      */
-    public Supplier<Accumulator> accumulatorFactory(AggregateCall call, RelDataType inputType) {
-        return accumulatorFunctionFactory(call, inputType);
+    public Supplier<Accumulator> accumulatorFactory(DataContext context, AggregateCall call, RelDataType inputType) {
+        return accumulatorFunctionFactory(context, call, inputType);
     }
 
-    private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call, RelDataType inputType) {
+    private Supplier<Accumulator> accumulatorFunctionFactory(DataContext context, AggregateCall call, RelDataType inputType) {
         // Update documentation in IgniteCustomType when you add an aggregate
         // that can work for any type out of the box.
         switch (call.getAggregation().getName()) {
@@ -99,9 +98,8 @@ public class Accumulators {
                 assert call.rexList.size() == 1 : "Incorrect number of pre-operands for LiteralAgg: " + call + ", input: " + inputType;
                 RexNode lit = call.rexList.get(0);
                 assert lit instanceof RexLiteral : "Non-literal argument for LiteralAgg: " + call + ", argument: " + lit;
-                assert lit.getType().getSqlTypeName() == BOOLEAN : "Unsupported argument for LiteralAgg: " + call + ", argument: " + lit;
 
-                return LiteralVal.newAccumulator((RexLiteral) lit);
+                return LiteralVal.newAccumulator(context, (RexLiteral) lit);
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -288,12 +286,12 @@ public class Accumulators {
          * @param literal Literal.
          * @return Accumulator factory function.
          */
-        public static Supplier<Accumulator> newAccumulator(RexLiteral literal) {
+        public static Supplier<Accumulator> newAccumulator(DataContext context, RexLiteral literal) {
             Class<?> javaClass = (Class<?>) Commons.typeFactory().getJavaClass(literal.getType());
             if (javaClass.isPrimitive()) {
                 javaClass = Primitives.wrap(javaClass);
             }
-            Object value = RexUtils.literalValue(DataContexts.EMPTY, literal, javaClass);
+            Object value = RexUtils.literalValue(context, literal, javaClass);
 
             return () -> new LiteralVal(literal.getType(), value);
         }

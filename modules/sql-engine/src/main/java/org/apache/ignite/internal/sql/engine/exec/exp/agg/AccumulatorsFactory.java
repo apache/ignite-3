@@ -189,18 +189,18 @@ public class AccumulatorsFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public AccumulatorWrapper<RowT> apply(ExecutionContext<RowT> context) {
-            Accumulator accumulator = accumulator();
+            Accumulator accumulator = accumulator(context);
 
             return new AccumulatorWrapperImpl<>(context, accumulator, call, inAdapter, outAdapter);
         }
 
-        private Accumulator accumulator() {
+        private Accumulator accumulator(DataContext context) {
             if (accFactory != null) {
                 return accFactory.get();
             }
 
             // init factory and adapters
-            accFactory = accumulators.accumulatorFactory(call, inputRowType);
+            accFactory = accumulators.accumulatorFactory(context, call, inputRowType);
             Accumulator accumulator = accFactory.get();
 
             inAdapter = createInAdapter(accumulator);
