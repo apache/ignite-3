@@ -1068,7 +1068,7 @@ public class NodeImpl implements Node, RaftServerService {
             Requires.requireTrue(this.conf.isValid(), "Invalid conf: %s", this.conf);
         }
         else {
-            LOG.info("Init node {} with empty conf, lastCommittedIndex={}.", this.serverId, getLastCommittedIndex());
+            LOG.info("Init node {} with empty conf, lastCommittedIndex={}.", getNodeId(), getLastCommittedIndex());
         }
 
         this.replicatorGroup = new ReplicatorGroupImpl();
