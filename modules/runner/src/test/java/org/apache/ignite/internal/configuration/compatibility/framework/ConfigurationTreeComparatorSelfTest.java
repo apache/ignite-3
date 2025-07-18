@@ -397,8 +397,10 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     /**
-     * Test scenario. <br> config ver1 has property : prop1 <br> config ver2 has renamed property : prop1 -> prop2 <br> config ver3 has
-     * deleted property : prop1, prop2 <br>
+     * Test scenario. <br>
+     * config ver1 has property : prop1 <br>
+     * config ver2 has renamed property : prop1 -> prop2 <br>
+     * config ver3 has deleted property : prop1, prop2 <br>
      * <br>
      * Check config transitions are possible: ver1 -> ver2, ver1 -> ver3, ver2 -> ver3
      */
