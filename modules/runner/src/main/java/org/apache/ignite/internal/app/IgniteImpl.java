@@ -150,6 +150,7 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -901,7 +902,7 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsQueueKey((TablePartitionId) replicaGrpId))
-                        .thenApply(org.apache.ignite.internal.metastorage.Entry::value)
+                        .thenApply(entry -> new IgniteBiTuple<>(entry.value(), entry.revision()))
         );
 
         metricManager.configure(

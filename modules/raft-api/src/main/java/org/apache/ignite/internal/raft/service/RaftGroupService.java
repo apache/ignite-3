@@ -140,7 +140,7 @@ public interface RaftGroupService extends RaftCommandRunner {
      *             If real raft group term will be different - configuration update will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term);
+    CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term, long casualityToken);
 
     /**
      * Changes peers and learners of a replication group.
@@ -158,7 +158,7 @@ public interface RaftGroupService extends RaftCommandRunner {
      *             If real raft group term will be different - configuration update will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term);
+    CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term, long casualityToken);
 
     /**
      * Adds learners (non-voting members).

@@ -125,7 +125,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status addPeer(final String groupId, final Configuration conf, final PeerId peer) {
+    public Status addPeer(final String groupId, final Configuration conf, final PeerId peer, long casualityToken) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null configuration");
         Requires.requireNonNull(peer, "Null peer");
@@ -141,6 +141,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .peerId(peer.toString())
+            .casualityToken(casualityToken)
             .build();
 
         try {
@@ -166,7 +167,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status removePeer(final String groupId, final Configuration conf, final PeerId peer) {
+    public Status removePeer(final String groupId, final Configuration conf, final PeerId peer, long casualityToken) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null configuration");
         Requires.requireNonNull(peer, "Null peer");
@@ -183,6 +184,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .peerId(peer.toString())
+            .casualityToken(casualityToken)
             .build();
 
         try {
@@ -208,7 +210,8 @@ public class CliServiceImpl implements CliService {
             final String groupId,
             final Configuration conf,
             final Configuration newPeersAndLearners,
-            long term
+            long term,
+            long casualityToken
     ) {
         Requires.requireTrue(!StringUtils.isBlank(groupId), "Blank group id");
         Requires.requireNonNull(conf, "Null configuration");
@@ -227,6 +230,7 @@ public class CliServiceImpl implements CliService {
             .newPeersList(newPeersAndLearners.getPeers().stream().map(Object::toString).collect(toList()))
             .newLearnersList(newPeersAndLearners.getLearners().stream().map(Object::toString).collect(toList()))
             .term(term)
+            .casualityToken(casualityToken)
             .build();
 
         try {
@@ -279,7 +283,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status addLearners(final String groupId, final Configuration conf, final List<PeerId> learners) {
+    public Status addLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long casualityToken) {
         checkLearnersOpParams(groupId, conf, learners);
 
         final PeerId leaderId = new PeerId();
@@ -297,6 +301,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .learnersList(learners.stream().map(Object::toString).collect(toList()))
+            .casualityToken(casualityToken)
             .build();
 
         try {
@@ -343,7 +348,7 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners) {
+    public Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long casualityToken) {
         checkLearnersOpParams(groupId, conf, learners);
 
         final PeerId leaderId = new PeerId();
@@ -361,6 +366,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .learnersList(learners.stream().map(Object::toString).collect(toList()))
+            .casualityToken(casualityToken)
             .build();
 
         try {
@@ -374,16 +380,16 @@ public class CliServiceImpl implements CliService {
     }
 
     @Override
-    public Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner) {
-        Status status = removeLearners(groupId, conf, Arrays.asList(learner));
+    public Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner, long casualityToken) {
+        Status status = removeLearners(groupId, conf, Arrays.asList(learner), casualityToken);
         if (status.isOk()) {
-            status = addPeer(groupId, conf, new PeerId(learner.getConsistentId()));
+            status = addPeer(groupId, conf, new PeerId(learner.getConsistentId()), casualityToken);
         }
         return status;
     }
 
     @Override
-    public Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners) {
+    public Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long casualityToken) {
         checkLearnersOpParams(groupId, conf, learners);
 
         final PeerId leaderId = new PeerId();
@@ -401,6 +407,7 @@ public class CliServiceImpl implements CliService {
             .groupId(groupId)
             .leaderId(leaderId.toString())
             .learnersList(learners.stream().map(Object::toString).collect(toList()))
+            .casualityToken(casualityToken)
             .build();
 
         try {

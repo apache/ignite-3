@@ -163,7 +163,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @param peer peer to add
      * @param done callback
      */
-    void addPeer(final PeerId peer, final Closure done);
+    void addPeer(final PeerId peer, long casualityToken, final Closure done);
 
     /**
      * Remove the peer from the raft group. done.run() would be invoked after operation finishes, describing the
@@ -172,7 +172,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @param peer peer to remove
      * @param done callback
      */
-    void removePeer(final PeerId peer, final Closure done);
+    void removePeer(final PeerId peer, long casualityToken, final Closure done);
 
     /**
      * Change the configuration of the raft group to |newPeers| , done.run() would be invoked after this operation
@@ -212,7 +212,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @param learners learners to add
      * @param done callback
      */
-    void addLearners(final List<PeerId> learners, final Closure done);
+    void addLearners(final List<PeerId> learners, long casualityToken, final Closure done);
 
     /**
      * Remove some learners from the raft group. done.run() will be invoked after this operation finishes, describing
@@ -221,7 +221,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @param learners learners to remove
      * @param done callback
      */
-    void removeLearners(final List<PeerId> learners, final Closure done);
+    void removeLearners(final List<PeerId> learners, long casualityToken, final Closure done);
 
     /**
      * Reset learners in the raft group. done.run() will be invoked after this operation finishes, describing the
@@ -230,7 +230,7 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @param learners learners to set
      * @param done callback
      */
-    void resetLearners(final List<PeerId> learners, final Closure done);
+    void resetLearners(final List<PeerId> learners, long casualityToken, final Closure done);
 
     /**
      * Start a snapshot immediately if possible. done.run() would be invoked when the snapshot finishes, describing the

@@ -52,7 +52,7 @@ public interface RaftGroupEventsListener {
      * @param configuration Configuration that failed to be applied.
      * @param term Raft term of the current leader.
      */
-    default void onReconfigurationError(Status status, PeersAndLearners configuration, long term) {}
+    default void onReconfigurationError(Status status, PeersAndLearners configuration, long term, long casualityToken) {}
 
     /**
      * No-op raft group events listener.

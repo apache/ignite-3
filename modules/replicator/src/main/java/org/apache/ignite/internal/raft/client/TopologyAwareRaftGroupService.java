@@ -469,13 +469,13 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term) {
-        return raftClient.changePeersAndLearners(peersAndLearners, term);
+    public CompletableFuture<Void> changePeersAndLearners(PeersAndLearners peersAndLearners, long term, long casualityToken) {
+        return raftClient.changePeersAndLearners(peersAndLearners, term, casualityToken);
     }
 
     @Override
-    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term) {
-        return raftClient.changePeersAndLearnersAsync(peersAndLearners, term);
+    public CompletableFuture<Void> changePeersAndLearnersAsync(PeersAndLearners peersAndLearners, long term, long casualityToken) {
+        return raftClient.changePeersAndLearnersAsync(peersAndLearners, term, casualityToken);
     }
 
     @Override

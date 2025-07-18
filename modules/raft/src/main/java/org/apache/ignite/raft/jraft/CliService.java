@@ -35,7 +35,7 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param peer peer to add
      * @return operation status
      */
-    Status addPeer(final String groupId, final Configuration conf, final PeerId peer);
+    Status addPeer(final String groupId, final Configuration conf, final PeerId peer, long casualityToken);
 
     /**
      * Remove a peer from the replicating group which consists of |conf|. return OK status when success.
@@ -45,7 +45,7 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param peer peer to remove
      * @return operation status
      */
-    Status removePeer(final String groupId, final Configuration conf, final PeerId peer);
+    Status removePeer(final String groupId, final Configuration conf, final PeerId peer, long casualityToken);
 
     /**
      * Gracefully change the peers and learners of the replication group.
@@ -60,7 +60,8 @@ public interface CliService extends Lifecycle<CliOptions> {
             final String groupId,
             final Configuration conf,
             final Configuration newPeersAndLearners,
-            long term
+            long term,
+            long casualityToken
     );
 
     /**
@@ -81,7 +82,7 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param learners learner peers to add
      * @return operation status
      */
-    Status addLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
+    Status addLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long casualityToken);
 
     /**
      * Remove some learners from the replicating group which consists of |conf|. return OK status when success.
@@ -91,7 +92,7 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param learners learner peers to remove
      * @return operation status
      */
-    Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
+    Status removeLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long casualityToken);
 
     /**
      * Converts the specified learner to follower of |conf|.
@@ -102,7 +103,7 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param learner  learner peer
      * @return operation status
      */
-    Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner);
+    Status learner2Follower(final String groupId, final Configuration conf, final PeerId learner, long casualityToken);
 
     /**
      * Update learners set in the replicating group which consists of |conf|. return OK status when success.
@@ -112,7 +113,7 @@ public interface CliService extends Lifecycle<CliOptions> {
      * @param learners learner peers to set
      * @return operation status
      */
-    Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners);
+    Status resetLearners(final String groupId, final Configuration conf, final List<PeerId> learners, long casualityToken);
 
     /**
      * Transfer the leader of the replication group to the target peer

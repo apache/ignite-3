@@ -45,6 +45,8 @@ public class LogEntry implements Checksum {
     /** true when the log has checksum **/
     private boolean hasChecksum;
 
+    private long casualityToken;
+
     public List<PeerId> getLearners() {
         return this.learners;
     }
@@ -118,6 +120,14 @@ public class LogEntry implements Checksum {
     public void setChecksum(final long checksum) {
         this.checksum = checksum;
         this.hasChecksum = true;
+    }
+
+    public long getCasualityToken() {
+        return casualityToken;
+    }
+
+    public void setCasualityToken(long casualityToken) {
+        this.casualityToken = casualityToken;
     }
 
     public EnumOutter.EntryType getType() {
@@ -203,6 +213,7 @@ public class LogEntry implements Checksum {
         result = prime * result + ((this.oldPeers == null) ? 0 : this.oldPeers.hashCode());
         result = prime * result + ((this.peers == null) ? 0 : this.peers.hashCode());
         result = prime * result + ((this.type == null) ? 0 : this.type.hashCode());
+        result = prime * result + (int)casualityToken;
         return result;
     }
 
@@ -264,6 +275,9 @@ public class LogEntry implements Checksum {
             }
         }
         else if (!this.peers.equals(other.peers)) {
+            return false;
+        }
+        if (this.casualityToken != other.casualityToken) {
             return false;
         }
         return this.type == other.type;

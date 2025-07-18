@@ -60,5 +60,5 @@ public interface JraftGroupEventsListener {
      * @param learners Collection of learners, which was as a target of reconfiguration.
      * @param term Raft term of the current leader.
      */
-    void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term);
+    void onReconfigurationError(Status status, Collection<PeerId> peers, Collection<PeerId> learners, long term, long casualityToken);
 }

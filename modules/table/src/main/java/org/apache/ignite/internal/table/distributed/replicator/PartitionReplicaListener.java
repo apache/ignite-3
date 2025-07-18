@@ -647,7 +647,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                             replicaGrpId.tableId()
                     );
 
-                    return raftClient.changePeersAndLearnersAsync(peersConfigurationFromMessage(request), leaderWithTerm.term());
+                    return raftClient.changePeersAndLearnersAsync(
+                            peersConfigurationFromMessage(request),
+                            leaderWithTerm.term(),
+                            request.casualityToken()
+                    );
                 });
     }
 
