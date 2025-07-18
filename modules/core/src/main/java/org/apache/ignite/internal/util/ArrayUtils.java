@@ -200,7 +200,7 @@ public final class ArrayUtils {
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
-    public static boolean nullOrEmpty(byte[] arr) {
+    public static boolean nullOrEmpty(byte @Nullable [] arr) {
         return arr == null || arr.length == 0;
     }
 
@@ -230,7 +230,7 @@ public final class ArrayUtils {
      * @param arr Array to check.
      * @return {@code true} if {@code null} or an empty array is provided, {@code false} otherwise.
      */
-    public static boolean nullOrEmpty(long[] arr) {
+    public static boolean nullOrEmpty(long @Nullable [] arr) {
         return arr == null || arr.length == 0;
     }
 
@@ -329,7 +329,7 @@ public final class ArrayUtils {
      * @param longs One or more elements.
      * @return Concatenated array.
      */
-    public static long[] concat(@Nullable long[] arr, long... longs) {
+    public static long[] concat(long @Nullable [] arr, long... longs) {
         if (nullOrEmpty(arr)) {
             return longs;
         }
@@ -348,7 +348,7 @@ public final class ArrayUtils {
      * @param bytes One or more elements.
      * @return Concatenated array.
      */
-    public static byte[] concat(@Nullable byte[] arr, byte... bytes) {
+    public static byte[] concat(byte @Nullable [] arr, byte... bytes) {
         if (nullOrEmpty(arr)) {
             return bytes;
         }

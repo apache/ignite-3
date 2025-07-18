@@ -15,17 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.configuration.exception;
 
-import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
+import org.apache.ignite.lang.ErrorGroups.CommonConfiguration;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Throws when writing to node bootstrap configuration failed with IO problem.
+ * Throws when configuration parse failed.
  */
-public class NodeConfigWriteException extends IgniteException {
+public class ConfigurationParseException extends IgniteException {
+    private static final long serialVersionUID = -3249916096894846310L;
 
-    public NodeConfigWriteException(String message, Throwable cause) {
-        super(NodeConfiguration.CONFIG_WRITE_ERR, message, cause);
+    public ConfigurationParseException(String message) {
+        super(CommonConfiguration.CONFIGURATION_PARSE_ERR, message);
+    }
+
+    public ConfigurationParseException(String message, @Nullable Throwable cause) {
+        super(CommonConfiguration.CONFIGURATION_PARSE_ERR, message, cause);
     }
 }

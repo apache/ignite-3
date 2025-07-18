@@ -75,6 +75,8 @@ public class ConfigurationTreeComparator {
 
         @Override
         public void visit(ConfigNode node) {
+            assert node.isRoot() || node.isInnerNode() || node.isNamedNode() || node.isValue();
+
             if (node.isValue() && !compContext.shouldIgnore(node.path())) {
                 validator.accept(node);
             }
@@ -147,8 +149,8 @@ public class ConfigurationTreeComparator {
      */
     private static boolean match(ConfigNode node, ConfigNode candidate) {
         return Objects.equals(candidate.kind(), node.kind())
-                && matchNames(candidate, node)
                 && validateFlags(candidate, node)
+                && matchNames(candidate, node)
                 && candidate.deletedPrefixes().containsAll(node.deletedPrefixes())
                 && (!node.isValue() || Objects.equals(candidate.type(), node.type())); // Value node types can be changed.
     }
@@ -177,7 +179,7 @@ public class ConfigurationTreeComparator {
 
     private static boolean matchNames(ConfigNode candidate, ConfigNode node) {
         return Objects.equals(candidate.name(), node.name())
-                || (node.isValue() && candidate.isValue() && compareUsingLegacyNames(candidate, node));
+                || compareUsingLegacyNames(candidate, node);
     }
 
     private static boolean compareUsingLegacyNames(ConfigNode candidate, ConfigNode node) {
@@ -187,6 +189,8 @@ public class ConfigurationTreeComparator {
     private static boolean validateFlags(ConfigNode candidate, ConfigNode node) {
         return node.isRoot() == candidate.isRoot()
                 && node.isValue() == candidate.isValue()
+                && node.isNamedNode() == candidate.isNamedNode()
+                && node.isInnerNode() == candidate.isInnerNode()
                 && (!candidate.isInternal() || node.isInternal()) // Public property\tree can't be hidden.
                 && (!node.isDeprecated() || candidate.isDeprecated()); // Deprecation shouldn't be removed.
     }
@@ -216,29 +220,24 @@ public class ConfigurationTreeComparator {
 
     /** Holder class for comparison context. */
     public static class ComparisonContext {
-        private final Set<ConfigurationModule> configurationModules;
-        private Collection<KeyIgnorer> deletedItems;
+        /** Creates context from current configuration. */
+        public static ComparisonContext create(Set<ConfigurationModule> configurationModules) {
+            Set<String> prefixes = configurationModules.stream()
+                    .map(ConfigurationModule::deletedPrefixes)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toSet());
 
-        ComparisonContext() {
-            this.configurationModules = Set.of();
+            return new ComparisonContext(prefixes);
         }
 
-        public ComparisonContext(Set<ConfigurationModule> configurationModules) {
-            this.configurationModules = configurationModules;
+        private final KeyIgnorer deletedItems;
+
+        ComparisonContext(Collection<String> deletedPrefixes) {
+            this.deletedItems = KeyIgnorer.fromDeletedPrefixes(deletedPrefixes);
         }
 
         boolean shouldIgnore(String path) {
-            if (deletedItems == null) {
-                deletedItems = new ArrayList<>(configurationModules.size());
-
-                for (ConfigurationModule module : configurationModules) {
-                    KeyIgnorer keyIgnorer = KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
-
-                    deletedItems.add(keyIgnorer);
-                }
-            }
-
-            return deletedItems.stream().anyMatch(i -> i.shouldIgnore(path));
+            return deletedItems.shouldIgnore(path);
         }
     }
 }
