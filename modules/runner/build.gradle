@@ -230,6 +230,7 @@ dependencies {
 }
 
 tasks.register('runnerPlatformTest', JavaExec) {
+    dependsOn tasks.integrationTestClasses
     mainClass = 'org.apache.ignite.internal.runner.app.PlatformTestNodeRunner'
 
     jvmArgs += defaultJvmArgs
