@@ -72,6 +72,8 @@ public class ClusterConfiguration {
 
     private final NodeNamingStrategy nodeNamingStrategy;
 
+    private final boolean usePreConfiguredStorageProfiles;
+
     private ClusterConfiguration(
             TestInfo testInfo,
             Path workDir,
@@ -81,7 +83,8 @@ public class ClusterConfiguration {
             int baseClientPort,
             int baseHttpPort,
             int baseHttpsPort,
-            NodeNamingStrategy nodeNamingStrategy
+            NodeNamingStrategy nodeNamingStrategy,
+            boolean usePreConfiguredStorageProfiles
     ) {
         this.testInfo = testInfo;
         this.workDir = workDir;
@@ -92,6 +95,7 @@ public class ClusterConfiguration {
         this.baseHttpPort = baseHttpPort;
         this.baseHttpsPort = baseHttpsPort;
         this.nodeNamingStrategy = nodeNamingStrategy;
+        this.usePreConfiguredStorageProfiles = usePreConfiguredStorageProfiles;
     }
 
     public TestInfo testInfo() {
@@ -128,6 +132,10 @@ public class ClusterConfiguration {
 
     public NodeNamingStrategy nodeNamingStrategy() {
         return nodeNamingStrategy;
+    }
+
+    public boolean usePreConfiguredStorageProfiles() {
+        return usePreConfiguredStorageProfiles;
     }
 
     public static Builder builder(TestInfo testInfo, Path workDir) {
@@ -220,6 +228,8 @@ public class ClusterConfiguration {
 
         private NodeNamingStrategy nodeNamingStrategy = new DefaultNodeNamingStrategy();
 
+        private boolean usePreConfiguredStorageProfiles = true;
+
         public Builder(TestInfo testInfo, Path workDir) {
             this.testInfo = testInfo;
             this.workDir = workDir;
@@ -227,6 +237,11 @@ public class ClusterConfiguration {
 
         public Builder defaultNodeBootstrapConfigTemplate(String defaultNodeBootstrapConfigTemplate) {
             this.defaultNodeBootstrapConfigTemplate = defaultNodeBootstrapConfigTemplate;
+            return this;
+        }
+
+        public Builder usePreConfiguredStorageProfiles(boolean usePreConfiguredStorageProfiles) {
+            this.usePreConfiguredStorageProfiles = usePreConfiguredStorageProfiles;
             return this;
         }
 
@@ -273,7 +288,8 @@ public class ClusterConfiguration {
                     baseClientPort,
                     baseHttpPort,
                     baseHttpsPort,
-                    nodeNamingStrategy
+                    nodeNamingStrategy,
+                    usePreConfiguredStorageProfiles
             );
         }
     }

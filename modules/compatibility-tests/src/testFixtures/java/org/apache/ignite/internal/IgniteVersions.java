@@ -35,6 +35,7 @@ public class IgniteVersions {
 
     private List<String> artifacts;
     private Map<String, String> configOverrides;
+    private Map<String, String> storageProfilesOverrides;
     private List<Version> versions;
 
     public IgniteVersions() {
@@ -45,16 +46,19 @@ public class IgniteVersions {
      *
      * @param artifacts List of dependency notations.
      * @param configOverrides Map of global node configuration overrides.
+     * @param storageProfilesOverrides Map of global storage profiles overrides.
      * @param versions List of version descriptors.
      */
     @JsonCreator
     public IgniteVersions(
             @JsonProperty("artifacts") List<String> artifacts,
             @JsonProperty("configOverrides") Map<String, String> configOverrides,
+            @JsonProperty("storageProfilesOverrides") Map<String, String> storageProfilesOverrides,
             @JsonProperty("versions") List<Version> versions
     ) {
         this.artifacts = artifacts;
         this.configOverrides = configOverrides;
+        this.storageProfilesOverrides = storageProfilesOverrides;
         this.versions = versions;
     }
 
@@ -64,6 +68,10 @@ public class IgniteVersions {
 
     public Map<String, String> configOverrides() {
         return configOverrides;
+    }
+
+    public Map<String, String> storageProfilesOverrides() {
+        return storageProfilesOverrides;
     }
 
     public List<Version> versions() {
@@ -76,14 +84,27 @@ public class IgniteVersions {
     public static class Version {
         private String version;
         private Map<String, String> configOverrides;
+        private Map<String, String> storageProfilesOverrides;
 
         public Version() {
         }
 
+        /**
+         * Constructor.
+         *
+         * @param version List of dependency notations.
+         * @param configOverrides Map of node configuration overrides.
+         * @param storageProfilesOverrides Map of node storage profiles overrides.
+         */
         @JsonCreator
-        public Version(@JsonProperty("version") String version, @JsonProperty("configOverrides") Map<String, String> configOverrides) {
+        public Version(
+                @JsonProperty("version") String version,
+                @JsonProperty("configOverrides") Map<String, String> configOverrides,
+                @JsonProperty("storageProfilesOverrides") Map<String, String> storageProfilesOverrides
+        ) {
             this.version = version;
             this.configOverrides = configOverrides;
+            this.storageProfilesOverrides = storageProfilesOverrides;
         }
 
         public String version() {
@@ -92,6 +113,10 @@ public class IgniteVersions {
 
         public Map<String, String> configOverrides() {
             return configOverrides;
+        }
+
+        public Map<String, String> storageProfilesOverrides() {
+            return storageProfilesOverrides;
         }
     }
 
