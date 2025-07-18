@@ -425,4 +425,33 @@ public class IgniteSqlDateTimeUtilsTest extends BaseIgniteAbstractTest {
 
         assertThat(actualTime, equalTo(expectedTime));
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "",
+            "-",
+            "--",
+            "-1",
+            "-0",
+            "-0-",
+            "a",
+            "a-",
+            "10000-",
+            "9223372036854775808-01-01, true",
+    })
+    public void testYearIsOutOfRange(String literal) {
+        assertThat(IgniteSqlDateTimeUtils.isYearOutOfRange(literal), is(true));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "0-",
+            "0-01-01",
+            "0000-01-01 00:00:00",
+            "0000-01-01 00:00:00.123",
+            "00000000000000009999-01-01"
+    })
+    public void testYearIsNotOutOfRange(String literal) {
+        assertThat(IgniteSqlDateTimeUtils.isYearOutOfRange(literal), is(false));
+    }
 }

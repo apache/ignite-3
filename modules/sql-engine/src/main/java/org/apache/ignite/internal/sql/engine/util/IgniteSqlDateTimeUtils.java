@@ -305,10 +305,14 @@ public class IgniteSqlDateTimeUtils {
             return true;
         }
 
-        String yearString = value.substring(0, pos);
-        long year = Long.parseLong(yearString);
+        try {
+            String yearString = value.substring(0, pos);
+            long year = Long.parseLong(yearString);
 
-        return year > 9999;
+            return year > 9999;
+        } catch (NumberFormatException ignore) {
+            return true;
+        }
     }
 
     private static void validateTime(String time, String full) {

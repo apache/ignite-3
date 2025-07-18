@@ -9,7 +9,10 @@ statement ok
 CREATE TABLE timestamp_t(t TIMESTAMP)
 
 statement error: Illegal TIMESTAMP literal 'blabla': not in format 'yyyy-MM-dd HH:mm:ss'
-INSERT INTO timestamp_t VALUES (timestamp 'blabla')
+INSERT INTO timestamp_t VALUES (TIMESTAMP 'blabla')
+
+statement error: Illegal TIMESTAMP literal '-1000-01-01 00:00:00': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (TIMESTAMP '-1000-01-01 00:00:00')
 
 statement error: Invalid DATE value, 'blabla'
 INSERT INTO timestamp_t VALUES ('blabla'::timestamp)
@@ -102,6 +105,10 @@ INSERT INTO timestamp_t VALUES ('0000-01-01'::TIMESTAMP)
 # year = 10000 (out of range)
 statement error: Timestamp literal 'TIMESTAMP '10000-01-01 01:01:01'' out of range.
 INSERT INTO timestamp_t VALUES (timestamp '10000-01-01 01:01:01')
+
+# year = 9223372036854775808
+statement error: Illegal TIMESTAMP literal '9223372036854775808-01-01 01:01:01': not in format 'yyyy-MM-dd HH:mm:ss'
+INSERT INTO timestamp_t VALUES (timestamp '9223372036854775808-01-01 01:01:01')
 
 statement error: Timestamp literal 'TIMESTAMP '10000-01-01'' out of range.
 INSERT INTO timestamp_t VALUES (timestamp '10000-01-01')
