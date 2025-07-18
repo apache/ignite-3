@@ -20,14 +20,13 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
-import java.util.Map;
 import java.util.TimeZone;
 import java.util.function.Supplier;
-import org.apache.calcite.DataContext.Variable;
-import org.apache.calcite.DataContexts;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators.LiteralVal;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
@@ -35,10 +34,11 @@ import org.junit.jupiter.api.Test;
  * Tests for {@code LITERAL_AGG(EXPR)}.
  */
 public class LiteralValAccumulatorTest extends BaseIgniteAbstractTest {
+    public static final DataContext DATA_CONTEXT = PlanUtils.defaultDataContext();
 
     @Test
     public void testBoolean() {
-        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(DataContexts.EMPTY, Commons.rexBuilder().makeLiteral(true));
+        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(DATA_CONTEXT, Commons.rexBuilder().makeLiteral(true));
         StatefulAccumulator accumulator = new StatefulAccumulator(supplier);
 
         // Literal agg ignores its arguments.
@@ -53,7 +53,7 @@ public class LiteralValAccumulatorTest extends BaseIgniteAbstractTest {
         long adjustedTimeMillis = currentTimeMillis + TimeZone.getDefault().getOffset(currentTimeMillis);
 
         Supplier<Accumulator> supplier = LiteralVal.newAccumulator(
-                DataContexts.of(Map.of(Variable.TIME_ZONE.camelName, TimeZone.getDefault())),
+                DATA_CONTEXT,
                 Commons.rexBuilder().makeTimestampWithLocalTimeZoneLiteral(TimestampString.fromMillisSinceEpoch(adjustedTimeMillis), 2)
         );
 
@@ -65,10 +65,7 @@ public class LiteralValAccumulatorTest extends BaseIgniteAbstractTest {
     @Test
     public void testDecimal() {
         BigDecimal decimal = BigDecimal.valueOf(22.33d);
-        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(
-                DataContexts.EMPTY,
-                Commons.rexBuilder().makeExactLiteral(decimal)
-        );
+        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(DATA_CONTEXT, Commons.rexBuilder().makeExactLiteral(decimal));
 
         StatefulAccumulator accumulator = new StatefulAccumulator(supplier);
 
@@ -77,7 +74,7 @@ public class LiteralValAccumulatorTest extends BaseIgniteAbstractTest {
 
     @Test
     public void empty() {
-        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(DataContexts.EMPTY, Commons.rexBuilder().makeLiteral(false));
+        Supplier<Accumulator> supplier = LiteralVal.newAccumulator(DATA_CONTEXT, Commons.rexBuilder().makeLiteral(false));
         StatefulAccumulator accumulator = new StatefulAccumulator(supplier);
 
         assertEquals(false, accumulator.end());
