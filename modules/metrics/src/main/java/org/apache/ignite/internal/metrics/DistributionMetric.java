@@ -36,22 +36,22 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
             AtomicReferenceFieldUpdater.newUpdater(DistributionMetric.class, List.class, "scalarMetrics");
 
     /** Distribution metric first interval low bound. */
-    public static final long FIRST_LOW_BOUND = 0;
+    private static final long FIRST_LOW_BOUND = 0;
 
     /** Distribution metric first interval low bound, string representation. */
-    public static final String FIRST_LOW_BOUND_STRING = "0";
+    private static final String FIRST_LOW_BOUND_STRING = "0";
 
     /** Distribution metric last interval high bound. */
-    public static final String INF = "inf";
+    private static final String INF = "inf";
 
     /** Distribution range divider. */
-    public static final char RANGE_DIVIDER = '_';
+    private static final char RANGE_DIVIDER = '_';
 
     /** Distribution bucket divider. */
-    public static final String BUCKET_DIVIDER = ", ";
+    private static final String BUCKET_DIVIDER = ", ";
 
     /** Distribution metric name and value divider. */
-    public static final char METRIC_DIVIDER = ':';
+    private static final String METRIC_DIVIDER = ": ";
 
     /** Count of measurement for each bound. */
     private final AtomicLongArray measurements;
