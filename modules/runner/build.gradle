@@ -263,8 +263,18 @@ tasks.register('runUpsertBenchmark', JavaExec) {
     enableAssertions = true
 }
 
-tasks.register('runClientBenchmark', JavaExec) {
-    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvBenchmark'
+tasks.register('runClientPutBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvPutBenchmark'
+
+    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
+tasks.register('runClientGetBenchmark', JavaExec) {
+    mainClass = 'org.apache.ignite.internal.benchmark.ClientKvGetBenchmark'
 
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
@@ -279,6 +289,8 @@ tasks.register('runRemoteBenchmark', JavaExec) {
     jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
 
     classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
 }
 
 jar {
