@@ -224,6 +224,17 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
     private static Stream<Arguments> argsDyn() {
         Map<DatetimePair, Arguments> diff = new EnumMap<>(DatetimePair.class);
 
+        // TIME 0
+
+        diff.put(DatetimePair.TIME_0_TIME_0, forTypePair(DatetimePair.TIME_0_TIME_0)
+                .opMatches(castTo(Types.TIME_0)));
+        diff.put(DatetimePair.TIME_0_TIME_3, forTypePair(DatetimePair.TIME_0_TIME_3)
+                .opMatches(castTo(Types.TIME_0)));
+        diff.put(DatetimePair.TIME_0_TIME_6, forTypePair(DatetimePair.TIME_0_TIME_6)
+                .opMatches(castTo(Types.TIME_0)));
+        diff.put(DatetimePair.TIME_0_TIME_9, forTypePair(DatetimePair.TIME_0_TIME_9)
+                .opMatches(castTo(Types.TIME_0)));
+
         // TIME 3
 
         diff.put(DatetimePair.TIME_3_TIME_3, forTypePair(DatetimePair.TIME_3_TIME_3)
@@ -236,9 +247,9 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
         // TIME 6
 
         diff.put(DatetimePair.TIME_6_TIME_6, forTypePair(DatetimePair.TIME_6_TIME_6)
-                .opMatches(castTo(Types.TIME_6)));
+                .opMatches(ofTypeWithoutCast(Types.TIME_6)));
         diff.put(DatetimePair.TIME_6_TIME_9, forTypePair(DatetimePair.TIME_6_TIME_9)
-                .opMatches(castTo(Types.TIME_6)));
+                .opMatches(ofTypeWithoutCast(Types.TIME_6)));
 
         // TIME 9
 
