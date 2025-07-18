@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.copyOfRange;
 import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageEndPrefix;
 import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageStartPrefix;
+import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.IOException;
@@ -188,15 +189,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
     static byte[] storageCreatedKey(String raftNodeStorageId) {
         return concat(DefaultLogStorageFactory.STORAGE_CREATED_META_PREFIX, raftNodeStorageId.getBytes(UTF_8));
-    }
-
-    private static byte[] concat(byte[] a, byte[] b) {
-        byte[] result = new byte[a.length + b.length];
-
-        System.arraycopy(a, 0, result, 0, a.length);
-        System.arraycopy(b, 0, result, a.length, b.length);
-
-        return result;
     }
 
     /** {@inheritDoc} */
