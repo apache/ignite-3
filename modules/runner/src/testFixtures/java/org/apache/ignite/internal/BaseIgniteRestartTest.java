@@ -34,9 +34,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -144,7 +144,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      */
     @AfterEach
     public void afterEachTest() throws Exception {
-        var closeables = new ArrayList<AutoCloseable>();
+        var nonCmgMsNodesToStop = new ArrayList<AutoCloseable>();
+        var cmgMsNodesToStop = new ArrayList<AutoCloseable>();
 
         List<String> serverNames = IGNITE_SERVERS.stream()
                 .filter(Objects::nonNull)
@@ -158,70 +159,61 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         log.info("Shutting the cluster down [serverNodes={}, partialNodes={}]", serverNames, partialNodeNames);
 
-        Set<String> cmgMsNodesNames = new HashSet<>();
+        Optional<PartialNode> anyPartialNode = this.partialNodes.stream()
+                .filter(Objects::nonNull)
+                .findAny();
 
-        Set<String> cmgMsPartialNodesNames = new HashSet<>();
-
-        if (!partialNodes.isEmpty()) {
-            PartialNode anyPartialNode = partialNodes.get(0);
-
+        if (anyPartialNode.isPresent()) {
             ClusterManagementGroupManager component = findComponent(
-                    anyPartialNode.startedComponents(),
+                    anyPartialNode.get().startedComponents(),
                     ClusterManagementGroupManager.class
             );
 
-            cmgMsPartialNodesNames = msCmgNodes(component);
+            Set<String> cmgMsPartialNodesNames = cmgMsNodes(component);
 
-            for (PartialNode partialNode : partialNodes) {
+            for (PartialNode partialNode : partialNodes.stream().filter(Objects::nonNull).collect(toList())) {
                 if (!cmgMsPartialNodesNames.contains(partialNode.name())) {
-                    closeables.add(partialNode::stop);
+                    nonCmgMsNodesToStop.add(partialNode::stop);
+                } else {
+                    cmgMsNodesToStop.add(partialNode::stop);
                 }
             }
         }
 
-        if (!IGNITE_SERVERS.isEmpty()) {
-            IgniteServer anyNode = IGNITE_SERVERS.get(0);
+        Optional<IgniteServer> anyServerNode = IGNITE_SERVERS.stream()
+                .filter(Objects::nonNull)
+                .findAny();
 
-            IgniteImpl ignite = unwrapIgniteImpl(anyNode.api());
+        if (anyServerNode.isPresent()) {
+            IgniteImpl ignite = unwrapIgniteImpl(anyServerNode.get().api());
 
-            cmgMsNodesNames = msCmgNodes(ignite.clusterManagementGroupManager());
+            Set<String> cmgMsNodesNames = cmgMsNodes(ignite.clusterManagementGroupManager());
 
-            for (IgniteServer node : IGNITE_SERVERS) {
-                if (node != null) {
-                    if (!cmgMsNodesNames.contains(node.name())) {
-                        closeables.add(node::shutdown);
-                    }
+            for (IgniteServer node : IGNITE_SERVERS.stream().filter(Objects::nonNull).collect(toList())) {
+                if (!cmgMsNodesNames.contains(node.name())) {
+                    nonCmgMsNodesToStop.add(node::shutdown);
+                } else {
+                    cmgMsNodesToStop.add(node::shutdown);
                 }
             }
         }
 
-        // Add CMG/MS nodes at the end of the list to ensure that they are stopped last.
-        if (!partialNodes.isEmpty()) {
-            for (PartialNode partialNode : partialNodes) {
-                if (cmgMsPartialNodesNames.contains(partialNode.name())) {
-                    closeables.add(partialNode::stop);
-                }
-            }
-        }
+        closeAll(nonCmgMsNodesToStop);
+        closeAll(cmgMsNodesToStop);
 
-        if (!IGNITE_SERVERS.isEmpty()) {
-            for (IgniteServer node : IGNITE_SERVERS) {
-                if (node != null) {
-                    if (cmgMsNodesNames.contains(node.name())) {
-                        closeables.add(node::shutdown);
-                    }
-                }
-            }
-        }
-
-        closeAll(closeables);
-
-        IGNITE_SERVERS.clear();
         partialNodes.clear();
+        IGNITE_SERVERS.clear();
     }
 
-    private static Set<String> msCmgNodes(ClusterManagementGroupManager ignite) throws Exception {
-        CompletableFuture<ClusterState> stateFut = ignite.clusterState();
+    /**
+     * Returns the set of nodes' names that host Meta Storage and CMG.
+     *
+     * @param cmgManager Cluster management group manager.
+     * @return Set of node names.
+     * @throws Exception If failed to get cluster state.
+     */
+    private static Set<String> cmgMsNodes(ClusterManagementGroupManager cmgManager) throws Exception {
+        CompletableFuture<ClusterState> stateFut = cmgManager.clusterState();
 
         assertThat(stateFut, willCompleteSuccessfully());
 
