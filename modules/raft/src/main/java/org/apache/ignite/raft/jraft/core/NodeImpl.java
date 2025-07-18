@@ -637,7 +637,7 @@ public class NodeImpl implements Node, RaftServerService {
         RaftMetaStorageOptions opts = new RaftMetaStorageOptions();
         opts.setNode(this);
         if (!this.metaStorage.init(opts)) {
-            LOG.error("Node {} init meta storage failed, uri={}.", this.serverId, this.options.getRaftMetaUri());
+            LOG.error("Node {} init meta storage failed, uri={}.", getNodeId(), this.options.getRaftMetaUri());
             return false;
         }
         this.currTerm = this.metaStorage.getTerm();
@@ -1068,7 +1068,7 @@ public class NodeImpl implements Node, RaftServerService {
             Requires.requireTrue(this.conf.isValid(), "Invalid conf: %s", this.conf);
         }
         else {
-            LOG.info("Init node {} with empty conf, lastCommittedIndex={}.", getNodeId(), getLastCommittedIndex());
+            LOG.info("Init node {} with empty conf, lastCommittedIndex={}.", getNodeId(), getLastCommittedIndexOnInit());
         }
 
         this.replicatorGroup = new ReplicatorGroupImpl();
@@ -1112,7 +1112,7 @@ public class NodeImpl implements Node, RaftServerService {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Node {} init, term={}, lastLogId={}, conf={}, oldConf={}, lastCommittedIndex={}.", getNodeId(),
                 this.currTerm, this.logManager.getLastLogId(false), this.conf.getConf(), this.conf.getOldConf(),
-                getLastCommittedIndex());
+                getLastCommittedIndexOnInit());
             }
 
             if (this.snapshotExecutor != null && this.options.getSnapshotIntervalSecs() > 0) {
@@ -1190,7 +1190,7 @@ public class NodeImpl implements Node, RaftServerService {
         // TODO: uncomment when backport related change https://issues.apache.org/jira/browse/IGNITE-22923
         //ballotBoxOpts.setNodeId(getNodeId());
          // Try to initialize the last committed index in BallotBox to be the last snapshot index.
-        long lastCommittedIndex = getLastCommittedIndex();
+        long lastCommittedIndex = getLastCommittedIndexOnInit();
 
         ballotBoxOpts.setLastCommittedIndex(lastCommittedIndex);
         LOG.debug("Node {} init ballot box's lastCommittedIndex={}.", getNodeId(), lastCommittedIndex);
@@ -4055,7 +4055,11 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    private long getLastCommittedIndex() {
+    /**
+     * Returns last committed index on init. It's not guaranteed that returned value is correct if called after init, thus given method is
+     * not expected to be used after init.
+     */
+    private long getLastCommittedIndexOnInit() {
         long lastCommittedIndex = 0;
 
         if (this.snapshotExecutor != null) {
