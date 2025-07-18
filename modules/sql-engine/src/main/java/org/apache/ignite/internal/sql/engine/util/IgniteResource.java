@@ -114,6 +114,9 @@ public interface IgniteResource {
     @BaseMessage("Timestamp literal ''{0}'' out of range.")
     ExInst<SqlValidatorException> timestampLiteralOutOfRange(String typeName);
 
+    @BaseMessage("Year out of range: [{0}]")
+    ExInst<SqlValidatorException> yearOutOfRange(String value);
+
     /** Constructs a signature string to use in error messages. */
     static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {
         return makeSignature(binding, Arrays.asList(operandTypes));

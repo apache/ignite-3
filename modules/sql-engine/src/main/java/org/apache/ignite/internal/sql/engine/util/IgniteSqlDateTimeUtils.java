@@ -297,6 +297,20 @@ public class IgniteSqlDateTimeUtils {
         }
     }
 
+    /** Returns a flag indicating whether the year field of a datetime literal value is less than 10000. */
+    public static boolean isYearOutOfRange(String value) {
+        int pos = value.indexOf('-');
+
+        if (pos < 1) {
+            return true;
+        }
+
+        String yearString = value.substring(0, pos);
+        long year = Long.parseLong(yearString);
+
+        return year > 9999;
+    }
+
     private static void validateTime(String time, String full) {
         Matcher matcher = TIME_PATTERN.matcher(time);
         if (matcher.find()) {
