@@ -109,6 +109,11 @@ class MetadataMigration {
             confIt.seekToFirst();
             dataIt.seekToFirst();
 
+            // Iterate both configuration and data column families in parallel to find all groupIds.
+            // When we find a new groupId, we put it to the set and then we seek to next groupId to skip
+            // all keys that belong to the one we just found.
+            // For some groups, it is possible that only configuration CF or only data CF contain data for that
+            // group, so we handle this situation appropriately.
             while (confIt.isValid() || dataIt.isValid()) {
                 if (confIt.isValid() && dataIt.isValid()) {
                     byte[] confKey = confIt.key();
