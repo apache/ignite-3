@@ -17,35 +17,37 @@
 
 package org.apache.ignite.internal.benchmark;
 
-import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.runner.RunnerException;
 
 /**
- * Benchmark for a single upsert operation using externally enabled cluster.
+ * Put many benchmark.
  */
-public class RemoteKvBenchmark extends ClientKvBenchmark {
-    @Override
-    protected boolean remote() {
-        return true;
-    }
+public class ClientKvPutManyBenchmark extends ClientKvBenchmark {
+    @Param({"5"})
+    private int batch;
 
-    @Override
-    protected String[] addresses() {
-        return new String[]{};
-    }
-
-    @Override
-    public void nodeSetUp() throws Exception {
-        client = IgniteClient.builder().addresses(addresses()).build();
-        publicIgnite = client;
-
-        super.nodeSetUp();
+    /**
+     * Benchmark for KV upsert via embedded client.
+     */
+    @Benchmark
+    public void upsert() {
+        Transaction tx = client.transactions().begin();
+        for (int i = 0; i < batch; i++) {
+            Tuple key = Tuple.create().set("ycsb_key", nextId());
+            kvView.put(tx, key, tuple);
+        }
+        tx.commit();
     }
 
     /**
-     * Benchmark's entry point.
+     * Benchmark's entry point. Can be started from command line:
+     * ./gradlew ":ignite-runner:runClientPutBenchmark" --args='jmh.batch=10 jmh.threads=1'
      */
     public static void main(String[] args) throws RunnerException {
-        runBenchmark(RemoteKvBenchmark.class, args);
+        runBenchmark(ClientKvPutManyBenchmark.class, args);
     }
 }
