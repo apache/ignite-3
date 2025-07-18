@@ -769,8 +769,8 @@ namespace Apache.Ignite
             /// <summary> ConfigurationApply error. </summary>
             public const int ConfigurationApply = (GroupCode << 16) | (1 & 0xFFFF);
 
-            /// <summary> ParseConfiguration error. </summary>
-            public const int ParseConfiguration = (GroupCode << 16) | (2 & 0xFFFF);
+            /// <summary> ConfigurationParse error. </summary>
+            public const int ConfigurationParse = (GroupCode << 16) | (2 & 0xFFFF);
 
             /// <summary> ConfigurationValidation error. </summary>
             public const int ConfigurationValidation = (GroupCode << 16) | (3 & 0xFFFF);

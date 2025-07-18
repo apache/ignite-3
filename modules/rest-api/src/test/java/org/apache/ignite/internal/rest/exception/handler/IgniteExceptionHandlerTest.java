@@ -25,12 +25,8 @@ import static org.mockito.Mockito.mock;
 
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
-import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.configuration.validation.ValidationIssue;
-import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;

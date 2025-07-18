@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.exception.ConfigurationValidationIgniteException;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -40,7 +41,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test suite for {@link ConfigurationValidationExceptionHandler}. */
-public class ConfigurationValidationExceptionHandlerTest {
+public class ConfigurationValidationExceptionHandlerTest extends BaseIgniteAbstractTest {
     private HttpRequest<?> request;
 
     private ConfigurationValidationExceptionHandler exceptionHandler;

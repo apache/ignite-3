@@ -232,7 +232,7 @@ enum class code : underlying_t {
 
     // CommonConfiguration group. Group code: 24
     CONFIGURATION_APPLY = 0x180001,
-    PARSE_CONFIGURATION = 0x180002,
+    CONFIGURATION_PARSE = 0x180002,
     CONFIGURATION_VALIDATION = 0x180003
 };
 
