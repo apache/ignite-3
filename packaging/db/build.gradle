@@ -304,6 +304,9 @@ ospackage {
             from "$buildDir/linux/${tokensLin.BOOTSTRAP_FILE_NAME}"
             from "$buildDir/linux/${tokensLin.SETUP_JAVA_FILE_NAME}"
         }
+        into('lib/dotnet') {
+            from configurations.dotNetClient
+        }
     }
 }
 
@@ -371,6 +374,9 @@ setupBuilder {
         }
         into('lib') {
             from configurations.dbArtifacts
+        }
+        into('lib/dotnet') {
+            from configurations.dotNetClient
         }
     }
 }
