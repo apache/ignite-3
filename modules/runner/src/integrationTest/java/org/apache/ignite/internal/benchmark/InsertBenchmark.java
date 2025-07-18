@@ -244,6 +244,12 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
 
             client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
 
+            String[] clientAddrs = getServerEndpoints(client);
+
+            client.close();
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
+
             sql = client.sql();
 
             statement = sql.createStatement(queryStr);
@@ -254,8 +260,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            closeAll(/* statement, */ client);
+            closeAll(client);
         }
 
         private int id = 0;
@@ -362,6 +367,13 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
             }
 
             client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+
+            String[] clientAddrs = getServerEndpoints(client);
+
+            client.close();
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
+
             kvView = client.tables().table(TABLE_NAME).keyValueView();
         }
 

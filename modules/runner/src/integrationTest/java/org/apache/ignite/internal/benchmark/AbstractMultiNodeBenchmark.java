@@ -26,9 +26,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
@@ -251,6 +253,17 @@ public class AbstractMultiNodeBenchmark {
                 igniteImpl = unwrapIgniteImpl(publicIgnite);
             }
         }
+    }
+
+    /**
+     * Gets client connector addresses for the specified nodes.
+     *
+     * @return Array of client addresses.
+     */
+    static String[] getServerEndpoints(IgniteClient client) {
+        return IntStream.range(0, client.cluster().nodes().size())
+                .mapToObj(i -> "127.0.0.1:" + (BASE_CLIENT_PORT + i))
+                .toArray(String[]::new);
     }
 
     private static String nodeName(int port) {

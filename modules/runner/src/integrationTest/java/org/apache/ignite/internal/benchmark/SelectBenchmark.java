@@ -290,6 +290,12 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
 
+            String[] clientAddrs = getServerEndpoints(client);
+
+            client.close();
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
+
             sql = client.sql();
         }
 
@@ -354,6 +360,13 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         @Setup
         public void setUp() {
             client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
+
+            String[] clientAddrs = getServerEndpoints(client);
+
+            client.close();
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
+
             kvView = client.tables().table(TABLE_NAME).keyValueView();
         }
 
