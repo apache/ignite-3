@@ -517,7 +517,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     }
 
     @Test
-    public void     testFirstLogicalTopologyUpdateInterruptedEventRestoredAfterRestart() throws Exception {
+    public void testFirstLogicalTopologyUpdateInterruptedEventRestoredAfterRestart() throws Exception {
         PartialNode node = startPartialNode(0);
 
         assertValueInStorage(metastore, zonesLastHandledTopology(), (v) -> v, null, TIMEOUT_MILLIS);
