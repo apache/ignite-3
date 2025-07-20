@@ -47,7 +47,7 @@ public class OutNetworkObject {
      * @param descriptors Class descriptors.
      */
     public OutNetworkObject(NetworkMessage networkMessage, List<ClassDescriptorMessage> descriptors) {
-        this(networkMessage, descriptors, true);
+        this(networkMessage, descriptors, networkMessage.needAck());
     }
 
     /**
