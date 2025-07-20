@@ -128,7 +128,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public static final int MAX_LENGTH_OF_ALIASES = 256;
     public static final int DECIMAL_DYNAMIC_PARAM_PRECISION = 28;
     public static final int DECIMAL_DYNAMIC_PARAM_SCALE = 6;
-    private static final int TIME_DYNAMIC_PARAM_PRECISION = 6;
+    public static final int TIME_DYNAMIC_PARAM_PRECISION = 9;
 
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 

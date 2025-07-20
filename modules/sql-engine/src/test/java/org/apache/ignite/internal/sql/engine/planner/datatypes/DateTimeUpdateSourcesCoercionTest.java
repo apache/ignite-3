@@ -363,13 +363,13 @@ public class DateTimeUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                 .opMatches(castTo(Types.TIME_3)));
 
         diff.put(DatetimePair.TIME_6_TIME_6, forTypePair(DatetimePair.TIME_6_TIME_6)
-                .opMatches(ofTypeWithoutCast(Types.TIME_6)));
+                .opMatches(castTo(Types.TIME_6)));
 
         diff.put(DatetimePair.TIME_6_TIME_9, forTypePair(DatetimePair.TIME_6_TIME_9)
-                .opMatches(ofTypeWithoutCast(Types.TIME_6)));
+                .opMatches(castTo(Types.TIME_6)));
 
         diff.put(DatetimePair.TIME_9_TIME_9, forTypePair(DatetimePair.TIME_9_TIME_9)
-                .opMatches(castTo(Types.TIME_9)));
+                .opMatches(ofTypeWithoutCast(Types.TIME_9)));
 
         // TIMESTAMP
 
