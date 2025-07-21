@@ -113,6 +113,18 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
+    /** Template for tests that may not have some storage engines enabled. */
+    protected static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITHOUT_STORAGE_PROFILES = "ignite {\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
+            + "  },\n"
+            + "  clientConnector.port: {},\n"
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
+            + "}";
+
     protected Cluster cluster;
 
     /** Work directory. */
