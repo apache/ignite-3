@@ -68,12 +68,12 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 .app("CREATE TABLE DATE1 (pk DATE, val DATE, PRIMARY KEY USING SORTED (pk));").nl()
                 .app("CREATE TABLE DATE2 (pk DATE, val DATE, PRIMARY KEY USING HASH (pk));").nl()
                 .app("CREATE TABLE TIME1 (pk TIME, val TIME, PRIMARY KEY USING SORTED (pk));").nl()
-                .app("CREATE TABLE TIME2 (pk TIME, val TIME, PRIMARY KEY USING HASH (pk));").nl()
+                .app("CREATE TABLE TIME2 (pk TIME(6), val TIME, PRIMARY KEY USING HASH (pk));").nl()
                 .app("CREATE TABLE TIMESTAMP1 (pk TIMESTAMP, val TIMESTAMP, PRIMARY KEY USING SORTED (pk));").nl()
-                .app("CREATE TABLE TIMESTAMP2 (pk TIMESTAMP, val TIMESTAMP, PRIMARY KEY USING HASH (pk));").nl()
+                .app("CREATE TABLE TIMESTAMP2 (pk TIMESTAMP(0), val TIMESTAMP, PRIMARY KEY USING HASH (pk));").nl()
                 .app("CREATE TABLE TIMESTAMPTZ1 (pk TIMESTAMP WITH LOCAL TIME ZONE, val TIMESTAMP WITH LOCAL TIME ZONE, "
                         + "PRIMARY KEY USING SORTED (pk));").nl()
-                .app("CREATE TABLE TIMESTAMPTZ2 (pk TIMESTAMP WITH LOCAL TIME ZONE, val TIMESTAMP WITH LOCAL TIME ZONE, "
+                .app("CREATE TABLE TIMESTAMPTZ2 (pk TIMESTAMP(0) WITH LOCAL TIME ZONE, val TIMESTAMP WITH LOCAL TIME ZONE, "
                         + "PRIMARY KEY USING HASH (pk));").nl()
 
                 .app("CREATE INDEX s_asc_idx_date1 ON date1 USING SORTED (val ASC);")
@@ -116,6 +116,13 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 .matches(matchesOnce("KeyValueGet"))
                 .returns(result)
                 .check();
+
+        // Dynamic parameter.
+        assertQuery(format("SELECT val FROM {} WHERE pk = ?", table))
+                .withParam(result)
+                .matches(matchesOnce("KeyValueGet"))
+                .returns(result)
+                .check();
     }
 
     /** Check exact predicates. */
@@ -128,10 +135,26 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 .returns(result)
                 .check();
 
+        // Dynamic parameter.
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}), DISABLE_RULE('TableScanToKeyValueGetRule') */ val FROM {} WHERE pk = ?",
+                pkIndexName(table), table))
+                .withParam(result)
+                .matches(containsIndexScan("PUBLIC", table, pkIndexName(table)))
+                .returns(result)
+                .check();
+
         if (All_INDEXES.containsKey(table)) {
             for (String idx : All_INDEXES.get(table)) {
                 assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ pk FROM {} WHERE val = {}",
                         idx, table, predicate))
+                        .matches(containsIndexScan("PUBLIC", table, idx))
+                        .returns(result)
+                        .check();
+
+                // Dynamic parameter.
+                assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ pk FROM {} WHERE val = ?",
+                        idx, table))
+                        .withParam(result)
                         .matches(containsIndexScan("PUBLIC", table, idx))
                         .returns(result)
                         .check();
