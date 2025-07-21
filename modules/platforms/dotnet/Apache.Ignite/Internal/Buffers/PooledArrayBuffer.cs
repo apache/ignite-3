@@ -93,7 +93,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             Debug.Assert(!_disposed, "!_disposed");
 
-            return new(_buffer, start: Offset, length: _index - Offset);
+            return new(_buffer, start: Offset, length: _index);
         }
 
         /// <summary>
