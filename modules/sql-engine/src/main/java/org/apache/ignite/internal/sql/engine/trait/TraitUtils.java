@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.Convention;
@@ -79,6 +80,9 @@ import org.jetbrains.annotations.Nullable;
  * TraitUtils. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TraitUtils {
+
+    private static final int TRAITS_COMBINATION_COMPLEXITY_LIMIT = 256;
+
     /**
      * Enforce. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
@@ -374,8 +378,47 @@ public class TraitUtils {
 
     private static Set<Pair<RelTraitSet, List<RelTraitSet>>> combinations(RelTraitSet outTraits, List<List<RelTraitSet>> inTraits) {
         Set<Pair<RelTraitSet, List<RelTraitSet>>> out = new HashSet<>();
-        fillRecursive(outTraits, inTraits, out, new RelTraitSet[inTraits.size()], 0);
+
+        long complexity = inTraits.stream()
+                .mapToInt(List::size)
+                .asLongStream()
+                .reduce(1, (a, b) -> a * b);
+
+        if (complexity <= TRAITS_COMBINATION_COMPLEXITY_LIMIT) {
+            fillRecursive(outTraits, inTraits, out, new RelTraitSet[inTraits.size()], 0);
+        } else {
+            fillRandom(outTraits, inTraits, out, TRAITS_COMBINATION_COMPLEXITY_LIMIT);
+        }
+
         return out;
+    }
+
+    private static void fillRandom(
+            RelTraitSet outTraits,
+            List<List<RelTraitSet>> inTraits,
+            Set<Pair<RelTraitSet, List<RelTraitSet>>> result,
+            int count
+    ) {
+        RelTraitSet[] combination = new RelTraitSet[inTraits.size()];
+
+        for (int attemptNo = 0; attemptNo < count; attemptNo++) {
+            int lastProcessed = -1;
+            for (int i = 0; i < inTraits.size(); i++) {
+                List<RelTraitSet> traits = inTraits.get(i);
+                RelTraitSet traitsCandidate = traits.get(ThreadLocalRandom.current().nextInt(traits.size()));
+
+                if (traitsCandidate.getConvention() != IgniteConvention.INSTANCE) {
+                    break;
+                }
+
+                lastProcessed = i;
+                combination[i] = traitsCandidate;
+            }
+
+            if (inTraits.size() - 1 == lastProcessed) {
+                result.add(Pair.of(outTraits, List.of(combination)));
+            }
+        }
     }
 
     private static boolean fillRecursive(
