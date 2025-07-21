@@ -591,7 +591,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             return resolved;
         }
 
-        if (typeName == SqlTypeName.TIMESTAMP || typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+        if (TypeUtils.isTimestamp(typeName)) {
             String value = literal.getValueAs(String.class);
 
             if (IgniteSqlDateTimeUtils.isYearOutOfRange(value)) {
