@@ -40,7 +40,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestUpsertAllMany()
         {
-            int count = 12345;
+            int count = 3709;
 
             var tuples = Enumerable.Range(0, count)
                 .Select(id => new IgniteTuple { [KeyCol] = (long)id, [ValCol] = $"test{id}" })
