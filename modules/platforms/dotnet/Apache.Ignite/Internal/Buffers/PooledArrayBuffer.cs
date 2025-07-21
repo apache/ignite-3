@@ -105,13 +105,7 @@ namespace Apache.Ignite.Internal.Buffers
             Debug.Assert(count >= 0, "count >= 0");
             Debug.Assert(_index + count <= _buffer.Length, $"_index + count <= _buffer.Length [{_index} + {count} <= {_buffer.Length}]");
 
-#if DEBUG
-            // Get span and fill.
-            GetSpan(count);
-#else
-            // Release mode - just advance the index.
             _index += count;
-#endif
         }
 
         /// <summary>
