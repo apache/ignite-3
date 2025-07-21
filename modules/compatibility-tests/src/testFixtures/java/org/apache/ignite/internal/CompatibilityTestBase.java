@@ -22,7 +22,10 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -166,10 +169,15 @@ public abstract class CompatibilityTestBase extends BaseIgniteAbstractTest {
      * most {@code numLatest} are taken.
      *
      * @param numLatest Number of latest versions to take by default.
+     * @param skipVersions Array of strings to skip.
      * @return A list of base versions for a test.
      */
-    public static List<String> baseVersions(int numLatest) {
-        List<String> versions = IgniteVersions.INSTANCE.versions().stream().map(Version::version).collect(Collectors.toList());
+    public static List<String> baseVersions(int numLatest, String... skipVersions) {
+        Set<String> skipSet = Arrays.stream(skipVersions).collect(Collectors.toSet());
+        List<String> versions = IgniteVersions.INSTANCE.versions().stream()
+                .map(Version::version)
+                .filter(Predicate.not(skipSet::contains))
+                .collect(Collectors.toList());
         if (System.getProperty("testAllVersions") != null) {
             return versions;
         } else {
