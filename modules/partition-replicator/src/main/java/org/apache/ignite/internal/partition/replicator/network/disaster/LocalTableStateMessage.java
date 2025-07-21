@@ -25,11 +25,12 @@ import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 
 /**
- * Local partition state message, has partition ID, state and last committed log index.
+ * A message for reading estimated number of rows for tables stored on this node.
  */
 @Transferable(DisasterRecoveryMessages.LOCAL_TABLE_STATE)
 public interface LocalTableStateMessage extends NetworkMessage {
 
+    /** Zone Partition ID. */
     ZonePartitionIdMessage zonePartitionId();
 
     /**
