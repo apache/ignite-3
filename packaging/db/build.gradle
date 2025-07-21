@@ -38,6 +38,7 @@ import org.gradle.crypto.checksum.Checksum
 configurations {
     dbArtifacts
     defaultsGenerator.extendsFrom(dbArtifacts)
+    dotNetClient
     dbZip {
         canBeConsumed = true
         canBeResolved = false
@@ -54,6 +55,7 @@ configurations {
 
 dependencies {
     dbArtifacts project(':ignite-runner')
+    dotNetClient project(path: ":platforms", configuration: "dotNet")
     dbArtifacts libs.slf4j.jdk14
 
     defaultsGenerator project(path: ':ignite-runner', configuration: 'defaultsGenerator')
@@ -183,6 +185,9 @@ distributions {
                 from "$buildDir/zip/${zipStartScriptTokensLin.SETUP_JAVA_FILE_NAME}"
                 from "$buildDir/zip/${zipStartScriptTokensWin.BOOTSTRAP_FILE_NAME}"
             }
+            into('lib/dotnet') {
+                from configurations.dotNetClient
+            }
         }
     }
 }
@@ -304,6 +309,9 @@ ospackage {
             from "$buildDir/linux/${tokensLin.BOOTSTRAP_FILE_NAME}"
             from "$buildDir/linux/${tokensLin.SETUP_JAVA_FILE_NAME}"
         }
+        into('lib/dotnet') {
+            from configurations.dotNetClient
+        }
     }
 }
 
@@ -371,6 +379,9 @@ setupBuilder {
         }
         into('lib') {
             from configurations.dbArtifacts
+        }
+        into('lib/dotnet') {
+            from configurations.dotNetClient
         }
     }
 }
