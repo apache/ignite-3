@@ -58,10 +58,6 @@ import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNo
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Node;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 
-/*
- TODO: https://issues.apache.org/jira/browse/IGNITE-25571
-   support named lists. See {@link org.apache.ignite.configuration.annotation.NamedConfigValue} annotation.
-*/
 
 /**
  * Provides method to extract metadata from project configuration classes.
@@ -229,8 +225,11 @@ public class ConfigurationTreeScanner {
     private static EnumSet<ConfigNode.Flags> extractFlags(Field field) {
         EnumSet<ConfigNode.Flags> flags = EnumSet.noneOf(ConfigNode.Flags.class);
 
-        if (!field.isAnnotationPresent(NamedConfigValue.class)
-                && !field.isAnnotationPresent(ConfigValue.class)) {
+        if (field.isAnnotationPresent(NamedConfigValue.class)) {
+            flags.add(Flags.IS_NAMED_NODE);
+        } else if (field.isAnnotationPresent(ConfigValue.class)) {
+            flags.add(Flags.IS_INNER_NODE);
+        } else {
             flags.add(Flags.IS_VALUE);
         }
 

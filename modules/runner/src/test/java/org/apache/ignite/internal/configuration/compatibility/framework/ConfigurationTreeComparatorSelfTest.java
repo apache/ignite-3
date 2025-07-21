@@ -97,13 +97,33 @@ public class ConfigurationTreeComparatorSelfTest {
         ));
 
         ConfigNode root2 = createRoot("root1");
-        ConfigNode child = new ConfigNode(root2, Map.of(Attributes.NAME, "child"), List.of(), EnumSet.noneOf(Flags.class));
+        ConfigNode child = new ConfigNode(root2, Map.of(Attributes.NAME, "child"), List.of(), EnumSet.of(Flags.IS_INNER_NODE));
         root2.addChildNodes(List.of(child));
         child.addChildNodes(
                 new ConfigNode(child, Map.of(Attributes.NAME, "child"), List.of(), EnumSet.of(Flags.IS_VALUE))
         );
 
         // Leaf node can't become internal node and vice versa.
+        assertIncompatible(root1, root2);
+        assertIncompatible(root2, root1);
+    }
+
+    @Test
+    void innerNodeTypeCantBeChanged() {
+        ConfigNode root1 = createRoot("root1");
+        ConfigNode root2 = createRoot("root1");
+
+        ConfigNode inner1 = new ConfigNode(root1, Map.of(Attributes.NAME, "inner"), List.of(), EnumSet.of(Flags.IS_NAMED_NODE));
+        ConfigNode inner2 = new ConfigNode(root2, Map.of(Attributes.NAME, "inner"), List.of(), EnumSet.of(Flags.IS_INNER_NODE));
+
+        ConfigNode leafNode1 = new ConfigNode(inner1, Map.of(Attributes.NAME, "child"), List.of(), EnumSet.of(Flags.IS_VALUE));
+        ConfigNode leafNode2 = new ConfigNode(inner2, Map.of(Attributes.NAME, "child"), List.of(), EnumSet.of(Flags.IS_VALUE));
+
+        root1.addChildNodes(inner1);
+        root2.addChildNodes(inner2);
+        inner1.addChildNodes(leafNode1);
+        inner2.addChildNodes(leafNode2);
+
         assertIncompatible(root1, root2);
         assertIncompatible(root2, root1);
     }
@@ -221,7 +241,7 @@ public class ConfigurationTreeComparatorSelfTest {
 
         Set<ConfigurationModule> allModules = Set.of(configModule);
 
-        assertCompatible(snapshotMetadata, currentMetadata, new ComparisonContext(allModules));
+        assertCompatible(snapshotMetadata, currentMetadata, ComparisonContext.create(allModules));
 
         // missed deleted properties
         configModule = new ConfigurationModule() {
@@ -238,7 +258,7 @@ public class ConfigurationTreeComparatorSelfTest {
 
         allModules = Set.of(configModule);
 
-        assertIncompatible(snapshotMetadata, currentMetadata, new ComparisonContext(allModules));
+        assertIncompatible(snapshotMetadata, currentMetadata, ComparisonContext.create(allModules));
     }
 
     /**
@@ -251,7 +271,7 @@ public class ConfigurationTreeComparatorSelfTest {
                 EnumSet.of(Flags.IS_ROOT));
 
         ConfigNode compoundProp = new ConfigNode(root, Map.of(Attributes.NAME, "list"), List.of(),
-                EnumSet.of(Flags.IS_INTERNAL));
+                EnumSet.of(Flags.IS_INNER_NODE));
 
         ConfigNode firstMemberOfCompoundProp = new ConfigNode(compoundProp, Map.of(Attributes.NAME, "firstProperty"), List.of(),
                 EnumSet.of(Flags.IS_VALUE));
@@ -269,44 +289,15 @@ public class ConfigurationTreeComparatorSelfTest {
                 EnumSet.of(Flags.IS_ROOT));
 
         compoundProp = new ConfigNode(root, Map.of(Attributes.NAME, "list"), List.of(),
-                EnumSet.of(Flags.IS_INTERNAL));
+                EnumSet.of(Flags.IS_INNER_NODE));
 
         root.addChildNodes(List.of(compoundProp));
 
         List<ConfigNode> currentMetadata = List.of(root);
 
-        ConfigurationModule configModule = new ConfigurationModule() {
-            @Override
-            public ConfigurationType type() {
-                return ConfigurationType.LOCAL;
-            }
-
-            @Override
-            public Collection<String> deletedPrefixes() {
-                return List.of("root.list.*");
-            }
-        };
-
-        Set<ConfigurationModule> allModules = Set.of(configModule);
-
-        assertCompatible(snapshotMetadata, currentMetadata, new ComparisonContext(allModules));
-
+        assertCompatible(snapshotMetadata, currentMetadata, new ComparisonContext(List.of("root.list.*")));
         // missed deleted properties
-        configModule = new ConfigurationModule() {
-            @Override
-            public ConfigurationType type() {
-                return ConfigurationType.LOCAL;
-            }
-
-            @Override
-            public Collection<String> deletedPrefixes() {
-                return List.of("root.list_notExist.*");
-            }
-        };
-
-        allModules = Set.of(configModule);
-
-        assertIncompatible(snapshotMetadata, currentMetadata, new ComparisonContext(allModules));
+        assertIncompatible(snapshotMetadata, currentMetadata, new ComparisonContext(List.of("root.list_notExist.*")));
     }
 
     @Test
@@ -499,8 +490,8 @@ public class ConfigurationTreeComparatorSelfTest {
         Set<ConfigurationModule> allModules = Set.of(configModule);
 
         assertCompatible(metadataVer1, metadataVer2);
-        assertCompatible(metadataVer1, metadataVer3, new ComparisonContext(allModules));
-        assertCompatible(metadataVer2, metadataVer3, new ComparisonContext(allModules));
+        assertCompatible(metadataVer1, metadataVer3, ComparisonContext.create(allModules));
+        assertCompatible(metadataVer2, metadataVer3, ComparisonContext.create(allModules));
     }
 
     @Test
@@ -1072,7 +1063,7 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     private static void assertCompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig) {
-        assertCompatible(oldConfig, newConfig, new ComparisonContext());
+        assertCompatible(oldConfig, newConfig, new ComparisonContext(List.of()));
     }
 
     private static void assertCompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig, ComparisonContext compContext) {
@@ -1092,7 +1083,7 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     private static void assertIncompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig) {
-        assertIncompatible(oldConfig, newConfig, new ComparisonContext());
+        assertIncompatible(oldConfig, newConfig, new ComparisonContext(List.of()));
     }
 
     private static void assertIncompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig, ComparisonContext compContext) {

@@ -215,6 +215,22 @@ public class ConfigNode {
     }
 
     /**
+     * Returns {@code true} if this node represents a named list node, {@code false} otherwise.
+     */
+    @JsonIgnore
+    public boolean isNamedNode() {
+        return flags.contains(Flags.IS_NAMED_NODE);
+    }
+
+    /**
+     * Returns {@code true} if this node represents an inner config node, {@code false} otherwise.
+     */
+    @JsonIgnore
+    public boolean isInnerNode() {
+        return flags.contains(Flags.IS_INNER_NODE);
+    }
+
+    /**
      * Returns {@code true} if a configuration value that this node presents has a default value, otherwise {@code false}.
      */
     @JsonIgnore
@@ -331,7 +347,9 @@ public class ConfigNode {
         IS_VALUE(1 << 1),
         IS_DEPRECATED(1 << 2),
         IS_INTERNAL(1 << 3),
-        HAS_DEFAULT(1 << 4);
+        IS_NAMED_NODE(1 << 4),
+        IS_INNER_NODE(1 << 5),
+        HAS_DEFAULT(1 << 6);
 
         private final int mask;
 

@@ -188,6 +188,8 @@ public class ConfigurationTreeComparator {
         }
         return node.isValue() == candidate.isValue()
                 && (!candidate.isInternal() || node.isInternal()) // Public property\tree can't be hidden.
+                && node.isNamedNode() == candidate.isNamedNode()
+                && node.isInnerNode() == candidate.isInnerNode()
                 && (!node.isDeprecated() || candidate.isDeprecated()); // Deprecation shouldn't be removed.
     }
 
@@ -216,30 +218,26 @@ public class ConfigurationTreeComparator {
 
     /** Holder class for comparison context. */
     public static class ComparisonContext {
-        private final Set<ConfigurationModule> configurationModules;
-        private Collection<KeyIgnorer> deletedItems;
-        private final Set<String> skipAddRemoveKeys = new HashSet<>();
+        /** Creates context from current configuration. */
+        public static ComparisonContext create(Set<ConfigurationModule> configurationModules) {
+            Set<String> prefixes = configurationModules.stream()
+                    .map(ConfigurationModule::deletedPrefixes)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toSet());
 
-        ComparisonContext() {
-            this.configurationModules = Set.of();
+            return new ComparisonContext(prefixes);
         }
 
-        public ComparisonContext(Set<ConfigurationModule> configurationModules) {
-            this.configurationModules = configurationModules;
+        private final KeyIgnorer deletedItems;
+
+        private final Set<String> skipAddRemoveKeys = new HashSet<>();
+
+        ComparisonContext(Collection<String> deletedPrefixes) {
+            this.deletedItems = KeyIgnorer.fromDeletedPrefixes(deletedPrefixes);
         }
 
         boolean shouldIgnore(String path) {
-            if (deletedItems == null) {
-                deletedItems = new ArrayList<>(configurationModules.size());
-
-                for (ConfigurationModule module : configurationModules) {
-                    KeyIgnorer keyIgnorer = KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
-
-                    deletedItems.add(keyIgnorer);
-                }
-            }
-
-            return deletedItems.stream().anyMatch(i -> i.shouldIgnore(path));
+            return deletedItems.shouldIgnore(path);
         }
 
         boolean shouldIgnore(ConfigNode node, String childName) {
