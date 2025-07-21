@@ -105,7 +105,13 @@ namespace Apache.Ignite.Internal.Buffers
             Debug.Assert(count >= 0, "count >= 0");
             Debug.Assert(_index + count <= _buffer.Length, $"_index + count <= _buffer.Length [{_index} + {count} <= {_buffer.Length}]");
 
+#if DEBUG
+            // Get span and fill.
+            GetSpan(count);
+#else
+            // Release mode - just advance the index.
             _index += count;
+#endif
         }
 
         /// <summary>
@@ -129,6 +135,25 @@ namespace Apache.Ignite.Internal.Buffers
         {
             CheckAndResizeBuffer(sizeHint);
             var span = _buffer.AsSpan(_index, sizeHint);
+
+#if DEBUG
+            // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
+            span.Fill(255);
+#endif
+
+            return span;
+        }
+
+        /// <summary>
+        /// Gets a span for writing at the specified position. Does not resize the buffer or advance the index.
+        /// To be used with <see cref="Advance"/> to write to a reserved space.
+        /// </summary>
+        /// <param name="position">Position.</param>
+        /// <param name="size">Size.</param>
+        /// <returns>Span.</returns>
+        public Span<byte> GetSpanAt(int position, int size)
+        {
+            var span = _buffer.AsSpan(_prefixSize + position, size);
 
 #if DEBUG
             // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".

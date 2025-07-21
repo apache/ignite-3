@@ -220,9 +220,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var count = 0;
             var firstHash = 0;
 
-            // TODO: This span is invalid if we resize the buffer.
-            // Review all GetSpan usages that "reserve" space for a fixed number of bytes.
-            var countSpan = buf.GetSpan(5);
+            var countPos = buf.Position;
             buf.Advance(5);
 
             do
@@ -245,6 +243,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
             while (recs.MoveNext()); // First MoveNext is called outside to check for empty IEnumerable.
 
+            var countSpan = buf.GetSpanAt(countPos, 5);
             countSpan[0] = MsgPackCode.Int32;
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
 
