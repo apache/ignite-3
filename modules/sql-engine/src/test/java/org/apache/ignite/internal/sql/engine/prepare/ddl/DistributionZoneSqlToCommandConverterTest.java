@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
@@ -304,7 +305,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
-        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(CatalogUtils.AUTO_ADJUST_OFF));
+        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
 
         sql = withPresent
                 ? format("CREATE ZONE test WITH STORAGE_PROFILES='{}', {}=OFF",
@@ -315,7 +316,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
-        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(CatalogUtils.AUTO_ADJUST_OFF));
+        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(INFINITE_TIMER_VALUE));
     }
 
     @Test
@@ -326,8 +327,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
-        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(CatalogUtils.AUTO_ADJUST_OFF));
-        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(CatalogUtils.AUTO_ADJUST_OFF));
+        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
+        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(INFINITE_TIMER_VALUE));
     }
 
     @ParameterizedTest(name = "obsolete = {0}")
@@ -343,7 +344,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
-        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(CatalogUtils.AUTO_ADJUST_OFF));
+        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
 
         cmd = convert(obsolete
                 ? "ALTER ZONE test SET DATA_NODES_AUTO_ADJUST_SCALE_DOWN=OFF"
@@ -353,7 +354,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
-        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(CatalogUtils.AUTO_ADJUST_OFF));
+        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(INFINITE_TIMER_VALUE));
     }
 
     @Test
@@ -368,8 +369,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
-        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(CatalogUtils.AUTO_ADJUST_OFF));
-        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(CatalogUtils.AUTO_ADJUST_OFF));
+        assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
+        assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(INFINITE_TIMER_VALUE));
     }
 
     @ParameterizedTest(name = "with syntax = {0}")

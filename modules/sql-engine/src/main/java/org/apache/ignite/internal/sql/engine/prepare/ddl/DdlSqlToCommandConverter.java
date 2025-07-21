@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.AUTO_ADJUST_OFF;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.CONSISTENCY_MODE;
@@ -872,7 +872,7 @@ public class DdlSqlToCommandConverter {
                 }
 
                 // Directly set the option value and return
-                zoneOptionInfo.setter.accept(target, Commons.cast(AUTO_ADJUST_OFF));
+                zoneOptionInfo.setter.accept(target, Commons.cast(INFINITE_TIMER_VALUE));
 
                 return;
             }
