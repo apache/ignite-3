@@ -23,21 +23,19 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import io.netty.channel.Channel;
 import io.netty.handler.stream.ChunkedInput;
 import java.nio.channels.ClosedChannelException;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.HIstMsgInfo;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.internal.network.message.InvokeRequest;
+import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -173,39 +171,23 @@ public class NettySender {
         }
     }
 
-    ThreadLocal<HIstMsgInfo> locHisto = new ThreadLocal<>() {;
-        @Override
-        protected HIstMsgInfo initialValue() {
-            return new HIstMsgInfo();
-        }
-    };
-
-    private static class HIstMsgInfo {
-        /** Date format for thread dumps. */
-        final DateTimeFormatter THREAD_DUMP_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
-
-        HashMap<String, Integer> map = new HashMap();
-
-        long timestamp;
-
-        void add(String msg) {
-            map.compute(msg, (k, v) -> v == null ? 1 : v + 1);
-        }
-
-        void println() {
-            if (FastTimestamps.coarseCurrentTimeMillis() - timestamp > 10_000) {
-                LOG.info("PVD:: Message histogram: {} messages, last timestamp: {}", map,
-                        THREAD_DUMP_FMT.format(Instant.ofEpochMilli(timestamp)));
-
-                timestamp = System.currentTimeMillis();
-                map.clear();
-            }
-        }
-    }
+    ThreadLocal<HIstMsgInfo> locHisto = ThreadLocal.withInitial(() -> new HIstMsgInfo(LOG));
 
     private void writeWithRecovery(OutNetworkObject obj, Channel channel, Runnable triggerChannelRecreation) {
         var hist = locHisto.get();
-        hist.add(obj.networkMessage().getClass().getName());
+
+        if (obj instanceof InvokeRequest) {
+            var invokeRequest = (InvokeRequest) obj;
+
+            hist.add(obj.getClass().getName() + ":" + invokeRequest.message().getClass().getSimpleName());
+        } else if (obj instanceof InvokeResponse) {
+            var invokeResponse = (InvokeResponse) obj;
+
+            hist.add(obj.getClass().getName() + ":" + invokeResponse.message().getClass().getSimpleName());
+        } else {
+            hist.add(obj.getClass().getName());
+        }
+
         hist.println();
 
         CompletableFuture<Void> writeFuture = toCompletableFuture(channel.writeAndFlush(obj));
