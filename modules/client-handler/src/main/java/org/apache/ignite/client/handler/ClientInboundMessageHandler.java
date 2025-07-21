@@ -729,6 +729,39 @@ public class ClientInboundMessageHandler
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
             }
 
+            var hist = locHisto.get();
+
+            switch (opCode) {
+                case ClientOp.SERVER_OP_RESPONSE:
+                    hist.add("ClientOp.SERVER_OP_RESPONSE");
+                    hist.println();
+                    break;
+
+                case ClientOp.TUPLE_UPSERT:
+                    hist.add("ClientOp.TUPLE_UPSERT");
+                    hist.println();
+                    break;
+
+                case ClientOp.TUPLE_GET:
+                    hist.add("ClientOp.TUPLE_GET");
+                    hist.println();
+                    break;
+
+                case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
+                    hist.add("ClientOp.TUPLE_CONTAINS_ALL_KEYS");
+                    hist.println();
+                    break;
+
+                case ClientOp.TX_COMMIT:
+                    hist.add("ClientOp.TX_COMMIT");
+                    hist.println();
+                    break;
+
+                default:
+                    hist.add("ClientOp." + opCode);
+                    hist.println();
+            }
+
             if (opCode == ClientOp.SERVER_OP_RESPONSE) {
                 processServerOpResponse(requestId, in);
                 return;
@@ -769,7 +802,6 @@ public class ClientInboundMessageHandler
             long requestId,
             HybridTimestampTracker tsTracker
     ) throws IgniteInternalCheckedException {
-        var hist = locHisto.get();
 
         switch (opCode) {
             case ClientOp.HEARTBEAT:
@@ -788,16 +820,10 @@ public class ClientInboundMessageHandler
                 return ClientTableGetRequest.process(in, igniteTables);
 
             case ClientOp.TUPLE_UPSERT:
-                hist.add("ClientOp.TUPLE_UPSERT");
-                hist.println();
-
                 return ClientTupleUpsertRequest.process(
                         in, igniteTables, resources, txManager, clockService, notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_GET:
-                hist.add("ClientOp.TUPLE_GET");
-                hist.println();
-
                 return ClientTupleGetRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.TUPLE_UPSERT_ALL:
@@ -855,9 +881,6 @@ public class ClientInboundMessageHandler
                 return ClientTupleContainsKeyRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
-                hist.add("ClientOp.TUPLE_CONTAINS_ALL_KEYS");
-                hist.println();
-
                 return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.JDBC_CONNECT:
@@ -903,9 +926,6 @@ public class ClientInboundMessageHandler
                 return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, tsTracker);
 
             case ClientOp.TX_COMMIT:
-                hist.add("ClientOp.TX_COMMIT");
-                hist.println();
-
                 return ClientTransactionCommitRequest.process(in, resources, metrics, clockService, igniteTables,
                         clientContext.hasFeature(TX_PIGGYBACK), tsTracker);
 
