@@ -23,7 +23,6 @@ import java.util.StringJoiner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.util.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -155,7 +154,7 @@ public class IgniteProductVersion implements Serializable, Comparable<IgniteProd
     }
 
     @Override
-    public int compareTo(@NotNull IgniteProductVersion other) {
+    public int compareTo(IgniteProductVersion other) {
         int res = Byte.compare(major(), other.major());
         if (res != 0) {
             return res;
