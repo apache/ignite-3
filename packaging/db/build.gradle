@@ -185,6 +185,9 @@ distributions {
                 from "$buildDir/zip/${zipStartScriptTokensLin.SETUP_JAVA_FILE_NAME}"
                 from "$buildDir/zip/${zipStartScriptTokensWin.BOOTSTRAP_FILE_NAME}"
             }
+            into('lib/dotnet') {
+                from configurations.dotNetClient
+            }
         }
     }
 }
