@@ -17,33 +17,12 @@
 
 package org.apache.ignite.internal.benchmark;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Measurement;
-import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.Threads;
-import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
  * Benchmark for a single upsert operation using externally enabled cluster.
  */
-@State(Scope.Benchmark)
-@Fork(1)
-@Threads(64)
-@Warmup(iterations = 10, time = 2)
-@Measurement(iterations = 20, time = 2)
-@BenchmarkMode(Mode.Throughput)
-@OutputTimeUnit(TimeUnit.SECONDS)
 public class RemoteKvBenchmark extends ClientKvBenchmark {
     @Override
     protected boolean remote() {
@@ -57,9 +36,6 @@ public class RemoteKvBenchmark extends ClientKvBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
-
         client = IgniteClient.builder().addresses(addresses()).build();
         publicIgnite = client;
 
@@ -70,12 +46,6 @@ public class RemoteKvBenchmark extends ClientKvBenchmark {
      * Benchmark's entry point.
      */
     public static void main(String[] args) throws RunnerException {
-        Options opt = new OptionsBuilder()
-                .include(".*" + RemoteKvBenchmark.class.getSimpleName() + ".*")
-                // .jvmArgsAppend("-Djmh.executor=VIRTUAL")
-                // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc")
-                .build();
-
-        new Runner(opt).run();
+        runBenchmark(RemoteKvBenchmark.class, args);
     }
 }

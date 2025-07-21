@@ -53,7 +53,8 @@ enum class group : underlying_t {
     RECOVERY = 0x14,
     EMBEDDED = 0x15,
     MARSHALLING = 0x16,
-    REST = 0x17
+    REST = 0x17,
+    COMMONCFG = 0x18
 };
 
 inline group get_group_by_error_code(const underlying_t code) {
@@ -228,7 +229,12 @@ enum class code : underlying_t {
     UNMARSHALLING = 0x160003,
 
     // Rest group. Group code: 23
-    CLUSTER_NOT_INIT = 0x170001
+    CLUSTER_NOT_INIT = 0x170001,
+
+    // CommonConfiguration group. Group code: 24
+    CONFIGURATION_APPLY = 0x180001,
+    CONFIGURATION_PARSE = 0x180002,
+    CONFIGURATION_VALIDATION = 0x180003
 };
 
 } // namespace error

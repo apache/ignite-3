@@ -114,7 +114,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         Set<ConfigurationModule> allModules = allModules();
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + fileName);
 
-        ComparisonContext ctx = new ComparisonContext(allModules);
+        ComparisonContext ctx = ComparisonContext.create(allModules);
 
         ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata, ctx);
     }

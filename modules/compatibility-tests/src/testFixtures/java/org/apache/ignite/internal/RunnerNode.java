@@ -43,7 +43,9 @@ import org.apache.ignite.internal.logger.Loggers;
  */
 public class RunnerNode {
     private static final Map<String, String> DEFAULTS = IgniteVersions.INSTANCE.configOverrides();
+    private static final Map<String, String> STORAGE_PROFILES = IgniteVersions.INSTANCE.storageProfilesOverrides();
     private static final Map<String, Map<String, String>> DEFAULTS_PER_VERSION = getTestDefaultsPerVersion();
+    private static final Map<String, Map<String, String>> STORAGE_PROFILES_PER_VERSION = getStorageProfilesPerVersion();
 
     private final Process process;
 
@@ -87,10 +89,12 @@ public class RunnerNode {
         boolean useTestDefaults = true;
         if (useTestDefaults) {
             Map<String, String> defaultsPerVersion = DEFAULTS_PER_VERSION.get(igniteVersion);
+            Map<String, String> storageProfilesPerVersion = STORAGE_PROFILES_PER_VERSION.get(igniteVersion);
             writeConfigurationFileApplyingTestDefaults(
                     configStr,
                     configPath,
-                    defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS
+                    defaultsPerVersion != null ? defaultsPerVersion : DEFAULTS,
+                    storageProfilesPerVersion != null ? storageProfilesPerVersion : STORAGE_PROFILES
             );
         } else {
             writeConfigurationFile(configStr, configPath);
@@ -156,6 +160,15 @@ public class RunnerNode {
                 .collect(Collectors.toMap(
                         Version::version,
                         Version::configOverrides
+                ));
+    }
+
+    private static Map<String, Map<String, String>> getStorageProfilesPerVersion() {
+        return IgniteVersions.INSTANCE.versions().stream()
+                .filter(version -> version.storageProfilesOverrides() != null)
+                .collect(Collectors.toMap(
+                        Version::version,
+                        Version::storageProfilesOverrides
                 ));
     }
 

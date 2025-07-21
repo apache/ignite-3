@@ -20,8 +20,6 @@ package org.apache.ignite.internal.rest.configuration;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.lang.IgniteException;
@@ -67,17 +65,7 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
      * @param updatedConfiguration the configuration to update.
      */
     public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) {
-        return cfgPresentation.update(updatedConfiguration)
-                .exceptionally(ex -> {
-                    if (ex instanceof CompletionException) {
-                        var cause = ex.getCause();
-                        if (cause instanceof IllegalArgumentException
-                                || cause instanceof ConfigurationValidationException) {
-                            throw new IgniteException(INTERNAL_ERR, cause);
-                        }
-                    }
-                    throw new IgniteException(INTERNAL_ERR, ex);
-                });
+        return cfgPresentation.update(updatedConfiguration);
     }
 
     @Override

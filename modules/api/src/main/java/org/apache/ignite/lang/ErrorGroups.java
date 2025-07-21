@@ -759,4 +759,19 @@ public class ErrorGroups {
         /** Cluster has not yet been initialized or the node is in the process of stopping. */
         public static final int CLUSTER_NOT_INIT_ERR = REST_ERR_GROUP.registerErrorCode((short) 1);
     }
+
+    /** Configuration error group. */
+    @ErrorCodeGroup
+    public static class CommonConfiguration {
+        public static final ErrorGroup COMMON_CONF_ERR_GROUP = registerGroup("COMMONCFG", (short) 24);
+
+        /** Configuration apply failed. */
+        public static final int CONFIGURATION_APPLY_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Configuration parse error. */
+        public static final int CONFIGURATION_PARSE_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Configuration validation error. */
+        public static final int CONFIGURATION_VALIDATION_ERR = COMMON_CONF_ERR_GROUP.registerErrorCode((short) 3);
+    }
 }

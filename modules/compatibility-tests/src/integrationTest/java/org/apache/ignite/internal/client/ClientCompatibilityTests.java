@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_ALL_COLUMNS;
+import static org.apache.ignite.internal.CompatibilityTestCommon.TABLE_NAME_TEST;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -50,6 +52,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.CompatibilityTestCommon;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -76,9 +79,6 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings({"resource", "DataFlowIssue"})
 public interface ClientCompatibilityTests {
-    String TABLE_NAME_TEST = "TEST";
-    String TABLE_NAME_ALL_COLUMNS = "ALL_COLUMNS";
-
     IgniteClient client();
 
     AtomicInteger idGen();
@@ -584,25 +584,8 @@ public interface ClientCompatibilityTests {
     /**
      * Creates default tables for testing.
      */
-    default void createDefaultTables(Ignite client) {
-        if (!ddl(client, "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
-            sql(client, "DELETE FROM " + TABLE_NAME_TEST);
-        }
-
-        sql(client, "INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
-
-        if (!ddl(client, "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, "
-                + "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL(10,1), "
-                + "string VARCHAR, guid UUID, dt DATE, tm TIME(9), ts TIMESTAMP(9), "
-                + "tstz TIMESTAMP WITH LOCAL TIME ZONE, bool BOOLEAN, bytes VARBINARY)")) {
-            sql(client, "DELETE FROM " + TABLE_NAME_ALL_COLUMNS);
-        }
-
-        sql(client, "INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, "
-                + "string, guid, dt, tm, ts, tstz, bool, bytes) VALUES "
-                + "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, "
-                + "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', "
-                + "?, true, X'01020304')", Instant.ofEpochSecond(1714946523L));
+    default void createDefaultTables(Ignite ignite) {
+        CompatibilityTestCommon.createDefaultTables(ignite);
     }
 
     default void close() {
@@ -614,26 +597,7 @@ public interface ClientCompatibilityTests {
     }
 
     private @Nullable List<SqlRow> sql(String sql, Object... arguments) {
-        return sql(client(), sql, arguments);
-    }
-
-    private static @Nullable List<SqlRow> sql(Ignite client, String sql, Object... arguments) {
-        try (var cursor = client.sql().execute(null, sql, arguments)) {
-            if (cursor.hasRowSet()) {
-                List<SqlRow> rows = new ArrayList<>();
-                cursor.forEachRemaining(rows::add);
-                return rows;
-            } else {
-                return null;
-            }
-        }
-    }
-
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    private static boolean ddl(Ignite client, String sql) {
-        try (var cursor = client.sql().execute(null, sql)) {
-            return cursor.wasApplied();
-        }
+        return CompatibilityTestCommon.sql(client(), sql, arguments);
     }
 
     private Table table(String tableName) {
