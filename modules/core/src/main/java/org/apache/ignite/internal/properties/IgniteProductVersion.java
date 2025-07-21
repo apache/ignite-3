@@ -23,12 +23,13 @@ import java.util.StringJoiner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.util.StringUtils;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class representing an Ignite version.
  */
-public class IgniteProductVersion implements Serializable {
+public class IgniteProductVersion implements Serializable, Comparable<IgniteProductVersion> {
     /**
      * Ignite version in the following formats "major.minor.maintenance(.patch)?(-preRelease)?".
      *
@@ -154,6 +155,39 @@ public class IgniteProductVersion implements Serializable {
     }
 
     @Override
+    public int compareTo(@NotNull IgniteProductVersion other) {
+        int res = Byte.compare(major(), other.major());
+        if (res != 0) {
+            return res;
+        }
+        res = Byte.compare(minor(), other.minor());
+        if (res != 0) {
+            return res;
+        }
+        res = Byte.compare(maintenance(), other.maintenance());
+        if (res != 0) {
+            return res;
+        }
+        if (patch() != null && other.patch() != null) {
+            res = Byte.compare(patch(), other.patch());
+            if (res != 0) {
+                return res;
+            }
+        } else if (patch() != null && other.patch() == null) {
+            return 1;
+        } else if (patch() == null && other.patch() != null) {
+            return -1;
+        }
+        if (preRelease() != null && other.preRelease() != null) {
+            res = Integer.compare(preReleaseOrder(preRelease()), preReleaseOrder(other.preRelease()));
+            if (res != 0) {
+                return res;
+            }
+        }
+        return 0;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
@@ -184,4 +218,21 @@ public class IgniteProductVersion implements Serializable {
 
         return joiner + (preRelease == null ? "" : "-" + preRelease);
     }
+
+    private int preReleaseOrder(String preRelease) {
+            switch (preRelease.toLowerCase()) {
+                case "alpha":
+                    return 0;
+                case "beta":
+                    return 1;
+                case "rc":
+                    return 2;
+                case "final":
+                case "":
+                    return 3;
+                default:
+                    return 4; // Unknown or custom stages
+            }
+    }
+
 }

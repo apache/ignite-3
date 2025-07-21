@@ -21,9 +21,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for parsing {@link IgniteProductVersion}.
@@ -94,5 +100,48 @@ public class IgniteProductVersionTest {
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("a.b.c.d"));
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-"));
         assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-SNAPSHOT-alpha123"));
+    }
+
+    @ParameterizedTest(name = "[{index}] {0}.compareTo({1}) = {2}")
+    @MethodSource("versionCompareProvider")
+    void testCompareTo(IgniteProductVersion v1, IgniteProductVersion v2, int expected) {
+        assertThat(Integer.signum(v1.compareTo(v2)), is (expected));
+    }
+
+    static Stream<Arguments> versionCompareProvider() {
+        return Stream.of(
+                
+                // major version differences
+                arguments(version("2.0.0"), version("3.0.0"), -1),
+                arguments(version("3.0.0"), version("2.0.0"), 1),
+                arguments(version("3.0.0"), version("3.0.0"), 0),
+
+                // minor version differences
+                arguments(version("3.1.0"), version("3.2.0"), -1),
+                arguments(version("3.2.0"), version("3.1.0"), 1),
+                arguments(version("3.2.0"), version("3.2.0"), 0),
+
+                // maintenance version differences
+                arguments(version("3.2.1"), version("3.2.2"), -1),
+                arguments(version("3.2.2"), version("3.2.1"), 1),
+                arguments(version("3.2.2"), version("3.2.2"), 0),
+
+                // patch version differences
+                arguments(version("3.2.1.1"), version("3.2.1.2"), -1),
+                arguments(version("3.2.1.2"), version("3.2.1.1"), 1),
+                arguments(version("3.2.1.1"), version("3.2.1"), 1),
+                arguments(version("3.2.1"), version("3.2.1.1"), -1),
+                arguments(version("3.2.1.1"), version("3.2.1.1"), 0),
+
+                // pre-release differences
+                arguments(version("3.2.1-alpha"), version("3.2.1-beta"), -1),
+                arguments(version("3.2.1-beta"), version("3.2.1-alpha"), 1),
+                arguments(version("3.2.1-SNAPSHOT"), version("3.2.1-SNAPSHOT"), 0),
+                arguments(version("3.2.1.1-SNAPSHOT"), version("3.2.1.1-SNAPSHOT"), 0)
+        );
+    }
+
+    private static IgniteProductVersion version(String str) {
+        return IgniteProductVersion.fromString(str);
     }
 }
