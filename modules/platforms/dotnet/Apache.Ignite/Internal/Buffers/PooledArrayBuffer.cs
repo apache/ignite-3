@@ -128,7 +128,7 @@ namespace Apache.Ignite.Internal.Buffers
         public Span<byte> GetSpan(int sizeHint)
         {
             CheckAndResizeBuffer(sizeHint);
-            return _buffer.AsSpan(_index);
+            return _buffer.AsSpan(_index, sizeHint);
         }
 
         /// <summary>
