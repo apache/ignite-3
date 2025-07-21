@@ -51,6 +51,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -441,14 +442,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
             }
 
             // The same for explicit RO transaction
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-25921 uncomment section below
-            // client.transactions().runInTransaction(roTx -> {
-            //     for (int i = 0; i < count; i++) {
-            //         try (ResultSet<SqlRow> rs = sql.execute(roTx, "SELECT * FROM my_table WHERE id = ?", i)) {
-            //             assertFalse(rs.hasNext());
-            //         }
-            //     }
-            // }, new TransactionOptions().readOnly(true));
+            client.transactions().runInTransaction(roTx -> {
+                for (int i = 0; i < count; i++) {
+                    try (ResultSet<SqlRow> rs = sql.execute(roTx, "SELECT * FROM my_table WHERE id = ?", i)) {
+                        assertFalse(rs.hasNext());
+                    }
+                }
+            }, new TransactionOptions().readOnly(true));
         });
 
         // And now changes are published.

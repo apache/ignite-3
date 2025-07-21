@@ -29,6 +29,7 @@ import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
@@ -330,6 +331,11 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
                 return false;
             }
 
+            if (!Objects.equals(baseSchema.getFormat(), currentSchema.getFormat())) {
+                mismatchDescription.appendText("Schema ").appendValue(path).appendText(" has different formats");
+                return false;
+            }
+
             String baseRef = baseSchema.get$ref();
             if (!Objects.equals(baseRef, currentSchema.get$ref())) {
                 mismatchDescription.appendText("Schema ").appendValue(path).appendText(" has different reference");
@@ -363,53 +369,93 @@ public class OpenApiMatcher extends TypeSafeDiagnosingMatcher<OpenAPI> {
             }
 
             if ("object".equals(baseType)) {
-                // Detect new required properties only for responses
-                if (isRequest) {
-                    Set<String> baseRequired = new HashSet<>(ofNullable(baseSchema.getRequired()).orElse(List.of()));
+                return compareObjectSchema(path, mismatchDescription, baseSchema, currentSchema);
+            }
 
-                    Set<String> newRequired = ofNullable(currentSchema.getRequired()).orElse(List.of()).stream()
-                            .filter(Predicate.not(baseRequired::contains))
-                            .collect(toSet());
+            if ("string".equals(baseType)) {
+                return compareStringSchema(path, mismatchDescription, baseSchema, currentSchema);
+            }
 
-                    if (!newRequired.isEmpty()) {
-                        mismatchDescription.appendText("Schema ").appendValue(path)
-                                .appendText(" has new required properties ").appendValue(newRequired);
-                        return false;
-                    }
-                } else {
-                    Set<String> currentRequired = new HashSet<>(ofNullable(currentSchema.getRequired()).orElse(List.of()));
+            return true;
+        }
 
-                    Set<String> newOptional = ofNullable(baseSchema.getRequired()).orElse(List.of()).stream()
-                            .filter(Predicate.not(currentRequired::contains))
-                            .collect(toSet());
+        private boolean compareObjectSchema(String path, Description mismatchDescription, Schema<?> baseSchema, Schema<?> currentSchema) {
+            if (isRequest) {
+                Set<String> baseRequired = new HashSet<>(ofNullable(baseSchema.getRequired()).orElse(List.of()));
 
-                    if (!newOptional.isEmpty()) {
-                        mismatchDescription.appendText("Schema ").appendValue(path)
-                                .appendText(" has new optional properties ").appendValue(newOptional);
-                        return false;
-                    }
-                }
+                Set<String> newRequired = ofNullable(currentSchema.getRequired()).orElse(List.of()).stream()
+                        .filter(Predicate.not(baseRequired::contains))
+                        .collect(toSet());
 
-                Map<String, Schema> baseProperties = ofNullable(baseSchema.getProperties()).orElse(Map.of());
-                Map<String, Schema> currentProperties = ofNullable(currentSchema.getProperties()).orElse(Map.of());
-                if (!compareProperties(path + "/object", mismatchDescription, baseProperties, currentProperties)) {
+                if (!newRequired.isEmpty()) {
+                    mismatchDescription.appendText("Schema ").appendValue(path)
+                            .appendText(" has new required properties ").appendValue(newRequired);
                     return false;
                 }
+            } else {
+                Set<String> currentRequired = new HashSet<>(ofNullable(currentSchema.getRequired()).orElse(List.of()));
 
-                Object baseAdditionalProperties = baseSchema.getAdditionalProperties();
-                Object currentAdditionalProperties = currentSchema.getAdditionalProperties();
-                if (baseAdditionalProperties instanceof Schema && currentAdditionalProperties instanceof Schema) {
-                    return compareSchema(
-                            path + "/additionalProperties",
-                            mismatchDescription,
-                            ((Schema) baseAdditionalProperties),
-                            ((Schema) currentAdditionalProperties)
-                    );
+                Set<String> newOptional = ofNullable(baseSchema.getRequired()).orElse(List.of()).stream()
+                        .filter(Predicate.not(currentRequired::contains))
+                        .collect(toSet());
+
+                if (!newOptional.isEmpty()) {
+                    mismatchDescription.appendText("Schema ").appendValue(path)
+                            .appendText(" has new optional properties ").appendValue(newOptional);
+                    return false;
                 }
+            }
 
+            Map<String, Schema> baseProperties = ofNullable(baseSchema.getProperties()).orElse(Map.of());
+            Map<String, Schema> currentProperties = ofNullable(currentSchema.getProperties()).orElse(Map.of());
+            if (!compareProperties(path + "/object", mismatchDescription, baseProperties, currentProperties)) {
+                return false;
+            }
+
+            Object baseAdditionalProperties = baseSchema.getAdditionalProperties();
+            Object currentAdditionalProperties = currentSchema.getAdditionalProperties();
+            if (baseAdditionalProperties instanceof Schema && currentAdditionalProperties instanceof Schema) {
+                return compareSchema(
+                        path + "/additionalProperties",
+                        mismatchDescription,
+                        ((Schema) baseAdditionalProperties),
+                        ((Schema) currentAdditionalProperties)
+                );
+            }
+
+            return true;
+        }
+
+        private boolean compareStringSchema(String path, Description mismatchDescription, Schema<?> baseSchema, Schema<?> currentSchema) {
+            if (!(baseSchema instanceof StringSchema) || !(currentSchema instanceof StringSchema)) {
                 return true;
             }
 
+            if (isRequest) {
+                Set<String> currentEnum = new HashSet<>(ofNullable(((StringSchema) currentSchema).getEnum()).orElse(List.of()));
+
+                Set<String> missingValues = ofNullable(((StringSchema) baseSchema).getEnum()).orElse(List.of()).stream()
+                        .filter(Predicate.not(currentEnum::contains))
+                        .collect(toSet());
+
+                if (!missingValues.isEmpty()) {
+                    mismatchDescription.appendText("Schema ").appendValue(path)
+                            .appendText(" has missing enum values ").appendValue(missingValues);
+                    return false;
+                }
+            } else {
+                Set<String> baseEnum = new HashSet<>(ofNullable(((StringSchema) baseSchema).getEnum()).orElse(List.of()));
+
+                Set<String> newValues = ofNullable(((StringSchema) currentSchema).getEnum()).orElse(List.of()).stream()
+                        .filter(Predicate.not(baseEnum::contains))
+                        .collect(toSet());
+
+                if (!newValues.isEmpty()) {
+                    mismatchDescription.appendText("Schema ").appendValue(path)
+                            .appendText(" has new enum values ").appendValue(newValues);
+                    return false;
+                }
+            }
             return true;
         }
 

@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.sql;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -27,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -49,6 +50,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -283,13 +285,23 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
         SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor(), matcher);
     }
 
+    /**
+     * Waits until the number of active (pending) transactions matches the specified matcher.
+     *
+     * @param matcher Matcher to check the number of active transactions.
+     * @throws AssertionError If after waiting the number of active transactions still does not match the specified matcher.
+     */
+    protected void waitUntilActiveTransactionsCount(Matcher<Integer> matcher) {
+        Awaitility.await().timeout(5, SECONDS).untilAsserted(() -> assertThat(txManager().pending(), matcher));
+    }
+
     protected static void gatherStatistics() {
         SqlStatisticManagerImpl statisticManager = (SqlStatisticManagerImpl) ((SqlQueryProcessor) unwrapIgniteImpl(CLUSTER.aliveNode())
                 .queryEngine()).sqlStatisticManager();
 
         statisticManager.forceUpdateAll();
         try {
-            statisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.SECONDS);
+            statisticManager.lastUpdateStatisticFuture().get(5_000, SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new RuntimeException(e);
         }

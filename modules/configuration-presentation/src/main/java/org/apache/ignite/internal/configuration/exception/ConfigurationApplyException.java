@@ -15,17 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.configuration.exception;
 
-import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
+import static org.apache.ignite.lang.ErrorGroups.CommonConfiguration.CONFIGURATION_APPLY_ERR;
+
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Throws when node bootstrap configuration read failed with IO problem.
+ * Throws when failed to apply new configuration.
  */
-public class NodeConfigReadException extends IgniteException {
+public class ConfigurationApplyException extends IgniteException {
+    private static final long serialVersionUID = -3564943126391592841L;
 
-    public NodeConfigReadException(String msg, Throwable cause) {
-        super(NodeConfiguration.CONFIG_READ_ERR, msg, cause);
+    public ConfigurationApplyException(String message) {
+        super(CONFIGURATION_APPLY_ERR, message);
+    }
+
+    public ConfigurationApplyException(String message, @Nullable Throwable cause) {
+        super(CONFIGURATION_APPLY_ERR, cause);
     }
 }
