@@ -841,6 +841,55 @@ public class ConfigurationTreeComparatorSelfTest {
             assertIncompatible(root2, root1);
         }
     }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void polymorphicConfigCannotMoveFromOneInstanceToAnother(boolean hasDefault) {
+        Set<Flags> fieldFlags = hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2"));
+            subclass1.addChildNodes(createChild("f3", fieldFlags));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "B");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f4"));
+
+            root1.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2"));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "B");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f3", fieldFlags));
+            subclass2.addChildNodes(createChild("f4"));
+
+            root2.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+        }
+
+        assertIncompatible(root1, root2);
+        assertIncompatible(root2, root1);
+    }
     
     private static Stream<Arguments> defaultDefault() {
         return Stream.of(
