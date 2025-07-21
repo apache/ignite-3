@@ -507,7 +507,7 @@ public class ConfigurationTreeComparatorSelfTest {
         ConfigNode subclassB = createInstanceNode("config", "ClassB", "B");
         subclassB.addChildNodes(createChild("f3"));
 
-        root.addPolymorhicNode("config", Map.of("", base, "A", subclassA, "B", subclassB));
+        root.addPolymorphicNode("config", Map.of("", base, "A", subclassA, "B", subclassB));
 
         assertCompatible(List.of(root), List.of(root));
     }
@@ -522,7 +522,7 @@ public class ConfigurationTreeComparatorSelfTest {
             ConfigNode subclassA = createInstanceNode("config", "ClassA", "A");
             subclassA.addChildNodes(createChild(subclassA, "f2"));
 
-            root1.addPolymorhicNode("config", Map.of("", base, "A", subclassA));
+            root1.addPolymorphicNode("config", Map.of("", base, "A", subclassA));
         }
 
         ConfigNode root2 = createRoot("root");
@@ -536,7 +536,7 @@ public class ConfigurationTreeComparatorSelfTest {
             ConfigNode subclassB = createInstanceNode("config", "ClassB", "B");
             subclassB.addChildNodes(createChild(subclassB, "f3"));
 
-            root2.addPolymorhicNode("config", Map.of("", base, "A", subclassA, "B", subclassB));
+            root2.addPolymorphicNode("config", Map.of("", base, "A", subclassA, "B", subclassB));
         }
 
         assertCompatible(List.of(root1), List.of(root2));
@@ -554,7 +554,7 @@ public class ConfigurationTreeComparatorSelfTest {
             ConfigNode subclassA = createInstanceNode("config", "ClassA", "A");
             subclassA.addChildNodes(createChild(subclassA, "f2"));
 
-            root1.addPolymorhicNode("config", Map.of("", base, "A", subclassA));
+            root1.addPolymorphicNode("config", Map.of("", base, "A", subclassA));
         }
 
         ConfigNode root2 = createRoot("root");
@@ -565,7 +565,7 @@ public class ConfigurationTreeComparatorSelfTest {
             ConfigNode subclassA = createInstanceNode("config", "ClassA", "B");
             subclassA.addChildNodes(createChild(subclassA, "f2"));
 
-            root2.addPolymorhicNode("config", Map.of("", base, "B", subclassA));
+            root2.addPolymorphicNode("config", Map.of("", base, "B", subclassA));
         }
 
         // Changing instance type is always an incompatible change 
@@ -589,7 +589,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclassA.addChildNodes(createChild("f1"));
             subclassA.addChildNodes(createChild("f2"));
 
-            root1.addPolymorhicNode("config", Map.of("", base, "A", subclassA));
+            root1.addPolymorphicNode("config", Map.of("", base, "A", subclassA));
         }
 
         ConfigNode root2 = createRoot("root");
@@ -604,7 +604,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclassA.addChildNodes(createChild("f2"));
             subclassA.addChildNodes(createChild("f3", newFieldFlags));
 
-            root2.addPolymorhicNode("config", Map.of("", base, "A", subclassA));
+            root2.addPolymorphicNode("config", Map.of("", base, "A", subclassA));
         }
 
         if (hasDefault) {
@@ -645,7 +645,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass.addChildNodes(createChild("f2"));
             subclass.addChildNodes(createChild("f3", fieldFlags));
 
-            root2.addPolymorhicNode("config", Map.of("", base, "A", subclass));
+            root2.addPolymorphicNode("config", Map.of("", base, "A", subclass));
         }
 
         // Extracting a subclass
@@ -686,7 +686,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass2.addChildNodes(createChild("f1"));
             subclass2.addChildNodes(createChild("f3", fieldFlags));
 
-            root2.addPolymorhicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+            root2.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
         }
 
         // Extracting a subclass
@@ -725,7 +725,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass.addChildNodes(createChild("f4", newFieldFlags));
             subclass.addChildNodes(createChild("f5", newFieldFlags));
 
-            root2.addPolymorhicNode("config", Map.of("", base, "A", subclass));
+            root2.addPolymorphicNode("config", Map.of("", base, "A", subclass));
         }
 
         // Extracting a subclass + adding a new field
@@ -755,7 +755,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass1.addChildNodes(createChild("f2", fieldFlags));
             subclass1.addChildNodes(createChild("f3"));
 
-            root1.addPolymorhicNode("config", Map.of("", base, "A", subclass1));
+            root1.addPolymorphicNode("config", Map.of("", base, "A", subclass1));
         }
 
         ConfigNode root2 = createRoot("root");
@@ -771,7 +771,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass1.addChildNodes(createChild("f2", fieldFlags));
             subclass1.addChildNodes(createChild("f3"));
 
-            root2.addPolymorhicNode("config", Map.of("", base, "A", subclass1));
+            root2.addPolymorphicNode("config", Map.of("", base, "A", subclass1));
         }
 
         // Moving a field from a subclass to the base class
@@ -802,7 +802,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass2.addChildNodes(createChild("f1"));
             subclass2.addChildNodes(createChild("f4"));
 
-            root1.addPolymorhicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+            root1.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
         }
 
         ConfigNode root2 = createRoot("root");
@@ -824,7 +824,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass2.addChildNodes(createChild("f2", fieldFlags));
             subclass2.addChildNodes(createChild("f4"));
 
-            root2.addPolymorhicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+            root2.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
         }
 
         // Moving a field from a subclass to the base class
@@ -865,7 +865,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass2.addChildNodes(createChild("f1"));
             subclass2.addChildNodes(createChild("f4"));
 
-            init.addPolymorhicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+            init.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
         }
 
         ConfigNode root2 = createRoot("root");
@@ -891,7 +891,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass2.addChildNodes(createChild("f2", fieldFlags));
             subclass2.addChildNodes(createChild("f4"));
 
-            init.addPolymorhicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+            init.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
         }
 
         // Moving a field from a subclass to the base class
@@ -920,7 +920,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subinit.addChildNodes(createChild("t_i"));
             subinit.addChildNodes(createChild("i"));
 
-            root1.addChildNodes(List.of(init, subinit));
+            root1.addChildNodes(List.of(subinit));
 
             ConfigNode base = createNode(subinit, "config", "ClassBase");
             base.addChildNodes(createChild("t"));
@@ -937,7 +937,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass2.addChildNodes(createChild("f1"));
             subclass2.addChildNodes(createChild("f4"));
 
-            subinit.addPolymorhicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+            subinit.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
         }
 
         ConfigNode root2 = createRoot("root");
@@ -951,7 +951,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subinit.addChildNodes(createChild("i"));
             subinit.addChildNodes(createChild("j", newFieldFlags));
 
-            root2.addChildNodes(List.of(init, subinit));
+            root2.addChildNodes(List.of(subinit));
 
             ConfigNode base = createNode("config", "ClassBase");
             base.addChildNodes(createChild("t"));
@@ -970,7 +970,7 @@ public class ConfigurationTreeComparatorSelfTest {
             subclass2.addChildNodes(createChild("f2"));
             subclass2.addChildNodes(createChild("f4"));
 
-            subinit.addPolymorhicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+            subinit.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
         }
 
         if (hasDefault) {

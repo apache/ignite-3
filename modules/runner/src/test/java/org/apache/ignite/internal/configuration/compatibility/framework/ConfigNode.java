@@ -181,7 +181,10 @@ public class ConfigNode {
     void addChildNodes(Collection<ConfigNode> childNodes) {
         assert !flags.contains(Flags.IS_VALUE) : "Value node can't have children.";
 
-        childNodes.forEach(e -> childNodeMap.put(e.name(), new Node(e)));
+        childNodes.forEach(e -> {
+            e.parent = this;
+            addChildNode(e.name(), new Node(e));  
+        });
     }
 
     /**
@@ -193,17 +196,24 @@ public class ConfigNode {
     }
 
     /**
-     * Add a polymorhic child node to this node.
+     * Add a polymorphic child node to this node.
      */
-    void addPolymorhicNode(String name, Map<String, ConfigNode> childNodes) {
+    void addPolymorphicNode(String name, Map<String, ConfigNode> childNodes) {
         boolean nameMatches = childNodes.values().stream().allMatch(n -> n.name().equals(name));
         if (!nameMatches) {
-            throw new IllegalArgumentException("All nodes name should be equal to " + name);
+            throw new IllegalArgumentException("All nodes name should be equal to: " + name);
         }
         for (ConfigNode n : childNodes.values()) {
             n.parent = this;
         }
-        childNodeMap.put(name, new Node(childNodes));
+        addChildNode(name, new Node(childNodes));
+    }
+
+    private void addChildNode(String name, Node node) {
+        Node existing = childNodeMap.put(name, node);
+        if (existing != null) {
+            throw new IllegalArgumentException("Child node already exists: " + name);
+        }
     }
 
     /**
@@ -406,13 +416,13 @@ public class ConfigNode {
          * Non-polymorphic node.
          */
         @JsonProperty
-        private ConfigNode single;
+        private @Nullable ConfigNode single;
 
         /**
          * All polymorphic instances.
          */
         @JsonProperty
-        private Map<String, ConfigNode> polymorphicNodes = new LinkedHashMap<>();
+        private @Nullable Map<String, ConfigNode> polymorphicNodes = new LinkedHashMap<>();
 
         @SuppressWarnings("unused")
         Node() {
@@ -438,18 +448,18 @@ public class ConfigNode {
         }
 
         /**
-         * Returns a single node if this node presents one or throws.
+         * Returns a single node if this node is a simple node or throws.
          */
         ConfigNode node() {
-            assert !isPolymorphic() : "Use the nodes() method instead.";
+            assert single != null : "Use the nodes() method instead.";
             return single;
         }
 
         /**
-         * Returns a map of polymorphic instances if this node presents one or throws.
+         * Returns a map of polymorphic instances if this node is polymorphic or throws.
          */
         Map<String, ConfigNode> nodes() {
-            assert isPolymorphic() : "Use the node() method instead.";
+            assert polymorphicNodes != null : "Use the node() method instead.";
             return polymorphicNodes;
         }
 

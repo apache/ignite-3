@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -81,21 +82,29 @@ public class ConfigurationTreeScanner {
      * @param context The context containing dependency information.
      */
     public static void scan(ConfigNode currentNode, Class<?> schemaClass, ScanContext context) {
+        scan(currentNode, schemaClass, context, Set.of());
+    }
+    
+    private static void scan(ConfigNode currentNode, Class<?> schemaClass, ScanContext context, Set<String> skipFields) {
         assert schemaClass != null && schemaClass.getName().startsWith("org.apache.ignite");
-
+        
         Collection<Class<?>> extensions = context.getExtensions(schemaClass);
 
         if (!extensions.isEmpty()) {
             extensions.stream()
                     .sorted(Comparator.comparing(Class::getName)) // Sort for test stability.
-                    .forEach(ext -> scan(currentNode, ext, context));
+                    .forEach(ext -> scan(currentNode, ext, context, skipFields));
 
             return;
         }
 
+        Map<Field, Set<Class<?>>> instancesPerField = new HashMap<>();
+
+        // Non-polymorphic fields
         configurationClasses(schemaClass).stream()
                 .flatMap(c -> Arrays.stream(c.getDeclaredFields()))
                 .filter(field -> !Modifier.isStatic(field.getModifiers()))
+                .filter(field -> !skipFields.contains(field.getName()))
                 .sorted(Comparator.comparing(Field::getName)) // Sort for test stability.
                 .forEach(field -> {
                     Set<Class<?>> instanceClasses = context.getPolymorphicInstances(field.getType());
@@ -106,34 +115,48 @@ public class ConfigurationTreeScanner {
                     if (instanceClasses.isEmpty()) {
                         // Single node
                         if (!node.isValue()) {
-                            scan(node, field.getType(), context);
+                            scan(node, field.getType(), context, skipFields);
                         }
 
                         currentNode.addChildNodes(List.of(node));
                     } else {
-                        // Polymorphic node
-                        if (!node.isValue()) {
-                            scan(node, field.getType(), context);
-                        }
-
-                        Map<String, ConfigNode> map = new HashMap<>();
-                        // Register a base class, so we can track removals/additions of its child nodes.
-                        map.put(Node.BASE_INSTANCE_TYPE, node);
-
-                        // Collect nodes that correspond to polymorphic instances
-                        for (Class<?> instanceClass : instanceClasses) {
-                            ConfigNode instanceTypeNode = createNodeForField(currentNode, field, instanceClass);
-                            map.put(instanceTypeNode.instanceType(), instanceTypeNode);
-
-                            // Each polymorphic instance includes fields from the base class
-                            scan(instanceTypeNode, field.getType(), context);
-                            // And its own fields
-                            scan(instanceTypeNode, instanceClass, context);
-                        }
-
-                        currentNode.addPolymorhicNode(field.getName(), map);
+                        instancesPerField.put(field, instanceClasses);
                     }
                 });
+        
+        // Polymorphic fields
+        for (Entry<Field, Set<Class<?>>> e : instancesPerField.entrySet()) {
+            Field field = e.getKey();
+            Set<Class<?>> instanceClasses = e.getValue();
+            
+            ConfigNode node = createNodeForField(currentNode, field, field.getType());
+            
+            // Polymorphic node
+            if (!node.isValue()) {
+                scan(node, field.getType(), context);
+            }
+
+            Map<String, ConfigNode> map = new HashMap<>();
+            // Register a base class, so we can track removals/additions of its child nodes.
+            map.put(Node.BASE_INSTANCE_TYPE, node);
+            
+            Set<String> baseClassFields = Arrays.stream(field.getType().getDeclaredFields())
+                    .map(Field::getName)
+                    .collect(Collectors.toSet());
+
+            // Collect nodes that correspond to polymorphic instances
+            for (Class<?> instanceClass : instanceClasses) {
+                ConfigNode instanceTypeNode = createNodeForField(currentNode, field, instanceClass);
+                map.put(instanceTypeNode.instanceType(), instanceTypeNode);
+
+                // Each polymorphic instance includes fields from the base class
+                scan(instanceTypeNode, field.getType(), context);
+                // And its own fields ignoring base class fields.
+                scan(instanceTypeNode, instanceClass, context, baseClassFields);
+            }
+
+            currentNode.addPolymorphicNode(field.getName(), map);
+        }
     }
 
     private static List<Class<?>> configurationClasses(Class<?> configClass) {
