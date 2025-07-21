@@ -37,7 +37,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import org.apache.calcite.linq4j.Ord;
 import org.apache.calcite.plan.Convention;
@@ -81,7 +80,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TraitUtils {
 
-    private static final int TRAITS_COMBINATION_COMPLEXITY_LIMIT = 256;
+    private static final int TRAITS_COMBINATION_COMPLEXITY_LIMIT = 1024;
 
     /**
      * Enforce. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -401,11 +400,18 @@ public class TraitUtils {
     ) {
         RelTraitSet[] combination = new RelTraitSet[inTraits.size()];
 
+        long iteration = 0;
         for (int attemptNo = 0; attemptNo < count; attemptNo++) {
             int lastProcessed = -1;
             for (int i = 0; i < inTraits.size(); i++) {
                 List<RelTraitSet> traits = inTraits.get(i);
-                RelTraitSet traitsCandidate = traits.get(ThreadLocalRandom.current().nextInt(traits.size()));
+
+                // Even though random seems like it might fit better, we stick with deterministic approach
+                // as it make the system easy, more stable, and more predictable in terms of testing, debugging,
+                // benchmarking, and regression analyses.
+                RelTraitSet traitsCandidate = traits.get((int) (iteration % traits.size()));
+
+                iteration++;
 
                 if (traitsCandidate.getConvention() != IgniteConvention.INSTANCE) {
                     break;
