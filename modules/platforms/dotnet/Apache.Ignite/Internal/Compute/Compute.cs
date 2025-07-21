@@ -264,6 +264,8 @@ namespace Apache.Ignite.Internal.Compute
 
             // Enumerable without known count - enumerate first, write count later.
             count = 0;
+
+            // TODO: Bug
             var countSpan = buf.GetSpan(5);
             buf.Advance(5);
 
