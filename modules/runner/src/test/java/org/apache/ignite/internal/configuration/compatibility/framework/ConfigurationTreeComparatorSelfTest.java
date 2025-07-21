@@ -1059,7 +1059,7 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     private static void assertCompatible(ConfigNode oldConfig, ConfigNode newConfig) {
-        ConfigurationTreeComparator.ensureCompatible(oldConfig, newConfig, new ComparisonContext());
+        ConfigurationTreeComparator.ensureCompatible(oldConfig, newConfig, new ComparisonContext(List.of()));
     }
 
     private static void assertCompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig) {
@@ -1072,7 +1072,7 @@ public class ConfigurationTreeComparatorSelfTest {
 
     private static void assertIncompatible(ConfigNode oldConfig, ConfigNode newConfig) {
         try {
-            ConfigurationTreeComparator.ensureCompatible(oldConfig, newConfig, new ComparisonContext());
+            ConfigurationTreeComparator.ensureCompatible(oldConfig, newConfig, new ComparisonContext(List.of()));
         } catch (IllegalStateException e) {
             // Expected exception
             System.err.println("Error: " + e.getMessage());

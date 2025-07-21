@@ -150,14 +150,12 @@ public class ConfigurationTreeComparator {
      */
     private static boolean match(ConfigNode node, ConfigNode candidate) {
         // To make debugging easier.
-        boolean kindMatches = Objects.equals(candidate.kind(), node.kind());
         boolean nameMatches = matchNames(candidate, node);
         boolean flagMatch = validateFlags(candidate, node);
         boolean deletedPrefixesMatch = candidate.deletedPrefixes().containsAll(node.deletedPrefixes());
         // Value node types can be changed.
         boolean nodeTypeMatches = !node.isValue() || Objects.equals(candidate.type(), node.type());
-        return kindMatches
-                && nameMatches
+        return nameMatches
                 && flagMatch
                 && deletedPrefixesMatch
                 && nodeTypeMatches;
