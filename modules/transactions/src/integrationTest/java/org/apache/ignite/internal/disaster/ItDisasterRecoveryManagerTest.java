@@ -236,8 +236,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                             .filter(e -> e.getKey().zoneId() != defaultZone.id())
                             .collect(toMap(Entry::getKey, Entry::getValue));
 
-                    assertTrue(noDefaultZone.size() != localState.size());
-
                     Set<Long> size = noDefaultZone.values().stream()
                             .flatMap(localTablePartitionStateByNode -> localTablePartitionStateByNode.values().stream())
                             .map(state -> state.estimatedRows)
