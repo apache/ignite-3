@@ -128,7 +128,14 @@ namespace Apache.Ignite.Internal.Buffers
         public Span<byte> GetSpan(int sizeHint)
         {
             CheckAndResizeBuffer(sizeHint);
-            return _buffer.AsSpan(_index, sizeHint);
+            var span = _buffer.AsSpan(_index, sizeHint);
+
+#if DEBUG
+            // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
+            span.Fill(255);
+#endif
+
+            return span;
         }
 
         /// <summary>
@@ -142,6 +149,11 @@ namespace Apache.Ignite.Internal.Buffers
 
             var span = _buffer.AsSpan(_index, size);
             Advance(size);
+
+#if DEBUG
+            // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
+            span.Fill(255);
+#endif
 
             return span;
         }
