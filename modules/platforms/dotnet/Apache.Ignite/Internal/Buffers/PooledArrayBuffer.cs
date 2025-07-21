@@ -103,7 +103,7 @@ namespace Apache.Ignite.Internal.Buffers
         public void Advance(int count)
         {
             Debug.Assert(count >= 0, "count >= 0");
-            Debug.Assert(_index + count < _buffer.Length, "_index + count < _buffer.Length");
+            Debug.Assert(_index + count <= _buffer.Length, $"_index + count <= _buffer.Length [{_index} + {count} <= {_buffer.Length}]");
 
             _index += count;
         }
@@ -290,6 +290,7 @@ namespace Apache.Ignite.Internal.Buffers
             // Arrays from ArrayPool are sized to powers of 2, so we don't need to implement the same logic here.
             // Even if requested size is 1 byte more than current, we'll get at lest 2x bigger array.
             var newBuf = ByteArrayPool.Rent(newSize);
+            Debug.Assert(newBuf.Length >= newSize, "newBuf.Length >= newSize");
 
             Array.Copy(_buffer, newBuf, _index);
 
