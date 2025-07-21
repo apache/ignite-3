@@ -34,7 +34,19 @@ namespace Apache.Ignite.Tests.Table
         [TearDown]
         public async Task CleanTable()
         {
-            await TupleView.DeleteAllAsync(null, Enumerable.Range(-1, 50).Select(x => GetTuple(x)));
+            await Client.Sql.ExecuteScriptAsync($"DELETE FROM {Table.Name}");
+        }
+
+        [Test]
+        public async Task TestUpsertAllMany()
+        {
+            int count = 12345;
+
+            var tuples = Enumerable.Range(0, count)
+                .Select(id => new IgniteTuple { [KeyCol] = (long)id, [ValCol] = $"test{id}" })
+                .ToList();
+
+            await TupleView.UpsertAllAsync(null, tuples);
         }
 
         [Test]
