@@ -71,6 +71,10 @@ public class VolatileTxStateMetaStorage {
      * @param tx Transaction object.
      */
     public void initialize(InternalTransaction tx) {
+        if (tx.implicit() && tx.isReadOnly()) {
+            return; // Don't track state for implicit reads.
+        }
+
         TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx, null));
 
 

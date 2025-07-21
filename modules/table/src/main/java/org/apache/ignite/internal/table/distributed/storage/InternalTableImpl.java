@@ -760,7 +760,7 @@ public class InternalTableImpl implements InternalTable {
      * @param <T> Operation return type.
      * @return The future.
      */
-    private <T> CompletableFuture<T> postEnlist(
+    private static <T> CompletableFuture<T> postEnlist(
             CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full
     ) {
         assert !(autoCommit && full) : "Invalid combination of flags";
@@ -855,7 +855,7 @@ public class InternalTableImpl implements InternalTable {
             ReplicationGroupId replicationGroupId,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, tx.schemaTimestamp());
+        ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, clockService.current());
 
         Function<ReplicaMeta, CompletableFuture<R>> evaluateClo = primaryReplica -> {
             try {
@@ -902,12 +902,13 @@ public class InternalTableImpl implements InternalTable {
                 return tx.finish(false, clockService.current(), false, false)
                         .handle((ignored, err) -> {
                             if (err != null) {
+                                // Preserve failed state.
                                 e.addSuppressed(err);
                             }
 
                             sneakyThrow(e);
                             return null;
-                        }); // Preserve failed state.
+                        });
             }
 
             return tx.finish(true, clockService.current(), false, false).thenApply(ignored -> r);
@@ -2382,7 +2383,7 @@ public class InternalTableImpl implements InternalTable {
         return replicaMeta.getStartTime().longValue();
     }
 
-    private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
+    private static void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
             boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
             throw new TransactionException(

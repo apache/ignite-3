@@ -150,7 +150,9 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
         observableTsTracker.update(executionTimestamp);
 
-        txFuture.complete(null);
+        if (implicit()) {
+            return nullCompletedFuture();
+        }
 
         ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(
                 commitIntent,
