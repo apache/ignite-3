@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
@@ -32,6 +33,8 @@ import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNo
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -835,6 +838,76 @@ public class ConfigurationTreeComparatorSelfTest {
         } else {
             assertIncompatible(root1, root2);
             // Invalid because there more than 1 subclass
+            assertIncompatible(root2, root1);
+        }
+    }
+    
+    private static Stream<Arguments> defaultDefault() {
+        return Stream.of(
+                Arguments.of(true, true),
+                Arguments.of(false, true),
+                Arguments.of(true, false),
+                Arguments.of(false, false)
+        );
+    }
+    
+    @ParameterizedTest
+    @MethodSource("defaultDefault")
+    public void polymorphicConfigMoveFieldDefChangeToBase2Subclasses(boolean hasDefault, boolean hasDefaultForResult) {
+        Set<Flags> fieldFlags1 = hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+        Set<Flags> fieldFlags2 = hasDefaultForResult ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
+        
+        ConfigNode root1 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2"));
+            subclass1.addChildNodes(createChild("f3"));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "B");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f4", fieldFlags1));
+
+            root1.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+        }
+
+        ConfigNode root2 = createRoot("root");
+        {
+            ConfigNode base = createNode("config", "ClassBase");
+            base.addChildNodes(createChild("t"));
+            base.addChildNodes(createChild("f1"));
+            base.addChildNodes(createChild("f2"));
+            base.addChildNodes(createChild("f4", fieldFlags2));
+
+            ConfigNode subclass1 = createInstanceNode("config", "Class1", "A");
+            subclass1.addChildNodes(createChild("t"));
+            subclass1.addChildNodes(createChild("f1"));
+            subclass1.addChildNodes(createChild("f2"));
+            subclass1.addChildNodes(createChild("f3"));
+            subclass1.addChildNodes(createChild("f4", fieldFlags2));
+
+            ConfigNode subclass2 = createInstanceNode("config", "Class2", "B");
+            subclass2.addChildNodes(createChild("t"));
+            subclass2.addChildNodes(createChild("f1"));
+            subclass2.addChildNodes(createChild("f2"));
+            subclass2.addChildNodes(createChild("f4", fieldFlags2));
+
+            root2.addPolymorphicNode("config", Map.of("", base, "A", subclass1, "B", subclass2));
+        }
+        
+        if (hasDefaultForResult) {
+            assertCompatible(root1, root2);
+            // Reverse change is also valid
+            assertCompatible(root2, root1);
+        } else {
+            assertIncompatible(root1, root2);
+            // Reverse change is also invalid
             assertIncompatible(root2, root1);
         }
     }
