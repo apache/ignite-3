@@ -35,6 +35,9 @@ import org.apache.ignite.internal.partition.replicator.network.command.WriteInte
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTableStateMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTableStateRequest;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTableStateResponse;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataRequest;
 import org.apache.ignite.internal.partition.replicator.network.message.HasDataResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
@@ -287,5 +290,14 @@ public interface PartitionReplicationMessageGroup {
 
         /** Message type for {@link LocalPartitionStatesResponse}. */
         short LOCAL_PARTITION_STATE_RESPONSE = 102;
+
+        /** Message type for {@link LocalTableStateMessage}. */
+        short LOCAL_TABLE_STATE = 103;
+
+        /** Message type for {@link LocalTableStateRequest}. */
+        short LOCAL_TABLE_STATE_REQUEST = 104;
+
+        /** Message type for {@link LocalTableStateResponse}. */
+        short LOCAL_TABLE_STATE_RESPONSE = 105;
     }
 }
