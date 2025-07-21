@@ -219,6 +219,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var count = 0;
             var firstHash = 0;
+
+            // TODO: This span is invalid if we resize the buffer.
+            // Review all GetSpan usages that "reserve" space for a fixed number of bytes.
             var countSpan = buf.GetSpan(5);
             buf.Advance(5);
 
