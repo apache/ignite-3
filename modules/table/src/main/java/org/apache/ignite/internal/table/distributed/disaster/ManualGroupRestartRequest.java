@@ -219,7 +219,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                     }
                 }
             } else {
-                if (replicationGroupId instanceof ZonePartitionId) {
+                if (replicationGroupId instanceof ZonePartitionId) { // NOPMD
                     // todo support zone partitions https://issues.apache.org/jira/browse/IGNITE-25979
                 }
             }
