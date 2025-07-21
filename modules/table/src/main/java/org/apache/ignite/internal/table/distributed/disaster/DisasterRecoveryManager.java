@@ -935,23 +935,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return res;
     }
 
-    private @Nullable Long estimatedRows(TablePartitionId tablePartitionId) {
-        TableViewInternal tableViewInternal = tableManager.cachedTable(tablePartitionId.tableId());
-
-        if (tableViewInternal == null) {
-            return null;
-        }
-
-        MvPartitionStorage partitionStorage = tableViewInternal.internalTable().storage()
-                .getMvPartition(tablePartitionId.partitionId());
-
-        if (partitionStorage == null) {
-            return null;
-        }
-
-        return partitionStorage.estimatedSize();
-    }
-
     static Function<LocalPartitionStateMessage, TablePartitionId> tableState() {
         return state -> state.partitionId().asTablePartitionId();
     }

@@ -19,23 +19,29 @@ package org.apache.ignite.internal.disaster;
 
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -154,6 +160,93 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(3, 3);
 
         assertThat(selectAll(), hasSize(4));
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @Test
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 2)
+    void testEstimatedRowsTable() throws Exception {
+        validateEstimatedRows();
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    @Test
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 2)
+    void testEstimatedRowsTableZone() throws Exception {
+        validateEstimatedRows();
+    }
+
+    private void validateEstimatedRows() throws InterruptedException {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        // Wait for replication to finish.
+        assertTrue(waitForCondition(() -> {
+                    CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> localStateTableFuture =
+                            node.disasterRecoveryManager().localTablePartitionStates(emptySet(), emptySet(), emptySet());
+
+                    assertThat(localStateTableFuture, willCompleteSuccessfully());
+                    Map<TablePartitionId, LocalTablePartitionStateByNode> localState;
+                    try {
+                        localState = localStateTableFuture.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    Set<Long> size = localState.values().stream()
+                            .flatMap(localTablePartitionStateByNode -> localTablePartitionStateByNode.values().stream())
+                            .map(state -> state.estimatedRows)
+                            .collect(Collectors.toSet());
+                    // We should have the information for 2 partitions, each having 1 row.
+                    return size.size() == 1 && size.contains(1L) && localState.size() == 2;
+                },
+                20_000
+        ));
+    }
+
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    @Test
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 2)
+    void testEstimatedRowsZone() throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        CatalogZoneDescriptor defaultZone = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion())
+                .defaultZone();
+
+        // Wait for replication to finish.
+        assertTrue(waitForCondition(() -> {
+                    CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
+                            node.disasterRecoveryManager().localPartitionStates(emptySet(), emptySet(), emptySet());
+
+                    assertThat(localStateTableFuture, willCompleteSuccessfully());
+
+                    Map<ZonePartitionId, LocalPartitionStateByNode> localState;
+                    try {
+                        localState = localStateTableFuture.get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    Map<ZonePartitionId, LocalPartitionStateByNode> noDefaultZone = localState.entrySet().stream()
+                            .filter(e -> e.getKey().zoneId() != defaultZone.id())
+                            .collect(toMap(Entry::getKey, Entry::getValue));
+
+                    assertTrue(noDefaultZone.size() != localState.size());
+
+                    Set<Long> size = noDefaultZone.values().stream()
+                            .flatMap(localTablePartitionStateByNode -> localTablePartitionStateByNode.values().stream())
+                            .map(state -> state.estimatedRows)
+                            .collect(Collectors.toSet());
+                    // We should have the information for 2 partitions, each having 1 row.
+                    return size.size() == 1 && size.contains(1L) && noDefaultZone.size() == 2;
+                },
+                20_000
+        ));
     }
 
     @Test
