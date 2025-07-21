@@ -3363,6 +3363,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param tablePartitionId Table partition that needs to be restarted.
      * @param revision Metastore revision.
+     * @param assignmentsTimestamp Assignments timestamp.
      * @return Operation future.
      */
     public CompletableFuture<Void> restartPartitionWithCleanUp(

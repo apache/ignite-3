@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.tableState;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.MULTI_NODE;
 import static org.apache.ignite.internal.table.distributed.disaster.GroupUpdateRequestHandler.getAliveNodesWithData;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.RESTART_WITH_CLEAN_UP_ERR;
 
@@ -184,7 +185,6 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                 TablePartitionId groupId = (TablePartitionId) replicationGroupId;
 
                 if (groupId.tableId() == tableId && partitionIds.contains(groupId.partitionId())) {
-
                     if (zoneDescriptor.consistencyMode() == ConsistencyMode.HIGH_AVAILABILITY) {
                         if (zoneDescriptor.replicas() >= 2) {
                             restartFutures.add(disasterRecoveryManager.tableManager.restartPartitionWithCleanUp(
@@ -220,7 +220,7 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
                 }
             } else {
                 if (replicationGroupId instanceof ZonePartitionId) {
-                    // todo support zone partitions
+                    // todo support zone partitions https://issues.apache.org/jira/browse/IGNITE-25979
                 }
             }
         });
@@ -234,9 +234,10 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
             Catalog catalog
     ) {
         if (zoneDescriptor.replicas() <= 2) {
-            return CompletableFuture.completedFuture(false);
+            return falseCompletedFuture();
         }
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25979 do proper casting for ZonePartitionId
         TablePartitionId tablePartitionId = (TablePartitionId) replicationGroupId;
 
         MetaStorageManager metaStorageManager = disasterRecoveryManager.metaStorageManager;
