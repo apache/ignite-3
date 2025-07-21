@@ -256,7 +256,7 @@ public class DirectTxUtils {
         String opNode = pm == null ? null : pm.nodeConsistentId();
 
         if (tx != null) {
-            return tx.hasCommitPartition() && opNode != null ? opNode : tx.nodeName();
+            return !tx.isReadOnly() && tx.hasCommitPartition() && opNode != null ? opNode : tx.nodeName();
         } else {
             return opNode;
         }
