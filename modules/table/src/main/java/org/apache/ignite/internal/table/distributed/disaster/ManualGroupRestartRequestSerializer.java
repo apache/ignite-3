@@ -59,16 +59,10 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
         Set<String> nodeNames = readStringSet(in);
         HybridTimestamp assignmentsTimestamp = HybridTimestamp.readFrom(in);
 
-        if (protoVer > 2) {
-            return new ManualGroupRestartRequest(
-                    operationId,
-                    zoneId,
-                    tableId,
-                    partitionIds,
-                    nodeNames,
-                    assignmentsTimestamp.longValue(),
-                    in.readBoolean() // Read the new 'force' field if protocol version is 2 or greater.
-            );
+        boolean cleanUp = false;
+
+        if (protoVer >= 2) {
+            cleanUp = in.readBoolean(); // Read the new 'cleanUp' field if protocol version is 2 or greater.
         }
 
         return new ManualGroupRestartRequest(
@@ -78,7 +72,7 @@ class ManualGroupRestartRequestSerializer extends VersionedSerializer<ManualGrou
                 partitionIds,
                 nodeNames,
                 assignmentsTimestamp.longValue(),
-                false // For old version, default 'cleanUp' to false because it is not supported in earlier version.
+                cleanUp
         );
     }
 }
