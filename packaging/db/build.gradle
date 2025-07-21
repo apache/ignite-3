@@ -38,6 +38,7 @@ import org.gradle.crypto.checksum.Checksum
 configurations {
     dbArtifacts
     defaultsGenerator.extendsFrom(dbArtifacts)
+    dotNetClient
     dbZip {
         canBeConsumed = true
         canBeResolved = false
@@ -54,6 +55,7 @@ configurations {
 
 dependencies {
     dbArtifacts project(':ignite-runner')
+    dotNetClient project(path: ":platforms", configuration: "dotNet")
     dbArtifacts libs.slf4j.jdk14
 
     defaultsGenerator project(path: ':ignite-runner', configuration: 'defaultsGenerator')
