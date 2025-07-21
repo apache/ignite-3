@@ -598,6 +598,11 @@ public class TypeUtils {
             return false;
         }
 
+        if (fromType.getSqlTypeName() == toType.getSqlTypeName()
+                && (fromType.getSqlTypeName() == SqlTypeName.TIME || SqlTypeUtil.isTimestamp(fromType))) {
+            return false;
+        }
+
         // Implicit type coercion does not handle nullability.
         if (SqlTypeUtil.equalSansNullability(typeFactory, fromType, toType)) {
             return false;
