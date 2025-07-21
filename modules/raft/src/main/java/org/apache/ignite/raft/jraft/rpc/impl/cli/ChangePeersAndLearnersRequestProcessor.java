@@ -55,7 +55,9 @@ public class ChangePeersAndLearnersRequestProcessor extends BaseCliRequestProces
         final List<PeerId> oldPeers = ctx.node.listPeers();
         final List<PeerId> oldLearners = ctx.node.listLearners();
 
-        final Configuration conf = new Configuration();
+        long casualityToken = request.casualityToken() != null ? request.casualityToken() : Configuration.NO_CASUALITY_TOKEN;
+
+        final Configuration conf = new Configuration(casualityToken);
         for (final String peerIdStr : request.newPeersList()) {
             final PeerId peer = new PeerId();
             if (peer.parse(peerIdStr)) {

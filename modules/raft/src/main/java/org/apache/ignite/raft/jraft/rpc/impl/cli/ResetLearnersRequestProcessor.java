@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.conf.Configuration;import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.LearnersOpResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
@@ -63,9 +63,11 @@ public class ResetLearnersRequestProcessor extends BaseCliRequestProcessor<Reset
             newLearners.add(peer);
         }
 
+        long casualityToken = request.casualityToken() != null ? request.casualityToken() : Configuration.NO_CASUALITY_TOKEN;
+
         LOG.info("Receive ResetLearnersRequest to {} from {}, resetting into {}.", ctx.node.getNodeId(),
             done.getRpcCtx().getRemoteAddress(), newLearners);
-        ctx.node.resetLearners(newLearners, status -> {
+        ctx.node.resetLearners(newLearners, casualityToken, status -> {
             if (!status.isOk()) {
                 done.run(status);
             }

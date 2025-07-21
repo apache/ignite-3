@@ -516,7 +516,7 @@ public class FSMCallerImpl implements FSMCaller {
                         LogId logId = logEntry.getId();
                         ConfigurationEntry configurationEntry = new ConfigurationEntry(
                                 logId.copy(),
-                                new Configuration(logEntry.getPeers(), logEntry.getLearners()),
+                                new Configuration(logEntry.getPeers(), logEntry.getLearners(), logEntry.getCasualityToken()),
                                 new Configuration()
                         );
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
@@ -527,7 +527,9 @@ public class FSMCallerImpl implements FSMCaller {
 
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
                             // Joint stage is not supposed to be noticeable by end users.
-                            this.fsm.onConfigurationCommitted(new Configuration(iterImpl.entry().getPeers()));
+                            this.fsm.onConfigurationCommitted(
+                                    new Configuration(iterImpl.entry().getPeers(), iterImpl.entry().getCasualityToken())
+                            );
                         }
                     }
                     if (iterImpl.done() != null) {

@@ -755,7 +755,7 @@ public class PartitionReplicaLifecycleManager extends
                     .thenApply(unused -> true);
         };
 
-        return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
+        return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments, revision)
                 .whenComplete((res, ex) -> {
                     if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                         String errorMessage = String.format(
@@ -1360,7 +1360,9 @@ public class PartitionReplicaLifecycleManager extends
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
             localServicesStartFuture = runAsync(() -> {
-                inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes())));
+                inBusyLock(busyLock,
+                        () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes()), revision)
+                );
             }, ioExecutor);
         } else {
             localServicesStartFuture = nullCompletedFuture();
@@ -1466,7 +1468,7 @@ public class PartitionReplicaLifecycleManager extends
 
                                         PeersAndLearners newConfiguration = fromAssignments(pendingAssignments);
 
-                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
+                                        return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term(), revision)
                                                 .exceptionally(e -> null);
                                     });
                         }))

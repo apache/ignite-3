@@ -252,7 +252,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
                         if (entry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
                             ConfigurationEntry confEntry = new ConfigurationEntry();
                             confEntry.setId(new LogId(entry.getId().getIndex(), entry.getId().getTerm()));
-                            confEntry.setConf(new Configuration(entry.getPeers(), entry.getLearners()));
+                            confEntry.setConf(new Configuration(entry.getPeers(), entry.getLearners(), entry.getCasualityToken()));
                             if (entry.getOldPeers() != null) {
                                 confEntry.setOldConf(new Configuration(entry.getOldPeers(), entry.getOldLearners()));
                             }

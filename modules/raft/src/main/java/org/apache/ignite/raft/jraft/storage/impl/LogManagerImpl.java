@@ -313,7 +313,7 @@ public class LogManagerImpl implements LogManager {
                         oldConf = new Configuration(entry.getOldPeers(), entry.getOldLearners());
                     }
                     final ConfigurationEntry conf = new ConfigurationEntry(entry.getId(),
-                        new Configuration(entry.getPeers(), entry.getLearners()), oldConf);
+                        new Configuration(entry.getPeers(), entry.getLearners(), entry.getCasualityToken()), oldConf);
                     this.configManager.add(conf);
                 }
             }
