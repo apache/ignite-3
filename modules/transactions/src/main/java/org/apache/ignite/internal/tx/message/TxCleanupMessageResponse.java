@@ -28,4 +28,9 @@ import org.jetbrains.annotations.Nullable;
 public interface TxCleanupMessageResponse extends TimestampAware {
     /** Result of a replicated cleanup request. */
     @Nullable CleanupReplicatedInfoMessage result();
+
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }

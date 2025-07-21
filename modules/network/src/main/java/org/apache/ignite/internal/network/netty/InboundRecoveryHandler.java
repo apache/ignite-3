@@ -20,9 +20,14 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.Collections;
+import org.apache.ignite.internal.HIstMsgInfo;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.message.InvokeRequest;
+import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 
@@ -30,6 +35,8 @@ import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessag
  * Inbound handler that handles incoming acknowledgement messages and sends acknowledgement messages for other messages.
  */
 public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
+    private static final IgniteLogger LOG = Loggers.forClass(InboundRecoveryHandler.class);
+
     /** Handler name. */
     public static final String NAME = "inbound-recovery-handler";
 
@@ -38,6 +45,8 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
 
     /** Messages factory. */
     private final NetworkMessagesFactory factory;
+
+    ThreadLocal<HIstMsgInfo> locHisto = ThreadLocal.withInitial(() -> new HIstMsgInfo(LOG));
 
     /**
      * Constructor.
@@ -55,6 +64,22 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         NetworkMessage message = (NetworkMessage) msg;
 
+        var hist = locHisto.get();
+
+        if (msg instanceof InvokeRequest) {
+            var invokeRequest = (InvokeRequest) msg;
+
+            hist.add(msg.getClass().getName() + ":" + invokeRequest.message().getClass().getSimpleName());
+        } else if (msg instanceof InvokeResponse) {
+            var invokeResponse = (InvokeResponse) msg;
+
+            hist.add(msg.getClass().getName() + ":" + invokeResponse.message().getClass().getSimpleName());
+        } else {
+            hist.add(msg.getClass().getName());
+        }
+
+        hist.println();
+
         if (message instanceof AcknowledgementMessage) {
             AcknowledgementMessage ackMessage = (AcknowledgementMessage) msg;
             long receivedMessages = ackMessage.receivedMessages();
@@ -64,7 +89,7 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
             AcknowledgementMessage ackMsg = factory.acknowledgementMessage()
                     .receivedMessages(descriptor.onReceive()).build();
 
-            ctx.channel().writeAndFlush(new OutNetworkObject(ackMsg, Collections.emptyList(), false));
+            ctx.channel().write(new OutNetworkObject(ackMsg, Collections.emptyList(), false));
         }
 
         super.channelRead(ctx, message);

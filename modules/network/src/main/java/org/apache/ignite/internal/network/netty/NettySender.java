@@ -25,11 +25,14 @@ import io.netty.handler.stream.ChunkedInput;
 import java.nio.channels.ClosedChannelException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.HIstMsgInfo;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.internal.network.message.InvokeRequest;
+import org.apache.ignite.internal.network.message.InvokeResponse;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
@@ -168,7 +171,25 @@ public class NettySender {
         }
     }
 
+    ThreadLocal<HIstMsgInfo> locHisto = ThreadLocal.withInitial(() -> new HIstMsgInfo(LOG));
+
     private void writeWithRecovery(OutNetworkObject obj, Channel channel, Runnable triggerChannelRecreation) {
+        var hist = locHisto.get();
+
+        if (obj instanceof InvokeRequest) {
+            var invokeRequest = (InvokeRequest) obj;
+
+            hist.add(obj.getClass().getName() + ":" + invokeRequest.message().getClass().getSimpleName());
+        } else if (obj instanceof InvokeResponse) {
+            var invokeResponse = (InvokeResponse) obj;
+
+            hist.add(obj.getClass().getName() + ":" + invokeResponse.message().getClass().getSimpleName());
+        } else {
+            hist.add(obj.getClass().getName());
+        }
+
+        hist.println();
+
         CompletableFuture<Void> writeFuture = toCompletableFuture(channel.writeAndFlush(obj));
 
         chainRecoverSendAfterChannelClosure(writeFuture, obj, channel, triggerChannelRecreation);
