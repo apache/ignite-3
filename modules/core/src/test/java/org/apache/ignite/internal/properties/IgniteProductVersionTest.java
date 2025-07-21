@@ -21,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -105,12 +104,11 @@ public class IgniteProductVersionTest {
     @ParameterizedTest(name = "[{index}] {0}.compareTo({1}) = {2}")
     @MethodSource("versionCompareProvider")
     void testCompareTo(IgniteProductVersion v1, IgniteProductVersion v2, int expected) {
-        assertThat(Integer.signum(v1.compareTo(v2)), is (expected));
+        assertThat(Integer.signum(v1.compareTo(v2)), is(expected));
     }
 
     static Stream<Arguments> versionCompareProvider() {
         return Stream.of(
-                
                 // major version differences
                 arguments(version("2.0.0"), version("3.0.0"), -1),
                 arguments(version("3.0.0"), version("2.0.0"), 1),

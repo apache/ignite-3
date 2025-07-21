@@ -220,19 +220,18 @@ public class IgniteProductVersion implements Serializable, Comparable<IgniteProd
     }
 
     private int preReleaseOrder(String preRelease) {
-            switch (preRelease.toLowerCase()) {
-                case "alpha":
-                    return 0;
-                case "beta":
-                    return 1;
-                case "rc":
-                    return 2;
-                case "final":
-                case "":
-                    return 3;
-                default:
-                    return 4; // Unknown or custom stages
-            }
+        switch (preRelease.toLowerCase()) {
+            case "alpha":
+                return 0;
+            case "beta":
+                return 1;
+            case "rc":
+                return 2;
+            case "final":
+            case "":
+                return 3;
+            default:
+                return 4; // Unknown or custom stages
+        }
     }
-
 }
