@@ -145,7 +145,7 @@ namespace Apache.Ignite.Internal.Buffers
 
 #if DEBUG
             // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
-            span.Fill(255);
+            span.Fill(254);
 #endif
 
             return span;
@@ -165,7 +165,7 @@ namespace Apache.Ignite.Internal.Buffers
 
 #if DEBUG
             // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
-            span.Fill(255);
+            span.Fill(253);
 #endif
 
             return span;
