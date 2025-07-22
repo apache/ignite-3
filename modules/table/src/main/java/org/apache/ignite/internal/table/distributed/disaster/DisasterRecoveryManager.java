@@ -546,7 +546,51 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     table.id(),
                     partitionIds,
                     nodeNames,
-                    catalog.time()
+                    catalog.time(),
+                    false
+            ));
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
+    }
+
+    /**
+     * Restarts replica service and raft group of passed partitions with cleaning up partition storages.
+     *
+     * @param nodeNames Names specifying nodes to restart partitions. Case-sensitive, empty set means "all nodes".
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param schemaName Schema name. Case-sensitive, without quotes.
+     * @param tableName Table name. Case-sensitive, without quotes.
+     * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
+     * @return Future that completes when partitions are restarted.
+     */
+    public CompletableFuture<Void> restartTablePartitionsWithCleanup(
+            Set<String> nodeNames,
+            String zoneName,
+            String schemaName,
+            String tableName,
+            Set<Integer> partitionIds
+    ) {
+        try {
+            // Validates passed node names.
+            getNodes(nodeNames);
+
+            Catalog catalog = catalogLatestVersion();
+
+            CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
+
+            CatalogTableDescriptor table = tableDescriptor(catalog, schemaName, tableName);
+
+            checkPartitionsRange(partitionIds, Set.of(zone));
+
+            return processNewRequest(new ManualGroupRestartRequest(
+                    UUID.randomUUID(),
+                    zone.id(),
+                    table.id(),
+                    partitionIds,
+                    nodeNames,
+                    catalog.time(),
+                    true
             ));
         } catch (Throwable t) {
             return failedFuture(t);
@@ -585,7 +629,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     -1,
                     partitionIds,
                     nodeNames,
-                    catalog.time()
+                    catalog.time(),
+                    false
             ));
         } catch (Throwable t) {
             return failedFuture(t);
