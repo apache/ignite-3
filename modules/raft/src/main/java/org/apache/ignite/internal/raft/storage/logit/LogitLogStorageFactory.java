@@ -28,7 +28,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -115,7 +114,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
+    public Set<String> raftNodeStorageIdsOnDisk() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-25988 - implement.
         return Set.of();
     }

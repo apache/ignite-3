@@ -47,8 +47,6 @@ public interface LogStorageFactory extends LogSyncer, IgniteComponent {
      *
      * <p>This method should only be called when the log storage is not accessed otherwise (so no Raft groups can appear or be destroyed
      * in parallel with this call).
-     *
-     * @param fastForward Fast forward that may be used to do fast forwards when iterating.
      */
-    Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward);
+    Set<String> raftNodeStorageIdsOnDisk();
 }

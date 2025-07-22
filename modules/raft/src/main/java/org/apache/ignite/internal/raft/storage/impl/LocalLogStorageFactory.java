@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
@@ -53,7 +52,7 @@ public class LocalLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
+    public Set<String> raftNodeStorageIdsOnDisk() {
         // This creates on-heap storages, there is nothing on disk.
         return Set.of();
     }

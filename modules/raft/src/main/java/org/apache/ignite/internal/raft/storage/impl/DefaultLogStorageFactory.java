@@ -40,7 +40,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -370,7 +369,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
+    public Set<String> raftNodeStorageIdsOnDisk() {
         var groupIdsForStorage = new HashSet<String>();
 
         try (
@@ -391,13 +390,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
                 );
                 groupIdsForStorage.add(idForStorage);
 
-                String nextIdForStorage = fastForward.nextStorageGroupId(idForStorage);
-
-                if (nextIdForStorage != null) {
-                    iterator.seek(RocksDbSharedLogStorage.storageCreatedKey(nextIdForStorage));
-                } else {
-                    iterator.next();
-                }
+                iterator.next();
             }
 
             // Doing this to make an exception thrown if the iteration was stopped due to an error and not due to exhausting

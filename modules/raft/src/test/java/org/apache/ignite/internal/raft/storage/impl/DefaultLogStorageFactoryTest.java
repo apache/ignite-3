@@ -32,7 +32,6 @@ import java.util.Set;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -61,8 +60,6 @@ class DefaultLogStorageFactoryTest {
     private final LogStorageOptions logStorageOptions = new LogStorageOptions();
 
     private final Peer peer = new Peer("127.0.0.1");
-
-    private final GroupIdFastForward noFastForward = idForStorage -> null;
 
     @BeforeEach
     void setUp() {
@@ -284,40 +281,13 @@ class DefaultLogStorageFactoryTest {
         createAndInitLogStorage(groupId1);
         createAndInitLogStorage(groupId3);
 
-        Set<String> ids = logStorageFactory.raftNodeStorageIdsOnDisk(noFastForward);
+        Set<String> ids = logStorageFactory.raftNodeStorageIdsOnDisk();
 
         assertThat(
                 ids,
                 containsInAnyOrder(
                         new RaftNodeId(groupId1, peer).nodeIdStringForStorage(),
                         new RaftNodeId(groupId3, peer).nodeIdStringForStorage()
-                )
-        );
-    }
-
-    @Test
-    void groupsScanUsesFastForward() {
-        ZonePartitionId groupId1Part0 = new ZonePartitionId(1, 0);
-        ZonePartitionId groupId1Part5 = new ZonePartitionId(1, 5);
-        ZonePartitionId groupId3Part10 = new ZonePartitionId(3, 10);
-        ZonePartitionId groupId3Part15 = new ZonePartitionId(3, 15);
-        createAndInitLogStorage(groupId1Part0);
-        createAndInitLogStorage(groupId1Part5);
-        createAndInitLogStorage(groupId3Part10);
-        createAndInitLogStorage(groupId3Part15);
-
-        GroupIdFastForward fastForwardToNextZone = idForStorage -> {
-            String zoneIdString = idForStorage.substring(0, idForStorage.indexOf("_part_"));
-            int nextZoneId = Integer.parseInt(zoneIdString) + 1;
-            return new RaftNodeId(new ZonePartitionId(nextZoneId, 0), peer).nodeIdStringForStorage();
-        };
-        Set<String> ids = logStorageFactory.raftNodeStorageIdsOnDisk(fastForwardToNextZone);
-
-        assertThat(
-                ids,
-                containsInAnyOrder(
-                        new RaftNodeId(groupId1Part0, peer).nodeIdStringForStorage(),
-                        new RaftNodeId(groupId3Part10, peer).nodeIdStringForStorage()
                 )
         );
     }

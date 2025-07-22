@@ -31,7 +31,6 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
-import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
@@ -128,7 +127,7 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
+    public Set<String> raftNodeStorageIdsOnDisk() {
         // This is a volatile storage; the storage is destroyed as a whole on startup, so nothing can remain on disk to the moment
         // when this method is called.
         return Set.of();

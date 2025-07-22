@@ -66,7 +66,6 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.OnHeapLogs;
 import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
@@ -404,7 +403,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
+        public Set<String> raftNodeStorageIdsOnDisk() {
             // There is nothing on disk.
             return Set.of();
         }
