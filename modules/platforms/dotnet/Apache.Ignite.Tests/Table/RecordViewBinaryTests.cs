@@ -32,22 +32,7 @@ namespace Apache.Ignite.Tests.Table
     public class RecordViewBinaryTests : IgniteTestsBase
     {
         [TearDown]
-        public async Task CleanTable()
-        {
-            await Client.Sql.ExecuteScriptAsync($"DELETE FROM {Table.Name}");
-        }
-
-        [Test]
-        public async Task TestUpsertAllMany()
-        {
-            int count = 3709;
-
-            var tuples = Enumerable.Range(0, count)
-                .Select(id => new IgniteTuple { [KeyCol] = (long)id, [ValCol] = $"test{id}" })
-                .ToList();
-
-            await TupleView.UpsertAllAsync(null, tuples);
-        }
+        public async Task CleanTable() => await Client.Sql.ExecuteScriptAsync($"DELETE FROM {Table.Name}");
 
         [Test]
         public async Task TestUpsertGet()
@@ -613,6 +598,18 @@ namespace Apache.Ignite.Tests.Table
         public void TestToString()
         {
             StringAssert.StartsWith("RecordView`1[IIgniteTuple] { Table = Table { Name = PUBLIC.TBL1, Id =", TupleView.ToString());
+        }
+
+        [Test]
+        public async Task TestUpsertAllMany()
+        {
+            int count = 50_000;
+
+            var tuples = Enumerable.Range(0, count)
+                .Select(id => new IgniteTuple { [KeyCol] = (long)id, [ValCol] = $"test{id}" })
+                .ToList();
+
+            await TupleView.UpsertAllAsync(null, tuples);
         }
     }
 }
