@@ -239,14 +239,6 @@ namespace Apache.Ignite.Internal.Compute
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private static ICollection<DeploymentUnit> GetUnitsCollection(IEnumerable<DeploymentUnit>? units) =>
-            units switch
-            {
-                null => Array.Empty<DeploymentUnit>(),
-                ICollection<DeploymentUnit> c => c,
-                var u => u.ToList()
-            };
-
         private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T, PooledArrayBuffer> writerFunc)
         {
             var w = buf.MessageWriter;
@@ -287,7 +279,7 @@ namespace Apache.Ignite.Internal.Compute
             JobDescriptor<TArg, TResult> jobDescriptor,
             bool canWriteJobExecType)
         {
-            WriteUnits(GetUnitsCollection(jobDescriptor.DeploymentUnits), writer);
+            WriteUnits(jobDescriptor.DeploymentUnits, writer);
 
             var w = writer.MessageWriter;
             w.Write(jobDescriptor.JobClassName);

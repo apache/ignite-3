@@ -476,11 +476,11 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestManyDeploymentUnits()
+        public async Task TestManyDeploymentUnits([Values(true, false)] bool lazyCollection)
         {
-            var units = Enumerable.Range(1, 10_000)
-                .Select(x => new DeploymentUnit($"unit{x}", x + ".0.0"))
-                .ToList();
+            var units = lazyCollection
+                ? GetUnits()
+                : GetUnits().ToList();
 
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
@@ -491,6 +491,14 @@ namespace Apache.Ignite.Tests.Compute
                 null);
 
             StringAssert.StartsWith("{ NodeName = fake-server, Units = unit1|1.0.0", await res.GetResultAsync());
+
+            static IEnumerable<DeploymentUnit> GetUnits()
+            {
+                for (var i = 1; i <= 10_000; i++)
+                {
+                    yield return new DeploymentUnit($"unit{i}", $"{i}.0.0");
+                }
+            }
         }
 
         [Test]
