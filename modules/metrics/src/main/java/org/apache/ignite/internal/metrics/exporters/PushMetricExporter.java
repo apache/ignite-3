@@ -65,8 +65,6 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
 
     @Override
     public void reconfigure(ExporterView newVal) {
-        reconfigureInternal(newVal);
-
         long newPeriod = period(newVal);
 
         ScheduledFuture<?> localFuture = fut;
@@ -88,10 +86,6 @@ public abstract class PushMetricExporter extends BasicMetricExporter {
                 }
             }, newPeriod, newPeriod, TimeUnit.MILLISECONDS);
         }
-    }
-
-    protected void reconfigureInternal(ExporterView view) {
-        // No-op.
     }
 
     @Override

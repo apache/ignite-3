@@ -55,7 +55,9 @@ public class LogPushExporter extends PushMetricExporter {
     }
 
     @Override
-    protected void reconfigureInternal(ExporterView view) {
+    public void reconfigure(ExporterView view) {
+        super.reconfigure(view);
+
         LogPushExporterView v = (LogPushExporterView) view;
         oneLinePerMetricSource = v.oneLinePerMetricSource();
         enabledMetrics = Arrays.asList(v.enabledMetrics());
