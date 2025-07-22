@@ -17,6 +17,9 @@
 
 package org.apache.ignite.example.client;
 
+
+import org.apache.ignite.client.IgniteClient;
+
 /**
  * This example demonstrates the usage of the basic client API without any fine-tuning.
  * Configurations like this are sufficient for most common scenarios.
@@ -29,7 +32,7 @@ public class IgniteClientExample {
         // Creating client connector instance and connecting to cluster.
         //
         //--------------------------------------------------------------------------------------
-        try (org.apache.ignite.client.IgniteClient client = org.apache.ignite.client.IgniteClient.builder()
+        try (IgniteClient client = IgniteClient.builder()
                 .addresses("127.0.0.1:10800")
                 .build()
         ) {
