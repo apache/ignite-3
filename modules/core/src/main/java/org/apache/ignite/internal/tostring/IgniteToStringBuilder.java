@@ -19,10 +19,6 @@ package org.apache.ignite.internal.tostring;
 
 import static java.util.Objects.nonNull;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.getInteger;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getString;
 
 import java.io.Externalizable;
@@ -91,10 +87,7 @@ public class IgniteToStringBuilder {
     private static final Object[] EMPTY_ARRAY = new Object[0];
 
     /** Max collection elements to be written. */
-    private static final int COLLECTION_LIMIT = getInteger(IGNITE_TO_STRING_COLLECTION_LIMIT, 100);
-
-    /** Ignore flag for runtime exceptions while building string. */
-    private static final boolean IGNORE_RUNTIME_EXCEPTION = !getBoolean(IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION, false);
+    private static final int COLLECTION_LIMIT = 100;
 
     /** Supplier for {@link #includeSensitive} with default behavior. */
     private static final AtomicReference<Supplier<SensitiveDataLoggingPolicy>> SENS_DATA_LOG_SUP_REF =
@@ -1813,12 +1806,8 @@ public class IgniteToStringBuilder {
                             try {
                                 toString(buf, fd.fieldClass(), fieldValue);
                             } catch (RuntimeException e) {
-                                if (IGNORE_RUNTIME_EXCEPTION) {
-                                    buf.app("Runtime exception was caught when building string representation: "
-                                            + e.getMessage());
-                                } else {
-                                    throw e;
-                                }
+                                buf.app("Runtime exception was caught when building string representation: "
+                                        + e.getMessage());
                             }
 
                             break;
