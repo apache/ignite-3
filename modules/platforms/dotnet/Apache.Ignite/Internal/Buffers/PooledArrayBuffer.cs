@@ -29,6 +29,9 @@ namespace Apache.Ignite.Internal.Buffers
     /// </summary>
     internal sealed class PooledArrayBuffer : IDisposable, IBufferWriter<byte>
     {
+        /** Maximum size of the array. */
+        private const int MaxByteArraySize = 0X7FFFFFC7;
+
         /** Prefix size. */
         private readonly int _prefixSize;
 
@@ -299,22 +302,24 @@ namespace Apache.Ignite.Internal.Buffers
             }
 
             int length = _buffer.Length;
-            int increase = Math.Max(sizeHint, length);
+            long requiredSize = (long)_index + sizeHint;
 
-            int newSize = length + increase;
-
-            if ((uint)newSize > int.MaxValue)
+            if (requiredSize > MaxByteArraySize)
             {
-                newSize = length + sizeHint;
-                if ((uint)newSize > int.MaxValue)
-                {
-                    throw new InternalBufferOverflowException($"Buffer can't be larger than {int.MaxValue} (int.MaxValue) bytes.");
-                }
+                throw new InternalBufferOverflowException($"Buffer can't be larger than {MaxByteArraySize} bytes.");
+            }
+
+            int increase = Math.Max(sizeHint, length);
+            long newSize = (long)length + increase;
+
+            if (newSize > MaxByteArraySize)
+            {
+                newSize = MaxByteArraySize;
             }
 
             // Arrays from ArrayPool are sized to powers of 2, so we don't need to implement the same logic here.
             // Even if requested size is 1 byte more than current, we'll get at lest 2x bigger array.
-            var newBuf = ByteArrayPool.Rent(newSize);
+            var newBuf = ByteArrayPool.Rent((int)newSize);
             Debug.Assert(newBuf.Length >= newSize, "newBuf.Length >= newSize");
 
             Array.Copy(_buffer, newBuf, _index);
