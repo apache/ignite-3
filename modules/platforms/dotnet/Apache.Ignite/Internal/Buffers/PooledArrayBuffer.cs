@@ -93,7 +93,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             Debug.Assert(!_disposed, "!_disposed");
 
-            return new(_buffer, start: Offset, length: _index);
+            return new(_buffer, start: Offset, length: _index - Offset);
         }
 
         /// <summary>
@@ -128,14 +128,8 @@ namespace Apache.Ignite.Internal.Buffers
         public Span<byte> GetSpan(int sizeHint)
         {
             CheckAndResizeBuffer(sizeHint);
-            var span = _buffer.AsSpan(_index, sizeHint);
 
-#if DEBUG
-            // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
-            span.Fill(254);
-#endif
-
-            return span;
+            return _buffer.AsSpan(_index, sizeHint);
         }
 
         /// <summary>
