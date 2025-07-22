@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import java.util.List;
+import java.util.Collection;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 
 /**
- * Response for {@link LocalTableStateRequest}.
+ * Response for {@link LocalTablePartitionStateRequest}.
  */
-@Transferable(DisasterRecoveryMessages.LOCAL_TABLE_STATE_RESPONSE)
-public interface LocalTableStateResponse extends NetworkMessage {
-    List<LocalTableStateMessage> states();
+@Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE_RESPONSE)
+public interface LocalTablePartitionStateResponse extends NetworkMessage {
+    Collection<LocalTablePartitionStateMessage> states();
 }

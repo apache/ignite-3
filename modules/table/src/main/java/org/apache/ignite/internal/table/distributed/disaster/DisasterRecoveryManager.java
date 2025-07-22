@@ -103,9 +103,9 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTableStateMessage;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTableStateRequest;
-import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTableStateResponse;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateMessage;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateRequest;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalTablePartitionStateResponse;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
@@ -926,7 +926,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zones Set of zone partitions.
      * @return Future with the mapping.
      */
-    private CompletableFuture<LocalTableStateResponse> tableStateForZoneOnNode(
+    private CompletableFuture<LocalTablePartitionStateResponse> tableStateForZoneOnNode(
             int catalogVersion,
             String node,
             Set<ZonePartitionId> zones
@@ -934,16 +934,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         List<ZonePartitionIdMessage> zoneMessage = zones.stream()
                 .map(zonePartitionId -> toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
                 .collect(toList());
-        LocalTableStateRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.localTableStateRequest()
+        LocalTablePartitionStateRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.localTablePartitionStateRequest()
                 .zonePartitionIds(zoneMessage)
                 .catalogVersion(catalogVersion)
                 .build();
 
         return messagingService.invoke(node, request, TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS))
                 .thenApply(networkMessage -> {
-                    assert networkMessage instanceof LocalTableStateResponse : networkMessage;
+                    assert networkMessage instanceof LocalTablePartitionStateResponse : networkMessage;
 
-                    return (LocalTableStateResponse) networkMessage;
+                    return (LocalTablePartitionStateResponse) networkMessage;
                 });
     }
 
@@ -1203,12 +1203,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     private void handleMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
         if (message instanceof LocalPartitionStatesRequest) {
             handleLocalPartitionStatesRequest((LocalPartitionStatesRequest) message, sender, correlationId);
-        } else if (message instanceof LocalTableStateRequest) {
-            handleLocalTableStateRequest((LocalTableStateRequest) message, sender, correlationId);
+        } else if (message instanceof LocalTablePartitionStateRequest) {
+            handleLocalTableStateRequest((LocalTablePartitionStateRequest) message, sender, correlationId);
         }
     }
 
-    private void handleLocalTableStateRequest(LocalTableStateRequest request, ClusterNode sender, @Nullable Long correlationId) {
+    private void handleLocalTableStateRequest(LocalTablePartitionStateRequest request, ClusterNode sender, @Nullable Long correlationId) {
         assert correlationId != null : "request=" + request + ", sender=" + sender;
 
         int catalogVersion = request.catalogVersion();
@@ -1218,12 +1218,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .collect(toSet());
 
         catalogManager.catalogReadyFuture(catalogVersion).thenRunAsync(() -> {
-            List<LocalTableStateMessage> statesList = new ArrayList<>();
+            List<LocalTablePartitionStateMessage> statesList = new ArrayList<>();
 
             raftManager.forEach((raftNodeId, raftGroupService) -> {
                 if (raftNodeId.groupId() instanceof ZonePartitionId) {
 
-                    LocalTableStateMessage message = handleSizeRequestForTable(
+                    LocalTablePartitionStateMessage message = handleSizeRequestForTablesInZone(
                             requesedPartitions,
                             (ZonePartitionId) raftNodeId.groupId()
                     );
@@ -1234,7 +1234,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 }
             });
 
-            LocalTableStateResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localTableStateResponse()
+            LocalTablePartitionStateResponse response = PARTITION_REPLICATION_MESSAGES_FACTORY.localTablePartitionStateResponse()
                     .states(statesList)
                     .build();
 
@@ -1284,7 +1284,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }, threadPool);
     }
 
-    private @Nullable LocalTableStateMessage handleSizeRequestForTable(
+    private @Nullable LocalTablePartitionStateMessage handleSizeRequestForTablesInZone(
             Set<ZonePartitionId> requestedPartitions,
             ZonePartitionId zonePartitionId
     ) {
@@ -1292,7 +1292,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             return null;
         }
 
-        return PARTITION_REPLICATION_MESSAGES_FACTORY.localTableStateMessage()
+        return PARTITION_REPLICATION_MESSAGES_FACTORY.localTablePartitionStateMessage()
                 .zonePartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
                 .partitionIdToEstimatedRowsMap(estimatedSizeMap(zonePartitionId))
                 .build();

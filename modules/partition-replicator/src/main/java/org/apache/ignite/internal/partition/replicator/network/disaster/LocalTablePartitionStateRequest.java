@@ -17,26 +17,18 @@
 
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import java.util.Map;
+import java.util.Collection;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
-import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 
 /**
- * A message for reading estimated number of rows for tables stored on this node.
+ * Request for reading table states from the node.
  */
-@Transferable(DisasterRecoveryMessages.LOCAL_TABLE_STATE)
-public interface LocalTableStateMessage extends NetworkMessage {
+@Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE_REQUEST)
+public interface LocalTablePartitionStateRequest extends NetworkMessage {
+    Collection<ZonePartitionIdMessage> zonePartitionIds();
 
-    /** Zone Partition ID. */
-    ZonePartitionIdMessage zonePartitionId();
-
-    /**
-     * Returns estimated number of rows for partitions stored on this node.
-     *
-     * <p>When colocation is enabled, and we want to get estimated rows for each of the tables, this method should be used.
-     */
-    Map<TablePartitionIdMessage, Long> partitionIdToEstimatedRowsMap();
+    int catalogVersion();
 }
