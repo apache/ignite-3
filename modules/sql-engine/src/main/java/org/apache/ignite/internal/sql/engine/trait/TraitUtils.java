@@ -378,10 +378,15 @@ public class TraitUtils {
     private static Set<Pair<RelTraitSet, List<RelTraitSet>>> combinations(RelTraitSet outTraits, List<List<RelTraitSet>> inTraits) {
         Set<Pair<RelTraitSet, List<RelTraitSet>>> out = new HashSet<>();
 
-        long complexity = inTraits.stream()
-                .mapToInt(List::size)
-                .asLongStream()
-                .reduce(1, (a, b) -> a * b);
+        long complexity;
+        try {
+            complexity = inTraits.stream()
+                    .mapToInt(List::size)
+                    .asLongStream()
+                    .reduce(1, Math::multiplyExact);
+        } catch (ArithmeticException ignored) {
+            complexity = Long.MAX_VALUE;
+        }
 
         if (complexity <= TRAITS_COMBINATION_COMPLEXITY_LIMIT) {
             fillRecursive(outTraits, inTraits, out, new RelTraitSet[inTraits.size()], 0);

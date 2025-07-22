@@ -29,6 +29,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Union test.
@@ -143,9 +145,9 @@ public class UnionPlannerTest extends AbstractPlannerTest {
         );
     }
 
-    @Test
-    void unionAllHugeNumberOfTables() throws Exception {
-        int tablesCount = 50;
+    @ParameterizedTest
+    @ValueSource(ints = {50, 100})
+    void unionAllHugeNumberOfTables(int tablesCount) throws Exception {
         IgniteTable[] tables = IntStream.range(0, tablesCount)
                 .mapToObj(i -> createTestTable("TABLE_" + i))
                 .toArray(IgniteTable[]::new);
