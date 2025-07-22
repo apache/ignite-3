@@ -476,6 +476,32 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        public async Task TestManyDeploymentUnits([Values(true, false)] bool lazyCollection)
+        {
+            var units = lazyCollection
+                ? GetUnits()
+                : GetUnits().ToList();
+
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            var res = await client.Compute.SubmitAsync(
+                await GetNodeAsync(1),
+                new JobDescriptor<object?, string>(FakeServer.GetDetailsJob, units),
+                null);
+
+            StringAssert.StartsWith("{ NodeName = fake-server, Units = unit1|1.0.0", await res.GetResultAsync());
+
+            static IEnumerable<DeploymentUnit> GetUnits()
+            {
+                for (var i = 1; i <= 10_000; i++)
+                {
+                    yield return new DeploymentUnit($"unit{i}", $"{i}.0.0");
+                }
+            }
+        }
+
+        [Test]
         public void TestExecuteOnUnknownUnitWithLatestVersionThrows()
         {
             var job = NodeNameJob with
