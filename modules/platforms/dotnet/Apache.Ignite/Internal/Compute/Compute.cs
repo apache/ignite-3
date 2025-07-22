@@ -241,24 +241,8 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T, PooledArrayBuffer> writerFunc)
         {
-            var w = buf.MessageWriter;
-
-            if (items.TryGetNonEnumeratedCount(out var count))
-            {
-                w.Write(count);
-                foreach (var item in items)
-                {
-                    writerFunc(item, buf);
-                }
-
-                return;
-            }
-
-            // Enumerable without known count - enumerate first, write count later.
-            count = 0;
-
-            // TODO: Bug
-            var countSpan = buf.GetSpan(5);
+            var count = 0;
+            var countPos = buf.Position;
             buf.Advance(5);
 
             foreach (var item in items)
@@ -267,7 +251,8 @@ namespace Apache.Ignite.Internal.Compute
                 writerFunc(item, buf);
             }
 
-            countSpan[0] = MsgPackCode.Array32;
+            var countSpan = buf.GetSpanAt(countPos, 5);
+            countSpan[0] = MsgPackCode.Int32;
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
         }
 
