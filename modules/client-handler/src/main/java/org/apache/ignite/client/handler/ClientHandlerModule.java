@@ -29,6 +29,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
@@ -351,6 +352,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                             handler = messageHandler;
 
                             ch.pipeline().addLast(
+                                    new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true),
                                     new ClientMessageDecoder(),
                                     messageHandler
                             );
