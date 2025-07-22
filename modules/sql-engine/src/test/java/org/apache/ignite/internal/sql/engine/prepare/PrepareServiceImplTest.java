@@ -386,9 +386,9 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 Arguments.of(NativeTypes.blobOf(42), -1, noScale),
                 Arguments.of(NativeTypes.UUID, noPrecision, noScale),
                 Arguments.of(NativeTypes.DATE, noPrecision, noScale),
-                Arguments.of(NativeTypes.time(2), IgniteSqlValidator.TIME_DYNAMIC_PARAM_PRECISION, noScale),
-                Arguments.of(NativeTypes.datetime(2), 6, noScale),
-                Arguments.of(NativeTypes.timestamp(2), 6, noScale)
+                Arguments.of(NativeTypes.time(2), IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION, noScale),
+                Arguments.of(NativeTypes.datetime(2), IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION, noScale),
+                Arguments.of(NativeTypes.timestamp(2), IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION, noScale)
         );
     }
 

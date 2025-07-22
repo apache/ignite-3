@@ -128,7 +128,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public static final int MAX_LENGTH_OF_ALIASES = 256;
     public static final int DECIMAL_DYNAMIC_PARAM_PRECISION = 28;
     public static final int DECIMAL_DYNAMIC_PARAM_SCALE = 6;
-    public static final int TIME_DYNAMIC_PARAM_PRECISION = 9;
+    public static final int TEMPORAL_DYNAMIC_PARAM_PRECISION = 9;
 
     private static final Set<SqlKind> HUMAN_READABLE_ALIASES_FOR;
 
@@ -1566,11 +1566,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else if (cls == LocalDate.class) {
             return typeFactory.createSqlType(SqlTypeName.DATE);
         } else if (cls == LocalTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIME, TIME_DYNAMIC_PARAM_PRECISION);
+            return typeFactory.createSqlType(SqlTypeName.TIME, TEMPORAL_DYNAMIC_PARAM_PRECISION);
         } else if (cls == LocalDateTime.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP);
+            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP, TEMPORAL_DYNAMIC_PARAM_PRECISION);
         } else if (cls == Instant.class) {
-            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+            return typeFactory.createSqlType(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, TEMPORAL_DYNAMIC_PARAM_PRECISION);
         } else if (cls == byte[].class) {
             return typeFactory.createSqlType(SqlTypeName.VARBINARY, PRECISION_NOT_SPECIFIED);
         } else if (cls == String.class) {
