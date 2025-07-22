@@ -16,22 +16,68 @@
 
 == Overview
 
-The Ignite CLI tool uses REST API as a communication protocol between the node and the CLI, allowing you to configure the node. By default, the CLI tool runs in the interactive mode, but you can also execute commands without entering it.
+The Ignite CLI communicates with the cluster via the REST API, allowing you to configure the entire cluster or apply node-specific settings.  You can run the CLI either in the interactive mode or execute commands without entering it.
 
-When using the Ignite CLI tool, the arguments should be put in quotation marks, and the string should not include line breaks. For example:
+=== Interactive CLI Mode
+
+To use the CLI in the interactive mode, first link:quick-start/getting-started-guide#start-the-ignite-cli[run] it, then configure the link:administrators-guide/config/cluster-config[cluster] or link:administrators-guide/config/node-config[node] using the `update` command.
+
+For example, to add a new user to the cluster:
 
 [source, bash]
 ----
-cluster config update "ignite.security.authentication.providers.basic4={type=basic,username=name,password=pass}"
+cluster config update ignite.security.authentication.providers.default.users=[{username=newuser,displayName=newuser,password="newpassword",passwordEncoding=PLAIN,roles=[system]}]
 ----
 
-Otherwise, special POSIX characters in strings (`{` and `}` in the above command) will be handled appropriately, leading to potentially unpredictable results.
+=== Non-Interactive CLI Mode
+
+Non-interactive mode is useful for quick updates or when running commands in scripts.
+
+When running commands non-interactively, enclose arguments in quotation marks to ensure that special POSIX characters (such as `{` and `}`) are interpreted correctly:
+
+[tabs]
+--
+tab:Linux[]
+[source, bash]
+----
+bin/ignite3 cluster config update "ignite.schemaSync={delayDurationMillis=500,maxClockSkewMillis=500}"
+----
+
+tab:Windows[]
+[source, bash]
+----
+ bin/ignite3.bat cluster config update "ignite.schemaSync={delayDurationMillis=500,maxClockSkewMillis=500}"
+----
+--
 
 Alternatively, you can use the backslash (`\`) to escape all special characters in your command. For example:
 
+[tabs]
+--
+tab:Linux[]
 [source, bash]
 ----
-cluster config update ignite.security.authentication.providers.basic4=\{type=basic,username=name,password=pass\}
+bin/ignite3 cluster config update ignite.security.authentication.providers.default.users=\[\{username\=newuser,displayName\=newuser,password\=\"newpassword\",passwordEncoding\=PLAIN,roles\=\[system\]\}\]
+----
+
+tab:Windows[]
+[source, bash]
+----
+ bin/ignite3.bat cluster config update ignite.security.authentication.providers.default.users=\[\{username\=newuser,displayName\=newuser,password\=\"newpassword\",passwordEncoding\=PLAIN,roles\=\[system\]\}\]
+----
+--
+
+Non-interactive mode is also useful in automation scripts. For example, you can set configuration items in a Bash script as follows:
+
+[source, bash]
+----
+#!/bin/bash
+
+...
+
+bin/ignite3 cluster config update "ignite.schemaSync={delayDurationMillis=500,maxClockSkewMillis=500}"
+
+bin/ignite3 cluster config update "ignite.security.authentication.providers.default.users=[{username=newuser,displayName=newuser,password=\"newpassword\",passwordEncoding=PLAIN,roles=[system]}]"
 ----
 
 == Commands and Options

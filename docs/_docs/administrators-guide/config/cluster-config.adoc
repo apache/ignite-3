@@ -34,17 +34,49 @@ cluster config show ignite.transaction
 
 == Changing Cluster Configuration
 
-Cluster configuration is changed from the CLI tool. To change the configuration:
+Cluster configuration is changed from the CLI tool. You can update it both in the interactive (REPL) and non-interactive mode by passing a configuration file with the `--file` parameter.
 
-- Start the CLI tool and connect to any node in the cluster.
+NOTE: Values set directly via the CLI take precedence over values set in the configuration file.
+
+=== Update via REPL:
+
+Start the CLI tool and connect to any node in the cluster.
+
 - Run the `cluster config update` command and provide the updated configuration as the command argument, for example:
 +
 [source, shell]
 ----
 cluster config update ignite.system.idleSafeTimeSyncIntervalMillis=600
 ----
++
+- To update one or more parameters, pass the configuration file to the `cluster config update` command:
++
+[source, shell]
+----
+cluster config update --file ../ignite-config.conf
+----
++
+- You also can update the configuration combining both approaches:
++
+[source, shell]
+----
+cluster config update --file ../ignite-config.conf ignite.system.idleSafeTimeSyncIntervalMillis=600
+----
 
-The updated configuration will automatically be applied across the cluster,
+The updated configuration will automatically be applied across the cluster.
+
+=== Update via Non-Interactive Mode
+
+You can also modify cluster configuration via link:ignite-cli-tool#non-interactive-cli-mode[non-interactive] CLI mode without starting the CLI tool first.
+
+- Pass the configuration file with the `--file` parameter:
++
+[source, shell]
+----
+bin/gridgain9 cluster config update --file ../gridgain-config.conf
+----
+
+The updated configuration will automatically be applied across the cluster.
 
 
 == Exporting Cluster Configuration
