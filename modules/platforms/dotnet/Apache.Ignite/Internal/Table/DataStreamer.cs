@@ -217,7 +217,7 @@ internal static class DataStreamer
             // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
             // because it may expose referenced variables outside of their declaration scope".
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
-            Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
+            Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), noValueSet.Length);
 
             var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
             writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
