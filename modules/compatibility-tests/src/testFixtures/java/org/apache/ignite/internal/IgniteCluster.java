@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.HttpResponseMatcher.hasStatusCode;
 import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -139,6 +140,7 @@ public class IgniteCluster {
                 .filter(Objects::nonNull)
                 .map(IgniteServer::name)
                 .collect(toList());
+
         LOG.info("Shutting the embedded cluster down [nodes={}]", serverNames);
 
         Collections.fill(igniteServers, null);
@@ -155,7 +157,7 @@ public class IgniteCluster {
 
             LOG.info("Shutting the runner nodes down: [nodes={}]", nodeNames);
 
-            runnerNodes.forEach(RunnerNode::stop);
+            runnerNodes.parallelStream().forEach(RunnerNode::stop);
             runnerNodes.clear();
 
             LOG.info("Shutting down nodes is complete: [nodes={}]", nodeNames);
@@ -228,7 +230,7 @@ public class IgniteCluster {
             throw new RuntimeException(e);
         }
 
-        assertThat(send(post("/management/v1/cluster/init", requestBody)).statusCode(), is(200));
+        assertThat(send(post("/management/v1/cluster/init", requestBody)), hasStatusCode(200));
     }
 
     /**
