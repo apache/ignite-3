@@ -49,7 +49,8 @@ public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
 
     /**
      * Is called on the change of idempotent commands' cache size.
-     * @param newSize
+     *
+     * @param newSize New size of the cache.
      */
     public void onIdempotentCacheSizeChange(int newSize) {
         Holder holder = holder();
