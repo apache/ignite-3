@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.metastorage.metrics;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource.Holder;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
-import org.apache.ignite.internal.metrics.IntGauge;
-import org.apache.ignite.internal.metrics.IntMetric;
+import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
@@ -34,8 +32,6 @@ public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
     private static final String SOURCE_NAME = "metastorage";
 
     private final MetaStorageMetrics metaStorageMetrics;
-
-    private final AtomicInteger idempotentCacheSizeHolder = new AtomicInteger();
 
     /**
      * Constructor.
@@ -51,6 +47,17 @@ public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
         return new Holder();
     }
 
+    /**
+     * Is called on the change of idempotent commands' cache size.
+     * @param newSize
+     */
+    public void onIdempotentCacheSizeChange(int newSize) {
+        Holder holder = holder();
+        if (holder != null) {
+            holder.idempotentCacheSize.value(newSize);
+        }
+    }
+
     /** Holder. */
     protected class Holder implements AbstractMetricSource.Holder<Holder> {
         private final LongMetric safeTimeLag = new LongGauge(
@@ -59,10 +66,9 @@ public class MetaStorageMetricSource extends AbstractMetricSource<Holder> {
                 metaStorageMetrics::safeTimeLag
         );
 
-        private final IntMetric idempotentCacheSize = new IntGauge(
+        private final AtomicIntMetric idempotentCacheSize = new AtomicIntMetric(
                 "IdempotentCacheSize",
-                "The current size of the cache of idempotent commands' results.",
-                idempotentCacheSizeHolder::get
+                "The current size of the cache of idempotent commands' results."
         );
 
         private final List<Metric> metrics = List.of(
