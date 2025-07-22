@@ -213,14 +213,10 @@ internal static class DataStreamer
         Batch<T> Add0(DataStreamerItem<T> item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
         {
             var columnCount = schema0.Columns.Length;
-
-            // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
-            // because it may expose referenced variables outside of their declaration scope".
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
-            Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), noValueSet.Length);
 
             var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
+            writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSet);
 
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
