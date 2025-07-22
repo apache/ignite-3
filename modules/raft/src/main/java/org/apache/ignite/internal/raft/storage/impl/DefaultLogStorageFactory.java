@@ -373,10 +373,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
         Set<String> groupIdsForStorage = new HashSet<>();
 
-        byte[] upperBound = incrementPrefix(STORAGE_CREATED_META_PREFIX);
-
         try (
-                Slice upperBoundSlice = new Slice(upperBound);
+                Slice upperBoundSlice = new Slice(incrementPrefix(STORAGE_CREATED_META_PREFIX));
                 ReadOptions readOptions = new ReadOptions().setIterateUpperBound(upperBoundSlice);
                 RocksIterator iterator = db.newIterator(metaHandle, readOptions)
         ) {
