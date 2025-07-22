@@ -926,7 +926,7 @@ public class RexUtils {
 
         // We cannot compose search condition if expression requires to be downcasted in order to be put
         // in bound. Downcast is not safe, and may throw `Out of range` error. As of now, such case
-        // must be handler by user explicitly by manually CASTing to the required type.
+        // must be handled by user explicitly by manually CASTing to the required type.
         if (TypeUtils.needCastInSearchBounds(Commons.typeFactory(), operandType, op.getType())) {
             return null;
         }

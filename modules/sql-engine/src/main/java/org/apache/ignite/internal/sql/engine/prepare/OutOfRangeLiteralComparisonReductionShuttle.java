@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import com.google.common.collect.ImmutableRangeSet;
+import com.google.common.collect.RangeSet;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeFamily;
+import org.apache.calcite.util.Sarg;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -212,13 +217,53 @@ public class OutOfRangeLiteralComparisonReductionShuttle extends RexShuttle {
             }
         }
 
+        if (call.isA(SqlKind.SEARCH)) {
+            RexNode ref = call.getOperands().get(0);
+            if (RexUtils.isLosslessCast(ref) && ref.getType().getFamily() == SqlTypeFamily.NUMERIC) {
+                ref = ((RexCall) ref).getOperands().get(0);
+                RelDataType probingType = ref.getType();
+
+                @SuppressWarnings("unchecked")
+                Sarg<BigDecimal> values = ((RexLiteral) call.getOperands().get(1)).getValueAs(Sarg.class);
+
+                assert values != null;
+
+                if (values.isPoints()) {
+                    BigDecimal lower = TypeUtils.lowerBoundFor(probingType);
+                    BigDecimal upper = TypeUtils.upperBoundFor(probingType);
+
+                    assert lower != null;
+                    assert upper != null;
+
+                    RangeSet<?> normalized = ImmutableRangeSet.copyOf(
+                            values.rangeSet.asRanges().stream()
+                                    .filter(r -> {
+                                        BigDecimal current = r.lowerEndpoint();
+
+                                        return inRange(current, lower, upper)
+                                                && probingType.getScale() >= current.stripTrailingZeros().scale();
+
+                                    })
+                                    .collect(Collectors.toList())
+                    );
+
+                    //noinspection unchecked
+                    RexLiteral normalizedSargLiteral = builder.makeSearchArgumentLiteral(Sarg.of(values.nullAs, normalized), probingType);
+
+                    return builder.makeCall(
+                            SqlStdOperatorTable.SEARCH, ref, normalizedSargLiteral
+                    );
+                }
+            }
+        }
+
         // This shuttle is supposed to adjust binary comparisons only, hence if we are not in the context of comparison,
         // we skip cast simplification as it may change type of the expressions (e.g. CAST to nullable type will become non-nullable).
         if (comparisonOpTracker > 0 && RexUtils.isLosslessCast(call) && call.getOperands().get(0) instanceof RexLiteral) {
             return builder.makeLiteral(((RexLiteral) call.getOperands().get(0)).getValue(), call.getType());
         }
 
-        return super.visitCall(call);
+        return RexUtil.flatten(builder, super.visitCall(call));
     }
 
     private static boolean inRange(BigDecimal val, BigDecimal lower, BigDecimal upper) {

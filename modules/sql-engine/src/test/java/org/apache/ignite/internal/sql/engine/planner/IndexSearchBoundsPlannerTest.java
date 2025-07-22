@@ -39,6 +39,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
@@ -692,6 +693,35 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 decimal3s,
                 decimal35s
         ).flatMap(Collection::stream);
+    }
+
+    @Test
+    void testUpcastOnTableRefWithIn() throws Exception {
+        publicSchema = createSchema(
+                TestBuilders.table()
+                        .name("TEST")
+                        .addColumn("C1", NativeTypes.INT8)
+                        .addColumn("C2", NativeTypes.INT32)
+                        .distribution(someAffinity())
+                        .sortedIndex()
+                        .name("TEST_C1_IDX")
+                        .addColumn("C1", Collation.ASC_NULLS_LAST)
+                        .end()
+                        .build()
+        );
+
+        assertBounds("SELECT * FROM test WHERE c1 IN (1, 3, 5)",
+                multi(exact(1), exact(3), exact(5))
+        );
+
+        // certain bounds out of range
+        assertBounds("SELECT * FROM test WHERE c1 IN (-129, -128, 1, 127, 128)",
+                multi(exact(-128), exact(1), exact(127))
+        );
+
+        assertBounds("SELECT * FROM test WHERE c1 IN (1::SMALLINT, 3, 5::DECIMAL(19, 2))",
+                multi(exact(1), exact(3), exact(5))
+        );
     }
 
     private static Predicate<SearchBounds> exact(Object val) {

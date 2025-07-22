@@ -68,7 +68,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
@@ -106,6 +105,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
@@ -140,8 +140,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
     protected static final int DEFAULT_ZONE_ID = 0;
-
-    private static final SqlExplainLevel DEFAULT_EXPLAIN_LEVEL = SqlExplainLevel.EXPPLAN_ATTRIBUTES;
 
     private static final AtomicInteger NEXT_TABLE_ID = new AtomicInteger(2001);
 
@@ -508,7 +506,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     ) throws Exception {
         IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, null, disabledRules);
 
-        String planString = RelOptUtil.dumpPlan("", plan, SqlExplainFormat.TEXT, DEFAULT_EXPLAIN_LEVEL);
+        String planString = ExplainUtils.toString(plan);
         log.info("statement: {}\n{}", sql, planString);
 
         checkSplitAndSerialization(plan, schemas);
