@@ -155,40 +155,64 @@ public class IgniteProductVersion implements Serializable, Comparable<IgniteProd
 
     @Override
     public int compareTo(IgniteProductVersion other) {
-        int res = Byte.compare(major(), other.major());
+        int res;
+
+        // Compare major, minor, maintenance
+        res = Byte.compare(major(), other.major());
         if (res != 0) {
             return res;
         }
+
         res = Byte.compare(minor(), other.minor());
         if (res != 0) {
             return res;
         }
+
         res = Byte.compare(maintenance(), other.maintenance());
         if (res != 0) {
             return res;
         }
-        if (patch() != null && other.patch() != null) {
-            res = Byte.compare(patch(), other.patch());
-            if (res != 0) {
-                return res;
-            }
-        } else if (patch() != null && other.patch() == null) {
-            return 1;
-        } else if (patch() == null && other.patch() != null) {
-            return -1;
-        }
-        if (preRelease() != null && other.preRelease() != null) {
-            res = Integer.compare(preReleaseOrder(preRelease()), preReleaseOrder(other.preRelease()));
-            if (res != 0) {
-                return res;
-            }
-        } else if (preRelease() != null && other.preRelease() == null) {
-            return 1;
-        } else if (preRelease() == null && other.preRelease() != null) {
-            return -1;
+
+        // Compare patch (nullable)
+        res = compareNullable(patch(), other.patch());
+        if (res != 0) {
+            return res;
         }
 
+        // Compare pre-release order (nullable)
+        res = compareNullable(preReleaseOrder(preRelease()), preReleaseOrder(other.preRelease()));
+        return res;
+    }
+
+    private static int compareNullable(@Nullable Byte a, @Nullable Byte b) {
+        if (a != null && b != null) {
+            return Byte.compare(a, b);
+        } else if (a != null) {
+            return 1;
+        } else if (b != null) {
+            return -1;
+        }
         return 0;
+    }
+
+    @Nullable
+    private static Byte preReleaseOrder(@Nullable String preRelease) {
+        if (preRelease == null) {
+            return null;
+        }
+        switch (preRelease.toLowerCase()) {
+            case "alpha":
+                return 0;
+            case "beta":
+                return 1;
+            case "rc":
+                return 2;
+            case "final":
+            case "":
+                return 3;
+            default:
+                return 4; // Unknown or custom stages
+        }
     }
 
     @Override
@@ -221,21 +245,5 @@ public class IgniteProductVersion implements Serializable, Comparable<IgniteProd
         }
 
         return joiner + (preRelease == null ? "" : "-" + preRelease);
-    }
-
-    private int preReleaseOrder(String preRelease) {
-        switch (preRelease.toLowerCase()) {
-            case "alpha":
-                return 0;
-            case "beta":
-                return 1;
-            case "rc":
-                return 2;
-            case "final":
-            case "":
-                return 3;
-            default:
-                return 4; // Unknown or custom stages
-        }
     }
 }
