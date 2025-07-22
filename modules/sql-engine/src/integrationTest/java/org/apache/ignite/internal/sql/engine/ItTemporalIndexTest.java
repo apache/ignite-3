@@ -70,10 +70,10 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 .app("CREATE TABLE TIME1 (pk TIME, val TIME, PRIMARY KEY USING SORTED (pk));").nl()
                 .app("CREATE TABLE TIME2 (pk TIME, val TIME, PRIMARY KEY USING HASH (pk));").nl()
                 .app("CREATE TABLE TIMESTAMP1 (pk TIMESTAMP, val TIMESTAMP, PRIMARY KEY USING SORTED (pk));").nl()
-                .app("CREATE TABLE TIMESTAMP2 (pk TIMESTAMP(0), val TIMESTAMP, PRIMARY KEY USING HASH (pk));").nl()
+                .app("CREATE TABLE TIMESTAMP2 (pk TIMESTAMP, val TIMESTAMP, PRIMARY KEY USING HASH (pk));").nl()
                 .app("CREATE TABLE TIMESTAMPTZ1 (pk TIMESTAMP WITH LOCAL TIME ZONE, val TIMESTAMP WITH LOCAL TIME ZONE, "
                         + "PRIMARY KEY USING SORTED (pk));").nl()
-                .app("CREATE TABLE TIMESTAMPTZ2 (pk TIMESTAMP(0) WITH LOCAL TIME ZONE, val TIMESTAMP WITH LOCAL TIME ZONE, "
+                .app("CREATE TABLE TIMESTAMPTZ2 (pk TIMESTAMP WITH LOCAL TIME ZONE, val TIMESTAMP WITH LOCAL TIME ZONE, "
                         + "PRIMARY KEY USING HASH (pk));").nl()
 
                 .app("CREATE INDEX s_asc_idx_date1 ON date1 USING SORTED (val ASC);")
