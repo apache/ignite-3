@@ -20,7 +20,6 @@ package org.apache.ignite.internal.disaster;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -42,7 +41,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -309,7 +307,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                             .flatMap(localTablePartitionStateByNode -> localTablePartitionStateByNode.values().stream())
                             .map(state -> state.estimatedRows)
                             .collect(Collectors.toSet());
-                    // We should have the information for 2 partitions, each having 1 row.
+                    // There are 2 nodes, 2 partitions and 1 replica, so we should have 2 entries in localState (one for each partition),
+                    // LocalTablePartitionStateByNode should have a entry for either the first or the second node with 1 row.
                     return size.size() == 1 && size.contains(1L) && localState.size() == 2;
                 },
                 20_000
@@ -325,13 +324,10 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(0, 0);
         insert(1, 1);
 
-        CatalogZoneDescriptor defaultZone = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion())
-                .defaultZone();
-
         // Wait for replication to finish.
         assertTrue(waitForCondition(() -> {
                     CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
-                            node.disasterRecoveryManager().localPartitionStates(emptySet(), emptySet(), emptySet());
+                            node.disasterRecoveryManager().localPartitionStates(Set.of(ZONE_NAME), emptySet(), emptySet());
 
                     assertThat(localStateTableFuture, willCompleteSuccessfully());
 
@@ -342,16 +338,13 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                         throw new RuntimeException(e);
                     }
 
-                    Map<ZonePartitionId, LocalPartitionStateByNode> noDefaultZone = localState.entrySet().stream()
-                            .filter(e -> e.getKey().zoneId() != defaultZone.id())
-                            .collect(toMap(Entry::getKey, Entry::getValue));
-
-                    Set<Long> size = noDefaultZone.values().stream()
+                    Set<Long> size = localState.values().stream()
                             .flatMap(localTablePartitionStateByNode -> localTablePartitionStateByNode.values().stream())
                             .map(state -> state.estimatedRows)
                             .collect(Collectors.toSet());
-                    // We should have the information for 2 partitions, each having 1 row.
-                    return size.size() == 1 && size.contains(1L) && noDefaultZone.size() == 2;
+                    // There are 2 nodes, 2 partitions and 1 replica, so we should have 2 entries in localState (one for each partition),
+                    // LocalTablePartitionStateByNode should have a entry for either the first or the second node with 1 row.
+                    return size.size() == 1 && size.contains(1L) && localState.size() == 2;
                 },
                 20_000
         ));

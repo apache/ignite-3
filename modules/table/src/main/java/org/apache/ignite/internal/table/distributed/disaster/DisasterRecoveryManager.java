@@ -856,6 +856,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
+    /**
+     * Converts {@link LocalPartitionStateMessageByNode} to a mapping of zone names to the set of zone partitions.
+     *
+     * @param partitionStateMap Partition state map.
+     * @return Mapping of zone names to the set of zone partitions.
+     */
     private static Map<String, Set<ZonePartitionId>> toZonesOnNodes(
             Map<ZonePartitionId, LocalPartitionStateMessageByNode> partitionStateMap
     ) {
@@ -874,6 +880,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return res;
     }
 
+    /**
+     * Returns estimated number of rows for each table having a partition in the specified zones.
+     *
+     * <p>The result is returned from the nodes specified in the {@code zonesOnNodes.keySet()} -
+     * these are the nodes we previously received partition states from.
+     *
+     * @param zonesOnNodes Mapping of node names to the set of zone partitions.
+     * @param catalogVersion Catalog version.
+     * @return Future with the mapping.
+     */
     private CompletableFuture<Map<String, Map<ZonePartitionId, Map<TablePartitionIdMessage, Long>>>> tableStateForZone(
             Map<String, Set<ZonePartitionId>> zonesOnNodes,
             int catalogVersion
@@ -902,6 +918,14 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         });
     }
 
+    /**
+     * Returns estimated number of rows for each table having a partition in the specified zones.
+     *
+     * @param catalogVersion Catalog version.
+     * @param node Node we get table partition states from.
+     * @param zones Set of zone partitions.
+     * @return Future with the mapping.
+     */
     private CompletableFuture<LocalTableStateResponse> tableStateForZoneOnNode(
             int catalogVersion,
             String node,
