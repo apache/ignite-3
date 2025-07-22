@@ -100,8 +100,8 @@ These commands address specific node(s) in a cluster.
 
 These commands enable you to:
 
-* Recover data partitions link:administrators-guide/disaster-recovery#disaster-scenarios-and-recovery-instructions[in a number of disaster scenarios]
-* Recover link:link:administrators-guide/system-group-recovery[system system RAFT groups]
+* Recover data partitions in a number of link:administrators-guide/disaster-recovery#disaster-scenarios-and-recovery-instructions[disaster scenarios]
+* Recover link:link:administrators-guide/system-groups-recovery[system RAFT groups]
 
 [cols="2,2,3",opts="header", stripes=none]
 |===
@@ -110,9 +110,9 @@ These commands enable you to:
 | `recovery partitions reset` | `--table [--url] --zone
 [--partitions [, <partitionIds>...]]...`| Resets the indicated partitions (if not specified, all existing partitions) in the indicated zones (if not specified, in all existing zones). This operation is irreversible. It can lead to data loss. Use with caution, only when strictly necessary.
 | `recovery partitions states` | `[--plain] [--url] [--partitions [, <partitionIds>...]]... [--zones [, <zoneNames>...]]... (--global \| [--local [--nodes [,<nodeNames>...]]...])`| Returns the link:administrators-guide/disaster-recovery#partition-states[partition states (local or global)], optionally for the indicated nodes and/or zones and/or partitions.
-| `recovery cluster reset` for CMG | `--url=<node-url> --cluster-management-group=<new-cmg-nodes>` | Initiates link:administrators-guide/system-group-recovery#cluster-management-group[CMG node group] repair to restore the lost majority. The command is sent to the node indicated by the `--url` parameter, which must belong to the `new-cmg-nodes` RAFT group (a comma-separated list of nodes that belong to cluster's physical topology).
-| `recovery cluster reset` for MG | `--url=<existing-node-url> [--cluster-management-group=<new-cmg-nodes>] --metastorage-replication-factor=N` | Initiates link:administrators-guide/system-group-recovery#majority-loss[MG node group] repair to restore the lost majority. `N` is the requested number of the voting RAFT nodes in the MG after repair. If you omit `--cluster-management-group`, the command takes the current CMG voting members set from the CMG leader; if CMG is not available, the command fails.  
-| `recovery cluster migrate` | `--old-cluster-url=<url-of-old-cluster-node> --new-cluster-url=<url-of-new-cluster-node>` | Initiates migration of a link:administrators-guide/system-group-recovery#cluster-management-group[CMG] or link:administrators-guide/system-group-recovery#metastorage-group[MG] node that did not take part in recovery performed by `recovery cluster reset` (because it was down or unavailable due to a network partition) to the new (recovered) cluster.
+| `recovery cluster reset` for CMG | `--url=<node-url> --cluster-management-group=<new-cmg-nodes>` | Initiates link:administrators-guide/system-groups-recovery#cluster-management-group[CMG node group] repair to restore the lost majority. The command is sent to the node indicated by the `--url` parameter, which must belong to the `new-cmg-nodes` RAFT group (a comma-separated list of nodes that belong to cluster's physical topology).
+| `recovery cluster reset` for MG | `--url=<existing-node-url> [--cluster-management-group=<new-cmg-nodes>] --metastorage-replication-factor=N` | Initiates link:administrators-guide/system-groups-recovery#majority-loss[MG node group] repair to restore the lost majority. `N` is the requested number of the voting RAFT nodes in the MG after repair. If you omit `--cluster-management-group`, the command takes the current CMG voting members set from the CMG leader; if CMG is not available, the command fails.
+| `recovery cluster migrate` | `--old-cluster-url=<url-of-old-cluster-node> --new-cluster-url=<url-of-new-cluster-node>` | Initiates migration of a link:administrators-guide/system-groups-recovery#cluster-management-group[CMG] or link:administrators-guide/system-groups-recovery#metastorage-group[MG] node that did not take part in recovery performed by `recovery cluster reset` (because it was down or unavailable due to a network partition) to the new (recovered) cluster.
 |===
 
 === Distribution Commands
