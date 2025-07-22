@@ -121,9 +121,6 @@ public class LeaseUpdater {
     /** Cluster clock. */
     private final ClockService clockService;
 
-    /** Metric manager. */
-    private final MetricManager metricManager;
-
     private final PlacementDriverMetricSource placementDriverMetrics;
 
     /** Closure to update leases. */
@@ -179,7 +176,6 @@ public class LeaseUpdater {
                 () -> assignmentsTracker.stableAssignments().size(),
                 () -> assignmentsTracker.stableAssignments().size()
         );
-        this.metricManager = metricManager;
 
         clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, new PlacementDriverActorMessageHandler());
     }
@@ -187,8 +183,6 @@ public class LeaseUpdater {
     /** Initializes the class. */
     public void init() {
         topologyTracker.startTrack();
-
-        metricManager.registerSource(placementDriverMetrics);
     }
 
     /** De-initializes the class. */
@@ -216,9 +210,6 @@ public class LeaseUpdater {
             updaterThread = new IgniteThread(nodeName, "lease-updater", updater);
 
             updaterThread.start();
-
-            // Placement driver metrics make sense only on the placement driver active actor.
-            metricManager.enable(placementDriverMetrics);
         } finally {
             stateChangingLock.unblock();
         }
@@ -240,8 +231,6 @@ public class LeaseUpdater {
             LOG.info("Placement driver active actor is stopping.");
 
             leaseNegotiator = null;
-
-            metricManager.disable(placementDriverMetrics);
 
             updaterThread.interrupt();
 
@@ -389,6 +378,10 @@ public class LeaseUpdater {
     /** Returns {@code true} if active. */
     boolean active() {
         return active.get();
+    }
+
+    PlacementDriverMetricSource placementDriverMetricSource() {
+        return placementDriverMetrics;
     }
 
     /** Runnable to update lease in Meta storage. */

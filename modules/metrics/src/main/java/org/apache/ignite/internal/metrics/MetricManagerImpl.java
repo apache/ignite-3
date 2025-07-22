@@ -224,7 +224,7 @@ public class MetricManagerImpl implements MetricManager {
 
     @Override
     public void disable(String srcName) {
-        inBusyLock(busyLock, () -> {
+        inBusyLockSafe(busyLock, () -> {
             MetricSet metricSet = registry.snapshot().metrics().get(srcName);
 
             registry.disable(srcName);
