@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Table
     using System;
     using System.Collections.Generic;
     using System.Globalization;
+    using System.IO;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
@@ -613,16 +614,16 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
-        public async Task TestUpsertAllBufferOverflow()
+        public void TestUpsertAllBufferOverflow()
         {
-            int count = 5_000_000;
-            string val = new string('x', 10_000);
+            int count = 50_000;
+            string val = new string('x', 100_000);
 
             var tuples = Enumerable.Range(0, count)
                 .Select(id => new IgniteTuple(2) { [KeyCol] = (long)id, [ValCol] = val })
                 .ToList();
 
-            await TupleView.UpsertAllAsync(null, tuples);
+            Assert.ThrowsAsync<InternalBufferOverflowException>(async () => await TupleView.UpsertAllAsync(null, tuples));
         }
     }
 }
