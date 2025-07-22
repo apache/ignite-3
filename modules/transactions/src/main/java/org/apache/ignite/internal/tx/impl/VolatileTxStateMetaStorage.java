@@ -32,8 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -47,8 +45,6 @@ import org.jetbrains.annotations.Nullable;
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
 public class VolatileTxStateMetaStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
-
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
 

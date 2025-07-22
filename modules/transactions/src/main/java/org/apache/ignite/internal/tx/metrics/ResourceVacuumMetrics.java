@@ -75,7 +75,7 @@ public class ResourceVacuumMetrics extends AbstractMetricSource<Holder> {
     }
 
     /** Holder. */
-    protected class Holder implements AbstractMetricSource.Holder<Holder> {
+    protected static class Holder implements AbstractMetricSource.Holder<Holder> {
         private final LongAdderMetric vacuumizedVolatileTxnMetaCount = new LongAdderMetric(
                 "VacuumizedVolatileTxnMetaCount",
                 "Count of volatile transaction metas that have been vacuumized."
