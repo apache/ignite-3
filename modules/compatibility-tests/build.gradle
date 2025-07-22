@@ -79,23 +79,22 @@ private def resolveAllDependencies(String dependencyNotation, String... addition
     return detached.resolve()  // Set<File> of *.jar
 }
 
-def resolveIgniteVersions() {
-    def versionsFile = file('src/testFixtures/resources/igniteVersions.json')
-    def versionsJson = new JsonSlurper().parseText(versionsFile.text)
-    versionsJson.versions.each { version ->
-        versionsJson.artifacts.each { artifact ->
-            resolveAllDependencies("$artifact:$version.version")
+// This task resolves dependencies described in the file making them cached locally. If testAllVersions system property is not defined, at
+// most 2 last versions are resolved
+def resolveCompatibilityTestDependencies = tasks.register('resolveCompatibilityTestDependencies') {
+    doLast {
+        def versionsFile = file('src/testFixtures/resources/igniteVersions.json')
+        def versionsJson = new JsonSlurper().parseText(versionsFile.text)
+        def versions = System.getProperty("testAllVersions") != null ? versionsJson.versions : versionsJson.versions.takeRight(2)
+        versions.each { version ->
+            versionsJson.artifacts.each { artifact ->
+                resolveAllDependencies("$artifact:$version.version")
+            }
         }
     }
 }
 
-// This task should be started as a separate preparation step before running tests so that all the necessary dependencies are resolved and
-// cached locally
-tasks.register('resolveCompatibilityTestDependencies') {
-    doLast {
-        resolveIgniteVersions()
-    }
-}
+integrationTest.dependsOn resolveCompatibilityTestDependencies
 
 tasks.register('constructArgFile') {
     doLast {
