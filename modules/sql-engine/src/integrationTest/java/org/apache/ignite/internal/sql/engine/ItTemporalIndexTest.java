@@ -181,6 +181,27 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         }
     }
 
+    /** Check range predicates with dynamic parameter. */
+    @ParameterizedTest(name = "table = {0}, predicate = {1}")
+    @MethodSource("geLeSearchDynParamArguments")
+    public void testSearchGtLtWithPkIdxUsageDynamicParam(String table, String predicate, Object parameter, Object result) {
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}), DISABLE_RULE('TableScanToKeyValueGetRule') */ val FROM {} WHERE pk {} ORDER BY val",
+                pkIndexName(table), table, predicate))
+                .withParam(parameter)
+                .matches(containsIndexScan("PUBLIC", table, pkIndexName(table)))
+                .returns(result)
+                .check();
+
+        for (String idx : SORTED_INDEXES.get(table)) {
+            assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {} ORDER BY val",
+                    idx, table, predicate))
+                    .withParam(parameter)
+                    .matches(containsIndexScan("PUBLIC", table, idx))
+                    .returns(result)
+                    .check();
+        }
+    }
+
     /** Check range predicates. */
     @ParameterizedTest(name = "table = {0}, predicate = {1}")
     @MethodSource("betweenSearchArguments")
@@ -199,6 +220,36 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         for (String idx : SORTED_INDEXES.get(table)) {
             checker = assertQuery(
                     format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk {}", idx, table, predicate))
+                    .matches(containsIndexScan("PUBLIC", table, idx));
+
+            for (Object res : result) {
+                checker.returns(res);
+            }
+
+            checker.check();
+        }
+    }
+
+    /** Check range predicates with dynamic parameter. */
+    @ParameterizedTest(name = "table = {0}")
+    @MethodSource("betweenSearchDynParamArguments")
+    public void testBetweenPkIdxUsageDynamicParam(String table, Object[] params, Object[] result) {
+        QueryChecker checker = assertQuery(
+                format("SELECT /*+ FORCE_INDEX({})*/ val FROM {} WHERE pk BETWEEN ? AND ?",
+                        pkIndexName(table), table))
+                .withParams(params)
+                .matches(containsIndexScan("PUBLIC", table, pkIndexName(table)));
+
+        for (Object res : result) {
+            checker.returns(res);
+        }
+
+        checker.check();
+
+        for (String idx : SORTED_INDEXES.get(table)) {
+            checker = assertQuery(
+                    format("SELECT /*+ FORCE_INDEX({}) */ val FROM {} WHERE pk BETWEEN ? AND ?", idx, table))
+                    .withParams(params)
                     .matches(containsIndexScan("PUBLIC", table, idx));
 
             for (Object res : result) {
@@ -253,6 +304,50 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         );
     }
 
+    private static Stream<Arguments> betweenSearchDynParamArguments() {
+        return Stream.of(
+                Arguments.of("DATE1",
+                        new Object[]{
+                                INITIAL_DATE.plusDays(1),
+                                INITIAL_DATE.plusDays(2)
+                        },
+                        new Object[] {
+                                INITIAL_DATE.plusDays(1),
+                                INITIAL_DATE.plusDays(2)
+                        }),
+
+                Arguments.of("TIME1",
+                        new Object[] {
+                                INITIAL_TIME.plusSeconds(1),
+                                INITIAL_TIME.plusSeconds(2)
+                        },
+                        new Object[] {
+                                INITIAL_TIME.plusSeconds(1),
+                                INITIAL_TIME.plusSeconds(2)
+                        }),
+
+                Arguments.of("TIMESTAMP1",
+                        new Object[] {
+                                INITIAL_TS.plusSeconds(1),
+                                INITIAL_TS.plusSeconds(2)
+                        },
+                        new Object[] {
+                                INITIAL_TS.plusSeconds(1),
+                                INITIAL_TS.plusSeconds(2)
+                        }),
+
+                Arguments.of("TIMESTAMPTZ1",
+                        new Object[] {
+                                INITIAL_TS_LTZ.plusSeconds(1),
+                                INITIAL_TS_LTZ.plusSeconds(2)
+                        },
+                        new Object[] {
+                                INITIAL_TS_LTZ.plusSeconds(1),
+                                INITIAL_TS_LTZ.plusSeconds(2)
+                        })
+        );
+    }
+
     private static Stream<Arguments> geLeSearchArguments() {
         return Stream.of(
                 Arguments.of("DATE1", " > DATE '" + INITIAL_DATE.plusDays(8) + "'", INITIAL_DATE.plusDays(9)),
@@ -282,6 +377,31 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                         + INITIAL_TS.plusSeconds(1).format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'", INITIAL_TS_LTZ),
                 Arguments.of("TIMESTAMPTZ1", " <= TIMESTAMP WITH LOCAL TIME ZONE '"
                         + INITIAL_TS.format(SQL_CONFORMANT_DATETIME_FORMATTER) + "'", INITIAL_TS_LTZ)
+        );
+    }
+
+    private static Stream<Arguments> geLeSearchDynParamArguments() {
+        return Stream.of(
+                Arguments.of("DATE1", " > ?", INITIAL_DATE.plusDays(8), INITIAL_DATE.plusDays(9)),
+                Arguments.of("DATE1", " >= ?", INITIAL_DATE.plusDays(9), INITIAL_DATE.plusDays(9)),
+                Arguments.of("DATE1", " < ?", INITIAL_DATE.plusDays(1), INITIAL_DATE),
+                Arguments.of("DATE1", " <= ?", INITIAL_DATE, INITIAL_DATE),
+
+                Arguments.of("TIME1", " > ?", INITIAL_TIME.plusSeconds(8), INITIAL_TIME.plusSeconds(9)),
+                Arguments.of("TIME1", " >= ?", INITIAL_TIME.plusSeconds(9), INITIAL_TIME.plusSeconds(9)),
+                Arguments.of("TIME1", " < ?", INITIAL_TIME.plusSeconds(1), INITIAL_TIME),
+                Arguments.of("TIME1", " <= ?", INITIAL_TIME, INITIAL_TIME),
+
+                Arguments.of("TIMESTAMP1", " > ?", INITIAL_TS.plusSeconds(8), INITIAL_TS.plusSeconds(9)),
+                Arguments.of("TIMESTAMP1", " >= ?", INITIAL_TS.plusSeconds(9), INITIAL_TS.plusSeconds(9)),
+
+                Arguments.of("TIMESTAMP1", " < ?", INITIAL_TS.plusSeconds(1), INITIAL_TS),
+                Arguments.of("TIMESTAMP1", " <= ?", INITIAL_TS, INITIAL_TS),
+
+                Arguments.of("TIMESTAMPTZ1", " > ?", INITIAL_TS.plusSeconds(8), INITIAL_TS_LTZ.plusSeconds(9)),
+                Arguments.of("TIMESTAMPTZ1", " >= ?", INITIAL_TS.plusSeconds(9), INITIAL_TS_LTZ.plusSeconds(9)),
+                Arguments.of("TIMESTAMPTZ1", " < ?", INITIAL_TS.plusSeconds(1), INITIAL_TS_LTZ),
+                Arguments.of("TIMESTAMPTZ1", " <= ?", INITIAL_TS, INITIAL_TS_LTZ)
         );
     }
 
