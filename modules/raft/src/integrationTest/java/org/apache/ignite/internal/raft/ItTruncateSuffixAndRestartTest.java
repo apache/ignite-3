@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.OnHeapLogs;
 import org.apache.ignite.internal.raft.storage.impl.UnlimitedBudget;
@@ -399,6 +401,12 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         @Override
         public void destroyLogStorage(String uri) {
             // No-op.
+        }
+
+        @Override
+        public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
+            // There is nothing on disk.
+            return Set.of();
         }
 
         @Override

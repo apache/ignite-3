@@ -31,6 +31,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
+import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
@@ -124,6 +125,13 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         } catch (RocksDBException e) {
             throw new LogStorageException("Fail to destroy the log storage spillout for " + uri, e);
         }
+    }
+
+    @Override
+    public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
+        // This is a volatile storage; the storage is destroyed as a whole on startup, so nothing can remain on disk to the moment
+        // when this method is called.
+        return Set.of();
     }
 
     private LogStorageBudget createLogStorageBudget() {

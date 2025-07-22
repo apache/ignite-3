@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.logit;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -110,6 +112,12 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         if (!IgniteUtils.deleteIfExists(storagePath)) {
             throw new LogStorageException("Cannot delete directory " + storagePath);
         }
+    }
+
+    @Override
+    public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25988 - implement.
+        return Set.of();
     }
 
     @Override

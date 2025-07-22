@@ -32,6 +32,7 @@ import java.util.Set;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.storage.GroupIdFastForward;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -60,6 +61,12 @@ class DefaultLogStorageFactoryTest {
     private final LogStorageOptions logStorageOptions = new LogStorageOptions();
 
     private final Peer peer = new Peer("127.0.0.1");
+
+    private final GroupIdFastForward fastForward = idForStorage -> {
+        String zoneIdString = idForStorage.substring(0, idForStorage.indexOf("_part_"));
+        int nextZoneId = Integer.parseInt(zoneIdString) + 1;
+        return new RaftNodeId(new ZonePartitionId(nextZoneId, 0), peer).nodeIdStringForStorage();
+    };
 
     @BeforeEach
     void setUp() {
@@ -271,6 +278,48 @@ class DefaultLogStorageFactoryTest {
         assertThat(
                 logStorageFactory.db().get(logStorageFactory.dataColumnFamilyHandle(), entryKey(groupId, 100)),
                 is(nullValue())
+        );
+    }
+
+    @Test
+    void groupScanFindsGroupsHavingOnlyConfigurationEntries() {
+        ZonePartitionId groupId1 = new ZonePartitionId(1, 0);
+        ZonePartitionId groupId3 = new ZonePartitionId(3, 2);
+        LogStorage logStorage1 = createAndInitLogStorage(groupId1);
+        LogStorage logStorage3 = createAndInitLogStorage(groupId3);
+
+        logStorage1.appendEntry(configLogEntry(1));
+        logStorage3.appendEntry(configLogEntry(10));
+
+        Set<String> ids = logStorageFactory.raftNodeStorageIdsOnDisk(fastForward);
+
+        assertThat(
+                ids,
+                containsInAnyOrder(
+                        new RaftNodeId(groupId1, peer).nodeIdStringForStorage(),
+                        new RaftNodeId(groupId3, peer).nodeIdStringForStorage()
+                )
+        );
+    }
+
+    @Test
+    void groupScanFindsGroupsHavingOnlyDataEntries() {
+        ZonePartitionId groupId1 = new ZonePartitionId(1, 0);
+        ZonePartitionId groupId3 = new ZonePartitionId(3, 2);
+        LogStorage logStorage1 = createAndInitLogStorage(groupId1);
+        LogStorage logStorage3 = createAndInitLogStorage(groupId3);
+
+        logStorage1.appendEntry(dataLogEntry(1));
+        logStorage3.appendEntry(dataLogEntry(10));
+
+        Set<String> ids = logStorageFactory.raftNodeStorageIdsOnDisk(fastForward);
+
+        assertThat(
+                ids,
+                containsInAnyOrder(
+                        new RaftNodeId(groupId1, peer).nodeIdStringForStorage(),
+                        new RaftNodeId(groupId3, peer).nodeIdStringForStorage()
+                )
         );
     }
 }
