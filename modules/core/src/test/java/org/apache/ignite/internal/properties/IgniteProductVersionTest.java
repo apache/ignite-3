@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.properties;
 
+import static org.apache.ignite.internal.properties.IgniteProductVersion.fromString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -36,7 +37,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class IgniteProductVersionTest {
     @Test
     void testValidVersions() {
-        IgniteProductVersion version = IgniteProductVersion.fromString("3.2.4-SNAPSHOT");
+        IgniteProductVersion version = fromString("3.2.4-SNAPSHOT");
 
         assertThat(version.major(), is((byte) 3));
         assertThat(version.minor(), is((byte) 2));
@@ -45,7 +46,7 @@ public class IgniteProductVersionTest {
         assertThat(version.preRelease(), is(equalTo("SNAPSHOT")));
         assertThat(version.toString(), is(equalTo("3.2.4-SNAPSHOT")));
 
-        version = IgniteProductVersion.fromString("3.2.4.5-SNAPSHOT");
+        version = fromString("3.2.4.5-SNAPSHOT");
 
         assertThat(version.major(), is((byte) 3));
         assertThat(version.minor(), is((byte) 2));
@@ -54,7 +55,7 @@ public class IgniteProductVersionTest {
         assertThat(version.preRelease(), is(equalTo("SNAPSHOT")));
         assertThat(version.toString(), is(equalTo("3.2.4.5-SNAPSHOT")));
 
-        version = IgniteProductVersion.fromString("1.2.3");
+        version = fromString("1.2.3");
 
         assertThat(version.major(), is((byte) 1));
         assertThat(version.minor(), is((byte) 2));
@@ -63,7 +64,7 @@ public class IgniteProductVersionTest {
         assertThat(version.preRelease(), is(nullValue()));
         assertThat(version.toString(), is(equalTo("1.2.3")));
 
-        version = IgniteProductVersion.fromString("1.2.3.4");
+        version = fromString("1.2.3.4");
 
         assertThat(version.major(), is((byte) 1));
         assertThat(version.minor(), is((byte) 2));
@@ -72,7 +73,7 @@ public class IgniteProductVersionTest {
         assertThat(version.preRelease(), is(nullValue()));
         assertThat(version.toString(), is(equalTo("1.2.3.4")));
 
-        version = IgniteProductVersion.fromString("3.1.2-alpha22");
+        version = fromString("3.1.2-alpha22");
 
         assertThat(version.major(), is((byte) 3));
         assertThat(version.minor(), is((byte) 1));
@@ -81,7 +82,7 @@ public class IgniteProductVersionTest {
         assertThat(version.preRelease(), is(equalTo("alpha22")));
         assertThat(version.toString(), is(equalTo("3.1.2-alpha22")));
 
-        version = IgniteProductVersion.fromString("3.1.2.3-beta23");
+        version = fromString("3.1.2.3-beta23");
 
         assertThat(version.major(), is((byte) 3));
         assertThat(version.minor(), is((byte) 1));
@@ -93,12 +94,12 @@ public class IgniteProductVersionTest {
 
     @Test
     void testInvalidVersions() {
-        assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("  "));
-        assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2"));
-        assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("a.b.c"));
-        assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("a.b.c.d"));
-        assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-"));
-        assertThrows(IllegalArgumentException.class, () -> IgniteProductVersion.fromString("1.2.3-SNAPSHOT-alpha123"));
+        assertThrows(IllegalArgumentException.class, () -> fromString("  "));
+        assertThrows(IllegalArgumentException.class, () -> fromString("1.2"));
+        assertThrows(IllegalArgumentException.class, () -> fromString("a.b.c"));
+        assertThrows(IllegalArgumentException.class, () -> fromString("a.b.c.d"));
+        assertThrows(IllegalArgumentException.class, () -> fromString("1.2.3-"));
+        assertThrows(IllegalArgumentException.class, () -> fromString("1.2.3-SNAPSHOT-alpha123"));
     }
 
     @ParameterizedTest(name = "[{index}] {0}.compareTo({1}) = {2}")
@@ -110,36 +111,32 @@ public class IgniteProductVersionTest {
     static Stream<Arguments> versionCompareProvider() {
         return Stream.of(
                 // major version differences
-                arguments(version("2.0.0"), version("3.0.0"), -1),
-                arguments(version("3.0.0"), version("2.0.0"), 1),
-                arguments(version("3.0.0"), version("3.0.0"), 0),
+                arguments(fromString("2.0.0"), fromString("3.0.0"), -1),
+                arguments(fromString("3.0.0"), fromString("2.0.0"), 1),
+                arguments(fromString("3.0.0"), fromString("3.0.0"), 0),
 
                 // minor version differences
-                arguments(version("3.1.0"), version("3.2.0"), -1),
-                arguments(version("3.2.0"), version("3.1.0"), 1),
-                arguments(version("3.2.0"), version("3.2.0"), 0),
+                arguments(fromString("3.1.0"), fromString("3.2.0"), -1),
+                arguments(fromString("3.2.0"), fromString("3.1.0"), 1),
+                arguments(fromString("3.2.0"), fromString("3.2.0"), 0),
 
                 // maintenance version differences
-                arguments(version("3.2.1"), version("3.2.2"), -1),
-                arguments(version("3.2.2"), version("3.2.1"), 1),
-                arguments(version("3.2.2"), version("3.2.2"), 0),
+                arguments(fromString("3.2.1"), fromString("3.2.2"), -1),
+                arguments(fromString("3.2.2"), fromString("3.2.1"), 1),
+                arguments(fromString("3.2.2"), fromString("3.2.2"), 0),
 
                 // patch version differences
-                arguments(version("3.2.1.1"), version("3.2.1.2"), -1),
-                arguments(version("3.2.1.2"), version("3.2.1.1"), 1),
-                arguments(version("3.2.1.1"), version("3.2.1"), 1),
-                arguments(version("3.2.1"), version("3.2.1.1"), -1),
-                arguments(version("3.2.1.1"), version("3.2.1.1"), 0),
+                arguments(fromString("3.2.1.1"), fromString("3.2.1.2"), -1),
+                arguments(fromString("3.2.1.2"), fromString("3.2.1.1"), 1),
+                arguments(fromString("3.2.1.1"), fromString("3.2.1"), 1),
+                arguments(fromString("3.2.1"), fromString("3.2.1.1"), -1),
+                arguments(fromString("3.2.1.1"), fromString("3.2.1.1"), 0),
 
                 // pre-release differences
-                arguments(version("3.2.1-alpha"), version("3.2.1-beta"), -1),
-                arguments(version("3.2.1-beta"), version("3.2.1-alpha"), 1),
-                arguments(version("3.2.1-SNAPSHOT"), version("3.2.1-SNAPSHOT"), 0),
-                arguments(version("3.2.1.1-SNAPSHOT"), version("3.2.1.1-SNAPSHOT"), 0)
+                arguments(fromString("3.2.1-alpha"), fromString("3.2.1-beta"), -1),
+                arguments(fromString("3.2.1-beta"), fromString("3.2.1-alpha"), 1),
+                arguments(fromString("3.2.1-SNAPSHOT"), fromString("3.2.1-SNAPSHOT"), 0),
+                arguments(fromString("3.2.1.1-SNAPSHOT"), fromString("3.2.1.1-SNAPSHOT"), 0)
         );
-    }
-
-    private static IgniteProductVersion version(String str) {
-        return IgniteProductVersion.fromString(str);
     }
 }
