@@ -351,7 +351,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
      * Returns a modifiable set of nodes that are both alive and either {@link LocalPartitionStateEnum#HEALTHY} or
      * {@link LocalPartitionStateEnum#CATCHING_UP}.
      */
-    private static Set<Assignment> getAliveNodesWithData(
+    static Set<Assignment> getAliveNodesWithData(
             Set<String> aliveNodesConsistentIds,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {

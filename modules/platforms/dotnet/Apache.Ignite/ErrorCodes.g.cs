@@ -689,6 +689,9 @@ namespace Apache.Ignite
 
             /// <summary> ClusterNotIdle error. </summary>
             public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> RestartWithCleanUp error. </summary>
+            public const int RestartWithCleanUp = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>
