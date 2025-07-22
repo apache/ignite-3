@@ -611,5 +611,18 @@ namespace Apache.Ignite.Tests.Table
 
             await TupleView.UpsertAllAsync(null, tuples);
         }
+
+        [Test]
+        public async Task TestUpsertAllBufferOverflow()
+        {
+            int count = 5_000_000;
+            string val = new string('x', 10_000);
+
+            var tuples = Enumerable.Range(0, count)
+                .Select(id => new IgniteTuple(2) { [KeyCol] = (long)id, [ValCol] = val })
+                .ToList();
+
+            await TupleView.UpsertAllAsync(null, tuples);
+        }
     }
 }
