@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toSet;
 
 import com.google.auto.service.AutoService;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.ParenthesizedTree;
@@ -49,7 +50,7 @@ import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor.
  * Annotation processor that process @{@link ErrorCodeGroup} annotation.
  *
  * <p>
- *     Collects all error groups and generates C++ and C# files with corresponding error codes groups.
+ * Collects all error groups and generates C++ and C# files with corresponding error codes groups.
  * </p>
  */
 @AutoService(Processor.class)
@@ -109,8 +110,8 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
         }
 
         List<AbstractCodeGenerator> generators = List.of(
-            new CppGenerator(processingEnv, "cpp/ignite/common/error_codes.h"),
-            new CsharpGenerator(processingEnv, "dotnet/Apache.Ignite/ErrorCodes.g.cs")
+                new CppGenerator(processingEnv, "cpp/ignite/common/error_codes.h"),
+                new CsharpGenerator(processingEnv, "dotnet/Apache.Ignite/ErrorCodes.g.cs")
         );
 
         for (var generator : generators) {
@@ -140,16 +141,28 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
             var initializer = variableTree.getInitializer();
             var name = variableTree.getName().toString();
             try {
-                // example: args = {"(short) 1"} as List<ExpressionTree>.
-                var args = ((MethodInvocationTree) initializer).getArguments();
-                // example: expr = "(short) 1" as TypeCastTree.
-                var expr = ((TypeCastTree) args.get(0)).getExpression();
-                // example: if expr is "(short) (1)" we should remove parentheses
-                if (expr instanceof ParenthesizedTree) {
-                    expr = ((ParenthesizedTree) expr).getExpression();
+                if (MethodInvocationTree.class.isAssignableFrom(initializer.getClass())) {
+                    // example: args = {"(short) 1"} as List<ExpressionTree>.
+                    var args = ((MethodInvocationTree) initializer).getArguments();
+                    // example: expr = "(short) 1" as TypeCastTree.
+                    var expr = ((TypeCastTree) args.get(0)).getExpression();
+                    // example: if expr is "(short) (1)" we should remove parentheses
+                    if (expr instanceof ParenthesizedTree) {
+                        expr = ((ParenthesizedTree) expr).getExpression();
+                    }
+                    // example: extract 1 from "(short) 1" expression.
+                    this.descriptor.errorCodes.add(new ErrorCode((Integer) ((LiteralTree) expr).getValue(), name));
+                } else if (IdentifierTree.class.isAssignableFrom(initializer.getClass())) {
+                    boolean hasDeprecated = variableTree.getModifiers().getAnnotations().stream()
+                            .anyMatch(annotation -> annotation.toString().contains("Deprecated"));
+                    if (!hasDeprecated) {
+                        ex = new ErrorCodeGroupProcessorException(String.format("Alias %s must be marked as @Deprecated",  name));
+                    } else {
+                        // TODO: Check if aliases require further processing here.
+                    }
+                } else {
+                    ex = new ErrorCodeGroupProcessorException(String.format("AST parsing error: %s", variableTree));
                 }
-                // example: extract 1 from "(short) 1" expression.
-                this.descriptor.errorCodes.add(new ErrorCode((Integer) ((LiteralTree) expr).getValue(), name));
             } catch (Exception e) {
                 ex = new ErrorCodeGroupProcessorException("AST parsing error", e);
             }

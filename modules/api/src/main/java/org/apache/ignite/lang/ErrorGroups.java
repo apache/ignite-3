@@ -515,8 +515,11 @@ public class ErrorGroups {
         /** Unresolvable consistent ID. */
         public static final int UNRESOLVABLE_CONSISTENT_ID_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 1);
 
-        /** Port is in use. */
-        public static final int PORT_IN_USE_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
+        /** Address or port bind error. */
+        public static final int BIND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Alias for BIND_ERROR. This was the old name, now deprecated. */
+        @Deprecated public static final int PORT_IN_USE_ERR = BIND_ERR;
 
         /** File transfer error. */
         public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
