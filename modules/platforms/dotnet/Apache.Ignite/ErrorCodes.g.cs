@@ -453,6 +453,10 @@ namespace Apache.Ignite
             /// <summary> BindException error. </summary>
             public const int Bind = (GroupCode << 16) | (2 & 0xFFFF);
 
+            /// <summary> Alias for Bind. This was the old name, now deprecated. </summary>
+            [Obsolete]
+            public const int PortInUse = Bind;
+
             /// <summary> FileTransfer error. </summary>
             public const int FileTransfer = (GroupCode << 16) | (3 & 0xFFFF);
 
