@@ -66,6 +66,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ConditionalWatchInhibitor;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -210,7 +211,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
                 assignmentsTracker,
-                replicationConfiguration
+                replicationConfiguration,
+                mock(MetricManager.class)
         );
     }
 

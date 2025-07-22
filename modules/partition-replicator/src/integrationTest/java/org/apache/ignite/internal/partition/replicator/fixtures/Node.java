@@ -553,7 +553,8 @@ public class Node {
                 clockService,
                 failureManager,
                 nodeProperties,
-                replicationConfiguration
+                replicationConfiguration,
+                metricManager
         );
 
         var transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
@@ -757,7 +758,8 @@ public class Node {
                 transactionInflights,
                 txManager,
                 lowWatermark,
-                failureManager
+                failureManager,
+                metricManager
         );
 
         tableManager = new TableManager(
