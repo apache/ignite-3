@@ -136,7 +136,9 @@ public class IgniteProductVersionTest {
                 arguments(fromString("3.2.1-alpha"), fromString("3.2.1-beta"), -1),
                 arguments(fromString("3.2.1-beta"), fromString("3.2.1-alpha"), 1),
                 arguments(fromString("3.2.1-SNAPSHOT"), fromString("3.2.1-SNAPSHOT"), 0),
-                arguments(fromString("3.2.1.1-SNAPSHOT"), fromString("3.2.1.1-SNAPSHOT"), 0)
+                arguments(fromString("3.2.1.1-SNAPSHOT"), fromString("3.2.1.1-SNAPSHOT"), 0),
+                arguments(fromString("3.2.1-alpha"), fromString("3.2.1"), 1),
+                arguments(fromString("3.2.1"), fromString("3.2.1-beta"), -1)
         );
     }
 }

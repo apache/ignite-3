@@ -182,7 +182,12 @@ public class IgniteProductVersion implements Serializable, Comparable<IgniteProd
             if (res != 0) {
                 return res;
             }
+        } else if (preRelease() != null && other.preRelease() == null) {
+            return 1;
+        } else if (preRelease() == null && other.preRelease() != null) {
+            return -1;
         }
+
         return 0;
     }
 
