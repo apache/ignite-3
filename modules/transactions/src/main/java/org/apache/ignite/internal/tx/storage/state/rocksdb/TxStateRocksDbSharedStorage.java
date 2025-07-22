@@ -313,6 +313,9 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
     /**
      * Returns IDs of tables/zones for which there are tx state partition storages on disk. Those were created and flushed to disk; either
      * destruction was not started for them, or it failed.
+     *
+     * <p>This method should only be called when the tx state storage is not accessed otherwise (so no storages in it can appear or
+     * be destroyed in parallel with this call).
      */
     public Set<Integer> tableOrZoneIdsOnDisk() {
         Set<Integer> ids = new HashSet<>();
