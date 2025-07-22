@@ -32,6 +32,7 @@ class DisasterRecoveryRequestSerializerTest {
     private static final String GROUP_UPDATE_REQUEST_V1_BASE64 = "Ae++QwEB775D782rkHhWNBIhQ2WHCbrc/ukH0Q8DoR8EICoXuRcEFiAMAQ==";
     private static final String GROUP_UPDATE_REQUEST_V2_BASE64 = "Ae++QwEC775D782rkHhWNBIhQ2WHCbrc/ukH0Q8DuRcEIBYMoR8EIBcqAQE=";
     private static final String MANUAL_GROUP_RESTART_REQUEST_V1_BASE64 = "Ae++QwIB775D782rkHhWNBIhQ2WHCbrc/tEPuRcEIBYMAwJiAmH///9///+AgAQ=";
+    private static final String MANUAL_GROUP_RESTART_REQUEST_V2_BASE64 = "Ae++QwIC775D782rkHhWNBIhQ2WHCbrc/tEPuRcEFiAMAwJhAmL///9///+AgAQB";
 
     private final DisasterRecoveryRequestSerializer serializer = new DisasterRecoveryRequestSerializer();
 
@@ -105,7 +106,8 @@ class DisasterRecoveryRequestSerializerTest {
                 3000,
                 Set.of(11, 21, 31),
                 Set.of("a", "b"),
-                HybridTimestamp.MAX_VALUE.longValue()
+                HybridTimestamp.MAX_VALUE.longValue(),
+                false
         );
 
         byte[] bytes = VersionedSerialization.toBytes(originalRequest, serializer);
@@ -132,6 +134,20 @@ class DisasterRecoveryRequestSerializerTest {
         assertThat(restoredRequest.assignmentsTimestamp(), is(HybridTimestamp.MAX_VALUE.longValue()));
     }
 
+    @Test
+    void v2OfManualGroupRestartRequestCanBeDeserialized() {
+        byte[] bytes = Base64.getDecoder().decode(MANUAL_GROUP_RESTART_REQUEST_V2_BASE64);
+        ManualGroupRestartRequest restoredRequest = (ManualGroupRestartRequest) VersionedSerialization.fromBytes(bytes, serializer);
+
+        assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
+        assertThat(restoredRequest.zoneId(), is(2000));
+        assertThat(restoredRequest.tableId(), is(3000));
+        assertThat(restoredRequest.partitionIds(), is(Set.of(11, 21, 31)));
+        assertThat(restoredRequest.nodeNames(), is(Set.of("a", "b")));
+        assertThat(restoredRequest.assignmentsTimestamp(), is(HybridTimestamp.MAX_VALUE.longValue()));
+        assertThat(restoredRequest.cleanUp(), is(true));
+    }
+
     @SuppressWarnings("unused")
     private String manualGroupRestartRequestV1Base64() {
         var originalRequest = new ManualGroupRestartRequest(
@@ -140,7 +156,8 @@ class DisasterRecoveryRequestSerializerTest {
                 3000,
                 Set.of(11, 21, 31),
                 Set.of("a", "b"),
-                HybridTimestamp.MAX_VALUE.longValue()
+                HybridTimestamp.MAX_VALUE.longValue(),
+                false
         );
 
         byte[] v1Bytes = VersionedSerialization.toBytes(originalRequest, serializer);
