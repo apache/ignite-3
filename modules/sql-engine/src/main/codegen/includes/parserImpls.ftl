@@ -761,10 +761,6 @@ void CreateZoneOption(List<SqlNode> list) :
             list.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
         }
     |
-        <OFF> {
-            list.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
-        }
-    |
         val = Literal() {
             list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
         }
@@ -865,11 +861,7 @@ void AlterZoneOption(List<SqlNode> list) :
         <ALL> {
             list.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
         }
-        |
-        <OFF> {
-            list.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
-        }
-        |
+    |
         val = Literal() {
             list.add(new IgniteSqlZoneOption(key, val, s.end(this)));
         }

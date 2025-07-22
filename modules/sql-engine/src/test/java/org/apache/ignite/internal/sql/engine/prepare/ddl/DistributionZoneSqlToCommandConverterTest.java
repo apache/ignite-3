@@ -44,7 +44,6 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -256,8 +255,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         if (withPresent) {
             expectOptionValidationError("CREATE ZONE test with partitions=-1, storage_profiles='p'", "PARTITION");
             expectOptionValidationError("CREATE ZONE test with replicas=-1, storage_profiles='p'", "REPLICAS");
-            assertThrowsWithPos("CREATE ZONE test with DATA_NODES_AUTO_ADJUST_SCALE_UP=FALL, storage_profiles='p'", "FALL", 55);
-            assertThrowsWithPos("CREATE ZONE test with DATA_NODES_AUTO_ADJUST_SCALE_DOWN=FALL, storage_profiles='p'", "FALL", 57);
             assertThrowsWithPos("CREATE ZONE test with replicas=FALL, storage_profiles='p'", "FALL", 32);
             emptyProfilesValidationError("CREATE ZONE test with storage_profiles='' ");
             emptyProfilesValidationError("CREATE ZONE test with storage_profiles=' ' ");
@@ -293,13 +290,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(desc.replicas(), equalTo(DistributionAlgorithm.ALL_REPLICAS));
     }
 
-    @ParameterizedTest(name = "with syntax = {0}")
-    @ValueSource(booleans = {true, false})
-    public void testCreateZoneWithScaleOff(boolean withPresent) throws SqlParseException {
-        String sql = withPresent
-                ? format("CREATE ZONE test WITH STORAGE_PROFILES='{}', {}=OFF",
-                    DEFAULT_STORAGE_PROFILE, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name())
-                : "CREATE ZONE test (AUTO SCALE UP OFF) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
+    @Test
+    public void testCreateZoneWithScaleOff() throws SqlParseException {
+        String sql = "CREATE ZONE test (AUTO SCALE UP OFF) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
 
         CatalogCommand cmd = convert(sql);
 
@@ -307,10 +300,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
 
-        sql = withPresent
-                ? format("CREATE ZONE test WITH STORAGE_PROFILES='{}', {}=OFF",
-                DEFAULT_STORAGE_PROFILE, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name())
-                : "CREATE ZONE test (AUTO SCALE DOWN OFF) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
+        sql = "CREATE ZONE test (AUTO SCALE DOWN OFF) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
 
         cmd = convert(sql);
 
@@ -331,12 +321,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(INFINITE_TIMER_VALUE));
     }
 
-    @ParameterizedTest(name = "obsolete = {0}")
-    @ValueSource(booleans = {true, false})
-    public void testAlterZoneWithScaleOff(boolean obsolete) throws SqlParseException {
-        CatalogCommand cmd = convert(obsolete
-                ? "ALTER ZONE test SET DATA_NODES_AUTO_ADJUST_SCALE_UP=OFF"
-                : "ALTER ZONE test SET (AUTO SCALE UP OFF)");
+    @Test
+    public void testAlterZoneWithScaleOff() throws SqlParseException {
+        CatalogCommand cmd = convert("ALTER ZONE test SET (AUTO SCALE UP OFF)");
 
         assertThat(cmd, instanceOf(AlterZoneCommand.class));
 
@@ -346,9 +333,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(INFINITE_TIMER_VALUE));
 
-        cmd = convert(obsolete
-                ? "ALTER ZONE test SET DATA_NODES_AUTO_ADJUST_SCALE_DOWN=OFF"
-                : "ALTER ZONE test SET (AUTO SCALE DOWN OFF)");
+        cmd = convert("ALTER ZONE test SET (AUTO SCALE DOWN OFF)");
 
         assertThat(cmd, instanceOf(AlterZoneCommand.class));
 
@@ -359,9 +344,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     @Test
     public void testAlterZoneWithAllScaleOff() throws SqlParseException {
-        String sql = "ALTER ZONE test SET (AUTO SCALE OFF)";
-
-        CatalogCommand cmd = convert(sql);
+        CatalogCommand cmd = convert("ALTER ZONE test SET (AUTO SCALE OFF)");
 
         assertThat(cmd, instanceOf(AlterZoneCommand.class));
 
