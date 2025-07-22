@@ -1087,9 +1087,9 @@ namespace Apache.Ignite.Tests.Compute
         {
             var instant = SystemClock.Instance.GetCurrentInstant();
 
-            // Subtract 1 milli to account for OS-specific time resolution differences in .NET and Java.
+            // Subtract 1 second to account for OS-specific time resolution differences in .NET and Java.
             return OperatingSystem.IsWindows()
-                ? instant.Minus(Duration.FromMilliseconds(1))
+                ? instant.Minus(Duration.FromSeconds(1))
                 : instant;
         }
 
