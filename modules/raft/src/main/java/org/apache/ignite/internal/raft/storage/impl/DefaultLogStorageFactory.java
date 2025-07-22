@@ -371,7 +371,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     @Override
     public Set<String> raftNodeStorageIdsOnDisk(GroupIdFastForward fastForward) {
-        Set<String> groupIdsForStorage = new HashSet<>();
+        var groupIdsForStorage = new HashSet<String>();
 
         try (
                 Slice upperBoundSlice = new Slice(incrementPrefix(STORAGE_CREATED_META_PREFIX));
