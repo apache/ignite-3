@@ -198,7 +198,7 @@ public class ConfigNode {
     /**
      * Add a polymorphic child node to this node.
      */
-    void addPolymorphicNode(String name, Map<String, ConfigNode> childNodes) {
+    void addPolymorphicNode(String name, Map<String, ConfigNode> childNodes, @Nullable String defaultId) {
         boolean nameMatches = childNodes.values().stream().allMatch(n -> n.name().equals(name));
         if (!nameMatches) {
             throw new IllegalArgumentException("All nodes name should be equal to: " + name);
@@ -206,7 +206,7 @@ public class ConfigNode {
         for (ConfigNode n : childNodes.values()) {
             n.parent = this;
         }
-        addChildNode(name, new Node(childNodes));
+        addChildNode(name, new Node(childNodes, defaultId));
     }
 
     private void addChildNode(String name, Node node) {
@@ -286,10 +286,9 @@ public class ConfigNode {
     }
 
     /**
-     * Returns an id of a polymorphic instance or special {@link Node#BASE_INSTANCE_TYPE}
-     * if this node stores fields common to all instances of a polymorphic configuration.
+     * Returns an id of a polymorphic instance.
      */
-    String instanceType() {
+    @Nullable String instanceType() {
         return attributes.get(Attributes.INSTANCE_TYPE);
     }
 
@@ -407,16 +406,13 @@ public class ConfigNode {
      */
     public static class Node {
         /**
-         * Instance type for a node that represents a `base` class of a polymorphic node. 
-         * A base node includes fields common to all polymorphic instances.
-         */
-        static final String BASE_INSTANCE_TYPE = "";
-
-        /**
          * Non-polymorphic node.
          */
         @JsonProperty
         private @Nullable ConfigNode single;
+
+        @JsonProperty
+        private @Nullable String defaultId;
 
         /**
          * All polymorphic instances.
@@ -432,10 +428,12 @@ public class ConfigNode {
         Node(ConfigNode single) {
             this.single = single;
             this.polymorphicNodes = null;
+            this.defaultId = null;
         }
 
-        Node(Map<String, ConfigNode> polymorphicNodes) {
+        Node(Map<String, ConfigNode> polymorphicNodes, @Nullable String defaultId) {
             this.single = null;
+            this.defaultId = defaultId;
             this.polymorphicNodes = Map.copyOf(polymorphicNodes);
         }
 
@@ -445,6 +443,11 @@ public class ConfigNode {
         @JsonIgnore
         boolean isPolymorphic() {
             return polymorphicNodes != null;
+        }
+
+        /** Returns the id of default polymorphic configuration. */ 
+        public @Nullable String defaultId() {
+            return defaultId;
         }
 
         /**
@@ -492,10 +495,17 @@ public class ConfigNode {
         }
 
         /**
-         * A shortcut to access a node. Should only be used to access node's flags because a configuration field
-         * is guaranteed to have the same flags for every polymorphic instance.
+         * Returns the full path of this node in the configuration tree.
          */
-        private ConfigNode anyNode() {
+        String path() {
+            return anyNode().path();
+        }
+
+        /**
+         * A shortcut to access a node. Should only be used to access node's flags or other common attributes such as path,
+         * because a configuration field is guaranteed to have the same values for them for every polymorphic instance.
+         */
+        ConfigNode anyNode() {
             if (single != null) {
                 return single;
             } else {

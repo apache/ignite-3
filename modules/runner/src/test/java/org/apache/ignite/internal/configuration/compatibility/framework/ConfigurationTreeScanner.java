@@ -40,6 +40,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
@@ -56,7 +57,6 @@ import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
-import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Node;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 
 
@@ -84,10 +84,10 @@ public class ConfigurationTreeScanner {
     public static void scan(ConfigNode currentNode, Class<?> schemaClass, ScanContext context) {
         scan(currentNode, schemaClass, context, Set.of());
     }
-    
+
     private static void scan(ConfigNode currentNode, Class<?> schemaClass, ScanContext context, Set<String> skipFields) {
         assert schemaClass != null && schemaClass.getName().startsWith("org.apache.ignite");
-        
+
         Collection<Class<?>> extensions = context.getExtensions(schemaClass);
 
         if (!extensions.isEmpty()) {
@@ -99,6 +99,7 @@ public class ConfigurationTreeScanner {
         }
 
         Map<Field, Set<Class<?>>> instancesPerField = new HashMap<>();
+        String[] defaultInstanceId = new String[1];
 
         // Non-polymorphic fields
         configurationClasses(schemaClass).stream()
@@ -107,39 +108,32 @@ public class ConfigurationTreeScanner {
                 .filter(field -> !skipFields.contains(field.getName()))
                 .sorted(Comparator.comparing(Field::getName)) // Sort for test stability.
                 .forEach(field -> {
-                    Set<Class<?>> instanceClasses = context.getPolymorphicInstances(field.getType());
+                    Class<?> type = field.getType();
+                    Set<Class<?>> instanceClasses = context.getPolymorphicInstances(type);
 
                     // Field itself
-                    ConfigNode node = createNodeForField(currentNode, field, field.getType());
+                    ConfigNode node = createNodeForField(currentNode, field, type);
 
                     if (instanceClasses.isEmpty()) {
                         // Single node
                         if (!node.isValue()) {
-                            scan(node, field.getType(), context, skipFields);
+                            scan(node, type, context, skipFields);
                         }
 
                         currentNode.addChildNodes(List.of(node));
                     } else {
+                        defaultInstanceId[0] = extractDefaultPolymorphicId(field, type);
+
                         instancesPerField.put(field, instanceClasses);
                     }
                 });
-        
+
         // Polymorphic fields
         for (Entry<Field, Set<Class<?>>> e : instancesPerField.entrySet()) {
             Field field = e.getKey();
             Set<Class<?>> instanceClasses = e.getValue();
-            
-            ConfigNode node = createNodeForField(currentNode, field, field.getType());
-            
-            // Polymorphic node
-            if (!node.isValue()) {
-                scan(node, field.getType(), context);
-            }
+            Map<String, ConfigNode> polymorphicInstances = new HashMap<>();
 
-            Map<String, ConfigNode> map = new HashMap<>();
-            // Register a base class, so we can track removals/additions of its child nodes.
-            map.put(Node.BASE_INSTANCE_TYPE, node);
-            
             Set<String> baseClassFields = Arrays.stream(field.getType().getDeclaredFields())
                     .map(Field::getName)
                     .collect(Collectors.toSet());
@@ -147,7 +141,7 @@ public class ConfigurationTreeScanner {
             // Collect nodes that correspond to polymorphic instances
             for (Class<?> instanceClass : instanceClasses) {
                 ConfigNode instanceTypeNode = createNodeForField(currentNode, field, instanceClass);
-                map.put(instanceTypeNode.instanceType(), instanceTypeNode);
+                polymorphicInstances.put(instanceTypeNode.instanceType(), instanceTypeNode);
 
                 // Each polymorphic instance includes fields from the base class
                 scan(instanceTypeNode, field.getType(), context);
@@ -155,7 +149,7 @@ public class ConfigurationTreeScanner {
                 scan(instanceTypeNode, instanceClass, context, baseClassFields);
             }
 
-            currentNode.addPolymorphicNode(field.getName(), map);
+            currentNode.addPolymorphicNode(field.getName(), polymorphicInstances, defaultInstanceId[0]);
         }
     }
 
@@ -176,6 +170,28 @@ public class ConfigurationTreeScanner {
         }
 
         return classes;
+    }
+
+    @Nullable
+    private static String extractDefaultPolymorphicId(Field field, Class<?> type) {
+        // Extract default polymorphic instance id, if it is set.
+        if (!type.isAnnotationPresent(PolymorphicConfig.class)) {
+            return null;
+        }
+
+        for (Field baseField : type.getDeclaredFields()) {
+            PolymorphicId annotation = baseField.getAnnotation(PolymorphicId.class);
+            if (annotation != null && annotation.hasDefault()) {
+                try {
+                    Object instance = type.getConstructor().newInstance();
+                    return (String) baseField.get(instance);
+                } catch (ReflectiveOperationException | ClassCastException e) {
+                    throw new IllegalStateException("Unable to read field: " + field, e);
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -209,11 +225,6 @@ public class ConfigurationTreeScanner {
         if (configInstance != null) {
             String instanceType = type.getAnnotation(PolymorphicConfigInstance.class).value();
             attributes.put(Attributes.INSTANCE_TYPE, instanceType);
-        }
-
-        PolymorphicConfig polymorphicConfig = type.getAnnotation(PolymorphicConfig.class);
-        if (polymorphicConfig != null) {
-            attributes.put(Attributes.INSTANCE_TYPE, Node.BASE_INSTANCE_TYPE);
         }
 
         return new ConfigNode(parent, attributes, annotations, flags, legacyNames, List.of());
