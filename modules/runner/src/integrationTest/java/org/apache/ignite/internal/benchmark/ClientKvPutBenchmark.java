@@ -17,35 +17,28 @@
 
 package org.apache.ignite.internal.benchmark;
 
-import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.Tuple;
+import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.runner.RunnerException;
 
 /**
- * Benchmark for a single upsert operation using externally enabled cluster.
+ * Put benchmark.
  */
-public class RemoteKvBenchmark extends ClientKvBenchmark {
-    @Override
-    protected boolean remote() {
-        return true;
-    }
-
-    @Override
-    protected String[] addresses() {
-        return new String[]{};
-    }
-
-    @Override
-    public void nodeSetUp() throws Exception {
-        client = IgniteClient.builder().addresses(addresses()).build();
-        publicIgnite = client;
-
-        super.nodeSetUp();
+public class ClientKvPutBenchmark extends ClientKvBenchmark {
+    /**
+     * Benchmark for KV upsert via embedded client.
+     */
+    @Benchmark
+    public void upsert() {
+        Tuple key = Tuple.create().set("ycsb_key", nextId());
+        kvView.put(null, key, tuple);
     }
 
     /**
-     * Benchmark's entry point.
+     * Benchmark's entry point. Can be started from command line:
+     * ./gradlew ":ignite-runner:runClientPutBenchmark" --args='jmh.batch=10 jmh.threads=1'
      */
     public static void main(String[] args) throws RunnerException {
-        runBenchmark(RemoteKvBenchmark.class, args);
+        runBenchmark(ClientKvPutBenchmark.class, args);
     }
 }
