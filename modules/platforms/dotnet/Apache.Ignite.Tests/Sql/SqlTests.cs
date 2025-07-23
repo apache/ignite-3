@@ -616,15 +616,32 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestExecuteBatchArgsCollections()
         {
-            // TODO: All types of collections.
-            object[][] args =
+            var statement = "INSERT INTO TEST VALUES (?, ?)";
+
+            // Array.
+            object[][] arr =
             [
                 [100, "x"],
                 [101, "y"],
-                [102, "z"]
             ];
 
-            await Client.Sql.ExecuteBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args);
+            await Client.Sql.ExecuteBatchAsync(null, statement, arr);
+
+            // List.
+            List<List<object>> args =
+            [
+                [100, "x"],
+                [101, "y"]
+            ];
+
+            await Client.Sql.ExecuteBatchAsync(null, statement, arr);
+
+            // Lazy.
+            IEnumerable<IEnumerable<object>> collection = Enumerable
+                .Range(0, 10)
+                .Select(i => new List<object> { 100, "x-" + i });
+
+            await Client.Sql.ExecuteBatchAsync(null, statement, collection);
         }
 
         [Test]
