@@ -35,14 +35,14 @@ public class IgniteAttachmentLock {
     /** This must always be accessed under {@link #lock}. */
     private final Supplier<Ignite> igniteRef;
 
-    private final VersatileReadWriteLock lock;
+    //private final VersatileReadWriteLock lock;
 
     /**
      * Constructor.
      */
     public IgniteAttachmentLock(Supplier<Ignite> igniteRef, Executor asyncContinuationExecutor) {
         this.igniteRef = igniteRef;
-        lock = new VersatileReadWriteLock(asyncContinuationExecutor);
+        //lock = new VersatileReadWriteLock(asyncContinuationExecutor);
     }
 
     /**
@@ -53,13 +53,15 @@ public class IgniteAttachmentLock {
      */
     public <T> T attached(Function<? super Ignite, ? extends T> action) {
         // TODO: IGNITE-23009 - add a timeout.
-        lock.readLock();
+//        lock.readLock();
+//
+//        try {
+//            return action.apply(actualIgniteOrThrow());
+//        } finally {
+//            lock.readUnlock();
+//        }
 
-        try {
-            return action.apply(actualIgniteOrThrow());
-        } finally {
-            lock.readUnlock();
-        }
+        return action.apply(actualIgniteOrThrow());
     }
 
     /**
@@ -69,13 +71,15 @@ public class IgniteAttachmentLock {
      */
     public void consumeAttached(Consumer<? super Ignite> action) {
         // TODO: IGNITE-23009 - add a timeout.
-        lock.readLock();
+//        lock.readLock();
+//
+//        try {
+//            action.accept(actualIgniteOrThrow());
+//        } finally {
+//            lock.readUnlock();
+//        }
 
-        try {
-            action.accept(actualIgniteOrThrow());
-        } finally {
-            lock.readUnlock();
-        }
+        action.accept(actualIgniteOrThrow());
     }
 
     /**
@@ -87,7 +91,8 @@ public class IgniteAttachmentLock {
      */
     public <T> CompletableFuture<T> attachedAsync(Function<? super Ignite, ? extends CompletableFuture<T>> action) {
         // TODO: IGNITE-23009 - add a timeout.
-        return lock.inReadLockAsync(() -> action.apply(actualIgniteOrThrow()));
+        //return lock.inReadLockAsync(() -> action.apply(actualIgniteOrThrow()));
+        return action.apply(actualIgniteOrThrow());
     }
 
     private Ignite actualIgniteOrThrow() {
@@ -108,6 +113,7 @@ public class IgniteAttachmentLock {
      * @return Action future.
      */
     public <T> CompletableFuture<T> detachedAsync(Supplier<? extends CompletableFuture<T>> action) {
-        return lock.inWriteLockAsync(action);
+        //return lock.inWriteLockAsync(action);
+        return action.get();
     }
 }
