@@ -157,9 +157,10 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
                             .anyMatch(annotation -> annotation.toString().contains("Deprecated"));
                     if (!hasDeprecated) {
                         ex = new ErrorCodeGroupProcessorException(String.format("Alias %s must be marked as @Deprecated",  name));
-                    } else {
-                        // TODO: Check if aliases require further processing here.
                     }
+                    //                    else {
+                    //                        // TODO: Check if aliases require further processing here.
+                    //                    }
                 } else {
                     ex = new ErrorCodeGroupProcessorException(String.format("AST parsing error: %s", variableTree));
                 }
