@@ -137,8 +137,7 @@ namespace Apache.Ignite.Internal.Sql
 
                 using (buf)
                 {
-                    // TODO: read results.
-                    return new long[1];
+                    return Read(buf);
                 }
             }
             catch (SqlException e)
@@ -146,6 +145,22 @@ namespace Apache.Ignite.Internal.Sql
                 ConvertExceptionAndThrow(e, statement, cancellationToken);
 
                 throw;
+            }
+
+            static long[] Read(PooledBuffer resBuf)
+            {
+                var r = resBuf.GetReader();
+                r.Skip(4); // Unused values: resourceId, rowSet, morePages, wasApplied
+
+                int count = r.ReadInt32();
+                var affectedRows = new long[count];
+
+                for (var i = 0; i < count; i++)
+                {
+                    affectedRows[i] = r.ReadInt64();
+                }
+
+                return affectedRows;
             }
         }
 
