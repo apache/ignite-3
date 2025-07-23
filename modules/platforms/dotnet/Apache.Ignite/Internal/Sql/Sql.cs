@@ -317,30 +317,25 @@ namespace Apache.Ignite.Internal.Sql
             foreach (var arg in args)
             {
                 IgniteArgumentCheck.NotNull(arg);
+                IEnumerable<object> row = arg;
                 rowCount++;
-
-                ICollection<object> argCol = arg as ICollection<object> ?? arg.ToList();
 
                 if (rowSize < 0)
                 {
                     // First row, write header.
-                    rowSize = argCol.Count;
+                    if (!row.TryGetNonEnumeratedCount(out rowSize))
+                    {
+                        var list = row.ToList();
+                        rowSize = list.Count;
+                        row = list;
+                    }
 
                     w.Write(rowSize);
-
                     rowCountPos = writer.ReserveMsgPackInt32();
-
                     w.Write(false); // Paged args.
                 }
-                else
-                {
-                    if (rowSize != argCol.Count)
-                    {
-                        throw new ArgumentException($"Inconsistent batch argument size: expected {rowSize}, got {argCol.Count}.");
-                    }
-                }
 
-                w.WriteObjectCollectionAsBinaryTuple(argCol!);
+                w.WriteObjectEnumerableAsBinaryTuple(row, expectedCount: rowCount);
             }
 
             IgniteArgumentCheck.Ensure(rowCount > 0, nameof(args), "Batch arguments must not be empty.");
