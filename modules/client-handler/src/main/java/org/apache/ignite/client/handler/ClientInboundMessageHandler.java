@@ -1006,7 +1006,7 @@ public class ClientInboundMessageHandler
             int opCode
     ) {
         CompletableFuture<ResponseWriter> fut;
-        HybridTimestampTracker tsTracker = HybridTimestampTracker.emptyOneShotTracker();
+        HybridTimestampTracker tsTracker = HybridTimestampTracker.atomicTracker(null);
 
         // Release request buffer synchronously.
         // Request handlers are supposed to read everything synchronously, so request buffer can be released quickly and reliably.
