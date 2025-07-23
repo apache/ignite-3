@@ -118,6 +118,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
@@ -1168,7 +1169,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                     TimeString truncated = type.getPrecision() > 3 ? time.round(3) : time;
 
                     return Commons.rexBuilder().makeLiteral(truncated, type);
-                } else if (sqlTypeName == SqlTypeName.TIMESTAMP || sqlTypeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                } else if (TypeUtils.isTimestamp(sqlTypeName)) {
                     TimestampString ts = literal.getValueAs(TimestampString.class);
 
                     assert ts != null;

@@ -550,14 +550,16 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         assertThat(
                 lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT)),
                 is(new BigDecimal("-9223372036854775808"))
-        );assertThat(
+        );
+        assertThat(
                 lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.REAL)),
                 is(new BigDecimal("-3.4028234663852886E+38"))
         );
         assertThat(
                 lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE)),
                 is(new BigDecimal("-1.7976931348623157E+308"))
-        );assertThat(
+        );
+        assertThat(
                 lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 2)),
                 is(new BigDecimal("-99"))
         );
@@ -584,14 +586,16 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         assertThat(
                 upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT)),
                 is(new BigDecimal("9223372036854775807"))
-        );assertThat(
+        );
+        assertThat(
                 upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.REAL)),
                 is(new BigDecimal("3.4028234663852886E+38"))
         );
         assertThat(
                 upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE)),
                 is(new BigDecimal("1.7976931348623157E+308"))
-        );assertThat(
+        );
+        assertThat(
                 upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 2)),
                 is(new BigDecimal("99"))
         );

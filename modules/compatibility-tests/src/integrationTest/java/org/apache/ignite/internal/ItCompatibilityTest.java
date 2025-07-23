@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.util.List;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedClass;
@@ -31,6 +32,21 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ParameterizedClass
 @MethodSource("baseVersions")
 class ItCompatibilityTest extends CompatibilityTestBase {
+    @Override
+    protected void configureInitParameters(InitParametersBuilder builder) {
+        builder.clusterConfiguration("ignite.eventlog.sinks {"
+                + "  logSink {"
+                + "    channel: testChannel,"
+                + "    type: log"
+                + "  },"
+                + "  webhookSink {"
+                + "    channel: testChannel,"
+                + "    type: webhook,"
+                + "    endpoint: \"http://localhost\","
+                + "  }"
+                + "}");
+    }
+
     @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
         sql(baseIgnite, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");

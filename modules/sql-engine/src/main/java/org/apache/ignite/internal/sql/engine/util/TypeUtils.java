@@ -953,4 +953,12 @@ public class TypeUtils {
 
         return col1 == col2;
     }
+
+    /**
+     * Returns {@code true} if the specified type name is
+     * {@link SqlTypeName#TIMESTAMP} or {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE}.
+     */
+    public static boolean isTimestamp(SqlTypeName typeName) {
+        return typeName == SqlTypeName.TIMESTAMP || typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
+    }
 }
