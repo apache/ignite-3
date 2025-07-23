@@ -205,7 +205,7 @@ Sort
                       est: (rows=24325)
                     TableScan
                         table: PUBLIC.DATE_DIM
-                        predicate: =(D_YEAR, -(2001, 1))
+                        predicate: =(D_YEAR, 2000)
                         fieldNames: [D_DATE_SK, D_YEAR]
                         est: (rows=24325)
                 Exchange
@@ -251,7 +251,7 @@ Sort
                       est: (rows=24325)
                     TableScan
                         table: PUBLIC.DATE_DIM
-                        predicate: =(D_YEAR, -(2001, 1))
+                        predicate: =(D_YEAR, 2000)
                         fieldNames: [D_DATE_SK, D_YEAR]
                         est: (rows=24325)
                 Exchange
@@ -297,7 +297,7 @@ Sort
                       est: (rows=24325)
                     TableScan
                         table: PUBLIC.DATE_DIM
-                        predicate: =(D_YEAR, -(2001, 1))
+                        predicate: =(D_YEAR, 2000)
                         fieldNames: [D_DATE_SK, D_YEAR]
                         est: (rows=24325)
                 Exchange

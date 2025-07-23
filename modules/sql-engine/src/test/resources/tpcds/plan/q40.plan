@@ -59,7 +59,7 @@ Sort
               est: (rows=18262)
             TableScan
                 table: PUBLIC.DATE_DIM
-                predicate: AND(>=(D_DATE, -(2000-03-18, *(30, 86400000:INTERVAL DAY))), <=(D_DATE, +(2000-03-18, *(30, 86400000:INTERVAL DAY))))
+                predicate: SEARCH(D_DATE, Sarg[[2000-02-17..2000-04-17]])
                 fieldNames: [D_DATE_SK, D_DATE]
                 est: (rows=18262)
         Exchange
