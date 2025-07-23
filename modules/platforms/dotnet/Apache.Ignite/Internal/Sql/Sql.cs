@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -307,7 +308,50 @@ namespace Apache.Ignite.Internal.Sql
 
         private static void WriteBatchArgs(PooledArrayBuffer writer, IEnumerable<IEnumerable<object>> args)
         {
-            throw new NotImplementedException();
+            int rowSize = -1;
+            int rowCountPos = -1;
+            int rowCount = 0;
+
+            var w = writer.MessageWriter;
+
+            foreach (var arg in args)
+            {
+                IgniteArgumentCheck.NotNull(arg);
+                rowCount++;
+
+                ICollection<object> argCol = arg as ICollection<object> ?? arg.ToList();
+
+                if (rowSize < 0)
+                {
+                    // First row, write header.
+                    rowSize = argCol.Count;
+
+                    w.Write(rowSize);
+
+                    rowCountPos = writer.Position;
+                    writer.Advance(5);
+
+                    w.Write(false); // Paged args.
+                }
+                else
+                {
+                    if (rowSize != argCol.Count)
+                    {
+                        throw new ArgumentException($"Inconsistent batch argument size: expected {rowSize}, got {argCol.Count}.");
+                    }
+                }
+
+                w.WriteObjectCollectionAsBinaryTuple(argCol!);
+            }
+
+            if (rowCount == 0)
+            {
+                w.WriteNil();
+                return;
+            }
+
+            writer.WriteByte(MsgPackCode.Int32, rowCountPos);
+            writer.WriteIntBigEndian(rowCount, rowCountPos + 1);
         }
 
         private static void WriteStatement(
