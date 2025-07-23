@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -313,6 +314,9 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
     /**
      * Returns IDs of tables/zones for which there are tx state partition storages on disk. Those were created and flushed to disk; either
      * destruction was not started for them, or it failed.
+     *
+     * <p>This method should only be called when the tx state storage is not accessed otherwise (so no storages in it can appear or
+     * be destroyed in parallel with this call).
      */
     public Set<Integer> tableOrZoneIdsOnDisk() {
         Set<Integer> ids = new HashSet<>();
@@ -341,6 +345,6 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
             throw new TxStateStorageException(INTERNAL_ERR, "Cannot get table/zone IDs", e);
         }
 
-        return Set.copyOf(ids);
+        return unmodifiableSet(ids);
     }
 }

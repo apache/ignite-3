@@ -86,6 +86,9 @@ public interface StorageEngine {
     /**
      * Returns IDs of tables for which there are MV partition storages on disk. Those were created and flushed to disk; either
      * destruction was not started for them, or it failed.
+     *
+     * <p>This method should only be called when the storage is not accessed otherwise (so no storages in it can appear or
+     * be destroyed in parallel with this call).
      */
     Set<Integer> tableIdsOnDisk();
 }

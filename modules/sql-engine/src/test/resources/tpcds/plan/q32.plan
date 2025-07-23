@@ -42,7 +42,7 @@ Limit
                     est: (rows=18262)
                   TableScan
                       table: PUBLIC.DATE_DIM
-                      predicate: AND(>=(D_DATE, 2002-03-29), <=(D_DATE, +(2002-03-29, *(90, 86400000:INTERVAL DAY))))
+                      predicate: SEARCH(D_DATE, Sarg[[2002-03-29..2002-06-27]])
                       fieldNames: [D_DATE_SK, D_DATE]
                       est: (rows=18262)
               Exchange
@@ -98,6 +98,6 @@ Limit
                                 est: (rows=480035)
                           TableScan
                               table: PUBLIC.DATE_DIM
-                              predicate: AND(>=(D_DATE, 2002-03-29), <=(D_DATE, +(2002-03-29, *(90, 86400000:INTERVAL DAY))))
+                              predicate: SEARCH(D_DATE, Sarg[[2002-03-29..2002-06-27]])
                               fieldNames: [D_DATE_SK, D_DATE]
                               est: (rows=18262)

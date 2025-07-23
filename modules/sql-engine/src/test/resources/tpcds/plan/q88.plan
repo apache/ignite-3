@@ -59,7 +59,7 @@ Project
                             est: (rows=1199)
                           TableScan
                               table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
-                              predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, +(2, 2))), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, +(4, 2))), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, +(3, 2))))
+                              predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, 4)), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, 6)), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, 5)))
                               fieldNames: [HD_DEMO_SK, HD_DEP_COUNT, HD_VEHICLE_COUNT]
                               est: (rows=1199)
                       Exchange
@@ -107,7 +107,7 @@ Project
                             est: (rows=1199)
                           TableScan
                               table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
-                              predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, +(2, 2))), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, +(4, 2))), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, +(3, 2))))
+                              predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, 4)), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, 6)), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, 5)))
                               fieldNames: [HD_DEMO_SK, HD_DEP_COUNT, HD_VEHICLE_COUNT]
                               est: (rows=1199)
                       Exchange
@@ -155,7 +155,7 @@ Project
                           est: (rows=1199)
                         TableScan
                             table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
-                            predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, +(2, 2))), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, +(4, 2))), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, +(3, 2))))
+                            predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, 4)), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, 6)), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, 5)))
                             fieldNames: [HD_DEMO_SK, HD_DEP_COUNT, HD_VEHICLE_COUNT]
                             est: (rows=1199)
                     Exchange
@@ -203,7 +203,7 @@ Project
                         est: (rows=1199)
                       TableScan
                           table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
-                          predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, +(2, 2))), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, +(4, 2))), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, +(3, 2))))
+                          predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, 4)), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, 6)), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, 5)))
                           fieldNames: [HD_DEMO_SK, HD_DEP_COUNT, HD_VEHICLE_COUNT]
                           est: (rows=1199)
                   Exchange
@@ -251,7 +251,7 @@ Project
                       est: (rows=1199)
                     TableScan
                         table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
-                        predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, +(2, 2))), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, +(4, 2))), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, +(3, 2))))
+                        predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, 4)), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, 6)), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, 5)))
                         fieldNames: [HD_DEMO_SK, HD_DEP_COUNT, HD_VEHICLE_COUNT]
                         est: (rows=1199)
                 Exchange
@@ -299,7 +299,7 @@ Project
                     est: (rows=1199)
                   TableScan
                       table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
-                      predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, +(2, 2))), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, +(4, 2))), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, +(3, 2))))
+                      predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, 4)), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, 6)), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, 5)))
                       fieldNames: [HD_DEMO_SK, HD_DEP_COUNT, HD_VEHICLE_COUNT]
                       est: (rows=1199)
               Exchange
@@ -347,7 +347,7 @@ Project
                   est: (rows=1199)
                 TableScan
                     table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
-                    predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, +(2, 2))), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, +(4, 2))), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, +(3, 2))))
+                    predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, 4)), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, 6)), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, 5)))
                     fieldNames: [HD_DEMO_SK, HD_DEP_COUNT, HD_VEHICLE_COUNT]
                     est: (rows=1199)
             Exchange
@@ -395,7 +395,7 @@ Project
                 est: (rows=1199)
               TableScan
                   table: PUBLIC.HOUSEHOLD_DEMOGRAPHICS
-                  predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, +(2, 2))), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, +(4, 2))), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, +(3, 2))))
+                  predicate: OR(AND(=(HD_DEP_COUNT, 2), <=(HD_VEHICLE_COUNT, 4)), AND(=(HD_DEP_COUNT, 4), <=(HD_VEHICLE_COUNT, 6)), AND(=(HD_DEP_COUNT, 3), <=(HD_VEHICLE_COUNT, 5)))
                   fieldNames: [HD_DEMO_SK, HD_DEP_COUNT, HD_VEHICLE_COUNT]
                   est: (rows=1199)
           Exchange

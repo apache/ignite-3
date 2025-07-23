@@ -43,7 +43,7 @@ Sort
                     est: (rows=18262)
                   TableScan
                       table: PUBLIC.DATE_DIM
-                      predicate: AND(>=(D_DATE, 2001-03-12), <=(D_DATE, +(2001-03-12, *(90, 86400000:INTERVAL DAY))))
+                      predicate: SEARCH(D_DATE, Sarg[[2001-03-12..2001-06-10]])
                       fieldNames: [D_DATE_SK, D_DATE]
                       est: (rows=18262)
               Exchange
@@ -99,6 +99,6 @@ Sort
                                 est: (rows=239555)
                           TableScan
                               table: PUBLIC.DATE_DIM
-                              predicate: AND(>=(D_DATE, 2001-03-12), <=(D_DATE, +(2001-03-12, *(90, 86400000:INTERVAL DAY))))
+                              predicate: SEARCH(D_DATE, Sarg[[2001-03-12..2001-06-10]])
                               fieldNames: [D_DATE_SK, D_DATE]
                               est: (rows=18262)

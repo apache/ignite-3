@@ -115,6 +115,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
+import org.apache.ignite.internal.sql.engine.util.IgniteSqlDateTimeUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -587,11 +588,23 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         SqlLiteral resolved = super.resolveLiteral(literal);
         SqlTypeName typeName = resolved.getTypeName();
 
-        if (typeName == SqlTypeName.TIMESTAMP) {
-            long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
+        if (literal.getTypeName() != SqlTypeName.UNKNOWN) {
+            return resolved;
+        }
 
-            if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+        if (TypeUtils.isTimestamp(typeName)) {
+            String value = literal.getValueAs(String.class);
+
+            if (IgniteSqlDateTimeUtils.isYearOutOfRange(value)) {
                 throw newValidationError(literal, IgniteResource.INSTANCE.timestampLiteralOutOfRange(literal.toString()));
+            }
+
+            if (typeName == SqlTypeName.TIMESTAMP) {
+                long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
+
+                if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+                    throw newValidationError(literal, IgniteResource.INSTANCE.timestampLiteralOutOfRange(literal.toString()));
+                }
             }
         }
 
