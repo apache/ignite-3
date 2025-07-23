@@ -59,6 +59,7 @@ namespace Apache.Ignite
                 ClientOperationType.ComputeExecuteMapReduce => false,
                 ClientOperationType.SqlExecute => false,
                 ClientOperationType.SqlExecuteScript => false,
+                ClientOperationType.SqlExecuteBatch => false,
                 ClientOperationType.ComputeCancel => false,
                 ClientOperationType.ComputeChangePriority => false,
                 ClientOperationType.ComputeGetStatus => true,
