@@ -57,7 +57,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
     @Param("3")
-    private int clusterSize;
+    private static int clusterSize;
 
     @Param("32")
     private int partitionCount;
@@ -116,9 +116,9 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createInsertStatement();
 
-            client = IgniteClient.builder()
-                    .addresses("127.0.0.1:10800", "127.0.0.1:10801", "127.0.0.1:10802")
-                    .build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
 
             sql = client.sql();
 
@@ -130,8 +130,7 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            closeAll(/* statement, */ client);
+            closeAll(client);
         }
 
         void upload(int count, int batch) {
@@ -171,9 +170,9 @@ public class BulkLoadBenchmark extends AbstractMultiNodeBenchmark {
                 tuple.set("field" + i, FIELD_VAL);
             }
 
-            client = IgniteClient.builder()
-                    .addresses("127.0.0.1:10800", "127.0.0.1:10801", "127.0.0.1:10802")
-                    .build();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
+
+            client = IgniteClient.builder().addresses(clientAddrs).build();
 
             kvView = client.tables().table(TABLE_NAME).keyValueView();
         }
