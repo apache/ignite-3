@@ -596,7 +596,28 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestExecuteBatch()
         {
-            List<List<object>> args =
+            // TODO: In which case counts can be more than 1? INSERT/UPSERT?
+            long[] res = await Client.Sql.ExecuteBatchAsync(
+                transaction: null,
+                statement: "INSERT INTO TEST VALUES (?, ?)",
+                args: [[100, "x"], [101, "y"]]);
+
+            CollectionAssert.AreEqual(new[] { 1L, 1L }, res);
+
+            await using var resultSet = await Client.Sql.ExecuteAsync(
+                null, "SELECT ID, VAL FROM TEST WHERE ID >= 100 AND ID <= 101 ORDER BY ID");
+
+            List<IIgniteTuple> rows = await resultSet.ToListAsync();
+            Assert.AreEqual(2, rows.Count);
+
+            Assert.AreEqual("IgniteTuple { ID = 100, VAL = x }", rows[0].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 101, VAL = y }", rows[1].ToString());
+        }
+
+        [Test]
+        public async Task TestExecuteBatchArgsCollections()
+        {
+            object[][] args =
             [
                 [100, "x"],
                 [101, "y"],
@@ -615,7 +636,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestExecuteBatchMissingArgs()
         {
-            // TODO: Less arg rows than statements; different arg count per row.
+            // TODO: no args, different arg count per row
             await Client.Sql.ExecuteBatchAsync(null, "select CURRENT_TIMESTAMP", []);
         }
 
