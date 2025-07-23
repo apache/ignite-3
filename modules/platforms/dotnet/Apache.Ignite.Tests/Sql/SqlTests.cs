@@ -670,11 +670,19 @@ namespace Apache.Ignite.Tests.Sql
             await Client.Sql.ExecuteBatchAsync(null, statement, args);
 
             // Lazy.
-            IEnumerable<IEnumerable<object>> collection = Enumerable
-                .Range(0, 10)
-                .Select(i => new List<object> { 400 + i, "x-" + i });
+            IEnumerable<IEnumerable<object>> collection = Yield(
+                Yield<object>(401, "x1"),
+                Yield<object>(402, "x2"));
 
             await Client.Sql.ExecuteBatchAsync(null, statement, collection);
+
+            static IEnumerable<T> Yield<T>(params T[] args)
+            {
+                foreach (var arg in args)
+                {
+                    yield return arg;
+                }
+            }
         }
 
         [Test]
