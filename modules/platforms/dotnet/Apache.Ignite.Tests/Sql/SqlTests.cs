@@ -641,6 +641,13 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestExecuteBatchInvalidStatement()
+        {
+            // TODO: select or DDL
+            await Client.Sql.ExecuteBatchAsync(null, "select CURRENT_TIMESTAMP", []);
+        }
+
+        [Test]
         public async Task TestCancelQueryCursor([Values(true, false)] bool beforeIter)
         {
             var cts = new CancellationTokenSource();
