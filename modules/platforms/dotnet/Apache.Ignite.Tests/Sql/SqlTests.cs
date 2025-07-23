@@ -596,7 +596,14 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestExecuteBatch()
         {
-            await Client.Sql.ExecuteBatchAsync(null, "select CURRENT_TIMESTAMP", []);
+            ICollection<ICollection<object>> args =
+            [
+                [100, "x"],
+                [101, "y"],
+                [102, "z"]
+            ];
+
+            await Client.Sql.ExecuteBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args);
         }
 
         [Test]

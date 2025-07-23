@@ -117,11 +117,14 @@ namespace Apache.Ignite.Sql
         /// Executes a batch of SQL statements and returns the number of affected rows for each statement.
         /// </summary>
         /// <param name="transaction">Transaction.</param>
-        /// <param name="statement">Statement object with one or more SQL statements separated by semicolons.</param>
+        /// <param name="statement">Statement to execute once for every entry in <paramref name="args"/>.</param>
         /// <param name="args">Batched arguments. One list for each statement in the batch.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>The number of affected rows for each statement in the batch.</returns>
         Task<long[]> ExecuteBatchAsync(
-            ITransaction? transaction, SqlStatement statement, IList<IList<object>> args, CancellationToken cancellationToken = default);
+            ITransaction? transaction,
+            SqlStatement statement,
+            ICollection<ICollection<object>> args,
+            CancellationToken cancellationToken = default);
     }
 }
