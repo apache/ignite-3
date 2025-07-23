@@ -350,6 +350,7 @@ namespace Apache.Ignite.Internal.Sql
                 return;
             }
 
+            // TODO: Extract for reuse.
             writer.WriteByte(MsgPackCode.Int32, rowCountPos);
             writer.WriteIntBigEndian(rowCount, rowCountPos + 1);
         }
