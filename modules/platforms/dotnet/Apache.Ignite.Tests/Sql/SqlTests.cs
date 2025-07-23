@@ -27,6 +27,7 @@ namespace Apache.Ignite.Tests.Sql
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
+    using Ignite.Transactions;
     using Microsoft.Extensions.Logging.Abstractions;
     using NodaTime;
     using NUnit.Framework;
@@ -654,7 +655,22 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestExecuteBatchWithTx()
         {
-            await Client.Sql.ExecuteBatchAsync(null, "select 1", []);
+            await using var tx = await Client.Transactions.BeginAsync();
+
+            Assert.AreEqual(0, await GetCount(tx));
+
+            await Client.Sql.ExecuteBatchAsync(tx, "INSERT INTO TEST VALUES (?, ?)", [[110, "x"], [111, "y"]]);
+
+            Assert.AreEqual(1, await GetCount(tx));
+
+            Assert.AreEqual(0, await GetCount(null));
+
+            async Task<int> GetCount(ITransaction? txn)
+            {
+                await using var resultSet = await Client.Sql.ExecuteAsync(txn, "SELECT ID, VAL FROM TEST WHERE ID = 110");
+                var rows = await resultSet.ToListAsync();
+                return rows.Count;
+            }
         }
 
         [Test]
