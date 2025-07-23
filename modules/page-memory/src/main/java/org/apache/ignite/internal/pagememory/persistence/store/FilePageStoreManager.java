@@ -513,7 +513,8 @@ public class FilePageStoreManager implements PageReadWriteManager {
         try (Stream<Path> tableDirs = Files.list(dbDir)) {
             return tableDirs
                     .filter(path -> Files.isDirectory(path) && path.getFileName().toString().startsWith(GROUP_DIR_PREFIX))
-                    .map(FilePageStoreManager::extractTableId).collect(toUnmodifiableSet());
+                    .map(FilePageStoreManager::extractTableId)
+                    .collect(toUnmodifiableSet());
         } catch (IOException e) {
             throw new IgniteInternalException(Common.INTERNAL_ERR, "Cannot scan for groupIDs", e);
         }

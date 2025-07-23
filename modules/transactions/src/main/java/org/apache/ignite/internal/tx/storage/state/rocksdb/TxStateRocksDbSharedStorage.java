@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -344,6 +345,6 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
             throw new TxStateStorageException(INTERNAL_ERR, "Cannot get table/zone IDs", e);
         }
 
-        return Set.copyOf(ids);
+        return unmodifiableSet(ids);
     }
 }

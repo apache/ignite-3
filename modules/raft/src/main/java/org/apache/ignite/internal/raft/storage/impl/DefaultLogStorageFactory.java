@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageEndPrefix;
 import static org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorageUtils.raftNodeStorageStartPrefix;
@@ -400,7 +401,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             throw new IgniteInternalException(INTERNAL_ERR, "Cannot get group storage IDs", e);
         }
 
-        return Set.copyOf(groupIdsForStorage);
+        return unmodifiableSet(groupIdsForStorage);
     }
 
     @TestOnly
