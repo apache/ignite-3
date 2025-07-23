@@ -62,6 +62,12 @@ namespace Apache.Ignite.Tests.Sql
             await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestExecuteScript");
         }
 
+        [SetUp]
+        public async Task ResetData()
+        {
+            await Client.Sql.ExecuteScriptAsync("DELETE FROM TEST WHERE ID >= 10");
+        }
+
         [Test]
         public async Task TestSimpleQuery()
         {
