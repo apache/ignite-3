@@ -594,6 +594,25 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestExecuteBatch()
+        {
+            await Client.Sql.ExecuteBatchAsync(null, "select CURRENT_TIMESTAMP", []);
+        }
+
+        [Test]
+        public async Task TestExecuteBatchWithTx()
+        {
+            await Client.Sql.ExecuteBatchAsync(null, "select CURRENT_TIMESTAMP", []);
+        }
+
+        [Test]
+        public async Task TestExecuteBatchMissingArgs()
+        {
+            // TODO: Less arg rows than statements; different arg count per row.
+            await Client.Sql.ExecuteBatchAsync(null, "select CURRENT_TIMESTAMP", []);
+        }
+
+        [Test]
         public async Task TestCancelQueryCursor([Values(true, false)] bool beforeIter)
         {
             var cts = new CancellationTokenSource();
@@ -622,7 +641,7 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestCancelQueryExecute([Values("sql", "sql-mapped", "script", "reader")] string mode)
+        public async Task TestCancelQueryExecute([Values("sql", "sql-mapped", "script", "reader", "batch")] string mode)
         {
             // Cross join will produce 10^N rows, which takes a while to execute.
             var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(8)})";
