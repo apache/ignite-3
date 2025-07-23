@@ -330,6 +330,8 @@ namespace Apache.Ignite.Internal.Sql
                         row = list;
                     }
 
+                    IgniteArgumentCheck.Ensure(rowSize > 0, nameof(args), "Batch arguments must not contain empty rows.");
+
                     w.Write(rowSize);
                     rowCountPos = writer.ReserveMsgPackInt32();
                     w.Write(false); // Paged args.

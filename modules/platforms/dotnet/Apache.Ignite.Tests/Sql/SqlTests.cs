@@ -713,6 +713,11 @@ namespace Apache.Ignite.Tests.Sql
                 async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", []));
 
             StringAssert.Contains("Batch arguments must not be empty.", ex.Message);
+
+            var ex2 = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[]]));
+
+            StringAssert.Contains("Batch arguments must not contain empty rows.", ex2.Message);
         }
 
         [Test]
