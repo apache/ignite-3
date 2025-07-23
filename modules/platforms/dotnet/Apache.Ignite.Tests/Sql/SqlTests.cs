@@ -622,8 +622,8 @@ namespace Apache.Ignite.Tests.Sql
             // Array.
             object[][] arr =
             [
-                [100, "x"],
-                [101, "y"],
+                [200, "x"],
+                [201, "y"],
             ];
 
             await Client.Sql.ExecuteBatchAsync(null, statement, arr);
@@ -631,16 +631,16 @@ namespace Apache.Ignite.Tests.Sql
             // List.
             List<List<object>> args =
             [
-                [100, "x"],
-                [101, "y"]
+                [300, "x"],
+                [301, "y"]
             ];
 
-            await Client.Sql.ExecuteBatchAsync(null, statement, arr);
+            await Client.Sql.ExecuteBatchAsync(null, statement, args);
 
             // Lazy.
             IEnumerable<IEnumerable<object>> collection = Enumerable
                 .Range(0, 10)
-                .Select(i => new List<object> { 100, "x-" + i });
+                .Select(i => new List<object> { 400 + i, "x-" + i });
 
             await Client.Sql.ExecuteBatchAsync(null, statement, collection);
         }
