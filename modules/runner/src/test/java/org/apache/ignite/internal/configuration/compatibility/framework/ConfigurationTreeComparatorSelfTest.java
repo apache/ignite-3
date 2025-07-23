@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +30,10 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Self-test for {@link ConfigurationTreeComparator} checks various compatibility scenarios.
@@ -40,20 +44,20 @@ public class ConfigurationTreeComparatorSelfTest {
     void equalConfigurationCanBeFound() {
         ConfigNode root1 = createRoot("root1");
         root1.addChildNodes(List.of(
-                createChild(root1, "child1"),
-                createChild(root1, "child2")
+                createChild("child1"),
+                createChild("child2")
         ));
 
         ConfigNode root2 = createRoot("root1");
         root2.addChildNodes(List.of(
-                createChild(root2, "child1"),
-                createChild(root2, "child2")
+                createChild("child1"),
+                createChild("child2")
         ));
 
         ConfigNode anotherRoot = createRoot("root2");
         anotherRoot.addChildNodes(List.of(
-                createChild(anotherRoot, "child1"),
-                createChild(anotherRoot, "child2")
+                createChild("child1"),
+                createChild("child2")
         ));
 
         assertCompatible(List.of(root1), List.of(anotherRoot, root2));
@@ -176,7 +180,7 @@ public class ConfigurationTreeComparatorSelfTest {
                         root1,
                         Map.of(ConfigNode.Attributes.NAME, "child"),
                         List.of(),
-                        EnumSet.of(Flags.IS_VALUE))
+                        EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT))
         ));
 
         ConfigNode root2 = createRoot("root1");
@@ -185,13 +189,38 @@ public class ConfigurationTreeComparatorSelfTest {
                         root2,
                         Map.of(ConfigNode.Attributes.NAME, "child"),
                         List.of(),
-                        EnumSet.of(Flags.IS_VALUE, Flags.IS_DEPRECATED))
+                        EnumSet.of(Flags.IS_VALUE, Flags.IS_DEPRECATED, Flags.HAS_DEFAULT))
         ));
 
         // Adding deprecation is compatible change.
         assertCompatible(root1, root2);
         // Removing deprecation is not compatible change.
         assertIncompatible(root2, root1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void addFieldToConfiguration(boolean hasDefault) {
+        Set<Flags> newFieldFlags = createFlags(hasDefault);
+
+        ConfigNode root1 = createRoot("root1");
+        root1.addChildNodes(List.of(
+                createChild("child1"),
+                createChild("child2")
+        ));
+
+        ConfigNode root2 = createRoot("root1");
+        root2.addChildNodes(List.of(
+                createChild("child1"),
+                createChild("child2"),
+                createChild("child3", newFieldFlags)
+        ));
+
+        if (hasDefault) {
+            assertCompatible(List.of(root1), List.of(root2));
+        } else {
+            assertIncompatible(List.of(root1), List.of(root2));
+        }
     }
 
     /**
@@ -340,25 +369,36 @@ public class ConfigurationTreeComparatorSelfTest {
 
     @Test
     void testCompatibleRename() {
+        ConfigNode root1 = createRoot("root");
+
         ConfigNode oldNode = new ConfigNode(null, Map.of(Attributes.NAME, "oldTestCount"), List.of(),
                 EnumSet.of(Flags.IS_VALUE));
+        root1.addChildNodes(oldNode);
+
+        ConfigNode root2 = createRoot("root");
 
         ConfigNode newNode = new ConfigNode(null, Map.of(Attributes.NAME, "newTestCount"),
                 List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of("oldTestCount"), List.of());
+        root2.addChildNodes(newNode);
 
-        assertCompatible(oldNode, newNode);
+        assertCompatible(root1, root2);
 
+        root1 = createRoot("root");
         // Equal configs, still compatible
         oldNode = new ConfigNode(null, Map.of(Attributes.NAME, "newTestCount"),
                 List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of("oldTestCount"), List.of());
+        root1.addChildNodes(oldNode);
+
+        root2 = createRoot("root");
 
         newNode = new ConfigNode(null, Map.of(Attributes.NAME, "newTestCount"),
                 List.of(),
                 EnumSet.of(Flags.IS_VALUE), Set.of("oldTestCount"), List.of());
+        root2.addChildNodes(newNode);
 
-        assertCompatible(oldNode, newNode);
+        assertCompatible(root1, root2);
 
         // TODO: need to have a possibility to check compatibility between outdated (officially no more supported) version and current one.
         // I.e. previous tree with filled deletedPrefixes and current without - need to be compatible too, decided to make it later.
@@ -394,6 +434,32 @@ public class ConfigurationTreeComparatorSelfTest {
         root2.addChildNodes(newNode2);
 
         assertIncompatible(oldNode1, newNode1);
+
+        // Incorrectly renaming leaf nodes.
+
+        root1 = createRoot("root1");
+        oldNode2 = createChild("oldTestCount");
+        root1.addChildNodes(oldNode2);
+
+        root2 = createRoot("root1");
+        newNode2 = createChild("newTestCount", Set.of(), Set.of("oldTestCount_misspelled"), List.of());
+        root2.addChildNodes(newNode2);
+
+        assertIncompatible(root1, root2);
+
+        // Incorrectly renaming intermediate nodes.
+
+        root1 = createRoot("root1");
+        oldNode2 = createNode("node", "X");
+        oldNode2.addChildNodes(createChild("value"));
+        root1.addChildNodes(oldNode2);
+
+        root2 = createRoot("root1");
+        newNode2 = createNode("node_new", "X", Set.of("node_misspelled"), List.of());
+        newNode2.addChildNodes(createChild("value"));
+        root2.addChildNodes(newNode2);
+
+        assertIncompatible(root1, root2);
     }
 
     /**
@@ -410,7 +476,7 @@ public class ConfigurationTreeComparatorSelfTest {
                 EnumSet.of(Flags.IS_ROOT));
 
         ConfigNode node1Ver1 = new ConfigNode(root, Map.of(Attributes.NAME, "oldTestCount"), List.of(),
-                EnumSet.of(Flags.IS_VALUE));
+                EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT));
 
         root.addChildNodes(node1Ver1);
 
@@ -421,7 +487,7 @@ public class ConfigurationTreeComparatorSelfTest {
 
         ConfigNode node1Ver2 = new ConfigNode(root, Map.of(Attributes.NAME, "newTestCount"),
                 List.of(),
-                EnumSet.of(Flags.IS_VALUE), Set.of("oldTestCount"), List.of());
+                EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT), Set.of("oldTestCount"), List.of());
 
         root.addChildNodes(node1Ver2);
 
@@ -431,7 +497,7 @@ public class ConfigurationTreeComparatorSelfTest {
                 EnumSet.of(Flags.IS_ROOT));
 
         ConfigNode node = new ConfigNode(root, Map.of(Attributes.NAME, "fixed"), List.of(),
-                EnumSet.of(Flags.IS_VALUE));
+                EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT));
 
         root.addChildNodes(node);
 
@@ -460,17 +526,60 @@ public class ConfigurationTreeComparatorSelfTest {
         return ConfigNode.createRoot(name, Object.class, ConfigurationType.LOCAL, true);
     }
 
-    private static ConfigNode createChild(ConfigNode root1, String name) {
+    private static ConfigNode createNode(String name, String className) {
+        return createNode(name, className, Set.of(), List.of());
+    }
+
+    private static ConfigNode createNode(String name, String className, Set<String> legacyNames, List<String> deletedPrefixes) {
         return new ConfigNode(
-                root1,
+                null,
+                Map.of(Attributes.NAME, name, Attributes.CLASS, className),
+                List.of(),
+                EnumSet.noneOf(Flags.class),
+                legacyNames,
+                deletedPrefixes
+        );
+    }
+
+    private static ConfigNode createChild(ConfigNode root, String name) {
+        return new ConfigNode(
+                root,
                 Map.of(ConfigNode.Attributes.NAME, name, Attributes.CLASS, int.class.getCanonicalName()),
                 List.of(),
-                EnumSet.of(Flags.IS_VALUE)
+                EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT)
+        );
+    }
+
+    private static ConfigNode createChild(String name) {
+        return createChild(name, Set.of(), Set.of(), List.of());
+    }
+
+    private static ConfigNode createChild(String name, Set<Flags> flags) {
+        return createChild(name, flags, Set.of(), List.of());
+    }
+
+    private static ConfigNode createChild(String name, Set<Flags> flags, Set<String> legacyNames, List<String> deletedPrefixes) {
+        Set<Flags> valueFlags = new HashSet<>();
+        valueFlags.add(Flags.IS_VALUE);
+
+        if (flags.isEmpty()) {
+            valueFlags.add(Flags.HAS_DEFAULT);
+        } else {
+            valueFlags.addAll(flags);
+        }
+
+        return new ConfigNode(
+                null,
+                Map.of(ConfigNode.Attributes.NAME, name, Attributes.CLASS, int.class.getCanonicalName()),
+                List.of(),
+                EnumSet.copyOf(valueFlags),
+                legacyNames,
+                deletedPrefixes
         );
     }
 
     private static void assertCompatible(ConfigNode oldConfig, ConfigNode newConfig) {
-        assertCompatible(List.of(oldConfig), List.of(newConfig));
+        ConfigurationTreeComparator.ensureCompatible(oldConfig, newConfig, new ComparisonContext(List.of()));
     }
 
     private static void assertCompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig) {
@@ -482,7 +591,15 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     private static void assertIncompatible(ConfigNode oldConfig, ConfigNode newConfig) {
-        assertIncompatible(List.of(oldConfig), List.of(newConfig));
+        try {
+            ConfigurationTreeComparator.ensureCompatible(oldConfig, newConfig, new ComparisonContext(List.of()));
+        } catch (IllegalStateException e) {
+            // Expected exception
+            System.err.println("Error: " + e.getMessage());
+            return;
+        }
+
+        fail("Compatibility check passed unexpectedly.");
     }
 
     private static void assertIncompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig) {
@@ -491,12 +608,17 @@ public class ConfigurationTreeComparatorSelfTest {
 
     private static void assertIncompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig, ComparisonContext compContext) {
         try {
-            assertCompatible(oldConfig, newConfig, compContext);
-        } catch (IllegalStateException ignore) {
+            ConfigurationTreeComparator.ensureCompatible(oldConfig, newConfig, compContext);
+        } catch (IllegalStateException e) {
             // Expected exception
+            System.err.println("Error: " + e.getMessage());
             return;
         }
 
         fail("Compatibility check passed unexpectedly.");
+    }
+
+    private static @NotNull Set<Flags> createFlags(boolean hasDefault) {
+        return hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
     }
 }

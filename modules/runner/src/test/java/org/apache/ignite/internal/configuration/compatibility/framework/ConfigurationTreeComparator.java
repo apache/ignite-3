@@ -17,18 +17,22 @@
 
 package org.apache.ignite.internal.configuration.compatibility.framework;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Node;
 
 /**
  * Compares two configuration trees (snapshot and current).
@@ -45,11 +49,80 @@ public class ConfigurationTreeComparator {
             List<ConfigNode> actualTrees,
             ComparisonContext compContext
     ) {
-        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees), compContext);
+        compContext.reset();
 
-        for (ConfigNode tree : snapshotTrees) {
-            tree.accept(shuttle);
+        // Ensure that both collections include the same kinds
+        Map<String, List<ConfigNode>> snapshotByKind = new HashMap<>();
+        for (ConfigNode node : snapshotTrees) {
+            snapshotByKind.computeIfAbsent(node.kind(), (k) -> new ArrayList<>()).add(node);
         }
+
+        Map<String, List<ConfigNode>> actualByKind = new HashMap<>();
+        for (ConfigNode node : actualTrees) {
+            actualByKind.computeIfAbsent(node.kind(), (k) -> new ArrayList<>()).add(node);
+        }
+
+        if (!snapshotByKind.keySet().equals(actualByKind.keySet())) {
+            String error = format(
+                    "Configuration kind does not match. Expected {} but got {}",
+                    snapshotByKind.keySet(),
+                    actualByKind.keySet()
+            );
+            compContext.addError(error);
+            compContext.throwIfNotEmpty();
+        }
+
+        // Validate roots
+        for (Map.Entry<String, List<ConfigNode>> e : snapshotByKind.entrySet()) {
+            List<ConfigNode> snapshots = e.getValue();
+            List<ConfigNode> actuals = actualByKind.get(e.getKey());
+
+            Map<String, ConfigNode> snapshotByName = snapshots.stream()
+                    .collect(Collectors.toMap(ConfigNode::name, Function.identity()));
+
+            Map<String, ConfigNode> actualByName = actuals.stream()
+                    .collect(Collectors.toMap(ConfigNode::name, Function.identity()));
+
+            // Validated existing and removed roots
+            for (Map.Entry<String, ConfigNode> snapshot : snapshotByName.entrySet()) {
+                ConfigNode actual = actualByName.get(snapshot.getKey());
+
+                if (actual == null) {
+                    compContext.addError("Configuration was removed: " + snapshot.getKey());
+                } else {
+                    validate(snapshot.getValue(), actual, compContext);
+                }
+            }
+
+            // Validate new nodes
+            for (Map.Entry<String, ConfigNode> actual : actualByName.entrySet()) {
+                ConfigNode snapshot = snapshotByName.get(actual.getKey());
+                if (snapshot == null) {
+                    validateNewChildren(actual.getValue().children().values(), compContext);
+                }
+            }
+
+            compContext.throwIfNotEmpty();
+        }
+    }
+
+    /**
+     * Checks two nodes for compatibility.
+     *
+     * @param snapshot Previous version.
+     * @param actual Current version.
+     * @param compContext Context.
+     */
+    public static void ensureCompatible(
+            ConfigNode snapshot,
+            ConfigNode actual,
+            ComparisonContext compContext
+    ) {
+        compContext.reset();
+
+        validate(snapshot, actual, compContext);
+
+        compContext.throwIfNotEmpty();
     }
 
     /**
@@ -62,124 +135,35 @@ public class ConfigurationTreeComparator {
     }
 
     /**
-     * Traverses the tree and triggers validation for leaf nodes.
-     */
-    private static class LeafNodesVisitor implements ConfigShuttle {
-        private final Consumer<ConfigNode> validator;
-        private final ComparisonContext compContext;
-
-        private LeafNodesVisitor(Consumer<ConfigNode> validator, ComparisonContext compContext) {
-            this.validator = validator;
-            this.compContext = compContext;
-        }
-
-        @Override
-        public void visit(ConfigNode node) {
-            assert node.isRoot() || node.isInnerNode() || node.isNamedNode() || node.isValue();
-
-            if (node.isValue() && !compContext.shouldIgnore(node.path())) {
-                validator.accept(node);
-            }
-        }
-    }
-
-    /**
-     * Validates value nodes.
-     */
-    private static class Validator implements Consumer<ConfigNode> {
-        private final List<ConfigNode> roots;
-
-        private Validator(List<ConfigNode> roots) {
-            this.roots = roots;
-        }
-
-        @Override
-        public void accept(ConfigNode leafNode) {
-            List<ConfigNode> path = getPath(leafNode);
-
-            // Validate path starting from the root.
-            Collection<ConfigNode> candidates = roots;
-
-            for (ConfigNode node : path) {
-                ConfigNode found = find(node, candidates);
-                candidates = found.childNodes();
-            }
-        }
-
-        /**
-         * Return first node from candidates collection that matches the given node.
-         *
-         * @throws IllegalStateException If no match found.
-         */
-        private ConfigNode find(ConfigNode node, Collection<ConfigNode> candidates) {
-            for (ConfigNode candidate : candidates) {
-                if (!match(node, candidate)) {
-                    continue;
-                }
-
-                // node is a snapshot node
-                // candidate is a current configuration node.
-                validateAnnotations(node, candidate);
-
-                return candidate;
-            }
-
-            throw new IllegalStateException("No match found for node: " + node + " in candidates: \n\t"
-                    + candidates.stream().map(ConfigNode::toString).collect(Collectors.joining("\n\t")));
-        }
-    }
-
-    /**
-     * Builds value node path.
-     */
-    private static List<ConfigNode> getPath(ConfigNode node) {
-        List<ConfigNode> path = new ArrayList<>();
-        while (node != null) {
-            path.add(node);
-            node = node.getParent();
-        }
-
-        Collections.reverse(path);
-
-        return path;
-    }
-
-    /**
      * Returns {@code true} if given node is compatible with candidate node, {@code false} otherwise.
      */
     private static boolean match(ConfigNode node, ConfigNode candidate) {
-        return Objects.equals(candidate.kind(), node.kind())
-                && validateFlags(candidate, node)
-                && matchNames(candidate, node)
-                && candidate.deletedPrefixes().containsAll(node.deletedPrefixes())
-                && (!node.isValue() || Objects.equals(candidate.type(), node.type())); // Value node types can be changed.
+        // To make debugging easier.
+        boolean kindMatches = Objects.equals(candidate.kind(), node.kind());
+        boolean nameMatches = matchNames(candidate, node);
+        boolean flagMatch = validateFlags(candidate, node);
+        boolean deletedPrefixesMatch = candidate.deletedPrefixes().containsAll(node.deletedPrefixes());
+        // Value node types can be changed.
+        boolean nodeTypeMatches = !node.isValue() || Objects.equals(candidate.type(), node.type());
+        return kindMatches
+                && nameMatches
+                && flagMatch
+                && deletedPrefixesMatch
+                && nodeTypeMatches;
     }
 
-    private static void validateAnnotations(ConfigNode candidate, ConfigNode node) {
-        List<String> errors = new ArrayList<>();
+    private static void validateAnnotations(ConfigNode candidate, ConfigNode current, ComparisonContext context) {
+        List<String> annotationErrors = new ArrayList<>();
 
-        ANNOTATION_VALIDATOR.validate(candidate, node, errors);
+        ANNOTATION_VALIDATOR.validate(candidate, current, annotationErrors);
 
-        if (errors.isEmpty()) {
-            return;
+        for (String error : annotationErrors) {
+            context.addError(candidate, error);
         }
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("Configuration compatibility issues for ")
-                .append(node.path())
-                .append(':')
-                .append(System.lineSeparator());
-
-        for (var error : errors) {
-            sb.append("\t\t").append(error).append(System.lineSeparator());
-        }
-
-        throw new IllegalStateException(sb.toString());
     }
 
     private static boolean matchNames(ConfigNode candidate, ConfigNode node) {
-        return Objects.equals(candidate.name(), node.name())
-                || compareUsingLegacyNames(candidate, node);
+        return Objects.equals(candidate.name(), node.name()) || compareUsingLegacyNames(candidate, node);
     }
 
     private static boolean compareUsingLegacyNames(ConfigNode candidate, ConfigNode node) {
@@ -187,11 +171,14 @@ public class ConfigurationTreeComparator {
     }
 
     private static boolean validateFlags(ConfigNode candidate, ConfigNode node) {
-        return node.isRoot() == candidate.isRoot()
-                && node.isValue() == candidate.isValue()
+        // If flags are empty then they should always be compatible.
+        if (candidate.flags().equals(node.flags())) {
+            return true;
+        }
+        return node.isValue() == candidate.isValue()
+                && (!candidate.isInternal() || node.isInternal()) // Public property\tree can't be hidden.
                 && node.isNamedNode() == candidate.isNamedNode()
                 && node.isInnerNode() == candidate.isInnerNode()
-                && (!candidate.isInternal() || node.isInternal()) // Public property\tree can't be hidden.
                 && (!node.isDeprecated() || candidate.isDeprecated()); // Deprecation shouldn't be removed.
     }
 
@@ -232,12 +219,126 @@ public class ConfigurationTreeComparator {
 
         private final KeyIgnorer deletedItems;
 
+        private final List<String> errors = new ArrayList<>();
+
         ComparisonContext(Collection<String> deletedPrefixes) {
             this.deletedItems = KeyIgnorer.fromDeletedPrefixes(deletedPrefixes);
         }
 
         boolean shouldIgnore(String path) {
             return deletedItems.shouldIgnore(path);
+        }
+
+        void reset() {
+            errors.clear();
+        }
+
+        void addError(String error) {
+            errors.add(error);
+        }
+
+        void addError(Node node, String error) {
+            reportError(node.path(), error);
+        }
+
+        void addError(ConfigNode node, String error) {
+            reportError(node.path(), error);
+        }
+
+        private void reportError(String path, String error) {
+            String message = format("Node: {}: {}", path, error);
+            throw new IllegalStateException(message);
+        }
+
+        private void throwIfNotEmpty() {
+            if (!errors.isEmpty()) {
+                StringBuilder message = new StringBuilder("There are incompatible changes:").append(System.lineSeparator());
+                for (String error : errors) {
+                    message.append('\t').append(error).append(System.lineSeparator());
+                }
+
+                errors.add(message.toString());
+            }
+        }
+    }
+
+    private static void validate(Node a, Node b, ComparisonContext context) {
+        compareNodes(a.node(), b.node(), context);
+    }
+
+    private static void validate(ConfigNode candidate, ConfigNode current, ComparisonContext context) {
+        if (!context.errors.isEmpty()) {
+            return;
+        }
+        compareNodes(candidate, current, context);
+    }
+
+    private static void compareNodes(ConfigNode a, ConfigNode b, ComparisonContext context) {
+        if (!match(a, b)) {
+            context.addError(a, "Node does not match. Previous: " + a + ". Current: " + b);
+            return;
+        }
+
+        validateAnnotations(a, b, context);
+
+        compareChildren(a.children(), b.children(), context);
+    }
+
+    private static void compareChildren(Map<String, Node> a, Map<String, Node> b, ComparisonContext context) {
+        // Validates matching children.
+        // then validates removed and added ones.
+        List<Node> removed = new ArrayList<>();
+        List<Node> added = new ArrayList<>();
+        Map<String, Node> copyB = new HashMap<>(b);
+
+        for (Entry<String, Node> entryA : a.entrySet()) {
+            Node nodeA = entryA.getValue();
+            boolean matchFound = false;
+
+            for (Entry<String, Node> entryB : copyB.entrySet()) {
+                Node nodeB = entryB.getValue();
+                if (equalNames(entryA, entryB)) {
+                    matchFound = true;
+                    copyB.remove(entryB.getKey());
+                    validate(nodeA, nodeB, context);
+                    break;
+                }
+            }
+
+            if (!matchFound) {
+                removed.add(nodeA);
+            }
+        }
+
+        added.addAll(copyB.values());
+
+        validateRemovedChildren(removed, context);
+        validateNewChildren(added, context);
+    }
+
+    private static boolean equalNames(Entry<String, Node> entryA, Entry<String, Node> entryB) {
+        String nameA = entryA.getKey();
+        String nameB = entryB.getKey();
+        if (nameA.equals(nameB)) {
+            return true;
+        }
+        Node nodeB = entryB.getValue();
+        return nodeB.legacyPropertyNames().stream().anyMatch(n -> n.equals(nameA));
+    }
+
+    private static void validateNewChildren(Collection<Node> nodes, ComparisonContext context) {
+        for (Node node : nodes) {
+            if (!node.hasDefault()) {
+                context.addError(node, "Added a node with no default value");
+            }
+        }
+    }
+
+    private static void validateRemovedChildren(Collection<Node> nodes, ComparisonContext context) {
+        for (Node node : nodes) {
+            if (!context.shouldIgnore(node.path())) {
+                context.addError(node, "Node was removed");
+            }
         }
     }
 }
