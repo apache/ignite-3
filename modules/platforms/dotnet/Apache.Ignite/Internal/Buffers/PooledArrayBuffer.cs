@@ -303,7 +303,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             var span = GetSpanAt(pos, 5);
             span[0] = MsgPackCode.Int32;
-            BinaryPrimitives.WriteInt32LittleEndian(span[1..], value);
+            BinaryPrimitives.WriteInt32BigEndian(span[1..], value);
         }
 
         /// <summary>
