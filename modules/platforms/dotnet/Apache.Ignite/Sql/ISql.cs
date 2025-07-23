@@ -124,7 +124,7 @@ namespace Apache.Ignite.Sql
         Task<long[]> ExecuteBatchAsync(
             ITransaction? transaction,
             SqlStatement statement,
-            ICollection<ICollection<object>> args,
+            IEnumerable<IEnumerable<object>> args,
             CancellationToken cancellationToken = default);
     }
 }

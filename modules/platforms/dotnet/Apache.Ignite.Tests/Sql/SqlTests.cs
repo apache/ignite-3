@@ -596,7 +596,7 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestExecuteBatch()
         {
-            ICollection<ICollection<object>> args =
+            List<List<object>> args =
             [
                 [100, "x"],
                 [101, "y"],
