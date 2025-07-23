@@ -661,16 +661,28 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestExecuteBatchMismatchingArgs()
+        public void TestExecuteBatchMismatchingArgs()
         {
-            await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1], [2, 3]]);
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1], [2, 3]]));
+
+            Assert.AreEqual("Inconsistent batch argument size: expected 1, got 2.", ex.Message);
         }
 
         [Test]
-        public async Task TestExecuteBatchInvalidStatement()
+        public void TestExecuteBatchNullArgs()
         {
-            // TODO: select or DDL
-            await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1]]);
+            Assert.ThrowsAsync<ArgumentNullException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1], null!, [2]]));
+        }
+
+        [Test]
+        public void TestExecuteBatchInvalidStatement()
+        {
+            var ex = Assert.ThrowsAsync<SqlBatchException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1]]));
+
+            Assert.AreEqual("Invalid SQL statement type. Expected [DML] but got QUERY.", ex.Message);
         }
 
         [Test]
