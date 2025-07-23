@@ -71,12 +71,12 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
         CompletableFuture<Void> awaitFuture = query.executor.waitForMetadata(operationTime)
                 .thenCompose(none -> query.executor.prepare(result, operationContext)
                         .thenAccept(plan -> {
-                            if (query.txContext.explicitTx() == null) {
-                                // in case of implicit tx we have to update observable time to prevent tx manager to start
-                                // implicit transaction too much in the past where version of catalog we used to prepare the
-                                // plan was not yet available
-                                query.txContext.updateObservableTime(query.executor.deriveMinimalRequiredTime(plan));
-                            }
+//                            if (query.txContext.explicitTx() == null) {
+//                                // in case of implicit tx we have to update observable time to prevent tx manager to start
+//                                // implicit transaction too much in the past where version of catalog we used to prepare the
+//                                // plan was not yet available
+//                                query.txContext.updateObservableTime(query.executor.deriveMinimalRequiredTime(plan));
+//                            }
 
                             query.plan = plan;
                         }));

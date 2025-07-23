@@ -115,14 +115,14 @@ public interface HybridTimestampTracker {
 
             @Override
             public void update(@Nullable HybridTimestamp ts) {
-                assert timestamp == null && ts != null : "One shot invariant is broken";
+                assert timestamp == null && ts != null : "One shot invariant is broken: " + timestamp + " " + ts;
 
                 timestamp = ts;
             }
 
             @Override
             public void update(long ts) {
-                assert timestamp == null && ts != NULL_HYBRID_TIMESTAMP : "One shot invariant is broken";
+                assert timestamp == null && ts != NULL_HYBRID_TIMESTAMP : "One shot invariant is broken " + timestamp + " " + ts;
 
                 timestamp = nullableHybridTimestamp(ts);
             }

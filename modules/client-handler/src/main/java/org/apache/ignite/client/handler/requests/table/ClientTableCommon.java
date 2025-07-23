@@ -494,8 +494,6 @@ public class ClientTableCommon {
             boolean readOnly,
             InternalTxOptions options
     ) {
-        tsTracker.update(currentTs);
-
         return txManager.beginExplicit(
                 tsTracker,
                 readOnly,
