@@ -112,6 +112,44 @@ namespace Apache.Ignite.Internal.Sql
         }
 
         /// <inheritdoc/>
+        public async Task<long[]> ExecuteBatchAsync(
+            ITransaction? transaction,
+            SqlStatement statement,
+            IEnumerable<IEnumerable<object>> args,
+            CancellationToken cancellationToken = default)
+        {
+            IgniteArgumentCheck.NotNull(statement);
+            IgniteArgumentCheck.NotNull(args);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _socket, default).ConfigureAwait(false);
+
+            using var bufferWriter = ProtoCommon.GetMessageWriter();
+
+            WriteStatement(bufferWriter, statement, tx, writeTx: true);
+            WriteBatchArgs(bufferWriter, args);
+            bufferWriter.MessageWriter.Write(_socket.ObservableTimestamp);
+
+            try
+            {
+                var (buf, _) = await _socket.DoOutInOpAndGetSocketAsync(
+                    ClientOp.SqlExecBatch, tx, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                using (buf)
+                {
+                    // TODO: read results.
+                    return new long[1];
+                }
+            }
+            catch (SqlException e)
+            {
+                ConvertExceptionAndThrow(e, statement, cancellationToken);
+
+                throw;
+            }
+        }
+
+        /// <inheritdoc/>
         public override string ToString() => IgniteToStringBuilder.Build(GetType());
 
         /// <summary>
@@ -252,10 +290,14 @@ namespace Apache.Ignite.Internal.Sql
         private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
             ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
 
-        private void WriteStatement(
+        private static void WriteBatchArgs(PooledArrayBuffer writer, IEnumerable<IEnumerable<object>> args)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static void WriteStatement(
             PooledArrayBuffer writer,
             SqlStatement statement,
-            ICollection<object?>? args,
             Transaction? tx = null,
             bool writeTx = false)
         {
@@ -274,6 +316,19 @@ namespace Apache.Ignite.Internal.Sql
 
             WriteProperties(statement, ref w);
             w.Write(statement.Query);
+        }
+
+        private void WriteStatement(
+            PooledArrayBuffer writer,
+            SqlStatement statement,
+            ICollection<object?>? args,
+            Transaction? tx = null,
+            bool writeTx = false)
+        {
+            var w = writer.MessageWriter;
+
+            WriteStatement(writer, statement, tx, writeTx);
+
             w.WriteObjectCollectionAsBinaryTuple(args);
             w.Write(_socket.ObservableTimestamp);
         }
