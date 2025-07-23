@@ -389,7 +389,7 @@ namespace Apache.Ignite.Internal.Sql
 
             WriteStatement(writer, statement, tx, writeTx);
 
-            w.WriteObjectCollectionAsBinaryTuple(args);
+            w.WriteObjectCollectionWithCountAsBinaryTuple(args);
             w.Write(_socket.ObservableTimestamp);
         }
     }

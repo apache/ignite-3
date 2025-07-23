@@ -399,7 +399,7 @@ internal readonly ref struct MsgPackWriter
     /// Writes an array of objects with type codes.
     /// </summary>
     /// <param name="col">Array.</param>
-    public void WriteObjectCollectionAsBinaryTuple(ICollection<object?>? col)
+    public void WriteObjectCollectionWithCountAsBinaryTuple(ICollection<object?>? col)
     {
         if (col == null)
         {
@@ -415,6 +415,15 @@ internal readonly ref struct MsgPackWriter
             return;
         }
 
+        WriteObjectCollectionAsBinaryTuple(col);
+    }
+
+    /// <summary>
+    /// Writes an array of objects with type codes.
+    /// </summary>
+    /// <param name="col">Array.</param>
+    public void WriteObjectCollectionAsBinaryTuple(ICollection<object?> col)
+    {
         using var builder = new BinaryTupleBuilder(col.Count * 3);
 
         foreach (var obj in col)
