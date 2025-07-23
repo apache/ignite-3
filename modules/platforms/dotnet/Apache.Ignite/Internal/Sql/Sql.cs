@@ -116,7 +116,7 @@ namespace Apache.Ignite.Internal.Sql
         public async Task<long[]> ExecuteBatchAsync(
             ITransaction? transaction,
             SqlStatement statement,
-            IEnumerable<IEnumerable<object>> args,
+            IEnumerable<IEnumerable<object?>> args,
             CancellationToken cancellationToken = default)
         {
             IgniteArgumentCheck.NotNull(statement);
@@ -306,7 +306,7 @@ namespace Apache.Ignite.Internal.Sql
         private static RowReader<T> GetReaderFactory<T>(IReadOnlyList<IColumnMetadata> cols) =>
             ResultSelector.Get<T>(cols, selectorExpression: null, ResultSelectorOptions.None);
 
-        private static void WriteBatchArgs(PooledArrayBuffer writer, IEnumerable<IEnumerable<object>> args)
+        private static void WriteBatchArgs(PooledArrayBuffer writer, IEnumerable<IEnumerable<object?>> args)
         {
             int rowSize = -1;
             int rowCountPos = -1;
@@ -317,7 +317,7 @@ namespace Apache.Ignite.Internal.Sql
             foreach (var arg in args)
             {
                 IgniteArgumentCheck.NotNull(arg);
-                IEnumerable<object> row = arg;
+                IEnumerable<object?> row = arg;
                 rowCount++;
 
                 if (rowSize < 0)

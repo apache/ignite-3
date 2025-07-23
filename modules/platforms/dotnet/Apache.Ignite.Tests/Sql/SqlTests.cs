@@ -707,6 +707,13 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestExecuteBatchNullArg()
+        {
+            var res = await Client.Sql.ExecuteBatchAsync(null, "DELETE FROM TEST WHERE VAL IS NOT DISTINCT FROM ?", [[null]]);
+            Assert.AreEqual(new[] { 0L }, res);
+        }
+
+        [Test]
         public void TestExecuteBatchMissingArgs()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(
@@ -740,7 +747,7 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestExecuteBatchNullArgs()
+        public void TestExecuteBatchNullArgRow()
         {
             Assert.ThrowsAsync<ArgumentNullException>(
                 async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1], null!, [2]]));
