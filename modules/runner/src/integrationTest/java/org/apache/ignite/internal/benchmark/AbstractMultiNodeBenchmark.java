@@ -260,8 +260,8 @@ public class AbstractMultiNodeBenchmark {
      *
      * @return Array of client addresses.
      */
-    static String[] getServerEndpoints(IgniteClient client) {
-        return IntStream.range(0, client.cluster().nodes().size())
+    static String[] getServerEndpoints(int clusterNodes) {
+        return IntStream.range(0, clusterNodes)
                 .mapToObj(i -> "127.0.0.1:" + (BASE_CLIENT_PORT + i))
                 .toArray(String[]::new);
     }

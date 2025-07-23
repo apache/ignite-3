@@ -88,7 +88,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     private final TransactionOptions readOnlyTransactionOptions = new TransactionOptions().readOnly(true);
 
     @Param({"1", "2", "3"})
-    private int clusterSize;
+    private static int clusterSize;
 
     /**
      * Fills the table with data.
@@ -288,11 +288,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
-
-            String[] clientAddrs = getServerEndpoints(client);
-
-            client.close();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
 
             client = IgniteClient.builder().addresses(clientAddrs).build();
 
@@ -359,11 +355,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
          */
         @Setup
         public void setUp() {
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
-
-            String[] clientAddrs = getServerEndpoints(client);
-
-            client.close();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
 
             client = IgniteClient.builder().addresses(clientAddrs).build();
 

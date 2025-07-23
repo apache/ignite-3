@@ -63,7 +63,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "2", "3"})
-    private int clusterSize;
+    private static int clusterSize;
 
     @Param({"1", "2", "4", "8", "16", "32"})
     private int partitionCount;
@@ -242,11 +242,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createInsertStatement();
 
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
-
-            String[] clientAddrs = getServerEndpoints(client);
-
-            client.close();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
 
             client = IgniteClient.builder().addresses(clientAddrs).build();
 
@@ -366,11 +362,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
                 tuple.set("field" + i, FIELD_VAL);
             }
 
-            client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
-
-            String[] clientAddrs = getServerEndpoints(client);
-
-            client.close();
+            String[] clientAddrs = getServerEndpoints(clusterSize);
 
             client = IgniteClient.builder().addresses(clientAddrs).build();
 
