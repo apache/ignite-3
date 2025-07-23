@@ -328,8 +328,7 @@ namespace Apache.Ignite.Internal.Sql
 
                     w.Write(rowSize);
 
-                    rowCountPos = writer.Position;
-                    writer.Advance(5);
+                    rowCountPos = writer.ReserveMsgPackInt32();
 
                     w.Write(false); // Paged args.
                 }
@@ -346,9 +345,7 @@ namespace Apache.Ignite.Internal.Sql
 
             IgniteArgumentCheck.Ensure(rowCount > 0, nameof(args), "Batch arguments must not be empty.");
 
-            // TODO: Extract for reuse.
-            writer.WriteByte(MsgPackCode.Int32, rowCountPos);
-            writer.WriteIntBigEndian(rowCount, rowCountPos + 1);
+            writer.WriteMsgPackInt32(rowCount, rowCountPos);
         }
 
         private static void WriteStatement(
