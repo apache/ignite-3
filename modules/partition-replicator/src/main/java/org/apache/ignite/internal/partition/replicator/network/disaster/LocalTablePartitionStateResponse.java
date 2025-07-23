@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import java.util.Collection;
+import java.util.Set;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
@@ -27,5 +27,5 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
  */
 @Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE_RESPONSE)
 public interface LocalTablePartitionStateResponse extends NetworkMessage {
-    Collection<LocalTablePartitionStateMessage> states();
+    Set<LocalTablePartitionStateMessage> states();
 }

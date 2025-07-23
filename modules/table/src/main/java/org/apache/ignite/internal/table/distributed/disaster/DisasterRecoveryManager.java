@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.groupingBy;
@@ -49,7 +50,6 @@ import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STAT
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -890,21 +890,19 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param catalogVersion Catalog version.
      * @return Future with the mapping.
      */
-    private CompletableFuture<Map<String, Map<ZonePartitionId, Map<TablePartitionIdMessage, Long>>>> tableStateForZone(
+    private CompletableFuture<Map<String, Map<TablePartitionIdMessage, Long>>> tableStateForZone(
             Map<String, Set<ZonePartitionId>> zonesOnNodes,
             int catalogVersion
     ) {
-        Map<String, Map<ZonePartitionId, Map<TablePartitionIdMessage, Long>>> result = new ConcurrentHashMap<>();
+        Map<String, Map<TablePartitionIdMessage, Long>> result = new ConcurrentHashMap<>();
 
         CompletableFuture<?>[] futures = zonesOnNodes.entrySet().stream()
                 .map(entry ->
                         tableStateForZoneOnNode(catalogVersion, entry.getKey(), entry.getValue())
                                 .thenAccept(response ->
                                         response.states().forEach(state -> {
-                                            ZonePartitionId zonePartitionId = state.zonePartitionId().asZonePartitionId();
-
                                             result.computeIfAbsent(entry.getKey(), k -> new ConcurrentHashMap<>())
-                                                    .put(zonePartitionId, state.partitionIdToEstimatedRowsMap());
+                                                    .putAll(state.tablePartitionIdToEstimatedRowsMap());
                                         })
                                 )
                 ).toArray(CompletableFuture[]::new);
@@ -931,9 +929,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             String node,
             Set<ZonePartitionId> zones
     ) {
-        List<ZonePartitionIdMessage> zoneMessage = zones.stream()
+        Set<ZonePartitionIdMessage> zoneMessage = zones.stream()
                 .map(zonePartitionId -> toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
-                .collect(toList());
+                .collect(toSet());
         LocalTablePartitionStateRequest request = PARTITION_REPLICATION_MESSAGES_FACTORY.localTablePartitionStateRequest()
                 .zonePartitionIds(zoneMessage)
                 .catalogVersion(catalogVersion)
@@ -947,9 +945,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 });
     }
 
-    private Map<TablePartitionId, LocalPartitionStateMessageByNode> zoneStateToTableState(
+    private static Map<TablePartitionId, LocalPartitionStateMessageByNode> zoneStateToTableState(
             Map<ZonePartitionId, LocalPartitionStateMessageByNode> partitionStateMap,
-            Map<String, Map<ZonePartitionId, Map<TablePartitionIdMessage, Long>>> tableState,
+            Map<String, Map<TablePartitionIdMessage, Long>> tableState,
             Catalog catalog
     ) {
         Map<TablePartitionId, LocalPartitionStateMessageByNode> res = new HashMap<>();
@@ -974,10 +972,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 for (Map.Entry<String, LocalPartitionStateMessage> nodeEntry : zoneLocalPartitionStateMessageByNode.entrySet()) {
                     String nodeName = nodeEntry.getKey();
 
-                    Map<TablePartitionIdMessage, Long> tableRows = tableState.getOrDefault(nodeName, Collections.emptyMap())
-                            .getOrDefault(zonePartitionId, Collections.emptyMap());
+                    Long estimatedRows = tableState.getOrDefault(nodeName, emptyMap())
+                            .get(tablePartitionIdMessage);
 
-                    Long estimatedRows = tableRows.get(tablePartitionIdMessage);
                     if (estimatedRows == null) {
                         continue;
                     }
@@ -1218,7 +1215,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 .collect(toSet());
 
         catalogManager.catalogReadyFuture(catalogVersion).thenRunAsync(() -> {
-            List<LocalTablePartitionStateMessage> statesList = new ArrayList<>();
+            Set<LocalTablePartitionStateMessage> statesList = new HashSet<>();
 
             raftManager.forEach((raftNodeId, raftGroupService) -> {
                 if (raftNodeId.groupId() instanceof ZonePartitionId) {
@@ -1293,8 +1290,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
 
         return PARTITION_REPLICATION_MESSAGES_FACTORY.localTablePartitionStateMessage()
-                .zonePartitionId(toZonePartitionIdMessage(REPLICA_MESSAGES_FACTORY, zonePartitionId))
-                .partitionIdToEstimatedRowsMap(estimatedSizeMap(zonePartitionId))
+                .tablePartitionIdToEstimatedRowsMap(estimatedSizeMap(zonePartitionId))
                 .build();
     }
 
