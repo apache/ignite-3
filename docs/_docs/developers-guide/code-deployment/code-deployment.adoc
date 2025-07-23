@@ -40,7 +40,7 @@ public Object execute() throws Exception {
 }
 ----
 
-You can manage deployment units using either link:ignite-cli-tool[CLI] commands or the link:https://www.gridgain.com/sdk/gridgain9/latest/openapi.html#tag/deployment[REST API]. Both methods provide the same functionality for deploying, listing, and undeploying code.
+You can manage deployment units using either link:ignite-cli-tool[CLI] commands or the link:https://ignite.apache.org/releases/3.0.0/openapi.yaml[REST API]. Both methods provide the same functionality for deploying, listing, and undeploying code.
 
 == Deploy New Unit
 
@@ -102,7 +102,7 @@ curl -X POST 'http://localhost:10300/management/v1/deployment/units/unit/1.0.0?i
 
 - You can target nodes using either the `deployMode` or `initialNodes` parameter. These options serve the same purpose as the similar CLI parameters, ensuring the unit propagates as needed.
 
-- For additional details see the corresponding link:https://www.gridgain.com/sdk/gridgain9/latest/openapi.html#tag/deployment[API documentation].
+- For additional details see the corresponding link:https://ignite.apache.org/releases/3.0.0/openapi.yaml[API documentation].
 
 == Getting Unit Information
 
