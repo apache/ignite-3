@@ -273,4 +273,22 @@ class DefaultLogStorageFactoryTest {
                 is(nullValue())
         );
     }
+
+    @Test
+    void groupsScanFindsGroups() {
+        ZonePartitionId groupId1 = new ZonePartitionId(1, 0);
+        ZonePartitionId groupId3 = new ZonePartitionId(3, 2);
+        createAndInitLogStorage(groupId1);
+        createAndInitLogStorage(groupId3);
+
+        Set<String> ids = logStorageFactory.raftNodeStorageIdsOnDisk();
+
+        assertThat(
+                ids,
+                containsInAnyOrder(
+                        new RaftNodeId(groupId1, peer).nodeIdStringForStorage(),
+                        new RaftNodeId(groupId3, peer).nodeIdStringForStorage()
+                )
+        );
+    }
 }
