@@ -18,10 +18,13 @@
 package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -33,16 +36,30 @@ import java.util.Objects;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RawRaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.raft.jraft.core.TestCluster;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Tests that check that failed storage destruction is finished after server restart. */
-public class ItJraftDestructorTest extends JraftAbstractTest {
+class ItJraftServerTest extends JraftAbstractTest {
     private static final int SERVER_INDEX = 0;
+
+    private JraftServerImpl server;
+    private Path serverDataPath;
+
+    private final TestReplicationGroupId testReplicationGroupId = new TestReplicationGroupId("test");
+
+    @BeforeEach
+    void setUp() {
+        server = startServer(SERVER_INDEX);
+        serverDataPath = serverWorkingDirs.get(SERVER_INDEX).metaPath();
+    }
 
     @Test
     void testFinishStorageDestructionAfterRestart() throws Exception {
@@ -61,10 +78,7 @@ public class ItJraftDestructorTest extends JraftAbstractTest {
     }
 
     private void doTestFinishStorageDestructionAfterRestart(boolean isVolatile) throws Exception {
-        JraftServerImpl server = startServer(SERVER_INDEX);
-        Path serverDataPath = serverWorkingDirs.get(SERVER_INDEX).basePath();
-
-        RaftNodeId nodeId = getRaftNodeId(server);
+        RaftNodeId nodeId = testGroupRaftNodeId();
 
         Path nodeDataPath = createServerDataPathForNode(serverDataPath, nodeId);
 
@@ -73,7 +87,7 @@ public class ItJraftDestructorTest extends JraftAbstractTest {
         LogStorageFactory logStorageFactory = logStorageFactories.get(SERVER_INDEX);
         doThrow(LogStorageException.class).doCallRealMethod().when(logStorageFactory).destroyLogStorage(anyString());
 
-        RaftGroupOptions groupOptions = getRaftGroupOptions(isVolatile, logStorageFactory, serverDataPath);
+        RaftGroupOptions groupOptions = getRaftGroupOptions(isVolatile, logStorageFactory);
 
         assertThrows(
                 IgniteInternalException.class,
@@ -93,11 +107,17 @@ public class ItJraftDestructorTest extends JraftAbstractTest {
         assertFalse(Files.exists(nodeDataPath));
     }
 
-    private RaftNodeId getRaftNodeId(JraftServerImpl server) {
-        String localNodeName = server.clusterService().topologyService().localMember().name();
-        Peer peer = Objects.requireNonNull(initialMembersConf.peer(localNodeName));
+    private RaftNodeId testGroupRaftNodeId() {
+        return new RaftNodeId(testReplicationGroupId, localPeer());
+    }
 
-        return new RaftNodeId(new TestReplicationGroupId("test"), peer);
+    private Peer localPeer() {
+        String localNodeName = server.clusterService().topologyService().localMember().name();
+        return localPeer(localNodeName);
+    }
+
+    private Peer localPeer(String localNodeName) {
+        return Objects.requireNonNull(initialMembersConf.peer(localNodeName));
     }
 
     private static Path createServerDataPathForNode(Path serverDataPath, RaftNodeId nodeId) throws IOException {
@@ -108,13 +128,25 @@ public class ItJraftDestructorTest extends JraftAbstractTest {
         return nodeDataPath;
     }
 
-    private static RaftGroupOptions getRaftGroupOptions(boolean isVolatile, LogStorageFactory logStorageFactory, Path serverDataPath) {
+    private RaftGroupOptions getRaftGroupOptions(boolean isVolatile, LogStorageFactory logStorageFactory) {
         RaftGroupOptions groupOptions = isVolatile ? RaftGroupOptions.forVolatileStores() : RaftGroupOptions.forPersistentStores();
-        groupOptions.setLogStorageFactory(logStorageFactory).serverDataPath(serverDataPath);
+        groupOptions.setLogStorageFactory(logStorageFactory);
+        groupOptions.serverDataPath(serverDataPath);
+        groupOptions.commandsMarshaller(TestCluster.commandsMarshaller(server.clusterService()));
         return groupOptions;
     }
 
     private JraftServerImpl startServer(int index) {
         return startServer(index, x -> {}, opts -> {});
+    }
+
+    @Test
+    void listsGroupIdsOnDisk() {
+        RaftNodeId nodeId = testGroupRaftNodeId();
+
+        RaftGroupOptions groupOptions = getRaftGroupOptions(false, logStorageFactories.get(SERVER_INDEX));
+        assertTrue(server.startRaftNode(nodeId, initialMembersConf, mock(RaftGroupListener.class), groupOptions));
+
+        assertThat(server.raftNodeIdsOnDisk(), contains(new RawRaftNodeId(nodeId.groupId().toString(), nodeId.peer().idx())));
     }
 }

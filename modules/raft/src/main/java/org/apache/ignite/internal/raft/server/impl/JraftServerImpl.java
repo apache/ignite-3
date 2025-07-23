@@ -21,10 +21,12 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.thread.ThreadOperation.PROCESS_RAFT_REQ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,6 +49,7 @@ import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
@@ -65,6 +68,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.RawRaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -621,10 +625,44 @@ public class JraftServerImpl implements RaftServer {
             // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
             IgniteUtils.deleteIfExistsThrowable(dataPath);
         } catch (Exception e) {
-            throw new IgniteInternalException("Failed to delete storage for node: " + nodeId, e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Failed to delete storage for node: " + nodeId, e);
         }
 
         groupStoragesDestructionIntents.removeStorageDestructionIntent(nodeId);
+    }
+
+    /**
+     * Returns Raft node IDs for all groups that are present on disk.
+     *
+     * <p>This method should only be called when no Raft nodes are started or being started.
+     */
+    public Set<RawRaftNodeId> raftNodeIdsOnDisk() {
+        Set<String> groupIdsForStorage = new HashSet<>();
+
+        for (LogStorageFactory logStorageFactory : groupStoragesContextResolver.logStorageFactories()) {
+            groupIdsForStorage.addAll(logStorageFactory.raftNodeStorageIdsOnDisk());
+        }
+        groupIdsForStorage.addAll(raftNodeMetaStorageIdsOnDisk());
+
+        return groupIdsForStorage.stream()
+                .map(RaftNodeId::fromNodeIdStringForStorage)
+                .collect(toUnmodifiableSet());
+    }
+
+    private Set<String> raftNodeMetaStorageIdsOnDisk() {
+        return groupStoragesContextResolver.serverDataPaths().stream()
+                .flatMap(JraftServerImpl::listUncheckingly)
+                .filter(Files::isDirectory)
+                .map(groupDirPath -> groupDirPath.getFileName().toString())
+                .collect(toUnmodifiableSet());
+    }
+
+    private static Stream<Path> listUncheckingly(Path dir) {
+        try {
+            return Files.list(dir);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, e);
+        }
     }
 
     @Override
