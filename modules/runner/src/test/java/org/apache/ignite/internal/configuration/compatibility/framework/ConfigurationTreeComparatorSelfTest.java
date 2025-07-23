@@ -218,8 +218,44 @@ public class ConfigurationTreeComparatorSelfTest {
 
         if (hasDefault) {
             assertCompatible(List.of(root1), List.of(root2));
+            assertIncompatible(List.of(root2), List.of(root1));
         } else {
             assertIncompatible(List.of(root1), List.of(root2));
+            assertIncompatible(List.of(root2), List.of(root1));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void addNewRoot(boolean hasDefault) {
+        Set<Flags> fieldFlags = createFlags(hasDefault);
+
+        ConfigNode root1 = createRoot("root1");
+        {
+            root1.addChildNodes(List.of(
+                    createChild("child1"),
+                    createChild("child2")
+            ));
+        }
+
+        ConfigNode root2 = createRoot("root2");
+        {
+            ConfigNode node = createNode("node1", "3");
+            node.addChildNodes(List.of(createChild("f", fieldFlags)));
+
+            root2.addChildNodes(List.of(
+                    createChild("child1"),
+                    createChild("child2"),
+                    node
+            ));
+        }
+
+        if (hasDefault) {
+            assertCompatible(List.of(root1), List.of(root1, root2));
+            assertIncompatible(List.of(root2, root1), List.of(root1));
+        } else {
+            assertIncompatible(List.of(root1), List.of(root1, root2));
+            assertIncompatible(List.of(root2, root1), List.of(root1));
         }
     }
 
@@ -579,7 +615,7 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     private static void assertCompatible(ConfigNode oldConfig, ConfigNode newConfig) {
-        ConfigurationTreeComparator.ensureCompatible(oldConfig, newConfig, new ComparisonContext(List.of()));
+        assertCompatible(List.of(oldConfig), List.of(newConfig));
     }
 
     private static void assertCompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig) {
@@ -591,15 +627,7 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     private static void assertIncompatible(ConfigNode oldConfig, ConfigNode newConfig) {
-        try {
-            ConfigurationTreeComparator.ensureCompatible(oldConfig, newConfig, new ComparisonContext(List.of()));
-        } catch (IllegalStateException e) {
-            // Expected exception
-            System.err.println("Error: " + e.getMessage());
-            return;
-        }
-
-        fail("Compatibility check passed unexpectedly.");
+        assertIncompatible(List.of(oldConfig), List.of(newConfig));
     }
 
     private static void assertIncompatible(List<ConfigNode> oldConfig, List<ConfigNode> newConfig) {
