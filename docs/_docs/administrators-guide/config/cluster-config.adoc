@@ -73,7 +73,7 @@ You can also modify cluster configuration via link:ignite-cli-tool#non-interacti
 +
 [source, shell]
 ----
-bin/gridgain9 cluster config update --file ../gridgain-config.conf
+bin/ignite3 cluster config update --file ../gridgain-config.conf
 ----
 
 The updated configuration will automatically be applied across the cluster.
