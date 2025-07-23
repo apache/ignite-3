@@ -19,6 +19,10 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.lowerBoundFor;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.upperBoundFor;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -527,6 +531,74 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         testCaseList.add(new RelToExecTestCase(relType2, expected2));
 
         return testCaseList.stream().map(RelToExecTestCase::toTest);
+    }
+
+    @Test
+    void testLowerBound() {
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.TINYINT)),
+                is(new BigDecimal("-128"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.SMALLINT)),
+                is(new BigDecimal("-32768"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER)),
+                is(new BigDecimal("-2147483648"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT)),
+                is(new BigDecimal("-9223372036854775808"))
+        );assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.REAL)),
+                is(new BigDecimal("-3.4028234663852886E+38"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE)),
+                is(new BigDecimal("-1.7976931348623157E+308"))
+        );assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 2)),
+                is(new BigDecimal("-99"))
+        );
+        assertThat(
+                lowerBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3, 2)),
+                is(new BigDecimal("-9.99"))
+        );
+    }
+
+    @Test
+    void testUpperBound() {
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.TINYINT)),
+                is(new BigDecimal("127"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.SMALLINT)),
+                is(new BigDecimal("32767"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER)),
+                is(new BigDecimal("2147483647"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT)),
+                is(new BigDecimal("9223372036854775807"))
+        );assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.REAL)),
+                is(new BigDecimal("3.4028234663852886E+38"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DOUBLE)),
+                is(new BigDecimal("1.7976931348623157E+308"))
+        );assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 2)),
+                is(new BigDecimal("99"))
+        );
+        assertThat(
+                upperBoundFor(TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3, 2)),
+                is(new BigDecimal("9.99"))
+        );
     }
 
     private static final class TestCustomType extends IgniteCustomType {

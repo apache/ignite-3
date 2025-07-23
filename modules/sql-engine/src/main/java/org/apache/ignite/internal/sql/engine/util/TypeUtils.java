@@ -144,8 +144,8 @@ public class TypeUtils {
             case SMALLINT: return BigDecimal.valueOf(Short.MIN_VALUE);
             case INTEGER: return BigDecimal.valueOf(Integer.MIN_VALUE);
             case BIGINT: return BigDecimal.valueOf(Long.MIN_VALUE);
-            case REAL: return BigDecimal.valueOf(Float.MIN_VALUE);
-            case DOUBLE: return BigDecimal.valueOf(Double.MIN_VALUE);
+            case REAL: return BigDecimal.valueOf(-Float.MAX_VALUE);
+            case DOUBLE: return BigDecimal.valueOf(-Double.MAX_VALUE);
             case DECIMAL: return (BigDecimal) type.getSqlTypeName()
                     .getLimit(false, Limit.OVERFLOW, false, type.getPrecision(), type.getScale());
             default: return null;
