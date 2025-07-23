@@ -141,7 +141,7 @@ namespace Apache.Ignite.Internal.Sql
                     return Read(buf);
                 }
             }
-            catch (SqlException e)
+            catch (SqlBatchException e)
             {
                 ConvertExceptionAndThrow(e, statement, cancellationToken);
 
@@ -257,7 +257,7 @@ namespace Apache.Ignite.Internal.Sql
             }
         }
 
-        private static void ConvertExceptionAndThrow(SqlException e, SqlStatement statement, CancellationToken token)
+        private static void ConvertExceptionAndThrow(IgniteException e, SqlStatement statement, CancellationToken token)
         {
             switch (e.Code)
             {

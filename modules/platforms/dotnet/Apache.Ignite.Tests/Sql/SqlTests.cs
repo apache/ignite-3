@@ -749,6 +749,7 @@ namespace Apache.Ignite.Tests.Sql
                 "sql-mapped" => Client.Sql.ExecuteAsync<int>(transaction: null, manyRowsQuery, cts.Token),
                 "script" => Client.Sql.ExecuteScriptAsync($"DELETE FROM {TableName} WHERE KEY = ({manyRowsQuery})", cts.Token),
                 "reader" => Client.Sql.ExecuteReaderAsync(transaction: null, manyRowsQuery, cts.Token),
+                "batch" => Client.Sql.ExecuteBatchAsync(null, $"DELETE FROM {TableName} WHERE KEY = ({manyRowsQuery}) + ?", [[1]], cts.Token),
                 _ => throw new ArgumentException("Invalid mode: " + mode)
             };
 
@@ -758,7 +759,15 @@ namespace Apache.Ignite.Tests.Sql
 
             var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await task);
             Assert.AreEqual("The query was cancelled while executing.", ex!.Message);
-            Assert.IsInstanceOf<SqlException>(ex.InnerException);
+
+            if (mode == "batch")
+            {
+                Assert.IsInstanceOf<SqlBatchException>(ex.InnerException);
+            }
+            else
+            {
+                Assert.IsInstanceOf<SqlException>(ex.InnerException);
+            }
 
             Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
