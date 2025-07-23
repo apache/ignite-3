@@ -247,7 +247,7 @@ public class ConfigurationTreeComparator {
 
         private void reportError(String path, String error) {
             String message = format("Node: {}: {}", path, error);
-            throw new IllegalStateException(message);
+            errors.add(message);
         }
 
         private void throwIfNotEmpty() {
@@ -257,7 +257,7 @@ public class ConfigurationTreeComparator {
                     message.append('\t').append(error).append(System.lineSeparator());
                 }
 
-                errors.add(message.toString());
+               throw new IllegalStateException(message.toString());
             }
         }
     }
