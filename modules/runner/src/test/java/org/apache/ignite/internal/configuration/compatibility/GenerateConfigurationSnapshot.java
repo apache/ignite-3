@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.compatibility;
 
+import static org.apache.ignite.internal.configuration.compatibility.ConfigurationCompatibilityTest.DEFAULT_FILE_NAME;
 import static org.apache.ignite.internal.configuration.compatibility.ConfigurationCompatibilityTest.loadCurrentConfiguration;
 
 import java.io.IOException;
@@ -32,9 +33,6 @@ import org.apache.ignite.internal.logger.Loggers;
  * Generates a snapshot for the current configuration.
  */
 public class GenerateConfigurationSnapshot {
-    static final String DEFAULT_FILE_NAME = "snapshot.bin";
-    static final String SNAPSHOTS_RESOURCE_LOCATION = "compatibility/configuration/";
-
     private static final Path DEFAULT_SNAPSHOT_FILE = Path.of("modules", "runner", "build", "work", DEFAULT_FILE_NAME);
 
     private static final IgniteLogger LOG = Loggers.forClass(ConfigurationCompatibilityTest.class);

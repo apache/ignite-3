@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.configuration.compatibility;
 
-import static org.apache.ignite.internal.configuration.compatibility.GenerateConfigurationSnapshot.DEFAULT_FILE_NAME;
-import static org.apache.ignite.internal.configuration.compatibility.GenerateConfigurationSnapshot.SNAPSHOTS_RESOURCE_LOCATION;
 import static org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager.loadSnapshotFromResource;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,6 +55,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for configuration compatibility.
  */
 public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
+    static final String DEFAULT_FILE_NAME = "snapshot.bin";
+    private static final String SNAPSHOTS_RESOURCE_LOCATION = "compatibility/configuration/";
+    
     /**
      * This test ensures that the current configuration can be serialized and deserialized correctly.
      */
