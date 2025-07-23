@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
+import org.apache.ignite.internal.replicator.message.ZonePartitionIdMessage;
 
 /**
- * Response for {@link LocalPartitionStatesRequest}.
+ * Request for reading table states from the node.
  */
-@Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE_RESPONSE)
-public interface LocalPartitionStatesResponse extends NetworkMessage {
-    List<LocalPartitionStateMessage> states();
+@Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE_REQUEST)
+public interface LocalTablePartitionStateRequest extends NetworkMessage {
+    Set<ZonePartitionIdMessage> zonePartitionIds();
+
+    int catalogVersion();
 }
