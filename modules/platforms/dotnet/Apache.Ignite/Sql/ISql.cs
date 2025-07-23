@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Sql
 {
+    using System.Collections.Generic;
     using System.Data.Common;
     using System.Threading;
     using System.Threading.Tasks;
@@ -111,5 +112,16 @@ namespace Apache.Ignite.Sql
         /// <param name="args">Arguments.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         Task ExecuteScriptAsync(SqlStatement script, CancellationToken cancellationToken, params object?[]? args);
+
+        /// <summary>
+        /// Executes a batch of SQL statements and returns the number of affected rows for each statement.
+        /// </summary>
+        /// <param name="transaction">Transaction.</param>
+        /// <param name="statement">Statement object with one or more SQL statements separated by semicolons.</param>
+        /// <param name="args">Batched arguments. One list for each statement in the batch.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The number of affected rows for each statement in the batch.</returns>
+        Task<long[]> ExecuteBatchAsync(
+            ITransaction? transaction, SqlStatement statement, IList<IList<object>> args, CancellationToken cancellationToken = default);
     }
 }
