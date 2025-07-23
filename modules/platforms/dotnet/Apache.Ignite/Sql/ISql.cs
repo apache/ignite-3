@@ -129,7 +129,7 @@ namespace Apache.Ignite.Sql
         /// </summary>
         /// <param name="transaction">Transaction.</param>
         /// <param name="statement">Statement to execute once for every entry in <paramref name="args"/>.</param>
-        /// <param name="args">Batched arguments. The specified statement will be executed once for each entry in this collection.</param>
+        /// <param name="args">Batched arguments. The specified statement will be executed once for each entry in this collection. Cannot be empty or contain empty rows.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>The number of affected rows for each set of arguments. The size of the returned array will match the size of <paramref name="args"/>.</returns>
         Task<long[]> ExecuteBatchAsync(
