@@ -15,39 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster;
+package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import org.apache.ignite.internal.tostring.S;
+import java.util.Set;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
 
 /**
- * Table state.
+ * Response for {@link LocalTablePartitionStateRequest}.
  */
-public class TableState {
-
-    private final int tableId;
-    private final String schemaName;
-    private final String tableName;
-
-    TableState(int tableId, String tableName, String schemaName) {
-        this.tableId = tableId;
-        this.schemaName = schemaName;
-        this.tableName = tableName;
-    }
-
-    public int tableId() {
-        return tableId;
-    }
-
-    public String schemaName() {
-        return schemaName;
-    }
-
-    public String tableName() {
-        return tableName;
-    }
-
-    @Override
-    public String toString() {
-        return S.toString(TableState.class, this);
-    }
+@Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE_RESPONSE)
+public interface LocalTablePartitionStateResponse extends NetworkMessage {
+    Set<LocalTablePartitionStateMessage> states();
 }

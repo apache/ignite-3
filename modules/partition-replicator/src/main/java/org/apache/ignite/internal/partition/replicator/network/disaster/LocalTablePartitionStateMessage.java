@@ -17,15 +17,19 @@
 
 package org.apache.ignite.internal.partition.replicator.network.disaster;
 
-import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup.DisasterRecoveryMessages;
+import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 
 /**
- * Response for {@link LocalPartitionStatesRequest}.
+ * A message for reading estimated number of rows for tables stored on this node.
  */
-@Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE_RESPONSE)
-public interface LocalPartitionStatesResponse extends NetworkMessage {
-    List<LocalPartitionStateMessage> states();
+@Transferable(DisasterRecoveryMessages.LOCAL_TABLE_PARTITION_STATE)
+public interface LocalTablePartitionStateMessage extends NetworkMessage {
+    /**
+     * Returns estimated number of rows for tables stored on this node.
+     */
+    Map<TablePartitionIdMessage, Long> tablePartitionIdToEstimatedRowsMap();
 }
