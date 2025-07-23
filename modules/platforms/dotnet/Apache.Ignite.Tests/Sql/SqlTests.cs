@@ -622,6 +622,31 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public async Task TestExecuteBatchInsertUpdateDelete()
+        {
+            long[] insertRes = await Client.Sql.ExecuteBatchAsync(
+                transaction: null,
+                statement: "INSERT INTO TEST VALUES (?, ?)",
+                args: [[100, "x"], [101, "y"], [102, "z"]]);
+
+            CollectionAssert.AreEqual(new[] { 1L, 1L, 1L }, insertRes);
+
+            long[] updateRes = await Client.Sql.ExecuteBatchAsync(
+                transaction: null,
+                statement: "UPDATE TEST SET VAL = 'updated' WHERE ID >= ? AND ID <= ?",
+                args: [[100, 101], [102, 103]]);
+
+            CollectionAssert.AreEqual(new[] { 2L, 1L }, updateRes);
+
+            long[] deleteRes = await Client.Sql.ExecuteBatchAsync(
+                transaction: null,
+                statement: "DELETE FROM TEST WHERE ID >= ? AND ID <= ?",
+                args: [[100, 102]]);
+
+            CollectionAssert.AreEqual(new[] { 3L }, deleteRes);
+        }
+
+        [Test]
         public async Task TestExecuteBatchArgsCollections()
         {
             var statement = "INSERT INTO TEST VALUES (?, ?)";
