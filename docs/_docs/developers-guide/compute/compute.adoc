@@ -98,7 +98,27 @@ Often, you need to perform a job on one node in the cluster. In this case, there
 tab:Java[]
 [source, java]
 ----
-include::includes/examples/compute/ComputeExample.java[tags=compute-execute;!comment,indent=0]
+try (IgniteClient client = IgniteClient.builder()
+        .addresses("127.0.0.1:10800")
+        .build()
+) {
+
+    System.out.println("\nConfiguring compute job...");
+
+    JobDescriptor<String, Void> job = JobDescriptor.builder(WordPrintJob.class)
+            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+            .build();
+
+    JobTarget jobTarget = JobTarget.anyNode(client.clusterNodes());
+
+
+    for (String word : "Print words using runnable".split(" ")) {
+
+        System.out.println("\nExecuting compute job for word '" + word + "'...");
+
+        client.compute().execute(jobTarget, job, word);
+    }
+}
 ----
 
 
@@ -150,7 +170,27 @@ You can control what nodes the task is executed on by setting the list of nodes:
 tab:Java[]
 [source, java]
 ----
-include::includes/examples/compute/ComputeBroadcastExample.java[tags=broadcast-execute;!comment,indent=0]
+try (IgniteClient client = IgniteClient.builder()
+        .addresses("127.0.0.1:10800")
+        .build()
+) {
+
+    System.out.println("\nConfiguring compute job...");
+
+
+    JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
+            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+            .build();
+
+    BroadcastJobTarget target = BroadcastJobTarget.nodes(client.clusterNodes());
+
+
+    System.out.println("\nExecuting compute job...");
+
+    client.compute().execute(target, job, "John");
+
+    System.out.println("\nCompute job executed...");
+}
 ----
 
 
@@ -204,7 +244,27 @@ In the example below, the job runs on the node storing data for the `Person` tab
 tab:Java[]
 [source, java]
 ----
-include::includes/examples/compute/ComputeColocatedExample.java[tags=colocated-execute;!comment,indent=0]
+try (IgniteClient client = IgniteClient.builder()
+        .addresses("127.0.0.1:10800")
+        .build()
+) {
+
+    System.out.println("\nConfiguring compute job...");
+
+
+    JobDescriptor<String, Void> job = JobDescriptor.builder(HelloMessageJob.class)
+            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+            .build();
+
+    BroadcastJobTarget target = BroadcastJobTarget.nodes(client.clusterNodes());
+
+
+    System.out.println("\nExecuting compute job...");
+
+    client.compute().execute(target, job, "John");
+
+    System.out.println("\nCompute job executed...");
+}
 ----
 
 tab:.NET[]
@@ -727,7 +787,41 @@ All MapReduce jobs must be submitted to a node that has an appropriate class lin
 tab:Java[]
 [source, java]
 ----
-include::includes/examples/compute/ComputeMapReduceExample.java[tags=mapreduce-job;!comment,indent=0]
+public static class PhraseWordLengthCountMapReduceTask implements MapReduceTask<String, String, Integer, Integer> {
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<List<MapReduceJob<String, Integer>>> splitAsync(
+            TaskExecutionContext taskContext,
+            String input) {
+        assert input != null;
+
+        var job = JobDescriptor.builder(WordLengthJob.class)
+                .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+                .build();
+
+        List<MapReduceJob<String, Integer>> jobs = new ArrayList<>();
+
+        for (String word : input.split(" ")) {
+            jobs.add(
+                    MapReduceJob.<String, Integer>builder()
+                            .jobDescriptor(job)
+                            .nodes(taskContext.ignite().clusterNodes())
+                            .args(word)
+                            .build()
+            );
+        }
+
+        return completedFuture(jobs);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Integer> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Integer> results) {
+        return completedFuture(results.values().stream()
+                .reduce(Integer::sum)
+                .orElseThrow());
+    }
+}
 ----
 --
 
@@ -747,7 +841,25 @@ The node that the MapReduce task is sent to must have a class implementing the `
 tab:Java[]
 [source, java]
 ----
-include::includes/examples/compute/ComputeMapReduceExample.java[tags=mapreduce-execute;!comment,indent=0]
+try (IgniteClient client = IgniteClient.builder().addresses("127.0.0.1:10800").build()) {
+
+    System.out.println("\nConfiguring map reduce task...");
+
+
+    TaskDescriptor<String, Integer> taskDescriptor = TaskDescriptor.builder(PhraseWordLengthCountMapReduceTask.class)
+            .units(new DeploymentUnit(DEPLOYMENT_UNIT_NAME, DEPLOYMENT_UNIT_VERSION))
+            .build();
+
+
+    System.out.println("\nExecuting map reduce task...");
+
+    String phrase = "Count characters using map reduce";
+
+    Integer result = client.compute().executeMapReduce(taskDescriptor, phrase);
+
+
+    System.out.println("\nTotal number of characters in the words is '" + result + "'.");
+}
 ----
 
 tab:.NET[]
