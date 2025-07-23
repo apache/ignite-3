@@ -116,6 +116,7 @@ public enum PlannerPhase {
             FilterScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
             FilterScanMergeRule.SYSTEM_VIEW_SCAN_SKIP_CORRELATED,
 
+            CoreRules.FILTER_REDUCE_EXPRESSIONS,
             CoreRules.FILTER_MERGE,
             CoreRules.FILTER_AGGREGATE_TRANSPOSE,
             CoreRules.FILTER_SET_OP_TRANSPOSE,

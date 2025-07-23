@@ -50,7 +50,7 @@ Sort
                         est: (rows=18262)
                       TableScan
                           table: PUBLIC.DATE_DIM
-                          predicate: AND(>=(D_DATE, 2000-08-16), <=(D_DATE, +(2000-08-16, *(30, 86400000:INTERVAL DAY))))
+                          predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
                           fieldNames: [D_DATE_SK, D_DATE]
                           est: (rows=18262)
                   Exchange
@@ -89,7 +89,7 @@ Sort
                         est: (rows=18262)
                       TableScan
                           table: PUBLIC.DATE_DIM
-                          predicate: AND(>=(D_DATE, 2000-08-16), <=(D_DATE, +(2000-08-16, *(30, 86400000:INTERVAL DAY))))
+                          predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
                           fieldNames: [D_DATE_SK, D_DATE]
                           est: (rows=18262)
                   Exchange
@@ -132,7 +132,7 @@ Sort
                     est: (rows=18262)
                   TableScan
                       table: PUBLIC.DATE_DIM
-                      predicate: AND(>=(D_DATE, 2000-08-16), <=(D_DATE, +(2000-08-16, *(30, 86400000:INTERVAL DAY))))
+                      predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
                       fieldNames: [D_DATE_SK, D_DATE]
                       est: (rows=18262)
           ColocatedHashAggregate
@@ -160,7 +160,7 @@ Sort
                     est: (rows=18262)
                   TableScan
                       table: PUBLIC.DATE_DIM
-                      predicate: AND(>=(D_DATE, 2000-08-16), <=(D_DATE, +(2000-08-16, *(30, 86400000:INTERVAL DAY))))
+                      predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
                       fieldNames: [D_DATE_SK, D_DATE]
                       est: (rows=18262)
       Project
@@ -204,7 +204,7 @@ Sort
                         est: (rows=18262)
                       TableScan
                           table: PUBLIC.DATE_DIM
-                          predicate: AND(>=(D_DATE, 2000-08-16), <=(D_DATE, +(2000-08-16, *(30, 86400000:INTERVAL DAY))))
+                          predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
                           fieldNames: [D_DATE_SK, D_DATE]
                           est: (rows=18262)
                   Exchange
@@ -243,7 +243,7 @@ Sort
                         est: (rows=18262)
                       TableScan
                           table: PUBLIC.DATE_DIM
-                          predicate: AND(>=(D_DATE, 2000-08-16), <=(D_DATE, +(2000-08-16, *(30, 86400000:INTERVAL DAY))))
+                          predicate: SEARCH(D_DATE, Sarg[[2000-08-16..2000-09-15]])
                           fieldNames: [D_DATE_SK, D_DATE]
                           est: (rows=18262)
                   Exchange

@@ -56,7 +56,7 @@ Sort
                     est: (rows=16650)
                   TableScan
                       table: PUBLIC.CUSTOMER_ADDRESS
-                      predicate: =(CAST(CA_GMT_OFFSET):DECIMAL(12, 2), -7.00)
+                      predicate: =(CA_GMT_OFFSET, -7.00)
                       fieldNames: [CA_ADDRESS_SK, CA_GMT_OFFSET]
                       est: (rows=16650)
                 HashJoin

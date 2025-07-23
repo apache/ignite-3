@@ -54,6 +54,7 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeName.Limit;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.SchemaAwareConverter;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -106,6 +107,50 @@ public class TypeUtils {
             SqlTypeName.INTERVAL_YEAR,
             SqlTypeName.INTERVAL_YEAR_MONTH
     );
+
+    /**
+     * Returns the upper bound value for the given SQL type as a {@link BigDecimal}, if applicable.
+     *
+     * <p>If the type is not a numeric type, this method returns {@code null}.</p>
+     *
+     * @param type The {@link RelDataType} representing the SQL type
+     * @return A {@link BigDecimal} representing the maximum value for the given type, or {@code null} if the type is not a numeric.
+     */
+    public static @Nullable BigDecimal upperBoundFor(RelDataType type) {
+        switch (type.getSqlTypeName()) {
+            case TINYINT: return BigDecimal.valueOf(Byte.MAX_VALUE);
+            case SMALLINT: return BigDecimal.valueOf(Short.MAX_VALUE);
+            case INTEGER: return BigDecimal.valueOf(Integer.MAX_VALUE);
+            case BIGINT: return BigDecimal.valueOf(Long.MAX_VALUE);
+            case REAL: return BigDecimal.valueOf(Float.MAX_VALUE);
+            case DOUBLE: return BigDecimal.valueOf(Double.MAX_VALUE);
+            case DECIMAL: return (BigDecimal) type.getSqlTypeName()
+                    .getLimit(true, Limit.OVERFLOW, false, type.getPrecision(), type.getScale());
+            default: return null;
+        }
+    }
+
+    /**
+     * Returns the lower bound value for the given SQL type as a {@link BigDecimal}, if applicable.
+     *
+     * <p>If the type is not a numeric type, this method returns {@code null}.</p>
+     *
+     * @param type The {@link RelDataType} representing the SQL type
+     * @return A {@link BigDecimal} representing the minimum value for the given type, or {@code null} if the type is not a numeric.
+     */
+    public static @Nullable BigDecimal lowerBoundFor(RelDataType type) {
+        switch (type.getSqlTypeName()) {
+            case TINYINT: return BigDecimal.valueOf(Byte.MIN_VALUE);
+            case SMALLINT: return BigDecimal.valueOf(Short.MIN_VALUE);
+            case INTEGER: return BigDecimal.valueOf(Integer.MIN_VALUE);
+            case BIGINT: return BigDecimal.valueOf(Long.MIN_VALUE);
+            case REAL: return BigDecimal.valueOf(-Float.MAX_VALUE);
+            case DOUBLE: return BigDecimal.valueOf(-Double.MAX_VALUE);
+            case DECIMAL: return (BigDecimal) type.getSqlTypeName()
+                    .getLimit(false, Limit.OVERFLOW, false, type.getPrecision(), type.getScale());
+            default: return null;
+        }
+    }
 
     private static class SupportedParamClassesHolder {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17373
