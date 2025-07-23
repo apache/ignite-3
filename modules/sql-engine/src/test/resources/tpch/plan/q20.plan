@@ -90,7 +90,7 @@ Project
                           table: PUBLIC.LINEITEM
                           index: L_SK_PK
                           type: SORTED
-                          predicate: AND(=(L_PARTKEY, $cor2.PS_PARTKEY), =(L_SUPPKEY, $cor2.PS_SUPPKEY), >=(L_SHIPDATE, 1994-01-01), <(L_SHIPDATE, +(1994-01-01, 12:INTERVAL YEAR)))
+                          predicate: AND(=(L_PARTKEY, $cor2.PS_PARTKEY), =(L_SUPPKEY, $cor2.PS_SUPPKEY), SEARCH(L_SHIPDATE, Sarg[[1994-01-01..1995-01-01)]))
                           searchBounds: [ExactBounds [bound=$cor2.PS_SUPPKEY], ExactBounds [bound=$cor2.PS_PARTKEY]]
                           fieldNames: [L_QUANTITY]
                           collation: []

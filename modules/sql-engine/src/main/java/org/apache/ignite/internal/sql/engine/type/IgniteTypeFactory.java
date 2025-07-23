@@ -57,6 +57,7 @@ import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
@@ -562,7 +563,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 continue;
             }
 
-            if (t.getSqlTypeName() != SqlTypeName.TIMESTAMP && t.getSqlTypeName() != SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+            if (!TypeUtils.isTimestamp(t.getSqlTypeName())) {
                 return null;
             }
 

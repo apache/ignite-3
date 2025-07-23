@@ -445,7 +445,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .sql("SELECT NULLIF(CAST(? AS INTEGER), 1)", Unspecified.UNKNOWN)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("CASE(=(CAST(?0):INTEGER, 1), null:INTEGER, CAST(?0):INTEGER)")
+                        .project("CASE(=(?0, 1), null:INTEGER, CAST(?0):INTEGER)")
         );
     }
 

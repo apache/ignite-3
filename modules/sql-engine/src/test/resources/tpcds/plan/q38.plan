@@ -37,7 +37,7 @@ Limit
                   est: (rows=18262)
                 TableScan
                     table: PUBLIC.DATE_DIM
-                    predicate: AND(>=(D_MONTH_SEQ, 1186), <=(D_MONTH_SEQ, +(1186, 11)))
+                    predicate: SEARCH(D_MONTH_SEQ, Sarg[[1186..1197]])
                     fieldNames: [D_DATE_SK, D_DATE, D_MONTH_SEQ]
                     est: (rows=18262)
             Exchange
@@ -75,7 +75,7 @@ Limit
                   est: (rows=18262)
                 TableScan
                     table: PUBLIC.DATE_DIM
-                    predicate: AND(>=(D_MONTH_SEQ, 1186), <=(D_MONTH_SEQ, +(1186, 11)))
+                    predicate: SEARCH(D_MONTH_SEQ, Sarg[[1186..1197]])
                     fieldNames: [D_DATE_SK, D_DATE, D_MONTH_SEQ]
                     est: (rows=18262)
             Exchange
@@ -113,7 +113,7 @@ Limit
                   est: (rows=18262)
                 TableScan
                     table: PUBLIC.DATE_DIM
-                    predicate: AND(>=(D_MONTH_SEQ, 1186), <=(D_MONTH_SEQ, +(1186, 11)))
+                    predicate: SEARCH(D_MONTH_SEQ, Sarg[[1186..1197]])
                     fieldNames: [D_DATE_SK, D_DATE, D_MONTH_SEQ]
                     est: (rows=18262)
             Exchange

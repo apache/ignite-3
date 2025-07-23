@@ -70,4 +70,9 @@ public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
             return loadFromResource(queryFile);
         }
     }
+
+    @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
+    static void updateQueryPlan(String queryId, String newPlan) {
+        TpcdsQueryPlannerTest.updateQueryPlan(queryId, newPlan);
+    }
 }

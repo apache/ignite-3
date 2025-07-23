@@ -103,7 +103,7 @@ Sort
                                   est: (rows=959175)
                             TableScan
                                 table: PUBLIC.DATE_DIM
-                                predicate: AND(=(D_YEAR, 2000), >=(D_MOY, 3), <=(D_MOY, +(3, 3)))
+                                predicate: AND(=(D_YEAR, 2000), SEARCH(D_MOY, Sarg[[3..6]]))
                                 fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
                                 est: (rows=6081)
               ReduceHashAggregate
@@ -137,7 +137,7 @@ Sort
                               est: (rows=239555)
                         TableScan
                             table: PUBLIC.DATE_DIM
-                            predicate: AND(=(D_YEAR, 2000), >=(D_MOY, 3), <=(D_MOY, +(3, 3)))
+                            predicate: AND(=(D_YEAR, 2000), SEARCH(D_MOY, Sarg[[3..6]]))
                             fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
                             est: (rows=6081)
             ReduceHashAggregate
@@ -171,6 +171,6 @@ Sort
                             est: (rows=480035)
                       TableScan
                           table: PUBLIC.DATE_DIM
-                          predicate: AND(=(D_YEAR, 2000), >=(D_MOY, 3), <=(D_MOY, +(3, 3)))
+                          predicate: AND(=(D_YEAR, 2000), SEARCH(D_MOY, Sarg[[3..6]]))
                           fieldNames: [D_DATE_SK, D_YEAR, D_MOY]
                           est: (rows=6081)
