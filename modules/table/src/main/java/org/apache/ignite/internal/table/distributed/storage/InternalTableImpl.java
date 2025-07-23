@@ -796,7 +796,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Evaluates the single-row request to the cluster for a read-only single-partition transaction.
+     * Evaluates the single-row request to the cluster for a read-only single-partition implicit transaction.
      *
      * @param tx Transaction or {@code null} if it is not started yet.
      * @param row Binary row.
@@ -819,20 +819,18 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Evaluates the multi-row request to the cluster for a read-only single-partition transaction.
+     * Evaluates the multi-row request to the cluster for a read-only single-partition implicit transaction.
      *
-     * @param tx Transaction or {@code null} if it is not started yet.
      * @param rows Rows.
      * @param op Replica requests factory.
      * @param <R> Result type.
      * @return The future.
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
-            @Nullable InternalTransaction tx,
             Collection<BinaryRowEx> rows,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction actualTx = startImplicitRoTxIfNeeded(tx);
+        InternalTransaction actualTx = txManager.beginImplicitRo(observableTimestampTracker);
 
         int partId = partitionId(rows.iterator().next());
 
@@ -1015,9 +1013,8 @@ public class InternalTableImpl implements InternalTable {
             return emptyListCompletedFuture();
         }
 
-        if (isDirectFlowApplicableTx(tx) && isSinglePartitionBatch(keyRows)) {
+        if (tx == null && isSinglePartitionBatch(keyRows)) {
             return evaluateReadOnlyPrimaryNode(
-                    tx,
                     keyRows,
                     (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
                             .groupId(serializeReplicationGroupId(groupId))
@@ -1031,6 +1028,8 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx != null && tx.isReadOnly()) {
+            assert !tx.implicit() : "implicit RO getAll not supported";
+
             BinaryRowEx firstRow = keyRows.iterator().next();
 
             return evaluateReadOnlyRecipientNode(partitionId(firstRow), tx.readTimestamp())

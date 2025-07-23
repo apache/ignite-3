@@ -40,12 +40,14 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -116,7 +118,9 @@ import org.apache.ignite.internal.tx.views.LocksViewProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -236,6 +240,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private final MetricManager metricsManager;
 
     private final TransactionMetricsSource txMetrics;
+
+    private volatile boolean isStopping;
+
+    private final ConcurrentLinkedQueue<CompletableFuture<?>> stopFuts = new ConcurrentLinkedQueue<>();
 
     /**
      * Test-only constructor.
@@ -442,28 +450,24 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean readOnly,
             InternalTxOptions options
     ) {
-        return beginBusy(timestampTracker, implicit, readOnly, options);
-    }
-
-    private InternalTransaction beginBusy(
-            HybridTimestampTracker timestampTracker,
-            boolean implicit,
-            boolean readOnly,
-            InternalTxOptions options
-    ) {
         InternalTransaction tx;
 
         if (readOnly) {
             if (implicit) {
-                // TODO SQL not using implicit RO
-                tx = new ReadOnlyTransactionImpl(this, timestampTracker, null, localNodeId, true, 0, null, null);
+                tx = new ReadOnlyImplicitTransactionImpl(timestampTracker);
             } else {
                 HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
                 tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, options);
             }
         } else {
             HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
-            tx = beginReadWriteTransaction(timestampTracker, beginTimestamp, implicit, options);
+            ReadWriteTransactionImpl tx0 = beginReadWriteTransaction(timestampTracker, beginTimestamp, implicit, options);
+
+            if (isStopping) {
+                tx0.fail(new TransactionException(Common.NODE_STOPPING_ERR, "Failed to finish the transaction because a node is stopping"));
+            }
+
+            tx = tx0;
         }
 
         txStateVolatileStorage.initialize(tx);
@@ -493,14 +497,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 nodeProperties.colocationEnabled()
         );
 
-        // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
-        // no need to register them.
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-24229 - schedule expiration for multi-key implicit transactions?
-        boolean scheduleExpiration = !implicit;
-
-        if (scheduleExpiration) {
-            transactionExpirationRegistry.register(transaction);
-        }
+        transactionExpirationRegistry.register(transaction);
 
         return transaction;
     }
@@ -530,7 +527,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         if (!lockAcquired) {
             throw new IgniteInternalException(
                     TX_READ_ONLY_TOO_OLD_ERR,
-                    "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
+                    "Attempted to read data below the garbage collection watermark: [readTimestamp={}, gcTimestamp={}]",
                     readTimestamp,
                     lowWatermark.getLowWatermark());
         }
@@ -764,6 +761,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 .thenCompose(r -> verificationFuture);
     }
 
+    private <T> CompletableFuture<T> trackFuture(CompletableFuture<T> fut) {
+        if (fut.isDone()) {
+            return fut;
+        }
+
+        if (isStopping) {
+            // Track finish future.
+            stopFuts.add(fut);
+        }
+
+        return fut;
+    }
+
     /**
      * Durable finish request.
      */
@@ -776,7 +786,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             HybridTimestamp commitTimestamp,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
-        return placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartition)
+        return trackFuture(placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartition)
                 .thenCompose(meta ->
                         sendFinishRequest(
                                 observableTimestampTracker,
@@ -838,7 +848,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
                     return CompletableFutures.<Void>nullCompletedFuture();
                 })
-                .thenCompose(identity());
+                .thenCompose(identity()));
     }
 
     private CompletableFuture<Void> sendFinishRequest(
@@ -1033,6 +1043,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public void beforeNodeStop() {
+        isStopping = true;
         orphanDetector.stop();
     }
 
@@ -1042,24 +1053,39 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             return nullCompletedFuture();
         }
 
-        txStateVolatileStorage.stop();
+        // Wait all pending finish futures.
+        List<CompletableFuture<?>> toWait = new ArrayList<>();
 
-        txCleanupRequestHandler.stop();
-
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
-
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
-
-        ScheduledFuture<?> expirationJobFuture = transactionExpirationJobFuture;
-        if (expirationJobFuture != null) {
-            expirationJobFuture.cancel(false);
+        for (CompletableFuture<?> stopFut : stopFuts) {
+            if (!stopFut.isDone()) {
+                toWait.add(stopFut);
+            }
         }
 
-        transactionExpirationRegistry.abortAllRegistered();
+        stopFuts.clear();
 
-        shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
+        LOG.debug("Waiting for tx finish futures on shutdown [cnt=" + toWait.size() + ']');
 
-        return nullCompletedFuture();
+        return CompletableFutures.allOf(toWait).handle((r, e) -> {
+            txStateVolatileStorage.stop();
+
+            txCleanupRequestHandler.stop();
+
+            placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
+
+            placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
+
+            ScheduledFuture<?> expirationJobFuture = transactionExpirationJobFuture;
+            if (expirationJobFuture != null) {
+                expirationJobFuture.cancel(false);
+            }
+
+            transactionExpirationRegistry.abortAllRegistered();
+
+            shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
+
+            return null;
+        });
     }
 
     @Override
