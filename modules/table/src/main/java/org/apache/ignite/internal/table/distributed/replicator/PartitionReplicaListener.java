@@ -891,27 +891,37 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                         )
                 ).cursor();
 
-        var resolutionFuts = new ArrayList<CompletableFuture<TimedBinaryRow>>(count);
+        var rows = new ArrayList<BinaryRow>(count);
 
-        while (resolutionFuts.size() < count && cursor.hasNext()) {
+        var resolutionFuts = new ArrayList<CompletableFuture<TimedBinaryRow>>();
+
+        while ((rows.size() + resolutionFuts.size()) < count && cursor.hasNext()) {
             ReadResult readResult = cursor.next();
-            HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
 
-            TimedBinaryRow candidate;
-            if (newestCommitTimestamp == null || !readResult.isWriteIntent()) {
-                candidate = null;
+            BinaryRow row = readResult.binaryRow();
+            UUID retrievedResultTxId = readResult.transactionId();
+
+            if (!readResult.isWriteIntent() || (readTimestamp == null && txId.equals(retrievedResultTxId))) {
+                if (row != null) {
+                    rows.add(row);
+                }
             } else {
-                BinaryRow committedRow = cursor.committed(newestCommitTimestamp);
+                HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
 
-                candidate = committedRow == null ? null : new TimedBinaryRow(committedRow, newestCommitTimestamp);
+                TimedBinaryRow candidate;
+                if (newestCommitTimestamp == null) {
+                    candidate = null;
+                } else {
+                    BinaryRow committedRow = cursor.committed(newestCommitTimestamp);
+
+                    candidate = committedRow == null ? null : new TimedBinaryRow(committedRow, newestCommitTimestamp);
+                }
+
+                resolutionFuts.add(resolveWriteIntentAsync(readResult, readTimestamp, () -> candidate));
             }
-
-            resolutionFuts.add(resolveReadResult(readResult, txId, readTimestamp, () -> candidate));
         }
 
-        return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenCompose(unused -> {
-            var rows = new ArrayList<BinaryRow>(count);
-
+        return allOf(resolutionFuts.toArray(CompletableFuture[]::new)).thenCompose(unused -> {
             for (CompletableFuture<TimedBinaryRow> resolutionFut : resolutionFuts) {
                 TimedBinaryRow resolvedReadResult = resolutionFut.join();
 
@@ -1469,15 +1479,17 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         ReadResult readResult = mvDataStorage.read(rowId, timestamp == null ? HybridTimestamp.MAX_VALUE : timestamp);
 
         return resolveReadResult(readResult, txId, timestamp, () -> {
-            if (readResult.newestCommitTimestamp() == null) {
+            HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+
+            if (newestCommitTimestamp == null) {
                 return null;
             }
 
-            ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+            ReadResult committedReadResult = mvDataStorage.read(rowId, newestCommitTimestamp);
 
             assert !committedReadResult.isWriteIntent() :
                     "The result is not committed [rowId=" + rowId + ", timestamp="
-                            + readResult.newestCommitTimestamp() + ']';
+                            + newestCommitTimestamp + ']';
 
             return new TimedBinaryRow(committedReadResult.binaryRow(), committedReadResult.commitTimestamp());
         });
@@ -3225,9 +3237,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             @Nullable HybridTimestamp timestamp,
             Supplier<@Nullable TimedBinaryRow> lastCommitted
     ) {
-        if (readResult == null) {
-            return nullCompletedFuture();
-        } else if (!readResult.isWriteIntent()) {
+        if (!readResult.isWriteIntent()) {
             return completedFuture(new TimedBinaryRow(readResult.binaryRow(), readResult.commitTimestamp()));
         } else {
             // RW write intent resolution.
