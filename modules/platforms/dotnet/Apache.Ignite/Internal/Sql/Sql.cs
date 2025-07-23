@@ -344,11 +344,7 @@ namespace Apache.Ignite.Internal.Sql
                 w.WriteObjectCollectionAsBinaryTuple(argCol!);
             }
 
-            if (rowCount == 0)
-            {
-                w.WriteNil();
-                return;
-            }
+            IgniteArgumentCheck.Ensure(rowCount > 0, nameof(args), "Batch arguments must not be empty.");
 
             // TODO: Extract for reuse.
             writer.WriteByte(MsgPackCode.Int32, rowCountPos);

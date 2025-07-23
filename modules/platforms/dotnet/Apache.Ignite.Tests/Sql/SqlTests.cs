@@ -599,18 +599,19 @@ namespace Apache.Ignite.Tests.Sql
             long[] res = await Client.Sql.ExecuteBatchAsync(
                 transaction: null,
                 statement: "INSERT INTO TEST VALUES (?, ?)",
-                args: [[100, "x"], [100, "y"], [101, "z"]]);
+                args: [[100, "x"], [101, "y"], [102, "z"]]);
 
-            CollectionAssert.AreEqual(new[] { 1L, 0L, 1L }, res);
+            CollectionAssert.AreEqual(new[] { 1L, 1L, 1L }, res);
 
             await using var resultSet = await Client.Sql.ExecuteAsync(
-                null, "SELECT ID, VAL FROM TEST WHERE ID >= 100 AND ID <= 101 ORDER BY ID");
+                null, "SELECT ID, VAL FROM TEST WHERE ID >= 100 AND ID <= 102 ORDER BY ID");
 
             List<IIgniteTuple> rows = await resultSet.ToListAsync();
-            Assert.AreEqual(2, rows.Count);
+            Assert.AreEqual(3, rows.Count);
 
             Assert.AreEqual("IgniteTuple { ID = 100, VAL = x }", rows[0].ToString());
-            Assert.AreEqual("IgniteTuple { ID = 101, VAL = z }", rows[1].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 101, VAL = y }", rows[1].ToString());
+            Assert.AreEqual("IgniteTuple { ID = 102, VAL = z }", rows[2].ToString());
         }
 
         [Test]
