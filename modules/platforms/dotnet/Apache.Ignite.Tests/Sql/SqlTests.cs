@@ -633,8 +633,8 @@ namespace Apache.Ignite.Tests.Sql
 
             long[] updateRes = await Client.Sql.ExecuteBatchAsync(
                 transaction: null,
-                statement: "UPDATE TEST SET VAL = 'updated' WHERE ID >= ? AND ID <= ?",
-                args: [[100, 101], [102, 103]]);
+                statement: "UPDATE TEST SET VAL = ? WHERE ID >= ? AND ID <= ?",
+                args: [["update1", 100, 101], ["update2", 102, 103]]);
 
             CollectionAssert.AreEqual(new[] { 2L, 1L }, updateRes);
 
