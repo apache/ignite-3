@@ -688,7 +688,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<ArgumentException>(
                 async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1], [2, 3]]));
 
-            Assert.AreEqual("Inconsistent batch argument size: expected 1, got 2.", ex.Message);
+            Assert.AreEqual("Inconsistent batch argument size: Expected 1 objects, but got more.", ex.Message);
         }
 
         [Test]

@@ -335,7 +335,7 @@ namespace Apache.Ignite.Internal.Sql
                     w.Write(false); // Paged args.
                 }
 
-                w.WriteObjectEnumerableAsBinaryTuple(row, expectedCount: rowCount);
+                w.WriteObjectEnumerableAsBinaryTuple(row, expectedCount: rowSize, errorPrefix: "Inconsistent batch argument size: ");
             }
 
             IgniteArgumentCheck.Ensure(rowCount > 0, nameof(args), "Batch arguments must not be empty.");

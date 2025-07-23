@@ -423,20 +423,27 @@ internal readonly ref struct MsgPackWriter
     /// </summary>
     /// <param name="col">Objects.</param>
     /// <param name="expectedCount">Count.</param>
-    public void WriteObjectEnumerableAsBinaryTuple(IEnumerable<object?> col, int expectedCount)
+    /// <param name="errorPrefix">Error prefix.</param>
+    public void WriteObjectEnumerableAsBinaryTuple(IEnumerable<object?> col, int expectedCount, string? errorPrefix = null)
     {
         using var builder = new BinaryTupleBuilder(expectedCount * 3);
         int actualCount = 0;
 
         foreach (var obj in col)
         {
-            builder.AppendObjectWithType(obj);
             actualCount++;
+
+            if (actualCount > expectedCount)
+            {
+                throw new ArgumentException($"{errorPrefix}Expected {expectedCount} objects, but got more.");
+            }
+
+            builder.AppendObjectWithType(obj);
         }
 
         if (actualCount != expectedCount)
         {
-            throw new ArgumentException($"Expected {expectedCount} objects, but got {actualCount}.");
+            throw new ArgumentException($"{errorPrefix}Expected {expectedCount} objects, but got {actualCount}.");
         }
 
         Write(builder.Build().Span);
