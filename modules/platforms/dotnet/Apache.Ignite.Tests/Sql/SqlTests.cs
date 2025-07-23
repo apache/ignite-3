@@ -648,21 +648,29 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestExecuteBatchWithTx()
         {
-            await Client.Sql.ExecuteBatchAsync(null, "select CURRENT_TIMESTAMP", []);
+            await Client.Sql.ExecuteBatchAsync(null, "select 1", []);
         }
 
         [Test]
-        public async Task TestExecuteBatchMissingArgs()
+        public void TestExecuteBatchMissingArgs()
         {
-            // TODO: no args, different arg count per row
-            await Client.Sql.ExecuteBatchAsync(null, "select CURRENT_TIMESTAMP", []);
+            var ex = Assert.ThrowsAsync<ArgumentException>(
+                async () => await Client.Sql.ExecuteBatchAsync(null, "select 1", []));
+
+            StringAssert.Contains("Batch arguments must not be empty.", ex.Message);
+        }
+
+        [Test]
+        public async Task TestExecuteBatchMismatchingArgs()
+        {
+            await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1], [2, 3]]);
         }
 
         [Test]
         public async Task TestExecuteBatchInvalidStatement()
         {
             // TODO: select or DDL
-            await Client.Sql.ExecuteBatchAsync(null, "select CURRENT_TIMESTAMP", []);
+            await Client.Sql.ExecuteBatchAsync(null, "select 1", [[1]]);
         }
 
         [Test]
