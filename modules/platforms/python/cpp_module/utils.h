@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <common_types.h>
+#include <ignite_error.h>
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_time.h>
@@ -42,23 +42,11 @@ class diagnosable;
 }
 
 /**
- * Check an ODBC object for errors, and set a proper Python exception, if there are.
+ * Convert Ignite Error to DB API Error.
  *
- * @param ret Return code of the previous operation.
- * @param diag Diagnosable object instance.
- * @return @c true if there is no error, and @c false, if there is an error.
+ * @param error Ignite error.
  */
-bool check_errors(ignite::sql_result ret, ignite::diagnosable& diag);
-
-/**
- * Check an ODBC object for errors, and set a proper Python exception, if there are.
- *
- * @param diag Diagnosable object instance.
- * @return @c true if there is no error, and @c false, if there is an error.
- */
-inline bool check_errors(ignite::diagnosable& diag) {
-    return check_errors(ignite::sql_result::AI_SUCCESS, diag);
-}
+void set_error(const ignite::ignite_error &error);
 
 /**
  * Get the current exception as a string.

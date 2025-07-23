@@ -26,7 +26,9 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNo
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigShuttle;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationSnapshotManager;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator;
+import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeScanner.ScanContext;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -108,9 +111,19 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
     @MethodSource("getSnapshots")
     void testConfigurationCompatibility(String fileName) throws IOException {
         List<ConfigNode> currentMetadata = loadCurrentConfiguration();
+        Set<ConfigurationModule> allModules = allModules();
         List<ConfigNode> snapshotMetadata = loadSnapshotFromResource(SNAPSHOTS_RESOURCE_LOCATION + fileName);
 
-        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata);
+        ComparisonContext ctx = ComparisonContext.create(allModules);
+
+        ConfigurationTreeComparator.ensureCompatible(snapshotMetadata, currentMetadata, ctx);
+    }
+
+    private static Set<ConfigurationModule> allModules() {
+        var modulesProvider = new ServiceLoaderModulesProvider();
+        List<ConfigurationModule> modules = modulesProvider.modules(ConfigurationCompatibilityTest.class.getClassLoader());
+
+        return new HashSet<>(modules);
     }
 
     private static List<ConfigNode> loadCurrentConfiguration() {
@@ -130,7 +143,7 @@ public class ConfigurationCompatibilityTest extends IgniteAbstractTest {
         ScanContext scanContext = ScanContext.create(module);
 
         Class<?> rootClass = rootKey.schemaClass();
-        ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootClass, rootKey.type(), rootKey.internal());
+        ConfigNode root = ConfigNode.createRoot(rootKey.key(), rootClass, rootKey.type(), rootKey.internal(), module.deletedPrefixes());
 
         ConfigurationTreeScanner.scan(root, rootClass, scanContext);
 

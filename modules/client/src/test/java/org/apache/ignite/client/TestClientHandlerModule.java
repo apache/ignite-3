@@ -248,7 +248,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                 new ClientInboundMessageHandler(
                                         (IgniteTablesInternal) ignite.tables(),
                                         ((FakeIgnite) ignite).txManager(),
-                                        new FakeIgniteQueryProcessor(),
+                                        new FakeIgniteQueryProcessor(ignite.name()),
                                         configuration,
                                         compute,
                                         clusterService,
@@ -288,7 +288,8 @@ public class TestClientHandlerModule implements IgniteComponent {
         }
 
         if (ch == null) {
-            String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
+            String address = configuration.listenAddresses().length == 0 ? "" :  configuration.listenAddresses()[0];
+            String msg = "Cannot start thin client connector endpoint at address=" + address + ", port=" + port;
 
             throw new IgniteException(INTERNAL_ERR, msg);
         }

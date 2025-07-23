@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST;
@@ -498,6 +499,8 @@ public class ClientInboundMessageHandler
             actualFeatures.clear(TX_DELAYED_ACKS.featureId());
             actualFeatures.clear(TX_PIGGYBACK.featureId());
             actualFeatures.clear(TX_ALLOW_NOOP_ENLIST.featureId());
+
+            actualFeatures.clear(SQL_DIRECT_TX_MAPPING.featureId());
         } else {
             actualFeatures = this.features;
         }
@@ -730,7 +733,7 @@ public class ClientInboundMessageHandler
                 return;
             }
 
-            if (isPartitionOperation(opCode)) {
+            if (ClientOp.isPartitionOperation(opCode)) {
                 long requestId0 = requestId;
                 int opCode0 = opCode;
 
@@ -935,7 +938,8 @@ public class ClientInboundMessageHandler
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker,
-                        clientContext.hasFeature(SQL_PARTITION_AWARENESS)
+                        clientContext.hasFeature(SQL_PARTITION_AWARENESS), clientContext.hasFeature(SQL_DIRECT_TX_MAPPING), txManager,
+                        clockService, notificationSender(requestId)
                 );
 
             case ClientOp.OPERATION_CANCEL:
@@ -993,37 +997,6 @@ public class ClientInboundMessageHandler
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
-    }
-
-    private static boolean isPartitionOperation(int opCode) {
-        return opCode == ClientOp.TABLES_GET
-                || opCode == ClientOp.TUPLE_UPSERT
-                || opCode == ClientOp.TUPLE_GET
-                || opCode == ClientOp.TUPLE_GET_AND_UPSERT
-                || opCode == ClientOp.TUPLE_INSERT
-                || opCode == ClientOp.TUPLE_REPLACE
-                || opCode == ClientOp.TUPLE_REPLACE_EXACT
-                || opCode == ClientOp.TUPLE_GET_AND_REPLACE
-                || opCode == ClientOp.TUPLE_DELETE
-                || opCode == ClientOp.TUPLE_DELETE_EXACT
-                || opCode == ClientOp.TUPLE_GET_AND_DELETE
-                || opCode == ClientOp.TUPLE_CONTAINS_KEY
-                || opCode == ClientOp.STREAMER_BATCH_SEND;
-
-                // Sql-related operation must do some bookkeeping first on the client's thread to avoid races
-                // (for instance, cancellation must not be processed until execution request is registered).
-                // || opCode == ClientOp.SQL_EXEC
-                // || opCode == ClientOp.SQL_EXEC_BATCH
-                // || opCode == ClientOp.SQL_EXEC_SCRIPT
-                // || opCode == ClientOp.SQL_QUERY_META;
-
-                // TODO: IGNITE-23641 The batch operations were excluded because fast switching leads to performance degradation for them.
-                // || opCode == ClientOp.TUPLE_UPSERT_ALL
-                // || opCode == ClientOp.TUPLE_GET_ALL
-                // || opCode == ClientOp.TUPLE_INSERT_ALL
-                // || opCode == ClientOp.TUPLE_DELETE_ALL
-                // || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
-                // || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
     }
 
     private void processOperationInternal(

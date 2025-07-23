@@ -106,6 +106,7 @@ public class RocksDbFlusher {
      * Constructor.
      *
      * @param name RocksDB instance name, for logging purposes.
+     * @param nodeName nodeName Node name.
      * @param busyLock Busy lock.
      * @param scheduledPool Scheduled pool the schedule flushes.
      * @param threadPool Thread pool to execute flush and to run flush completion closure, provided by {@code onFlushCompleted} parameter.
@@ -120,6 +121,7 @@ public class RocksDbFlusher {
      */
     public RocksDbFlusher(
             String name,
+            String nodeName,
             IgniteSpinBusyLock busyLock,
             ScheduledExecutorService scheduledPool,
             Executor threadPool,
@@ -134,7 +136,7 @@ public class RocksDbFlusher {
         this.delaySupplier = delaySupplier;
         this.onFlushCompleted = onFlushCompleted;
         this.failureProcessor = failureProcessor;
-        this.flushListener = new RocksDbFlushListener(name, this, logSyncer, failureProcessor);
+        this.flushListener = new RocksDbFlushListener(name, nodeName, this, logSyncer, failureProcessor);
     }
 
     /**

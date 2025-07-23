@@ -29,6 +29,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
@@ -92,7 +93,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ProtocolBitmaskFeature.TX_DELAYED_ACKS,
             ProtocolBitmaskFeature.TX_PIGGYBACK,
             ProtocolBitmaskFeature.TX_ALLOW_NOOP_ENLIST,
-            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS
+            ProtocolBitmaskFeature.SQL_PARTITION_AWARENESS,
+            ProtocolBitmaskFeature.SQL_DIRECT_TX_MAPPING
     ));
 
     /** Connection id generator.
@@ -350,6 +352,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                             handler = messageHandler;
 
                             ch.pipeline().addLast(
+                                    new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true),
                                     new ClientMessageDecoder(),
                                     messageHandler
                             );
@@ -393,11 +396,11 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
                 result.complete(bindFut.channel());
             } else if (bindFut.cause() instanceof BindException) {
-                // TODO IGNITE-21614
+                String address = addresses.length == 0 ? "" : addresses[0];
                 result.completeExceptionally(
                         new IgniteException(
                                 PORT_IN_USE_ERR,
-                                "Cannot start thin client connector endpoint. Port " + port + " is in use.",
+                                "Cannot start thin client connector endpoint at address=" + address + ", port=" + port,
                                 bindFut.cause())
                 );
             } else if (bindFut.cause() instanceof UnresolvedAddressException) {

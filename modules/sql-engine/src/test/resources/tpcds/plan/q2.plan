@@ -79,7 +79,7 @@ Project
             est: (rows=24325)
           TableScan
               table: PUBLIC.DATE_DIM
-              predicate: =(D_YEAR, +(1998, 1))
+              predicate: =(D_YEAR, 1999)
               fieldNames: [D_WEEK_SEQ, D_YEAR]
               est: (rows=24325)
         ColocatedHashAggregate

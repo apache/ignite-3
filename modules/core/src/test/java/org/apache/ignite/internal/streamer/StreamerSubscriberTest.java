@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
 import org.junit.jupiter.api.AfterAll;
@@ -46,7 +46,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
     @BeforeAll
     public static void flushExecutorInit() {
         flushExecutor = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory("flushExecutor", Loggers.forClass(StreamerSubscriberTest.class)));
+                IgniteThreadFactory.create("test", "flushExecutor", Loggers.forClass(StreamerSubscriberTest.class)));
     }
 
     @AfterAll

@@ -68,7 +68,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
@@ -78,6 +77,7 @@ import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
 import org.apache.calcite.util.Util;
@@ -105,6 +105,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
@@ -117,6 +118,7 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
@@ -139,8 +141,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
     protected static final int DEFAULT_ZONE_ID = 0;
-
-    private static final SqlExplainLevel DEFAULT_EXPLAIN_LEVEL = SqlExplainLevel.EXPPLAN_ATTRIBUTES;
 
     private static final AtomicInteger NEXT_TABLE_ID = new AtomicInteger(2001);
 
@@ -507,7 +507,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     ) throws Exception {
         IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, null, disabledRules);
 
-        String planString = RelOptUtil.dumpPlan("", plan, SqlExplainFormat.TEXT, DEFAULT_EXPLAIN_LEVEL);
+        String planString = ExplainUtils.toString(plan);
         log.info("statement: {}\n{}", sql, planString);
 
         checkSplitAndSerialization(plan, schemas);
@@ -855,7 +855,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public RelDataType rowType(IgniteTypeFactory factory, ImmutableBitSet usedColumns) {
+        public RelDataType rowType(IgniteTypeFactory factory, ImmutableIntList usedColumns) {
             return rowType;
         }
 
@@ -888,6 +888,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public int columnsCount() {
             return rowType.getFieldCount();
+        }
+
+        @Override
+        public boolean hasHiddenColumns() {
+            return false;
+        }
+
+        @Override
+        public boolean hasVirtualColumns() {
+            return false;
         }
 
         /** {@inheritDoc} */
@@ -1159,7 +1169,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                     TimeString truncated = type.getPrecision() > 3 ? time.round(3) : time;
 
                     return Commons.rexBuilder().makeLiteral(truncated, type);
-                } else if (sqlTypeName == SqlTypeName.TIMESTAMP || sqlTypeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                } else if (TypeUtils.isTimestamp(sqlTypeName)) {
                     TimestampString ts = literal.getValueAs(TimestampString.class);
 
                     assert ts != null;

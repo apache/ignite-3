@@ -1581,11 +1581,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             _elementIndex++;
         }
 
-        private Span<byte> GetSpan(int size)
+        private readonly Span<byte> GetSpan(int size)
         {
             var span = _buffer.GetSpan(size)[..size];
 
             _buffer.Advance(size);
+
+#if DEBUG
+            // Fill the span to catch certain bugs, such as "got the span but forgot to write to it".
+            span.Fill(255);
+#endif
 
             return span;
         }

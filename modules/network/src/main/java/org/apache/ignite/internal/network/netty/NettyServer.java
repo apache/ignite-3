@@ -169,9 +169,8 @@ public class NettyServer {
                 } else if (future.isCancelled()) {
                     bindFuture.cancel(true);
                 } else {
-                    String errorMessage = addresses.length == 0
-                            ? "Port " + port + " is not available."
-                            : String.format("Address %s:%d is not available", addresses[0], port);
+                    String address = addresses.length == 0 ? "" : addresses[0];
+                    String errorMessage = "Cannot start server at address=" + address + ", port=" + port;
                     bindFuture.completeExceptionally(new IgniteException(PORT_IN_USE_ERR, errorMessage, future.cause()));
                 }
             });

@@ -1,0 +1,65 @@
+Sort
+    collation: [EXPR$0 ASC, SM_TYPE ASC, CC_NAME ASC]
+    fetch: 100
+    est: (rows=100)
+  ColocatedHashAggregate
+      fieldNames: [EXPR$0, SM_TYPE, CC_NAME, 30 days, 31-60 days, 61-90 days, 91-120 days, >120 days]
+      group: [EXPR$0, SM_TYPE, CC_NAME]
+      aggregation: [SUM($f3), SUM($f4), SUM($f5), SUM($f6), SUM($f7)]
+      est: (rows=175869)
+    Project
+        fieldNames: [EXPR$0, SM_TYPE, CC_NAME, $f3, $f4, $f5, $f6, $f7]
+        projection: [SUBSTR(W_WAREHOUSE_NAME, 1, 20), SM_TYPE, CC_NAME, CASE(<=(-(CS_SHIP_DATE_SK, CS_SOLD_DATE_SK), 30), 1, 0), CASE(AND(>(-(CS_SHIP_DATE_SK, CS_SOLD_DATE_SK), 30), <=(-(CS_SHIP_DATE_SK, CS_SOLD_DATE_SK), 60)), 1, 0), CASE(AND(>(-(CS_SHIP_DATE_SK, CS_SOLD_DATE_SK), 60), <=(-(CS_SHIP_DATE_SK, CS_SOLD_DATE_SK), 90)), 1, 0), CASE(AND(>(-(CS_SHIP_DATE_SK, CS_SOLD_DATE_SK), 90), <=(-(CS_SHIP_DATE_SK, CS_SOLD_DATE_SK), 120)), 1, 0), CASE(>(-(CS_SHIP_DATE_SK, CS_SOLD_DATE_SK), 120), 1, 0)]
+        est: (rows=360387)
+      HashJoin
+          predicate: =(CS_WAREHOUSE_SK, W_WAREHOUSE_SK)
+          type: inner
+          est: (rows=360387)
+        HashJoin
+            predicate: =(CS_SHIP_MODE_SK, SM_SHIP_MODE_SK)
+            type: inner
+            est: (rows=360387)
+          HashJoin
+              predicate: =(CS_CALL_CENTER_SK, CC_CALL_CENTER_SK)
+              type: inner
+              est: (rows=360387)
+            HashJoin
+                predicate: =(CS_SHIP_DATE_SK, D_DATE_SK)
+                type: inner
+                est: (rows=360387)
+              Exchange
+                  distribution: single
+                  est: (rows=1441548)
+                TableScan
+                    table: PUBLIC.CATALOG_SALES
+                    fieldNames: [CS_SOLD_DATE_SK, CS_SHIP_DATE_SK, CS_CALL_CENTER_SK, CS_SHIP_MODE_SK, CS_WAREHOUSE_SK]
+                    est: (rows=1441548)
+              Exchange
+                  distribution: single
+                  est: (rows=18262)
+                TableScan
+                    table: PUBLIC.DATE_DIM
+                    predicate: SEARCH(D_MONTH_SEQ, Sarg[[1178..1189]])
+                    fieldNames: [D_DATE_SK, D_MONTH_SEQ]
+                    est: (rows=18262)
+            Exchange
+                distribution: single
+                est: (rows=6)
+              TableScan
+                  table: PUBLIC.CALL_CENTER
+                  fieldNames: [CC_CALL_CENTER_SK, CC_NAME]
+                  est: (rows=6)
+          Exchange
+              distribution: single
+              est: (rows=20)
+            TableScan
+                table: PUBLIC.SHIP_MODE
+                fieldNames: [SM_SHIP_MODE_SK, SM_TYPE]
+                est: (rows=20)
+        Exchange
+            distribution: single
+            est: (rows=5)
+          TableScan
+              table: PUBLIC.WAREHOUSE
+              fieldNames: [W_WAREHOUSE_SK, W_WAREHOUSE_NAME]
+              est: (rows=5)

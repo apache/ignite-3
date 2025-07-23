@@ -53,7 +53,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.server.counter.CounterListener;
@@ -145,7 +145,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService clientNode1 = clusterService(PORT + 1, List.of(addr), true);
 
-        executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
+        executor = new ScheduledThreadPoolExecutor(20, IgniteThreadFactory.create(service.nodeName(), Loza.CLIENT_POOL_NAME, logger()));
 
         ThrottlingContextHolder throttlingContextHolder = throttlingContextHolder();
 

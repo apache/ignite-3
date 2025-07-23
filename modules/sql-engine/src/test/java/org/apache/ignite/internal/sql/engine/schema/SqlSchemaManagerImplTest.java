@@ -298,7 +298,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(tableDescriptor, notNullValue());
 
         TableDescriptor descriptor = table.descriptor();
-        assertEquals(tableDescriptor.columns().size(), RowTypeUtils.storedRowsCount(descriptor), "column count");
+        assertEquals(tableDescriptor.columns().size(), RowTypeUtils.storedColumnsCount(descriptor), "column count");
 
         for (int i = 0; i < tableDescriptor.columns().size(); i++) {
             CatalogTableColumnDescriptor expectedColumnDescriptor = tableDescriptor.columns().get(i);

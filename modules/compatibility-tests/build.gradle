@@ -36,6 +36,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-runner')
 
     testFixturesImplementation libs.gradle.tooling.api
     testFixturesImplementation libs.awaitility
@@ -133,4 +134,15 @@ dependencies {
 
 processTestResources {
     from configurations.openapiSpec
+}
+
+tasks.register('runnerPlatformCompatibilityTest', JavaExec) {
+    dependsOn tasks.integrationTestClasses
+    mainClass = 'org.apache.ignite.internal.PlatformCompatibilityTestNodeRunner'
+
+    jvmArgs += defaultJvmArgs
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
 }

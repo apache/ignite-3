@@ -270,6 +270,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         components.add(raftManager);
 
         var sharedRockDbStorage = new TxStateRocksDbSharedStorage(
+                clusterService.nodeName(),
                 workDir.resolve("tx"),
                 scheduledExecutorService,
                 executor,

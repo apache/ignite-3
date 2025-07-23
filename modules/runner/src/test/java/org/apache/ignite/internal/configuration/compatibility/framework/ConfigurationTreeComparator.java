@@ -24,18 +24,28 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.KeyIgnorer;
 
 /**
  * Compares two configuration trees (snapshot and current).
  */
 public class ConfigurationTreeComparator {
+
+    private static final ConfigAnnotationsValidator ANNOTATION_VALIDATOR = new ConfigAnnotationsValidator();
+
     /**
      * Validates the current configuration is compatible with the snapshot.
      */
-    public static void ensureCompatible(List<ConfigNode> snapshotTrees, List<ConfigNode> actualTrees) {
-        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees));
+    public static void ensureCompatible(
+            List<ConfigNode> snapshotTrees,
+            List<ConfigNode> actualTrees,
+            ComparisonContext compContext
+    ) {
+        LeafNodesVisitor shuttle = new LeafNodesVisitor(new Validator(actualTrees), compContext);
 
         for (ConfigNode tree : snapshotTrees) {
             tree.accept(shuttle);
@@ -56,14 +66,18 @@ public class ConfigurationTreeComparator {
      */
     private static class LeafNodesVisitor implements ConfigShuttle {
         private final Consumer<ConfigNode> validator;
+        private final ComparisonContext compContext;
 
-        private LeafNodesVisitor(Consumer<ConfigNode> validator) {
+        private LeafNodesVisitor(Consumer<ConfigNode> validator, ComparisonContext compContext) {
             this.validator = validator;
+            this.compContext = compContext;
         }
 
         @Override
         public void visit(ConfigNode node) {
-            if (node.isValue()) {
+            assert node.isRoot() || node.isInnerNode() || node.isNamedNode() || node.isValue();
+
+            if (node.isValue() && !compContext.shouldIgnore(node.path())) {
                 validator.accept(node);
             }
         }
@@ -92,7 +106,6 @@ public class ConfigurationTreeComparator {
             }
         }
 
-
         /**
          * Return first node from candidates collection that matches the given node.
          *
@@ -100,9 +113,15 @@ public class ConfigurationTreeComparator {
          */
         private ConfigNode find(ConfigNode node, Collection<ConfigNode> candidates) {
             for (ConfigNode candidate : candidates) {
-                if (match(node, candidate)) {
-                    return candidate;
+                if (!match(node, candidate)) {
+                    continue;
                 }
+
+                // node is a snapshot node
+                // candidate is a current configuration node.
+                validateAnnotations(node, candidate);
+
+                return candidate;
             }
 
             throw new IllegalStateException("No match found for node: " + node + " in candidates: \n\t"
@@ -130,16 +149,48 @@ public class ConfigurationTreeComparator {
      */
     private static boolean match(ConfigNode node, ConfigNode candidate) {
         return Objects.equals(candidate.kind(), node.kind())
-                && Objects.equals(candidate.name(), node.name())
                 && validateFlags(candidate, node)
-                && (!node.isValue() || Objects.equals(candidate.type(), node.type())) // Value node types can be changed.
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25747 Validate annotations properly.
-                && candidate.annotations().containsAll(node.annotations()); // Annotations can't be removed.
+                && matchNames(candidate, node)
+                && candidate.deletedPrefixes().containsAll(node.deletedPrefixes())
+                && (!node.isValue() || Objects.equals(candidate.type(), node.type())); // Value node types can be changed.
+    }
+
+    private static void validateAnnotations(ConfigNode candidate, ConfigNode node) {
+        List<String> errors = new ArrayList<>();
+
+        ANNOTATION_VALIDATOR.validate(candidate, node, errors);
+
+        if (errors.isEmpty()) {
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Configuration compatibility issues for ")
+                .append(node.path())
+                .append(':')
+                .append(System.lineSeparator());
+
+        for (var error : errors) {
+            sb.append("\t\t").append(error).append(System.lineSeparator());
+        }
+
+        throw new IllegalStateException(sb.toString());
+    }
+
+    private static boolean matchNames(ConfigNode candidate, ConfigNode node) {
+        return Objects.equals(candidate.name(), node.name())
+                || compareUsingLegacyNames(candidate, node);
+    }
+
+    private static boolean compareUsingLegacyNames(ConfigNode candidate, ConfigNode node) {
+        return candidate.legacyPropertyNames().contains(node.name());
     }
 
     private static boolean validateFlags(ConfigNode candidate, ConfigNode node) {
         return node.isRoot() == candidate.isRoot()
                 && node.isValue() == candidate.isValue()
+                && node.isNamedNode() == candidate.isNamedNode()
+                && node.isInnerNode() == candidate.isInnerNode()
                 && (!candidate.isInternal() || node.isInternal()) // Public property\tree can't be hidden.
                 && (!node.isDeprecated() || candidate.isDeprecated()); // Deprecation shouldn't be removed.
     }
@@ -164,6 +215,29 @@ public class ConfigurationTreeComparator {
         @Override
         public String toString() {
             return sb.toString();
+        }
+    }
+
+    /** Holder class for comparison context. */
+    public static class ComparisonContext {
+        /** Creates context from current configuration. */
+        public static ComparisonContext create(Set<ConfigurationModule> configurationModules) {
+            Set<String> prefixes = configurationModules.stream()
+                    .map(ConfigurationModule::deletedPrefixes)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toSet());
+
+            return new ComparisonContext(prefixes);
+        }
+
+        private final KeyIgnorer deletedItems;
+
+        ComparisonContext(Collection<String> deletedPrefixes) {
+            this.deletedItems = KeyIgnorer.fromDeletedPrefixes(deletedPrefixes);
+        }
+
+        boolean shouldIgnore(String path) {
+            return deletedItems.shouldIgnore(path);
         }
     }
 }

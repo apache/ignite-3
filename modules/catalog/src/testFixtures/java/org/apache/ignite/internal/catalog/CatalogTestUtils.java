@@ -68,7 +68,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
@@ -621,7 +621,7 @@ public class CatalogTestUtils {
 
     private static ScheduledExecutorService createScheduledExecutorService(String nodeName) {
         return Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "catalog-utils-scheduled-executor", LOG)
+                IgniteThreadFactory.create(nodeName, "catalog-utils-scheduled-executor", LOG)
         );
     }
 

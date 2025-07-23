@@ -47,7 +47,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
@@ -122,7 +122,7 @@ public class Compactor extends IgniteWorker {
                     30,
                     SECONDS,
                     new LinkedBlockingQueue<>(),
-                    NamedThreadFactory.create(igniteInstanceName, "compaction-runner-io", log)
+                    IgniteThreadFactory.create(igniteInstanceName, "compaction-runner-io", log)
             );
             threadPoolExecutor.allowCoreThreadTimeOut(true);
         } else {
