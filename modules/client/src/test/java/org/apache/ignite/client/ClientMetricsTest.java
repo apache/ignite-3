@@ -143,9 +143,9 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testHandshakesFailedTimeout() throws InterruptedException {
-        AtomicInteger counter = new AtomicInteger();
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
-        Function<Integer, Integer> responseDelay = idx -> counter.incrementAndGet() == 1 ? 600 : 0;
+        Function<Integer, Integer> responseDelay = idx -> 700;
+
         server = new TestServer(
                 1000,
                 new FakeIgnite(),
@@ -156,8 +156,9 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 null,
                 null
         );
+
         client = clientBuilder()
-                .connectTimeout(100)
+                .connectTimeout(50)
                 .build();
 
         assertTrue(
