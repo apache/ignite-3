@@ -33,6 +33,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.util.TpcScaleFactor;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
@@ -108,25 +110,36 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
     static void validateQueryPlan(String queryId) {
         TestNode node = CLUSTER.node("N1");
 
-        MultiStepPlan plan = (MultiStepPlan) node.prepare(queryLoader.apply(queryId));
+        List<QueryPlan> plans = node.prepareScript(queryLoader.apply(queryId));
 
-        String actualPlan = plan.explain();
+        String[] expectedPlans = planLoader.apply(queryId).split("----(\\r\\n|\\n|\\r)");
 
-        if (planUpdater != null) {
-            planUpdater.accept(queryId, actualPlan);
+        assert expectedPlans.length == plans.size() : "Unexpected number of plans, got: " + plans.size()
+                + ", expected: " + expectedPlans.length;
 
-            return;
+        int pos = 0;
+
+        for (QueryPlan plan : plans) {
+            MultiStepPlan plan0 = (MultiStepPlan) plan;
+            String actualPlan = plan0.explain();
+
+            if (planUpdater != null) {
+                planUpdater.accept(queryId, actualPlan);
+
+                return;
+            }
+
+            String expectedPlan = expectedPlans[pos++];
+
+            // Internally, costs are represented by double values and conversion to exact numeric representation
+            // may differs from JVM to JVM.
+            // https://www.oracle.com/java/technologies/javase/19-relnote-issues.html
+            // Cut-off costs, which may differ between runs, before comparing plans.
+            expectedPlan = COSTS_PATTERN.matcher(expectedPlan).replaceAll("");
+            actualPlan = COSTS_PATTERN.matcher(actualPlan).replaceAll("");
+
+            assertEquals(expectedPlan, actualPlan);
         }
-
-        String expectedPlan = planLoader.apply(queryId);
-
-        // Internally, costs are represented by double values and convertion to exact numeric representation may differs from JVM to JVM.
-        // https://www.oracle.com/java/technologies/javase/19-relnote-issues.html
-        // Cut-off costs, which may differ between runs, before comparing plans.
-        expectedPlan = COSTS_PATTERN.matcher(expectedPlan).replaceAll("");
-        actualPlan = COSTS_PATTERN.matcher(actualPlan).replaceAll("");
-
-        assertEquals(expectedPlan, actualPlan);
     }
 
     static String loadFromResource(String resource) {
