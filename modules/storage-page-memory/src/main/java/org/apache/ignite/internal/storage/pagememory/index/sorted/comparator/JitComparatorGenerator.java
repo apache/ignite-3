@@ -63,7 +63,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.schema.BinaryTupleComparatorUtils;
 import org.apache.ignite.internal.schema.UnsafeByteBufferAccessor;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -75,7 +74,7 @@ public class JitComparatorGenerator {
     /**
      * Class generator. Please use {@link ClassGenerator#dumpClassFilesTo(Path)} for debugging or investigations.
      */
-    private static final ClassGenerator CLASS_GENERATOR = ClassGenerator.classGenerator(SortedIndexTreeIo.class.getClassLoader());
+    private static final ClassGenerator CLASS_GENERATOR = ClassGenerator.classGenerator(JitComparatorGenerator.class.getClassLoader());
 
     // Methods of BinaryTupleParser.
     private static final Method PARSER_BYTE_VALUE;
