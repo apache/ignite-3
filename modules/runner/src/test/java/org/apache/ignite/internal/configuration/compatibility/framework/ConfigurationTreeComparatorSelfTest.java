@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Collection;
 import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,10 +65,10 @@ public class ConfigurationTreeComparatorSelfTest {
     void rootCompatibility() {
         {
             ConfigNode root1 = ConfigNode.createRoot("root", Object.class, ConfigurationType.LOCAL, true);
-            root1.addChildNodes(createChild(root1, "child"));
+            root1.addChildNodes(createChild("child"));
 
             ConfigNode root2 = ConfigNode.createRoot("root", Object.class, ConfigurationType.LOCAL, false);
-            root2.addChildNodes(createChild(root2, "child"));
+            root2.addChildNodes(createChild("child"));
 
             // Internal root can become public.
             assertCompatible(root1, root2);
@@ -78,10 +77,10 @@ public class ConfigurationTreeComparatorSelfTest {
         }
         {
             ConfigNode root1 = ConfigNode.createRoot("root", Object.class, ConfigurationType.LOCAL, true);
-            root1.addChildNodes(createChild(root1, "child"));
+            root1.addChildNodes(createChild("child"));
 
             ConfigNode root2 = ConfigNode.createRoot("root", Object.class, ConfigurationType.DISTRIBUTED, true);
-            root2.addChildNodes(createChild(root2, "child"));
+            root2.addChildNodes(createChild("child"));
 
             // Root types can't be changed both ways.
             assertIncompatible(root1, root2);
@@ -132,13 +131,13 @@ public class ConfigurationTreeComparatorSelfTest {
     void propertyCantBeRemoved() {
         ConfigNode root1 = createRoot("root1");
         root1.addChildNodes(List.of(
-                createChild(root1, "child1")
+                createChild("child1")
         ));
 
         ConfigNode root2 = createRoot("root1");
         root2.addChildNodes(List.of(
-                createChild(root2, "child1"),
-                createChild(root1, "child2")
+                createChild("child1"),
+                createChild("child2")
         ));
 
         // Adding a property is compatible change.
@@ -239,7 +238,7 @@ public class ConfigurationTreeComparatorSelfTest {
 
         ConfigNode root2 = createRoot("root2");
         {
-            ConfigNode node = createNode("node1", "3");
+            ConfigNode node = createChild("node1", Set.of());
             node.addChildNodes(List.of(createChild("f", fieldFlags)));
 
             root2.addChildNodes(List.of(
@@ -477,7 +476,7 @@ public class ConfigurationTreeComparatorSelfTest {
         root1.addChildNodes(oldNode2);
 
         root2 = createRoot("root1");
-        newNode2 = createChild("newTestCount", Set.of(), Set.of("oldTestCount_misspelled"), List.of());
+        newNode2 = createChild("newTestCount", Set.of(Flags.IS_VALUE, Flags.HAS_DEFAULT), Set.of("oldTestCount_misspelled"), List.of());
         root2.addChildNodes(newNode2);
 
         assertIncompatible(root1, root2);
@@ -485,12 +484,12 @@ public class ConfigurationTreeComparatorSelfTest {
         // Incorrectly renaming intermediate nodes.
 
         root1 = createRoot("root1");
-        oldNode2 = createNode("node", "X");
+        oldNode2 = createChild("node1", Set.of());
         oldNode2.addChildNodes(createChild("value"));
         root1.addChildNodes(oldNode2);
 
         root2 = createRoot("root1");
-        newNode2 = createNode("node_new", "X", Set.of("node_misspelled"), List.of());
+        newNode2 = createChild("node_new", Set.of(), Set.of("node_misspelled"), List.of());
         newNode2.addChildNodes(createChild("value"));
         root2.addChildNodes(newNode2);
 
@@ -561,30 +560,6 @@ public class ConfigurationTreeComparatorSelfTest {
         return ConfigNode.createRoot(name, Object.class, ConfigurationType.LOCAL, true);
     }
 
-    private static ConfigNode createNode(String name, String className) {
-        return createNode(name, className, Set.of(), List.of());
-    }
-
-    private static ConfigNode createNode(String name, String className, Set<String> legacyNames, List<String> deletedPrefixes) {
-        return new ConfigNode(
-                null,
-                Map.of(Attributes.NAME, name, Attributes.CLASS, className),
-                List.of(),
-                EnumSet.noneOf(Flags.class),
-                legacyNames,
-                deletedPrefixes
-        );
-    }
-
-    private static ConfigNode createChild(ConfigNode root, String name) {
-        return new ConfigNode(
-                root,
-                Map.of(ConfigNode.Attributes.NAME, name, Attributes.CLASS, int.class.getCanonicalName()),
-                List.of(),
-                EnumSet.of(Flags.IS_VALUE, Flags.HAS_DEFAULT)
-        );
-    }
-
     private static ConfigNode createChild(String name) {
         return createChild(name, Set.of(), Set.of(), List.of());
     }
@@ -594,20 +569,11 @@ public class ConfigurationTreeComparatorSelfTest {
     }
 
     private static ConfigNode createChild(String name, Set<Flags> flags, Set<String> legacyNames, List<String> deletedPrefixes) {
-        Set<Flags> valueFlags = new HashSet<>();
-        valueFlags.add(Flags.IS_VALUE);
-
-        if (flags.isEmpty()) {
-            valueFlags.add(Flags.HAS_DEFAULT);
-        } else {
-            valueFlags.addAll(flags);
-        }
-
         return new ConfigNode(
                 null,
-                Map.of(ConfigNode.Attributes.NAME, name, Attributes.CLASS, int.class.getCanonicalName()),
+                Map.of(ConfigNode.Attributes.NAME, name, Attributes.CLASS, "Object"),
                 List.of(),
-                EnumSet.copyOf(valueFlags),
+                flags.isEmpty() ? EnumSet.noneOf(Flags.class) : EnumSet.copyOf(flags),
                 legacyNames,
                 deletedPrefixes
         );
