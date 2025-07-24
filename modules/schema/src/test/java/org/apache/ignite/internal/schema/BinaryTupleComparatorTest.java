@@ -21,17 +21,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -144,7 +141,7 @@ public class BinaryTupleComparatorTest {
         );
     }
 
-    private static void validate(BinaryTupleComparator comparator, ByteBuffer lesserOne, ByteBuffer greaterOne) {
+    private static void validate(Comparator<ByteBuffer> comparator, ByteBuffer lesserOne, ByteBuffer greaterOne) {
         assertThat(comparator.compare(lesserOne, greaterOne), is(lessThanOrEqualTo(-1)));
         assertThat(comparator.compare(lesserOne, lesserOne), is(0));
         assertThat(comparator.compare(greaterOne, greaterOne), is(0));
@@ -183,7 +180,7 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareMultipleColumnTuples() {
-        var comparator = new BinaryTupleComparator(
+        var comparator = newComparator(
                 List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST),
                 List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
@@ -207,7 +204,7 @@ public class BinaryTupleComparatorTest {
         validate(comparator, tuple1, tuple3);
         validate(comparator, tuple3, tuple2);
 
-        var reversedComparator = new BinaryTupleComparator(
+        var reversedComparator = newComparator(
                 List.of(CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST),
                 List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
@@ -219,7 +216,7 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareMultipleColumnTuplesWithNulls() {
-        var comparator = new BinaryTupleComparator(
+        var comparator = newComparator(
                 List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST),
                 List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
@@ -251,7 +248,7 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareWithPrefix() {
-        var comparator = new BinaryTupleComparator(
+        var comparator = newComparator(
                 List.of(CatalogColumnCollation.ASC_NULLS_LAST),
                 List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
@@ -290,7 +287,7 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareWithPrefixWithNulls() {
-        var comparator = new BinaryTupleComparator(
+        var comparator = newComparator(
                 List.of(CatalogColumnCollation.ASC_NULLS_LAST),
                 List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
@@ -320,134 +317,15 @@ public class BinaryTupleComparatorTest {
         assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(-1)));
     }
 
-    @Test
-    public void partialComparatorAsciiTest() {
-        PartialBinaryTupleMatcher partialBinaryTupleMatcher = new PartialBinaryTupleMatcher(
-                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
-                List.of(NativeTypes.STRING)
-        );
-
-        ByteBuffer tupleReference = new BinaryTupleBuilder(1)
-                .appendString("qwertyuiop".repeat(10))
-                .build();
-
-        ByteBuffer tupleWithEmptyStringReference = new BinaryTupleBuilder(1)
-                .appendString("")
-                .build();
-
-        ByteBuffer tuple1 = new BinaryTupleBuilder(1)
-                .appendString("qwertyuiop")
-                .build();
-
-        ByteBuffer tuple2 = new BinaryTupleBuilder(1)
-                .appendString("rxfsuzvjpq".repeat(2))
-                .build();
-
-        ByteBuffer tuple3 = new BinaryTupleBuilder(1)
-                .appendString("qwertyuiop".repeat(15))
-                .build();
-
-        assertTrue(partialBinaryTupleMatcher.match(tuple1, tupleReference) < 0);
-        assertTrue(partialBinaryTupleMatcher.match(tuple2, tupleReference) > 0);
-        assertTrue(partialBinaryTupleMatcher.match(tuple3, tupleReference) > 0);
-        assertEquals(0, partialBinaryTupleMatcher.match(tuple1.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
-        assertTrue(partialBinaryTupleMatcher.match(tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
-        assertTrue(partialBinaryTupleMatcher.match(
-                tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN),
-                tupleWithEmptyStringReference
-        ) > 0);
-        assertEquals(0, partialBinaryTupleMatcher.match(tuple3.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
-        assertTrue(partialBinaryTupleMatcher.match(tuple3.limit(120).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
-        assertTrue(partialBinaryTupleMatcher.match(
-                tuple3.limit(120).slice().order(ByteOrder.LITTLE_ENDIAN),
-                tupleWithEmptyStringReference
-        ) > 0);
+    private Comparator<ByteBuffer> createSingleColumnComparator(NativeType type, CatalogColumnCollation collation) {
+        return newComparator(List.of(collation), List.of(type));
     }
 
-    @Test
-    public void partialComparatorUnicodeTest() {
-        PartialBinaryTupleMatcher partialBinaryTupleMatcher = new PartialBinaryTupleMatcher(
-                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
-                List.of(NativeTypes.STRING)
-        );
-
-        ByteBuffer tupleReference = new BinaryTupleBuilder(1)
-                .appendString("йцукенгшщз".repeat(10))
-                .build();
-
-        ByteBuffer tuple1 = new BinaryTupleBuilder(1)
-                .appendString("йцукенгшщз")
-                .build();
-
-        ByteBuffer tuple2 = new BinaryTupleBuilder(1)
-                .appendString("кчфлёодщъи".repeat(2))
-                .build();
-
-        ByteBuffer tuple3 = new BinaryTupleBuilder(1)
-                .appendString("йцукенгшщз".repeat(15))
-                .build();
-
-        assertTrue(partialBinaryTupleMatcher.match(tuple1, tupleReference) < 0);
-        assertTrue(partialBinaryTupleMatcher.match(tuple2, tupleReference) > 0);
-        assertTrue(partialBinaryTupleMatcher.match(tuple3, tupleReference) > 0);
-        assertEquals(0, partialBinaryTupleMatcher.match(tuple1.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
-        assertTrue(partialBinaryTupleMatcher.match(tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
-        assertEquals(0, partialBinaryTupleMatcher.match(tuple3.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
-        assertTrue(partialBinaryTupleMatcher.match(tuple3.limit(220).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
-    }
-
-    @Test
-    public void partialComparatorBytesTest() {
-        PartialBinaryTupleMatcher partialBinaryTupleMatcher = new PartialBinaryTupleMatcher(
-                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
-                List.of(NativeTypes.BYTES)
-        );
-
-        byte[] bytes = new byte[150];
-
-        for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = (byte) (i % 10);
-        }
-
-        ByteBuffer tupleReference = new BinaryTupleBuilder(1)
-                .appendBytes(Arrays.copyOfRange(bytes, 0, 100))
-                .build();
-
-        ByteBuffer tupleWithEmptyArrayReference = new BinaryTupleBuilder(1)
-                .appendBytes(new byte[0])
-                .build();
-
-        ByteBuffer tuple1 = new BinaryTupleBuilder(1)
-                .appendBytes(Arrays.copyOfRange(bytes, 0, 10))
-                .build();
-
-        ByteBuffer tuple2 = new BinaryTupleBuilder(1)
-                .appendBytes(Arrays.copyOfRange(bytes, 1, 21))
-                .build();
-
-        ByteBuffer tuple3 = new BinaryTupleBuilder(1)
-                .appendBytes(bytes)
-                .build();
-
-        assertTrue(partialBinaryTupleMatcher.match(tuple1, tupleReference) < 0);
-        assertTrue(partialBinaryTupleMatcher.match(tuple2, tupleReference) > 0);
-        assertTrue(partialBinaryTupleMatcher.match(tuple3, tupleReference) > 0);
-        assertEquals(0, partialBinaryTupleMatcher.match(tuple1.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
-        assertTrue(partialBinaryTupleMatcher.match(tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
-        assertTrue(partialBinaryTupleMatcher.match(
-                tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN),
-                tupleWithEmptyArrayReference
-        ) > 0);
-        assertEquals(0, partialBinaryTupleMatcher.match(tuple3.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference));
-        assertTrue(partialBinaryTupleMatcher.match(tuple3.limit(120).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
-        assertTrue(partialBinaryTupleMatcher.match(
-                tuple3.limit(120).slice().order(ByteOrder.LITTLE_ENDIAN),
-                tupleWithEmptyArrayReference
-        ) > 0);
-    }
-
-    private static BinaryTupleComparator createSingleColumnComparator(NativeType type, CatalogColumnCollation collation) {
-        return new BinaryTupleComparator(List.of(collation), List.of(type));
+    protected Comparator<ByteBuffer> newComparator(
+            List<CatalogColumnCollation> columnCollations,
+            List<NativeType> columnTypes
+    ) {
+        return new BinaryTupleComparator(columnCollations, columnTypes);
     }
 
     private static void setEqualityFlag(ByteBuffer buffer) {
