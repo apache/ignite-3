@@ -234,7 +234,7 @@ public class JitComparatorGenerator {
 
         // "compare" method implementation will either look like this:
         //  return innerCompare11(outerAccessor, outerSize, innerAccessor, innerSize);
-        // if "maxEntrySize" is predetermined, or like the comment in "else" branch.
+        // if "maxEntrySize" is zero, or like the comment in "else" branch.
         if (maxEntrySizeLog == 0) {
             body.append(invokeStatic(innerCompareMethods[0][0], outerAccessor, outerSize, innerAccessor, innerSize).ret());
         } else {
@@ -247,7 +247,7 @@ public class JitComparatorGenerator {
             //              case 1:
             //                  return innerCompare12(outerAccessor, outerSize, innerAccessor, innerSize);
             //              case 2:
-            //                  return innerCompare13(outerAccessor, outerSize, innerAccessor, innerSize);
+            //                  return innerCompare14(outerAccessor, outerSize, innerAccessor, innerSize);
             //              default:
             //                  return 0;
             //          }
