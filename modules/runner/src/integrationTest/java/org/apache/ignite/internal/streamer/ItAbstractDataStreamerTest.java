@@ -607,7 +607,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 try {
                     publisher.submit(item);
                     invalidItemsAdded.add(item);
-                } catch (Exception e) {
+                } catch (IllegalStateException e) {
+                    assertEquals("Streamer is closed, can't add items.", e.getMessage());
                     break;
                 }
             }
@@ -615,13 +616,16 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         DataStreamerException cause = (DataStreamerException) ex.getCause();
-        Set<?> failedItems = cause.failedItems();
+        Set<DataStreamerItem<Tuple>> failedItems = (Set<DataStreamerItem<Tuple>>) cause.failedItems();
 
         assertThat(invalidItemsAdded.size(), is(greaterThan(10)));
-        assertEquals(invalidItemsAdded.size(), failedItems.size());
 
-        for (DataStreamerItem<Tuple> item : invalidItemsAdded) {
-            assertTrue(failedItems.contains(item), "Failed item not found: " + item.get());
+        for (DataStreamerItem<Tuple> invalidAddedItem : invalidItemsAdded) {
+            assertTrue(failedItems.contains(invalidAddedItem), "failedItems item not found: " + invalidAddedItem.get());
+        }
+
+        for (DataStreamerItem<Tuple> failedItem : failedItems) {
+            assertTrue(invalidItemsAdded.contains(failedItem), "invalidItemsAdded item not found: " + failedItem.get());
         }
     }
 
