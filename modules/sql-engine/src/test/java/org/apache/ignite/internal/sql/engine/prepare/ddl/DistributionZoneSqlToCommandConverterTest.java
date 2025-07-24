@@ -60,6 +60,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -204,15 +205,13 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                             + "quorum_size=2, " // non-default value
                             + "distribution_algorithm='rendezvous', "
                             + "data_nodes_filter='$[?(@.region == \"US\")]', "
-                            + "data_nodes_auto_adjust=300, "
                             + "storage_profiles='" + ROCKSDB_STORAGE_PROFILE + " , " + AIPERSIST_STORAGE_PROFILE + " ' "
                     : "CREATE ZONE test "
                             + "(partitions 2, "
                             + "replicas 5, "
                             + "quorum size 2, " // non-default value
                             + "distribution algorithm 'rendezvous', "
-                            + "nodes filter '$[?(@.region == \"US\")]', "
-                            + "auto adjust 300) "
+                            + "nodes filter '$[?(@.region == \"US\")]') "
                             + "storage profiles ['" + ROCKSDB_STORAGE_PROFILE + "' , '" + AIPERSIST_STORAGE_PROFILE + " '] ";
 
             CatalogCommand cmd = convert(sql);
@@ -224,7 +223,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             // TODO https://issues.apache.org/jira/browse/IGNITE-22162
             // assertThat(desc.distributionAlgorithm(), equalTo("rendezvous"));
             assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
-            assertThat(desc.dataNodesAutoAdjust(), equalTo(300));
 
             List<CatalogStorageProfileDescriptor> storageProfiles = desc.storageProfiles().profiles();
             assertThat(storageProfiles, hasSize(2));
@@ -592,13 +590,11 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                     ? "ALTER ZONE test SET "
                             + "replicas=5, "
                             + "quorum_size=3, "
-                            + "data_nodes_filter='$[?(@.region == \"US\")]', "
-                            + "data_nodes_auto_adjust=300"
+                            + "data_nodes_filter='$[?(@.region == \"US\")]'"
                     : "ALTER ZONE test SET "
                             + "(replicas 5, "
                             + "quorum size 3, "
-                            + "nodes filter '$[?(@.region == \"US\")]', "
-                            + "auto adjust 300)";
+                            + "nodes filter '$[?(@.region == \"US\")]')";
 
             CatalogCommand cmd = convert(sql);
 
@@ -613,7 +609,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             assertThat(desc.replicas(), equalTo(5));
             assertThat(desc.quorumSize(), equalTo(3));
             assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
-            assertThat(desc.dataNodesAutoAdjust(), equalTo(300));
         }
 
         // Check remaining options.
@@ -684,27 +679,19 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     @MethodSource("numericOptions")
     public void testAlterZoneCommandWithInvalidOptions(boolean obsolete, ZoneOptionEnum option) {
         String sql = obsolete
-                ? "ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=-100"
+                ? "ALTER ZONE test SET {}=-100"
                 : "ALTER ZONE test SET ({} -100)";
 
         if (obsolete) {
-            expectOptionValidationError(sql, "DATA_NODES_AUTO_ADJUST");
+            expectOptionValidationError(format(sql, option.name()), option.name());
         } else {
+            Assumptions.assumeFalse(option == ZoneOptionEnum.DATA_NODES_AUTO_ADJUST);
+
             String sqlName = option.sqlName;
             String prefix = "ALTER ZONE test SET (";
             assertThrowsWithPos(format(sql, sqlName, "-100"), "-", prefix.length() + sqlName.length() + 1 /* start pos*/
                     + 1 /* first symbol after bracket*/);
         }
-    }
-
-    @ParameterizedTest(name = "obsolete = {0}")
-    @ValueSource(booleans = {true, false})
-    public void testAlterZoneCommandWithDuplicateOptions(boolean obsolete) {
-        String sql = obsolete
-                ? "ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=300, DATA_NODES_AUTO_ADJUST=400"
-                : "ALTER ZONE test SET (replicas 2, auto adjust 300, AUTO ADJUST 400)";
-
-        expectDuplicateOptionError(sql, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.sqlName);
     }
 
     @Test
@@ -729,6 +716,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         if (withPresent) {
             expectInvalidOptionType(format(sql, option, "'bar'"), option.name());
         } else {
+            Assumptions.assumeFalse(option == ZoneOptionEnum.DATA_NODES_AUTO_ADJUST);
+
             String sqlName = option.sqlName;
             String prefix = "create zone test_zone (";
             int errorPos = prefix.length() + sqlName.length() + 1 /* start pos*/ + 1 /* first symbol after bracket*/;

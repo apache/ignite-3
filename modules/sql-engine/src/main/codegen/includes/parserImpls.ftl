@@ -668,12 +668,6 @@ void ZoneElement(List<SqlNode> zoneOptions) :
                   zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
               }
           )
-          |
-          <ADJUST> option = UnsignedIntegerLiteral()
-          {
-              key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.name(), pos);
-              zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
-          }
       )
       |
       <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()
