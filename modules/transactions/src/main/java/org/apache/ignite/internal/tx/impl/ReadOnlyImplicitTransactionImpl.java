@@ -161,8 +161,6 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
     ) {
         observableTsTracker.update(executionTimestamp);
 
-        ((TxManagerImpl) txManager).onCompleteImplicitReadOnlyTransaction();
-
         return nullCompletedFuture();
     }
 

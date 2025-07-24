@@ -101,21 +101,6 @@ public class TransactionMetricsSource extends AbstractMetricSource<Holder> {
     }
 
     /**
-     * Updates read-only related metrics for implicit read.
-     *
-     */
-    public void onImplicitReadOnlyTransactionFinished() {
-        Holder holder = holder();
-
-        if (holder != null) {
-            holder.activeTransactions.decrement();
-
-            holder.totalCommits.increment();
-            holder.roCommits.increment();
-        }
-    }
-
-    /**
      * Tracks a number of active transactions.
      */
     public void onTransactionStarted() {

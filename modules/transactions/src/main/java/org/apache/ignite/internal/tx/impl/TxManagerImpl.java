@@ -1173,10 +1173,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         transactionInflights.markReadOnlyTxFinished(txId, timeoutExceeded);
     }
 
-    void onCompleteImplicitReadOnlyTransaction() {
-        txMetrics.onImplicitReadOnlyTransactionFinished();
-    }
-
     @Override
     public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
         if (!(message instanceof ReplicaResponse) || correlationId != null) {
