@@ -1822,6 +1822,26 @@ public abstract class GridUnsafe {
     }
 
     /**
+     * Reads a byte array from the memory.
+     *
+     * @param addr Start address.
+     * @param off  Offset.
+     * @param len  Bytes length.
+     * @return Bytes from given address.
+     */
+    public static byte[] getBytes(long addr, int off, int len) {
+        assert addr > 0 : addr;
+        assert off >= 0;
+        assert len >= 0;
+
+        byte[] bytes = new byte[len];
+
+        copyMemory(null, addr + off, bytes, BYTE_ARR_OFF, len);
+
+        return bytes;
+    }
+
+    /**
      * Returns {@code True} if equals.
      *
      * @param ptr1 First pointer.
