@@ -494,6 +494,9 @@ public class ClientTableCommon {
             boolean readOnly,
             InternalTxOptions options
     ) {
+        // Provided value will be used on explicit RO transaction start.
+        tsTracker.update(currentTs);
+
         return txManager.beginExplicit(
                 tsTracker,
                 readOnly,

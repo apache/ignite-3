@@ -27,6 +27,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -39,12 +40,17 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
 
     private final HybridTimestampTracker observableTsTracker;
 
+    /** The transaction manager. */
+    protected final TxManager txManager;
+
     /**
      * The constructor.
      *
+     * @param txManager Tx manager.
      * @param observableTsTracker Observable timestamp tracker.
      */
-    ReadOnlyImplicitTransactionImpl(HybridTimestampTracker observableTsTracker) {
+    ReadOnlyImplicitTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker) {
+        this.txManager = txManager;
         this.observableTsTracker = observableTsTracker;
     }
 
@@ -130,17 +136,17 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return null;
+        return nullCompletedFuture();
     }
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return null;
+        return nullCompletedFuture();
     }
 
     @Override
     public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
-        return null;
+        return nullCompletedFuture();
     }
 
     @Override
@@ -152,6 +158,8 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
     ) {
         observableTsTracker.update(executionTimestamp);
 
+        ((TxManagerImpl) txManager).onCompleteImplicitReadOnlyTransaction();
+
         return nullCompletedFuture();
     }
 
@@ -162,7 +170,7 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
 
     @Override
     public CompletableFuture<Void> kill() {
-        return null;
+        return nullCompletedFuture();
     }
 
     @Override

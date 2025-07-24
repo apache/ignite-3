@@ -94,42 +94,6 @@ public interface HybridTimestampTracker {
     }
 
     /**
-     * Creates empty tracker which can be updated only once.
-     *
-     * @return The tracker.
-     */
-    static HybridTimestampTracker emptyOneShotTracker() {
-        return new HybridTimestampTracker() {
-            /** Timestamp. */
-            private @Nullable HybridTimestamp timestamp = null;
-
-            @Override
-            public @Nullable HybridTimestamp get() {
-                return timestamp;
-            }
-
-            @Override
-            public long getLong() {
-                return timestamp == null ? NULL_HYBRID_TIMESTAMP : timestamp.longValue();
-            }
-
-            @Override
-            public void update(@Nullable HybridTimestamp ts) {
-                assert timestamp == null && ts != null : "One shot invariant is broken: " + timestamp + " " + ts;
-
-                timestamp = ts;
-            }
-
-            @Override
-            public void update(long ts) {
-                assert timestamp == null && ts != NULL_HYBRID_TIMESTAMP : "One shot invariant is broken " + timestamp + " " + ts;
-
-                timestamp = nullableHybridTimestamp(ts);
-            }
-        };
-    }
-
-    /**
      * Get the observable timestamp.
      *
      * @return Hybrid timestamp.

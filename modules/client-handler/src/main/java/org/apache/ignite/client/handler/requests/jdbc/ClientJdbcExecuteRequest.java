@@ -45,6 +45,8 @@ public class ClientJdbcExecuteRequest {
 
         req.readBinary(in);
 
+        // Passing the tracker only to the server-side handler.
+        tsTracker.update(req.observableTime());
         req.timestampTracker(tsTracker);
 
         return handler.queryAsync(connectionId, req).thenApply(res -> res::writeBinary);

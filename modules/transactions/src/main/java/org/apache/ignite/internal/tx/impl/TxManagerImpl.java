@@ -454,7 +454,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         if (readOnly) {
             if (implicit) {
-                tx = new ReadOnlyImplicitTransactionImpl(timestampTracker);
+                tx = new ReadOnlyImplicitTransactionImpl(this, timestampTracker);
             } else {
                 HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
                 tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, options);
@@ -1168,12 +1168,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         return runAsync(runnable, writeIntentSwitchPool);
     }
 
-    void completeReadOnlyTransactionFuture(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp, boolean timeoutExceeded) {
+    void onCompleteReadOnlyTransaction(boolean commitIntent, TxIdAndTimestamp txIdAndTimestamp, boolean timeoutExceeded) {
         UUID txId = txIdAndTimestamp.getTxId();
 
         txMetrics.onReadOnlyTransactionFinished(txId, commitIntent);
 
         transactionInflights.markReadOnlyTxFinished(txId, timeoutExceeded);
+    }
+
+    void onCompleteImplicitReadOnlyTransaction() {
+        txMetrics.onImplicitReadOnlyTransactionFinished();
     }
 
     @Override

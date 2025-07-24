@@ -112,6 +112,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
+import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -470,7 +471,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         QueryPlan queryPlan = (ExplainablePlan) plan;
         boolean readOnly = queryPlan.type().implicitTransactionReadOnlyMode();
-        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, true);
+        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, plan instanceof KeyValueGetPlan);
         operationContext.notifyTxUsed(txWrapper);
 
         AsyncDataCursor<InternalSqlRow> dataCursor;
