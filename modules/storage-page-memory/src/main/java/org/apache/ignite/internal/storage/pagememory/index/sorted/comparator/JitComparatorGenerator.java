@@ -42,6 +42,7 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.control.SwitchStatement.SwitchBuilder;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.bytecode.instruction.VariableInstruction.LoadVariableInstruction;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -279,6 +280,13 @@ public class JitComparatorGenerator {
 
         // Final "return 0" statement.
         body.append(constantInt(0).ret());
+
+        // Add default constructor.
+        MethodDefinition constructor = classDefinition.declareConstructor(EnumSet.of(Access.PUBLIC));
+        constructor.getBody()
+                .append(new LoadVariableInstruction(constructor.getThis()))
+                .invokeConstructor(Object.class)
+                .ret();
 
         Class<?> clazz = CLASS_GENERATOR.defineClass(classDefinition, Object.class);
         try {
