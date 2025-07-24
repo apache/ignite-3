@@ -981,9 +981,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             // there is an ability to specify more precise type by CAST operation. Therefore if type of the dyn param
             // is decimal, and it immediately casted to DECIMAL as well, we need override type of the dyn param to desired
             // one.
-            // The same applies to temporal types that have a precision, for example, the dynamic TIMESTAMP parameter has
-            // a precision of 6 by default, but the user can override it by specifying 9.
-            // But with temporal types it doesn't make sense until we support precision greater then 6.
+            // The same is required for temporal types to downcast the value according to the specified precision before
+            // going to the index.
             setDynamicParamType((SqlDynamicParam) castOperand, returnType);
 
             return;
