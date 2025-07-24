@@ -651,13 +651,13 @@ public class JraftServerImpl implements RaftServer {
 
     private Set<String> raftNodeMetaStorageIdsOnDisk() {
         return groupStoragesContextResolver.serverDataPaths().stream()
-                .flatMap(JraftServerImpl::listUncheckingly)
+                .flatMap(JraftServerImpl::listFiles)
                 .filter(Files::isDirectory)
                 .map(groupDirPath -> groupDirPath.getFileName().toString())
                 .collect(toUnmodifiableSet());
     }
 
-    private static Stream<Path> listUncheckingly(Path dir) {
+    private static Stream<Path> listFiles(Path dir) {
         try {
             return Files.list(dir);
         } catch (IOException e) {
