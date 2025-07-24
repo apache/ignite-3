@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor;
+import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor.DeprecatedAlias;
 
 /**
  * C# generator for Error Codes.
@@ -113,6 +114,11 @@ public class CsharpGenerator extends GenericGenerator {
             }
         }
 
+        for (int i = 0; i < descriptor.deprecatedAliases.size(); i++) {
+            DeprecatedAlias deprecatedAlias = descriptor.deprecatedAliases.get(i);
+            generateDeprecatedAlias(deprecatedAlias.name, deprecatedAlias.identifier);
+        }
+
         line("        }");
     }
 
@@ -120,5 +126,16 @@ public class CsharpGenerator extends GenericGenerator {
         line(String.format("            /// <summary> %s error. </summary>", transfromErrorCodeName(name)));
         line(String.format("            public const int %s = (GroupCode << %d) | (%d & 0xFFFF);", transfromErrorCodeName(name), groupShift,
                 code));
+    }
+
+    private void generateDeprecatedAlias(String name, String identifier) throws IOException {
+        String transformedName = transfromErrorCodeName(name);
+        String transformedIdentifier = transfromErrorCodeName(identifier);
+
+        line();
+        line(String.format("            /// <summary> %s is deprecated. Use %s instead. </summary>", transformedName,
+                transformedIdentifier));
+        line("            [Obsolete]");
+        line(String.format("            public const int %s = %s;", transformedName, transformedIdentifier));
     }
 }
