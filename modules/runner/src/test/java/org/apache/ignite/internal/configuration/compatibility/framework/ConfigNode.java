@@ -271,13 +271,6 @@ public class ConfigNode {
     }
 
     /**
-     * Returns an id of a polymorphic instance.
-     */
-    @Nullable String instanceType() {
-        return attributes.get(Attributes.INSTANCE_TYPE);
-    }
-
-    /**
      * Constructs the full path of this node in the configuration tree.
      */
     @JsonIgnore
@@ -375,7 +368,6 @@ public class ConfigNode {
         static String NAME = "name";
         static String KIND = "kind";
         static String CLASS = "class";
-        static String INSTANCE_TYPE = "instanceType";
     }
 
     /**
