@@ -67,14 +67,14 @@ public class ConfigurationTreeComparator {
     /**
      * Returns {@code true} if given node is compatible with candidate node, {@code false} otherwise.
      */
-    private static boolean match(ConfigNode node, ConfigNode candidate) {
+    private static boolean match(ConfigNode candidate, ConfigNode current) {
         // To make debugging easier.
-        boolean kindMatches = Objects.equals(candidate.kind(), node.kind());
-        boolean nameMatches = matchNames(candidate, node);
-        boolean flagMatch = validateFlags(candidate, node);
-        boolean deletedPrefixesMatch = candidate.deletedPrefixes().containsAll(node.deletedPrefixes());
+        boolean kindMatches = Objects.equals(current.kind(), candidate.kind());
+        boolean nameMatches = matchNames(current, candidate);
+        boolean flagMatch = validateFlags(current, candidate);
+        boolean deletedPrefixesMatch = current.deletedPrefixes().containsAll(candidate.deletedPrefixes());
         // Value node types can be changed.
-        boolean nodeTypeMatches = !node.isValue() || Objects.equals(candidate.type(), node.type());
+        boolean nodeTypeMatches = !candidate.isValue() || Objects.equals(current.type(), candidate.type());
         return kindMatches
                 && nameMatches
                 && flagMatch
@@ -191,17 +191,17 @@ public class ConfigurationTreeComparator {
     }
 
 
-    private static void compareRoots(List<ConfigNode> roots1, List<ConfigNode> roots2, ComparisonContext context) {
+    private static void compareRoots(List<ConfigNode> candidateRoots, List<ConfigNode> currentRoots, ComparisonContext context) {
         List<ConfigNode> removed = new ArrayList<>();
         List<ConfigNode> added = new ArrayList<>();
-        List<ConfigNode> copy2 = new ArrayList<>(roots2);
+        List<ConfigNode> currentCopy = new ArrayList<>(currentRoots);
 
-        for (ConfigNode root1 : roots1) {
+        for (ConfigNode root1 : candidateRoots) {
             boolean matchFound = false;
 
-            for (ConfigNode root2 : new ArrayList<>(copy2)) {
+            for (ConfigNode root2 : new ArrayList<>(currentCopy)) {
                 if (rootsMatch(root1, root2)) {
-                    copy2.remove(root2);
+                    currentCopy.remove(root2);
                     validate(root1, root2, context);
                     matchFound = true;
                     break;
@@ -213,7 +213,7 @@ public class ConfigurationTreeComparator {
             }
         }
 
-        added.addAll(copy2);
+        added.addAll(currentCopy);
 
         // Validate new roots
         validateNew(added, context);
@@ -221,14 +221,14 @@ public class ConfigurationTreeComparator {
         validateRemoved(removed, context);
     }
 
-    private static boolean rootsMatch(ConfigNode a, ConfigNode b) {
-        boolean nameMatches = Objects.equals(a.name(), b.name());
-        boolean kindMatches = Objects.equals(a.kind(), b.kind());
+    private static boolean rootsMatch(ConfigNode candidate, ConfigNode current) {
+        boolean nameMatches = Objects.equals(candidate.name(), current.name());
+        boolean kindMatches = Objects.equals(candidate.kind(), current.kind());
         return nameMatches && kindMatches;
     }
 
-    private static void validate(Node a, Node b, ComparisonContext context) {
-        compareNodes(a.node(), b.node(), context);
+    private static void validate(Node candidate, Node current, ComparisonContext context) {
+        compareNodes(candidate.node(), current.node(), context);
     }
 
     private static void validate(ConfigNode candidate, ConfigNode current, ComparisonContext context) {
@@ -238,57 +238,57 @@ public class ConfigurationTreeComparator {
         compareNodes(candidate, current, context);
     }
 
-    private static void compareNodes(ConfigNode a, ConfigNode b, ComparisonContext context) {
-        if (!match(a, b)) {
-            context.addError(a, "Node does not match. Previous: " + a + ". Current: " + b);
+    private static void compareNodes(ConfigNode candidate, ConfigNode current, ComparisonContext context) {
+        if (!match(candidate, current)) {
+            context.addError(candidate, "Node does not match. Previous: " + candidate + ". Current: " + current);
             return;
         }
 
-        validateAnnotations(a, b, context);
+        validateAnnotations(candidate, current, context);
 
-        compareChildren(a.children(), b.children(), context);
+        compareChildren(candidate.children(), current.children(), context);
     }
 
-    private static void compareChildren(Map<String, Node> a, Map<String, Node> b, ComparisonContext context) {
+    private static void compareChildren(Map<String, Node> candidate, Map<String, Node> current, ComparisonContext context) {
         // Validates matching children.
         // then validates removed and added ones.
         List<Node> removed = new ArrayList<>();
         List<Node> added = new ArrayList<>();
-        Map<String, Node> copyB = new HashMap<>(b);
+        Map<String, Node> currentCopy = new HashMap<>(current);
 
-        for (Entry<String, Node> entryA : a.entrySet()) {
-            Node nodeA = entryA.getValue();
+        for (Entry<String, Node> candididateEntry : candidate.entrySet()) {
+            Node candidateNode = candididateEntry.getValue();
             boolean matchFound = false;
 
-            for (Entry<String, Node> entryB : copyB.entrySet()) {
-                Node nodeB = entryB.getValue();
-                if (equalNames(entryA, entryB)) {
+            for (Entry<String, Node> currentEntry : currentCopy.entrySet()) {
+                Node nodeB = currentEntry.getValue();
+                if (equalNames(candididateEntry, currentEntry)) {
                     matchFound = true;
-                    copyB.remove(entryB.getKey());
-                    validate(nodeA, nodeB, context);
+                    currentCopy.remove(currentEntry.getKey());
+                    validate(candidateNode, nodeB, context);
                     break;
                 }
             }
 
             if (!matchFound) {
-                removed.add(nodeA);
+                removed.add(candidateNode);
             }
         }
 
-        added.addAll(copyB.values());
+        added.addAll(currentCopy.values());
 
         validateRemovedChildren(removed, context);
         validateNewChildren(added, context);
     }
 
-    private static boolean equalNames(Entry<String, Node> entryA, Entry<String, Node> entryB) {
-        String nameA = entryA.getKey();
-        String nameB = entryB.getKey();
-        if (nameA.equals(nameB)) {
+    private static boolean equalNames(Entry<String, Node> currentEntry, Entry<String, Node> candidateEntry) {
+        String candidateName = currentEntry.getKey();
+        String currentName = candidateEntry.getKey();
+        if (candidateName.equals(currentName)) {
             return true;
         }
-        Node nodeB = entryB.getValue();
-        return nodeB.legacyPropertyNames().stream().anyMatch(n -> n.equals(nameA));
+        Node nodeB = candidateEntry.getValue();
+        return nodeB.legacyPropertyNames().stream().anyMatch(n -> n.equals(candidateName));
     }
 
     private static void validateNew(Collection<ConfigNode> nodes, ComparisonContext context) {
