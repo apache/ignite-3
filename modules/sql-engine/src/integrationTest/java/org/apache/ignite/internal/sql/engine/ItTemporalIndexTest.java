@@ -18,24 +18,38 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static org.apache.calcite.sql.type.SqlTypeName.TIME;
+import static org.apache.calcite.sql.type.SqlTypeName.TIMESTAMP;
+import static org.apache.calcite.sql.type.SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.dateTime;
+import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.instant;
+import static org.apache.ignite.internal.sql.engine.ItTemporalIndexTest.Parser.time;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScanWithAnySearchBounds;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.SQL_CONFORMANT_DATETIME_FORMATTER;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Month;
 import java.time.ZoneOffset;
+import java.time.temporal.Temporal;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -61,6 +75,11 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
             "TIMESTAMP1", new String[]{"S_ASC_IDX_TIMESTAMP1", "S_DESC_IDX_TIMESTAMP1"},
             "TIMESTAMPTZ1", new String[]{"S_ASC_IDX_TZ1", "S_DESC_IDX_TZ1"}
     );
+
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
 
     @BeforeAll
     static void initTestData() {
@@ -92,6 +111,66 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
                 .app("CREATE INDEX s_desc_idx_tz1 ON timestamptz1 USING SORTED (val DESC);")
                 .app("CREATE INDEX hash_idx_tz1 ON timestamptz1 USING HASH (val);")
 
+                .app("CREATE TABLE T_TIME(ID INT PRIMARY KEY,"
+                        + "col_time_0 TIME(0), col_time_1 TIME(1), col_time_2 TIME(2), col_time_3 TIME(3), col_time_4 TIME(4));").nl()
+
+                .app("CREATE INDEX T_TIME_IDX_SORTED_0 ON T_TIME USING SORTED(col_time_0);").nl()
+                .app("CREATE INDEX T_TIME_IDX_SORTED_1 ON T_TIME USING SORTED(col_time_1);").nl()
+                .app("CREATE INDEX T_TIME_IDX_SORTED_2 ON T_TIME USING SORTED(col_time_2);").nl()
+                .app("CREATE INDEX T_TIME_IDX_SORTED_3 ON T_TIME USING SORTED(col_time_3);").nl()
+                .app("CREATE INDEX T_TIME_IDX_SORTED_4 ON T_TIME USING SORTED(col_time_4);").nl()
+
+                .app("CREATE INDEX T_TIME_IDX_HASH_0 ON T_TIME USING HASH(col_time_0);").nl()
+                .app("CREATE INDEX T_TIME_IDX_HASH_1 ON T_TIME USING HASH(col_time_1);").nl()
+                .app("CREATE INDEX T_TIME_IDX_HASH_2 ON T_TIME USING HASH(col_time_2);").nl()
+                .app("CREATE INDEX T_TIME_IDX_HASH_3 ON T_TIME USING HASH(col_time_3);").nl()
+                .app("CREATE INDEX T_TIME_IDX_HASH_4 ON T_TIME USING HASH(col_time_4);").nl()
+
+                .app("CREATE TABLE T_TIMESTAMP(ID INT PRIMARY KEY,"
+                        + "col_timestamp_0 TIMESTAMP(0), col_timestamp_1 TIMESTAMP(1), col_timestamp_2 TIMESTAMP(2), "
+                        + "col_timestamp_3 TIMESTAMP(3), col_timestamp_4 TIMESTAMP(4));").nl()
+
+                .app("CREATE INDEX T_TIMESTAMP_IDX_SORTED_0 ON T_TIMESTAMP USING SORTED(col_timestamp_0);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_IDX_SORTED_1 ON T_TIMESTAMP USING SORTED(col_timestamp_1);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_IDX_SORTED_2 ON T_TIMESTAMP USING SORTED(col_timestamp_2);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_IDX_SORTED_3 ON T_TIMESTAMP USING SORTED(col_timestamp_3);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_IDX_SORTED_4 ON T_TIMESTAMP USING SORTED(col_timestamp_4);").nl()
+
+                .app("CREATE INDEX T_TIMESTAMP_IDX_HASH_0 ON T_TIMESTAMP USING HASH(col_timestamp_0);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_IDX_HASH_1 ON T_TIMESTAMP USING HASH(col_timestamp_1);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_IDX_HASH_2 ON T_TIMESTAMP USING HASH(col_timestamp_2);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_IDX_HASH_3 ON T_TIMESTAMP USING HASH(col_timestamp_3);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_IDX_HASH_4 ON T_TIMESTAMP USING HASH(col_timestamp_4);").nl()
+
+                .app("CREATE TABLE T_TIMESTAMP_WITH_LOCAL_TIME_ZONE(ID INT PRIMARY KEY,"
+                        + "col_timestamp_with_local_time_zone_0 TIMESTAMP(0) WITH LOCAL TIME ZONE,"
+                        + "col_timestamp_with_local_time_zone_1 TIMESTAMP(1) WITH LOCAL TIME ZONE,"
+                        + "col_timestamp_with_local_time_zone_2 TIMESTAMP(2) WITH LOCAL TIME ZONE,"
+                        + "col_timestamp_with_local_time_zone_3 TIMESTAMP(3) WITH LOCAL TIME ZONE,"
+                        + "col_timestamp_with_local_time_zone_4 TIMESTAMP(4) WITH LOCAL TIME ZONE);").nl()
+
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_SORTED_0 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING SORTED(col_timestamp_with_local_time_zone_0);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_SORTED_1 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING SORTED(col_timestamp_with_local_time_zone_1);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_SORTED_2 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING SORTED(col_timestamp_with_local_time_zone_2);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_SORTED_3 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING SORTED(col_timestamp_with_local_time_zone_3);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_SORTED_4 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING SORTED(col_timestamp_with_local_time_zone_4);").nl()
+
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_HASH_0 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING HASH(col_timestamp_with_local_time_zone_0);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_HASH_1 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING HASH(col_timestamp_with_local_time_zone_1);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_HASH_2 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING HASH(col_timestamp_with_local_time_zone_2);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_HASH_3 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING HASH(col_timestamp_with_local_time_zone_3);").nl()
+                .app("CREATE INDEX T_TIMESTAMP_WITH_LOCAL_TIME_ZONE_IDX_HASH_4 ON T_TIMESTAMP_WITH_LOCAL_TIME_ZONE "
+                        + "USING HASH(col_timestamp_with_local_time_zone_4);").nl()
+
                 .toString();
 
         sqlScript(query);
@@ -107,6 +186,10 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
 
         fillData("TIMESTAMPTZ1");
         fillData("TIMESTAMPTZ2");
+
+        fillData("T_TIME");
+        fillData("T_TIMESTAMP");
+        fillData("T_TIMESTAMP_WITH_LOCAL_TIME_ZONE");
     }
 
     @ParameterizedTest(name = "table = {0}, predicate = {1}")
@@ -425,6 +508,497 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("testTemporalPrecisionDynParamArgs")
+    void testTemporalPrecisionDynamicParam(SqlTypeName type, String condition, Temporal param, int precision, Temporal[] expectedRows) {
+        getIdxWithPrecisionChecker(type, "sorted", condition, param, precision, expectedRows)
+                .check();
+
+        if (condition.stripLeading().charAt(0) != '=') {
+            return;
+        }
+
+        getIdxWithPrecisionChecker(type, "hash", condition, param, precision, expectedRows)
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("testTemporalPrecisionLiteralArgs")
+    void testTemporalPrecisionLiteral(SqlTypeName type, String condition, int precision, Temporal[] expectedRows) {
+        getIdxWithPrecisionChecker(type, "sorted", condition, null, precision, expectedRows)
+                .check();
+
+        if (condition.stripLeading().charAt(0) != '=') {
+            return;
+        }
+
+        getIdxWithPrecisionChecker(type, "hash", condition, null, precision, expectedRows)
+                .check();
+    }
+
+    private static QueryChecker getIdxWithPrecisionChecker(SqlTypeName type,
+            String idxType,
+            String condition,
+            @Nullable Temporal param,
+            int precision,
+            Temporal[] expectedRows)
+    {
+        String sortedIdxName = format("t_{}_idx_{}_{}", type.getName(), idxType, precision).toUpperCase();
+        String columnName = format("col_{}_{}", type.getName(), precision);
+        String tableName = format("t_{}", type.getName()).toUpperCase();
+        String query = format("SELECT /*+ FORCE_INDEX({}) */ {} FROM {} WHERE {} {} ORDER BY ID",
+                sortedIdxName, columnName, tableName, columnName, condition);
+
+        QueryChecker checker = assertQuery(query)
+                .matches(containsIndexScanWithAnySearchBounds("PUBLIC", tableName, sortedIdxName))
+                .withTimeZoneId(ZoneOffset.UTC);
+
+        if (param != null) {
+            checker = checker.withParam(param);
+        }
+
+        if (expectedRows.length == 0) {
+            return checker.returnNothing();
+        }
+
+        for (Temporal expected : expectedRows) {
+            checker = checker.returns(expected);
+        }
+
+        return checker;
+    }
+
+    private static List<Arguments> testTemporalPrecisionDynParamArgs() {
+        return testTemporalPrecisionArgs().buildDynamicParamsArgs();
+    }
+
+    private static List<Arguments> testTemporalPrecisionLiteralArgs() {
+        return testTemporalPrecisionArgs().buildLiteralArgs();
+    }
+
+    private static TestArgsBuilder testTemporalPrecisionArgs() {
+        TestArgsBuilder argsBuilder = new TestArgsBuilder();
+
+        // TIME
+        argsBuilder.type(TIME)
+                .condition(" = {}")
+                .param("00:00:00")
+                .results(0, fillArray(LocalTime.parse("00:00:00"), 5))
+                .results(1, LocalTime.parse("00:00:00"))
+                .results(2, LocalTime.parse("00:00:00"))
+                .results(3, LocalTime.parse("00:00:00"))
+                .results(4, LocalTime.parse("00:00:00"))
+
+                .param("00:00:00.1")
+                .results(0)
+                .results(1, fillArray(LocalTime.parse("00:00:00.1"), 4))
+                .results(2, LocalTime.parse("00:00:00.1"))
+                .results(3, LocalTime.parse("00:00:00.1"))
+                .results(4, LocalTime.parse("00:00:00.1"))
+
+                .param("00:00:00.12")
+                .results(0)
+                .results(1)
+                .results(2, fillArray(LocalTime.parse("00:00:00.12"), 3))
+                .results(3, LocalTime.parse("00:00:00.12"))
+                .results(4, LocalTime.parse("00:00:00.12"))
+
+                .param("00:00:00.123")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(LocalTime.parse("00:00:00.123"), 2))
+                .results(4, fillArray(LocalTime.parse("00:00:00.123"), 2))
+
+                .param("00:00:00.1234")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(LocalTime.parse("00:00:00.123"), 2))
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19162 00:00:00.1234 is expected
+                .results(4, fillArray(LocalTime.parse("00:00:00.123"), 2))
+
+                // Downcast
+                .param("00:00:00.123")
+                .condition(" = {}::TIME(2)")
+                .results(0)
+                .results(1)
+                .results(2, fillArray(LocalTime.parse("00:00:00.12"), 3))
+                .results(3, LocalTime.parse("00:00:00.12"))
+                .results(4, LocalTime.parse("00:00:00.12"))
+
+                .condition(" = {}::TIME(1)")
+                .results(0)
+                .results(1, fillArray(LocalTime.parse("00:00:00.1"), 4))
+                .results(2, LocalTime.parse("00:00:00.1"))
+                .results(3, LocalTime.parse("00:00:00.1"))
+                .results(4, LocalTime.parse("00:00:00.1"))
+
+                .condition(" = {}::TIME(0)")
+                .results(0, fillArray(LocalTime.parse("00:00:00"), 5))
+                .results(1, LocalTime.parse("00:00:00"))
+                .results(2, LocalTime.parse("00:00:00"))
+                .results(3, LocalTime.parse("00:00:00"))
+                .results(4, LocalTime.parse("00:00:00"))
+
+                // Upcast
+                .param("00:00:00.1")
+                .condition(" = {}::TIME(2)")
+                .results(0)
+                .results(1, fillArray(LocalTime.parse("00:00:00.1"), 4))
+                .results(2, LocalTime.parse("00:00:00.1"))
+                .results(3, LocalTime.parse("00:00:00.1"))
+                .results(4, LocalTime.parse("00:00:00.1"))
+
+                .condition(" = {}::TIME(3)")
+                .results(0)
+                .results(1, fillArray(LocalTime.parse("00:00:00.1"), 4))
+                .results(2, LocalTime.parse("00:00:00.1"))
+                .results(3, LocalTime.parse("00:00:00.1"))
+                .results(4, LocalTime.parse("00:00:00.1"))
+
+                // Greater or equal
+                .condition(" >= {}")
+                .param("00:00:00.1")
+                .results(0)
+                .results(1, fillArray(time("00:00:00.1"), 4))
+                .results(2, time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.12"), time("00:00:00.12"))
+                .results(3, time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.123"), time("00:00:00.123"))
+                .results(4, time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.123"), time("00:00:00.123"))
+
+                .param("00:00:00.12")
+                .results(0)
+                .results(1)
+                .results(2, fillArray(time("00:00:00.12"), 3))
+                .results(3, time("00:00:00.12"), time("00:00:00.123"), time("00:00:00.123"))
+                .results(4, time("00:00:00.12"), time("00:00:00.123"), time("00:00:00.123"))
+
+                .param("00:00:00.123")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(time("00:00:00.123"), 2))
+                .results(4, fillArray(time("00:00:00.123"), 2))
+
+                .param("00:00:00.1234")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(time("00:00:00.123"), 2))
+                .results(4, fillArray(time("00:00:00.123"), 2))
+
+                // Lower or equal
+                .condition(" <= {}")
+                .param("00:00:00.1")
+                .results(0, fillArray(time("00:00:00"), 5))
+                .results(1, time("00:00:00"), time("00:00:00.1"), time("00:00:00.1"), time("00:00:00.1"), time("00:00:00.1"))
+                .results(2, time("00:00:00"), time("00:00:00.1"))
+                .results(3, time("00:00:00"), time("00:00:00.1"))
+                .results(4, time("00:00:00"), time("00:00:00.1"))
+
+                .param("00:00:00.12")
+                .results(0, fillArray(time("00:00:00"), 5))
+                .results(1, time("00:00:00"), time("00:00:00.1"), time("00:00:00.1"), time("00:00:00.1"), time("00:00:00.1"))
+                .results(2, time("00:00:00"), time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.12"), time("00:00:00.12"))
+                .results(3, time("00:00:00"), time("00:00:00.1"), time("00:00:00.12"))
+                .results(4, time("00:00:00"), time("00:00:00.1"), time("00:00:00.12"))
+
+                .param("00:00:00.123")
+                .results(0, fillArray(time("00:00:00"), 5))
+                .results(1, time("00:00:00"), time("00:00:00.1"), time("00:00:00.1"), time("00:00:00.1"), time("00:00:00.1"))
+                .results(2, time("00:00:00"), time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.12"), time("00:00:00.12"))
+                .results(3, time("00:00:00"), time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.123"), time("00:00:00.123"))
+                .results(4, time("00:00:00"), time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.123"), time("00:00:00.123"))
+
+                .param("00:00:00.1234")
+                .results(0, fillArray(time("00:00:00"), 5))
+                .results(1, time("00:00:00"), time("00:00:00.1"), time("00:00:00.1"), time("00:00:00.1"), time("00:00:00.1"))
+                .results(2, time("00:00:00"), time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.12"), time("00:00:00.12"))
+                .results(3, time("00:00:00"), time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.123"), time("00:00:00.123"))
+                .results(4, time("00:00:00"), time("00:00:00.1"), time("00:00:00.12"), time("00:00:00.123"), time("00:00:00.123"))
+                ;
+
+        // TIMESTAMP
+        argsBuilder.type(TIMESTAMP)
+                .condition(" = {}")
+                .param("1970-01-01 00:00:00")
+                .results(0, fillArray(dateTime("1970-01-01 00:00:00"), 5))
+                .results(1, dateTime("1970-01-01 00:00:00"))
+                .results(2, dateTime("1970-01-01 00:00:00"))
+                .results(3, dateTime("1970-01-01 00:00:00"))
+                .results(4, dateTime("1970-01-01 00:00:00"))
+
+                .param("1970-01-01 00:00:00.1")
+                .results(0)
+                .results(1, fillArray(dateTime("1970-01-01 00:00:00.1"), 4))
+                .results(2, dateTime("1970-01-01 00:00:00.1"))
+                .results(3, dateTime("1970-01-01 00:00:00.1"))
+                .results(4, dateTime("1970-01-01 00:00:00.1"))
+
+                .param("1970-01-01 00:00:00.12")
+                .results(0)
+                .results(1)
+                .results(2, fillArray(dateTime("1970-01-01 00:00:00.12"), 3))
+                .results(3, dateTime("1970-01-01 00:00:00.12"))
+                .results(4, dateTime("1970-01-01 00:00:00.12"))
+
+                .param("1970-01-01 00:00:00.123")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(dateTime("1970-01-01 00:00:00.123"), 2))
+                .results(4, fillArray(dateTime("1970-01-01 00:00:00.123"), 2))
+
+                .param("1970-01-01 00:00:00.1234")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(dateTime("1970-01-01 00:00:00.123"), 2))
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19162 00:00:00.1234 is expected
+                .results(4, fillArray(dateTime("1970-01-01 00:00:00.123"), 2))
+
+                // Downcast
+                .param("1970-01-01 00:00:00.123")
+                .condition(" = {}::TIMESTAMP(2)")
+                .results(0)
+                .results(1)
+                .results(2, fillArray(dateTime("1970-01-01 00:00:00.12"), 3))
+                .results(3, dateTime("1970-01-01 00:00:00.12"))
+                .results(4, dateTime("1970-01-01 00:00:00.12"))
+
+                .condition(" = {}::TIMESTAMP(1)")
+                .results(0)
+                .results(1, fillArray(dateTime("1970-01-01 00:00:00.1"), 4))
+                .results(2, dateTime("1970-01-01 00:00:00.1"))
+                .results(3, dateTime("1970-01-01 00:00:00.1"))
+                .results(4, dateTime("1970-01-01 00:00:00.1"))
+
+                .condition(" = {}::TIMESTAMP(0)")
+                .results(0, fillArray(dateTime("1970-01-01 00:00:00"), 5))
+                .results(1, dateTime("1970-01-01 00:00:00"))
+                .results(2, dateTime("1970-01-01 00:00:00"))
+                .results(3, dateTime("1970-01-01 00:00:00"))
+                .results(4, dateTime("1970-01-01 00:00:00"))
+
+                // Upcast
+                .param("1970-01-01 00:00:00.1")
+                .condition(" = {}::TIMESTAMP(2)")
+                .results(0)
+                .results(1, fillArray(dateTime("1970-01-01 00:00:00.1"), 4))
+                .results(2, dateTime("1970-01-01 00:00:00.1"))
+                .results(3, dateTime("1970-01-01 00:00:00.1"))
+                .results(4, dateTime("1970-01-01 00:00:00.1"))
+
+                .condition(" = {}::TIMESTAMP(3)")
+                .results(0)
+                .results(1, fillArray(dateTime("1970-01-01 00:00:00.1"), 4))
+                .results(2, dateTime("1970-01-01 00:00:00.1"))
+                .results(3, dateTime("1970-01-01 00:00:00.1"))
+                .results(4, dateTime("1970-01-01 00:00:00.1"))
+
+                // Greater or equal
+                .condition(" >= {}")
+                .param("1970-01-01 00:00:00.1")
+                .results(0)
+                .results(1, fillArray(dateTime("1970-01-01 00:00:00.1"), 4))
+                .results(2, dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.12"))
+                .results(3, dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.123"), dateTime("1970-01-01 00:00:00.123"))
+                .results(4, dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.123"), dateTime("1970-01-01 00:00:00.123"))
+
+                .param("1970-01-01 00:00:00.12")
+                .results(0)
+                .results(1)
+                .results(2, fillArray(dateTime("1970-01-01 00:00:00.12"), 3))
+                .results(3, dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.123"), dateTime("1970-01-01 00:00:00.123"))
+                .results(4, dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.123"), dateTime("1970-01-01 00:00:00.123"))
+
+                .param("1970-01-01 00:00:00.123")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(dateTime("1970-01-01 00:00:00.123"), 2))
+                .results(4, fillArray(dateTime("1970-01-01 00:00:00.123"), 2))
+
+                .param("1970-01-01 00:00:00.1234")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(dateTime("1970-01-01 00:00:00.123"), 2))
+                .results(4, fillArray(dateTime("1970-01-01 00:00:00.123"), 2))
+
+                // Lower or equal
+                .condition(" <= {}")
+                .param("1970-01-01 00:00:00.1")
+                .results(0, fillArray(dateTime("1970-01-01 00:00:00"), 5))
+                .results(1, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"))
+                .results(2, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"))
+                .results(3, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"))
+                .results(4, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"))
+
+                .param("1970-01-01 00:00:00.12")
+                .results(0, fillArray(dateTime("1970-01-01 00:00:00"), 5))
+                .results(1, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"))
+                .results(2, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.12"))
+                .results(3, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"))
+                .results(4, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"))
+
+                .param("1970-01-01 00:00:00.123")
+                .results(0, fillArray(dateTime("1970-01-01 00:00:00"), 5))
+                .results(1, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"))
+                .results(2, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.12"))
+                .results(3, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.123"), dateTime("1970-01-01 00:00:00.123"))
+                .results(4, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.123"), dateTime("1970-01-01 00:00:00.123"))
+
+                .param("1970-01-01 00:00:00.1234")
+                .results(0, fillArray(dateTime("1970-01-01 00:00:00"), 5))
+                .results(1, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.1"))
+                .results(2, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.12"))
+                .results(3, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.123"), dateTime("1970-01-01 00:00:00.123"))
+                .results(4, dateTime("1970-01-01 00:00:00"), dateTime("1970-01-01 00:00:00.1"), dateTime("1970-01-01 00:00:00.12"), dateTime("1970-01-01 00:00:00.123"), dateTime("1970-01-01 00:00:00.123"))
+                ;
+
+        // TIMESTAMP WITH LOCAL TIME ZONE
+        argsBuilder.type(TIMESTAMP_WITH_LOCAL_TIME_ZONE)
+                .condition(" = {}")
+                .param("1970-01-01 00:00:00")
+                .results(0, fillArray(instant("1970-01-01 00:00:00"), 5))
+                .results(1, instant("1970-01-01 00:00:00"))
+                .results(2, instant("1970-01-01 00:00:00"))
+                .results(3, instant("1970-01-01 00:00:00"))
+                .results(4, instant("1970-01-01 00:00:00"))
+
+                .param("1970-01-01 00:00:00.1")
+                .results(0)
+                .results(1, fillArray(instant("1970-01-01 00:00:00.1"), 4))
+                .results(2, instant("1970-01-01 00:00:00.1"))
+                .results(3, instant("1970-01-01 00:00:00.1"))
+                .results(4, instant("1970-01-01 00:00:00.1"))
+
+                .param("1970-01-01 00:00:00.12")
+                .results(0)
+                .results(1)
+                .results(2, fillArray(instant("1970-01-01 00:00:00.12"), 3))
+                .results(3, instant("1970-01-01 00:00:00.12"))
+                .results(4, instant("1970-01-01 00:00:00.12"))
+
+                .param("1970-01-01 00:00:00.123")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(instant("1970-01-01 00:00:00.123"), 2))
+                .results(4, fillArray(instant("1970-01-01 00:00:00.123"), 2))
+
+                .param("1970-01-01 00:00:00.1234")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(instant("1970-01-01 00:00:00.123"), 2))
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19162 00:00:00.1234 is expected
+                .results(4, fillArray(instant("1970-01-01 00:00:00.123"), 2))
+
+                // Downcast
+                .param("1970-01-01 00:00:00.123")
+                .condition(" = {}::TIMESTAMP(2) WITH LOCAL TIME ZONE")
+                .results(0)
+                .results(1)
+                .results(2, fillArray(instant("1970-01-01 00:00:00.12"), 3))
+                .results(3, instant("1970-01-01 00:00:00.12"))
+                .results(4, instant("1970-01-01 00:00:00.12"))
+
+                .condition(" = {}::TIMESTAMP(1) WITH LOCAL TIME ZONE")
+                .results(0)
+                .results(1, fillArray(instant("1970-01-01 00:00:00.1"), 4))
+                .results(2, instant("1970-01-01 00:00:00.1"))
+                .results(3, instant("1970-01-01 00:00:00.1"))
+                .results(4, instant("1970-01-01 00:00:00.1"))
+
+                .condition(" = {}::TIMESTAMP(0) WITH LOCAL TIME ZONE")
+                .results(0, fillArray(instant("1970-01-01 00:00:00"), 5))
+                .results(1, instant("1970-01-01 00:00:00"))
+                .results(2, instant("1970-01-01 00:00:00"))
+                .results(3, instant("1970-01-01 00:00:00"))
+                .results(4, instant("1970-01-01 00:00:00"))
+
+                // Upcast
+                .param("1970-01-01 00:00:00.1")
+                .condition(" = {}::TIMESTAMP(2) WITH LOCAL TIME ZONE")
+                .results(0)
+                .results(1, fillArray(instant("1970-01-01 00:00:00.1"), 4))
+                .results(2, instant("1970-01-01 00:00:00.1"))
+                .results(3, instant("1970-01-01 00:00:00.1"))
+                .results(4, instant("1970-01-01 00:00:00.1"))
+
+                .condition(" = {}::TIMESTAMP(3) WITH LOCAL TIME ZONE")
+                .results(0)
+                .results(1, fillArray(instant("1970-01-01 00:00:00.1"), 4))
+                .results(2, instant("1970-01-01 00:00:00.1"))
+                .results(3, instant("1970-01-01 00:00:00.1"))
+                .results(4, instant("1970-01-01 00:00:00.1"))
+
+                // Greater or equal
+                .condition(" >= {}")
+                .param("1970-01-01 00:00:00.1")
+                .results(0)
+                .results(1, fillArray(instant("1970-01-01 00:00:00.1"), 4))
+                .results(2, instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.12"))
+                .results(3, instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.123"), instant("1970-01-01 00:00:00.123"))
+                .results(4, instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.123"), instant("1970-01-01 00:00:00.123"))
+
+                .param("1970-01-01 00:00:00.12")
+                .results(0)
+                .results(1)
+                .results(2, fillArray(instant("1970-01-01 00:00:00.12"), 3))
+                .results(3, instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.123"), instant("1970-01-01 00:00:00.123"))
+                .results(4, instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.123"), instant("1970-01-01 00:00:00.123"))
+
+                .param("1970-01-01 00:00:00.123")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(instant("1970-01-01 00:00:00.123"), 2))
+                .results(4, fillArray(instant("1970-01-01 00:00:00.123"), 2))
+
+                .param("1970-01-01 00:00:00.1234")
+                .results(0)
+                .results(1)
+                .results(2)
+                .results(3, fillArray(instant("1970-01-01 00:00:00.123"), 2))
+                .results(4, fillArray(instant("1970-01-01 00:00:00.123"), 2))
+
+                // Lower or equal
+                .condition(" <= {}")
+                .param("1970-01-01 00:00:00.1")
+                .results(0, fillArray(instant("1970-01-01 00:00:00"), 5))
+                .results(1, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"))
+                .results(2, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"))
+                .results(3, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"))
+                .results(4, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"))
+
+                .param("1970-01-01 00:00:00.12")
+                .results(0, fillArray(instant("1970-01-01 00:00:00"), 5))
+                .results(1, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"))
+                .results(2, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.12"))
+                .results(3, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"))
+                .results(4, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"))
+
+                .param("1970-01-01 00:00:00.123")
+                .results(0, fillArray(instant("1970-01-01 00:00:00"), 5))
+                .results(1, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"))
+                .results(2, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.12"))
+                .results(3, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.123"), instant("1970-01-01 00:00:00.123"))
+                .results(4, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.123"), instant("1970-01-01 00:00:00.123"))
+
+                .param("1970-01-01 00:00:00.1234")
+                .results(0, fillArray(instant("1970-01-01 00:00:00"), 5))
+                .results(1, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.1"))
+                .results(2, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.12"))
+                .results(3, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.123"), instant("1970-01-01 00:00:00.123"))
+                .results(4, instant("1970-01-01 00:00:00"), instant("1970-01-01 00:00:00.1"), instant("1970-01-01 00:00:00.12"), instant("1970-01-01 00:00:00.123"), instant("1970-01-01 00:00:00.123"))
+                ;
+
+        return argsBuilder;
+    }
+
     private static void fillData(String table) {
         switch (table) {
             case "DATE1":
@@ -443,6 +1017,56 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
             case "TIMESTAMPTZ2":
                 fill(table, INITIAL_TS_LTZ::plusSeconds);
                 break;
+
+            case "T_TIME":
+                LocalTime baseTime = LocalTime.of(0, 0, 0);
+
+                List<LocalTime> times = List.of(
+                        baseTime,
+                        baseTime.withNano(100_000_000),
+                        baseTime.withNano(120_000_000),
+                        baseTime.withNano(123_000_000),
+                        baseTime.withNano(123_400_000)
+                );
+
+                for (int i = 0; i < times.size(); i++) {
+                    sql("INSERT INTO t_time VALUES (?, ?, ?, ?, ?, ?)", i, times.get(i), times.get(i), times.get(i), times.get(i), times.get(i));
+                }
+                break;
+
+            case "T_TIMESTAMP":
+                LocalDateTime baseTs = LocalDateTime.of(1970, Month.JANUARY, 1, 0, 0, 0);
+
+                List<LocalDateTime> dts = List.of(
+                        baseTs,
+                        baseTs.withNano(100_000_000),
+                        baseTs.withNano(120_000_000),
+                        baseTs.withNano(123_000_000),
+                        baseTs.withNano(123_400_000)
+                );
+
+                for (int i = 0; i < dts.size(); i++) {
+                    sql("INSERT INTO t_timestamp VALUES (?, ?, ?, ?, ?, ?)", i, dts.get(i), dts.get(i), dts.get(i), dts.get(i), dts.get(i));
+                }
+                break;
+
+            case "T_TIMESTAMP_WITH_LOCAL_TIME_ZONE":
+                LocalDateTime baseTsz = LocalDateTime.of(1970, Month.JANUARY, 1, 0, 0, 0);
+
+                List<Instant> dtsz = List.of(
+                        baseTsz.toInstant(ZoneOffset.UTC),
+                        baseTsz.withNano(100_000_000).toInstant(ZoneOffset.UTC),
+                        baseTsz.withNano(120_000_000).toInstant(ZoneOffset.UTC),
+                        baseTsz.withNano(123_000_000).toInstant(ZoneOffset.UTC),
+                        baseTsz.withNano(123_400_000).toInstant(ZoneOffset.UTC)
+                );
+
+                for (int i = 0; i < dtsz.size(); i++) {
+                    sql("INSERT INTO t_timestamp_with_local_time_zone VALUES (?, ?, ?, ?, ?, ?)",
+                            i, dtsz.get(i), dtsz.get(i), dtsz.get(i), dtsz.get(i), dtsz.get(i));
+                }
+                break;
+
             default:
                 throw new IllegalArgumentException("Undefined table: " + table);
         }
@@ -459,8 +1083,81 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         insertData(table, List.of("PK", "VAL"), rows);
     }
 
-    @Override
-    protected int initialNodes() {
-        return 1;
+    private static Temporal[] fillArray(Temporal iteam, int length) {
+        Temporal[] res = new Temporal[length];
+
+        Arrays.fill(res, iteam);
+
+        return res;
+    }
+
+    private static class TestArgsBuilder {
+        private final List<Arguments> dynParamArgs = new ArrayList<>();
+        private final List<Arguments> args = new ArrayList<>();
+        private SqlTypeName typeName;
+        private String condition;
+        private String param;
+
+        TestArgsBuilder type(SqlTypeName typeName) {
+            this.typeName = typeName;
+
+            return this;
+        }
+
+        TestArgsBuilder condition(String condition) {
+            this.condition = condition;
+
+            return this;
+        }
+
+        TestArgsBuilder param(String param) {
+            this.param = param;
+
+            return this;
+        }
+
+        TestArgsBuilder results(int precision, Temporal ... expectedRows) {
+            String dynParamCondition = format(condition, "?");
+            String literalCondition = format(condition, typeName.getSpaceName() + " '" + param + "'");
+
+            Temporal dynParam = null;
+
+            if (typeName == TIME) {
+                dynParam = LocalTime.parse(param);
+            } else if (typeName == TIMESTAMP) {
+                dynParam = dateTime(param);
+            } else if (typeName == TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                dynParam = instant(param);
+            }
+
+            assertNotNull(dynParam);
+
+            dynParamArgs.add(Arguments.of(typeName, dynParamCondition, dynParam, precision, expectedRows));
+            args.add(Arguments.of(typeName, literalCondition, precision, expectedRows));
+
+            return this;
+        }
+
+        List<Arguments> buildDynamicParamsArgs() {
+            return dynParamArgs;
+        }
+
+        List<Arguments> buildLiteralArgs() {
+            return args;
+        }
+    }
+
+    static class Parser {
+        static LocalDateTime dateTime(String s) {
+            return LocalDateTime.parse(s.replace(' ', 'T'));
+        }
+
+        static Instant instant(String s) {
+            return dateTime(s).toInstant(ZoneOffset.UTC);
+        }
+
+        static LocalTime time(String s) {
+            return LocalTime.parse(s);
+        }
     }
 }

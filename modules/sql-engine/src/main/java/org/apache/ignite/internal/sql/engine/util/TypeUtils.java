@@ -643,7 +643,7 @@ public class TypeUtils {
             return false;
         }
 
-        // TIME, TIMESTAMP and TIMESTAMP_LTZ can use index, ignoring precision.
+        // TIME, TIMESTAMP and TIMESTAMP_WLTZ can use index, ignoring precision.
         if (fromType.getSqlTypeName() == toType.getSqlTypeName()
                 && (fromType.getSqlTypeName() == SqlTypeName.TIME || SqlTypeUtil.isTimestamp(fromType))) {
             return false;
