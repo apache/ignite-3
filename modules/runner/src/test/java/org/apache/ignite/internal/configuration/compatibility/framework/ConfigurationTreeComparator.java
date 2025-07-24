@@ -92,24 +92,24 @@ public class ConfigurationTreeComparator {
         }
     }
 
-    private static boolean matchNames(ConfigNode candidate, ConfigNode node) {
-        return Objects.equals(candidate.name(), node.name()) || compareUsingLegacyNames(candidate, node);
+    private static boolean matchNames(ConfigNode candidate, ConfigNode current) {
+        return Objects.equals(candidate.name(), current.name()) || compareUsingLegacyNames(candidate, current);
     }
 
-    private static boolean compareUsingLegacyNames(ConfigNode candidate, ConfigNode node) {
-        return candidate.legacyPropertyNames().contains(node.name());
+    private static boolean compareUsingLegacyNames(ConfigNode candidate, ConfigNode current) {
+        return candidate.legacyPropertyNames().contains(current.name());
     }
 
-    private static boolean validateFlags(ConfigNode candidate, ConfigNode node) {
+    private static boolean validateFlags(ConfigNode candidate, ConfigNode current) {
         // If flags are empty then they should always be compatible.
-        if (candidate.flags().equals(node.flags())) {
+        if (candidate.flags().equals(current.flags())) {
             return true;
         }
-        return node.isValue() == candidate.isValue()
-                && (!candidate.isInternal() || node.isInternal()) // Public property\tree can't be hidden.
-                && node.isNamedNode() == candidate.isNamedNode()
-                && node.isInnerNode() == candidate.isInnerNode()
-                && (!node.isDeprecated() || candidate.isDeprecated()); // Deprecation shouldn't be removed.
+        return current.isValue() == candidate.isValue()
+                && (!candidate.isInternal() || current.isInternal()) // Public property\tree can't be hidden.
+                && current.isNamedNode() == candidate.isNamedNode()
+                && current.isInnerNode() == candidate.isInnerNode()
+                && (!current.isDeprecated() || candidate.isDeprecated()); // Deprecation shouldn't be removed.
     }
 
     private static String dumpTree(List<ConfigNode> nodes) {
