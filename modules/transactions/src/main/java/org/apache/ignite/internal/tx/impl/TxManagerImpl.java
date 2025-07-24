@@ -456,6 +456,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
                 tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, options);
                 txStateVolatileStorage.initialize(tx);
+                txMetrics.onTransactionStarted();
             }
         } else {
             HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
@@ -468,9 +469,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             tx = tx0;
             txStateVolatileStorage.initialize(tx);
+            txMetrics.onTransactionStarted();
         }
-
-        txMetrics.onTransactionStarted();
 
         return tx;
     }
