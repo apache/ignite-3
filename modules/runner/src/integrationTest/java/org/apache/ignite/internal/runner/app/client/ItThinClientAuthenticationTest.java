@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.typesafe.config.ConfigFactory;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +37,9 @@ import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticat
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -181,6 +185,36 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
             await().until(() -> checkConnection(client), willThrowWithCauseOrSuppressed(InvalidCredentialsException.class));
         }
     }
+
+    /**
+     * Tests that the current user can be retrieved correctly for different authenticated users.
+     */
+    @Test
+    public void testCurrentUser() {
+        IgniteClient client2WithAuth = IgniteClient.builder()
+                .authenticator(BasicAuthenticator.builder()
+                        .username(USERNAME_2)
+                        .password(PASSWORD_2)
+                        .build())
+                .addresses(getClientAddresses().toArray(new String[0]))
+                .build();
+
+        validateCurrentUser(clientWithAuth, "admin");
+        validateCurrentUser(client2WithAuth, "developer");
+    }
+
+    private static void validateCurrentUser(IgniteClient client, String user) {
+        AsyncResultSet<SqlRow> resultSet = client.sql()
+                .executeAsync(null, "SELECT CURRENT_USER")
+                .join();
+
+        SqlRow row = resultSet.currentPage().iterator().next();
+
+        assertEquals(1, row.columnCount());
+        assertEquals(ColumnType.STRING, resultSet.metadata().columns().get(0).type());
+        assertEquals(user, row.stringValue(0));
+    }
+
 
     private static CompletableFuture<Void> checkConnection(IgniteClient client) {
         return client.sql().executeAsync(null, "select 1 as num, 'hello' as str")
