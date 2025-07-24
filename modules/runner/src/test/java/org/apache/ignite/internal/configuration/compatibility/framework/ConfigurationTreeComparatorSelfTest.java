@@ -30,7 +30,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Attributes;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Flags;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigurationTreeComparator.ComparisonContext;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -646,7 +645,7 @@ public class ConfigurationTreeComparatorSelfTest {
         fail("Compatibility check passed unexpectedly.");
     }
 
-    private static @NotNull Set<Flags> createFlags(boolean hasDefault) {
+    private static Set<Flags> createFlags(boolean hasDefault) {
         return hasDefault ? Set.of(Flags.HAS_DEFAULT, Flags.IS_VALUE) : Set.of(Flags.IS_VALUE);
     }
 }
