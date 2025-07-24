@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -36,20 +36,20 @@ public class QueryEventsFactory {
         this.localNode = localNode;
     }
 
-    /** Creates new {@link IgniteEvents#QUERY_STARTED} event. */
+    /** Creates new {@link IgniteEventType#QUERY_STARTED} event. */
     public Event makeStartEvent(QueryInfo queryInfo, EventUser user) {
         Map<String, Object> fields = IgniteUtils.newLinkedHashMap(7);
 
         fillCommonFields(fields, queryInfo);
 
-        return IgniteEvents.QUERY_STARTED.builder()
+        return IgniteEventType.QUERY_STARTED.builder()
                 .user(user)
                 .timestamp(queryInfo.startTime().toEpochMilli())
                 .fields(fields)
                 .build();
     }
 
-    /** Creates new {@link IgniteEvents#QUERY_FINISHED} event. */
+    /** Creates new {@link IgniteEventType#QUERY_FINISHED} event. */
     public Event makeFinishEvent(QueryInfo queryInfo, EventUser user, long finishTime) {
         Map<String, Object> fields = IgniteUtils.newLinkedHashMap(10);
 
@@ -65,7 +65,7 @@ public class QueryEventsFactory {
 
         fields.put(FieldNames.ERROR, error == null ? null : unwrapCause(error).getMessage());
 
-        return IgniteEvents.QUERY_FINISHED.builder()
+        return IgniteEventType.QUERY_FINISHED.builder()
                 .user(user)
                 .timestamp(finishTime)
                 .fields(fields)
