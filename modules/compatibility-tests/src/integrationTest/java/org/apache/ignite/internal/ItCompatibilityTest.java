@@ -74,8 +74,4 @@ class ItCompatibilityTest extends CompatibilityTestBase {
         result = sql("SELECT * FROM TEST");
         assertThat(result, containsInAnyOrder(contains(1, "str"), contains(2, "str2")));
     }
-
-    private static List<String> baseVersions() {
-        return baseVersions(2);
-    }
 }

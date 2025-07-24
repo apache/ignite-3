@@ -77,7 +77,7 @@ public class CurrentClientWithOldServerCompatibilityTest extends CompatibilityTe
     }
 
     private static List<String> serverVersions() {
-        return baseVersions(Integer.MAX_VALUE);
+        return baseVersions();
     }
 
     @Override
