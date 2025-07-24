@@ -406,7 +406,7 @@ public class BinaryTupleComparatorUtils {
     }
 
     /**
-     * Compares string values of two binary tuples. Case insensitive.
+     * Compares string values of two binary tuples. Case sensitive.
      *
      * @param buf1 Buffer accessor for the first tuple.
      * @param begin1 Begin position in the first tuple.
