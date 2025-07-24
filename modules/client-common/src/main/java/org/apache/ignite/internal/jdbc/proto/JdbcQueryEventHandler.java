@@ -36,6 +36,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCancelResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc client request handler.
@@ -45,10 +46,10 @@ public interface JdbcQueryEventHandler {
      * Create connection context on a server and returns connection identity.
      *
      * @param timeZoneId Client time-zone ID.
-     *
+     * @param username Authenticated user name or {@code null} for unknown user.
      * @return A future representing result of the operation.
      */
-    CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId);
+    CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId, @Nullable String username);
 
     /**
      * {@link JdbcQueryExecuteRequest} command handler.

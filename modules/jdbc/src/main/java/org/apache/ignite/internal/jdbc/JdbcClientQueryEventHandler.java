@@ -38,6 +38,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCancelResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc query network event handler implementation.
@@ -57,7 +58,9 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId) {
+    public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId, @Nullable String username) {
+        assert username == null : "Username should be passed via client handshake";
+
         return client.sendRequestAsync(ClientOp.JDBC_CONNECT, w -> {
             w.out().packString(timeZoneId.getId());
         }, r -> {

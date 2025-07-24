@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client jdbc request handler.
@@ -32,14 +33,16 @@ public class ClientJdbcConnectRequest {
      *
      * @param in Client message unpacker.
      * @param handler Query event handler.
+     * @param username Authenticated user name or {@code null} for unknown user.
      * @return Operation future.
      */
     public static CompletableFuture<ResponseWriter> execute(
             ClientMessageUnpacker in,
-            JdbcQueryEventHandler handler
+            JdbcQueryEventHandler handler,
+            @Nullable String username
     ) {
         String timeZoneIdString = in.unpackString();
 
-        return handler.connect(ZoneId.of(timeZoneIdString)).thenApply(res -> res::writeBinary);
+        return handler.connect(ZoneId.of(timeZoneIdString), username).thenApply(res -> res::writeBinary);
     }
 }

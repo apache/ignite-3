@@ -125,6 +125,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param timeZoneId Session time-zone ID.
      * @param inBufSize Default execution nodes' internal buffer size. Negative value means default value.
      * @param clock The clock to use to get the system time.
+     * @param username Authenticated user name or {@code null} for unknown user.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -140,7 +141,8 @@ public class ExecutionContext<RowT> implements DataContext {
             TxAttributes txAttributes,
             ZoneId timeZoneId,
             int inBufSize,
-            Clock clock
+            Clock clock,
+            @Nullable String username
     ) {
         this.expressionFactory = expressionFactory;
         this.executor = executor;
@@ -154,7 +156,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
-        this.currentUser = Commons.SYSTEM_USER_NAME;
+        this.currentUser = username == null ? Commons.SYSTEM_USER_NAME : username;
 
         assert this.inBufSize > 0 : this.inBufSize;
 
