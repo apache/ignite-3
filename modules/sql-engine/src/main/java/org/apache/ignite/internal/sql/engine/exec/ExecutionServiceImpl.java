@@ -461,7 +461,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 TxAttributes.dummy(),
                 operationContext.timeZoneId(),
                 -1,
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                operationContext.userName()
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -1010,7 +1011,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     txAttributes,
                     ctx.timeZoneId(),
                     -1,
-                    Clock.systemUTC()
+                    Clock.systemUTC(),
+                    ctx.userName()
             );
         }
 

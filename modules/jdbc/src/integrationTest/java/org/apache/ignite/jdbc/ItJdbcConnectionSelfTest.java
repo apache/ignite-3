@@ -50,7 +50,6 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -968,7 +967,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             try (PreparedStatement stmt = conn.prepareStatement("SELECT CURRENT_USER")) {
                 try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next());
-                    assertEquals(Commons.SYSTEM_USER_NAME, rs.getString(1));
+                    assertEquals("unknown", rs.getString(1));
                 }
             }
         }
