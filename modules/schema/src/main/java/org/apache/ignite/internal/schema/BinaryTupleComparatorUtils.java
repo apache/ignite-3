@@ -359,7 +359,11 @@ public class BinaryTupleComparatorUtils {
      *
      * @see #compareAsString(BinaryTupleReader, BinaryTupleReader, int, boolean)
      */
-    public static int compareAsString(ByteBufferAccessor buf1, int begin1, int end1, ByteBufferAccessor buf2, int begin2, int end2, boolean ignoreCase) {
+    public static int compareAsString(
+            ByteBufferAccessor buf1, int begin1, int end1,
+            ByteBufferAccessor buf2, int begin2, int end2,
+            boolean ignoreCase
+    ) {
         if (buf1.get(begin1) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin1++;
         }

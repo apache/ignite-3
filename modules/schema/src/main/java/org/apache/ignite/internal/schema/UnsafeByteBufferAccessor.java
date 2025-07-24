@@ -37,6 +37,9 @@ public class UnsafeByteBufferAccessor implements ByteBufferAccessor {
     private final long addr;
     private final int capacity;
 
+    /**
+     * Constructor that initializes the accessor with a {@link ByteBuffer}.
+     */
     public UnsafeByteBufferAccessor(ByteBuffer buff) {
         if (buff.isDirect()) {
             bytes = null;
