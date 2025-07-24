@@ -965,8 +965,8 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         var url = "jdbc:ignite:thin://127.0.0.1:10800";
 
         try (Connection conn = DriverManager.getConnection(url)) {
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT CURRENT_USER")){
-                try (ResultSet rs = stmt.executeQuery();) {
+            try (PreparedStatement stmt = conn.prepareStatement("SELECT CURRENT_USER")) {
+                try (ResultSet rs = stmt.executeQuery()) {
                     assertTrue(rs.next());
                     assertEquals(Commons.SYSTEM_USER_NAME, rs.getString(1));
                 }
