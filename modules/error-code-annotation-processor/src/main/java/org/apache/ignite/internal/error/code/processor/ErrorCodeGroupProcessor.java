@@ -44,6 +44,7 @@ import org.apache.ignite.error.code.annotations.ErrorCodeGroup;
 import org.apache.ignite.internal.error.code.generators.AbstractCodeGenerator;
 import org.apache.ignite.internal.error.code.generators.CppGenerator;
 import org.apache.ignite.internal.error.code.generators.CsharpGenerator;
+import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor.DeprecatedAlias;
 import org.apache.ignite.internal.error.code.processor.ErrorCodeGroupDescriptor.ErrorCode;
 
 /**
@@ -154,11 +155,13 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
                     this.descriptor.errorCodes.add(new ErrorCode((Integer) ((LiteralTree) expr).getValue(), name));
                 } else if (IdentifierTree.class.isAssignableFrom(initializer.getClass())) {
                     boolean hasDeprecated = variableTree.getModifiers().getAnnotations().stream()
-                            .anyMatch(annotation -> annotation.toString().contains("Deprecated"));
+                            .anyMatch(annotation -> "@Deprecated".contentEquals(annotation.toString()));
                     if (!hasDeprecated) {
-                        ex = new ErrorCodeGroupProcessorException(String.format("Alias %s must be marked as @Deprecated",  name));
+                        ex = new ErrorCodeGroupProcessorException(String.format("Alias %s must be marked as @Deprecated", name));
                     } else {
-                        // TODO: Check if aliases require further processing here.
+                        var identifier = ((IdentifierTree) initializer).getName().toString();
+
+                        descriptor.deprecatedAliases.add(new DeprecatedAlias(name, identifier));
                     }
                 } else {
                     ex = new ErrorCodeGroupProcessorException(String.format("AST parsing error: %s", variableTree));
