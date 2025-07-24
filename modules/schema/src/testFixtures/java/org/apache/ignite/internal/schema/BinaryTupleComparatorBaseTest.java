@@ -42,6 +42,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/** Base test class for all potential implementation of comparators for binary tuples. */
 public abstract class BinaryTupleComparatorBaseTest {
     private static List<Arguments> singleColumnTuples() {
         return List.of(
