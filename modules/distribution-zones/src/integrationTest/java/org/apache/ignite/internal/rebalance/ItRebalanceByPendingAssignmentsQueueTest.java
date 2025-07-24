@@ -322,7 +322,7 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
 
         await().atMost(60, SECONDS).untilAsserted(() -> {
             var leaderAfter = raftLeader(TABLE_NAME);
-            assertTrue(leaderAfter.term >leaderBefore.term, "The leader has not changed.");
+            assertTrue(leaderAfter.term > leaderBefore.term, "The leader has not changed.");
 
             var expected = expectedPendingAssignmentsQueue.peekLast().nodes().stream()
                     .map(Assignment::consistentId).collect(toSet());
