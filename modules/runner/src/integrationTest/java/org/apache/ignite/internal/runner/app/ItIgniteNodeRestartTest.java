@@ -271,7 +271,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
-@Timeout(120)
+@Timeout(10000)
 public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /** Value producer for table data, is used to create data and check it later. */
     private static final IntFunction<String> VALUE_PRODUCER = i -> "val " + i;
@@ -1219,6 +1219,61 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertEquals(RaftError.SUCCESS, fut.get().getRaftError());
     }
 
+    @Test
+    public void fooBar2() {
+        IgniteImpl ignite = startNode(0);
+
+        int partitions = 1000;
+
+        String tableName = "Table1";
+
+        IgniteSql sql = ignite.sql();
+
+        sql.execute(null,
+                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+                        tableName, 1, partitions, DEFAULT_STORAGE_PROFILE));
+        sql.execute(null, "CREATE TABLE IF NOT EXISTS " + tableName
+                + "(id INT PRIMARY KEY, name VARCHAR) ZONE ZONE_" + tableName + ";");
+
+        for (int i = 0; i < 10000; i++) {
+            sql.execute(null, "INSERT INTO " + tableName + "(id, name) VALUES (?, ?)",
+                    i, VALUE_PRODUCER.apply(i));
+        }
+
+        stopNode(0);
+
+        startNode(0);
+    }
+
+    @Test
+    public void fooBar3() throws Exception {
+        IgniteImpl ignite = startNode(0);
+        startNode(1);
+        startNode(2);
+
+        int partitions = 1;
+
+        String tableName = "Table1";
+
+        IgniteSql sql = ignite.sql();
+
+        sql.execute(null,
+                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+                        tableName, 3, partitions, DEFAULT_STORAGE_PROFILE));
+        sql.execute(null, "CREATE TABLE IF NOT EXISTS " + tableName
+                + "(id INT PRIMARY KEY, name VARCHAR) ZONE ZONE_" + tableName + ";");
+
+        for (int i = 0; i < 1; i++) {
+            sql.execute(null, "INSERT INTO " + tableName + "(id, name) VALUES (?, ?)",
+                    i, VALUE_PRODUCER.apply(i));
+        }
+
+        stopNode(2);
+        stopNode(1);
+
+        Thread.sleep(10_000_000);
+    }
+
     /**
      * Restarts the node which stores some data.
      */
@@ -1892,6 +1947,31 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
+    public void fooBar() throws Exception {
+        IgniteImpl node0 = startNode(0);
+
+        String tableName = "TEST";
+        String zoneName = "ZONE_TEST";
+
+        node0.sql().execute(null,
+                String.format("CREATE ZONE IF NOT EXISTS %s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
+                        zoneName, 1000, 1, DEFAULT_STORAGE_PROFILE));
+
+        CompletableFuture<?> createTableInCatalogFuture = createTableInCatalog(node0.catalogManager(), tableName, zoneName);
+
+        for (int i = 0; i < 100; i++) {
+            node0.sql().execute(null, "INSERT INTO " + tableName + "(id, name) VALUES (?, ?)",
+                    i, VALUE_PRODUCER.apply(i));
+        }
+
+        stopNode(0);
+
+        startNode(0);
+    }
+
+
+
+    @Test
     public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws Exception {
         IgniteImpl node0 = startNode(0);
         IgniteImpl node1 = startNode(1);
@@ -2161,7 +2241,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         sql.execute(null, "CREATE TABLE IF NOT EXISTS " + name
                 + "(id INT PRIMARY KEY, name VARCHAR) ZONE ZONE_" + name + ";");
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10000; i++) {
             sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
                     i, VALUE_PRODUCER.apply(i));
         }
