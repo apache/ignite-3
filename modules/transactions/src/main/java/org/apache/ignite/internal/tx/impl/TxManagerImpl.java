@@ -458,19 +458,20 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             } else {
                 HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
                 tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, options);
+                txStateVolatileStorage.initialize(tx);
             }
         } else {
             HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
             ReadWriteTransactionImpl tx0 = beginReadWriteTransaction(timestampTracker, beginTimestamp, implicit, options);
 
             if (isStopping) {
-                tx0.fail(new TransactionException(Common.NODE_STOPPING_ERR, "Failed to finish the transaction because a node is stopping"));
+                tx0.fail(new TransactionException(Common.NODE_STOPPING_ERR,
+                        "Failed to finish the transaction because a node is stopping: [txId=" + tx0.id() + ']'));
             }
 
             tx = tx0;
+            txStateVolatileStorage.initialize(tx);
         }
-
-        txStateVolatileStorage.initialize(tx);
 
         txMetrics.onTransactionStarted();
 

@@ -35,6 +35,8 @@ import org.jetbrains.annotations.Nullable;
  * The special lightweight implementation for read-only implicit transaction.
  */
 public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
+    private static final UUID FAKE_ID = new UUID(0, 0);
+
     private final HybridTimestampTracker observableTsTracker;
 
     /**
@@ -48,7 +50,7 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
 
     @Override
     public UUID id() {
-        return null;
+        return FAKE_ID;
     }
 
     @Override
