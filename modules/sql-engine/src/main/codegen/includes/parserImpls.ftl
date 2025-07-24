@@ -618,7 +618,7 @@ SqlNodeList ZoneOptionsList() :
 void ZoneElement(List<SqlNode> zoneOptions) :
 {
     final Span s;
-    final SqlIdentifier key;
+    SqlIdentifier key;
     final SqlNode option;
     final SqlParserPos pos;
 }
@@ -629,24 +629,45 @@ void ZoneElement(List<SqlNode> zoneOptions) :
       (
           <SCALE>
           (
-              <UP> option = UnsignedIntegerLiteral()
+              <UP>
+              (
+                  option = UnsignedIntegerLiteral()
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+                  }
+                  |
+                  <OFF>
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
+                  }
+              )
+              |
+              <DOWN>
+              (
+                  option = UnsignedIntegerLiteral()
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+                  }
+                  |
+                  <OFF>
+                  {
+                      key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
+                      zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
+                  }
+              )
+              |
+              <OFF>
               {
                   key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP.name(), pos);
-                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
-              }
-              |
-              <DOWN> option = UnsignedIntegerLiteral()
-              {
+                  zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
+
                   key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN.name(), pos);
-                  zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+                  zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.SCALE_OFF.symbol(getPos()), s.end(this)));
               }
           )
-          |
-          <ADJUST> option = UnsignedIntegerLiteral()
-          {
-              key = new SqlIdentifier(ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.name(), pos);
-              zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
-          }
       )
       |
       <PARTITIONS> { pos = getPos(); } option = UnsignedIntegerLiteral()
