@@ -187,16 +187,6 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         fillData("TIMESTAMPTZ1");
         fillData("TIMESTAMPTZ2");
 
-        // To check that index lookup with precision works correctly we fill the table in the following way.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Last value for TIME(4) must be '00:00:00.1234'
-        //
-        // TIME(0)  | TIME (1)   | TIME (2)    | TIME (3)     | TIME (4)
-        //-------------------------------------------------------------------
-        // 00:00:00 | 00:00:00   | 00:00:00    | 00:00:00     | 00:00:00
-        // 00:00:00 | 00:00:00.1 | 00:00:00.1  | 00:00:00.1   | 00:00:00.1
-        // 00:00:00 | 00:00:00.1 | 00:00:00.12 | 00:00:00.12  | 00:00:00.12
-        // 00:00:00 | 00:00:00.1 | 00:00:00.12 | 00:00:00.123 | 00:00:00.123
-        // 00:00:00 | 00:00:00.1 | 00:00:00.12 | 00:00:00.123 | 00:00:00.123
         fillData("T_TIME");
         fillData("T_TIMESTAMP");
         fillData("T_TIMESTAMP_WITH_LOCAL_TIME_ZONE");
@@ -508,7 +498,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @MethodSource("testTemporalPrecisionDynParamArgs")
+    @MethodSource("temporalPrecisionDynParamArgs")
     void testTemporalPrecisionDynamicParam(SqlTypeName type, String condition, Temporal param, int precision, Temporal[] expectedRows) {
         makeCheckerForIndexWithPrecision(type, "sorted", condition, param, precision, expectedRows)
                 .check();
@@ -522,7 +512,7 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @MethodSource("testTemporalPrecisionLiteralArgs")
+    @MethodSource("temporalPrecisionLiteralArgs")
     void testTemporalPrecisionLiteral(SqlTypeName type, String condition, int precision, Temporal[] expectedRows) {
         makeCheckerForIndexWithPrecision(type, "sorted", condition, null, precision, expectedRows)
                 .check();
@@ -568,22 +558,32 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         return checker;
     }
 
-    private static List<Arguments> testTemporalPrecisionDynParamArgs() {
-        return testTemporalPrecisionArgs().buildDynamicParamsArgs();
+    private static List<Arguments> temporalPrecisionDynParamArgs() {
+        return temporalPrecisionArgs().buildDynamicParamsArgs();
     }
 
-    private static List<Arguments> testTemporalPrecisionLiteralArgs() {
-        return testTemporalPrecisionArgs().buildLiteralArgs();
+    private static List<Arguments> temporalPrecisionLiteralArgs() {
+        return temporalPrecisionArgs().buildLiteralArgs();
     }
 
-    private static TestArgsBuilder testTemporalPrecisionArgs() {
-        TestArgsBuilder argsBuilder = new TestArgsBuilder();
+    private static TemporalPrecisionTestArgsBuilder temporalPrecisionArgs() {
+        TemporalPrecisionTestArgsBuilder argsBuilder = new TemporalPrecisionTestArgsBuilder();
 
-        // TIME
         argsBuilder.type(TIME)
+                // The table is filled in as follows:
+                //-------------------------------------------------------------------
+                // TIME(0)  | TIME (1)   | TIME (2)    | TIME (3)     | TIME (4)
+                //-------------------------------------------------------------------
+                // 00:00:00 | 00:00:00   | 00:00:00    | 00:00:00     | 00:00:00
+                // 00:00:00 | 00:00:00.1 | 00:00:00.1  | 00:00:00.1   | 00:00:00.1
+                // 00:00:00 | 00:00:00.1 | 00:00:00.12 | 00:00:00.12  | 00:00:00.12
+                // 00:00:00 | 00:00:00.1 | 00:00:00.12 | 00:00:00.123 | 00:00:00.123
+                // 00:00:00 | 00:00:00.1 | 00:00:00.12 | 00:00:00.123 | 00:00:00.123
                 .condition(" = {}")
                 .param("00:00:00")
+                // For the TIME(0) column we expect 5 rows with the same value.
                 .results(0, fillArray(time("00:00:00"), 5))
+                // For the TIME(1) column we expect 1 row with the value '00:00:00'.
                 .results(1, time("00:00:00"))
                 .results(2, time("00:00:00"))
                 .results(3, time("00:00:00"))
@@ -1120,32 +1120,32 @@ public class ItTemporalIndexTest extends BaseSqlIntegrationTest {
         return res;
     }
 
-    private static class TestArgsBuilder {
+    private static class TemporalPrecisionTestArgsBuilder {
         private final List<Arguments> dynParamArgs = new ArrayList<>();
         private final List<Arguments> args = new ArrayList<>();
         private SqlTypeName typeName;
         private String condition;
         private String param;
 
-        TestArgsBuilder type(SqlTypeName typeName) {
+        TemporalPrecisionTestArgsBuilder type(SqlTypeName typeName) {
             this.typeName = typeName;
 
             return this;
         }
 
-        TestArgsBuilder condition(String condition) {
+        TemporalPrecisionTestArgsBuilder condition(String condition) {
             this.condition = condition;
 
             return this;
         }
 
-        TestArgsBuilder param(String param) {
+        TemporalPrecisionTestArgsBuilder param(String param) {
             this.param = param;
 
             return this;
         }
 
-        TestArgsBuilder results(int precision, Temporal ... expectedRows) {
+        TemporalPrecisionTestArgsBuilder results(int precision, Temporal ... expectedRows) {
             String dynParamCondition = format(condition, "?");
             String literalCondition = format(condition, typeName.getSpaceName() + " '" + param + "'");
 
