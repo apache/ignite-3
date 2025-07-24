@@ -106,6 +106,8 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final ZoneId timeZoneId;
 
+    private final String currentUser;
+
     private SharedState sharedState = new SharedState();
 
     /**
@@ -152,6 +154,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
+        this.currentUser = Commons.SYSTEM_USER_NAME;
 
         assert this.inBufSize > 0 : this.inBufSize;
 
@@ -297,6 +300,9 @@ public class ExecutionContext<RowT> implements DataContext {
 
         if (Variable.TIME_ZONE.camelName.equals(name)) {
             return TimeZone.getTimeZone(timeZoneId);
+        }
+        if (Variable.USER.camelName.equals(name)) {
+            return currentUser;
         }
 
         if (name.startsWith("?")) {

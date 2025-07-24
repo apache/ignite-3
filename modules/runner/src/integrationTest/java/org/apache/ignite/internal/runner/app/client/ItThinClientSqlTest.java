@@ -37,6 +37,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -658,6 +659,19 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         SqlRow row = resultSet.currentPage().iterator().next();
 
         assertEquals("ClientSqlRow [NUM=1, STR=hello]", row.toString());
+    }
+
+    @Test
+    public void testCurrentUser() {
+        AsyncResultSet<SqlRow> resultSet = client().sql()
+                .executeAsync(null, "SELECT CURRENT_USER")
+                .join();
+
+        SqlRow row = resultSet.currentPage().iterator().next();
+
+        assertEquals(ColumnType.STRING, resultSet.metadata().columns().get(0).type());
+        assertEquals(Commons.SYSTEM_USER_NAME, row.stringValue(0).toString());
+        assertEquals(1, row.columnCount());
     }
 
     private static class Pojo {
