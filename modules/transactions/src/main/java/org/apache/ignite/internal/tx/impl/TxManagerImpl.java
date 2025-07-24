@@ -184,9 +184,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     /** Prevents double stopping of the tracker. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Busy lock to stop synchronously. */
-    //private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
     /** Detector of transactions that lost the coordinator. */
     private final OrphanDetector orphanDetector;
 
@@ -454,7 +451,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         if (readOnly) {
             if (implicit) {
-                tx = new ReadOnlyImplicitTransactionImpl(this, timestampTracker);
+                tx = new ReadOnlyImplicitTransactionImpl(this, timestampTracker, clockService.current());
             } else {
                 HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
                 tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, options);

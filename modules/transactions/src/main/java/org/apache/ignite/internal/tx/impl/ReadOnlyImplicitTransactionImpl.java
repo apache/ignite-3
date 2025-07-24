@@ -40,18 +40,21 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
 
     private final HybridTimestampTracker observableTsTracker;
 
-    /** The transaction manager. */
-    protected final TxManager txManager;
+    private final TxManager txManager;
+
+    private final HybridTimestamp createTs;
 
     /**
      * The constructor.
      *
      * @param txManager Tx manager.
      * @param observableTsTracker Observable timestamp tracker.
+     * @param createTs Create timestamp.
      */
-    ReadOnlyImplicitTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker) {
+    ReadOnlyImplicitTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, HybridTimestamp createTs) {
         this.txManager = txManager;
         this.observableTsTracker = observableTsTracker;
+        this.createTs = createTs;
     }
 
     @Override
@@ -106,7 +109,7 @@ public class ReadOnlyImplicitTransactionImpl implements InternalTransaction {
 
     @Override
     public HybridTimestamp schemaTimestamp() {
-        return null;
+        return createTs;
     }
 
     @Override
