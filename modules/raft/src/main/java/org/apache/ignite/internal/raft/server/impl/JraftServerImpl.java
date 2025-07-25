@@ -68,7 +68,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.RawRaftNodeId;
+import org.apache.ignite.internal.raft.StoredRaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -636,7 +636,7 @@ public class JraftServerImpl implements RaftServer {
      *
      * <p>This method should only be called when no Raft nodes are started or being started.
      */
-    public Set<RawRaftNodeId> raftNodeIdsOnDisk() {
+    public Set<StoredRaftNodeId> raftNodeIdsOnDisk() {
         Set<String> groupIdsForStorage = new HashSet<>();
 
         for (LogStorageFactory logStorageFactory : groupStoragesContextResolver.logStorageFactories()) {
@@ -645,7 +645,7 @@ public class JraftServerImpl implements RaftServer {
         groupIdsForStorage.addAll(raftNodeMetaStorageIdsOnDisk());
 
         return groupIdsForStorage.stream()
-                .map(RaftNodeId::fromNodeIdStringForStorage)
+                .map(nodeIdStr -> RaftNodeId.fromNodeIdStringForStorage(nodeIdStr, service.nodeName()))
                 .collect(toUnmodifiableSet());
     }
 

@@ -20,25 +20,25 @@ package org.apache.ignite.internal.raft;
 import java.util.Objects;
 
 /**
- * Raw Raft node ID.
+ * Stored Raft node ID. It holds the subset of information contained in {@link RaftNodeId} that can be
  *
  * @see RaftNodeId
  */
-public class RawRaftNodeId {
+public class StoredRaftNodeId {
     private final String groupIdName;
-    private final int peerIndex;
+    private final Peer peer;
 
-    public RawRaftNodeId(String groupIdName, int peerIndex) {
+    public StoredRaftNodeId(String groupIdName, Peer peer) {
         this.groupIdName = groupIdName;
-        this.peerIndex = peerIndex;
+        this.peer = peer;
     }
 
     public String groupIdName() {
         return groupIdName;
     }
 
-    public int peerIndex() {
-        return peerIndex;
+    public Peer peer() {
+        return peer;
     }
 
     @Override
@@ -46,12 +46,12 @@ public class RawRaftNodeId {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        RawRaftNodeId that = (RawRaftNodeId) o;
-        return peerIndex == that.peerIndex && Objects.equals(groupIdName, that.groupIdName);
+        StoredRaftNodeId that = (StoredRaftNodeId) o;
+        return Objects.equals(groupIdName, that.groupIdName) && Objects.equals(peer, that.peer);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(groupIdName, peerIndex);
+        return Objects.hash(groupIdName, peer);
     }
 }

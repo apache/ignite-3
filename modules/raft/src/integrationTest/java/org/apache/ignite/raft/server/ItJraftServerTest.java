@@ -36,7 +36,7 @@ import java.util.Objects;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.RawRaftNodeId;
+import org.apache.ignite.internal.raft.StoredRaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -147,6 +147,6 @@ class ItJraftServerTest extends JraftAbstractTest {
         RaftGroupOptions groupOptions = getRaftGroupOptions(false, logStorageFactories.get(SERVER_INDEX));
         assertTrue(server.startRaftNode(nodeId, initialMembersConf, mock(RaftGroupListener.class), groupOptions));
 
-        assertThat(server.raftNodeIdsOnDisk(), contains(new RawRaftNodeId(nodeId.groupId().toString(), nodeId.peer().idx())));
+        assertThat(server.raftNodeIdsOnDisk(), contains(new StoredRaftNodeId(nodeId.groupId().toString(), nodeId.peer())));
     }
 }

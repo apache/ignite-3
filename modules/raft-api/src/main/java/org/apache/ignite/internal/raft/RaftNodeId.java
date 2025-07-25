@@ -45,24 +45,26 @@ public class RaftNodeId {
     /**
      * Returns string which represents this Raft node ID when used in file paths and RocksDB prefixes.
      *
-     * @see #fromNodeIdStringForStorage(String)
+     * @see #fromNodeIdStringForStorage(String, String)
      */
     public String nodeIdStringForStorage() {
         return groupId().toString() + PEER_INDEX_DELIMITER + peer().idx();
     }
 
     /**
-     * Parses string represenation of {@link RaftNodeId} and returns it as {@link RawRaftNodeId}.
+     * Parses string represenation of {@link RaftNodeId} and returns it as {@link StoredRaftNodeId}.
      *
      * @param nodeIdStr String to parse (it's produced by {@link #nodeIdStringForStorage()}).
+     * @param localNodeConsistentId Name of the local node.
      * @see #nodeIdStringForStorage()
      */
-    public static RawRaftNodeId fromNodeIdStringForStorage(String nodeIdStr) {
+    public static StoredRaftNodeId fromNodeIdStringForStorage(String nodeIdStr, String localNodeConsistentId) {
         int separatorIndex = nodeIdStr.lastIndexOf(PEER_INDEX_DELIMITER);
-        return new RawRaftNodeId(
-                nodeIdStr.substring(0, separatorIndex),
-                Integer.parseInt(nodeIdStr.substring(separatorIndex + PEER_INDEX_DELIMITER.length()))
-        );
+
+        int peerIndex = Integer.parseInt(nodeIdStr.substring(separatorIndex + PEER_INDEX_DELIMITER.length()));
+        Peer peer = new Peer(localNodeConsistentId, peerIndex);
+
+        return new StoredRaftNodeId(nodeIdStr.substring(0, separatorIndex), peer);
     }
 
     /**
