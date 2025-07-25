@@ -1325,9 +1325,8 @@ public class RexUtils {
                     && (source.getPrecision() <= target.getPrecision() || target.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED);
         }
 
-        if (source.getSqlTypeName() == target.getSqlTypeName() && SqlTypeUtil.isDatetime(source)
-                && (source.getPrecision() <= target.getPrecision() || target.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED)) {
-            return true;
+        if (source.getSqlTypeName() == target.getSqlTypeName() && SqlTypeUtil.isDatetime(source)) {
+            return source.getPrecision() <= target.getPrecision();
         }
 
         return RexUtil.isLosslessCast(source, target);
