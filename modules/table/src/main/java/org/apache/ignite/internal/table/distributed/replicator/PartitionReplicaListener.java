@@ -1942,10 +1942,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
         HybridTimestamp readTimestamp = opStartTimestamp;
 
-        if (request.requestType() != RO_GET_ALL) {
-            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                    format("Unknown single request [actionType={}]", request.requestType()));
-        }
+        assert request.requestType() == RO_GET_ALL;
 
         CompletableFuture<BinaryRow>[] resolutionFuts = new CompletableFuture[primaryKeys.size()];
 

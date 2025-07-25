@@ -539,6 +539,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                     this, timestampTracker, txId, localNodeId, false, timeout, readTimestamp, txFuture
             );
 
+            transactionExpirationRegistry.register(transaction);
+
             txFuture.whenComplete((unused, throwable) -> {
                 lowWatermark.unlock(txId);
 
