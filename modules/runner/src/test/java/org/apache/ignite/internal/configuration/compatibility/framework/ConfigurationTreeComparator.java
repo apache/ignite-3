@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.compatibility.framework;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -27,8 +28,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.compatibility.framework.ConfigNode.Node;
@@ -50,7 +53,12 @@ public class ConfigurationTreeComparator {
     ) {
         compContext.reset();
 
-        compareRoots(snapshotTrees, actualTrees, compContext);
+        compContext.enterInstance(null);
+        try {
+            compareRoots(snapshotTrees, actualTrees, compContext);
+        } finally {
+            compContext.leaveInstance();
+        }
 
         compContext.throwIfNotEmpty();
     }
@@ -151,6 +159,8 @@ public class ConfigurationTreeComparator {
 
         private final List<String> errors = new ArrayList<>();
 
+        private final ArrayDeque<Optional<String>> instanceTypes = new ArrayDeque<>();
+
         ComparisonContext(Collection<String> deletedPrefixes) {
             this.deletedItems = KeyIgnorer.fromDeletedPrefixes(deletedPrefixes);
         }
@@ -163,6 +173,14 @@ public class ConfigurationTreeComparator {
             errors.clear();
         }
 
+        void enterInstance(@Nullable String instanceType) {
+            instanceTypes.addLast(Optional.ofNullable(instanceType));
+        }
+
+        void leaveInstance() {
+            instanceTypes.pop();
+        }
+
         void addError(Node node, String error) {
             reportError(node.path(), error);
         }
@@ -172,7 +190,16 @@ public class ConfigurationTreeComparator {
         }
 
         private void reportError(String path, String error) {
-            String message = format("Node: {}: {}", path, error);
+            Optional<String> opt = instanceTypes.peekLast();
+            String instanceType = opt.isPresent() ? opt.get() : null;
+
+            String message;
+            if (instanceType == null) {
+                message = format("Node: {}: {}", path, error);
+            } else {
+                message = format("Node: {} [polymorphic-instance-id={}]: {}", path, instanceType, error);
+            }
+
             errors.add(message);
         }
 
@@ -227,15 +254,73 @@ public class ConfigurationTreeComparator {
         return nameMatches && kindMatches;
     }
 
-    private static void validate(Node candidate, Node current, ComparisonContext context) {
-        compareNodes(candidate.node(), current.node(), context);
+    private static void validate(ConfigNode candidate, ConfigNode current, ComparisonContext context) {
+        validate(null, candidate, current, context);
     }
 
-    private static void validate(ConfigNode candidate, ConfigNode current, ComparisonContext context) {
+    private static void validate(@Nullable String instanceType, ConfigNode candidate, ConfigNode current, ComparisonContext context) {
         if (!context.errors.isEmpty()) {
             return;
         }
-        compareNodes(candidate, current, context);
+        context.enterInstance(instanceType);
+        try {
+            compareNodes(candidate, current, context);
+        } finally {
+            context.leaveInstance();
+        }
+    }
+
+    private static void validate(Node candidate, Node current, ComparisonContext context) {
+        if (!context.errors.isEmpty()) {
+            return;
+        }
+
+        if (candidate.isPolymorphic() && current.isPolymorphic()) {
+            if (!Objects.equals(candidate.defaultPolymorphicInstanceId(), current.defaultPolymorphicInstanceId())) {
+                ConfigNode anyNode = candidate.nodes().values().iterator().next();
+                String message = format(
+                        "Default polymorphic instance id does not match. Expected: {} got {}", 
+                        candidate.defaultPolymorphicInstanceId(), 
+                        current.defaultPolymorphicInstanceId()
+                );
+                context.addError(anyNode, message);
+                return;
+            }
+
+            Map<String, ConfigNode> polymorphicCurrent = new HashMap<>(current.nodes());
+            Map<String, ConfigNode> polymorphicCandidate = candidate.nodes();
+
+            Map<String, ConfigNode> removed = polymorphicCandidate.entrySet().stream()
+                    .filter(e -> !polymorphicCurrent.containsKey(e.getKey()))
+                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+
+            validateRemoved(removed.values(), context);
+            // new polymorphic instances are not used, so they are always valid. 
+
+            polymorphicCandidate.entrySet().stream()
+                    .filter(e -> !removed.containsKey(e.getKey()))
+                    .forEach(e -> {
+                        ConfigNode instanceCurrent = polymorphicCurrent.get(e.getKey());
+                        validate(e.getKey(), e.getValue(), instanceCurrent, context);
+                    });
+        } else if (candidate.isPolymorphic()) {
+            context.addError(candidate,
+                    "Can't convert polymorphic node to plain. Because potential reverse change in the future will be incompatible.");
+        } else if (current.isPolymorphic()) {
+            String polymorphicId = current.defaultPolymorphicInstanceId();
+
+            if (polymorphicId == null) {
+                ConfigNode anyNode = current.nodes().values().iterator().next();
+                context.addError(anyNode, "New polymorphic node has no default id");
+                return;
+            }
+
+            // Ensure discriminant field wasn't exits, and we can take default polymorphic_ID
+            validate(polymorphicId, candidate.node(), current.nodes().get(polymorphicId), context);
+            // additional polymorphic instances are not used, so they are always valid.
+        } else {
+            compareNodes(candidate.node(), current.node(), context);
+        }
     }
 
     private static void compareNodes(ConfigNode candidate, ConfigNode current, ComparisonContext context) {
@@ -287,8 +372,8 @@ public class ConfigurationTreeComparator {
         if (candidateName.equals(currentName)) {
             return true;
         }
-        Node nodeB = candidateEntry.getValue();
-        return nodeB.legacyPropertyNames().stream().anyMatch(n -> n.equals(candidateName));
+        Node candidateNode = candidateEntry.getValue();
+        return candidateNode.legacyPropertyNames().stream().anyMatch(n -> n.equals(candidateName));
     }
 
     private static void validateNew(Collection<ConfigNode> nodes, ComparisonContext context) {
