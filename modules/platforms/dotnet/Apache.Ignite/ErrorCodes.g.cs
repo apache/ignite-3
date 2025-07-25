@@ -450,8 +450,8 @@ namespace Apache.Ignite
             /// <summary> UnresolvableConsistentId error. </summary>
             public const int UnresolvableConsistentId = (GroupCode << 16) | (1 & 0xFFFF);
 
-            /// <summary> Bind error. </summary>
-            public const int Bind = (GroupCode << 16) | (2 & 0xFFFF);
+            /// <summary> PortInUse error. </summary>
+            public const int PortInUse = (GroupCode << 16) | (2 & 0xFFFF);
 
             /// <summary> FileTransfer error. </summary>
             public const int FileTransfer = (GroupCode << 16) | (3 & 0xFFFF);
@@ -464,10 +464,6 @@ namespace Apache.Ignite
 
             /// <summary> AddressUnresolved error. </summary>
             public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
-
-            /// <summary> PortInUse is deprecated. Use Bind instead. </summary>
-            [Obsolete]
-            public const int PortInUse = Bind;
         }
 
         /// <summary> NodeConfiguration errors. </summary>
