@@ -155,7 +155,7 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
                     this.descriptor.errorCodes.add(new ErrorCode((Integer) ((LiteralTree) expr).getValue(), name));
                 } else if (IdentifierTree.class.isAssignableFrom(initializer.getClass())) {
                     boolean hasDeprecated = variableTree.getModifiers().getAnnotations().stream()
-                            .anyMatch(annotation -> "@Deprecated".contentEquals(annotation.toString()));
+                            .anyMatch(annotation -> "Deprecated".contentEquals(annotation.getAnnotationType().toString()));
                     if (!hasDeprecated) {
                         ex = new ErrorCodeGroupProcessorException(String.format("Alias %s must be marked as @Deprecated", name));
                     } else {
@@ -165,7 +165,7 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
                     }
                 } else {
                     ex = new ErrorCodeGroupProcessorException(
-                            String.format("AST parsing error: Expected IdentifierTree in initializer, but got %s",
+                            String.format("AST parsing error: Expected MethodInvocationTree or IdentifierTree in initializer, but got %s",
                                     initializer.getClass().getSimpleName()));
                 }
             } catch (Exception e) {
