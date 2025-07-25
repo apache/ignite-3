@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.placementdriver.negotiation;
 
 import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement.UNDEFINED_AGREEMENT;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -38,10 +40,23 @@ public class LeaseNegotiator {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseNegotiator.class);
 
+    /**
+     * There is a time lag between choosing a candidate leaseholder and negotiation start due to meta storage invocation.
+     * In some cases we can report the connection problems that happened because of topology change during this time. This timeout
+     * is used to avoid multiple reports on the same leaseholder.
+     */
+    private static final long LEASEHOLDER_ISSUE_STORE_TIME_MILLISECONDS = 10_000;
+
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Lease agreements which are in progress of negotiation. */
     private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate = new ConcurrentHashMap<>();
+
+    /**
+     * Map of leaseholders to timestamps when issues related to them happened.
+     * This is used to avoid flooding the logs with messages about leaseholder issues.
+     */
+    private final Map<String, Long> leaseholderIssueTime = new ConcurrentHashMap<>();
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -86,7 +101,7 @@ public class LeaseNegotiator {
 
                         agreement.onResponse(response);
                     } else {
-                        if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
+                        if (shouldReportError(throwable, lease)) {
                             LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                         }
 
@@ -95,6 +110,43 @@ public class LeaseNegotiator {
                         agreement.cancel();
                     }
                 });
+    }
+
+    private void cleanupLeaseholderIssueTime() {
+        long now = System.currentTimeMillis();
+
+        leaseholderIssueTime.entrySet().removeIf(entry -> now - entry.getValue() > LEASEHOLDER_ISSUE_STORE_TIME_MILLISECONDS);
+    }
+
+    private boolean shouldReportError(Throwable th, Lease lease) {
+        if (hasCause(th, NodeStoppingException.class) || hasCause(th, ComponentStoppingException.class)) {
+            return false;
+        }
+
+        if (isConnectionProblem(th)) {
+            Long lastIssueTime = leaseholderIssueTime.get(lease.getLeaseholder());
+
+            if (lastIssueTime != null) {
+                return false;
+            } else {
+                long now = System.currentTimeMillis();
+                leaseholderIssueTime.put(lease.getLeaseholder(), now);
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean isConnectionProblem(Throwable th) {
+        return hasCause(th, UnresolvableConsistentIdException.class);
+    }
+
+    /**
+     * Called when a new round of lease updates is started.
+     */
+    public void onNewLeaseUpdateRound() {
+        cleanupLeaseholderIssueTime();
     }
 
     /**
