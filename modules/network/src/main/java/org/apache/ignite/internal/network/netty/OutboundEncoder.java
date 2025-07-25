@@ -279,23 +279,29 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
         @Override
         public ByteBuf readChunk(ByteBufAllocator allocator) {
-            ByteBuf buffer = allocator.ioBuffer(IO_BUFFER_CAPACITY);
-            int capacity = buffer.capacity();
+            try {
+                ByteBuf buffer = allocator.ioBuffer(IO_BUFFER_CAPACITY);
+                int capacity = buffer.capacity();
 
-            ByteBuffer byteBuffer = buffer.internalNioBuffer(0, capacity);
+                ByteBuffer byteBuffer = buffer.internalNioBuffer(0, capacity);
 
-            int initialPosition = byteBuffer.position();
+                int initialPosition = byteBuffer.position();
 
-            writer.setBuffer(byteBuffer);
+                writer.setBuffer(byteBuffer);
 
-            writeMessages();
+                writeMessages();
 
-            buffer.writerIndex(byteBuffer.position() - initialPosition);
+                buffer.writerIndex(byteBuffer.position() - initialPosition);
 
-            // Do not hold a reference, might help GC to do its job better.
-            writer.setBuffer(EMPTY_BYTE_BUFFER);
+                // Do not hold a reference, might help GC to do its job better.
+                writer.setBuffer(EMPTY_BYTE_BUFFER);
 
-            return buffer;
+                return buffer;
+            } catch (Exception e) {
+                e.printStackTrace();
+
+                throw e;
+            }
         }
 
         /**
