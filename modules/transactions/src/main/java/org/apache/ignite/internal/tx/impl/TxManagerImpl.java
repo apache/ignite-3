@@ -451,7 +451,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         if (readOnly) {
             if (implicit) {
-                tx = new ReadOnlyImplicitTransactionImpl(this, timestampTracker, clockService.current());
+                tx = new ReadOnlyImplicitTransactionImpl(timestampTracker, clockService.current());
             } else {
                 HybridTimestamp beginTimestamp = clockService.now(); // Tick to generate new unique id.
                 tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, options);
