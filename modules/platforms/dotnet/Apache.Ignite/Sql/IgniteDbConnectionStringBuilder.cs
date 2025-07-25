@@ -17,7 +17,7 @@ namespace Apache.Ignite.Sql;
 
 using System.Data.Common;
 
-public class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
+public sealed class IgniteDbConnectionStringBuilder : DbConnectionStringBuilder
 {
 
 }

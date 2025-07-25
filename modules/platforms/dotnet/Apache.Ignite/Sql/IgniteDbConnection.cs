@@ -15,9 +15,113 @@
 
 namespace Apache.Ignite.Sql;
 
+using System;
+using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using System.Threading.Tasks;
+using Internal.Common;
 
-public class IgniteDbConnection : DbConnection
+/// <summary>
+/// Ignite database connection.
+/// </summary>
+public sealed class IgniteDbConnection : DbConnection
 {
+    private IIgniteClient? _igniteClient;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteDbConnection"/> class.
+    /// </summary>
+    /// <param name="connectionString">Connection string.</param>
+    public IgniteDbConnection(string? connectionString)
+    {
+        ConnectionString = connectionString;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteDbConnection"/> class.
+    /// </summary>
+    /// <param name="igniteClient">Ignite client.</param>
+    public IgniteDbConnection(IIgniteClient igniteClient)
+    {
+        IgniteArgumentCheck.NotNull(igniteClient);
+        _igniteClient = igniteClient;
+
+        // TODO: Via builder.
+        ConnectionString = igniteClient.Configuration.ToString();
+    }
+
+    /// <inheritdoc />
+    [AllowNull]
+    public override string ConnectionString { get; set; }
+
+    /// <inheritdoc />
+    public override string Database => string.Empty;
+
+    /// <inheritdoc />
+    public override ConnectionState State => _igniteClient == null ? ConnectionState.Closed : ConnectionState.Open;
+
+    /// <inheritdoc />
+    public override string DataSource => string.Empty;
+
+    /// <inheritdoc />
+    public override string ServerVersion => "TODO"; // TODO: Set once connected - there is a ticket - IGNITE-25936
+
+    /// <summary>
+    /// Gets the underlying Ignite client instance, or null if the connection is not open.
+    /// </summary>
+    public IIgniteClient? Client => _igniteClient;
+
+    /// <inheritdoc />
+    public override void ChangeDatabase(string databaseName)
+    {
+        throw new NotSupportedException("Changing database is not supported in Ignite.");
+    }
+
+    /// <inheritdoc />
+    public override void Close()
+    {
+        _igniteClient?.Dispose();
+        _igniteClient = null;
+    }
+
+    /// <inheritdoc />
+    public override void Open() => OpenAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+    /// <inheritdoc />
+    public override async Task OpenAsync(CancellationToken cancellationToken)
+    {
+        _igniteClient ??= await IgniteClient.StartAsync(_config);
+    }
+
+    /// <inheritdoc />
+    protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
+        BeginDbTransactionAsync(isolationLevel, CancellationToken.None).AsTask().GetAwaiter().GetResult();
+
+    /// <inheritdoc />
+    protected override async ValueTask<DbTransaction> BeginDbTransactionAsync(
+        IsolationLevel isolationLevel,
+        CancellationToken cancellationToken)
+    {
+        var tx = await _igniteClient!.Transactions.BeginAsync();
+
+        return new IgniteDbTransaction(tx, isolationLevel, this);
+    }
+
+    protected override DbCommand CreateDbCommand() => new IgniteDbCommand
+    {
+        Connection = this,
+        CommandTimeout = DefaultTimeout
+    };
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            Close();
+        }
+
+        base.Dispose(disposing);
+    }
 }
