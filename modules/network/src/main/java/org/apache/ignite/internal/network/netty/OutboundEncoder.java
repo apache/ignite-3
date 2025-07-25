@@ -176,7 +176,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
      * Chunked input for network message.
      */
     private static class NetworkMessageChunkedInput implements ChunkedInput<ByteBuf> {
-        public final AtomicReference<ChunkState> state = new AtomicReference<>();
+        final AtomicReference<ChunkState> state = new AtomicReference<>();
 
         /** Network message. */
         private @Nullable NetworkMessage msg;
