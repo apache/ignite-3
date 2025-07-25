@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.planner.datatypes.utils;
 
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 
@@ -190,6 +191,7 @@ public final class Types {
     public static final NativeType TIME_3 = NativeTypes.time(3);
     public static final NativeType TIME_6 = NativeTypes.time(6);
     public static final NativeType TIME_9 = NativeTypes.time(9);
+    public static final NativeType TIME_DYN_PARAM = NativeTypes.time(IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION);
 
     public static final NativeType DATE = NativeTypes.DATE;
 
@@ -197,13 +199,13 @@ public final class Types {
     public static final NativeType TIMESTAMP_3 = NativeTypes.datetime(3);
     public static final NativeType TIMESTAMP_6 = NativeTypes.datetime(6);
     public static final NativeType TIMESTAMP_9 = NativeTypes.datetime(9);
-    public static final NativeType TIMESTAMP_DYN_PARAM = NativeTypes.datetime(6);
+    public static final NativeType TIMESTAMP_DYN_PARAM = NativeTypes.datetime(IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION);
 
     public static final NativeType TIMESTAMP_WLTZ_0 = NativeTypes.timestamp(0);
     public static final NativeType TIMESTAMP_WLTZ_3 = NativeTypes.timestamp(3);
     public static final NativeType TIMESTAMP_WLTZ_6 = NativeTypes.timestamp(6);
     public static final NativeType TIMESTAMP_WLTZ_9 = NativeTypes.timestamp(9);
-    public static final NativeType TIMESTAMP_WLTZ_DYN_PARAM = NativeTypes.timestamp(6);
+    public static final NativeType TIMESTAMP_WLTZ_DYN_PARAM = NativeTypes.timestamp(IgniteSqlValidator.TEMPORAL_DYNAMIC_PARAM_PRECISION);
 
     public static final NativeType VARCHAR_1 = NativeTypes.stringOf(1);
     public static final NativeType VARCHAR_3 = NativeTypes.stringOf(3);

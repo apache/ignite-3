@@ -643,6 +643,11 @@ public class TypeUtils {
             return false;
         }
 
+        // TIME, TIMESTAMP and TIMESTAMP_WLTZ can use index, ignoring precision.
+        if (fromType.getSqlTypeName() == toType.getSqlTypeName() && SqlTypeUtil.isDatetime(fromType)) {
+            return false;
+        }
+
         // Implicit type coercion does not handle nullability.
         if (SqlTypeUtil.equalSansNullability(typeFactory, fromType, toType)) {
             return false;

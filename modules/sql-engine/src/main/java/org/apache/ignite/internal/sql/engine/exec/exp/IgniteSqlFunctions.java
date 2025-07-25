@@ -43,6 +43,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.apache.ignite.internal.sql.engine.util.IgniteSqlDateTimeUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.format.SqlDateTimeParser;
 import org.apache.ignite.sql.ColumnType;
@@ -362,8 +363,33 @@ public class IgniteSqlFunctions {
         }
     }
 
+    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
+    public static @Nullable Integer toTimeExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Integer : object.getClass();
+
+        return toTimeExact((int) object, precision);
+    }
+
+    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
+    public static int toTimeExact(int val, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        return IgniteSqlDateTimeUtils.adjustTimeMillis(val, precision);
+    }
+
+    /** Adjusts precision of {@link SqlTypeName#TIME} value. */
+    public static int toTimeExact(long val, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        return IgniteSqlDateTimeUtils.adjustTimeMillis(Math.toIntExact(val), precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#DATE} value. */
-    public static Integer toDateExact(Object object) {
+    public static @Nullable Integer toDateExact(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -387,8 +413,28 @@ public class IgniteSqlFunctions {
         return intDate;
     }
 
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static @Nullable Long toTimestampExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampExact((long) object, precision);
+    }
+
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
+    public static long toTimestampExact(long ts, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        long verified = toTimestampExact(ts);
+
+        return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP} value. */
-    public static Long toTimestampExact(Object object) {
+    public static @Nullable Long toTimestampExact(@Nullable Object object) {
         if (object == null) {
             return null;
         }
@@ -407,8 +453,28 @@ public class IgniteSqlFunctions {
         return ts;
     }
 
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static @Nullable Long toTimestampLtzExact(@Nullable Object object, int precision) {
+        if (object == null) {
+            return null;
+        }
+
+        assert object instanceof Long : object.getClass();
+
+        return toTimestampLtzExact((long) object, precision);
+    }
+
+    /** Adjusts precision and validates the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
+    public static long toTimestampLtzExact(long ts, int precision) {
+        assert precision >= 0 : "Invalid precision: " + precision;
+
+        long verified = toTimestampLtzExact(ts);
+
+        return IgniteSqlDateTimeUtils.adjustTimestampMillis(verified, precision);
+    }
+
     /** Checks the boundaries of {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} value. */
-    public static Long toTimestampLtzExact(Object object) {
+    public static @Nullable Long toTimestampLtzExact(@Nullable Object object) {
         if (object == null) {
             return null;
         }

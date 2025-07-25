@@ -28,6 +28,7 @@ import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,6 +58,7 @@ public class IgniteSqlDateTimeUtils {
     }
 
     /** Returns the timestamp value truncated to the specified fraction of a second. */
+    @Contract("null, _ -> null")
     public static @Nullable Long adjustTimestampMillis(@Nullable Long timestamp, int fractionOfSecond) {
         if (timestamp == null) {
             return null;
@@ -87,7 +89,8 @@ public class IgniteSqlDateTimeUtils {
     }
 
     /** Returns the time value truncated to the specified fraction of a second. */
-    public static @Nullable Integer adjustTimeMillis(Integer time, int fractionOfSecond) {
+    @Contract("null, _ -> null")
+    public static @Nullable Integer adjustTimeMillis(@Nullable Integer time, int fractionOfSecond) {
         if (time == null) {
             return null;
         }

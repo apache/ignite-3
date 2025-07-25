@@ -123,6 +123,20 @@ public interface QueryChecker {
     }
 
     /**
+     * Ignite index scan matcher which checks for the presence of search bounds.
+     *
+     * @param schema Schema name.
+     * @param tblName Table name.
+     * @param idxName Index name.
+     * @return Matcher.
+     */
+    static Matcher<String> containsIndexScanWithAnySearchBounds(String schema, String tblName, String idxName) {
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?index: " + idxName
+                + ".*?searchBounds: ");
+    }
+
+    /**
      * Ignite table|index scan with only one project matcher.
      *
      * @param schema Schema name.
