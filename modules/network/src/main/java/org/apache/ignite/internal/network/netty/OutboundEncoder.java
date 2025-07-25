@@ -215,12 +215,12 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             this.writer = writer;
             this.state.set(ChunkState.newState(outObject));
 
-            this.msg = outObject.networkMessage();
-
             prepareMessage(outObject);
         }
 
         private void prepareMessage(OutNetworkObject outObject) {
+            this.msg = outObject.networkMessage();
+
             List<ClassDescriptorMessage> outDescriptors = null;
             List<ClassDescriptorMessage> outObjectDescriptors = outObject.descriptors();
             //noinspection ForLoopReplaceableByForEach
@@ -279,29 +279,23 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
         @Override
         public ByteBuf readChunk(ByteBufAllocator allocator) {
-            try {
-                ByteBuf buffer = allocator.ioBuffer(IO_BUFFER_CAPACITY);
-                int capacity = buffer.capacity();
+            ByteBuf buffer = allocator.ioBuffer(IO_BUFFER_CAPACITY);
+            int capacity = buffer.capacity();
 
-                ByteBuffer byteBuffer = buffer.internalNioBuffer(0, capacity);
+            ByteBuffer byteBuffer = buffer.internalNioBuffer(0, capacity);
 
-                int initialPosition = byteBuffer.position();
+            int initialPosition = byteBuffer.position();
 
-                writer.setBuffer(byteBuffer);
+            writer.setBuffer(byteBuffer);
 
-                writeMessages();
+            writeMessages();
 
-                buffer.writerIndex(byteBuffer.position() - initialPosition);
+            buffer.writerIndex(byteBuffer.position() - initialPosition);
 
-                // Do not hold a reference, might help GC to do its job better.
-                writer.setBuffer(EMPTY_BYTE_BUFFER);
+            // Do not hold a reference, might help GC to do its job better.
+            writer.setBuffer(EMPTY_BYTE_BUFFER);
 
-                return buffer;
-            } catch (Exception e) {
-                e.printStackTrace();
-
-                throw e;
-            }
+            return buffer;
         }
 
         /**
