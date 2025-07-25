@@ -414,6 +414,8 @@ public class LeaseUpdater {
 
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
+            leaseNegotiator.onNewLeaseUpdateRound();
+
             HybridTimestamp currentTime = clockService.current();
 
             leaseUpdateStatistics = new LeaseStats();

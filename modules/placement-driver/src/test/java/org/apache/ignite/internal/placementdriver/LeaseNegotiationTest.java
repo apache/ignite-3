@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.Collections.emptyList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.partitiondistribution.Assignment.forPeer;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -69,6 +71,7 @@ import org.apache.ignite.internal.metastorage.server.ConditionalWatchInhibitor;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
@@ -84,7 +87,10 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.logging.log4j.core.LogEvent;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -500,6 +506,41 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return leases.size() == 1 && leases.stream()
                     .allMatch(lease -> lease.replicationGroupId().equals(groupId1) && lease.isAccepted());
         }, 20_000));
+    }
+
+    @Test
+    public void repeatedConnectionIssuesAreNotReported() {
+        Predicate<LogEvent> pred = logEvent -> logEvent.getMessage().getFormattedMessage()
+                .contains("Lease was not negotiated due to exception");
+
+        LogInspector logInspector = new LogInspector(LeaseNegotiator.class.getName(), new Handler(pred, () -> {}));
+
+        logInspector.start();
+
+        try {
+            var clusterService = mock(ClusterService.class);
+            var messagingService = mock(MessagingService.class);
+
+            when(messagingService.invoke(anyString(), any(), anyLong()))
+                    .thenAnswer(inv -> failedFuture(new UnresolvableConsistentIdException("test")));
+
+            when(clusterService.messagingService()).thenAnswer(inv -> messagingService);
+
+            var leaseNegotiator = new LeaseNegotiator(clusterService);
+
+            var startTs = new HybridTimestamp(0, 1);
+            var expirationTs = new HybridTimestamp(1000, 1);
+
+            var lease1 = new Lease("testNode", randomUUID(), startTs, expirationTs, new ZonePartitionId(0, 1));
+            var lease2 = new Lease("testNode", randomUUID(), startTs, expirationTs, new ZonePartitionId(0, 2));
+
+            leaseNegotiator.negotiate(new LeaseAgreement(lease1, false));
+            leaseNegotiator.negotiate(new LeaseAgreement(lease2, false));
+
+            assertEquals(1, logInspector.timesMatched().sum());
+        } finally {
+            logInspector.stop();
+        }
     }
 
     @Nullable
