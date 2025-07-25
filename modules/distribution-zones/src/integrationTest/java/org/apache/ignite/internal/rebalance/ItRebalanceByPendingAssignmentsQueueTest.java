@@ -474,16 +474,6 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
         );
     }
 
-    private void cancelLease(IgniteImpl leaseholder, String tableName) {
-        StopLeaseProlongationMessage msg = new PlacementDriverMessagesFactory()
-                .stopLeaseProlongationMessage()
-                .groupId(partitionGroupId(cluster.aliveNode(), tableName, 0))
-                .build();
-
-        // Just sent it to all nodes to not determine the exact placement driver active actor.
-        runningNodes().forEach(node -> leaseholder.sendFakeMessage(node.name(), msg));
-    }
-
     private Set<String> realAssignments(String tableName) {
         IgniteImpl ignite = raftLeader(tableName).leaderHost;
         Catalog catalog = latestCatalog(ignite);
