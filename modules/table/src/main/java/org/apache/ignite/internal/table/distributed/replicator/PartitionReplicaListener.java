@@ -915,7 +915,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         var rows = new ArrayList<BinaryRow>(remainingCount);
 
         // Map for storing write intent resolution futures along with their index in the result array. This is needed to preserve the
-        // iteration order after resoling the write intents.
+        // iteration order after resolving the write intents.
         var resolutionFutures = new Int2ObjectLinkedOpenHashMap<CompletableFuture<TimedBinaryRow>>();
 
         int i = 0;
