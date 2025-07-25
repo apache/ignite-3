@@ -336,8 +336,10 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.internal(SqlStdOperatorTable.NULLS_LAST);
         ops.internal(SqlStdOperatorTable.DESC);
 
-        // Ignite
+        // Context variable functions.
+        ops.add(SqlStdOperatorTable.CURRENT_USER);
 
+        // Ignite
         ops.add(IgniteSqlOperatorTable.TYPEOF);
         ops.add(IgniteSqlOperatorTable.RAND_UUID);
         ops.add(IgniteSqlOperatorTable.SYSTEM_RANGE);

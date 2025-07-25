@@ -45,20 +45,28 @@ class JdbcConnectionContext {
 
     private final ZoneId timeZoneId;
 
+    private final String userName;
+
     private final ConcurrentMap<Long, CancelHandle> cancelHandles = new ConcurrentHashMap<>();
 
     private @Nullable TxWithTimeTracker txWithTimeTracker;
 
     JdbcConnectionContext(
             TxManager txManager,
-            ZoneId timeZoneId
+            ZoneId timeZoneId,
+            String userName
     ) {
         this.txManager = txManager;
         this.timeZoneId = timeZoneId;
+        this.userName = userName;
     }
 
     ZoneId timeZoneId() {
         return timeZoneId;
+    }
+
+    String userName() {
+        return userName;
     }
 
     /**

@@ -17,8 +17,13 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -69,6 +74,10 @@ class ItJdbcAuthenticationTest {
                             + "            {\n"
                             + "              \"username\": \"usr\",\n"
                             + "              \"password\": \"pwd\"\n"
+                            + "            },\n"
+                            + "            {\n"
+                            + "              \"username\": \"admin\",\n"
+                            + "              \"password\": \"admin\"\n"
                             + "            }\n"
                             + "          ]\n"
                             + "        }\n"
@@ -94,6 +103,40 @@ class ItJdbcAuthenticationTest {
                     + "&password=pwd";
             try (Connection ignored = DriverManager.getConnection(url)) {
                 // No-op.
+            }
+        }
+
+        /**
+         * Tests that the current user can be retrieved correctly for different authenticated users.
+         */
+        @Test
+        void jdbcCurrentUser() throws SQLException {
+            var url1 = "jdbc:ignite:thin://127.0.0.1:10800"
+                    + "?username=usr"
+                    + "&password=pwd";
+
+            var url2 = "jdbc:ignite:thin://127.0.0.1:10800"
+                    + "?username=admin"
+                    + "&password=admin";
+            try (
+                    Connection conn1 = DriverManager.getConnection(url1);
+                    Connection conn2 = DriverManager.getConnection(url2)
+            ) {
+                try (
+                        PreparedStatement stmt1 = conn1.prepareStatement("SELECT CURRENT_USER");
+                        PreparedStatement stmt2 = conn2.prepareStatement("SELECT CURRENT_USER");
+                ) {
+                    try (
+                            ResultSet rs1 = stmt1.executeQuery();
+                            ResultSet rs2 = stmt2.executeQuery();
+                    ) {
+                        assertTrue(rs1.next());
+                        assertTrue(rs2.next());
+
+                        assertEquals("usr", rs1.getString(1));
+                        assertEquals("admin", rs2.getString(1));
+                    }
+                }
             }
         }
     }
