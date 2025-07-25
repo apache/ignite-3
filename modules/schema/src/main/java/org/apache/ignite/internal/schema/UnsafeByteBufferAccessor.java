@@ -96,4 +96,18 @@ public class UnsafeByteBufferAccessor implements ByteBufferAccessor {
     public int capacity() {
         return capacity;
     }
+
+    /**
+     * Returns the underlying byte array instance.
+     */
+    public byte[] getArray() {
+        return bytes;
+    }
+
+    /**
+     * Returns the underlying address.
+     */
+    public long getAddress() {
+        return addr;
+    }
 }

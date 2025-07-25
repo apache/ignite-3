@@ -17,15 +17,15 @@
 
 package com.facebook.presto.bytecode.expression;
 
-import java.util.List;
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+import static java.util.Objects.requireNonNull;
+
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.OpCode;
 import com.facebook.presto.bytecode.ParameterizedType;
-
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-import static java.util.Objects.requireNonNull;
+import java.util.List;
 
 public class ArithmeticBytecodeExpression
         extends BytecodeExpression
@@ -111,7 +111,8 @@ public class ArithmeticBytecodeExpression
             case IOR:
             case IXOR:
                 checkArgument(leftType == rightType, "left and right must be the same type");
-                checkArgument(leftType == int.class || leftType == long.class, "%s argument must be int or long, but is %s", name, leftType);
+                checkArgument(leftType == int.class || leftType == long.class || leftType == boolean.class,
+                        "%s argument must be int, long or boolean, but is %s", name, leftType);
                 return;
             case IADD:
             case ISUB:
@@ -138,7 +139,7 @@ public class ArithmeticBytecodeExpression
     static OpCode getNumericOpCode(String name, OpCode baseOpCode, Class<?> type)
     {
         // Arithmetic OpCodes are laid out int, long, float and then double
-        if (type == int.class) {
+        if (type == int.class || type == boolean.class) {
             return baseOpCode;
         }
         else if (type == long.class) {
