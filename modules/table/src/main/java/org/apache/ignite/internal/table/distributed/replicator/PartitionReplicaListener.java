@@ -57,6 +57,8 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -331,8 +333,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
-     * Processor that handles catalog events {@link CatalogEvent#INDEX_BUILDING} and
-     * tracks read-write transaction operations for building indexes.
+     * Processor that handles catalog events {@link CatalogEvent#INDEX_BUILDING} and tracks read-write transaction operations for building
+     * indexes.
      */
     private final PartitionReplicaBuildIndexProcessor indexBuildingProcessor;
 
@@ -882,55 +884,109 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             FullyQualifiedResourceId cursorId,
             int count
     ) {
-        PartitionTimestampCursor cursor =
-                remotelyTriggeredResourceRegistry.<CursorResource>register(
-                        cursorId,
-                        txCoordinatorId,
-                        () -> new CursorResource(
-                                mvDataStorage.scan(readTimestamp == null ? HybridTimestamp.MAX_VALUE : readTimestamp)
-                        )
-                ).cursor();
+        var result = new ArrayList<BinaryRow>(count);
 
-        var resolutionFuts = new ArrayList<CompletableFuture<TimedBinaryRow>>(count);
+        return retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, readTimestamp, cursorId, count, result)
+                .thenApply(v -> {
+                    closeCursorIfBatchNotFull(result, count, cursorId);
 
-        while (resolutionFuts.size() < count && cursor.hasNext()) {
+                    return result;
+                });
+    }
+
+    private CompletableFuture<Void> retrieveExactEntriesUntilCursorEmpty(
+            UUID txId,
+            UUID txCoordinatorId,
+            @Nullable HybridTimestamp readTimestamp,
+            FullyQualifiedResourceId cursorId,
+            int count,
+            List<BinaryRow> result
+    ) {
+        CursorResource resource = remotelyTriggeredResourceRegistry.register(
+                cursorId,
+                txCoordinatorId,
+                () -> new CursorResource(mvDataStorage.scan(readTimestamp == null ? HybridTimestamp.MAX_VALUE : readTimestamp))
+        );
+
+        PartitionTimestampCursor cursor = resource.cursor();
+
+        int remainingCount = count - result.size();
+
+        var rows = new ArrayList<BinaryRow>(remainingCount);
+
+        // Map for storing write intent resolution futures along with their index in the result array. This is needed to preserve the
+        // iteration order after resolving the write intents.
+        var resolutionFutures = new Int2ObjectLinkedOpenHashMap<CompletableFuture<TimedBinaryRow>>();
+
+        int i = 0;
+
+        while (i < remainingCount && cursor.hasNext()) {
             ReadResult readResult = cursor.next();
-            HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
 
-            TimedBinaryRow candidate;
-            if (newestCommitTimestamp == null || !readResult.isWriteIntent()) {
-                candidate = null;
+            UUID retrievedResultTxId = readResult.transactionId();
+
+            if (!readResult.isWriteIntent() || (readTimestamp == null && txId.equals(retrievedResultTxId))) {
+                BinaryRow row = readResult.binaryRow();
+
+                if (row != null) {
+                    rows.add(row);
+
+                    i++;
+                }
             } else {
-                BinaryRow committedRow = cursor.committed(newestCommitTimestamp);
+                HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
 
-                candidate = committedRow == null ? null : new TimedBinaryRow(committedRow, newestCommitTimestamp);
+                TimedBinaryRow candidate;
+                if (newestCommitTimestamp == null) {
+                    candidate = null;
+                } else {
+                    BinaryRow committedRow = cursor.committed(newestCommitTimestamp);
+
+                    candidate = committedRow == null ? null : new TimedBinaryRow(committedRow, newestCommitTimestamp);
+                }
+
+                resolutionFutures.put(i, resolveWriteIntentAsync(readResult, readTimestamp, () -> candidate));
+
+                i++;
             }
-
-            resolutionFuts.add(resolveReadResult(readResult, txId, readTimestamp, () -> candidate));
         }
 
-        return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenCompose(unused -> {
-            var rows = new ArrayList<BinaryRow>(count);
+        return allOf(resolutionFutures.values().toArray(CompletableFuture[]::new))
+                .thenComposeAsync(unused -> {
+                    // After waiting for the futures to complete, we need to merge the resolved write intents with the retrieved rows
+                    // preserving the original order.
+                    int curIndex = 0;
+                    int rowsIndex = 0;
 
-            for (CompletableFuture<TimedBinaryRow> resolutionFut : resolutionFuts) {
-                TimedBinaryRow resolvedReadResult = resolutionFut.join();
+                    for (Entry<CompletableFuture<TimedBinaryRow>> entry : resolutionFutures.int2ObjectEntrySet()) {
+                        int resolvedResultIndex = entry.getIntKey();
+                        TimedBinaryRow resolvedReadResult = entry.getValue().join();
 
-                if (resolvedReadResult != null && resolvedReadResult.binaryRow() != null) {
-                    rows.add(resolvedReadResult.binaryRow());
-                }
-            }
+                        int rowsToAdd = resolvedResultIndex - curIndex;
 
-            if (rows.size() < count && cursor.hasNext()) {
-                return retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, readTimestamp, cursorId, count - rows.size())
-                        .thenApply(binaryRows -> {
-                            rows.addAll(binaryRows);
+                        if (rowsToAdd > 0) {
+                            result.addAll(rows.subList(rowsIndex, rowsIndex + rowsToAdd));
 
-                            return rows;
-                        });
-            } else {
-                return completedFuture(closeCursorIfBatchNotFull(rows, count, cursorId));
-            }
-        });
+                            rowsIndex += rowsToAdd;
+                        }
+
+                        if (resolvedReadResult != null && resolvedReadResult.binaryRow() != null) {
+                            result.add(resolvedReadResult.binaryRow());
+                        }
+
+                        curIndex = resolvedResultIndex + 1;
+                    }
+
+                    if (rowsIndex < rows.size()) {
+                        result.addAll(rows.subList(rowsIndex, rows.size()));
+                    }
+
+                    if (result.size() < count && cursor.hasNext()) {
+                        return retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, readTimestamp, cursorId, count, result);
+                    } else {
+                        return nullCompletedFuture();
+                    }
+                }, scanRequestExecutor);
     }
 
     /**
@@ -1084,7 +1140,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param rows List of retrieved batch items.
      * @param cursorId Cursor id.
      */
-    private <T> ArrayList<T> closeCursorIfBatchNotFull(ArrayList<T> rows, int batchSize, FullyQualifiedResourceId cursorId) {
+    private void closeCursorIfBatchNotFull(List<?> rows, int batchSize, FullyQualifiedResourceId cursorId) {
         if (rows.size() < batchSize) {
             try {
                 remotelyTriggeredResourceRegistry.close(cursorId);
@@ -1092,8 +1148,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 throw wrapCursorCloseException(e);
             }
         }
-
-        return rows;
     }
 
     private ReplicationException wrapCursorCloseException(IgniteException e) {
@@ -1173,7 +1227,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 batchCount,
                 result,
                 tableVersionByTs(readTimestamp)
-        ).thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
+        ).thenApply(ignore -> {
+            closeCursorIfBatchNotFull(result, batchCount, cursorId);
+
+            return result;
+        });
     }
 
     private CompletableFuture<List<BinaryRow>> lookupIndex(
@@ -1197,8 +1255,12 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
                     var result = new ArrayList<BinaryRow>(batchCount);
 
-                    return continueIndexLookup(txId, cursor, batchCount, result).thenApply(
-                            ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
+                    return continueIndexLookup(txId, cursor, batchCount, result)
+                            .thenApply(ignore -> {
+                                closeCursorIfBatchNotFull(result, batchCount, cursorId);
+
+                                return result;
+                            });
                 });
     }
 
@@ -1278,7 +1340,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 result,
                 isUpperBoundAchieved,
                 tableVersionByTs(beginTimestamp(txId))
-        ).thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
+        ).thenApply(ignore -> {
+            closeCursorIfBatchNotFull(result, batchCount, cursorId);
+
+            return result;
+        });
     }
 
     /**
@@ -1324,7 +1390,11 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 batchCount,
                 result,
                 tableVersionByTs(readTimestamp)
-        ).thenApply(ignore -> closeCursorIfBatchNotFull(result, batchCount, cursorId));
+        ).thenApply(ignore -> {
+            closeCursorIfBatchNotFull(result, batchCount, cursorId);
+
+            return result;
+        });
     }
 
     private CompletableFuture<Void> continueReadOnlyIndexScan(
@@ -1469,15 +1539,17 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         ReadResult readResult = mvDataStorage.read(rowId, timestamp == null ? HybridTimestamp.MAX_VALUE : timestamp);
 
         return resolveReadResult(readResult, txId, timestamp, () -> {
-            if (readResult.newestCommitTimestamp() == null) {
+            HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+
+            if (newestCommitTimestamp == null) {
                 return null;
             }
 
-            ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+            ReadResult committedReadResult = mvDataStorage.read(rowId, newestCommitTimestamp);
 
             assert !committedReadResult.isWriteIntent() :
                     "The result is not committed [rowId=" + rowId + ", timestamp="
-                            + readResult.newestCommitTimestamp() + ']';
+                            + newestCommitTimestamp + ']';
 
             return new TimedBinaryRow(committedReadResult.binaryRow(), committedReadResult.commitTimestamp());
         });
@@ -1784,9 +1856,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     && txStateMeta.isFinishedDueToTimeout() != null
                     && txStateMeta.isFinishedDueToTimeout();
 
-
             return failedFuture(new TransactionException(
-                            isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
+                    isFinishedDueToTimeout ? TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR : TX_ALREADY_FINISHED_ERR,
                     "Transaction is already finished txId=[" + txId + ", txState=" + txState + "]."
             ));
         }
@@ -2370,7 +2441,6 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param catalogVersion Validated catalog version associated with given operation.
      * @param leaseStartTime Lease start time.
      * @param skipDelayedAck {@code True} to skip delayed ack optimization.
-     *
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
     private CompletableFuture<CommandApplicationResult> applyUpdateCommand(
@@ -3225,9 +3295,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             @Nullable HybridTimestamp timestamp,
             Supplier<@Nullable TimedBinaryRow> lastCommitted
     ) {
-        if (readResult == null) {
-            return nullCompletedFuture();
-        } else if (!readResult.isWriteIntent()) {
+        if (!readResult.isWriteIntent()) {
             return completedFuture(new TimedBinaryRow(readResult.binaryRow(), readResult.commitTimestamp()));
         } else {
             // RW write intent resolution.
