@@ -52,7 +52,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
     private static final int IO_BUFFER_CAPACITY = 16 * 1024;
 
-    /** Max number of messages in a single chink. */
+    /** Max number of messages in a single chunk. */
     private static final int MAX_MESSAGES_IN_CHUNK = 128;
 
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
