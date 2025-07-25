@@ -42,7 +42,7 @@ public class ConfigNode {
     @JsonProperty
     private List<ConfigAnnotation> annotations = new ArrayList<>();
     @JsonProperty
-    private final Map<String, ConfigNode> childNodeMap = new LinkedHashMap<>();
+    private Map<String, Node> childNodeMap = new LinkedHashMap<>();
     @JsonProperty
     private String flagsHexString;
     @JsonProperty
@@ -52,7 +52,7 @@ public class ConfigNode {
 
     // Non-serializable fields.
     @JsonIgnore
-    @Nullable 
+    @Nullable
     private ConfigNode parent;
     @JsonIgnore
     private EnumSet<Flags> flags;
@@ -154,10 +154,17 @@ public class ConfigNode {
     }
 
     /**
+     * Returns flags for this node.
+     */
+    public Set<Flags> flags() {
+        return flags;
+    }
+
+    /**
      * Returns the child nodes of this node.
      */
-    public Collection<ConfigNode> childNodes() {
-        return childNodeMap.values();
+    public Map<String, Node> children() {
+        return childNodeMap;
     }
 
     /**
@@ -173,7 +180,10 @@ public class ConfigNode {
     void addChildNodes(Collection<ConfigNode> childNodes) {
         assert !flags.contains(Flags.IS_VALUE) : "Value node can't have children.";
 
-        childNodes.forEach(e -> childNodeMap.put(e.name(), e));
+        childNodes.forEach(e -> {
+            e.parent = this;
+            addChildNode(e.name(), new Node(e));
+        });
     }
 
     /**
@@ -184,12 +194,11 @@ public class ConfigNode {
         addChildNodes(List.of(childNodes));
     }
 
-    /**
-     * Returns {@code true} if this node is a root node, {@code false} otherwise.
-     */
-    @JsonIgnore
-    public boolean isRoot() {
-        return parent == null;
+    private void addChildNode(String name, Node node) {
+        Node existing = childNodeMap.put(name, node);
+        if (existing != null) {
+            throw new IllegalArgumentException("Child node already exists: " + name);
+        }
     }
 
     /**
@@ -214,6 +223,14 @@ public class ConfigNode {
     @JsonIgnore
     public boolean isInnerNode() {
         return flags.contains(Flags.IS_INNER_NODE);
+    }
+
+    /**
+     * Returns {@code true} if a configuration value that this node presents has a default value, otherwise {@code false}.
+     */
+    @JsonIgnore
+    public boolean hasDefault() {
+        return flags.contains(Flags.HAS_DEFAULT);
     }
 
     /**
@@ -269,8 +286,8 @@ public class ConfigNode {
     public void accept(ConfigShuttle visitor) {
         visitor.visit(this);
 
-        for (ConfigNode child : childNodes()) {
-            child.accept(visitor);
+        for (Node child : children().values()) {
+            child.node().accept(visitor);
         }
     }
 
@@ -312,7 +329,8 @@ public class ConfigNode {
         IS_DEPRECATED(1 << 2),
         IS_INTERNAL(1 << 3),
         IS_NAMED_NODE(1 << 4),
-        IS_INNER_NODE(1 << 5);
+        IS_INNER_NODE(1 << 5),
+        HAS_DEFAULT(1 << 6);
 
         private final int mask;
 
@@ -350,5 +368,68 @@ public class ConfigNode {
         static String NAME = "name";
         static String KIND = "kind";
         static String CLASS = "class";
+    }
+
+    /**
+     * Node holds a references to a child config node.
+     */
+    public static class Node {
+        /**
+         * Non-polymorphic node.
+         */
+        @JsonProperty
+        private ConfigNode single;
+
+        @SuppressWarnings("unused")
+        Node() {
+            // Default constructor for Jackson deserialization.
+        }
+
+        Node(ConfigNode single) {
+            this.single = single;
+        }
+
+        /**
+         * Returns a single node if this node is a simple node or throws.
+         */
+        ConfigNode node() {
+            assert single != null : "Use the nodes() method instead.";
+            return single;
+        }
+
+        /**
+         * Returns {@code true} if this node represents a value node.
+         *
+         * @see ConfigNode#isValue()
+         */
+        @JsonIgnore
+        boolean isValue() {
+            return single.isValue();
+        }
+
+        /**
+         * Returns {@code true} if this node has a default value.
+         *
+         * @see ConfigNode#hasDefault()
+         */
+        boolean hasDefault() {
+            return single.hasDefault();
+        }
+
+        /**
+         * Returns legacy names.
+         *
+         * @see ConfigNode#legacyPropertyNames()
+         */
+        Set<String> legacyPropertyNames() {
+            return single.legacyPropertyNames();
+        }
+
+        /**
+         * Returns the full path of this node in the configuration tree.
+         */
+        String path() {
+            return single.path();
+        }
     }
 }
