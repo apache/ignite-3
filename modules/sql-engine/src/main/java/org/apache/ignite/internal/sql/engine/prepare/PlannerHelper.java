@@ -48,6 +48,7 @@ import org.apache.calcite.rel.RelShuttleImpl;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.JoinPushThroughJoinRule;
 import org.apache.calcite.rel.rules.MultiJoin;
@@ -209,14 +210,9 @@ public final class PlannerHelper {
             result = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
             if (!root.isRefTrivial()) {
-                List<RexNode> projects = new ArrayList<>();
-                RexBuilder rexBuilder = result.getCluster().getRexBuilder();
+                LogicalProject project = (LogicalProject) root.project();
 
-                for (int field : Pair.left(root.fields)) {
-                    projects.add(rexBuilder.makeInputRef(result, field));
-                }
-
-                result = new IgniteProject(result.getCluster(), desired, result, projects, root.validatedRowType);
+                result = new IgniteProject(result.getCluster(), desired, result, project.getProjects(), project.getRowType());
             }
 
             return result;
