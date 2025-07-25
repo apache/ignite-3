@@ -165,7 +165,7 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
                     }
                 } else {
                     ex = new ErrorCodeGroupProcessorException(
-                            String.format("AST parsing error: Expected IdentifierTree in initializer, but got %s",
+                            String.format("AST parsing error: Expected MethodInvocationTree or IdentifierTree in initializer, but got %s",
                                     initializer.getClass().getSimpleName()));
                 }
             } catch (Exception e) {
