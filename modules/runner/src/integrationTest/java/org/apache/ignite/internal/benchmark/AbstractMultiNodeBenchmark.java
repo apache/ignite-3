@@ -74,6 +74,9 @@ public class AbstractMultiNodeBenchmark {
     protected static IgniteImpl igniteImpl;
 
     @Param({"false"})
+    protected boolean remote;
+
+    @Param({"false"})
     private boolean fsync;
 
     @Nullable
@@ -87,7 +90,7 @@ public class AbstractMultiNodeBenchmark {
     @Setup
     public void nodeSetUp() throws Exception {
         System.setProperty("jraft.available_processors", "2");
-        if (!remote()) {
+        if (!remote) {
             startCluster();
         }
 
@@ -192,7 +195,7 @@ public class AbstractMultiNodeBenchmark {
     }
 
     private void startCluster() throws Exception {
-        if (remote()) {
+        if (remote) {
             throw new AssertionError("Can't start the cluster in remote mode");
         }
 
@@ -291,9 +294,5 @@ public class AbstractMultiNodeBenchmark {
 
     protected int replicaCount() {
         return CatalogUtils.DEFAULT_REPLICA_COUNT;
-    }
-
-    protected boolean remote() {
-        return false;
     }
 }

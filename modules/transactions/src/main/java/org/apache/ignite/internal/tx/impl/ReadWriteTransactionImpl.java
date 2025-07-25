@@ -302,4 +302,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public CompletableFuture<Void> kill() {
         return finishInternal(false, null, false, false, false);
     }
+
+    /**
+     * Fail the transaction with exception so finishing it is not possible.
+     *
+     * @param e Fail reason.
+     */
+    public void fail(TransactionException e) {
+        // Thread safety is not needed.
+        finishFuture = failedFuture(e);
+    }
 }

@@ -122,7 +122,7 @@ public class TableUtils {
      * @param tx Transaction of {@code null}.
      * @return True of direct flow is applicable for the transaction.
      */
-    public static boolean isDirectFlowApplicableTx(@Nullable InternalTransaction tx) {
+    public static boolean isDirectFlowApplicable(@Nullable InternalTransaction tx) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-24218 Remove this method ot use tx == null || tx.direct() instead.
         return tx == null || (tx.implicit() && tx.isReadOnly());
     }

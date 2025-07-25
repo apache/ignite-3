@@ -123,7 +123,8 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             // but we check that the new transaction does not appear.
             assertFalse(txRwStatesAfter > txRwStatesBefore, "RW transaction was stated unexpectedly.");
 
-            assertEquals(2, txFinishedAfter - txFinishedBefore, format(
+            // Implicit RO operations are not counted as transactions.
+            assertEquals(0, txFinishedAfter - txFinishedBefore, format(
                     "Unexpected finished transaction quantity [i={}, beforeOp={}, afterOp={}]",
                     i,
                     txFinishedBefore,

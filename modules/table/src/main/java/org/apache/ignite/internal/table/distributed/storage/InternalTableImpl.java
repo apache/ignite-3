@@ -42,7 +42,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
-import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
+import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicable;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -760,7 +760,7 @@ public class InternalTableImpl implements InternalTable {
      * @param <T> Operation return type.
      * @return The future.
      */
-    private <T> CompletableFuture<T> postEnlist(
+    private static <T> CompletableFuture<T> postEnlist(
             CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full
     ) {
         assert !(autoCommit && full) : "Invalid combination of flags";
@@ -796,7 +796,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Evaluates the single-row request to the cluster for a read-only single-partition transaction.
+     * Evaluates the single-row request to the cluster for a read-only single-partition implicit transaction.
      *
      * @param tx Transaction or {@code null} if it is not started yet.
      * @param row Binary row.
@@ -819,20 +819,18 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Evaluates the multi-row request to the cluster for a read-only single-partition transaction.
+     * Evaluates the multi-row request to the cluster for a read-only single-partition implicit transaction.
      *
-     * @param tx Transaction or {@code null} if it is not started yet.
      * @param rows Rows.
      * @param op Replica requests factory.
      * @param <R> Result type.
      * @return The future.
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
-            @Nullable InternalTransaction tx,
             Collection<BinaryRowEx> rows,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction actualTx = startImplicitRoTxIfNeeded(tx);
+        InternalTransaction actualTx = txManager.beginImplicitRo(observableTimestampTracker);
 
         int partId = partitionId(rows.iterator().next());
 
@@ -902,12 +900,13 @@ public class InternalTableImpl implements InternalTable {
                 return tx.finish(false, clockService.current(), false, false)
                         .handle((ignored, err) -> {
                             if (err != null) {
+                                // Preserve failed state.
                                 e.addSuppressed(err);
                             }
 
                             sneakyThrow(e);
                             return null;
-                        }); // Preserve failed state.
+                        });
             }
 
             return tx.finish(true, clockService.current(), false, false).thenApply(ignored -> r);
@@ -919,7 +918,7 @@ public class InternalTableImpl implements InternalTable {
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
         checkTransactionFinishStarted(tx);
 
-        if (isDirectFlowApplicableTx(tx)) {
+        if (isDirectFlowApplicable(tx)) {
             return evaluateReadOnlyPrimaryNode(
                     tx,
                     keyRow,
@@ -1014,9 +1013,8 @@ public class InternalTableImpl implements InternalTable {
             return emptyListCompletedFuture();
         }
 
-        if (isDirectFlowApplicableTx(tx) && isSinglePartitionBatch(keyRows)) {
+        if (tx == null && isSinglePartitionBatch(keyRows)) {
             return evaluateReadOnlyPrimaryNode(
-                    tx,
                     keyRows,
                     (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
                             .groupId(serializeReplicationGroupId(groupId))
@@ -1030,6 +1028,8 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx != null && tx.isReadOnly()) {
+            assert !tx.implicit() : "implicit RO getAll not supported";
+
             BinaryRowEx firstRow = keyRows.iterator().next();
 
             return evaluateReadOnlyRecipientNode(partitionId(firstRow), tx.readTimestamp())
@@ -2382,7 +2382,7 @@ public class InternalTableImpl implements InternalTable {
         return replicaMeta.getStartTime().longValue();
     }
 
-    private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
+    private static void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
         if (transaction != null && transaction.isFinishingOrFinished()) {
             boolean isFinishedDueToTimeout = transaction.isRolledBackWithTimeoutExceeded();
             throw new TransactionException(

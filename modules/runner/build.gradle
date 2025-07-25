@@ -283,16 +283,6 @@ tasks.register('runClientGetBenchmark', JavaExec) {
     enableAssertions = true
 }
 
-tasks.register('runRemoteBenchmark', JavaExec) {
-    mainClass = 'org.apache.ignite.internal.benchmark.RemoteKvBenchmark'
-
-    jvmArgs += addOpens + ['-Dio.netty.tryReflectionSetAccessible=true', '-Xmx16g']
-
-    classpath = sourceSets.integrationTest.runtimeClasspath
-
-    enableAssertions = true
-}
-
 jar {
     manifest {
         attributes(

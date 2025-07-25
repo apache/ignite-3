@@ -65,9 +65,6 @@ public abstract class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"0"})
     protected int offset; // 1073741824 for second client to ensure unique keys
 
-    @Param({"false"})
-    private boolean fsync;
-
     @Param({"32"})
     private int partitionCount;
 
@@ -90,8 +87,13 @@ public abstract class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
+        if (remote) {
+            client = IgniteClient.builder().addresses(addresses()).build();
+            publicIgnite = client;
+        } else {
+            System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
+            System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
+        }
         super.nodeSetUp();
     }
 
@@ -151,11 +153,6 @@ public abstract class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         new Runner(builder.build()).run();
-    }
-
-    @Override
-    protected boolean fsync() {
-        return fsync;
     }
 
     @Override

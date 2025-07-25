@@ -157,8 +157,8 @@ public class ItTransactionMetricsTest extends ClusterPerClassIntegrationTest {
         // Check that all transaction metrics ere not changed except TotalCommits and RoCommits.
         testMetricValues(metrics0, actualMetrics0, "TotalCommits", "RoCommits");
 
-        assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + 1));
-        assertThat(actualMetrics0.get("RoCommits"), is(metrics0.get("RoCommits") + 1));
+        assertThat(actualMetrics0.get("TotalCommits"), is(metrics0.get("TotalCommits") + (implicit ? 0 : 1)));
+        assertThat(actualMetrics0.get("RoCommits"), is(metrics0.get("RoCommits") + (implicit ? 0 : 1)));
     }
 
     /**
