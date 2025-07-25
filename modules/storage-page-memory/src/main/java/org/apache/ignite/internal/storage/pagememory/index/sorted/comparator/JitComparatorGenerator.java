@@ -290,8 +290,7 @@ public class JitComparatorGenerator {
 
         Class<?> clazz = CLASS_GENERATOR.defineClass(classDefinition, Object.class);
         try {
-            //noinspection ClassNewInstance,deprecation
-            return (JitComparator) clazz.newInstance();
+            return (JitComparator) clazz.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
             throw new IgniteInternalException(Common.INTERNAL_ERR, e);
         }
