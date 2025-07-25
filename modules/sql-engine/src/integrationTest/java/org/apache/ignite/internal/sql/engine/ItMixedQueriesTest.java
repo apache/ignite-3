@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matches;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -92,6 +94,53 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
         |  6 | Igor1 |   13  |
         +----+-------+-------+
          */
+    }
+
+    @Test
+    void testIndexLookup() {
+        //noinspection ConcatenationWithEmptyString
+        sqlScript("" 
+                + "CREATE TABLE t (id VARCHAR(25) PRIMARY KEY, val TINYINT);" 
+                + "CREATE INDEX t_val_asc_idx ON t (val ASC);" 
+                + "INSERT INTO t VALUES ('abc  ', 125);"
+        );
+
+        // Test case ensures that we don't remove cast which may change semantic of a query.
+        // In this particular case excess space character is truncated during cast, which makes
+        // it equal to the value stored in the table.
+        assertQuery("SELECT * FROM t WHERE id = ?::VARCHAR(5)")
+                .withParam("abc   ") // Value has one extra space at the end which must be truncated.
+                .matches(containsSubPlan("KeyValueGet"))
+                .returns("abc  ", (byte) 125)
+                .check();
+
+        // Similar as above, but also makes sure that cast is not removed from the column reference as well.
+        assertQuery("SELECT * FROM t WHERE id::VARCHAR(3) = ?::VARCHAR(3)")
+                .withParam("abc   ")
+                // Since cast over column reference cannot be removed, it's impossible to compose search bound,
+                // hence KV plan is not expected.
+                .matches(containsSubPlan("TableScan"))
+                .returns("abc  ", (byte) 125)
+                .check();
+
+        // Test case to make sure that non-safe cast (like cast from bigint to smallint) is not appeared in the plan
+        // when composing a search condition for index lookup. In this example, column `val` is of smaller type
+        // than type of dynamic parameter, therefore search condition should not be created as it requires to downcast
+        // parameter, which is not safe in general case.
+        assertQuery("SELECT /*+ FORCE_INDEX(t_val_asc_idx) */ * FROM t WHERE val = ?")
+                .withParam(Short.MAX_VALUE) // Value is out of range for TINYINT.
+                .matches(containsSubPlan("IndexScan"))
+                .matches(not(matches("searchBounds")))
+                .returnNothing()
+                .check();
+
+        // But explicit cast should make it work.
+        assertQuery("SELECT /*+ FORCE_INDEX(t_val_asc_idx) */ * FROM t WHERE val = ?::TINYINT")
+                .withParam(0)
+                .matches(containsSubPlan("IndexScan"))
+                .matches(matchesOnce("searchBounds"))
+                .returnNothing()
+                .check();
     }
 
     /** Tests varchar min\max aggregates. */

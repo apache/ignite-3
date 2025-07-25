@@ -415,8 +415,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         NO_META_5e("c1 = 42 AND c1 = SUBSTRING(c3::VARCHAR, 2)::INTEGER", TABLE_C1_C2),
         NO_META_5f("c1 = 42 AND c2 = SUBSTRING(c3::VARCHAR, 2)::INTEGER", TABLE_C1_C2),
 
-        // No constant folding
-        CONST_FOLDING_1a("c1 = 10 + 4", TABLE_C1),
+        CONST_FOLDING_1a("c1 = 10 + 4", TABLE_C1, "[c1=14]"),
         CONST_FOLDING_1b("c1 = ? + 4", TABLE_C1),
 
         // 0s removed by Calcite.

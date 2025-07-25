@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Compute
 {
     using System;
-    using System.Buffers.Binary;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
@@ -239,33 +238,10 @@ namespace Apache.Ignite.Internal.Compute
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
             nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
-        private static ICollection<DeploymentUnit> GetUnitsCollection(IEnumerable<DeploymentUnit>? units) =>
-            units switch
-            {
-                null => Array.Empty<DeploymentUnit>(),
-                ICollection<DeploymentUnit> c => c,
-                var u => u.ToList()
-            };
-
         private static void WriteEnumerable<T>(IEnumerable<T> items, PooledArrayBuffer buf, Action<T, PooledArrayBuffer> writerFunc)
         {
-            var w = buf.MessageWriter;
-
-            if (items.TryGetNonEnumeratedCount(out var count))
-            {
-                w.Write(count);
-                foreach (var item in items)
-                {
-                    writerFunc(item, buf);
-                }
-
-                return;
-            }
-
-            // Enumerable without known count - enumerate first, write count later.
-            count = 0;
-            var countSpan = buf.GetSpan(5);
-            buf.Advance(5);
+            var count = 0;
+            var countPos = buf.ReserveMsgPackInt32();
 
             foreach (var item in items)
             {
@@ -273,8 +249,7 @@ namespace Apache.Ignite.Internal.Compute
                 writerFunc(item, buf);
             }
 
-            countSpan[0] = MsgPackCode.Array32;
-            BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
+            buf.WriteMsgPackInt32(count, countPos);
         }
 
         private static void WriteNodeNames(PooledArrayBuffer buf, IEnumerable<IClusterNode> nodes) =>
@@ -285,7 +260,7 @@ namespace Apache.Ignite.Internal.Compute
             JobDescriptor<TArg, TResult> jobDescriptor,
             bool canWriteJobExecType)
         {
-            WriteUnits(GetUnitsCollection(jobDescriptor.DeploymentUnits), writer);
+            WriteUnits(jobDescriptor.DeploymentUnits, writer);
 
             var w = writer.MessageWriter;
             w.Write(jobDescriptor.JobClassName);

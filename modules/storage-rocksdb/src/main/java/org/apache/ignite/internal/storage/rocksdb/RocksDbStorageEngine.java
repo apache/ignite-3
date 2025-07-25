@@ -96,6 +96,8 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final FailureProcessor failureProcessor;
 
+    private final String nodeName;
+
     /**
      * Mapping from the storage profile name to the shared RocksDB instance.
      */
@@ -127,6 +129,7 @@ public class RocksDbStorageEngine implements StorageEngine {
         this.logSyncer = logSyncer;
         this.scheduledPool = scheduledPool;
         this.failureProcessor = failureProcessor;
+        this.nodeName = nodeName;
 
         threadPool = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
@@ -223,7 +226,7 @@ public class RocksDbStorageEngine implements StorageEngine {
         Path dbPath = storagePath.resolve("rocksdb-" + profileName);
 
         try {
-            return new SharedRocksDbInstanceCreator(failureProcessor).create(this, profile, dbPath);
+            return new SharedRocksDbInstanceCreator(failureProcessor, nodeName).create(this, profile, dbPath);
         } catch (Exception e) {
             throw new StorageException("Failed to create new RocksDB instance", e);
         }

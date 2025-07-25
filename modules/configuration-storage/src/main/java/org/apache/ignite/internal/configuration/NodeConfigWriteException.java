@@ -21,11 +21,16 @@ import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
 import org.apache.ignite.lang.IgniteException;
 
 /**
- * Exception that gets thrown when a node bootstrap configuration file is malformed.
+ * Throws when writing to node bootstrap configuration failed with IO problem.
  */
-public class NodeConfigParseException extends IgniteException {
+public class NodeConfigWriteException extends IgniteException {
+    private static final long serialVersionUID = 3366819484159053877L;
 
-    public NodeConfigParseException(String msg, Throwable cause) {
-        super(NodeConfiguration.CONFIG_PARSE_ERR, msg, cause);
+    public NodeConfigWriteException(String message) {
+        super(NodeConfiguration.CONFIG_WRITE_ERR, message);
+    }
+
+    public NodeConfigWriteException(String message, Throwable cause) {
+        super(NodeConfiguration.CONFIG_WRITE_ERR, message, cause);
     }
 }

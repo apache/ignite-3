@@ -42,7 +42,7 @@ Sort
                 est: (rows=4173)
               TableScan
                   table: PUBLIC.ITEM
-                  predicate: AND(>=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), 49.00), <=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), CAST(+(49, 30)):DECIMAL(12, 2) NOT NULL), SEARCH(I_MANUFACT_ID, Sarg[17, 80, 292, 675]))
+                  predicate: AND(>=(I_CURRENT_PRICE, 49.00), <=(CAST(I_CURRENT_PRICE):DECIMAL(12, 2), 79.00), SEARCH(I_MANUFACT_ID, Sarg[17, 80, 292, 675]))
                   fieldNames: [I_ITEM_SK, I_ITEM_ID, I_ITEM_DESC, I_CURRENT_PRICE, I_MANUFACT_ID]
                   est: (rows=4173)
         Exchange
@@ -50,6 +50,6 @@ Sort
             est: (rows=18262)
           TableScan
               table: PUBLIC.DATE_DIM
-              predicate: AND(>=(D_DATE, 2001-01-28), <=(D_DATE, +(2001-01-28, *(60, 86400000:INTERVAL DAY))))
+              predicate: SEARCH(D_DATE, Sarg[[2001-01-28..2001-03-29]])
               fieldNames: [D_DATE_SK, D_DATE]
               est: (rows=18262)

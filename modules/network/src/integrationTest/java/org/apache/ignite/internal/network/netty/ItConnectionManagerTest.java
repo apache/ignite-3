@@ -322,7 +322,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         IgniteInternalException exception = (IgniteInternalException) assertThrows(
                 IgniteInternalException.class,
                 () -> startManager(4000),
-                "Failed to start the connection manager: Port 4000 is not available."
+                "Failed to start the connection manager: Cannot start server at address=, port=4000"
         );
 
         assertEquals("IGN-NETWORK-2", exception.codeAsString());

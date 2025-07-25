@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.tx.storage.state.test;
 
-import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
-import org.apache.ignite.lang.IgniteException;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 
 /**
- * Throws when node bootstrap configuration file failed to create with IO problem.
+ * Tx storage test for test implementation based on {@link ConcurrentHashMap}.
  */
-public class NodeConfigCreateException extends IgniteException {
-
-    public NodeConfigCreateException(String msg) {
-        super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg);
-    }
-
-    public NodeConfigCreateException(String msg, Throwable cause) {
-        super(NodeConfiguration.CONFIG_FILE_CREATE_ERR, msg, cause);
+public class TestTxStateStorageTest extends AbstractTxStateStorageTest {
+    @Override protected TxStateStorage createTableOrZoneStorage() {
+        return new TestTxStateStorage();
     }
 }

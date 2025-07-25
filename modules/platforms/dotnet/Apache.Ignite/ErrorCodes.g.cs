@@ -52,6 +52,7 @@ namespace Apache.Ignite
             Embedded.GroupCode => Embedded.GroupName,
             Marshalling.GroupCode => Marshalling.GroupName,
             Rest.GroupCode => Rest.GroupName,
+            CommonConfiguration.GroupCode => CommonConfiguration.GroupName,
 
             _ => UnknownGroupName
         };
@@ -86,6 +87,7 @@ namespace Apache.Ignite
             Embedded.GroupCode => Embedded.ErrorPrefix,
             Marshalling.GroupCode => Marshalling.ErrorPrefix,
             Rest.GroupCode => Rest.ErrorPrefix,
+            CommonConfiguration.GroupCode => CommonConfiguration.ErrorPrefix,
 
             _ => UnknownGroupName
         };
@@ -687,6 +689,9 @@ namespace Apache.Ignite
 
             /// <summary> ClusterNotIdle error. </summary>
             public const int ClusterNotIdle = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> RestartWithCleanUp error. </summary>
+            public const int RestartWithCleanUp = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> Embedded errors. </summary>
@@ -750,6 +755,28 @@ namespace Apache.Ignite
 
             /// <summary> ClusterNotInit error. </summary>
             public const int ClusterNotInit = (GroupCode << 16) | (1 & 0xFFFF);
+        }
+
+        /// <summary> CommonConfiguration errors. </summary>
+        public static class CommonConfiguration
+        {
+            /// <summary> CommonConfiguration group code. </summary>
+            public const short GroupCode = 24;
+
+            /// <summary> CommonConfiguration group name. </summary>
+            public const String GroupName = "COMMONCFG";
+
+            /// <summary> CommonConfiguration error prefix. </summary>
+            public const String ErrorPrefix = "IGN";
+
+            /// <summary> ConfigurationApply error. </summary>
+            public const int ConfigurationApply = (GroupCode << 16) | (1 & 0xFFFF);
+
+            /// <summary> ConfigurationParse error. </summary>
+            public const int ConfigurationParse = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> ConfigurationValidation error. </summary>
+            public const int ConfigurationValidation = (GroupCode << 16) | (3 & 0xFFFF);
         }
     }
 }

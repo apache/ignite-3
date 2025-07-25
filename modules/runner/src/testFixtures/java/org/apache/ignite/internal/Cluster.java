@@ -313,11 +313,15 @@ public class Cluster {
             config = TestIgnitionManager.applyOverridesToConfig(config, configOverrides(testInfo, nodeIndex));
         }
 
-        IgniteServer node = TestIgnitionManager.start(
-                nodeName,
-                config,
-                clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName)
-        );
+        IgniteServer node = clusterConfiguration.usePreConfiguredStorageProfiles()
+                ? TestIgnitionManager.start(
+                        nodeName,
+                        config,
+                        clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName))
+                : TestIgnitionManager.startWithoutPreConfiguredStorageProfiles(
+                        nodeName,
+                        config,
+                        clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName));
 
         synchronized (igniteServers) {
             setListAtIndex(igniteServers, nodeIndex, node);
@@ -380,7 +384,7 @@ public class Cluster {
      * Returns an Ignite server by its index.
      */
     public IgniteServer server(int index) {
-        return igniteServers.get(index);
+        return Objects.requireNonNull(igniteServers.get(index));
     }
 
     /**
@@ -571,6 +575,13 @@ public class Cluster {
      */
     public Stream<Ignite> runningNodes() {
         return nodes.stream().filter(Objects::nonNull);
+    }
+
+    /**
+     * Returns nodes.
+     */
+    public List<Ignite> nodes() {
+        return nodes;
     }
 
     /**

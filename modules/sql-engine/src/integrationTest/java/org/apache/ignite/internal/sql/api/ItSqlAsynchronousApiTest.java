@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -202,7 +201,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         await(cancelHandle.cancelAsync());
 
         // Expect all transactions to be rolled back.
-        assertThat(txManager().pending(), is(0));
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) throws InterruptedException {
@@ -223,7 +222,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         await(cancelHandle.cancelAsync());
 
         // Expect all transactions to be rolled back.
-        waitForCondition(() -> txManager().pending() == 0, 5000);
+        waitUntilActiveTransactionsCount(is(0));
     }
 
     private static class DrainResultSet implements Executable {

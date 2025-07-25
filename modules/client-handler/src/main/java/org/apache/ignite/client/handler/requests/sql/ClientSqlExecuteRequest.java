@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -29,9 +30,11 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -42,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.partitionawareness.PartitionAwarenessMetadata;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -68,6 +72,14 @@ public class ClientSqlExecuteRequest {
      * @param metrics Metrics.
      * @param timestampTracker Server's view of latest seen by client time.
      * @param sqlPartitionAwarenessSupported Denotes whether client supports partition awareness for SQL or not.
+     * @param sqlDirectTxMappingSupported Denotes whether client supports direct mapping of implicit transaction for SQL operations
+     *         for SQL or not.
+     * @param txManager Tx manager is used to start explicit transaction in case of transaction piggybacking, or to start remote
+     *         transaction in case of direct mapping.
+     * @param clockService Clock service is required to update observable time after execution of operation within a remote
+     *         transaction.
+     * @param notificationSender Notification sender is required to send acknowledge for underlying write operation within a remote
+     *         transaction.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<ResponseWriter> process(
@@ -79,12 +91,21 @@ public class ClientSqlExecuteRequest {
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
             HybridTimestampTracker timestampTracker,
-            boolean sqlPartitionAwarenessSupported
+            boolean sqlPartitionAwarenessSupported,
+            boolean sqlDirectTxMappingSupported,
+            TxManager txManager,
+            ClockService clockService,
+            NotificationSender notificationSender
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
 
-        InternalTransaction tx = readTx(in, timestampTracker, resources, null, null, null);
+        if (sqlDirectTxMappingSupported && !in.unpackBoolean()) {
+            notificationSender = null;
+        }
+
+        long[] resIdHolder = {0};
+        InternalTransaction tx = readTx(in, timestampTracker, resources, txManager, notificationSender, resIdHolder);
         ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
         Object[] arguments = readArgsNotNull(in);
@@ -105,7 +126,15 @@ public class ClientSqlExecuteRequest {
                 () -> cancelHandles.remove(requestId),
                 arguments
         ).thenCompose(asyncResultSet ->
-                writeResultSetAsync(resources, asyncResultSet, metrics, includePartitionAwarenessMeta)), operationExecutor);
+                        writeResultSetAsync(resources, asyncResultSet, metrics, includePartitionAwarenessMeta, sqlDirectTxMappingSupported))
+                .thenApply(rsWriter -> out -> {
+                    if (tx != null) {
+                        writeTxMeta(out, timestampTracker, clockService, tx, resIdHolder[0]);
+                    }
+
+                    // write the rest of response
+                    rsWriter.write(out);
+                }), operationExecutor);
     }
 
     static Object[] readArgsNotNull(ClientMessageUnpacker in) {
@@ -119,7 +148,8 @@ public class ClientSqlExecuteRequest {
             ClientResourceRegistry resources,
             AsyncResultSetImpl asyncResultSet,
             ClientHandlerMetricSource metrics,
-            boolean includePartitionAwarenessMeta
+            boolean includePartitionAwarenessMeta,
+            boolean sqlDirectTxMappingSupported
     ) {
         if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
             try {
@@ -134,7 +164,7 @@ public class ClientSqlExecuteRequest {
                 var resourceId = resources.put(resource);
 
                 return CompletableFuture.completedFuture(out ->
-                        writeResultSet(out, asyncResultSet, resourceId, includePartitionAwarenessMeta));
+                        writeResultSet(out, asyncResultSet, resourceId, includePartitionAwarenessMeta, sqlDirectTxMappingSupported));
             } catch (IgniteInternalCheckedException e) {
                 return asyncResultSet
                         .closeAsync()
@@ -145,14 +175,16 @@ public class ClientSqlExecuteRequest {
         }
 
         return asyncResultSet.closeAsync()
-                .thenApply(v -> (ResponseWriter) out -> writeResultSet(out, asyncResultSet, null, includePartitionAwarenessMeta));
+                .thenApply(v -> (ResponseWriter) out ->
+                        writeResultSet(out, asyncResultSet, null, includePartitionAwarenessMeta, sqlDirectTxMappingSupported));
     }
 
     private static void writeResultSet(
             ClientMessagePacker out,
             AsyncResultSetImpl res,
             @Nullable Long resourceId,
-            boolean includePartitionAwarenessMeta
+            boolean includePartitionAwarenessMeta,
+            boolean sqlDirectTxMappingSupported
     ) {
         out.packLongNullable(resourceId);
 
@@ -164,7 +196,7 @@ public class ClientSqlExecuteRequest {
         packMeta(out, res.metadata());
 
         if (includePartitionAwarenessMeta) {
-            packPartitionAwarenessMeta(out, res.partitionAwarenessMetadata());
+            packPartitionAwarenessMeta(out, res.partitionAwarenessMetadata(), sqlDirectTxMappingSupported);
         }
 
         if (res.hasRowSet()) {
@@ -182,7 +214,11 @@ public class ClientSqlExecuteRequest {
         ClientSqlCommon.packColumns(out, meta.columns());
     }
 
-    private static void packPartitionAwarenessMeta(ClientMessagePacker out, @Nullable PartitionAwarenessMetadata meta) {
+    private static void packPartitionAwarenessMeta(
+            ClientMessagePacker out,
+            @Nullable PartitionAwarenessMetadata meta,
+            boolean sqlDirectTxMappingSupported
+    ) {
         if (meta == null) {
             out.packNil();
             return;
@@ -191,6 +227,10 @@ public class ClientSqlExecuteRequest {
         out.packInt(meta.tableId());
         out.packIntArray(meta.indexes());
         out.packIntArray(meta.hash());
+
+        if (sqlDirectTxMappingSupported) {
+            out.packByte(meta.directTxMode().id);
+        }
     }
 
     private static CompletableFuture<AsyncResultSetImpl<SqlRow>> executeAsync(

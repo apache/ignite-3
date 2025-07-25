@@ -2419,46 +2419,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             computedStableAssignments = stableAssignments;
         }
 
-        int partitionId = replicaGrpId.partitionId();
-
         CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalGroupNode) {
-            PartitionSet singlePartitionIdSet = PartitionSet.of(partitionId);
-
-            localServicesStartFuture = localPartitionsVv.get(revision)
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-20957 Revisit this code
-                    .thenComposeAsync(
-                            unused -> inBusyLock(
-                                    busyLock,
-                                    () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
-                                            .thenRun(() -> localPartsByTableId.compute(
-                                                    replicaGrpId.tableId(),
-                                                    (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionId)
-                                            ))
-                                            // If the table is already closed, it's not a problem (probably the node is stopping).
-                                            .exceptionally(ignoreTableClosedException())
-                            ),
-                            ioExecutor
-                    )
-                    .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
-                        lowWatermark.getLowWatermarkSafe(lwm ->
-                                registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
-                        );
-
-                        return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(ignored -> inBusyLock(busyLock, () -> {
-                            assert localAssignmentInPending != null : "Local member assignment";
-
-                            return startPartitionAndStartClient(
-                                    tbl,
-                                    replicaGrpId.partitionId(),
-                                    localAssignmentInPending,
-                                    computedStableAssignments,
-                                    isRecovery,
-                                    assignmentsTimestamp
-                            );
-                        }));
-                    }), ioExecutor);
+            localServicesStartFuture = createPartitionAndStartClient(
+                    replicaGrpId,
+                    tbl,
+                    revision,
+                    isRecovery,
+                    assignmentsTimestamp,
+                    localAssignmentInPending,
+                    computedStableAssignments
+            );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
             localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
                 assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
@@ -2510,6 +2482,54 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
+                }), ioExecutor);
+    }
+
+    private CompletableFuture<Void> createPartitionAndStartClient(
+            TablePartitionId replicaGrpId,
+            TableImpl tbl,
+            long revision,
+            boolean isRecovery,
+            long assignmentsTimestamp,
+            Assignment localAssignmentInPending,
+            Assignments computedStableAssignments
+    ) {
+        int partitionId = replicaGrpId.partitionId();
+
+        PartitionSet singlePartitionIdSet = PartitionSet.of(partitionId);
+
+        return localPartitionsVv.get(revision)
+                // TODO https://issues.apache.org/jira/browse/IGNITE-20957 Revisit this code
+                .thenComposeAsync(
+                        unused -> inBusyLock(
+                                busyLock,
+                                () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
+                                        .thenRun(() -> localPartsByTableId.compute(
+                                                replicaGrpId.tableId(),
+                                                (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionId)
+                                        ))
+                                        // If the table is already closed, it's not a problem (probably the node is stopping).
+                                        .exceptionally(ignoreTableClosedException())
+                        ),
+                        ioExecutor
+                )
+                .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
+                    lowWatermark.getLowWatermarkSafe(lwm ->
+                            registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
+                    );
+
+                    return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(ignored -> inBusyLock(busyLock, () -> {
+                        assert localAssignmentInPending != null : "Local member assignment";
+
+                        return startPartitionAndStartClient(
+                                tbl,
+                                replicaGrpId.partitionId(),
+                                localAssignmentInPending,
+                                computedStableAssignments,
+                                isRecovery,
+                                assignmentsTimestamp
+                        );
+                    }));
                 }), ioExecutor);
     }
 
@@ -2975,6 +2995,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     /**
+     * Stops all resources associated with a given partition, like replicas and partition trackers. Calls
+     * {@link ReplicaManager#weakStopReplica} in order to change the replica state.
+     *
+     * @param tablePartitionId Partition ID.
+     * @param table Table which this partition belongs to.
+     * @return Future that will be completed after all resources have been closed.
+     */
+    private CompletableFuture<Void> stopPartitionAndDestroyForRestart(TablePartitionId tablePartitionId, TableImpl table) {
+        return replicaMgr.weakStopReplica(
+                tablePartitionId,
+                WeakReplicaStopReason.RESTART,
+                () -> stopAndDestroyTablePartition(tablePartitionId, table)
+        );
+    }
+
+    /**
      * Stops all resources associated with a given partition, like replicas and partition trackers.
      *
      * @param tablePartitionId Partition ID.
@@ -3023,7 +3059,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         if (!nodeProperties.colocationEnabled()) {
             if (internalTable.txStateStorage().getPartitionStorage(partitionId) != null) {
-                destroyFutures.add(runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor));
+                destroyFutures.add(runAsync(() -> internalTable.txStateStorage().destroyPartitionStorage(partitionId), ioExecutor));
             }
 
             destroyFutures.add(runAsync(() -> destroyReplicationProtocolStorages(tablePartitionId, table), ioExecutor));
@@ -3319,6 +3355,43 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     );
                 }));
             }, ioExecutor);
+        }), ioExecutor));
+    }
+
+    /**
+     * Restarts the table partition including the replica and raft node.
+     *
+     * @param tablePartitionId Table partition that needs to be restarted.
+     * @param revision Metastore revision.
+     * @param assignmentsTimestamp Assignments timestamp.
+     * @return Operation future.
+     */
+    public CompletableFuture<Void> restartPartitionWithCleanUp(
+            TablePartitionId tablePartitionId,
+            long revision,
+            long assignmentsTimestamp
+    ) {
+        return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+            TableImpl table = tables.get(tablePartitionId.tableId());
+
+            assert table != null : tablePartitionId;
+
+            Assignments stableAssignments = stableAssignmentsGetLocally(metaStorageMgr, tablePartitionId, revision);
+
+            Assignment localAssignment = localAssignment(stableAssignments);
+
+            return stopPartitionAndDestroyForRestart(tablePartitionId, table)
+                    .thenComposeAsync(unused1 ->
+                            createPartitionAndStartClient(
+                                    tablePartitionId,
+                                    table, revision,
+                                    false,
+                                    assignmentsTimestamp,
+                                    localAssignment,
+                                    stableAssignments
+                            ),
+                            ioExecutor
+                    );
         }), ioExecutor));
     }
 

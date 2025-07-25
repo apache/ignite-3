@@ -63,7 +63,7 @@ KeyValueGet
 
 # kvGet with an extra condition and functional source expression
 explain plan
-SELECT * FROM test_table WHERE c1 = EXTRACT(DAY FROM CURRENT_DATE) AND c3 > 10;
+SELECT * FROM test_table WHERE c1 = EXTRACT(DAY FROM CURRENT_DATE)::INTEGER AND c3 > 10;
 ----
 KeyValueGet
     table: PUBLIC.TEST_TABLE

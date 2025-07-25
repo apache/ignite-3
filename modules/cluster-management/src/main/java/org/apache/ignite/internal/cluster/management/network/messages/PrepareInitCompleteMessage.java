@@ -15,39 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster;
+package org.apache.ignite.internal.cluster.management.network.messages;
 
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Table state.
+ * Successful response for initializing a Raft group.
  */
-public class TableState {
-
-    private final int tableId;
-    private final String schemaName;
-    private final String tableName;
-
-    TableState(int tableId, String tableName, String schemaName) {
-        this.tableId = tableId;
-        this.schemaName = schemaName;
-        this.tableName = tableName;
-    }
-
-    public int tableId() {
-        return tableId;
-    }
-
-    public String schemaName() {
-        return schemaName;
-    }
-
-    public String tableName() {
-        return tableName;
-    }
-
-    @Override
-    public String toString() {
-        return S.toString(TableState.class, this);
-    }
+@Transferable(CmgMessageGroup.PREPARE_INIT_COMPLETE)
+public interface PrepareInitCompleteMessage extends NetworkMessage {
 }
