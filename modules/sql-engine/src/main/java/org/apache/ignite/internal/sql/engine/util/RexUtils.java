@@ -1325,9 +1325,8 @@ public class RexUtils {
                     && (source.getPrecision() <= target.getPrecision() || target.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED);
         }
 
-        // TIME, TIMESTAMP and TIMESTAMP_WLTZ can use index, ignoring precision.
-        if (source.getSqlTypeName() == target.getSqlTypeName()
-                && (source.getSqlTypeName() == SqlTypeName.TIME || SqlTypeUtil.isTimestamp(source))) {
+        if (source.getSqlTypeName() == target.getSqlTypeName() && SqlTypeUtil.isDatetime(source)
+                && (source.getPrecision() <= target.getPrecision() || target.getPrecision() == RelDataType.PRECISION_NOT_SPECIFIED)) {
             return true;
         }
 
