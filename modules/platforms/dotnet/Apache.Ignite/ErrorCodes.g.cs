@@ -465,7 +465,7 @@ namespace Apache.Ignite
             /// <summary> AddressUnresolved error. </summary>
             public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
 
-            /// <summary> PortInUse is deprecated. Use Bind instead. </summary>
+            /// <summary> PortInUse is obsolete. Use Bind instead. </summary>
             [Obsolete]
             public const int PortInUse = Bind;
         }
