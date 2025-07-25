@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -194,6 +195,20 @@ public class ConfigNode {
         addChildNodes(List.of(childNodes));
     }
 
+    /**
+     * Add a polymorphic child node to this node.
+     */
+    void addPolymorphicNode(String name, Map<String, ConfigNode> childNodes, @Nullable String defaultId) {
+        boolean nameMatches = childNodes.values().stream().allMatch(n -> n.name().equals(name));
+        if (!nameMatches) {
+            throw new IllegalArgumentException("All nodes name should be equal to: " + name);
+        }
+        for (ConfigNode n : childNodes.values()) {
+            n.parent = this;
+        }
+        addChildNode(name, new Node(childNodes, defaultId));
+    }
+
     private void addChildNode(String name, Node node) {
         Node existing = childNodeMap.put(name, node);
         if (existing != null) {
@@ -271,6 +286,14 @@ public class ConfigNode {
     }
 
     /**
+     * Returns an id of a polymorphic instance.
+     */
+    @Nullable String polymorphicInstanceId() {
+        return attributes.get(Attributes.POLYMORPHIC_INSTANCE_ID);
+    }
+
+
+    /**
      * Constructs the full path of this node in the configuration tree.
      */
     @JsonIgnore
@@ -287,7 +310,14 @@ public class ConfigNode {
         visitor.visit(this);
 
         for (Node child : children().values()) {
-            child.node().accept(visitor);
+            if (child.isPolymorphic()) {
+                // Make traversal order deterministic
+                for (ConfigNode instanceNode : new TreeMap<>(child.nodes()).values()) {
+                    instanceNode.accept(visitor);
+                }
+            } else {
+                child.node().accept(visitor);
+            }
         }
     }
 
@@ -365,20 +395,32 @@ public class ConfigNode {
      * Common attribute keys.
      */
     static class Attributes {
-        static String NAME = "name";
-        static String KIND = "kind";
-        static String CLASS = "class";
+        static final String NAME = "name";
+        static final String KIND = "kind";
+        static final String CLASS = "class";
+        static final String POLYMORPHIC_INSTANCE_ID = "polymorphicInstanceId";
     }
 
     /**
-     * Node holds a references to a child config node.
+     * Node holds a references either to a single node or to a map of possible polymorphic nodes with extra `base` node that 
+     * includes fields common to all polymorphic instances. Each polymorphic node has child nodes that represent its fields 
+     * and fields common to its polymorphic configuration as well.
      */
     public static class Node {
         /**
          * Non-polymorphic node.
          */
         @JsonProperty
-        private ConfigNode single;
+        private @Nullable ConfigNode single;
+
+        @JsonProperty
+        private @Nullable String defaultPolymorphicInstanceId;
+
+        /**
+         * All polymorphic instances.
+         */
+        @JsonProperty
+        private @Nullable Map<String, ConfigNode> polymorphicNodes = new LinkedHashMap<>();
 
         @SuppressWarnings("unused")
         Node() {
@@ -387,6 +429,27 @@ public class ConfigNode {
 
         Node(ConfigNode single) {
             this.single = single;
+            this.polymorphicNodes = null;
+            this.defaultPolymorphicInstanceId = null;
+        }
+
+        Node(Map<String, ConfigNode> polymorphicNodes, @Nullable String defaultPolymorphicInstanceId) {
+            this.single = null;
+            this.defaultPolymorphicInstanceId = defaultPolymorphicInstanceId;
+            this.polymorphicNodes = Map.copyOf(polymorphicNodes);
+        }
+
+        /**
+         * Returns {@code true} if this node represents a polymorphic configuration node.
+         */
+        @JsonIgnore
+        boolean isPolymorphic() {
+            return polymorphicNodes != null;
+        }
+
+        /** Returns the id of default polymorphic configuration. */
+        public @Nullable String defaultPolymorphicInstanceId() {
+            return defaultPolymorphicInstanceId;
         }
 
         /**
@@ -398,13 +461,21 @@ public class ConfigNode {
         }
 
         /**
+         * Returns a map of polymorphic instances if this node is polymorphic or throws.
+         */
+        Map<String, ConfigNode> nodes() {
+            assert polymorphicNodes != null : "Use the node() method instead.";
+            return polymorphicNodes;
+        }
+
+        /**
          * Returns {@code true} if this node represents a value node.
          *
          * @see ConfigNode#isValue()
          */
         @JsonIgnore
         boolean isValue() {
-            return single.isValue();
+            return anyNode().isValue();
         }
 
         /**
@@ -413,7 +484,7 @@ public class ConfigNode {
          * @see ConfigNode#hasDefault()
          */
         boolean hasDefault() {
-            return single.hasDefault();
+            return anyNode().hasDefault();
         }
 
         /**
@@ -422,14 +493,26 @@ public class ConfigNode {
          * @see ConfigNode#legacyPropertyNames()
          */
         Set<String> legacyPropertyNames() {
-            return single.legacyPropertyNames();
+            return anyNode().legacyPropertyNames();
         }
 
         /**
          * Returns the full path of this node in the configuration tree.
          */
         String path() {
-            return single.path();
+            return anyNode().path();
+        }
+
+        /**
+         * A shortcut to access a node. Should only be used to access node's flags or other common attributes such as path, because a
+         * configuration field is guaranteed to have the same values for them for every polymorphic instance.
+         */
+        private ConfigNode anyNode() {
+            if (single != null) {
+                return single;
+            } else {
+                return polymorphicNodes.values().iterator().next();
+            }
         }
     }
 }

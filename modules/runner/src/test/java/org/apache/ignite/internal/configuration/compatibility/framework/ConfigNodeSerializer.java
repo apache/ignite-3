@@ -63,8 +63,15 @@ public class ConfigNodeSerializer {
      */
     private static void restoreParentLinks(ConfigNode node) {
         for (Node child : node.children().values()) {
-            child.node().init(node);
-            restoreParentLinks(child.node());
+            if (child.isPolymorphic()) {
+                for (ConfigNode instanceNode : child.nodes().values()) {
+                    instanceNode.init(node);
+                    restoreParentLinks(instanceNode);
+                }
+            } else {
+                child.node().init(node);
+                restoreParentLinks(child.node());
+            }
         }
     }
 }
