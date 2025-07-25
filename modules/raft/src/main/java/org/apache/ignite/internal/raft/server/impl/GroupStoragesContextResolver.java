@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft.server.impl;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +61,6 @@ public class GroupStoragesContextResolver {
     }
 
     Collection<LogStorageFactory> logStorageFactories() {
-        return new ArrayList<>(logStorageFactoryByGroupName.values());
+        return List.copyOf(logStorageFactoryByGroupName.values());
     }
 }
