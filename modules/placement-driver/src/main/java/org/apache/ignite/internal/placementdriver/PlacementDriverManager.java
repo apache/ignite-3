@@ -41,11 +41,13 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
+import org.apache.ignite.internal.placementdriver.metrics.PlacementDriverMetricSource;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.StoppingExceptionFactories;
@@ -104,6 +106,8 @@ public class PlacementDriverManager implements IgniteComponent {
 
     private final PlacementDriver placementDriver;
 
+    private final MetricManager metricManager;
+
     /**
      * Constructor.
      *
@@ -116,7 +120,8 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param raftManager Raft manager.
      * @param topologyAwareRaftGroupServiceFactory Raft client factory.
      * @param clockService Clock service.
-     * @param failureProcessor Failure processor.
+     * @param failureProcessor Failure processor.,
+     * @param metricManager Metric manager.
      */
     public PlacementDriverManager(
             String nodeName,
@@ -130,7 +135,8 @@ public class PlacementDriverManager implements IgniteComponent {
             ClockService clockService,
             FailureProcessor failureProcessor,
             NodeProperties nodeProperties,
-            ReplicationConfiguration replicationConfiguration
+            ReplicationConfiguration replicationConfiguration,
+            MetricManager metricManager
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -155,10 +161,12 @@ public class PlacementDriverManager implements IgniteComponent {
                 leaseTracker,
                 clockService,
                 assignmentsTracker,
-                replicationConfiguration
+                replicationConfiguration,
+                metricManager
         );
 
         this.placementDriver = createPlacementDriver();
+        this.metricManager = metricManager;
     }
 
     @Override
@@ -200,6 +208,9 @@ public class PlacementDriverManager implements IgniteComponent {
                     });
 
             recoverInternalComponentsBusy();
+
+            metricManager.registerSource(leaseUpdater.placementDriverMetricSource());
+            metricManager.enable(PlacementDriverMetricSource.SOURCE_NAME);
         });
 
         return nullCompletedFuture();
@@ -231,6 +242,8 @@ public class PlacementDriverManager implements IgniteComponent {
         withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
 
         leaseUpdater.deactivate();
+
+        metricManager.disable(PlacementDriverMetricSource.SOURCE_NAME);
 
         return nullCompletedFuture();
     }

@@ -15,57 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.tx.metrics;
 
+import static java.util.stream.Collectors.toSet;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.util.HashSet;
 import java.util.Set;
-import org.apache.ignite.internal.hlc.ClockService;
+import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.metrics.TransactionMetricsSource;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Tests metric source name and transaction metric names.
- * If you want to change the name, or add a new metric, please don't forget to update the corresponding documentation.
+ * Tests metric source name and metric names.
  */
-@ExtendWith(MockitoExtension.class)
-public class TransactionMetricSourceTest extends BaseIgniteAbstractTest {
-    @Mock
-    ClockService clockService;
-
+public class ResourceVacuumMetricSourceTest extends BaseIgniteAbstractTest {
     @Test
     void testMetricSourceName() {
-        assertThat(TransactionMetricsSource.SOURCE_NAME, is("transactions"));
+        assertThat(ResourceVacuumMetrics.SOURCE_NAME, is("resource.vacuum"));
     }
 
     @Test
     void testMetricNames() {
-        var metricSource = new TransactionMetricsSource(clockService);
+        var metricSource = new ResourceVacuumMetrics();
 
         MetricSet set = metricSource.enable();
 
         assertThat(set, is(notNullValue()));
 
         Set<String> expectedMetrics = Set.of(
-                "TotalCommits",
-                "TotalRollbacks",
-                "RwCommits",
-                "RwRollbacks",
-                "RoCommits",
-                "RoRollbacks",
-                "RwDuration",
-                "RoDuration");
+                "VacuumizedVolatileTxnMetaCount",
+                "VacuumizedPersistentTransactionMetaCount",
+                "MarkedForVacuumTransactionMetaCount",
+                "SkippedForFurtherProcessingUnfinishedTransactionCount"
+        );
 
-        var actualMetrics = new HashSet<String>();
-        set.forEach(m -> actualMetrics.add(m.name()));
+        var actualMetrics = StreamSupport.stream(set.spliterator(), false).map(Metric::name).collect(toSet());
 
         assertThat(actualMetrics, is(expectedMetrics));
     }

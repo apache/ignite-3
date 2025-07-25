@@ -83,6 +83,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -264,7 +265,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 clockService,
                 mock(FailureProcessor.class),
                 new SystemPropertiesNodeProperties(),
-                replicationConfiguration
+                replicationConfiguration,
+                mock(MetricManager.class)
         );
 
         ComponentContext componentContext = new ComponentContext();

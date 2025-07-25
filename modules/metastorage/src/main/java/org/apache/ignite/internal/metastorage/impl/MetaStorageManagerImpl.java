@@ -551,7 +551,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             Peer localPeer,
             MetaStorageInfo metaStorageInfo
     ) {
-        MetaStorageListener raftListener = new MetaStorageListener(storage, clock, clusterTime, this::onConfigurationCommitted);
+        MetaStorageListener raftListener = new MetaStorageListener(
+                storage,
+                clock,
+                clusterTime,
+                this::onConfigurationCommitted,
+                metaStorageMetricSource::onIdempotentCacheSizeChange
+        );
 
         try {
             return raftMgr.startSystemRaftGroupNodeAndWaitNodeReady(

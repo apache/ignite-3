@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntConsumer;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -91,16 +92,20 @@ public class MetaStorageWriteHandler {
     private final HybridClock clock;
     private final ClusterTimeImpl clusterTime;
 
+    private final IntConsumer idempotentCacheSizeListener;
+
     private final Map<CommandId, CommandResultAndTimestamp> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(
             KeyValueStorage storage,
             HybridClock clock,
-            ClusterTimeImpl clusterTime
+            ClusterTimeImpl clusterTime,
+            IntConsumer idempotentCacheSizeListener
     ) {
         this.storage = storage;
         this.clock = clock;
         this.clusterTime = clusterTime;
+        this.idempotentCacheSizeListener = idempotentCacheSizeListener;
     }
 
     /**
@@ -396,6 +401,8 @@ public class MetaStorageWriteHandler {
                     idempotentCommandCache.put(commandId, new CommandResultAndTimestamp(result, entry.timestamp()));
                 }
             }
+
+            idempotentCacheSizeListener.accept(idempotentCommandCache.size());
         }
     }
 
@@ -406,8 +413,6 @@ public class MetaStorageWriteHandler {
      * @param context Command operation context.
      */
     private void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, KeyValueUpdateContext context) {
-        LOG.info("Idempotent command cache cleanup started [evictionTimestamp={}].", evictionTimestamp);
-
         List<CommandId> evictedCommandIds = evictCommandsFromCache(evictionTimestamp);
 
         if (evictedCommandIds.isEmpty()) {
@@ -415,14 +420,6 @@ public class MetaStorageWriteHandler {
         }
 
         storage.removeAll(toIdempotentCommandKeyBytes(evictedCommandIds), context);
-
-        LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
-                        + " removedEntriesCount={}, cacheSize={}].",
-                evictionTimestamp,
-                clock.now(),
-                evictedCommandIds.size(),
-                idempotentCommandCache.size()
-        );
     }
 
     private class ResultCachingClosure implements CommandClosure<WriteCommand> {
@@ -456,6 +453,8 @@ public class MetaStorageWriteHandler {
             // Exceptions are not cached.
             if (!(res instanceof Throwable)) {
                 idempotentCommandCache.put(command.id(), new CommandResultAndTimestamp(res, command.safeTime()));
+
+                idempotentCacheSizeListener.accept(idempotentCommandCache.size());
             }
 
             closure.result(res);
@@ -476,6 +475,8 @@ public class MetaStorageWriteHandler {
                 result.add(entry.getKey());
             }
         }
+
+        idempotentCacheSizeListener.accept(idempotentCommandCache.size());
 
         return result;
     }

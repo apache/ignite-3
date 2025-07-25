@@ -545,7 +545,8 @@ public class ItTxTestCluster {
                     transactionInflights,
                     txMgr,
                     lowWatermark,
-                    new NoOpFailureManager()
+                    new NoOpFailureManager(),
+                    new TestMetricManager()
             );
 
             assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -1342,7 +1343,8 @@ public class ItTxTestCluster {
                 clientTransactionInflights,
                 clientTxManager,
                 lowWatermark,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new TestMetricManager()
         );
 
         clientTxStateResolver = new TransactionStateResolver(
