@@ -155,7 +155,7 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
                     this.descriptor.errorCodes.add(new ErrorCode((Integer) ((LiteralTree) expr).getValue(), name));
                 } else if (IdentifierTree.class.isAssignableFrom(initializer.getClass())) {
                     boolean hasDeprecated = variableTree.getModifiers().getAnnotations().stream()
-                            .anyMatch(annotation -> annotation.toString().contains("@Deprecated"));
+                            .anyMatch(annotation -> "Deprecated".contentEquals(annotation.getAnnotationType().toString()));
                     if (!hasDeprecated) {
                         ex = new ErrorCodeGroupProcessorException(String.format("Alias %s must be marked as @Deprecated", name));
                     } else {
