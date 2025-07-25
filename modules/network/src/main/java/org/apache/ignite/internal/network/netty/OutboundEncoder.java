@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.stream.ChunkedInput;
@@ -28,7 +29,9 @@ import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -38,6 +41,7 @@ import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An encoder for the outbound messages that uses {@link DirectMessageWriter}.
@@ -48,10 +52,16 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
     private static final int IO_BUFFER_CAPACITY = 16 * 1024;
 
+    /** Max number of messages in a single chink. */
+    private static final int MAX_MESSAGES_IN_CHUNK = 128;
+
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
 
     /** Message writer channel attribute key. */
     private static final AttributeKey<MessageWriter> WRITER_KEY = AttributeKey.valueOf("WRITER");
+
+    /** Last added chunk channel attribute key. */
+    private static final AttributeKey<NetworkMessageChunkedInput> CHUNK_KEY = AttributeKey.valueOf("CHUNK");
 
     /** Serialization registry. */
     private final PerSessionSerializationService serializationService;
@@ -67,7 +77,17 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, OutNetworkObject msg, List<Object> out) throws Exception {
-        Attribute<MessageWriter> writerAttr = ctx.channel().attr(WRITER_KEY);
+        Channel channel = ctx.channel();
+
+        MessageWriter writer = getOrInitWriter(channel.attr(WRITER_KEY));
+
+        appendMessage(msg, out, channel, writer);
+    }
+
+    /**
+     * Lazy message writer creator.
+     */
+    private MessageWriter getOrInitWriter(Attribute<MessageWriter> writerAttr) {
         MessageWriter writer = writerAttr.get();
 
         if (writer == null) {
@@ -76,29 +96,108 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             writerAttr.set(writer);
         }
 
-        out.add(new NetworkMessageChunkedInput(msg, serializationService, writer));
+        return writer;
+    }
+
+    /**
+     * Adds new message to the latest chunk if that's possible. Appends it to output list if it's not possible.
+     */
+    private void appendMessage(OutNetworkObject msg, List<Object> out, Channel channel, MessageWriter writer) {
+        Attribute<NetworkMessageChunkedInput> chunkAttr = channel.attr(CHUNK_KEY);
+        NetworkMessageChunkedInput chunkedInput = chunkAttr.get();
+
+        if (chunkedInput == null) {
+            appendNewChunkedInput(msg, out, writer, chunkAttr);
+        } else {
+            while (true) {
+                ChunkState curState = chunkedInput.state.get();
+
+                if (curState.finished || curState.size >= MAX_MESSAGES_IN_CHUNK) {
+                    appendNewChunkedInput(msg, out, writer, chunkAttr);
+
+                    return;
+                } else if (chunkedInput.state.compareAndSet(curState, curState.append(msg))) {
+                    return;
+                }
+            }
+        }
+    }
+
+    private void appendNewChunkedInput(
+            OutNetworkObject msg,
+            List<Object> out,
+            MessageWriter writer,
+            Attribute<NetworkMessageChunkedInput> chunkAttr
+    ) {
+        NetworkMessageChunkedInput chunkedInput = new NetworkMessageChunkedInput(msg, serializationService, writer);
+
+        chunkAttr.set(chunkedInput);
+        out.add(chunkedInput);
+    }
+
+    private static final class ChunkState {
+        final OutNetworkObject[] messages;
+        final int size;
+        final boolean finished;
+
+        private ChunkState(OutNetworkObject[] messages, int size, boolean finished) {
+            this.messages = messages;
+            this.size = size;
+            this.finished = finished;
+        }
+
+        static ChunkState newState(OutNetworkObject msg) {
+            OutNetworkObject[] messages = new OutNetworkObject[8];
+            messages[0] = msg;
+
+            return new ChunkState(messages, 1, false);
+        }
+
+        ChunkState append(OutNetworkObject msg) {
+            assert size < MAX_MESSAGES_IN_CHUNK : "ChunkState size should be less than " + MAX_MESSAGES_IN_CHUNK + ", but was " + size;
+            if (size < messages.length) {
+                messages[size] = msg;
+
+                return new ChunkState(messages, size + 1, false);
+            } else {
+                OutNetworkObject[] newMessages = Arrays.copyOf(messages, Math.min(MAX_MESSAGES_IN_CHUNK, size + (size >> 1)));
+                newMessages[size] = msg;
+
+                return new ChunkState(newMessages, size + 1, false);
+            }
+        }
+
+        ChunkState finish() {
+            return new ChunkState(messages, size, true);
+        }
     }
 
     /**
      * Chunked input for network message.
      */
     private static class NetworkMessageChunkedInput implements ChunkedInput<ByteBuf> {
+        public final AtomicReference<ChunkState> state = new AtomicReference<>();
+
         /** Network message. */
-        private final NetworkMessage msg;
+        private @Nullable NetworkMessage msg;
+
+        /** Class descriptors.*/
+        private @Nullable ClassDescriptorListMessage descriptors;
 
         /** Message serializer. */
-        private final MessageSerializer<NetworkMessage> serializer;
+        private @Nullable MessageSerializer<NetworkMessage> serializer;
 
-        private final MessageSerializer<ClassDescriptorListMessage> descriptorSerializer;
+        /** Descriptors message serializer. */
+        private @Nullable MessageSerializer<ClassDescriptorListMessage> descriptorSerializer;
+
+        /** Serialization service, attached to the channel. */
+        private final PerSessionSerializationService serializationService;
 
         /** Message writer. */
         private final MessageWriter writer;
 
-        private final ClassDescriptorListMessage descriptors;
-        private final PerSessionSerializationService serializationService;
-
         /** Whether the message was fully written. */
-        private boolean finished = false;
+        private int currentMessageIndex = 0;
         private boolean descriptorsFinished = false;
 
         /**
@@ -113,8 +212,15 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
                 MessageWriter writer
         ) {
             this.serializationService = serializationService;
+            this.writer = writer;
+            this.state.set(ChunkState.newState(outObject));
+
             this.msg = outObject.networkMessage();
 
+            prepareMessage(outObject);
+        }
+
+        private void prepareMessage(OutNetworkObject outObject) {
             List<ClassDescriptorMessage> outDescriptors = null;
             List<ClassDescriptorMessage> outObjectDescriptors = outObject.descriptors();
             //noinspection ForLoopReplaceableByForEach
@@ -140,12 +246,24 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             }
 
             this.serializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
-            this.writer = writer;
+        }
+
+        private void cleanupMessage() {
+            // Best effort fast cleanup. Won't work if array is concurrently reallocated.
+            // Non-volatile write is fine, no one will read this value anymore.
+            this.state.get().messages[currentMessageIndex] = null;
+
+            // Help GC by not holding any of those references anymore.
+            this.msg = null;
+            this.serializer = null;
+
+            this.descriptors = null;
+            this.descriptorSerializer = null;
         }
 
         @Override
         public boolean isEndOfInput() {
-            return finished;
+            return state.get().finished;
         }
 
         @Override
@@ -170,27 +288,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
             writer.setBuffer(byteBuffer);
 
-            while (byteBuffer.hasRemaining()) {
-                if (!descriptorsFinished) {
-                    descriptorsFinished = descriptorSerializer.writeMessage(descriptors, writer);
-                    if (descriptorsFinished) {
-                        for (ClassDescriptorMessage classDescriptorMessage : descriptors.messages()) {
-                            serializationService.addSentDescriptor(classDescriptorMessage.descriptorId());
-                        }
-                        writer.reset();
-                    } else {
-                        break;
-                    }
-                } else {
-                    finished = serializer.writeMessage(msg, writer);
-
-                    if (finished) {
-                        writer.reset();
-                    }
-
-                    break;
-                }
-            }
+            writeMessages();
 
             buffer.writerIndex(byteBuffer.position() - initialPosition);
 
@@ -198,6 +296,49 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             writer.setBuffer(EMPTY_BYTE_BUFFER);
 
             return buffer;
+        }
+
+        /**
+         * Tries to write as many messages from {@link #state} as possible, until either buffer exhaustion or messages exhaustion.
+         */
+        private void writeMessages() {
+            while (true) {
+                if (!descriptorsFinished) {
+                    descriptorsFinished = descriptorSerializer.writeMessage(descriptors, writer);
+                    if (!descriptorsFinished) {
+                        return;
+                    }
+
+                    for (ClassDescriptorMessage classDescriptorMessage : descriptors.messages()) {
+                        serializationService.addSentDescriptor(classDescriptorMessage.descriptorId());
+                    }
+
+                    writer.reset();
+                }
+
+                boolean messageFinished = serializer.writeMessage(msg, writer);
+                if (!messageFinished) {
+                    return;
+                }
+
+                writer.reset();
+
+                cleanupMessage();
+                currentMessageIndex++;
+
+                // Message is successfully written, now we must check if there's another message in our chunk.
+                while (true) {
+                    ChunkState curState = state.get();
+
+                    if (currentMessageIndex < curState.size) {
+                        prepareMessage(curState.messages[currentMessageIndex]);
+
+                        break;
+                    } else if (state.compareAndSet(curState, curState.finish())) {
+                        return;
+                    }
+                }
+            }
         }
 
         @Override
