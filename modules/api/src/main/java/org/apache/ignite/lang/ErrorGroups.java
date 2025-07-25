@@ -518,10 +518,6 @@ public class ErrorGroups {
         /** Address or port bind error. */
         public static final int BIND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** Alias for BIND_ERROR. This was the old name, now deprecated. */
-        @Deprecated
-        public static final int PORT_IN_USE_ERR = BIND_ERR;
-
         /** File transfer error. */
         public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
 
@@ -533,6 +529,10 @@ public class ErrorGroups {
 
         /** Could not resolve address. */
         public static final int ADDRESS_UNRESOLVED_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Alias for BIND_ERROR. This was the old name, now deprecated. */
+        @Deprecated
+        public static final int PORT_IN_USE_ERR = BIND_ERR;
     }
 
     /** Node configuration error group. */
