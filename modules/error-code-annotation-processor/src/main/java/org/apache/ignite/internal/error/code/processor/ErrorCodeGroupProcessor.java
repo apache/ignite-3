@@ -164,7 +164,9 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
                         descriptor.deprecatedAliases.add(new DeprecatedAlias(name, identifier));
                     }
                 } else {
-                    ex = new ErrorCodeGroupProcessorException(String.format("AST parsing error: %s", variableTree));
+                    ex = new ErrorCodeGroupProcessorException(
+                            String.format("AST parsing error: Expected IdentifierTree in initializer, but got %s",
+                                    initializer.getClass().getSimpleName()));
                 }
             } catch (Exception e) {
                 ex = new ErrorCodeGroupProcessorException("AST parsing error", e);
