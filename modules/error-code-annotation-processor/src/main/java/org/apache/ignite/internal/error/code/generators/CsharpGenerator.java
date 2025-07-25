@@ -114,9 +114,8 @@ public class CsharpGenerator extends GenericGenerator {
             }
         }
 
-        for (int i = 0; i < descriptor.deprecatedAliases.size(); i++) {
-            DeprecatedAlias deprecatedAlias = descriptor.deprecatedAliases.get(i);
-            generateDeprecatedAlias(deprecatedAlias.name, deprecatedAlias.identifier);
+        for (DeprecatedAlias deprecatedAlias : descriptor.deprecatedAliases) {
+            generateDeprecatedAlias(deprecatedAlias);
         }
 
         line("        }");
@@ -128,14 +127,14 @@ public class CsharpGenerator extends GenericGenerator {
                 code));
     }
 
-    private void generateDeprecatedAlias(String name, String identifier) throws IOException {
-        String transformedName = transfromErrorCodeName(name);
-        String transformedIdentifier = transfromErrorCodeName(identifier);
+    private void generateDeprecatedAlias(DeprecatedAlias deprecatedAlias) throws IOException {
+        String transformedAlias = transfromErrorCodeName(deprecatedAlias.alias);
+        String transformedTarget = transfromErrorCodeName(deprecatedAlias.target);
 
         line();
-        line(String.format("            /// <summary> %s is deprecated. Use %s instead. </summary>", transformedName,
-                transformedIdentifier));
+        line(String.format("            /// <summary> %s is obsolete. Use %s instead. </summary>", transformedAlias,
+                transformedTarget));
         line("            [Obsolete]");
-        line(String.format("            public const int %s = %s;", transformedName, transformedIdentifier));
+        line(String.format("            public const int %s = %s;", transformedAlias, transformedTarget));
     }
 }

@@ -77,8 +77,8 @@ public class CppGenerator extends GenericGenerator {
         for (int i = 0; i < descriptor.deprecatedAliases.size(); i++) {
             var lastInGroup = i == descriptor.deprecatedAliases.size() - 1;
             DeprecatedAlias deprecatedAlias = descriptor.deprecatedAliases.get(i);
-            String composedName = composeName(deprecatedAlias.name);
-            String composedIdentifier = composeName(deprecatedAlias.identifier);
+            String composedName = composeName(deprecatedAlias.alias);
+            String composedIdentifier = composeName(deprecatedAlias.target);
 
             line(String.format("    %s [[deprecated(\"%s is deprecated. Use %s instead.\")]] = %s%s", composedName,
                     composedName, composedIdentifier, composedIdentifier, lastGroup && lastInGroup ? "" : ","));

@@ -49,12 +49,12 @@ public class ErrorCodeGroupDescriptor {
      * Class that holds info about one (deprecated) alias for an error code .
      */
     public static class DeprecatedAlias {
-        public final String name;
-        public final String identifier;
+        public final String alias;
+        public final String target;
 
-        DeprecatedAlias(String name, String identifier) {
-            this.name = name;
-            this.identifier = identifier;
+        DeprecatedAlias(String alias, String target) {
+            this.alias = alias;
+            this.target = target;
         }
     }
 
