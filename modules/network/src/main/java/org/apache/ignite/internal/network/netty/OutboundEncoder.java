@@ -213,12 +213,20 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         ) {
             this.serializationService = serializationService;
             this.writer = writer;
-            this.state.set(ChunkState.newState(outObject));
 
-            prepareMessage(outObject);
+            ChunkState chunkState = ChunkState.newState(outObject);
+            this.state.set(chunkState);
+
+            prepareMessage(chunkState);
         }
 
-        private void prepareMessage(OutNetworkObject outObject) {
+        private void prepareMessage(ChunkState curState) {
+            OutNetworkObject outObject = curState.messages[currentMessageIndex];
+
+            // Best effort cleanup to avoid temporary memory leaks.
+            // Non-volatile write into the message is fine, no one will read these value anymore.
+            Arrays.fill(curState.messages, 0, currentMessageIndex + 1, null);
+
             this.msg = outObject.networkMessage();
 
             List<ClassDescriptorMessage> outDescriptors = null;
@@ -249,10 +257,6 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         }
 
         private void cleanupMessage() {
-            // Best effort fast cleanup. Won't work if array is concurrently reallocated.
-            // Non-volatile write is fine, no one will read this value anymore.
-            this.state.get().messages[currentMessageIndex] = null;
-
             // Help GC by not holding any of those references anymore.
             this.msg = null;
             this.serializer = null;
@@ -331,7 +335,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
                     ChunkState curState = state.get();
 
                     if (currentMessageIndex < curState.size) {
-                        prepareMessage(curState.messages[currentMessageIndex]);
+                        prepareMessage(curState);
 
                         break;
                     } else if (state.compareAndSet(curState, curState.finish())) {
