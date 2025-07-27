@@ -58,6 +58,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -955,31 +956,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 .thenComposeAsync(unused -> {
                     // After waiting for the futures to complete, we need to merge the resolved write intents with the retrieved rows
                     // preserving the original order.
-                    int curIndex = 0;
-                    int rowsIndex = 0;
-
-                    for (Entry<CompletableFuture<TimedBinaryRow>> entry : resolutionFutures.int2ObjectEntrySet()) {
-                        int resolvedResultIndex = entry.getIntKey();
-                        TimedBinaryRow resolvedReadResult = entry.getValue().join();
-
-                        int rowsToAdd = resolvedResultIndex - curIndex;
-
-                        if (rowsToAdd > 0) {
-                            result.addAll(rows.subList(rowsIndex, rowsIndex + rowsToAdd));
-
-                            rowsIndex += rowsToAdd;
-                        }
-
-                        if (resolvedReadResult != null && resolvedReadResult.binaryRow() != null) {
-                            result.add(resolvedReadResult.binaryRow());
-                        }
-
-                        curIndex = resolvedResultIndex + 1;
-                    }
-
-                    if (rowsIndex < rows.size()) {
-                        result.addAll(rows.subList(rowsIndex, rows.size()));
-                    }
+                    mergeRowsWithResolvedWriteIntents(rows, resolutionFutures, result);
 
                     if (result.size() < count && cursor.hasNext()) {
                         return retrieveExactEntriesUntilCursorEmpty(txId, txCoordinatorId, readTimestamp, cursorId, count, result);
@@ -1018,6 +995,42 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
             return allOf(futs).thenApply((unused) -> rows);
         });
+    }
+
+    private static void mergeRowsWithResolvedWriteIntents(
+            List<BinaryRow> rows,
+            Int2ObjectMap<CompletableFuture<TimedBinaryRow>> resolutionFutures,
+            List<BinaryRow> result
+    ) {
+        int curIndex = 0;
+        int rowsIndex = 0;
+
+        for (Entry<CompletableFuture<TimedBinaryRow>> entry : resolutionFutures.int2ObjectEntrySet()) {
+            int resolvedResultIndex = entry.getIntKey();
+
+            // Fill the gaps between write intents with regular rows.
+            int rowsToAdd = resolvedResultIndex - curIndex;
+
+            if (rowsToAdd > 0) {
+                result.addAll(rows.subList(rowsIndex, rowsIndex + rowsToAdd));
+
+                rowsIndex += rowsToAdd;
+            }
+
+            TimedBinaryRow resolvedReadResult = entry.getValue().join();
+
+            BinaryRow resolvedBinaryRow = resolvedReadResult == null ? null : resolvedReadResult.binaryRow();
+
+            if (resolvedBinaryRow != null) {
+                result.add(resolvedBinaryRow);
+            }
+
+            curIndex = resolvedResultIndex + 1;
+        }
+
+        if (rowsIndex < rows.size()) {
+            result.addAll(rows.subList(rowsIndex, rows.size()));
+        }
     }
 
     private CompletableFuture<Void> validateBackwardCompatibility(BinaryRow row, UUID txId) {
