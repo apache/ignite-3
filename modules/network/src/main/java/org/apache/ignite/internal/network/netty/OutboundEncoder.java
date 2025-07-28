@@ -31,7 +31,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -109,16 +108,12 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         if (chunkedInput == null) {
             appendNewChunkedInput(msg, out, writer, chunkAttr);
         } else {
-            while (true) {
-                ChunkState curState = chunkedInput.state.get();
+            ChunkState curState = chunkedInput.state;
 
-                if (curState.finished || curState.size >= MAX_MESSAGES_IN_CHUNK) {
-                    appendNewChunkedInput(msg, out, writer, chunkAttr);
-
-                    return;
-                } else if (chunkedInput.state.compareAndSet(curState, curState.append(msg))) {
-                    return;
-                }
+            if (curState.finished || curState.size >= MAX_MESSAGES_IN_CHUNK) {
+                appendNewChunkedInput(msg, out, writer, chunkAttr);
+            } else {
+                chunkedInput.state = curState.append(msg);
             }
         }
     }
@@ -136,9 +131,9 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     }
 
     private static final class ChunkState {
-        final OutNetworkObject[] messages;
-        final int size;
-        final boolean finished;
+        OutNetworkObject[] messages;
+        int size;
+        boolean finished;
 
         private ChunkState(OutNetworkObject[] messages, int size, boolean finished) {
             this.messages = messages;
@@ -157,8 +152,9 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             assert size < MAX_MESSAGES_IN_CHUNK : "ChunkState size should be less than " + MAX_MESSAGES_IN_CHUNK + ", but was " + size;
             if (size < messages.length) {
                 messages[size] = msg;
+                size++;
 
-                return new ChunkState(messages, size + 1, false);
+                return this;
             } else {
                 OutNetworkObject[] newMessages = Arrays.copyOf(messages, Math.min(MAX_MESSAGES_IN_CHUNK, size + (size >> 1)));
                 newMessages[size] = msg;
@@ -167,8 +163,8 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             }
         }
 
-        ChunkState finish() {
-            return new ChunkState(messages, size, true);
+        void finish() {
+            finished = true;
         }
     }
 
@@ -176,7 +172,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
      * Chunked input for network message.
      */
     private static class NetworkMessageChunkedInput implements ChunkedInput<ByteBuf> {
-        final AtomicReference<ChunkState> state = new AtomicReference<>();
+        ChunkState state;
 
         /** Network message. */
         private @Nullable NetworkMessage msg;
@@ -215,17 +211,14 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             this.writer = writer;
 
             ChunkState chunkState = ChunkState.newState(outObject);
-            this.state.set(chunkState);
+            this.state = chunkState;
 
             prepareMessage(chunkState);
         }
 
         private void prepareMessage(ChunkState curState) {
             OutNetworkObject outObject = curState.messages[currentMessageIndex];
-
-            // Best effort cleanup to avoid temporary memory leaks.
-            // Non-volatile write into the message is fine, no one will read these value anymore.
-            Arrays.fill(curState.messages, 0, currentMessageIndex + 1, null);
+            curState.messages[currentMessageIndex] = null;
 
             this.msg = outObject.networkMessage();
 
@@ -267,7 +260,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
         @Override
         public boolean isEndOfInput() {
-            return state.get().finished;
+            return state.finished;
         }
 
         @Override
@@ -330,17 +323,16 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
                 cleanupMessage();
                 currentMessageIndex++;
 
-                // Message is successfully written, now we must check if there's another message in our chunk.
-                while (true) {
-                    ChunkState curState = state.get();
+                ChunkState curState = state;
 
-                    if (currentMessageIndex < curState.size) {
-                        prepareMessage(curState);
+                if (currentMessageIndex < curState.size) {
+                    prepareMessage(curState);
 
-                        break;
-                    } else if (state.compareAndSet(curState, curState.finish())) {
-                        return;
-                    }
+                    break;
+                } else {
+                    curState.finish();
+
+                    return;
                 }
             }
         }
