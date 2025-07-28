@@ -56,6 +56,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -1940,17 +1941,29 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             ReadOnlyDirectMultiRowReplicaRequest request,
             HybridTimestamp opStartTimestamp) {
         List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
-        HybridTimestamp readTimestamp = opStartTimestamp;
 
         assert request.requestType() == RO_GET_ALL;
 
         CompletableFuture<BinaryRow>[] resolutionFuts = new CompletableFuture[primaryKeys.size()];
 
         for (int i = 0; i < primaryKeys.size(); i++) {
-            resolutionFuts[i] = resolveRowByPkForReadOnly(primaryKeys.get(i), readTimestamp);
+            resolutionFuts[i] = resolveRowByPkForReadOnly(primaryKeys.get(i), opStartTimestamp);
         }
 
-        return allOfToList(resolutionFuts);
+        return allOfToList(resolutionFuts).thenApply(rows -> {
+            // Validate read correctness.
+            HybridTimestamp lwm = lowWatermark.getLowWatermark();
+
+            if (lwm != null && opStartTimestamp.compareTo(lwm) < 0) {
+                throw new IgniteInternalException(
+                        TX_READ_ONLY_TOO_OLD_ERR,
+                        "Attempted to read data below the garbage collection watermark: [readTimestamp={}, gcTimestamp={}]",
+                        opStartTimestamp,
+                        lowWatermark.getLowWatermark());
+            }
+
+            return rows;
+        });
     }
 
     /**
