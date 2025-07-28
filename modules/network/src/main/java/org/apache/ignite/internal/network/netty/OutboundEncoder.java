@@ -156,7 +156,6 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
 
         /** Whether the message was fully written. */
         private int currentMessageIndex = 0;
-        private boolean descriptorsFinished = false;
 
         /**
          * Constructor.
@@ -206,7 +205,6 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
             } else {
                 this.descriptors = null;
                 descriptorSerializer = null;
-                descriptorsFinished = true;
             }
 
             this.serializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
@@ -263,9 +261,8 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
          */
         private void writeMessages() {
             while (true) {
-                if (!descriptorsFinished) {
-                    descriptorsFinished = descriptorSerializer.writeMessage(descriptors, writer);
-                    if (!descriptorsFinished) {
+                if (descriptors != null) {
+                    if (!descriptorSerializer.writeMessage(descriptors, writer)) {
                         return;
                     }
 
@@ -276,8 +273,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
                     writer.reset();
                 }
 
-                boolean messageFinished = serializer.writeMessage(msg, writer);
-                if (!messageFinished) {
+                if (!serializer.writeMessage(msg, writer)) {
                     return;
                 }
 
@@ -313,13 +309,11 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         void append(OutNetworkObject msg) {
             assert size < MAX_MESSAGES_IN_CHUNK : "ChunkState size should be less than " + MAX_MESSAGES_IN_CHUNK + ", but was " + size;
 
-            if (size < messages.length) {
-                messages[size] = msg;
-            } else {
+            if (size >= messages.length) {
                 messages = Arrays.copyOf(messages, Math.min(MAX_MESSAGES_IN_CHUNK, size + (size >> 1)));
-
-                messages[size] = msg;
             }
+
+            messages[size] = msg;
 
             size++;
         }
