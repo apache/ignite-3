@@ -49,7 +49,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
     /** Handler name. */
     public static final String NAME = "outbound-encoder";
 
-    private static final int IO_BUFFER_CAPACITY = 16 * 1024;
+    private static final int IO_BUFFER_CAPACITY = 4 * 1024;
 
     /** Max number of messages in a single chunk. */
     private static final int MAX_MESSAGES_IN_CHUNK = 128;
