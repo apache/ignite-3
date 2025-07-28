@@ -55,7 +55,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -155,8 +154,7 @@ public class LeaseUpdater {
             LeaseTracker leaseTracker,
             ClockService clockService,
             AssignmentsTracker assignmentsTracker,
-            ReplicationConfiguration replicationConfiguration,
-            MetricManager metricManager
+            ReplicationConfiguration replicationConfiguration
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
@@ -174,7 +172,7 @@ public class LeaseUpdater {
                 updater::activeLeaseCount,
                 updater::leaseWithoutCandidatesCount,
                 () -> assignmentsTracker.stableAssignments().size(),
-                () -> assignmentsTracker.stableAssignments().size()
+                () -> assignmentsTracker.pendingAssignments().size()
         );
 
         clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, new PlacementDriverActorMessageHandler());

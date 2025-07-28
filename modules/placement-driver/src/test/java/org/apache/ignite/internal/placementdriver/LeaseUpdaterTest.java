@@ -73,7 +73,6 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.OperationImpl;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
-import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -195,8 +194,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
                 assignmentsTracker,
-                replicationConfiguration,
-                mock(MetricManager.class)
+                replicationConfiguration
         );
 
     }

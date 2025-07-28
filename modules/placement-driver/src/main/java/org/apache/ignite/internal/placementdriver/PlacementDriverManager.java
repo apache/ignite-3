@@ -161,8 +161,7 @@ public class PlacementDriverManager implements IgniteComponent {
                 leaseTracker,
                 clockService,
                 assignmentsTracker,
-                replicationConfiguration,
-                metricManager
+                replicationConfiguration
         );
 
         this.placementDriver = createPlacementDriver();

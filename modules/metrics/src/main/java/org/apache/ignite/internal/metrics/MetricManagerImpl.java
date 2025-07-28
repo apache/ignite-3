@@ -165,7 +165,6 @@ public class MetricManagerImpl implements MetricManager {
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         enabledMetricExporters.clear();
-        log.warn("metric manager stopped", new Exception());
 
         return nullCompletedFuture();
     }
