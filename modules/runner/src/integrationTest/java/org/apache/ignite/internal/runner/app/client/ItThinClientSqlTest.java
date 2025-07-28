@@ -677,7 +677,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(1, row.columnCount());
 
         client.sql().execute(null, "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR)").close();
-        client.sql().execute(null, "INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)" ).close();
+        client.sql().execute(null, "INSERT INTO t1 (id, val) VALUES (1, CURRENT_USER)").close();
 
         try (ResultSet<SqlRow> rs = client.sql().execute(null, "SELECT val FROM t1 WHERE val = CURRENT_USER")) {
             assertTrue(rs.hasNext());
