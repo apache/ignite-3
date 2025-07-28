@@ -1047,7 +1047,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     public void beforeNodeStop() {
         isStopping = true;
         orphanDetector.stop();
-        transactionExpirationRegistry.abortAllRegistered();
     }
 
     @Override
@@ -1082,6 +1081,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             if (expirationJobFuture != null) {
                 expirationJobFuture.cancel(false);
             }
+
+            transactionExpirationRegistry.abortAllRegistered();
 
             shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
 
